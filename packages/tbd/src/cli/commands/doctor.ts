@@ -87,6 +87,29 @@ import {
 } from './setup.js';
 import { withLockfile } from '../../utils/lockfile.js';
 
+/**
+ * Diagnose the one dropped top-level key that proves integration config loss.
+ * Other absent keys may be unrelated edits and must not be mislabeled as integrations.
+ */
+export function droppedIntegrationConfigFinding(
+  droppedKeys: readonly string[],
+): DiagnosticResult | null {
+  if (!droppedKeys.includes('integrations')) {
+    return null;
+  }
+
+  return {
+    name: 'Integrations',
+    status: 'warn',
+    message:
+      '.tbd/config.yml is missing `integrations`, which is present in the committed ' +
+      'version. A tbd older than f07 drops config it does not know when it rewrites the file.',
+    suggestion:
+      'Restore: git checkout .tbd/config.yml (then upgrade tbd: npm install -g get-tbd@latest). ' +
+      'If you removed it deliberately, commit the change.',
+  };
+}
+
 function managedArtifactFinding(
   name: string,
   path: string,
@@ -793,18 +816,9 @@ class DoctorHandler extends BaseCommand {
       // but missing locally was dropped, not deleted on purpose. A pre-f07 tbd
       // rewriting config.yml does this silently (three times during the pilot).
       const dropped = await droppedConfigKeys(this.cwd);
-      if (dropped.length > 0) {
-        return {
-          name: 'Integrations',
-          status: 'warn',
-          message:
-            `.tbd/config.yml is missing ${dropped.map((key) => `\`${key}\``).join(', ')} ` +
-            'present in the committed version. A tbd older than f07 drops config it does ' +
-            'not know when it rewrites the file.',
-          suggestion:
-            'Restore: git checkout .tbd/config.yml (then upgrade tbd: npm install -g get-tbd@latest). ' +
-            'If you removed it deliberately, commit the change.',
-        };
+      const droppedFinding = droppedIntegrationConfigFinding(dropped);
+      if (droppedFinding) {
+        return droppedFinding;
       }
 
       // Weaker but independent: links with no configured integration.

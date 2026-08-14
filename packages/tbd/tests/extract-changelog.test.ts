@@ -8,7 +8,7 @@
  * locks in the regression and lets the workflow invoke it by reference.
  */
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, it, expect } from 'vitest';
 
-import { extractChangelogSection, resolveReleaseBody } from '../src/utils/changelog.js';
+import { extractChangelogSection, requireChangelogSection } from '../src/utils/changelog.js';
 
 const CHANGELOG = [
   '# Changelog',
@@ -98,13 +98,21 @@ describe('extractChangelogSection', () => {
   });
 });
 
-describe('resolveReleaseBody', () => {
+describe('requireChangelogSection', () => {
   it('returns the section when present', () => {
-    expect(resolveReleaseBody(CHANGELOG, '0.1.0')).toContain('- First release');
+    expect(requireChangelogSection(CHANGELOG, '0.1.0')).toContain('- First release');
   });
 
-  it('falls back to "Release v<version>" when the section is missing', () => {
-    expect(resolveReleaseBody(CHANGELOG, '9.9.9')).toBe('Release v9.9.9');
+  it('fails closed when the section is missing', () => {
+    expect(() => requireChangelogSection(CHANGELOG, '9.9.9')).toThrow(
+      'No changelog section found for version 9.9.9',
+    );
+  });
+
+  it('fails closed when the section has no release notes', () => {
+    expect(() => requireChangelogSection('## 9.9.9\n\n', '9.9.9')).toThrow(
+      'Changelog section for version 9.9.9 has no release notes',
+    );
   });
 });
 
@@ -137,12 +145,18 @@ describe('extract-changelog.ts (CLI wrapper)', () => {
     }
   });
 
-  it('prints the fallback for a missing version', () => {
+  it('fails for a missing version instead of publishing a synthetic release body', () => {
     const dir = mkdtempSync(join(tmpdir(), 'tbd-changelog-cli-'));
     try {
       const changelog = join(dir, 'CHANGELOG.md');
       writeFileSync(changelog, '## 1.0.0\n\n- only release\n');
-      expect(runScript(['9.9.9', changelog]).trim()).toBe('Release v9.9.9');
+      const result = spawnSync(
+        process.execPath,
+        ['--import', 'tsx', scriptPath, '9.9.9', changelog],
+        { encoding: 'utf-8' },
+      );
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('No changelog section found for version 9.9.9');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

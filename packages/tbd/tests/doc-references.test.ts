@@ -3,16 +3,27 @@
  * Extracts `tbd shortcut`, `tbd guidelines`, `tbd template` commands and runs them.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
-import { readFile, readdir, stat } from 'node:fs/promises';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises';
 import { join, dirname, extname } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const README_PATH = join(__dirname, '..', '..', '..', 'README.md');
 const TBD_BIN = join(__dirname, '..', 'dist', 'bin.mjs');
 const MONOREPO_ROOT = join(__dirname, '..', '..', '..');
+const SOURCE_GUARD_PATHS = [
+  '.agents/skills/tbd/SKILL.md',
+  '.claude/hooks/tbd-closing-reminder.sh',
+  '.claude/scripts/tbd-session.sh',
+  '.claude/skills/tbd/SKILL.md',
+  '.codex/tbd-closing-reminder.sh',
+  '.codex/tbd-session.sh',
+  '.tbd/config.yml',
+  'AGENTS.md',
+];
 
 /** Directories to scan for doc references */
 const DOC_DIRS = [join(MONOREPO_ROOT, 'docs'), join(MONOREPO_ROOT, 'packages', 'tbd', 'docs')];
@@ -82,14 +93,47 @@ function extractDocCommands(content: string): string[] {
 // This test runs every `tbd shortcut/guidelines/template` command found in docs.
 // Takes ~23s in isolation; under full parallel suite CPU contention pushes it higher.
 describe('doc references', { timeout: 60_000 }, () => {
-  // Ensure docs are installed before running tests
-  beforeAll(() => {
-    // Run tbd setup --auto to install docs (they're gitignored so not present in CI)
-    execSync(`node ${TBD_BIN} setup --auto`, {
+  let managedDiffBefore: string;
+  let commandDir: string;
+  let commandEnv: NodeJS.ProcessEnv;
+
+  beforeAll(async () => {
+    managedDiffBefore = execFileSync('git', ['diff', '--binary', '--', ...SOURCE_GUARD_PATHS], {
       cwd: MONOREPO_ROOT,
       encoding: 'utf-8',
+    });
+    commandDir = await mkdtemp(join(tmpdir(), 'tbd-doc-references-'));
+    commandEnv = {
+      ...process.env,
+      HOME: commandDir,
+      USERPROFILE: commandDir,
+      FORCE_COLOR: '0',
+      NO_COLOR: '1',
+    };
+    execFileSync('git', ['init', '--initial-branch=main'], {
+      cwd: commandDir,
       stdio: 'pipe',
     });
+    execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: commandDir });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: commandDir });
+    execFileSync(
+      process.execPath,
+      [TBD_BIN, 'setup', '--auto', '--prefix=test', '--surfaces=portable', '--no-gh-cli'],
+      { cwd: commandDir, env: commandEnv, stdio: 'pipe' },
+    );
+  });
+
+  afterAll(async () => {
+    try {
+      const managedDiffAfter = execFileSync(
+        'git',
+        ['diff', '--binary', '--', ...SOURCE_GUARD_PATHS],
+        { cwd: MONOREPO_ROOT, encoding: 'utf-8' },
+      );
+      expect(managedDiffAfter).toBe(managedDiffBefore);
+    } finally {
+      await rm(commandDir, { recursive: true, force: true });
+    }
   });
 
   it('extracts doc commands from README', async () => {
@@ -129,11 +173,12 @@ describe('doc references', { timeout: 60_000 }, () => {
 
     for (const cmd of allCommands) {
       try {
-        const fullCmd = cmd.replace('tbd', `node ${TBD_BIN}`);
-        const output = execSync(fullCmd, {
-          cwd: MONOREPO_ROOT,
+        const args = cmd.split(' ').slice(1);
+        const output = execFileSync(process.execPath, [TBD_BIN, ...args], {
+          cwd: commandDir,
           encoding: 'utf-8',
           stdio: 'pipe',
+          env: commandEnv,
         });
         // Check for specific "not found" error messages from tbd commands
         // Use precise patterns to avoid false positives from doc content

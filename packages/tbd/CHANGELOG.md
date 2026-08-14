@@ -4,10 +4,11 @@
 
 ### Upgrading: repository format f07
 
-This release bumps the repository format to `f07`. The first `tbd` command after
-upgrading stamps `.tbd/config.yml`; **commit that diff**, and everyone who works in the
-repository needs tbd 0.6.0 or later.
-Older versions then refuse the repository with an upgrade message instead of running.
+This release bumps the repository format to `f07`. After upgrading, run
+`tbd setup --auto`; it stamps `.tbd/config.yml` and refreshes the managed agent
+surfaces. **Commit that diff**, and everyone who works in the repository needs tbd 0.6.0
+or later. Older versions then refuse the repository with an upgrade message instead of
+running.
 
 That gate is the point.
 `integrations` is a new top-level config key, and every tbd released before 0.6.0 parses

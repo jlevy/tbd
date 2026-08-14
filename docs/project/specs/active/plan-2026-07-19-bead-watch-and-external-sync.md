@@ -332,6 +332,14 @@ Detailed provider designs are separate specs, written and revised against these 
    working agent can run mid-session, a cron entry, or a CI workflow.
    Agents and repos that do not use integrations see no change to any tbd workflow.
 
+> **Status note (2026-08-13):** The next constraint records the experiment-phase
+> boundary. The successful tracker pilot was later promoted by
+> [External Tracker Integrations](plan-2026-08-10-external-tracker-integrations.md),
+> which deliberately adds an `integrations` block behind format f07 and makes the
+> relevant config schemas passthrough.
+> It supersedes this constraint for the promoted implementation; the bead-side
+> `extensions` rule remains in force.
+
 2. **Integration experiments cannot touch `IssueSchema`, `ConfigSchema`, or
    `tbd_format`.** Both schemas parse in Zod strip mode, so an older CLI silently
    destroys unknown fields when it rewrites a file — which is why any new field forces a

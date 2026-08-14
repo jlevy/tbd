@@ -48,10 +48,23 @@ export function extractChangelogSection(changelog: string, version: string): str
 }
 
 /**
- * Resolve the release body for `version`, falling back to "Release v<version>" when the
- * changelog has no matching section.
+ * Return the release body for `version`, failing closed when the exact section is absent
+ * or contains no notes. A tag-triggered publish must never silently substitute a generic
+ * body because that can hide a tag/package/changelog version mismatch.
  */
-export function resolveReleaseBody(changelog: string, version: string): string {
+export function requireChangelogSection(changelog: string, version: string): string {
   const section = extractChangelogSection(changelog, version);
-  return section && section.trim() !== '' ? section : `Release v${version}`;
+  if (section === null) {
+    throw new Error(`No changelog section found for version ${version}`);
+  }
+
+  const hasReleaseNotes = section
+    .split('\n')
+    .slice(1)
+    .some((line) => line.trim() !== '');
+  if (!hasReleaseNotes) {
+    throw new Error(`Changelog section for version ${version} has no release notes`);
+  }
+
+  return section;
 }

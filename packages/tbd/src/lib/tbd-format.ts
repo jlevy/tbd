@@ -6,11 +6,14 @@
  *
  * WHEN TO BUMP THE FORMAT VERSION:
  * - Bump when changes REQUIRE migration (deleting files, changing formats, moving files)
- * - **Bump when changing config schema** (adding, removing, or modifying fields)
+ * - Bump for config removals, renames, semantic changes, or additions inside a nested
+ *   schema that does not preserve unknown keys when an older client could lose data.
  * - **Bump when the shape of a generated agent-integration surface changes** (e.g. the
  *   managed AGENTS.md block). This same format is stamped there via
  *   AGENT_INTEGRATION_FORMAT (integration-paths.ts), so there is ONE format code across
  *   all tbd-managed surfaces.
+ * - Do NOT bump for a purely additive top-level config block, or a key inside an
+ *   explicitly passthrough schema, once the repository is on f07.
  * - Do NOT bump for additive changes that don't affect config.yml (new directories, etc.)
  *
  * HOW TO ADD A NEW FORMAT VERSION:
@@ -26,7 +29,8 @@
  * additions; it cannot protect against clients already published, which parse config
  * in strip mode and silently drop what they do not know. The format gate covers them:
  *
- * 1. When changing config schema, bump the format version (e.g., f03 → f04)
+ * 1. When making a destructive, semantic, or non-passthrough config change, bump the
+ *    format version (e.g., f07 → f08)
  * 2. config.ts checks format compatibility via isCompatibleFormat()
  * 3. Older tbd versions will error with "format 'fXX' is from a newer tbd version"
  * 4. The error tells users to upgrade: npm install -g get-tbd@latest

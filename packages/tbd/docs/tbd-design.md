@@ -1674,19 +1674,27 @@ const ConfigSchema = z.object({
       index_enabled: z.boolean().default(true),
     })
     .default({}),
-});
+}).passthrough();
 ```
 
-> **Forward Compatibility Policy:** ConfigSchema uses Zod’s `strip()` mode, which
-> discards unknown fields.
-> To prevent data loss when users mix tbd versions:
+> **Forward Compatibility Policy:** As of repository format `f07`, `ConfigSchema` uses
+> Zod’s `passthrough()` mode at the top level.
+> The `integrations` block and its provider objects are passthrough too.
+> Unknown keys in those locations therefore survive an older f07-or-later client
+> rewriting `config.yml`.
 > 
-> 1. **When changing config schema (adding, removing, or modifying fields), always bump
->    the format version** (e.g., f03 → f04)
-> 2. Older tbd versions will error when they see an unknown format version
-> 3. The error tells users to upgrade: `npm install -g get-tbd@latest`
+> 1. A purely additive top-level config block, or an additive key inside an explicitly
+>    passthrough integration/provider object, does not by itself require another format
+>    bump once the repository is on f07.
+> 2. Bump the format for removals, renames, semantic changes, or additions inside a
+>    nested schema that still strips unknown keys whenever an older supported client
+>    could lose or misinterpret data.
+> 3. Pre-f07 clients still parse in strip mode.
+>    The f07 gate makes those clients fail before they can rewrite configuration, with
+>    an instruction to upgrade via `npm install -g get-tbd@latest`.
 > 
-> This ensures older versions fail fast rather than silently corrupting config.
+> This preserves future additive configuration while keeping destructive or semantic
+> changes behind an explicit, migratable compatibility gate.
 > See `tbd-format.ts` for format version history and `config.ts` for the compatibility
 > check via `isCompatibleFormat()`.
 > 
