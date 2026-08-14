@@ -16,6 +16,7 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 
 import { writeFile } from 'atomically';
 
@@ -128,6 +129,58 @@ export async function writeLinkRecord(
   const dir = bridgeLinksDir(dataSyncDir, provider);
   await mkdir(dir, { recursive: true });
   await writeFile(join(dir, `${record.bead_id}.yml`), stringifyYaml(record));
+}
+
+/**
+ * Every field whose change makes a record worth rewriting.
+ *
+ * Exhaustive over `LinkRecord` minus `synced_at`, so adding a field to
+ * `LinkRecordSchema` fails to compile here until someone decides whether it is
+ * substantive. A hand-listed comparator would instead treat the new field as
+ * cosmetic and silently stop persisting it.
+ *
+ * `synced_at` is the one deliberate omission: it advances on every run, so
+ * including it would make every record differ from itself and defeat the
+ * caller. It is not merely cosmetic — `pickNewestLinkRecord` uses it as a merge
+ * tiebreaker — which is why it stays in the record and is skipped only here.
+ */
+const SUBSTANTIVE_FIELDS: Readonly<Record<Exclude<keyof LinkRecord, 'synced_at'>, true>> = {
+  type: true,
+  bead_id: true,
+  external_id: true,
+  base: true,
+  remote_updated_at: true,
+  state: true,
+};
+
+/** True when two records differ in anything that matters. */
+function recordSubstantivelyDiffers(a: LinkRecord, b: LinkRecord): boolean {
+  return (Object.keys(SUBSTANTIVE_FIELDS) as Exclude<keyof LinkRecord, 'synced_at'>[]).some(
+    (key) => !isDeepStrictEqual(a[key], b[key]),
+  );
+}
+
+/**
+ * Write a link record only when it actually changed.
+ *
+ * A settled mirror re-reconciles every linked pair on every sync and arrives at
+ * the same answer. Writing unconditionally would therefore rewrite one file per
+ * linked bead on every run — differing only by `synced_at` — which turns a sync
+ * with nothing to do into a commit, a push, and (in repositories whose
+ * `pre-push` hook runs a test suite) a very expensive no-op. Returns whether a
+ * write happened, so callers can report honestly.
+ */
+export async function writeLinkRecordIfChanged(
+  dataSyncDir: string,
+  provider: ProviderNameType,
+  record: LinkRecord,
+  previous: LinkRecord | undefined,
+): Promise<boolean> {
+  if (previous && !recordSubstantivelyDiffers(record, previous)) {
+    return false;
+  }
+  await writeLinkRecord(dataSyncDir, provider, record);
+  return true;
 }
 
 /** Remove one link's record (unlink). Missing is fine — the goal is absence. */

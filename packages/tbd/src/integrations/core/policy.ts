@@ -28,8 +28,15 @@ export interface PolicyConfigSlice {
  * Named presets, expanded through the schema so every preset is complete.
  *
  * `default` names the recommended practice: mirror major epics and beads with
- * active specs (typically ~10% of open work), report importable items rather
- * than auto-importing, and let linked pairs converge on every mapped field.
+ * active specs, report importable items rather than auto-importing, and let
+ * linked pairs converge on every mapped field.
+ *
+ * Size the selection before enabling it. `spec_path` propagates from a parent
+ * to its descendants, so the `specs: active` clause selects every descendant
+ * of every epic carrying a live spec — in a spec-driven repository that is a
+ * large fraction of open work, not a small one. Preview with
+ * `tbd --dry-run integration sync --push` and narrow `policy.outbound` if the
+ * count is higher than intended.
  */
 const PRESETS: Record<PolicyNameType, PolicyDefinition> = {
   default: PolicyDefinitionSchema.parse({

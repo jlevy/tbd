@@ -4,7 +4,7 @@
  * exactly-once reports, and inbound report/import.
  */
 
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -164,6 +164,38 @@ describe('the sync engine', () => {
     expect(second.pulled).toEqual([]);
     expect(second.conflicts).toEqual([]);
     expect(second.createdOutbound).toEqual([]);
+  });
+
+  it('a settled mirror writes nothing on a further quiet sync', async () => {
+    // The property that makes frequent syncing affordable. Rewriting bridge
+    // records that only differ by `synced_at` turns a sync with nothing to do
+    // into a commit, a push, and whatever the repo's pre-push hook costs.
+    const ids = [
+      'is-01hx5zzkbkactav9wevgemma01',
+      'is-01hx5zzkbkactav9wevgemma02',
+      'is-01hx5zzkbkactav9wevgemma03',
+    ];
+    for (const id of ids) {
+      store.set(id, bead(id));
+    }
+    await run([...store.values()]);
+    await run([...store.values()]); // settle
+
+    const linksDir = join(dir, 'bridge', 'linear', 'links');
+    const before = new Map<string, string>();
+    for (const file of await readdir(linksDir)) {
+      before.set(file, await readFile(join(linksDir, file), 'utf8'));
+    }
+    expect(before.size).toBe(ids.length);
+
+    const quiet = await run([...store.values()]);
+    expect(quiet.nothingToDo).toBe(true);
+
+    const after = new Map<string, string>();
+    for (const file of await readdir(linksDir)) {
+      after.set(file, await readFile(join(linksDir, file), 'utf8'));
+    }
+    expect(after).toEqual(before);
   });
 
   it('backfills and preserves the managed block on a pre-existing linked item', async () => {
