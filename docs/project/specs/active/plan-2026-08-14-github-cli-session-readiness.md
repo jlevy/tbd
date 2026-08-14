@@ -23,9 +23,11 @@ provides a supported environment-persistence mechanism.
 Give remote agents one clear capability verdict, keep healthy local sessions silent, and
 move proxy internals behind an on-demand troubleshooting reference.
 
-This plan supersedes the proposed plan in PR #221. PRs #219 and #221 remain useful as
-incident evidence, but their broader documentation and persistent-wrapper designs are
-not the intended implementation.
+This plan supersedes the GitHub/session proposals in PRs #219 and #221. Merged PR #223
+is the baseline for repository upgrades, and merged PR #220 supplies the compatibility
+decision procedure. Their incident evidence remains useful input, but their broad
+resident documentation, global-install, wrapper, and durable-state proposals are not the
+intended implementation.
 
 ## Goals
 
@@ -43,22 +45,23 @@ not the intended implementation.
 ## Non-Goals
 
 - Checking npm for newer tbd releases or changing repository upgrade behavior.
-  PR #223 owns the current version-aware hook and setup-upgrade work.
+  Merged PR #223 already owns the version-aware hook and setup-upgrade path.
 - Installing tbd globally from a session hook.
 - Installing a user-level `gh` wrapper, editing shell profiles, or maintaining an
   access-plane state file.
 - Circumventing blocked direct egress or an agent harness permission decision.
 - Replacing git credential brokers or GitHub connectors.
 
-## Review of PR #221
+## Disposition of Related Work
 
 | Proposal | Disposition | Reason |
 | --- | --- | --- |
+| Keep the proxy-channel, broker, TLS, and harness findings from PR #219 | Keep on demand | They help diagnose a failed normal path but dilute routine session context. Move them to one reference rather than the resident skill or operational shortcut. |
 | Compare config `tbd_version` with the running CLI | Drop | It cannot discover the reported failure when both the repository pin and running CLI are equally old. Registry-backed release discovery is a separate policy decision. |
 | Check `latest` during every session | Drop | It adds startup network work and conflicts with the reviewed-version cool-off unless update eligibility is defined separately. |
-| Report setup version transitions and avoid stale local CLIs | Keep in PR #223 | That work is already scoped as repository-upgrade behavior. |
+| Report setup version transitions and avoid stale local CLIs | Landed in PR #223 | The merged upgrade path is now the implementation baseline, not work for this plan. |
 | Stamp generated scripts | Drop | Generated hooks already contain an exact package pin, and setup/doctor compare their content with the bundled source. Another stamp adds no new signal. |
-| Globally install tbd from the fallback | Separate | A repository hook should not overwrite a user-global CLI version. The inaccurate availability message can be fixed independently if it remains after PR #223. |
+| Globally install tbd from the fallback | Drop | Merged PR #223 deliberately chooses a compatible local CLI or the repository-pinned zero-install fallback. A repository hook should not mutate a user-global install. |
 | Install a `~/.local/bin/gh` proxy wrapper | Replace | A wrapper can shadow the real binary and outlive the session or repository that justified it. Use platform-owned session environment persistence instead. |
 | Persist an access-plane state file | Drop | The result is session-dependent and cheap to re-probe; a durable file creates invalidation and trust problems. |
 | Emit one truthful GitHub verdict | Keep | This directly addresses agent confusion, provided healthy local sessions remain silent. |
@@ -70,16 +73,25 @@ not the intended implementation.
 Keep `ensure-gh-cli.sh` as the single installer and readiness probe:
 
 1. Preserve the existing pinned download and checksum verification when `gh` is missing.
-2. Test `gh auth status` through the inherited environment.
-3. If a configured HTTPS proxy appears to intercept GitHub, retry authentication with
-   the existing scoped GitHub host list in `NO_PROXY` and `no_proxy`.
-4. When the direct retry succeeds and `CLAUDE_ENV_FILE` is available, append idempotent,
-   additive exports to that file.
+2. In an ordinary local session, verify `gh auth status` through the inherited
+   environment and remain silent when it succeeds.
+3. In a recognized mediated remote session—initially `CLAUDE_CODE_REMOTE=true`—or after
+   inherited authentication fails with an HTTPS proxy, do not use the proxied result as
+   the verdict. The proxy may reject a valid token or substitute a different credential
+   and accept an invalid one.
+   Run a bounded direct-egress probe to `api.github.com` with the existing scoped
+   `NO_PROXY` and `no_proxy` host list, and require an `x-github-request-id` response
+   header.
+4. When the direct channel reaches GitHub, verify `gh auth status` on that channel.
+   When it succeeds and `CLAUDE_ENV_FILE` is available, append idempotent, additive
+   exports to that file.
    Claude Code sources the file before later Bash commands, so subsequent `gh` calls
    need no prefix.
 5. Do not write a wrapper, profile, repository file, or durable diagnosis state.
-   If an agent platform lacks a documented session-environment channel, leave its
-   environment unchanged and route the agent to the troubleshooting shortcut.
+6. If direct egress is closed, direct authentication fails, or the platform lacks a
+   documented session-environment channel, leave its environment unchanged and route the
+   agent to the troubleshooting shortcut without calling the token invalid from a
+   proxied result.
 
 The implementation is capability-based: `CLAUDE_ENV_FILE` is the first supported adapter
 because Claude Code documents it.
@@ -89,8 +101,8 @@ session-scoped mechanism.
 ### Output Contract
 
 - Healthy local session, no remediation: no output.
-- Remote or proxied session verified ready: one context line stating that `gh` is
-  authenticated and should be used for GitHub work.
+- Remote or proxied session whose direct channel is verified and persisted: one context
+  line stating that `gh` is authenticated and should be used for GitHub work.
   This proves transport and authentication, not authorization for every repository
   operation.
 - Authentication or network unresolved: one actionable line naming the result and
@@ -103,16 +115,26 @@ session-scoped mechanism.
   concluding that `gh` is unavailable, run `tbd shortcut setup-github-cli`.
 - Reduce `setup-github-cli` to the operational decision path: verify, run the generated
   probe, use `gh` when ready, and report an actual policy or permission block.
-- Move the channel model, broker variants, TLS inspection details, and manual prefix
-  recipe to a directly linked reference loaded only when the operational path remains
-  unresolved.
+- Move the channel model, broker variants, per-host TLS inspection, harness-refusal
+  diagnosis, response-origin checks, and manual prefix recipe to the managed reference
+  loaded by `tbd docs show github-access-channels`, only when the operational path
+  remains unresolved.
 - Keep generated Claude and Codex scripts derived from the same bundled source, with
   platform-specific behavior gated by documented environment capabilities.
 
 ### Compatibility
 
-There are no CLI, library, configuration-schema, server, database, or issue-file format
-changes. Existing `settings.use_gh_cli` and `--no-gh-cli` behavior remains intact.
+| Area | Response | Why |
+| --- | --- | --- |
+| Internal code | DO NOT MAINTAIN | The bundled script, generated copies, docs, and tests update together; setup replaces old generated copies. |
+| Library APIs | N/A | No library API changes. |
+| Server APIs | N/A | No server API changes. |
+| Plugin and extension APIs | N/A | No plugin or extension API changes. |
+| File formats | N/A | No repository, issue, or generated-file format changes. |
+| Persisted client state | N/A | `CLAUDE_ENV_FILE` is a platform-owned session channel, not tbd-owned persisted state. |
+| Database schemas | N/A | tbd has no database-schema change in this work. |
+
+Existing `settings.use_gh_cli` and `--no-gh-cli` behavior remains intact.
 Running `tbd setup --auto` refreshes the generated scripts and skill copies as it does
 today.
 
@@ -131,9 +153,10 @@ today.
 
 ## Testing Strategy
 
-- Shell-level fixtures with fake `gh` and network probes cover normal auth, proxy
-  interception with successful direct auth, invalid auth, blocked direct egress, absent
-  environment persistence, and preservation of an existing `NO_PROXY` value.
+- Shell-level fixtures with fake `gh` and network probes cover silent local auth,
+  successful local proxy auth, mediated-remote false failure and false success,
+  successful direct auth, invalid direct auth, blocked direct egress, absent environment
+  persistence, and preservation of an existing `NO_PROXY` value.
 - Source and generated-copy tests prove both agent surfaces receive the same script and
   that repeated setup is byte-identical.
 - A Claude Code Cloud acceptance check proves a later, unprefixed `gh pr list` and
@@ -146,8 +169,8 @@ today.
 Ship as one setup-content change.
 Existing repositories receive it through `tbd setup --auto`; no migration or manual
 cleanup is required.
-Close PR #221 as superseded when this plan is accepted, and keep any detailed evidence
-from PR #219 in the on-demand reference rather than the routine shortcut.
+Close PRs #219 and #221 as superseded when this plan is accepted, preserving their
+useful evidence in the on-demand reference rather than the routine shortcut.
 
 ## Open Questions
 
@@ -159,7 +182,10 @@ session-environment contract is known.
 - [PR #221: agent session ergonomics](https://github.com/jlevy/tbd/pull/221)
 - [PR #219: proxied-session evidence](https://github.com/jlevy/tbd/pull/219)
 - [PR #223: repository upgrade behavior](https://github.com/jlevy/tbd/pull/223)
+- [PR #220: backward-compatibility decision procedure](https://github.com/jlevy/tbd/pull/220)
+- [metabrowser PR #43: downstream application of the compatibility template](https://github.com/jlevy/metabrowser/pull/43)
 - [Claude Code hooks: persistent session environment](https://code.claude.com/docs/en/hooks#persist-environment-variables)
+- [Claude Code cloud-session detection](https://code.claude.com/docs/en/env-vars#environment-variables)
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
