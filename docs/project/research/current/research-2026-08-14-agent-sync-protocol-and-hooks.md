@@ -183,24 +183,33 @@ using the same predicate as `selection.ts:mirrorSet` against this repo’s confi
 
 | Measure | Value |
 | --- | --- |
-| Beads total / active (open, in_progress, blocked) | 1,681 / 254 |
+| Beads total / active (open, in_progress, blocked) | 1,727 / 291 |
 | Active epics | 25 |
-| Active beads with a spec in `specs/active/` | 105 (across 14 distinct specs) |
-| **Beads the current policy selects for Linear** | **114** — 45% of all active work |
-| Selected beads at nesting depth 1 / 2 / 3 | 31 / 39 / **44** |
+| Active beads with a spec in `specs/active/` | 144 |
+| **Beads the current policy selects for Linear** | **152** — 52% of active work (≈9% of all beads) |
+| Selected beads at nesting depth 1 / 2 / 3 | 32 / 76 / **44** |
 | Beads currently `in_progress` | 14 |
 | …of which the policy selects | **6** |
-| Beads carrying an `assignee`, ever | **0 of 1,681** |
-| Beads carrying a `parent_id` | 1,164 of 1,681 (133 of 254 active) |
+| Beads carrying an `assignee`, ever | **0** |
+
+Numbers re-measured 2026-08-14 after this brief’s own beads landed; the shape of every
+finding is unchanged, and the selection share rose as predicted when an epic’s
+`spec_path` propagated to its children.
 
 Four findings fall straight out of that table.
 
-**F1 — The default policy selects far more than advertised.** The `setup-linear`
-shortcut tells users the `default` preset is “roughly 10% of a typical repository’s
-beads.” Here it is 45%. The preset selects `kind == epic` *or* `spec_path` under
-`specs/active/`, and in a spec-driven repository the second clause dominates: 105 of the
-114 selected beads qualify on their spec, not on being an epic.
-The claim should either be corrected or the preset narrowed.
+**F1 — The default policy selects far more of the *live* work than the docs suggest,
+because the documented figure uses a denominator that cannot be selected.** The
+`setup-linear` shortcut called the `default` preset “roughly 10% of a typical
+repository’s beads”, and against *every* bead that is defensible — here it is about 9%
+of 1,727. But status gates the selection, so the 1,436 closed beads can never be
+mirrored. Against the 291 beads still open, the same policy selects **152, or 52%**. The
+second number is the one that predicts what appears in the tracker.
+The preset selects `kind == epic` *or* `spec_path` under `specs/active/`, and in a
+spec-driven repository the second clause dominates: 144 of the 152 qualify on their
+spec, not on being an epic.
+(Corrected in the docs by [#227](https://github.com/jlevy/tbd/pull/227), which reframes
+the guidance against open work rather than restating a different percentage.)
 [§5.3](#53-what-already-works-better-than-expected-spec_path-propagation) explains the
 mechanism: `spec_path` propagates from an epic to every descendant, so the clause really
 means “mirror every descendant of every epic with a live spec.”

@@ -9,14 +9,17 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Draft. Phase 1 is fully specified and independently shippable.
+**Status:** Phase 1 in progress — the five items needing no product decision shipped in
+[#227](https://github.com/jlevy/tbd/pull/227) (quiet-sync write guard, `--no-verify`
+push, surface honesty, docs reframing).
+The rest of Phase 1 is specified and unblocked.
 Phase 2 specifies a bead-format bump (`f08`) and is the only phase with a migration.
 Phases 3 and 4 are designed here at the level needed to sequence them, and each is
 shippable on its own.
 
 **Research:**
 [research-2026-08-14-agent-sync-protocol-and-hooks.md](../../research/current/research-2026-08-14-agent-sync-protocol-and-hooks.md)
-— every finding cited below (`F1`–`F14`) and every primitive (`E1`–`E17`) is measured or
+— every finding cited below (`F1`–`F19`) and every primitive (`E1`–`E21`) is measured or
 designed there. This spec sequences that work; it does not re-argue it.
 
 **Tracked as:** epic `tbd-dzme`.
@@ -81,8 +84,8 @@ The load-bearing measurements, restated so this spec stands alone:
 
 | Measurement | Value |
 | --- | --- |
-| Beads in this repository / active | 1,681 / 254 |
-| Beads the default policy selects for Linear | 114 (45% of active, not the ~10% documented) |
+| Beads in this repository / active | 1,727 / 291 |
+| Beads the default policy selects for Linear | 152 — 52% of *active* work (≈9% of all beads) |
 | Of those, skipped at depth 3 under `max_nesting: 2` | 44 |
 | In-flight beads not selected | 8 of 14 |
 | Beads that have ever carried an `assignee` | **0** |
@@ -632,21 +635,27 @@ when the phase starts.
 
 ### Phase 1: Operational — cheap, correct, habitual sync
 
-- [ ] `tbd-774m` — a quiet sync writes nothing (`F9`); prefer dropping `synced_at`
-- [ ] `tbd-7okw` — push the sync branch with `--no-verify` (`F5`)
+- [x] `tbd-774m` — a quiet sync writes nothing (`F9`) —
+  [#227](https://github.com/jlevy/tbd/pull/227), by guarding the write; see the
+  correction above
+- [x] `tbd-7okw` — push the sync branch with `--no-verify` (`F5`) —
+  [#227](https://github.com/jlevy/tbd/pull/227), both push sites
 - [ ] `tbd-iqgm` — delta-gate comment fetching (`F10`), after proving the `updatedAt`
   assumption in live QA
 - [ ] `tbd-9ulk` — on-disk `ensureMeta` cache with a TTL
 - [ ] `tbd-71am` — `tbd sync --push` must not silently do the outbound-only projection
 - [ ] `tbd-42u4` — `--dry-run` and `--status` cover the tracker
-- [ ] `tbd-8ot8` — `--issues` says when it excluded the tracker
-- [ ] `tbd-1uep` — fix the comment claiming the fold is off by default
+- [x] `tbd-8ot8` — `--issues` says when it excluded the tracker —
+  [#227](https://github.com/jlevy/tbd/pull/227)
+- [x] `tbd-1uep` — fix the comment claiming the fold is off by default —
+  [#227](https://github.com/jlevy/tbd/pull/227)
 - [ ] `tbd-fnwc` — hook PATH order, local-first resolution, fail loudly
 - [ ] `tbd-qd1n` — `tbd doctor` executes the installed hook scripts
 - [ ] `tbd-mnci` — `tbd start`, the claim primitive
 - [ ] `tbd-f39i` — agent identity resolution and `tbd whoami`
 - [ ] `tbd-c4zl` — teach the claim step in all four instruction surfaces
-- [ ] `tbd-czhw` — correct the “~10%” claim; document the `max_nesting` skip
+- [x] `tbd-czhw` — reframe the selection-size guidance against *open* work; document the
+  `max_nesting` skip — [#227](https://github.com/jlevy/tbd/pull/227)
 - [ ] `tbd-9cf9` — decide on lifting this repository’s `sync_on_tbd_sync: false`
   override
 
