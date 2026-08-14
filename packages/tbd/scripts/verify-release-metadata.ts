@@ -1,16 +1,21 @@
 #!/usr/bin/env npx tsx
 /**
- * Verify that a release tag, package.json, and changelog all name the same version.
+ * Verify that a release tag, package.json, changelog, and compiled CLI agree.
  *
- * Usage: tsx scripts/verify-release-metadata.ts <tag> [package-json-path] [changelog-path]
+ * Usage: tsx scripts/verify-release-metadata.ts <tag> [package-json] [changelog] [built-cli]
  */
 
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
-import { verifyReleaseMetadata } from '../src/utils/release-metadata.js';
+import {
+  verifyReleaseArtifactVersion,
+  verifyReleaseMetadata,
+} from '../src/utils/release-metadata.js';
 
 const DEFAULT_PACKAGE_JSON = 'packages/tbd/package.json';
 const DEFAULT_CHANGELOG = 'packages/tbd/CHANGELOG.md';
+const DEFAULT_BUILT_CLI = 'packages/tbd/dist/bin-bootstrap.cjs';
 
 function readPackageVersion(packageJsonPath: string): string {
   const parsed: unknown = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
@@ -27,16 +32,21 @@ function readPackageVersion(packageJsonPath: string): string {
 function main(argv: string[]): void {
   const tagName = argv[0];
   if (!tagName) {
-    console.error('Usage: verify-release-metadata.ts <tag> [package-json-path] [changelog-path]');
+    console.error('Usage: verify-release-metadata.ts <tag> [package-json] [changelog] [built-cli]');
     process.exitCode = 2;
     return;
   }
 
   const packageJsonPath = argv[1] ?? DEFAULT_PACKAGE_JSON;
   const changelogPath = argv[2] ?? DEFAULT_CHANGELOG;
+  const builtCliPath = argv[3] ?? DEFAULT_BUILT_CLI;
   const packageVersion = readPackageVersion(packageJsonPath);
   const changelog = readFileSync(changelogPath, 'utf-8');
   const verified = verifyReleaseMetadata(tagName, packageVersion, changelog);
+  const builtVersion = execFileSync(process.execPath, [builtCliPath, '--version'], {
+    encoding: 'utf-8',
+  }).trim();
+  verifyReleaseArtifactVersion(verified.version, builtVersion);
   process.stdout.write(`Verified release metadata for ${verified.version}\n`);
 }
 

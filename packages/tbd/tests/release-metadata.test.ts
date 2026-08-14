@@ -10,7 +10,10 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { verifyReleaseMetadata } from '../src/utils/release-metadata.js';
+import {
+  verifyReleaseArtifactVersion,
+  verifyReleaseMetadata,
+} from '../src/utils/release-metadata.js';
 
 const CHANGELOG = ['# get-tbd', '', '## 1.2.3', '', '- A real release note', ''].join('\n');
 
@@ -38,6 +41,20 @@ describe('verifyReleaseMetadata', () => {
     expect(() => verifyReleaseMetadata('v1.2.4', '1.2.4', CHANGELOG)).toThrow(
       'No changelog section found for version 1.2.4',
     );
+  });
+});
+
+describe('verifyReleaseArtifactVersion', () => {
+  it('accepts the exact compiled release version', () => {
+    expect(() => {
+      verifyReleaseArtifactVersion('1.2.3', '1.2.3');
+    }).not.toThrow();
+  });
+
+  it('rejects a dirty development version baked into a release artifact', () => {
+    expect(() => {
+      verifyReleaseArtifactVersion('1.2.3', '1.2.4-dev.0.abc1234-dirty');
+    }).toThrow('Built CLI reports 1.2.4-dev.0.abc1234-dirty, expected release version 1.2.3');
   });
 });
 

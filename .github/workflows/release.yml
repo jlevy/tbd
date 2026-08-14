@@ -18,6 +18,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Extract version from tag
+        id: version
+        run: |
+          version="${GITHUB_REF#refs/tags/v}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "TBD_VERSION_OVERRIDE=${version}" >> "$GITHUB_ENV"
+
       - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v6
@@ -37,12 +44,16 @@ jobs:
       - name: Verify packed web command
         run: pnpm --filter get-tbd qa:web-package
 
-      - name: Extract version from tag
-        id: version
-        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
       - name: Verify release metadata
         run: pnpm exec tsx packages/tbd/scripts/verify-release-metadata.ts "${GITHUB_REF_NAME}"
+
+      - name: Verify release checkout is clean
+        run: |
+          status="$(git status --porcelain=v1 --untracked-files=all)"
+          if [[ -n "${status}" ]]; then
+            printf '%s\n' "${status}"
+            exit 1
+          fi
 
       # Resolve the release body BEFORE publishing: if the wrapper or changelog path
       # ever fails, fail here rather than after the package is already on npm.

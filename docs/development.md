@@ -135,8 +135,11 @@ Unit coverage also proves the one-second reconciliation fallback, metadata-only
 publication, graph/state-version race ordering, ref-rewind-safe event replay, explicit
 queued-byte backpressure, closed-stream race isolation, bounded local delta detail, and
 browser recovery across an observer restart.
-The package proof launches `tbd web` from an extracted npm tarball and verifies that its
-self-contained page and APIs work.
+The package proof launches `tbd web` from an extracted npm tarball in a disposable,
+initialized repository and verifies that its self-contained page and APIs work without
+changing the source checkout.
+In a release job, `TBD_VERSION_OVERRIDE` also makes the proof require the packed CLI to
+report the exact package/tag version.
 Design and implementation details are in
 [plan-2026-08-10-tbd-web-live-bead-view.md](project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md).
 

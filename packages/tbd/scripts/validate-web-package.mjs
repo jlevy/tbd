@@ -5,7 +5,7 @@
 
 import { execFile, spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { access, mkdtemp, readFile, readdir, rm, symlink } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, readdir, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,7 +14,7 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageDir = join(scriptDir, '..');
-const repoDir = join(packageDir, '..', '..');
+const sourceRepoDir = join(packageDir, '..', '..');
 
 function invariant(condition, message) {
   if (!condition) {
@@ -33,6 +33,15 @@ async function packArchive(destination) {
     return;
   }
   await execFileAsync('pnpm', args, { cwd: packageDir });
+}
+
+async function repositoryStatus(directory) {
+  const { stdout } = await execFileAsync(
+    'git',
+    ['status', '--porcelain=v1', '--untracked-files=all'],
+    { cwd: directory },
+  );
+  return stdout;
 }
 
 async function availablePort() {
@@ -95,6 +104,7 @@ function waitForExit(child) {
   });
 }
 
+const sourceStatusBefore = await repositoryStatus(sourceRepoDir);
 const temporaryDir = await mkdtemp(join(tmpdir(), 'tbd-web-package-'));
 let child = null;
 try {
@@ -110,6 +120,8 @@ try {
   await symlink(join(packageDir, 'node_modules'), join(extracted, 'node_modules'), 'junction');
   const bootstrap = join(extracted, 'dist', 'bin-bootstrap.cjs');
   const pagePath = join(extracted, 'dist', 'web', 'index.html');
+  const manifest = JSON.parse(await readFile(join(extracted, 'package.json'), 'utf8'));
+  invariant(typeof manifest.version === 'string', 'Packed package is missing its version');
   await access(bootstrap);
   await access(join(extracted, 'dist', 'tbd'));
   const page = await readFile(pagePath, 'utf8');
@@ -117,10 +129,43 @@ try {
   invariant(!page.includes('__TBD_WEB_'), 'Packed page still contains stitch markers');
   invariant(!/<script[^>]+src=/iu.test(page), 'Packed page has an external script');
 
+  // Never exercise a stateful CLI command in the source checkout. In v0.6.0 the web
+  // proof migrated that checkout from f06 to f07, so the later prepack build saw a
+  // dirty tree and embedded a development version in the published release.
+  const isolatedRepo = join(temporaryDir, 'repository');
+  await mkdir(isolatedRepo);
+  await execFileAsync('git', ['init', '--quiet'], { cwd: isolatedRepo });
+  const cliEnvironment = { ...process.env, NO_COLOR: '1' };
+  await execFileAsync(process.execPath, [bootstrap, 'init', '--prefix', 'qa'], {
+    cwd: isolatedRepo,
+    env: cliEnvironment,
+  });
+
+  const { stdout: versionOutput } = await execFileAsync(
+    process.execPath,
+    [bootstrap, '--version'],
+    {
+      cwd: isolatedRepo,
+      env: cliEnvironment,
+    },
+  );
+  const packedVersion = versionOutput.trim();
+  invariant(packedVersion.length > 0, 'Packed CLI returned an empty version');
+  if (process.env.TBD_VERSION_OVERRIDE !== undefined) {
+    invariant(
+      manifest.version === process.env.TBD_VERSION_OVERRIDE,
+      `Package version ${manifest.version} does not match release override ${process.env.TBD_VERSION_OVERRIDE}`,
+    );
+    invariant(
+      packedVersion === process.env.TBD_VERSION_OVERRIDE,
+      `Packed CLI reports ${packedVersion}, expected ${process.env.TBD_VERSION_OVERRIDE}`,
+    );
+  }
+
   const port = await availablePort();
   child = spawn(process.execPath, [bootstrap, '--json', 'web', '--port', String(port)], {
-    cwd: repoDir,
-    env: { ...process.env, NO_COLOR: '1' },
+    cwd: isolatedRepo,
+    env: cliEnvironment,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   const descriptor = await waitForDescriptor(child);
@@ -139,7 +184,14 @@ try {
     invariant(outcome.code === 0 && outcome.signal === null, 'Packed server did not stop cleanly');
   }
   child = null;
-  console.log(`Packed tbd web proof passed (${archives[0]}, ${page.length} byte page)`);
+  const sourceStatusAfter = await repositoryStatus(sourceRepoDir);
+  invariant(
+    sourceStatusAfter === sourceStatusBefore,
+    `Packed web proof changed the source checkout:\n${sourceStatusAfter}`,
+  );
+  console.log(
+    `Packed tbd web proof passed (${archives[0]}, version ${packedVersion}, ${page.length} byte page)`,
+  );
 } finally {
   if (child !== null && child.exitCode === null && child.signalCode === null) {
     child.kill('SIGKILL');

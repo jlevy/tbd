@@ -1,5 +1,19 @@
 # get-tbd
 
+## 0.6.1
+
+### Fixed
+
+- Release builds now carry the exact tag version through both the initial build and
+  npm’s `prepack` rebuild, and the workflow refuses to publish unless the compiled CLI
+  reports that version.
+  The `get-tbd@0.6.0` manifest was correctly versioned, but its CLI reported
+  `0.6.1-dev.0.fa42a70-dirty`; users who installed 0.6.0 should upgrade.
+- Packed web QA now initializes and serves a disposable repository and verifies that the
+  source checkout’s Git state is unchanged.
+  The 0.6.0 release proof served the source repository, migrated its config from f06 to
+  f07, and made the later package build appear dirty.
+
 ## 0.6.0
 
 ### Upgrading: repository format f07
