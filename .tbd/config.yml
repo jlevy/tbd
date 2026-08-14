@@ -1,6 +1,6 @@
 tbd_format: f07
-tbd_version: 0.6.3
-tbd_fallback_version: 0.6.3
+tbd_version: 0.6.4
+tbd_fallback_version: 0.6.4
 # tbd_upgrades: tbd versions that have run `tbd setup` in this repo (oldest first);
 # tbd_version above is the most recent. Informational; updated automatically by setup.
 # tbd_fallback_version is the one exact registry fallback for format-incompatible launchers.
@@ -34,6 +34,8 @@ tbd_upgrades:
     at: 2026-08-14T07:29:21.939Z
   - version: 0.6.3
     at: 2026-08-14T19:58:08.487Z
+  - version: 0.6.4
+    at: 2026-08-14T22:11:51.709Z
 display:
   id_prefix: tbd
 sync:
