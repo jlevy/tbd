@@ -5,7 +5,7 @@ title: "f08: make IssueSchema preserve unknown keys and carry them through merge
 kind: feature
 status: open
 priority: 0
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-2
@@ -14,9 +14,11 @@ dependencies:
     target: is-01m00mw9ppcnxpzvqakekq5tpc
   - type: blocks
     target: is-01m00k639pqyx9p30eszfh06k0
+  - type: blocks
+    target: is-01m00y5g4nha1jb0kxnempajex
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T17:24:52.588Z
-updated_at: 2026-08-14T17:25:10.575Z
+updated_at: 2026-08-14T20:07:30.144Z
 ---
 PROVEN by round-trip probe: a bead carrying refs: and docs: written by a newer tbd comes back from an older client's parse-and-write with BOTH FIELDS SILENTLY DELETED, while extensions: survives (it is a declared field with opaque contents).
 
