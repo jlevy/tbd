@@ -126,11 +126,20 @@ its owner precisely so `gh` can use it here.
 
 ### The channels
 
-1. **git fetch/push through a local credential broker.** The origin remote is rewritten
-   to a local endpoint (e.g. `http://local_proxy@127.0.0.1:<port>/git/owner/repo`) that
-   injects its own credentials.
-   This channel works regardless of `GH_TOKEN`, but it is ref-scoped (verified in a
-   Claude Code Cloud session):
+1. **git fetch/push through a session credential broker.** Two implementations are in
+   use, so **do not identify this channel by inspecting `git remote -v` alone**:
+   - *Remote rewrite*: origin points at a local endpoint (e.g.
+     `http://local_proxy@127.0.0.1:<port>/git/owner/repo`) that injects its own
+     credentials.
+   - *Environment injection*: origin stays `https://github.com/owner/repo`, and
+     credentials arrive via `GIT_ASKPASS` plus injected `GIT_CONFIG_KEY_*` /
+     `GIT_CONFIG_VALUE_*` pairs (typically `credential.interactive=false` and SSH→HTTPS
+     `insteadOf` rewrites), with `GIT_SSL_CAINFO` pointing at the proxy CA bundle.
+     A plain-looking origin here is **not** evidence that the channel is unbrokered.
+
+   Detect either with `env | grep -E '^GIT_(ASKPASS|CONFIG_COUNT|SSL_CAINFO)'` rather
+   than from the remote URL. This channel works regardless of `GH_TOKEN`, but it is
+   ref-scoped (verified in a Claude Code Cloud session):
    - Pushes to `refs/heads/*` (any branch name) succeed.
    - Pushes to `refs/tags/*` are refused with HTTP 403 at receive-pack.
    - **`git push --dry-run` passes for refs the broker later refuses** (dry-run stops at
@@ -208,6 +217,49 @@ report the limitation — do not attempt to tunnel around network policy.
 - **Distrust secondhand verdicts.** “Token invalid” from `gh auth status` in a proxied
   session is a channel symptom until proven on the direct channel.
 
+### Identifying which proxy intercepts you
+
+TLS interception is selected **per host**, so test the exact host in question rather
+than generalizing across GitHub hostnames:
+
+```bash
+curl -sS -o /dev/null -v https://api.github.com/ 2>&1 | grep -i 'issuer:'
+```
+
+A public CA (DigiCert, Let’s Encrypt) means the connection reaches GitHub untouched; a
+provider CA means TLS terminates at a proxy that can answer without contacting GitHub at
+all. In one Claude Code Cloud session `api.github.com` and `github.com` were intercepted
+while `raw.githubusercontent.com` returned GitHub’s genuine Let’s Encrypt certificate.
+
+The signing CA also names the tier the session was provisioned against.
+Provider CA bundles commonly carry staging *and* production variants of several roles
+(local agent proxy, egress gateway, TLS inspection), so trusting a staging CA is not
+itself anomalous — but two sessions signed by different tiers can enforce different
+policy, which is worth knowing before assuming they behave alike.
+
+### The agent harness can refuse before the network does
+
+Network access is not the last gate.
+An agent harness may apply its own permission layer and decline to execute a command
+that the network would have allowed — including the `NO_PROXY`-prefixed `gh` invocations
+in the recipe above.
+This is **not** a proxy or GitHub refusal: it produces no HTTP status, no
+`x-github-request-id`, and no response body, arriving instead as a harness-level denial
+naming a permission rule.
+
+Distinguish it from the network layers and act accordingly:
+
+- **Symptom**: the command never runs; the message references the harness’s own
+  permission or approval system rather than an HTTP response.
+- **Do not** rephrase the command to slip past the check, and do not fall back to
+  tunnelling. Both defeat a control the operator set deliberately.
+- **Do**: report exactly which invocation was blocked and why it is needed, so the
+  operator can add a permission rule.
+  Then continue with any work that does not depend on it.
+
+An agent that misreads this as a policy 403 will conclude the operation is impossible
+when it is merely unapproved — the two require opposite responses.
+
 ## Quick Reference
 
 | Problem | Solution |
@@ -223,6 +275,9 @@ report the limitation — do not attempt to tunnel around network policy.
 | Exports vanish between agent tool calls | Prefix every `gh` command with the `NO_PROXY`/`no_proxy` assignments |
 | Tag push 403s but branch push works | Session git broker blocks `refs/tags` — create the tag on the direct channel via `gh api .../git/refs` |
 | Ref delete reports “Everything up-to-date” but ref persists | Broker silently drops deletions — delete via `gh api -X DELETE .../git/refs/...` and confirm with `git ls-remote` |
+| `git remote -v` shows a plain github.com URL | Not proof the channel is unbrokered — check `GIT_ASKPASS` / `GIT_CONFIG_COUNT` instead |
+| Command is refused with no HTTP status or `x-github-request-id` | Agent-harness permission denial, not the network — report the blocked invocation and ask for a permission rule |
+| Session scripts predate the docs (stale gh advice, wrong warnings) | Repo pinned to an older tbd — run `tbd setup --auto`, then re-read this shortcut |
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
