@@ -980,6 +980,20 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       expect(installed).toBe(bundled);
     });
 
+    it('isolates installer files and replaces the destination atomically', async () => {
+      const bundledPath = join(__dirname, '..', 'docs', 'install', 'ensure-gh-cli.sh');
+      const bundled = await readFile(bundledPath, 'utf-8');
+
+      expect(bundled).toContain('# Automated GitHub CLI setup for agent sessions');
+      expect(bundled).toContain('INSTALL_TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/tbd-gh.XXXXXX")');
+      expect(bundled).toContain('trap cleanup EXIT');
+      expect(bundled).toContain('ARCHIVE_PATH="${INSTALL_TMP_DIR}/${ASSET}"');
+      expect(bundled).toContain('INSTALL_STAGING=$(mktemp "$HOME/.local/bin/.gh.XXXXXX")');
+      expect(bundled).toContain('mv -f "$INSTALL_STAGING" "$HOME/.local/bin/gh"');
+      expect(bundled).not.toContain('EXTRACT_DIR="/tmp/');
+      expect(bundled).not.toContain('curl -fsSL -o "/tmp/${ASSET}"');
+    });
+
     it('refreshes stale ensure-gh-cli.sh copies on re-run (upgrade path)', async () => {
       // A repo that installed the script with an older tbd must get the current
       // bundled script when `tbd setup --auto` runs again after an upgrade.
