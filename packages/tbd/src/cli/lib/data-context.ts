@@ -25,7 +25,12 @@ import type { CommandContext } from './context.js';
 import { getCommandContext, quietNoticesActive } from './context.js';
 import { requireInit } from './errors.js';
 import { resolveIssueId } from './id-suggestions.js';
-import { checkWorktreeHealth, repairWorktree } from '../../file/git.js';
+import {
+  checkWorktreeHealth,
+  initWorktree,
+  isDataSyncScaffoldReady,
+  repairWorktree,
+} from '../../file/git.js';
 import type { WorktreeHealth, WorktreeStatus } from '../../file/git.js';
 import {
   ensureCommonDirLayout,
@@ -97,6 +102,7 @@ interface DataSyncProbe {
   sharedPaths: SharedTbdPaths;
   layout: CommonDirLayout | null;
   health: WorktreeHealth;
+  dataSyncReady: boolean;
   ready: boolean;
 }
 
@@ -115,8 +121,10 @@ async function probeDataSyncReadiness(tbdRoot: string): Promise<DataSyncProbe> {
     validateCommonDirLayout(layout, config);
   }
   const health = await checkWorktreeHealth(tbdRoot, config.sync.branch);
-  const ready = !migrated && layout !== null && !layoutNeedsUpgrade && health.valid;
-  return { config, migrated, fromFormat, sharedPaths, layout, health, ready };
+  const dataSyncReady = await isDataSyncScaffoldReady(tbdRoot);
+  const ready =
+    !migrated && layout !== null && !layoutNeedsUpgrade && health.valid && dataSyncReady;
+  return { config, migrated, fromFormat, sharedPaths, layout, health, dataSyncReady, ready };
 }
 
 /**
@@ -140,6 +148,7 @@ async function ensureSharedDataSyncLayout(
       if (!repairResult.success) {
         throw new Error(`Failed to initialize shared data-sync worktree: ${repairResult.error}`);
       }
+      notifyHistoricalDataRestored(repairResult.restoredDataFiles);
       repairedWorktreeStatus = probe.health.status;
     } else {
       throw new Error(
@@ -148,6 +157,17 @@ async function ensureSharedDataSyncLayout(
         }. Run 'tbd doctor --fix' to repair.`,
       );
     }
+  }
+  if (probe.health.valid && !probe.dataSyncReady) {
+    const initResult = await initWorktree(
+      tbdRoot,
+      probe.config.sync.remote,
+      probe.config.sync.branch,
+    );
+    if (!initResult.success) {
+      throw new Error(`Failed to initialize shared data-sync scaffold: ${initResult.error}`);
+    }
+    notifyHistoricalDataRestored(initResult.restoredDataFiles);
   }
   // Re-read inside the lock via ensureCommonDirLayout: if another writer wrote
   // a valid layout between our probe and lock acquisition this returns it
@@ -158,6 +178,15 @@ async function ensureSharedDataSyncLayout(
     notifyConfigMigrated(probe.fromFormat, CURRENT_FORMAT);
   }
   return repairedWorktreeStatus;
+}
+
+function notifyHistoricalDataRestored(restoredDataFiles: number | undefined): void {
+  if (quietNoticesActive() || !restoredDataFiles) {
+    return;
+  }
+  process.stderr.write(
+    `• Restored ${restoredDataFiles} missing tbd-sync data files from Git history.\n`,
+  );
 }
 
 /**

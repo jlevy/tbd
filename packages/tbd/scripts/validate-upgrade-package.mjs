@@ -5,7 +5,7 @@
  * Prove a packed candidate upgrades real published repositories safely.
  *
  * Three baselines exercise the real-world path and distinct compatibility contracts:
- * - the latest same-format patch (0.6.2 / f07), whose older client must keep working;
+ * - the latest same-format patch (0.6.3 / f07), whose older client must keep working;
  * - the common pre-f07 release (0.4.2 / f06), whose client must fail closed after upgrade;
  * - the last pre-f07 release (0.5.0 / f06), which guards the immediate format boundary.
  */
@@ -32,7 +32,7 @@ const execFileAsync = promisify(execFile);
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageDir = join(scriptDir, '..');
 const sourceRepoDir = join(packageDir, '..', '..');
-const sameFormatBaseline = process.env.TBD_UPGRADE_SAME_FORMAT_FROM ?? '0.6.2';
+const sameFormatBaseline = process.env.TBD_UPGRADE_SAME_FORMAT_FROM ?? '0.6.3';
 const commonUpgradeBaseline = process.env.TBD_UPGRADE_COMMON_FROM ?? '0.4.2';
 const previousFormatBaseline = process.env.TBD_UPGRADE_PREVIOUS_FORMAT_FROM ?? '0.5.0';
 const managedUpgradePaths = new Set([
@@ -224,6 +224,7 @@ async function validateScenario({
   candidate,
   candidateVersion,
   expectedBaselineFormat,
+  expectManagedScriptChange,
   expectOldClientToWork,
   root,
   baseline,
@@ -325,12 +326,20 @@ async function validateScenario({
     unexpectedFiles.length === 0,
     `${name}: upgrade changed non-managed paths: ${unexpectedFiles.join(', ')}`,
   );
-  for (const expected of [
-    '.tbd/config.yml',
-    '.claude/scripts/tbd-session.sh',
-    '.codex/tbd-session.sh',
-  ]) {
+  const expectedChangedFiles = ['.tbd/config.yml'];
+  if (expectManagedScriptChange) {
+    expectedChangedFiles.push('.claude/scripts/tbd-session.sh', '.codex/tbd-session.sh');
+  }
+  for (const expected of expectedChangedFiles) {
     invariant(changedFiles.includes(expected), `${name}: expected ${expected} in the upgrade diff`);
+  }
+  if (!expectManagedScriptChange) {
+    for (const stable of ['.claude/scripts/tbd-session.sh', '.codex/tbd-session.sh']) {
+      invariant(
+        !changedFiles.includes(stable),
+        `${name}: compatible patch upgrade unexpectedly rewrote ${stable}`,
+      );
+    }
   }
   const sessionScript = await readFile(
     join(repository, '.claude', 'scripts', 'tbd-session.sh'),
@@ -409,6 +418,136 @@ async function validateScenario({
   );
   console.log(
     `Packed upgrade proof passed: ${baselineVersion} (${expectedBaselineFormat}) -> ${candidateVersion} (f07)`,
+  );
+}
+
+async function validateLegacyRemoteSyncUpgrade({
+  baseline,
+  baselineVersion,
+  candidate,
+  candidateVersion,
+  root,
+}) {
+  const seedRepository = join(root, 'legacy-remote-seed');
+  const bareRemote = join(root, 'legacy-remote.git');
+  const repository = join(root, 'legacy-remote-clone');
+  const home = join(root, 'legacy-remote-home');
+  await initializeRepository(seedRepository);
+  await mkdir(home, { recursive: true });
+
+  const baselineSetup = await invokeCli(baseline, seedRepository, home, [
+    'setup',
+    '--auto',
+    '--prefix=qa',
+  ]);
+  invariant(
+    baselineSetup.code === 0,
+    `legacy-remote: baseline setup failed\n${baselineSetup.stdout}\n${baselineSetup.stderr}`,
+  );
+  await git(seedRepository, 'add', '--all');
+  await git(seedRepository, 'commit', '--message', `Record ${baselineVersion} baseline`);
+
+  const historicalCreate = await invokeCli(baseline, seedRepository, home, [
+    'create',
+    'Legacy historical seed',
+    '--type=task',
+  ]);
+  invariant(
+    historicalCreate.code === 0,
+    `legacy-remote: baseline create failed\n${historicalCreate.stdout}\n${historicalCreate.stderr}`,
+  );
+
+  // Reproduce the released f06 state found in jlevy/tryscript: a remote tbd-sync
+  // branch once contained valid issues, a legacy sync later removed the entire
+  // scaffold, and unrelated branch files still need to survive recovery.
+  const oldWorktree = join(seedRepository, '.git', 'tbd', 'data-sync-worktree');
+  await git(oldWorktree, 'add', '--force', '.tbd/data-sync');
+  await git(oldWorktree, 'commit', '--message', 'Record historical tracker data');
+  await writeFile(join(oldWorktree, 'legacy-marker.txt'), 'preserve me\n');
+  await git(oldWorktree, 'add', 'legacy-marker.txt');
+  await git(oldWorktree, 'commit', '--message', 'Record legacy branch file');
+  await git(oldWorktree, 'rm', '-r', '.tbd/data-sync');
+  await git(oldWorktree, 'commit', '--message', 'Legacy sync removed data scaffold');
+
+  await mkdir(bareRemote);
+  await git(bareRemote, 'init', '--bare');
+  await git(seedRepository, 'remote', 'add', 'origin', bareRemote);
+  await git(seedRepository, 'push', '--set-upstream', 'origin', 'main');
+  await git(bareRemote, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+  await git(oldWorktree, 'push', 'origin', 'tbd-sync');
+  await run('git', ['clone', bareRemote, repository]);
+  await git(repository, 'config', 'user.name', 'tbd upgrade QA');
+  await git(repository, 'config', 'user.email', 'tbd-upgrade-qa@example.invalid');
+  await git(repository, 'config', 'commit.gpgSign', 'false');
+
+  const upgrade = await invokeCli(candidate, repository, home, ['setup', '--auto']);
+  invariant(
+    upgrade.code === 0,
+    `legacy-remote: candidate setup failed\n${upgrade.stdout}\n${upgrade.stderr}`,
+  );
+  invariant(
+    /Restored \d+ missing tbd-sync data files from Git history/u.test(
+      upgrade.stdout + upgrade.stderr,
+    ),
+    'legacy-remote: candidate did not report historical data recovery',
+  );
+  const configPath = join(repository, '.tbd', 'config.yml');
+  const config = parseYaml(await readFile(configPath, 'utf8'));
+  invariant(config.tbd_format === 'f07', 'legacy-remote: candidate did not produce f07');
+  invariant(
+    config.tbd_version === candidateVersion,
+    `legacy-remote: config reports ${String(config.tbd_version)}, expected ${candidateVersion}`,
+  );
+
+  const commonDirOutput = await git(repository, 'rev-parse', '--git-common-dir');
+  const commonDir = isAbsolute(commonDirOutput)
+    ? commonDirOutput
+    : resolve(repository, commonDirOutput);
+  const worktree = join(commonDir, 'tbd', 'data-sync-worktree');
+  await access(join(worktree, '.tbd', 'data-sync', 'meta.yml'));
+  invariant(
+    (await readFile(join(worktree, 'legacy-marker.txt'), 'utf8')) === 'preserve me\n',
+    'legacy-remote: upgrade discarded a legacy branch file',
+  );
+
+  const create = await invokeCli(candidate, repository, home, [
+    'create',
+    'Legacy remote upgrade probe',
+    '--type=task',
+  ]);
+  invariant(
+    create.code === 0,
+    `legacy-remote: first create failed\n${create.stdout}\n${create.stderr}`,
+  );
+  const list = await invokeCli(candidate, repository, home, ['list', '--json']);
+  invariant(
+    list.code === 0 && list.stdout.includes('Legacy historical seed'),
+    `legacy-remote: historical issue was not recovered\n${list.stdout}\n${list.stderr}`,
+  );
+  invariant(
+    list.stdout.includes('Legacy remote upgrade probe'),
+    'legacy-remote: newly created issue is missing',
+  );
+  const push = await invokeCli(candidate, repository, home, ['sync', '--issues', '--push']);
+  invariant(push.code === 0, `legacy-remote: sync failed\n${push.stdout}\n${push.stderr}`);
+  await git(bareRemote, 'show', 'tbd-sync:.tbd/data-sync/meta.yml');
+  invariant(
+    (await git(bareRemote, 'show', 'tbd-sync:legacy-marker.txt')) === 'preserve me',
+    'legacy-remote: pushed data branch discarded a legacy branch file',
+  );
+
+  const statusBeforeRepeat = await repositoryStatus(repository);
+  const repeated = await invokeCli(candidate, repository, home, ['setup', '--auto']);
+  invariant(
+    repeated.code === 0,
+    `legacy-remote: repeated setup failed\n${repeated.stdout}\n${repeated.stderr}`,
+  );
+  invariant(
+    (await repositoryStatus(repository)) === statusBeforeRepeat,
+    'legacy-remote: repeated setup changed the repository diff',
+  );
+  console.log(
+    `Packed legacy-remote proof passed: ${baselineVersion} (f06) -> ${candidateVersion} (f07)`,
   );
 }
 
@@ -491,6 +630,7 @@ try {
     candidate,
     candidateVersion,
     expectedBaselineFormat: 'f07',
+    expectManagedScriptChange: false,
     expectOldClientToWork: true,
     name: 'same-format',
     root: temporaryDir,
@@ -501,6 +641,7 @@ try {
     candidate,
     candidateVersion,
     expectedBaselineFormat: 'f06',
+    expectManagedScriptChange: true,
     expectOldClientToWork: false,
     name: 'common-upgrade',
     root: temporaryDir,
@@ -511,8 +652,16 @@ try {
     candidate,
     candidateVersion,
     expectedBaselineFormat: 'f06',
+    expectManagedScriptChange: true,
     expectOldClientToWork: false,
     name: 'format-change',
+    root: temporaryDir,
+  });
+  await validateLegacyRemoteSyncUpgrade({
+    baseline: commonUpgradePackage,
+    baselineVersion: commonUpgradeBaseline,
+    candidate,
+    candidateVersion,
     root: temporaryDir,
   });
 
