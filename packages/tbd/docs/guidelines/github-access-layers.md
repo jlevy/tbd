@@ -1,189 +1,213 @@
 ---
-title: GitHub Access Layers
-description: How GitHub access actually works for an agent in a sandboxed environment (Claude Code on the web, CI containers, and similar), and how to tell which of five independent layers is refusing a request. Use whenever `gh` fails, a token looks invalid, a push or release is rejected, GraphQL fails while REST works, or an agent is deciding between `gh`, the GitHub MCP tools, and raw `git`. Read this BEFORE reinstalling `gh`, rotating a token, or concluding that egress is blocked.
+title: GitHub Access Layers (Claude Code Cloud)
+description: Factual reference for how GitHub access is wired in Claude Code Cloud sandboxes — the proxy chain, the injected environment variables, the api.github.com broker, the session credential, and which git and API operations are actually permitted. Includes a re-verification command per claim. Use whenever `gh` fails, a token looks invalid, a push or release is rejected, GraphQL fails while REST works, or an agent is choosing between `gh`, the GitHub MCP tools, and raw `git`. Read this BEFORE reinstalling `gh`, rotating a token, or concluding that egress is blocked.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: general
 ---
-# GitHub Access Layers
+# GitHub Access Layers (Claude Code Cloud)
 
-An agent working in a sandboxed environment reaches GitHub through **five independent
-layers**. Any one of them can refuse a request, and they refuse in ways that look alike
-from inside a shell.
-Nearly every GitHub misdiagnosis comes from fixing the wrong layer: reinstalling `gh`
-when the network is fine, rotating a token that was never invalid, or asking for egress
-to be opened when egress was never closed.
+GitHub access from a Claude Code Cloud sandbox passes through **five independent
+layers**. Any one can refuse a request, and from inside a shell the refusals look alike.
+Most misdiagnosis comes from fixing the wrong layer: reinstalling `gh` when the network
+is fine, rotating a token that was never invalid, or asking for egress to be opened when
+egress was never closed.
 
-Work top to bottom. Each layer has a test that isolates it, and the tests are cheap.
+**Provenance.** Every fact below was measured in a Claude Code Cloud session on
+**2026-08-14**, in a session launched through the GitHub App integration.
+Each claim carries the command that re-verifies it.
+Some values are **session-specific** and are labeled as such — re-run the command rather
+than trusting the value.
+The architecture and the diagnostic methods are stable; the permissions are not.
 
-| # | Layer | What it controls | Isolating test |
+| # | Layer | Controls | Isolating test |
 | --- | --- | --- | --- |
 | 1 | DNS | Name resolution | `getent hosts api.github.com` |
-| 2 | Route | Which proxy the traffic takes | `echo $HTTPS_PROXY $NO_PROXY` |
-| 3 | TLS termination | Whether traffic is intercepted | certificate issuer (below) |
-| 4 | Policy | Which hosts, paths, and operations are permitted | presence of `X-Github-Request-Id` |
-| 5 | Credential | Which identity, with which permissions | `X-Oauth-Scopes` header |
+| 2 | Route | Which proxy traffic takes | `echo $HTTPS_PROXY $NO_PROXY` |
+| 3 | TLS termination | Whether traffic is intercepted | certificate issuer |
+| 4 | Policy | Permitted hosts, paths, operations | presence of `X-Github-Request-Id` |
+| 5 | Credential | Identity and its permissions | `X-Oauth-Scopes` header |
 
-## Layer 1: DNS
+## The proxy chain
 
-Confirm the hostname resolves to a real GitHub address.
+Outbound HTTPS traverses up to three Anthropic-operated tiers.
+All six CAs ship in one bundle, in staging and production variants:
 
 ```bash
-getent hosts api.github.com     # expect a public GitHub IP
+grep -c "BEGIN CERTIFICATE" /root/.ccr/ca-bundle.crt   # 154 total CAs
 ```
 
-This layer is rarely the problem.
-When it is, everything fails uniformly, which is itself a useful signal: **selective**
-failure means the problem is layer 3, 4, or 5.
+| Role | CA common name |
+| --- | --- |
+| Local agent proxy | `CCR agent-proxy interception CA (production)`, `CCR Upstream Proxy CA (staging)` |
+| Egress gateway | `sandbox-egress-gateway-production Egress Gateway CA`, `…-staging …` |
+| TLS inspection | `sandbox-egress-production TLS Inspection CA`, `…-staging …` |
 
-## Layer 2: Route
-
-Two variables, and only two, decide where a request goes:
-
-- `HTTPS_PROXY` — the proxy to send traffic through.
-- `NO_PROXY` — the hosts that bypass it.
-
-Note what is **not** here.
-`GH_HOST` selects *which GitHub* (github.com versus an Enterprise host); it does not
-select a network route, and setting it to `github.com` changes nothing, because that is
-already the default.
-There is no variable that configures REST and GraphQL separately — one token and one
-host setting drive both.
-
-Never unset `HTTPS_PROXY`, add hosts to `NO_PROXY` to dodge a refusal, or disable TLS
-verification. Beyond being disallowed in most sandboxes, it usually does not even work:
-environments commonly run a second enforcement point upstream of the container, so
-bypassing the local hop still lands in the same policy.
-You can detect that second point — see the note at the end of layer 3.
-
-## Layer 3: TLS termination
-
-This is the most informative test and the most often skipped.
-Inspect who signed the certificate:
+Both tiers of each role are trusted, so **the CA that actually signs a connection tells
+you which tier that session was provisioned against**. Check it:
 
 ```bash
 curl -sS -o /dev/null -v https://api.github.com/ 2>&1 | grep -i 'issuer:'
 ```
 
-- Issuer is a public CA (DigiCert, Let’s Encrypt) → traffic reaches GitHub directly.
-- Issuer is your platform’s CA → the connection is **intercepted**. TLS terminates at a
-  proxy that decrypts, applies policy, and re-originates to GitHub.
+Sessions differ here, and it is worth checking before assuming two sessions behave
+alike.
 
-Interception is normal and expected in sandboxes; it is how policy gets enforced.
-It is not evidence of a fault.
-What matters is knowing it is happening, because an intercepting proxy can answer a
-request **without ever contacting GitHub** — which is layer 4.
+## Layer 2: Route — the environment variables
 
-Two refinements worth knowing:
+These are the only variables that affect routing:
 
-- **Interception is per-host.** In the same session, `api.github.com` may present a
-  proxy-signed certificate while `raw.githubusercontent.com` presents GitHub’s genuine
-  one. Test the exact host you care about; do not generalize from one to another.
-- **Two proxies may be in play.** If a host listed in `NO_PROXY` *still* returns a
-  platform-signed certificate, there is an upstream gateway the container cannot opt out
-  of. That is the definitive proof that editing `NO_PROXY` cannot reach GitHub directly.
+| Variable | Observed value | Effect |
+| --- | --- | --- |
+| `HTTPS_PROXY` | `127.0.0.1:<port>` (port varies per session) | Sends traffic to the local agent proxy |
+| `NO_PROXY` | see below | Hosts that bypass the local proxy |
+| `GIT_SSL_CAINFO` | `/root/.ccr/ca-bundle.crt` | Makes git trust the interception CAs |
+| `GIT_ASKPASS` | set | Supplies git’s GitHub credential; no credential helper or stored token |
+| `GIT_CONFIG_COUNT` / `GIT_CONFIG_KEY_*` | 3 keys | Injects `credential.interactive=false` and two `url.https://github.com/.insteadOf` rewrites (SSH → HTTPS) |
 
-## Layer 4: Policy
+`NO_PROXY` as observed includes `registry.npmjs.org`, `pypi.org`,
+`files.pythonhosted.org`, `index.crates.io`, `proxy.golang.org`, plus loopback and
+private ranges. **GitHub is not in it**, so all GitHub traffic transits the local proxy.
 
-An intercepting proxy can allow one path and refuse another on the same host.
-Distinguish “GitHub refused this” from “the proxy refused this without asking GitHub”:
+Two things are *not* routing controls, and confusing them wastes time:
+
+- **`GH_HOST`** selects *which GitHub* (github.com versus Enterprise).
+  It does not select a route.
+  Setting it to `github.com` changes nothing, since that is already the default.
+- **There is no variable configuring REST and GraphQL separately.** One token and one
+  host setting drive both, per `gh help environment`.
+
+Never unset `HTTPS_PROXY`, add hosts to `NO_PROXY` to dodge a refusal, or disable TLS
+verification. Besides being disallowed, it does not work: hosts *in* `NO_PROXY` still
+return an Anthropic **egress gateway** certificate, proving a second enforcement point
+upstream that the container cannot opt out of.
+
+## Layer 3: TLS termination is per-host
+
+Interception is selected per hostname, not per session.
+Measured the same session:
+
+| Host | Certificate issuer | Meaning |
+| --- | --- | --- |
+| `api.github.com` | Anthropic CA (leaf `CN=api.github.com`) | Intercepted |
+| `github.com` | Anthropic CA | Intercepted |
+| `raw.githubusercontent.com` | `Let's Encrypt` | **Not** intercepted — genuine GitHub cert |
+
+Interception is normal and is how policy is enforced; it is not a fault.
+What matters is that an intercepting proxy **can answer without ever contacting
+GitHub**. That is layer 4. Test the exact host you care about; never generalize from one
+GitHub host to another.
+
+## Layer 4: Policy — the api.github.com broker
+
+In GitHub-App-brokered sessions, `api.github.com` is allowlisted **per path**. Compare:
 
 ```bash
 curl -sSI -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/user
 curl -sSI -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/repos/OWNER/REPO
 ```
 
-**Every genuine GitHub response carries `X-Github-Request-Id`** (and
-`Server: github.com`).
+**Every genuine GitHub response carries `X-Github-Request-Id`** and
+`Server: github.com`.
 
-- Response has those headers → GitHub answered.
-  A 403 here is a real permissions result; look at layer 5.
-- Response lacks them, and the body is JSON pointing at your platform’s documentation →
-  the proxy synthesized it.
-  The request never left.
-  **No token, scope, or `gh` version changes this outcome.**
+- Headers present → GitHub answered.
+  A 403 here is a real permissions result (layer 5).
+- Headers absent, body is JSON citing `docs.anthropic.com` → **the proxy synthesized it
+  and the request never left the network.** No token, scope, or `gh` version changes
+  this.
 
-Policy typically restricts along four axes, independently:
+Observed denial messages, each a distinct policy axis:
 
-1. **Repository scope** — the session is bound to specific repos; others return 403
-   regardless of what the credential can do.
-2. **API surface** — GraphQL may be restricted while REST is permitted (see the trap
-   below).
-3. **Operation class** — creating releases, deleting branches, or editing settings may
-   be prohibited by session type even where reads succeed.
-4. **Ref type** — pushing branches may be allowed while pushing **tags** is refused.
-
-A synthesized 403 is a platform configuration fact.
-Report it and switch to a supported path; do not retry it, and do not route around it.
+| Message | Axis |
+| --- | --- |
+| `GitHub access is not enabled for this session. An org admin must connect the Claude GitHub App…` | Repository scope |
+| `This GraphQL query is not enabled for this session — only the pinned set of PR-review operations is served.` | API surface |
+| `Creating, editing, or deleting releases is not permitted for this session type.` | Operation class |
+| `sessions are bound to their configured repositories` (on `/user/repos`) | Repository scope |
 
 ## Layer 5: Credential
-
-Identify what the token actually is:
 
 ```bash
 curl -sSI -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/user \
   | grep -iE 'x-oauth-scopes|token-expiration|x-ratelimit-limit'
 ```
 
-- **Classic PAT** — `X-Oauth-Scopes` lists scopes (`repo`, `workflow`, …).
-- **Fine-grained PAT** — empty scopes, with an expiration far in the future.
-- **App installation token** — empty scopes, a **short** expiration (hours), and an
-  elevated rate limit.
-  Permissions come from the App installation, not from OAuth scopes, so there is nothing
-  to widen from inside the session.
+Observed: `X-Oauth-Scopes` **empty**, `Github-Authentication-Token-Expiration` roughly
+**8 hours out**, `X-Ratelimit-Limit: 15000`. That signature is a **GitHub App
+installation token**, minted per session — not a PAT. Its reach comes from App
+installation permissions, so **there are no OAuth scopes to widen from inside the
+session**.
 
-Empty `X-Oauth-Scopes` therefore does **not** mean “broken token.”
-Read it together with the expiration and rate limit before drawing a conclusion.
+Read the three headers together:
+
+- **Classic PAT** — scopes listed.
+- **Fine-grained PAT** — empty scopes, distant expiration.
+- **App installation token** — empty scopes, short expiration, elevated rate limit.
+
+Empty `X-Oauth-Scopes` alone does **not** mean a broken token.
+
+## Measured capability matrix
+
+From one GitHub-App-brokered session on 2026-08-14. **Session-specific** — re-verify.
+
+| Operation | Path | Result |
+| --- | --- | --- |
+| `gh api user` | REST | ✅ |
+| `gh api repos/{owner}/{repo}` | REST | ❌ 403 (synthesized) |
+| `gh api graphql` | GraphQL | ❌ 403 (synthesized) |
+| `gh auth status` | GraphQL | ❌ false “token invalid” |
+| `gh release create` | REST | ❌ 403 (synthesized) |
+| `git fetch` | git | ✅ |
+| `git push` (branch ref) | git | ✅ |
+| `git push` (tag ref) | git | ❌ HTTP 403 |
+| Create/merge PR, comment, read repo | GitHub MCP tools | ✅ |
+| Create release or tag | GitHub MCP tools | ❌ no such tool exists |
+
+The pattern worth internalizing: **reads and branch writes work; tags, releases, and
+GraphQL do not.** A release therefore cannot be cut from such a session by any route —
+the MCP toolset has no create-release operation, and both `gh` and tag push are refused.
+
+## Choosing a write path
+
+Prefer the first that works:
+
+1. **GitHub MCP tools.** They reach the repository over a separate server-side path and
+   permit writes `gh` is refused — creating PRs, merging, commenting.
+   In a brokered session this is the intended path.
+2. **Plain `git` over HTTPS.** Branch pushes succeed; tag pushes do not.
+3. **`gh api` with explicit REST paths.** Works wherever policy permits the path, and
+   sidesteps the GraphQL traps below.
 
 ## Traps that cause repeated misdiagnosis
 
-- **`gh auth status` resolves identity over GraphQL.** Where GraphQL is restricted but
-  REST is not, it reports *“The token in GH_TOKEN is invalid”* — a false negative about
-  a perfectly good token.
-  Confirm with `GH_DEBUG=api gh auth status 2>&1 | grep graphql`. **Use
-  `gh api user --jq .login` as a health check instead**, and never make `gh auth status`
-  the gate in a setup script.
+- **`gh auth status` resolves identity over GraphQL.** Where GraphQL is restricted and
+  REST is not, it reports *“The token in GH_TOKEN is invalid”* about a perfectly good
+  token. Confirm with `GH_DEBUG=api gh auth status 2>&1 | grep graphql`. **Health-check
+  with `gh api user --jq .login` instead**, and never gate a setup script on
+  `gh auth status`.
 - **`gh` subcommands quietly use GraphQL.** `gh repo view`, `gh release list`, and
-  `gh pr list` are GraphQL-backed and fail where `gh api repos/{owner}/{repo}/...`
-  (REST) succeeds. Reach for `gh api` with an explicit REST path when GraphQL is
-  restricted.
-- **`git push --dry-run` does not test authorization.** It can report success for a ref
-  the server will refuse.
-  Never conclude a push will work from a dry run.
+  `gh pr list` fail where the equivalent `gh api repos/{owner}/{repo}/…` REST call
+  succeeds.
+- **`git push --dry-run` does not test authorization.** It reports `[new tag]` for a ref
+  the server then refuses with 403. Never conclude a push will work from a dry run.
 - **Partial success does not generalize.** `gh api user` returning 200 says nothing
-  about `/repos/*`. A successful branch push says nothing about tags.
-  Test the specific operation.
+  about `/repos/*`; a successful branch push says nothing about tags.
+- **An empty `recentRelayFailures` does not mean nothing was blocked.** Synthesized 403s
+  are not relay failures — the relay never happened.
+  Check `curl -sS "$HTTPS_PROXY/__agentproxy/status"` for proxy state, but do not read
+  an empty list as proof of unrestricted access.
 - **A hook that runs a tool has not installed it.** `npx --yes <pkg> <cmd>` executes
-  from a private cache and leaves no binary.
-  A setup step that only primes should say so rather than report the tool as installed.
-
-## Choosing a path for writes
-
-When policy restricts `gh`, these usually remain available.
-Prefer the first that works:
-
-1. **Platform-provided GitHub tools (MCP or equivalent).** These reach the repository
-   through a separate server-side path and often permit writes — creating PRs, merging,
-   commenting — that `gh` is refused.
-   In a brokered session this is the intended path.
-2. **Plain `git` over HTTPS.** Branch pushes commonly succeed even where the API is
-   restricted. Tag pushes commonly do not.
-3. **`gh api` with explicit REST paths.** Works whenever policy permits the path, and
-   avoids the GraphQL traps above.
-
-If none is permitted, the operation must move to an environment configured for it.
-Say so plainly, name the layer and the exact error, and stop — rather than retrying,
-rotating credentials, or reinstalling tools that were never broken.
+  from a private cache and leaves no binary on `PATH`.
 
 ## Reporting a blocked operation
 
-A useful report names the layer and quotes the evidence:
+Name the layer and quote the evidence:
 
 > `gh release create` returns 403 with
 > `Creating, editing, or deleting releases is not permitted for this session type`. The
-> response carries no `X-Github-Request-Id`, so it is synthesized by the proxy (layer 4)
-> and never reached GitHub.
-> `gh api user` succeeds, so the credential and network are fine.
-> This needs an environment whose session type permits release creation.
+> response carries no `X-Github-Request-Id`, so the proxy synthesized it (layer 4) and
+> it never reached GitHub.
+> `gh api user` succeeds, so credential and network are fine.
+> This needs a session type permitting release creation.
 
 That tells a human exactly what to change.
 “gh isn’t working” does not.
@@ -191,7 +215,7 @@ That tells a human exactly what to change.
 ## Related Guidelines
 
 - For installing and authenticating the CLI, see `tbd shortcut setup-github-cli`.
-- For dependency and install policy in sandboxed environments, see
+- For dependency policy in sandboxed environments, see
   `tbd guidelines supply-chain-hardening`.
 
 <!-- This document follows common-doc-guidelines.md.
