@@ -135,6 +135,22 @@ try {
   const isolatedRepo = join(temporaryDir, 'repository');
   await mkdir(isolatedRepo);
   await execFileAsync('git', ['init', '--quiet'], { cwd: isolatedRepo });
+  await execFileAsync(
+    'git',
+    [
+      '-c',
+      'user.name=tbd package QA',
+      '-c',
+      'user.email=tbd-package-qa@example.invalid',
+      '-c',
+      'commit.gpgSign=false',
+      'commit',
+      '--allow-empty',
+      '--message',
+      'Initialize package QA',
+    ],
+    { cwd: isolatedRepo },
+  );
   const cliEnvironment = { ...process.env, NO_COLOR: '1' };
   await execFileAsync(process.execPath, [bootstrap, 'init', '--prefix', 'qa'], {
     cwd: isolatedRepo,
