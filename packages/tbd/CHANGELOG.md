@@ -1,5 +1,33 @@
 # get-tbd
 
+## 0.6.4
+
+### Fixed
+
+- **Smooth f06 repository upgrades**: Setup and the first data command now initialize
+  the f07 data scaffold when a pre-existing `tbd-sync` branch never contained one.
+  This repairs the real `get-tbd@0.4.2` repository state found during the downstream
+  upgrade trial while preserving every legacy branch file and remaining idempotent.
+- **Historical data recovery**: If the current branch lost its scaffold but Git history
+  still contains tracker data, the upgrade restores every missing issue and mapping
+  before continuing. Existing files are never overwritten, avoiding both silent data loss
+  and an empty-tracker reset.
+
+### Changed
+
+- **Release upgrade proof**: Packed-package QA now covers the latest 0.6.3 same-format
+  baseline and a fresh clone of the common 0.4.2-era remote-branch layout.
+  The latter proves setup, first issue creation, sync, legacy-file preservation, and a
+  byte-identical repeated setup before release.
+
+### Security
+
+- **Dependency posture**: No dependencies or lockfile entries changed.
+  Exact first-party historical `get-tbd` packages are used for upgrade QA with lifecycle
+  scripts disabled; the existing frozen dependency tree is reused.
+  The production audit is clean; the full audit reports the same 32 dev-only advisories
+  inherited from that unchanged tree.
+
 ## 0.6.3
 
 ### Fixed
