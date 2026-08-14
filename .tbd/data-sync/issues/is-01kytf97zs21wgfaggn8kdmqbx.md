@@ -3,9 +3,9 @@ type: is
 id: is-01kytf97zs21wgfaggn8kdmqbx
 title: "Ship gh decision-rule guidance so it reaches agents (GH issue #195)"
 kind: epic
-status: open
+status: closed
 priority: 1
-version: 9
+version: 10
 labels: []
 dependencies: []
 child_order_hints:
@@ -16,7 +16,9 @@ child_order_hints:
   - is-01kytfa7bhsf6yz00chqmmkmry
   - is-01kytfaffw8q13xkf5vgkc8qrj
 created_at: 2026-07-30T21:35:58.456Z
-updated_at: 2026-08-10T21:54:47.464Z
+updated_at: 2026-08-14T20:24:38.022Z
+closed_at: 2026-08-14T20:24:38.021Z
+close_reason: "Superseded after PR #224 merged at 80c3638f: the prior guidance and release work shipped, while the remaining unaided remote-session GitHub CLI behavior is now governed by plan-2026-08-14-github-cli-session-readiness.md and tracked by tbd-mslv."
 extensions:
   linear:
     id: a47b5f87-b07d-42e8-8cd2-cf9d71a0f44c
