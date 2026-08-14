@@ -135,24 +135,20 @@ try {
   const isolatedRepo = join(temporaryDir, 'repository');
   await mkdir(isolatedRepo);
   await execFileAsync('git', ['init', '--quiet'], { cwd: isolatedRepo });
-  await execFileAsync(
-    'git',
-    [
-      '-c',
-      'user.name=tbd package QA',
-      '-c',
-      'user.email=tbd-package-qa@example.invalid',
-      '-c',
-      'commit.gpgSign=false',
-      'commit',
-      '--allow-empty',
-      '--message',
-      'Initialize package QA',
-    ],
-    { cwd: isolatedRepo },
-  );
+  await execFileAsync('git', ['config', 'user.name', 'tbd package QA'], { cwd: isolatedRepo });
+  await execFileAsync('git', ['config', 'user.email', 'tbd-package-qa@example.invalid'], {
+    cwd: isolatedRepo,
+  });
+  await execFileAsync('git', ['config', 'commit.gpgSign', 'false'], { cwd: isolatedRepo });
+  await execFileAsync('git', ['commit', '--allow-empty', '--message', 'Initialize package QA'], {
+    cwd: isolatedRepo,
+  });
   const cliEnvironment = { ...process.env, NO_COLOR: '1' };
   await execFileAsync(process.execPath, [bootstrap, 'init', '--prefix', 'qa'], {
+    cwd: isolatedRepo,
+    env: cliEnvironment,
+  });
+  await execFileAsync(process.execPath, [bootstrap, 'create', 'Package QA seed'], {
     cwd: isolatedRepo,
     env: cliEnvironment,
   });
