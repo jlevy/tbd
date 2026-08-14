@@ -467,8 +467,29 @@ Syncing per bead transition is fine; syncing per tool call is not — it turns t
 branch into commit noise and makes `tbd changes` reports unreadable, which is the
 concrete harm §7b.4 warned about.
 
+**F5 — and in this repository, every `tbd sync` runs the entire test suite.** tbd
+deliberately passes `--no-verify` on its *commits* to the sync branch, precisely so
+parent-repo hooks (lefthook, husky) do not fire on bead bookkeeping — `git.ts:1722`
+comments on this intent directly.
+The *push* does not do the same: `pushWithRetry` issues a plain
+`git push <remote> refs/heads/tbd-sync:refs/heads/tbd-sync` (`git.ts:1029`), which fires
+`.git/hooks/pre-push`. In this repository that hook is lefthook’s `pre-push`: quality
+gate, build, and the full vitest suite.
+
+Observed while writing this brief: a `tbd sync` that wrote 19 bead files committed in
+under a second and then sat for minutes in `pnpm test`, invoked from the sync branch’s
+push. Worse, the retry loop re-pushes up to `MAX_PUSH_RETRIES` times on a
+non-fast-forward, so a contended sync can pay for the suite repeatedly.
+
+This is the single largest obstacle to “sync often,” and it is an inconsistency rather
+than a design decision: the commit path already states the intent that the push path
+does not implement.
+The fix is to push the sync branch with `--no-verify` — it carries no
+source code, so no parent-repo pre-push gate has anything to say about it.
+
 **Rule of thumb: sync on state transitions and commits, never on tool calls.** That is
-at most a handful of syncs per bead, which both budgets absorb comfortably.
+at most a handful of syncs per bead, which both budgets absorb comfortably — once F5 is
+fixed.
 
 ### 3.4 What not to do
 
@@ -780,6 +801,7 @@ followed → then gate.
 | **Credential sprawl** | Every agent that can sync holds a workspace-writable Linear key in its sandbox, sharing one identity and one rate-limit budget | Already flagged in [§7b.2 of the Linear brief](research-2026-08-09-linear-task-surfaces.md#7b2-what-a-second-non-git-replica-breaks). More frequent syncing raises the value of a narrower app identity |
 | **Inbound prompt injection** | `field_sync.comments` defaults to `two_way`, so Linear comments land in `extensions.<provider>.comments` and are read by agents. Anyone who can comment in the workspace can write text into bead data | Body is capped and the author is a display name only, but treat pulled comments as untrusted input. Worth an explicit note in the guidance |
 | **Sync-branch churn** | Frequent syncing turns `tbd changes` into noise | Sync on transitions and commits, never on tool calls ([§3.3](#33-why-sync-on-claim-is-affordable)) |
+| **Sync pays for the parent repo’s pre-push hook** | `pushWithRetry` pushes without `--no-verify`, so every sync fires `.git/hooks/pre-push` — here, the full test suite, and again on each retry (F5) | Push the sync branch with `--no-verify`, matching what the commit path already does deliberately |
 | **Silent hook failure** | Demonstrated in this very session | E7 — fail loud, and make `doctor` execute the scripts |
 | **First-mirror surprise** | 114 selected, 70 created, 44 skipped (F2), against a 20-create bulk guard | Document it; keep the staged `--limit` rollout the `setup-linear` shortcut already prescribes |
 
@@ -795,25 +817,27 @@ followed → then gate.
 3. Correct the “roughly 10%” claim and document the `max_nesting` skip in `setup-linear`
    (F1, F2).
 4. Decide whether to lift this repository’s `sync_on_tbd_sync: false` pilot override.
+5. Push the sync branch with `--no-verify` (F5). This is a two-word change and it is the
+   difference between “sync often” costing a second and costing a full test run.
 
 ### Phase 1 — small CLI additions
 
-5. `tbd start` (E1) and agent identity (E2).
-6. `tbd prime` reports claimed work and sync freshness (E5).
-7. Managed-block roll-up with in-flight children and a sync timestamp (E4).
+6. `tbd start` (E1) and agent identity (E2).
+7. `tbd prime` reports claimed work and sync freshness (E5).
+8. Managed-block roll-up with in-flight children and a sync timestamp (E4).
 
 ### Phase 2 — enforcement and selection
 
-8. `tbd closing --check` with exit-code semantics and `--json` (E6).
-9. `Stop`-event gate for Claude Code and Codex, with the anti-loop constraints (§6.1).
-10. Attention-based selection (E3), then narrow the default standing set to epics.
+9. `tbd closing --check` with exit-code semantics and `--json` (E6).
+10. `Stop`-event gate for Claude Code and Codex, with the anti-loop constraints (§6.1).
+11. Attention-based selection (E3), then narrow the default standing set to epics.
 
 ### Phase 3 — reach and efficiency
 
-11. A `cursor` setup surface (`.cursor/hooks.json` + `sessionStart`/`stop`).
-12. A Gemini CLI surface (`settings.json` hooks; orientation only).
-13. On-disk `ensureMeta` cache (E8).
-14. Watch OpenCode’s hook-router work; ship a plugin when the API settles.
+12. A `cursor` setup surface (`.cursor/hooks.json` + `sessionStart`/`stop`).
+13. A Gemini CLI surface (`settings.json` hooks; orientation only).
+14. On-disk `ensureMeta` cache (E8).
+15. Watch OpenCode’s hook-router work; ship a plugin when the API settles.
 
 **If only one thing ships: `tbd start` plus the instruction repetition (E1 + E9).** That
 alone converts every subsequent `tbd sync` — which agents already run at session end —
