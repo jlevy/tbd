@@ -5,7 +5,7 @@ title: "[epic] Agent sync protocol: prime, claim, checkpoint, and Linear visibil
 kind: epic
 status: open
 priority: 1
-version: 19
+version: 25
 labels: []
 dependencies: []
 child_order_hints:
@@ -27,8 +27,14 @@ child_order_hints:
   - is-01m00h74jxrdkgs06btjdx4v22
   - is-01m00h762qx9k4enj3pdk3q75a
   - is-01m00hf31fn9wskcxd775x8xaa
+  - is-01m00j9jkhwgbczp3hkcy38z7q
+  - is-01m00j9m3fp2j6hny5s14fs2a0
+  - is-01m00ja5yw7ebsx68tw8k844e3
+  - is-01m00ja7cxw4z9heqpmdcmsfsa
+  - is-01m00ja8zjg8mbnw6b474q9q17
+  - is-01m00jaacfz0nepg8ghey7qd87
 created_at: 2026-08-14T16:19:15.771Z
-updated_at: 2026-08-14T16:25:15.567Z
+updated_at: 2026-08-14T16:40:07.823Z
 ---
 Make Linear show what every agent is doing right now, from a small set of mirrored issues.
 
