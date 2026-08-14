@@ -74,7 +74,7 @@ but these map to unique ULID-based internal IDs for reliable sorting and storage
 
 **Requirements:**
 
-- Node.js 20.12+
+- Node.js 22.12+
 - Git 2.42+ (for orphan worktree support)
 
 ```bash

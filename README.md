@@ -312,7 +312,7 @@ tbd guidelines --add=<url> --name=my-team-rules
 ## Installation and Setup
 
 **Requirements:**
-- Node.js 20.12+
+- Node.js 22.12+
 - Git 2.42+ (for orphan worktree support)
 
 ```bash

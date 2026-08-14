@@ -1,4 +1,4 @@
-/* global __dirname */
+/* global __dirname, console, process */
 /**
  * CLI bootstrap entry point (CommonJS).
  *
@@ -14,19 +14,51 @@
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
-// Enable compile cache BEFORE loading any ESM modules.
-// This caches compiled bytecode on disk for faster subsequent runs.
-// Available in Node 22.8.0+, gracefully ignored in older versions.
-try {
-  const mod = require('node:module');
-  if (typeof mod.enableCompileCache === 'function') {
-    mod.enableCompileCache();
+const MINIMUM_NODE_VERSION = '22.12.0';
+const MINIMUM_NODE_PARTS = MINIMUM_NODE_VERSION.split('.').map(Number);
+
+/** Whether a Node version string satisfies the CLI's runtime floor. */
+function supportsNodeVersion(version) {
+  const match = /^(\d+)\.(\d+)\.(\d+)([-+][0-9A-Za-z.-]+)?$/u.exec(version);
+  if (match === null) {
+    return false;
   }
-} catch {
-  // Silently ignore - caching is an optimization, not required.
+
+  const current = match.slice(1, 4).map(Number);
+  for (let index = 0; index < MINIMUM_NODE_PARTS.length; index += 1) {
+    if (current[index] !== MINIMUM_NODE_PARTS[index]) {
+      return current[index] > MINIMUM_NODE_PARTS[index];
+    }
+  }
+  return !match[4]?.startsWith('-');
 }
 
-// Load the bundled CLI binary (ESM with all deps bundled for fast startup).
-// bin.mjs runs runCli() as a side effect when imported.
-const binPath = path.join(__dirname, 'bin.mjs');
-import(pathToFileURL(binPath).href);
+function startCli() {
+  if (!supportsNodeVersion(process.versions.node)) {
+    console.error(
+      `tbd requires Node.js ${MINIMUM_NODE_VERSION} or newer; current runtime is ${process.versions.node}. Upgrade Node.js before running tbd.`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  // Enable compile cache BEFORE loading any ESM modules.
+  // This caches compiled bytecode on disk for faster subsequent runs.
+  try {
+    const mod = require('node:module');
+    mod.enableCompileCache();
+  } catch {
+    // Caching is an optimization, not required.
+  }
+
+  // Load the bundled CLI binary (ESM with all deps bundled for fast startup).
+  // bin.mjs runs runCli() as a side effect when imported.
+  const binPath = path.join(__dirname, 'bin.mjs');
+  import(pathToFileURL(binPath).href);
+}
+
+if (require.main === module) {
+  startCli();
+}
+
+module.exports = { MINIMUM_NODE_VERSION, supportsNodeVersion };
