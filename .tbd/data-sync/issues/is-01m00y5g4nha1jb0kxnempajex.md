@@ -5,7 +5,7 @@ title: "f08: reshape the integration config into target/policy/labels/identity g
 kind: feature
 status: open
 priority: 1
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-2
@@ -13,9 +13,11 @@ labels:
 dependencies:
   - type: blocks
     target: is-01m00v3wqaatz90kaztwafsz1c
+  - type: blocks
+    target: is-01m010epmrrmp2s67x1pe8xqa3
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T20:07:12.789Z
-updated_at: 2026-08-14T20:07:35.328Z
+updated_at: 2026-08-14T20:47:24.612Z
 ---
 The provider block mixes five concerns as flat siblings, grown one key at a time: enabled + team_key + project (where) + policy + select-legacy + max_nesting (what) + mirror_labels + create_labels (how marked) + user_map (who). Adding repo labels and future mode decisions as more flat keys sets the snowflake trend permanently.
 
