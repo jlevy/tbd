@@ -5,15 +5,17 @@ title: Origin and repo labels on mirrored issues; origin-scoped inbound scan
 kind: feature
 status: open
 priority: 1
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-3
   - multi-repo
-dependencies: []
+dependencies:
+  - type: blocks
+    target: is-01m010epmrrmp2s67x1pe8xqa3
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T19:13:54.410Z
-updated_at: 2026-08-14T19:49:00.409Z
+updated_at: 2026-08-14T20:47:23.257Z
 ---
 PROBED: two repositories pointed at one Linear team+project see each other's mirrored items in their inbound scans. Under the default inbound: report, repo A's items appear in repo B's importable list on every sync (nothingToDo never true, and an agent is invited to import beads that belong to another repo). Under inbound: auto, every foreign item fails assertExternalUnclaimed into report.failures, and the folded tbd sync converts per-item failures to a non-zero exit — every sync of each repo fails while the other is active. Each claim check also costs one listAttachmentUrls request per foreign candidate per sync. (F15)
 
