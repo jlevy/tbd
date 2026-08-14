@@ -3,9 +3,9 @@ type: is
 id: is-01m00s6zb5nmx0vse0d6rzhe31
 title: "Finalize backward compatibility guideline in PR #220"
 kind: task
-status: in_progress
+status: closed
 priority: 1
-version: 6
+version: 7
 labels:
   - docs
   - pr-220
@@ -16,7 +16,9 @@ child_order_hints:
   - is-01m00scds5tw3vp2t7d326pasy
   - is-01m00sce6fb5sbt7y3zqp19ynn
 created_at: 2026-08-14T18:40:38.244Z
-updated_at: 2026-08-14T18:43:37.294Z
+updated_at: 2026-08-14T19:13:20.544Z
+closed_at: 2026-08-14T19:13:20.544Z
+close_reason: "Addressed PR #220 review findings in c9074298; local and GitHub CI pass."
 ---
 Apply common-doc-guidelines to PR #220 and incorporate the compounding agent-work cost of unjustified compatibility.
 
