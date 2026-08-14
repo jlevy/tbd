@@ -374,20 +374,25 @@ the containment model (research §4.5):
 
 |  | Mapping | Works today? |
 | --- | --- | --- |
-| O1 | Team per repo, one shared project | **Yes** — scans are team-filtered, so isolation is structural, and the per-team prefix names the repo in every view |
-| O2 | One team, one shared project, repo labels | No — needs the two changes below |
-| O3 | One team, project per repo, shared initiative | Yes |
+| Mode 1 | Team per repo, one shared project | **Yes** — scans are team-filtered, so isolation is structural, and the per-team prefix names the repo in every view |
+| Mode 2 | One team, one shared project, repo labels | No — needs the two changes below |
+| Mode 3 | One team, project per repo, shared initiative | Yes |
 
-O2 is the topology this phase makes first-class, because it is also the answer to the
-human-clutter concern:
+Mode 2 is the topology this phase makes first-class, because it is also the answer to
+the human-clutter concern:
 
-- **Origin labels.** Every mirrored issue gets a `tbd` label and a `repo:<name>` label,
-  applied through the status-carrier machinery that already creates and attaches labels
-  regardless of `mirror_labels`. The name defaults to `display.id_prefix` (committed,
-  stable, per-repo); `integrations.linear.repo_label` overrides.
-  A human filters `label != tbd` to hide agent traffic, or `label = repo:x` to see one
-  repository.
-- **Origin-scoped inbound.** A candidate carrying another repo’s `repo:` label is
+- **Origin labels.** Every mirrored issue gets a plain `tbd` label and a per-repository
+  label in a **Linear label group** named `repo` — the platform’s native namespace
+  convention (created as `repo/<name>`; only one label from a group per issue, which
+  matches one-repo-per-bead structurally).
+  Verified: Linear views support “is not” label negation, so `label is not tbd` hides
+  all agent traffic and the `repo` group filter selects one repository.
+  The label names the **GitHub repository**: default is the repo name from the origin
+  remote via the existing `parseRepoSlug`, the sanitized `owner-name` form on collision,
+  `display.id_prefix` when there is no remote, and `integrations.linear.repo_label` to
+  override. Applied through the status-carrier machinery that already creates and
+  attaches labels regardless of `mirror_labels`.
+- **Origin-scoped inbound.** A candidate carrying another repo’s `repo` group label is
   skipped silently — before the per-candidate claim check, so a shared scope neither
   reports nor pays for a sibling’s traffic.
   Untagged (human-authored) items still flow under the inbound policy.
@@ -524,8 +529,8 @@ anything.
   F16)
 - [ ] Remap safety: team-mismatch detection in report and `doctor`, no cross-team state
   pushes, documented remap semantics (F17)
-- [ ] Multi-repo topologies documented in `setup-linear` (O1 today, O2 once labels land,
-  O3 as the hierarchy-native alternative)
+- [ ] Multi-repo topologies documented in `setup-linear` (Mode 1 today, Mode 2 once
+  labels land, Mode 3 as the hierarchy-native alternative)
 
 **Exit criteria:** a Linear issue for an epic shows its governing spec, its supporting
 docs, its PRs, its GitHub issues, its in-flight children with actor and age, and a
@@ -631,8 +636,8 @@ hosted CI; lifting it is the signal that syncing constantly is actually free.
 9. **Should the claim URL carry repo identity?** `tbd://bead/<displayId>` embeds a
    per-repo display prefix and is also the attachment idempotency key, so changing its
    format must tolerate items carrying the old form.
-10. **Is team-per-repo (O1) acceptable ceremony?** It is the only structurally isolated
-    multi-repo topology and works today, but Linear teams carry membership and
+10. **Is team-per-repo (Mode 1) acceptable ceremony?** It is the only structurally
+    isolated multi-repo topology and works today, but Linear teams carry membership and
     configuration a small repo may not merit.
 11. **Should `mirror_labels: false` come with bulk label removal?** The schema promises
     prefixed labels are removable in bulk, and no command does it.

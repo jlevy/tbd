@@ -858,32 +858,42 @@ Two consequences:
 
 |  | Mapping | Works today? | Prefix tells you the repo? | Human filter |
 | --- | --- | --- | --- | --- |
-| **O1** | Team per repo, one shared project | **Yes, zero changes** — each repo’s scan is team-filtered, so repos never see each other (F15 cannot fire) | Yes (`FIN-12` vs `TBD-45`) | By team |
-| **O2** | One team, one shared project, **repo labels** | No — needs F15’s scan scoping plus F16’s labels | No (one interleaved sequence) | By label |
-| **O3** | One team, project per repo, shared initiative | Yes, zero changes | No | By project |
+| **Mode 1** | Team per repo, one shared project | **Yes, zero changes** — each repo’s scan is team-filtered, so repos never see each other (F15 cannot fire) | Yes (`FIN-12` vs `TBD-45`) | By team |
+| **Mode 2** | One team, one shared project, **repo labels** | No — needs F15’s scan scoping plus F16’s labels | No (one interleaved sequence) | By label |
+| **Mode 3** | One team, project per repo, shared initiative | Yes, zero changes | No | By project |
 
-O1 is the recommendation for teams that can afford a Linear team per repository: it is
-the only topology where isolation is structural rather than filtered, and the per-team
-prefix answers “which repo” at a glance in every Linear view, notification, and commit
-message. Its cost is real — teams carry members, cycles, and state configuration, and
-`ensureMeta` is per team — so it suits a handful of repos, not dozens.
+Mode 1 is the recommendation for teams that can afford a Linear team per repository: it
+is the only topology where isolation is structural rather than filtered, and the
+per-team prefix answers “which repo” at a glance in every Linear view, notification, and
+commit message. Its cost is real — teams carry members, cycles, and state configuration,
+and `ensureMeta` is per team — so it suits a handful of repos, not dozens.
 
-O2 is what the user’s instinct describes (tags), and it should become first-class:
+Mode 2 is what the user’s instinct describes (tags), and it should become first-class:
 
-- **Origin labels (E18).** Every mirrored issue gets a `tbd` label plus a per-repo
-  `repo:<name>` label, applied through the existing status-carrier machinery (which
-  already creates and attaches labels regardless of `mirror_labels`). The repo name
-  defaults to `display.id_prefix` — already committed, stable, and unique-per-repo in
-  practice — overridable via `integrations.linear.repo_label`. With a Linear label group
-  `repo`, views filter cleanly: `label != tbd` hides all agent traffic;
-  `label = repo:finterm` shows one repository.
+- **Origin labels (E18).** Every mirrored issue gets a plain `tbd` label plus a
+  per-repository label inside a **Linear label group** named `repo` — the platform’s
+  native convention for exactly this: creating a label as `repo/tbd` places it in the
+  group, the UI renders the namespace, and **only one label from a group can be applied
+  per issue**, which matches “each bead belongs to exactly one repo” structurally.
+  Both label facts verified against Linear’s docs, along with the filtering this depends
+  on: views support **“is not”** negation on labels, so `label is not tbd` hides all
+  agent traffic and a `repo` group filter selects one repository.
+  Applied through the existing status-carrier machinery, which already creates and
+  attaches labels regardless of `mirror_labels`.
+- **The repo label names the GitHub repository, not the bead prefix.** The default
+  derives from the git origin via the existing `parseRepoSlug` (`permalink.ts:27-37`):
+  the repo *name* (`tbd`), or the sanitized `owner-name` form when two repos share a
+  name. Fallback when there is no GitHub remote: `display.id_prefix`. Override:
+  `integrations.linear.repo_label`. The slug’s literal `owner/name` form is avoided
+  because `/` is Linear’s label-group separator — `repo/jlevy/tbd` would parse as
+  nesting, not a name.
 - **Scope the inbound scan by origin.** A candidate carrying another repo’s `repo:`
   label is skipped silently — not reported, not failed, not claim-checked (saving the
   per-candidate request).
   Untagged items remain candidates, so human-authored issues still flow in under the
   inbound policy.
 
-O3 needs nothing and keeps the human entry point at the initiative level; it is the
+Mode 3 needs nothing and keeps the human entry point at the initiative level; it is the
 answer when project-per-repo is acceptable, and the reason multi-repo-in-one-project
 should never be the silent default.
 
@@ -1391,17 +1401,20 @@ GitHub being reachable.
 
 ### E18. Origin and repo labels, and an origin-scoped inbound scan (F15, F16)
 
-Apply a `tbd` label and a `repo:<name>` label to every mirrored issue, through the
-status-carrier machinery that already creates and attaches labels regardless of
-`mirror_labels`. The repo name defaults to `display.id_prefix` (committed, stable);
-`integrations.linear.repo_label` overrides it.
+Apply a plain `tbd` label and a `repo`-group label (created as `repo/<name>`, Linear’s
+label-group syntax) to every mirrored issue, through the status-carrier machinery that
+already creates and attaches labels regardless of `mirror_labels`. The name defaults to
+the GitHub repo name from the origin remote (`parseRepoSlug`), falling back to
+`display.id_prefix`; `integrations.linear.repo_label` overrides it.
+Label groups enforce one-per-issue, and Linear views support “is not” label filters —
+both verified — so the group is queryable in both directions.
 Skip inbound candidates carrying another repo’s `repo:` label — silently, before the
 per-candidate claim check, so a shared scope costs nothing and reports nothing about a
 sibling repo’s traffic.
 Include the repo name in new claim attachments so the one-source guard’s refusal can say
 who holds the claim.
 
-This is what makes topology O2 (one team, one shared project, several repos)
+This is what makes topology Mode 2 (one team, one shared project, several repos)
 first-class, and it is also the human-clutter answer: `label != tbd` in any Linear view
 hides all agent-synced items.
 
@@ -1492,7 +1505,7 @@ followed → then gate.
 | **Rate-limit exhaustion on a shared key** | Comment polling costs one request per linked bead per sync (F10), so a 70-bead mirror allows ~34 syncs/hour across everyone sharing the key | E11 — fetch comments only for pairs the delta moved |
 | **Sync pays for the parent repo’s pre-push hook** | `pushWithRetry` pushes without `--no-verify`, so every sync fires `.git/hooks/pre-push` — here, the full test suite, and again on each retry (F5) | Push the sync branch with `--no-verify`, matching what the commit path already does deliberately |
 | **Silent hook failure** | Demonstrated in this very session | E7 — fail loud, and make `doctor` execute the scripts |
-| **Shared-scope cross-talk** | Two repos on one team+project: report mode advertises each other’s items as importable; auto mode fails every sync (probed — F15) | E18 origin labels + origin-scoped inbound; or topology O1 (team per repo), which is structurally isolated today |
+| **Shared-scope cross-talk** | Two repos on one team+project: report mode advertises each other’s items as importable; auto mode fails every sync (probed — F15) | E18 origin labels + origin-scoped inbound; or topology Mode 1 (team per repo), which is structurally isolated today |
 | **Remap split-brain** | Changing `team_key` leaves old links reconciling in the old team while status pushes send the new team’s state UUIDs — repeated per-item failures (F17) | E19 — detect team mismatch, never push a state id across teams, document remap semantics |
 | **First-mirror surprise** | 114 selected, 70 created, 44 skipped (F2), against a 20-create bulk guard | Document it; keep the staged `--limit` rollout the `setup-linear` shortcut already prescribes |
 
@@ -1653,7 +1666,7 @@ than they buy:
     Adding the repo name (or using the internal ULID, which is globally unique) makes
     claims unambiguous — but the URL is the upsert key, so changing its format must
     tolerate items carrying the old form.
-14. **Is a team-per-repo (O1) recommendation acceptable to teams?** It is the only
+14. **Is a team-per-repo (Mode 1) recommendation acceptable to teams?** It is the only
     structurally isolated topology and works today, but Linear teams carry membership
     and ceremony that a small repo may not merit.
 15. **Should `mirror_labels: false` come with bulk label removal?** The schema comment
