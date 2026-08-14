@@ -803,6 +803,131 @@ addition to an established pattern.
 
 * * *
 
+### 4.5 Many repositories, one Linear surface
+
+An important topology this brief had not yet examined: several repositories, each with
+its own bead store, all reporting into **one** Linear project a human reviews.
+Verified facts about Linear’s containment model first, because the mapping choices fall
+out of them:
+
+| Linear container | Owns | Verified |
+| --- | --- | --- |
+| **Team** | The issue identifier prefix (`FIN-123` is a per-team sequence), the workflow states, cycles, team-scoped labels. **An issue belongs to exactly one team.** | [§1.4 of the Linear brief](research-2026-08-09-linear-task-surfaces.md#14-entity-model-for-field-mapping); [Linear docs](https://linear.app/docs/teams) |
+| **Project** | Milestones, lead, health, dates, project labels. **A project can be shared across many teams**; an issue joins at most one project. | Linear docs: projects “can belong to a single team or be shared across many teams” |
+| **Initiative** | The level above projects. | [§5.1b](research-2026-08-09-linear-task-surfaces.md#51b-containers-and-grouping-levels) |
+| **Labels** | Team-scoped or workspace-scoped; label groups allow one label per group per issue. | Linear brief §1.4 |
+
+So the user-visible identifier prefix lives at the **team** level, not the project level
+— and tbd’s scope is exactly `team_key` (required) plus `project` (optional), with both
+`createIssue` and `fetchUpdatedSince` filtered to that pair (`adapter.ts:249`,
+`queries.ts:71-105`).
+
+**What happens today when two repositories share one scope — probed, not assumed.** Two
+disposable stores were pointed at one mock team+project; repo A mirrored two epics, then
+repo B synced:
+
+- **`inbound: report` (the default):** repo A’s items appear in repo B’s `importable`
+  list — `FIN-1`, `FIN-2`, presented with ready-to-import ids — on every sync while they
+  remain inside the delta window.
+  `nothingToDo` is false, so the quiet-sync target is unreachable, and an agent reading
+  the report is invited to import beads that already belong to another repository.
+- **`inbound: auto`:** every foreign item fails `assertExternalUnclaimed` and lands in
+  `report.failures` — and the folded `tbd sync` path converts per-item failures into a
+  non-zero exit (`assertIntegrationReportsHealthy`). **Two repositories sharing a scope
+  with auto-inbound make every sync of each repo fail** for as long as the other is
+  active.
+
+Call this **F15**. The one-source claim guard is doing its data-protection job — nothing
+double-writes — but the *scan* has no concept of “not mine, skip silently”, so a foreign
+claim reads as either an invitation or an error.
+Each claim check also costs one `listAttachmentUrls` request per foreign candidate per
+sync.
+
+**F16 — mirrored issues carry no origin marker.** tbd applies labels only as status
+carriers (`tbd:blocked`, `tbd:deferred`) and, optionally, mirrored bead labels.
+There is no label saying “tbd wrote this” and none saying which repository it came from.
+Two consequences:
+
+- A human using Linear manually cannot filter agent-synced items in or out of a view,
+  which is precisely the clutter concern raised for mixed human/agent workspaces.
+- The claim URL `tbd://bead/<displayId>` names a bead but not a repository, so the
+  refusal message cannot say *who* holds the claim — and the display prefix it embeds is
+  per-repo config, so two repos with the same prefix produce indistinguishable claims.
+
+**The three viable topologies**, given the verified containment model:
+
+|  | Mapping | Works today? | Prefix tells you the repo? | Human filter |
+| --- | --- | --- | --- | --- |
+| **O1** | Team per repo, one shared project | **Yes, zero changes** — each repo’s scan is team-filtered, so repos never see each other (F15 cannot fire) | Yes (`FIN-12` vs `TBD-45`) | By team |
+| **O2** | One team, one shared project, **repo labels** | No — needs F15’s scan scoping plus F16’s labels | No (one interleaved sequence) | By label |
+| **O3** | One team, project per repo, shared initiative | Yes, zero changes | No | By project |
+
+O1 is the recommendation for teams that can afford a Linear team per repository: it is
+the only topology where isolation is structural rather than filtered, and the per-team
+prefix answers “which repo” at a glance in every Linear view, notification, and commit
+message. Its cost is real — teams carry members, cycles, and state configuration, and
+`ensureMeta` is per team — so it suits a handful of repos, not dozens.
+
+O2 is what the user’s instinct describes (tags), and it should become first-class:
+
+- **Origin labels (E18).** Every mirrored issue gets a `tbd` label plus a per-repo
+  `repo:<name>` label, applied through the existing status-carrier machinery (which
+  already creates and attaches labels regardless of `mirror_labels`). The repo name
+  defaults to `display.id_prefix` — already committed, stable, and unique-per-repo in
+  practice — overridable via `integrations.linear.repo_label`. With a Linear label group
+  `repo`, views filter cleanly: `label != tbd` hides all agent traffic;
+  `label = repo:finterm` shows one repository.
+- **Scope the inbound scan by origin.** A candidate carrying another repo’s `repo:`
+  label is skipped silently — not reported, not failed, not claim-checked (saving the
+  per-candidate request).
+  Untagged items remain candidates, so human-authored issues still flow in under the
+  inbound policy.
+
+O3 needs nothing and keeps the human entry point at the initiative level; it is the
+answer when project-per-repo is acceptable, and the reason multi-repo-in-one-project
+should never be the silent default.
+
+### 4.6 Changing the mapping: what resyncs correctly, and what does not
+
+Config is committed and editable, so remapping — a new `team_key`, a different
+`project`, a narrowed policy — must either work or refuse loudly.
+Today it mostly *neither works nor refuses*; it splits (**F17**, with the one genuinely
+broken case in the `team_key` row).
+Traced through the code:
+
+| You change | What actually happens | Verdict |
+| --- | --- | --- |
+| `policy` (narrow or widen selection) | Linked beads keep syncing (`linked: true` is always honored); newly-selected beads mirror on the next sync, gated by the bulk guard; de-selected beads stop being *created* but never leave | **Safe.** The mirror never shrinks, which is documented behavior; preview with `--dry-run` (once F7 lands) |
+| `project` | New creates land in the new project. **Already-linked issues never move**: nothing in the update path sets `projectId`, and the liveness fetch (`ISSUES_BY_ID_QUERY`) is unscoped, so old items keep reconciling from the old project forever | **Split-brain, silent.** Coherent per item, surprising in aggregate |
+| `team_key` | New creates land in the new team. Old linked issues keep reconciling (unscoped liveness fetch) — **but every status push to them now sends the NEW team’s workflow-state UUID against an OLD-team issue** (`toInput` resolves `stateId` from the configured team’s `ensureMeta`, `adapter.ts:667-669`). Linear state ids are per-team, so these writes fail — a repeated per-item failure on every sync, forever | **Broken, noisy.** F17 |
+| `display.id_prefix` | The claim/idempotency URL embeds the display id (`tbd://bead/<displayId>`, `mirror.ts:33-35`). New syncs upsert attachments under the new URLs; the old claims remain on the items, so every item accumulates a second tbd claim and other repos’ guards report both | **Degrades quietly.** Stale claims accumulate; the guard’s refusal message becomes ambiguous |
+| `project` to a name that does not exist | Hard error listing every available project (`adapter.ts:172-176`) | **Good** — the model for what the others should do |
+
+One adjacent sharp edge: `resolveProjectId` matches by name or slug across **the whole
+workspace** (the projects query is unscoped) and takes the first hit, so two projects
+with the same name in different teams resolve to whichever paginates first.
+
+The fix (E19) is not migration tooling — it is making the split visible and the one
+broken case safe:
+
+1. **Detect the mismatch.** The liveness fetch already returns each issue’s identity;
+   have the sync report (and `tbd doctor`) flag linked issues whose team no longer
+   matches the configured `team_key`, with the count and a one-line explanation, instead
+   of letting per-item state-push failures repeat silently.
+2. **Never push a state id across teams.** If the linked issue’s team differs from the
+   configured team, skip the status field for that pair and report why — one warning,
+   not a failure per sync.
+3. **Document the semantics** in `setup-linear` and the docs: policy changes are safe;
+   `project`/`team_key` changes affect *new* creates only; moving existing items is a
+   deliberate Linear-side operation (or unlink + relink), not something sync infers.
+
+That is the “simple should be simple, complex should be possible” resolution: the
+defaults never require these knobs; each knob has defined, stated behavior when turned;
+and the genuinely complex operation (migrating a live mirror between teams) stays a
+human decision rather than an inference.
+
+* * *
+
 ## 5. Traceability: beads, docs, PRs, and the tracker
 
 The requirement, stated as a test a person can run: **open Linear, see what has been
@@ -1264,6 +1389,34 @@ it to the user. Have it record the ref on the beads the branch closes.
 recording it when found and staying silent when not — a bead should never be blocked on
 GitHub being reachable.
 
+### E18. Origin and repo labels, and an origin-scoped inbound scan (F15, F16)
+
+Apply a `tbd` label and a `repo:<name>` label to every mirrored issue, through the
+status-carrier machinery that already creates and attaches labels regardless of
+`mirror_labels`. The repo name defaults to `display.id_prefix` (committed, stable);
+`integrations.linear.repo_label` overrides it.
+Skip inbound candidates carrying another repo’s `repo:` label — silently, before the
+per-candidate claim check, so a shared scope costs nothing and reports nothing about a
+sibling repo’s traffic.
+Include the repo name in new claim attachments so the one-source guard’s refusal can say
+who holds the claim.
+
+This is what makes topology O2 (one team, one shared project, several repos)
+first-class, and it is also the human-clutter answer: `label != tbd` in any Linear view
+hides all agent-synced items.
+
+### E19. Remap safety (F17)
+
+No migration tooling — visibility and one guard:
+
+1. Sync report and `tbd doctor` flag linked issues whose team no longer matches the
+   configured `team_key`, once, with a count.
+2. Never push a workflow-state id to an issue in a different team than the one it was
+   resolved from; skip the status field for that pair and say why.
+3. Document remap semantics in `setup-linear`: policy changes are safe; `project` and
+   `team_key` changes affect new creates only; moving existing items is a deliberate
+   operation, not something sync infers.
+
 ### E9. Instruction changes
 
 No code, and probably the highest ratio of value to effort:
@@ -1339,6 +1492,8 @@ followed → then gate.
 | **Rate-limit exhaustion on a shared key** | Comment polling costs one request per linked bead per sync (F10), so a 70-bead mirror allows ~34 syncs/hour across everyone sharing the key | E11 — fetch comments only for pairs the delta moved |
 | **Sync pays for the parent repo’s pre-push hook** | `pushWithRetry` pushes without `--no-verify`, so every sync fires `.git/hooks/pre-push` — here, the full test suite, and again on each retry (F5) | Push the sync branch with `--no-verify`, matching what the commit path already does deliberately |
 | **Silent hook failure** | Demonstrated in this very session | E7 — fail loud, and make `doctor` execute the scripts |
+| **Shared-scope cross-talk** | Two repos on one team+project: report mode advertises each other’s items as importable; auto mode fails every sync (probed — F15) | E18 origin labels + origin-scoped inbound; or topology O1 (team per repo), which is structurally isolated today |
+| **Remap split-brain** | Changing `team_key` leaves old links reconciling in the old team while status pushes send the new team’s state UUIDs — repeated per-item failures (F17) | E19 — detect team mismatch, never push a state id across teams, document remap semantics |
 | **First-mirror surprise** | 114 selected, 70 created, 44 skipped (F2), against a 20-create bulk guard | Document it; keep the staged `--limit` rollout the `setup-linear` shortcut already prescribes |
 
 * * *
@@ -1493,6 +1648,17 @@ than they buy:
     make PRs first-class in its UI rather than lines in a description block.
     That is a nicer result and a larger surface: attachments are already used for the
     bead metadata carrier, so the interaction needs thought.
+13. **Should the claim URL carry repo identity?** `tbd://bead/<displayId>` is both the
+    idempotency key and the cross-repo claim, and it embeds a per-repo display prefix.
+    Adding the repo name (or using the internal ULID, which is globally unique) makes
+    claims unambiguous — but the URL is the upsert key, so changing its format must
+    tolerate items carrying the old form.
+14. **Is a team-per-repo (O1) recommendation acceptable to teams?** It is the only
+    structurally isolated topology and works today, but Linear teams carry membership
+    and ceremony that a small repo may not merit.
+15. **Should `mirror_labels: false` come with bulk label removal?** The schema comment
+    promises prefixed labels are “removable in bulk if someone turns the option off
+    again”, and no command does it.
 
 * * *
 
