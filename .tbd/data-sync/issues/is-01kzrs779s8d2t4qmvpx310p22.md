@@ -5,7 +5,7 @@ title: "Phase 6: validate and land production tbd web end to end"
 kind: task
 status: closed
 priority: 1
-version: 12
+version: 17
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - validation
@@ -18,10 +18,11 @@ child_order_hints:
   - is-01kzrsajhday2nyvfnbk2c097t
   - is-01kzrsarka5sq9h3x8v5yp7vpm
   - is-01kzs5fg2amah8bnpy3mct8khd
+  - is-01kzscf4fdjf02qjcvedyp7ekx
 created_at: 2026-08-11T16:06:50.935Z
-updated_at: 2026-08-11T21:05:49.511Z
-closed_at: 2026-08-11T21:05:49.509Z
-close_reason: End-to-end validation, review-thread disposition, hosted CI, and mergeability checks are complete.
+updated_at: 2026-08-12T00:09:11.259Z
+closed_at: 2026-08-12T00:09:11.258Z
+close_reason: End-to-end local/hosted validation and PR readiness gate complete on 2a7a7d44.
 extensions:
   linear:
     id: 9437aa72-43f0-46bf-87b9-cc8a023e198e
@@ -29,8 +30,8 @@ extensions:
     key: TBD-138
     url: https://linear.app/finterm-ai/issue/TBD-138/phase-6-validate-and-land-production-tbd-web-end-to-end
 ---
-Run the full local/CI matrix, 5k performance and payload bounds, Git isolation checks, packaged-tarball proof, lifecycle/manual smoke, final merge from main, PR metadata update, final review disposition, and merge-readiness verification.
+Run the full local and hosted matrix, 10,000-row performance and payload bounds, Git isolation checks, packed-tarball proof, lifecycle/manual smoke, final base integration, PR metadata update, final review disposition, comment audit, and merge-readiness verification.
 
 ## Notes
 
-Final validation complete on 50f895fb. Exact-tree local CI passes 110 files / 1,503 tests; tryscript has 1,074 passing checks; publint, 31 package-age pins with 0 violations, packed-web proof at 60,937 bytes, browser acceptance, lifecycle/security, and platform checks pass. Hosted run 31535582219 is green on Ubuntu, macOS, Windows, coverage/lint, benchmark, Bugbot, and secret scanning. All 10 review threads are resolved. origin/main is integrated and GitHub reports OPEN, non-draft, MERGEABLE, CLEAN.
+Final end-to-end validation complete on 2a7a7d44. Local pnpm run ci and repeated pre-push gates pass 109 files / 1,508 tests plus formatting, Flowmark, strict dual typecheck, zero-warning lint, build, and 31 package-age pins. Tryscript 1,074, publint, 62,196-byte packed web proof, watch release smoke, two-clone explicit-sync/SSE acceptance, 10,000-row board and 1,000-row client bounds all pass. Hosted exact-head run 31548603423 is green on Ubuntu 2m29, macOS 3m55, Windows 5m11, Coverage and Lint 6m48, Benchmark 25s, Bugbot, and DeepSource secret scan. All 12 threads resolved; PR OPEN, non-draft, MERGEABLE, CLEAN.

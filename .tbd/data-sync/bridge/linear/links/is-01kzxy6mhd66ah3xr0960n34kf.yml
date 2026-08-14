@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v6:8d7f244bf54f51a828cc5bf73bf790b3b7fed9b1c3090324ac676d6ef52af68c
+  labels:
+    - linear
+    - integration
+    - dogfood
+    - qa-linear-outbound
+  priority: 3
+  status: blocked
+  title: Linear sync pilot — outbound round 1
+bead_id: is-01kzxy6mhd66ah3xr0960n34kf
+external_id: 66bec061-2896-4c20-a8c8-2938ca8781dd
+remote_updated_at: 2026-08-13T16:12:39.382Z
+state: linked
+synced_at: 2026-08-13T16:21:12.706Z
+type: lk

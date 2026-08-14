@@ -6,11 +6,11 @@ base:
     - testing
     - web
   priority: 1
-  status: open
+  status: closed
   title: "Phase 4.4: prove client/server behavior parity and retire stale inline race paths"
 bead_id: is-01kzrs9mb24gzv94d2mvexqnbd
 external_id: 67d4faa8-fbfc-46d4-ac48-d59b086c3380
-remote_updated_at: 2026-08-11T16:24:57.698Z
+remote_updated_at: 2026-08-13T16:00:35.246Z
 state: linked
-synced_at: 2026-08-11T16:25:43.959Z
+synced_at: 2026-08-13T16:21:10.031Z
 type: lk

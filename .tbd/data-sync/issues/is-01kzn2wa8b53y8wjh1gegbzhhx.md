@@ -5,7 +5,7 @@ title: "Phase 2: tbd integration sync — the full synchronization command"
 kind: task
 status: closed
 priority: 2
-version: 18
+version: 19
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels: []
 dependencies:
@@ -25,7 +25,7 @@ child_order_hints:
   - is-01kzn513t5rt6bak750hcvzeta
   - is-01kzn5147yrf3sw28jc7n600r7
 created_at: 2026-08-10T05:38:41.547Z
-updated_at: 2026-08-11T06:45:58.270Z
+updated_at: 2026-08-13T20:12:12.852Z
 closed_at: 2026-08-11T06:45:58.270Z
 close_reason: "Phase 2 implemented in PR #206 (96be7b34..c36dbc70): policy schema and resolution, bridge records with newest-observation merge, pure reconcile matrix, write-ahead intents (OQ7 probed live: comment client UUIDs are exactly-once), the full sync command, append-only comment sequences with union merge, link/unlink/comment with one-source guard and --take stance, doctor config-loss tripwire, sync_on_tbd_sync fold, and end-to-end coverage through the real built binary against the mock. Full suite green in the pre-push hook; live rollout gates before sync_on_tbd_sync tracked in the spec."
 extensions:
@@ -33,7 +33,7 @@ extensions:
     id: 8675d876-1c1a-4672-a073-5980ff8568dc
     linked_at: 2026-08-10T19:37:36.617Z
     key: TBD-2
-    url: https://linear.app/finterm-ai/issue/TBD-2/phase-2-sync-engine-bridge-records-reconcile-matrix-intents-tbd
+    url: https://linear.app/finterm-ai/issue/TBD-2/phase-2-tbd-integration-sync-the-full-synchronization-command
 ---
 cli: tbd integration sync [--dry-run] [--yes] [--json]. Orchestrates the pieces (policy tbd-h09r, bridge tbd-22p3/c907, reconcile tbd-o5v5, intents tbd-vc9e): replay pending intents -> pull linked (derived watermark = max remote_updated_at minus generous overlap; over-fetch is free because base comparison discards no-ops) -> reconcile per field_sync -> apply (external writes with per-pair failure containment, then bead patches via the normal issue write path, then base advance + intent cleanup, committed) -> policy scan (create outbound-new, import or report inbound per mode) -> honest report distinguishing nothing-to-do from did-something. Bulk guard both directions. Correctness never depends on timestamps. See spec section 10.
 

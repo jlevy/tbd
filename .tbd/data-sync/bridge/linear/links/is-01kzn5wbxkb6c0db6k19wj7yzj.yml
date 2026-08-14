@@ -1,14 +1,14 @@
 base:
   assignee: null
-  description_hash: sha256v6:0586f459c8b23c53d66e95efdbb15d69c7ac761b3254b27259e27f20d8e4c64d
+  description_hash: sha256v6:14dd18c4f8ecd6fb42c070a40642460a4b36022bd8555180546eac06a3351f8b
   labels:
     - viewer
   priority: 1
-  status: in_progress
+  status: closed
   title: "Spec: tbd web — production-ready live bead view"
 bead_id: is-01kzn5wbxkb6c0db6k19wj7yzj
 external_id: 87a13af9-a3b4-4897-873a-f8bfeb82fa65
-remote_updated_at: 2026-08-11T16:24:33.039Z
+remote_updated_at: 2026-08-13T16:00:21.660Z
 state: linked
-synced_at: 2026-08-11T16:25:37.807Z
+synced_at: 2026-08-13T16:39:45.154Z
 type: lk
