@@ -33,13 +33,15 @@ The goal is concrete: **someone should be able to open Linear and see what every
 on this project is doing right now**, without agents flooding Linear with hundreds of
 issues, and without depending on any single agent remembering to be polite.
 
-Three questions, in order:
+Four questions, in order:
 
 1. What actually happens today, end to end, when an agent works in this repository and a
    human watches Linear?
 2. What can each agent platform *enforce*, as opposed to merely *suggest*?
-3. What protocol, and what new tbd primitives, would make the goal true by construction
-   rather than by good behavior?
+3. Once a person is looking at Linear, can they **click through** — to the PR, to the
+   doc, into the bead browser — and is the work linked together well enough to try?
+4. What protocol, and what new tbd primitives, would make all of that true by
+   construction rather than by good behavior?
 
 **The headline finding: the mechanism is essentially built and the enforcement is not.**
 `tbd sync` already folds Linear in by default, reconciles three-way against a recorded
@@ -62,6 +64,14 @@ turn expensive. Three small fixes
 ([§1.7](#17-is-plain-tbd-sync-cheap-enough-to-run-often-measured)) turn a quiet sync
 into two requests and zero writes, and they are prerequisites for everything else here
 rather than follow-ups to it.
+
+**And a third: the links a reader would follow mostly do not exist.** Of the three
+click-throughs the requirement names, one works (Linear → the doc), two are rendering
+code with no data behind them (Linear → PR, Linear → bead source), and the fourth
+destination — a specific bead in `tbd web` — has no address at all
+([§5](#5-traceability-beads-docs-prs-and-the-tracker)). A bead also has nowhere to put a
+pull request: external identity is deliberately one-link-per-provider, which is right
+for a tracker and wrong for PRs.
 
 Each of these is a small, tractable change.
 None of them requires new distributed-systems machinery.
@@ -191,6 +201,9 @@ beads.” Here it is 45%. The preset selects `kind == epic` *or* `spec_path` und
 `specs/active/`, and in a spec-driven repository the second clause dominates: 105 of the
 114 selected beads qualify on their spec, not on being an epic.
 The claim should either be corrected or the preset narrowed.
+[§5.3](#53-what-already-works-better-than-expected-spec_path-propagation) explains the
+mechanism: `spec_path` propagates from an epic to every descendant, so the clause really
+means “mirror every descendant of every epic with a live spec.”
 
 **F2 — A third of the selected set would be skipped on creation.** With
 `max_nesting: 2`, `planMirror` skips any unlinked bead deeper than 2 levels *within the
@@ -585,7 +598,7 @@ Restated as rules:
 | **Claim** | Before the first edit for a bead | `tbd update <id> --status in_progress --assignee <agent>` then sync | **The highest-value moment in the whole protocol.** It is the only thing that makes Linear show “someone is on this, right now.” |
 | **Checkpoint** | After each commit, and at PR creation | `tbd sync` | Bounds staleness to one commit without per-tool-call churn. |
 | **Land** | Before declaring done | Existing closing protocol (commit → push → CI → close → sync) | Already works and is already obeyed. |
-| **Release** | On close, or on abandoning work | `tbd close`, or clear the claim | Prevents zombie claims ([§7](#7-risks-and-failure-modes)). |
+| **Release** | On close, or on abandoning work | `tbd close`, or clear the claim | Prevents zombie claims ([§8](#8-risks-and-failure-modes)). |
 
 Only **Claim** and **Checkpoint** are new.
 Everything else exists.
@@ -790,7 +803,248 @@ addition to an established pattern.
 
 * * *
 
-## 5. Proposed tbd primitives
+## 5. Traceability: beads, docs, PRs, and the tracker
+
+The requirement, stated as a test a person can run: **open Linear, see what has been
+done so far, and click through — to the PR for detail, or into the bead browser for the
+full picture.** This brief is a convenient specimen, because producing it exercised
+every edge in that graph.
+
+### 5.1 The graph that has to exist
+
+Seven entities, and the edges a reader actually traverses:
+
+```
+   research doc ──┐
+   plan spec    ──┼──► epic bead ──► child beads
+                  │        │              │
+   GitHub issue ──┘        ▼              ▼
+                      Linear issue    PR / commits
+                           │
+                           └──► bead browser (tbd web)
+```
+
+The work starts as a **research doc**; a bead — usually an epic — is created to track
+it; plan specs attach to that same epic later; children carry the implementation; PRs
+and a GitHub issue attach as work lands; and the whole thing projects into **one Linear
+issue** that a human uses as the entry point.
+
+### 5.2 What works today, edge by edge
+
+| Edge | Mechanism | Status |
+| --- | --- | --- |
+| bead → doc (spec or research) | `spec_path`, propagated to descendants | **works**, and better than expected ([§5.3](#53-what-already-works-better-than-expected-spec_path-propagation)) |
+| bead → Linear issue | `extensions.linear` (`LinkedEntry`) | **works** |
+| Linear issue → doc | `specUrl`: managed-block line + attachment, branch-resolved GitHub blob permalink | **works — the only live click-through** |
+| Linear issue → bead source | `repoUrl`: managed-block `Bead:` line + “bead source” attachment | **dead stub** (F11) |
+| Linear issue → PR | `prUrls`: managed-block `PRs:` line | **dead stub** (F12) |
+| Linear issue → bead browser | — | **absent** (F13) |
+| bead → PR | — | **absent** (F14) |
+| bead → GitHub issue | `extensions.github` in principle | **absent** — no adapter (`integration-runner.ts:61`) |
+| bead → *several* PRs | — | **structurally impossible** (F14) |
+
+**F11 — `repoUrl` is declared, rendered, and never populated.** `MirrorLinks.repoUrl`
+drives two things: the managed block’s `Bead: [id](url)` line (`managed-block.ts:80-84`)
+and the “bead source” attachment (`mirror.ts:169-175`). Both call sites that build the
+context pass only `specUrl` (`integration-runner.ts:272` and `:386`), and the sync
+engine hardcodes `repoUrl: undefined` (`sync-engine.ts:527`). So the managed block
+always renders the fallback form — `` Bead: `tbd show tbd-va8i` `` — and the bead-source
+attachment is never created.
+
+**F12 — `prUrls` is declared, rendered, and set by nothing at all.** The
+`PRs: [#205](…)` line exists in `renderManagedBlock` (`managed-block.ts:74-76`) complete
+with a `prLabel()` helper that parses `/pull/(\d+)`. A repository-wide search finds **no
+assignment to `prUrls` anywhere in `src/`**. The single most-wanted click-through —
+Linear to the PR — is rendering code with no data behind it.
+
+**F13 — `tbd web` has no addressable bead.** The server exposes `/`, `/api/board`,
+`/api/bead?id=`, and `/api/events` (`http.ts:383-411`), and the client never reads
+`location.hash` or a query parameter to select a bead at load.
+There is no URL that opens the browser on a specific bead, so “click into the bead
+browser” has nothing to link to.
+
+**F14 — no bead field can hold a PR.** External identity lives in
+`extensions.<provider>`, and the schema comment is explicit that this is deliberate:
+“The namespace key IS the provider, which makes 'at most one link per provider'
+structural rather than a rule the merge code has to enforce” (`schemas.ts:145-147`).
+That is exactly right for a tracker — one bead, one Linear issue — and exactly wrong for
+pull requests, which are many per bead and are not a tracker at all.
+There is no other field for an arbitrary external reference.
+
+The net: of the three click-throughs the requirement names, **one works (doc), two are
+stubs, and the fourth destination does not have an address.**
+
+Worth noting what the `tbd://bead/<id>` attachment is and is not.
+It is the upsert idempotency key and the carrier for the full canonical field set as
+attachment metadata (`mirror.ts:128-160`) — genuinely useful, and the reason a Linear
+issue knows its bead’s labels and dependencies.
+But `tbd://` is an invented scheme with no handler, so it renders as an attachment
+nobody can click. It is a data channel, not a link.
+
+### 5.3 What already works better than expected: `spec_path` propagation
+
+Three properties, and none of them are obvious from the field’s name:
+
+1. **`spec_path` accepts any repository path.** The schema is a bare string
+   (`schemas.ts:193`) and `specPermalink` resolves whatever it is given against
+   whichever branch contains it (`permalink.ts:74-84`). Nothing restricts it to
+   `specs/`.
+2. **`tbd update --spec` propagates to descendants** (`update.ts:129-130`, “Capture old
+   spec_path before applying updates (for propagation)”), and `create --parent` inherits
+   it (`integration-runner.ts:434`). So an epic pointed at a doc pulls its whole subtree
+   along.
+3. **Matching is gradual** (`spec-matching.ts`): filename, path suffix, or full path all
+   resolve, so `tbd list --spec research-2026-08-14-agent-sync-protocol-and-hooks.md`
+   finds the tree without anyone typing a full path.
+
+Measured on this brief: pointing the epic at its research doc propagated `spec_path` to
+all 24 children, `tbd list --spec <filename>` then returned all 25 beads, and the Linear
+mirror set grew by exactly **one** — the epic, selected on `kind`, not on the doc.
+The children stayed out because `matchesSpecRule` looks for the literal segment
+`/specs/active/` (`selection.ts:22`) and a research path does not contain it.
+
+**And that mechanism explains F1.** Of the 89 non-epic beads carrying an active spec,
+**79 (89%) inherited it from an ancestor carrying the same spec.** The default policy’s
+45% selection is not sloppy authoring — it is `spec_path` propagating from spec-carrying
+epics to every descendant, with the `specs: active` clause then selecting each one.
+Read plainly, that clause means *“mirror every descendant of every epic with a live
+spec.”*
+
+This sharpens the recommendation in [§4.2](#42-four-options): narrowing the standing set
+to epics is not just a volume reduction, it removes a rule whose real behavior is much
+broader than its name suggests.
+And it argues that if the spec clause survives, it should select the bead that *carries*
+the spec rather than everything that inherited it.
+
+### 5.4 The workflow this brief itself failed to follow
+
+The honest worked example, because it is the clearest evidence of the gap.
+
+What happened: the research doc was written first, an epic was created afterwards to
+track it, 24 children were filed under that epic — and **`spec_path` was set on none of
+them** until this section went looking for the linkage and found it missing.
+Nothing in `tbd prime`, the skill tiers, `new-research-brief`, or `AGENTS.md` asks for
+it. The `new-research-brief` shortcut says to create the document and update it as you
+learn; it never mentions a bead.
+
+What should have happened, and what the shortcuts should say:
+
+1. **Bead first.** Create the tracking epic when the research *starts*, not when it ends
+   — an epic titled for the question, `spec_path` pointed at the doc that is about to
+   exist.
+2. **Sync immediately**, so the epic appears in Linear as *Started* while the work is
+   under way rather than as a fait accompli.
+3. **File children as findings turn into work**, inheriting `spec_path` automatically.
+4. **Attach the PR** when it opens, and the GitHub issue if one exists — which is
+   exactly what F12 and F14 make impossible today.
+5. **Attach the plan spec** to the same epic when research turns into a plan, so one
+   bead carries the whole arc: question → findings → plan → implementation.
+
+Step 5 is the reason `refs` should be a list rather than a second scalar field: an epic
+legitimately points at a research doc *and* a plan spec *and* a PR *and* an issue, and
+that set grows over the epic’s life.
+
+### 5.5 Proposed metadata: one `refs` list, not four fields
+
+*Problem:* four different things a bead needs to point at (PR, external issue, research
+doc, plan spec), one singular field (`spec_path`), and one provider-keyed single-valued
+namespace (`extensions.<provider>`) that is deliberately not general.
+
+*Proposal:* one additive, optional, top-level list.
+
+```yaml
+refs:
+  - kind: doc
+    url: https://github.com/jlevy/tbd/blob/main/docs/project/research/current/research-2026-08-14-…md
+    title: research-2026-08-14-agent-sync-protocol-and-hooks.md
+    at: 2026-08-14T16:04:00Z
+  - kind: pr
+    url: https://github.com/jlevy/tbd/pull/222
+    title: 'research: Agent sync protocol, hooks, and Linear visibility'
+    at: 2026-08-14T17:12:00Z
+  - kind: issue
+    url: https://github.com/jlevy/tbd/issues/190
+    at: 2026-08-12T09:00:00Z
+```
+
+Design decisions, each with a reason:
+
+- **`kind` is an open string with known values** (`pr`, `issue`, `doc`, `design`,
+  `other`), not a closed enum — the same call `WorkflowState.type` gets in the Linear
+  brief, for the same reason: an unrecognized kind should render generically, not fail a
+  sync.
+- **`url` is the identity**, so a repeated add is idempotent and the merge is a union
+  keyed on it. `refs: 'union'` slots straight into the existing field-merge table
+  (`git.ts:449-451`) beside `labels` and `dependencies` — **no new merge machinery**,
+  and two agents attaching different PRs concurrently both survive.
+- **Provider-neutral by construction.** A ref is a URL with a kind.
+  Nothing about it knows Linear exists, which is the whole point: the same field carries
+  a GitLab MR, a Notion page, or a CI dashboard.
+- **`spec_path` stays.** It is load-bearing for selection, propagation, and
+  `list --spec`, and re-homing it would be a format break for no gain.
+  The clean split is: `spec_path` is *the doc this work is defined by*, singular and
+  inherited; `refs` is *everything else this work points at*, plural and local.
+  Optionally, surface `spec_path` as a synthetic `kind: doc` ref when rendering, so
+  consumers see one uniform list.
+- **Additive, so no format bump.** A new optional field on `IssueSchema` round-trips
+  through older readers the same way `extensions` does.
+
+*Why in the CLI rather than in agent instructions:* an agent cannot invent a storage
+location, and four agents inventing four conventions in `notes` is the outcome if the
+field does not exist.
+
+### 5.6 Making the three click-throughs real
+
+With `refs` in place, each dead edge closes with a small, local change:
+
+| Edge | Change |
+| --- | --- |
+| Linear → PR | Populate `prUrls` from `refs` where `kind == pr` (F12). The renderer already exists, including `#222` labelling |
+| Linear → bead source | Pass a `repoUrl` resolver at both call sites, built the same way `specUrl` already is — `blobUrl(slug, syncBranch, 'issues/<id>.md')` (F11) |
+| Linear → bead browser | Give `tbd web` an addressable bead: `/#<bead-id>` read at load and written on selection, and have the managed block render `tbd web --open` alongside it (F13). A loopback URL is not shareable across machines, but it is exactly right for the person who has the repo checked out |
+| bead → PR, automatically | `tbd shortcut create-or-update-pr-simple` already holds the PR URL at step 6; have it record the ref. `tbd sync` can also resolve the current branch’s PR opportunistically |
+
+And the managed block that results — the thing a human actually opens Linear to read:
+
+```
+⟦tbd⟧
+`tbd-dzme` · epic · in_progress · P1
+Doc: [research-2026-08-14-agent-sync-protocol-and-hooks.md](https://github.com/…)
+PRs: [#222](https://github.com/jlevy/tbd/pull/222)
+Issue: [#190](https://github.com/jlevy/tbd/issues/190)
+Children: 24 · 2 in progress · 5 ready · 17 open
+
+In progress now:
+  • tbd-774m — A quiet tbd sync must write nothing — claude@host (2h)
+  • tbd-7okw — Push the sync branch with --no-verify — codex@ci (11m)
+
+Bead: [tbd-dzme](https://github.com/…/tbd-sync/…) · `tbd show tbd-dzme` · `tbd web --open`
+synced 2026-08-14T17:20Z
+⟦/tbd⟧
+```
+
+Every line there is either already rendered or one resolver away.
+Nothing in it requires a new sync mechanism, a webhook, or a hosted service.
+
+### 5.7 Where GitHub fits
+
+The GitHub adapter is Phase 3 of the tracker spec and unimplemented
+(`integration-runner.ts:61`). It is worth being clear that **`refs` is not a substitute
+for it, and mostly removes the urgency**:
+
+- A *reference* to a GitHub issue or PR — “this bead’s work landed in #222” — is what
+  the traceability requirement actually needs, and `refs` covers it with no adapter, no
+  credential, and no reconciliation.
+- A GitHub *integration* — beads and issues converging bidirectionally, three-way merged
+  — is a much larger commitment, and the Linear brief’s §7 evidence is that
+  bidirectional sync is rare in practice for good reasons.
+
+So: ship `refs` now; treat the GitHub adapter as an independent decision about whether
+GitHub issues should be an authoring surface, not as a prerequisite for linking.
+
+* * *
+
+## 6. Proposed tbd primitives
 
 Each item states the problem, the proposal, and — importantly — why it belongs in the
 CLI rather than in agent instructions.
@@ -961,6 +1215,55 @@ the cost argument against `N` requests every sync.
 `sync.ts:1155` says the integration fold is “off by default.”
 It is on. One line, and it is exactly the kind of thing a future audit trusts.
 
+### E14. A `refs` list on beads (F14)
+
+The design is in [§5.5](#55-proposed-metadata-one-refs-list-not-four-fields): one
+additive, optional, top-level list of `{kind, url, title?, at}`, merged as a union keyed
+on `url`, provider-neutral, with `spec_path` left alone.
+Plus the CLI to reach it:
+
+```bash
+tbd ref add <bead> <url> [--kind pr|issue|doc|design|other] [--title "..."]
+tbd ref rm <bead> <url>
+tbd ref ls <bead>
+```
+
+*Why in the CLI:* an agent cannot invent a storage location.
+Without the field, four agents invent four conventions inside `notes` — which is
+single-writer replaceable state and will silently lose them.
+
+### E15. Wire the two dead renderers (F11, F12)
+
+- Pass a `repoUrl` resolver at both `planMirror` call sites and in the sync engine,
+  built exactly as `specUrl` already is (`integration-runner.ts:110-134` is the
+  pattern): `blobUrl(slug, syncBranch, 'issues/<internal-id>.md')`. That lights up the
+  managed block’s `Bead:` link and the bead-source attachment.
+- Populate `prUrls` from `refs` where `kind == pr`. The renderer and its `#222`
+  labelling already exist and are currently unreachable.
+
+Both are small because the presentation was written first and only the data was missing.
+
+### E16. Give `tbd web` an addressable bead (F13)
+
+Read `location.hash` at load, select that bead, and write the hash on selection, so
+`http://127.0.0.1:PORT/#tbd-dzme` opens the browser on one bead.
+Then the managed block can name it.
+
+A loopback URL is not shareable between machines, and that is fine — it is aimed at the
+person who has the repository checked out and wants the dependency graph and full field
+set that Linear structurally cannot render
+([§5.4 of the Linear brief](research-2026-08-09-linear-task-surfaces.md#54-what-each-surface-is-actually-good-at)).
+Rendering `tbd web --open` beside the id gives the same affordance without pretending a
+localhost link travels.
+
+### E17. Capture the PR ref automatically
+
+`create-or-update-pr-simple` holds the PR URL at its step 6 and currently only reports
+it to the user. Have it record the ref on the beads the branch closes.
+`tbd sync` can additionally resolve the current branch’s PR opportunistically via `gh`,
+recording it when found and staying silent when not — a bead should never be blocked on
+GitHub being reachable.
+
 ### E9. Instruction changes
 
 No code, and probably the highest ratio of value to effort:
@@ -972,10 +1275,16 @@ No code, and probably the highest ratio of value to effort:
 - Correct the “roughly 10%” figure, which appears in both the `setup-linear` shortcut
   and the `PRESETS` comment in `policy.ts` (F1), and state the `max_nesting` skip
   behavior so the first mirror’s output is not a surprise (F2).
+- **Make `new-research-brief` open with a bead, not a document**
+  ([§5.4](#54-the-workflow-this-brief-itself-failed-to-follow)): create the tracking
+  epic first, point `spec_path` at the doc that is about to exist, sync so it shows up
+  as *Started*, then write.
+  The same edit belongs in `new-architecture-doc` and `new-plan-spec`. This brief did it
+  backwards, which is the evidence that the shortcut does not ask.
 
 * * *
 
-## 6. Enforcement design, agent by agent
+## 7. Enforcement design, agent by agent
 
 Three commands — `tbd prime`, `tbd closing`, `tbd sync` — wired to each platform’s
 nearest equivalent event.
@@ -991,9 +1300,9 @@ Tiers are from [§2.1](#21-what-enforcement-can-actually-mean).
 | Last-chance sync | `tbd sync` | `SessionEnd` + explicit `timeout` (T-A) | `SessionEnd` (T-A) | `sessionEnd` (T-A) | `SessionEnd` (T-A) | — |
 
 Everything in the “Others” column falls back to instructions
-([§5 E9](#e9-instruction-changes)), which is why the instruction work is not optional.
+([§6 E9](#e9-instruction-changes)), which is why the instruction work is not optional.
 
-### 6.1 The gate must never trap the agent
+### 7.1 The gate must never trap the agent
 
 A completion gate that blocks on “unsynced” can loop forever when sync itself is failing
 — a revoked Linear key, no network egress, a rejected push.
@@ -1009,7 +1318,7 @@ Two constraints make it safe:
 This is the same “fail loud, never fail closed” posture the tracker sync already takes
 with its independent-surface failure containment.
 
-### 6.2 Sequencing
+### 7.2 Sequencing
 
 The gate is the last thing to build, not the first.
 Enforcing a protocol that agents have not been told about produces confused agents and
@@ -1018,12 +1327,12 @@ followed → then gate.
 
 * * *
 
-## 7. Risks and failure modes
+## 8. Risks and failure modes
 
 | Risk | Mechanism | Mitigation |
 | --- | --- | --- |
 | **Zombie claims** | An agent crashes mid-work; the bead stays `in_progress` with an assignee forever, and `tbd ready` hides it from every other agent | `tbd stale` already defaults to open + in_progress over 7 days. Add a claim-age surface in `prime` and the roll-up, and consider a shorter default for claimed beads |
-| **Gate loops** | A `Stop` hook blocks on a condition the agent cannot satisfy | [§6.1](#61-the-gate-must-never-trap-the-agent) |
+| **Gate loops** | A `Stop` hook blocks on a condition the agent cannot satisfy | [§7.1](#71-the-gate-must-never-trap-the-agent) |
 | **Credential sprawl** | Every agent that can sync holds a workspace-writable Linear key in its sandbox, sharing one identity and one rate-limit budget | Already flagged in [§7b.2 of the Linear brief](research-2026-08-09-linear-task-surfaces.md#7b2-what-a-second-non-git-replica-breaks). More frequent syncing raises the value of a narrower app identity |
 | **Inbound prompt injection** | `field_sync.comments` defaults to `two_way`, so Linear comments land in `extensions.<provider>.comments` and are read by agents. Anyone who can comment in the workspace can write text into bead data | Body is capped and the author is a display name only, but treat pulled comments as untrusted input. Worth an explicit note in the guidance |
 | **Sync-branch churn** | Frequent syncing turns `tbd changes` into noise — and F9 makes EVERY sync churn, even a quiet one | E10 (write nothing when nothing changed), then sync on transitions and commits, never on tool calls ([§3.3](#33-what-sync-on-claim-actually-costs)) |
@@ -1034,7 +1343,7 @@ followed → then gate.
 
 * * *
 
-## 8. Recommendations
+## 9. Recommendations
 
 The ordering changed once the costs were measured.
 **Make a quiet sync actually quiet first**, because every later item — the hook, the
@@ -1071,23 +1380,33 @@ rather than ceremonially.
    feature is off by default when it is on.
 8. Decide whether to lift this repository’s `sync_on_tbd_sync: false` pilot override.
 
-### Phase 2 — the claim protocol
+### Phase 2 — the claim protocol and the links
 
 9. `tbd start` (E1) and agent identity (E2).
 10. `tbd prime` reports claimed work and sync freshness (E5).
-11. Managed-block roll-up with in-flight children and a sync timestamp (E4).
+11. **`refs` on beads, plus `tbd ref add/rm/ls` (E14).** The one new field, and what
+    makes the rest of this phase have data to render.
+12. **Wire the two dead renderers (E15).** `repoUrl` and `prUrls` are written and
+    unreachable; a resolver each lights up Linear → bead source and Linear → PR.
+13. Managed-block roll-up: in-flight children, actor, doc, PRs, sync timestamp (E4).
+14. **Capture the PR ref automatically (E17)** from `create-or-update-pr-simple`, so the
+    link appears without anyone remembering.
 
-### Phase 3 — enforcement and selection
+### Phase 3 — enforcement, selection, and the bead browser
 
-12. `tbd closing --check` with exit-code semantics and `--json` (E6).
-13. `Stop`-event gate for Claude Code and Codex, with the anti-loop constraints (§6.1).
-14. Attention-based selection (E3), then narrow the default standing set to epics.
+15. `tbd closing --check` with exit-code semantics and `--json` (E6).
+16. `Stop`-event gate for Claude Code and Codex, with the anti-loop constraints (§7.1).
+17. Attention-based selection (E3), then narrow the default standing set to epics.
+18. **Addressable beads in `tbd web` (E16)**, so the managed block has somewhere to
+    point.
 
 ### Phase 4 — reach
 
-15. A `cursor` setup surface (`.cursor/hooks.json` + `sessionStart`/`stop`).
-16. A Gemini CLI surface (`settings.json` hooks; orientation only).
-17. Watch OpenCode’s hook-router work; ship a plugin when the API settles.
+19. A `cursor` setup surface (`.cursor/hooks.json` + `sessionStart`/`stop`).
+20. A Gemini CLI surface (`settings.json` hooks; orientation only).
+21. Watch OpenCode’s hook-router work; ship a plugin when the API settles.
+22. Decide independently whether the GitHub adapter is worth building
+    ([§5.7](#57-where-github-fits)) — `refs` covers the traceability need without it.
 
 **If only one thing ships: E10.** It is a handful of lines, it is the difference between
 “nothing changed” costing nothing and costing a commit plus a push plus a test suite,
@@ -1097,7 +1416,11 @@ and every other recommendation here gets cheaper behind it.
 (E1 + E9).** That converts every subsequent `tbd sync` — which agents already run at
 session end — into a live picture of who is working on what.
 
-### 8.1 What this streamlines, in one page
+**And if the goal is specifically “I can review the work from Linear”: E14 + E15.** One
+new field and two resolvers close both dead click-throughs, and neither touches the sync
+engine.
+
+### 9.1 What this streamlines, in one page
 
 The through-line of every recommendation above is the same: **move work out of the
 agent’s head and out of the agent’s critical path.**
@@ -1111,6 +1434,9 @@ agent’s head and out of the agent’s critical path.**
 | Know that `--issues` and `--push` behave differently toward Linear | Have flags that mean what they say | E12 |
 | Be trusted to remember the protocol at all | Be reminded by a hook, and gated once at the end | E6, §6 |
 | Mirror 114 beads to give a human visibility | Mirror ~37 and roll the rest up | E3, E4 |
+| Paste PR and doc links into a bead by hand, or lose them | `tbd ref add`, and the PR ref captured automatically | E14, E17 |
+| Tell a reviewer where to look, in prose | Hand them one Linear issue that links to the doc, the PR, and the bead | E15, E16 |
+| Write a research doc and remember afterwards to track it | Start from the bead; docs, specs, and PRs attach to it as they appear | E9, E14 |
 
 Two things this deliberately does **not** add, because they would cost more complexity
 than they buy:
@@ -1126,7 +1452,7 @@ than they buy:
 
 * * *
 
-## 9. Open questions
+## 10. Open questions
 
 1. **Should `tbd start` sync by default?** Syncing on claim is what makes Linear live,
    but it makes a local bookkeeping command touch the network.
@@ -1155,6 +1481,18 @@ than they buy:
 9. **Should the tracker be part of the `--issues` surface rather than its own?** Beads
    and their mirror are arguably one logical thing, and merging them would remove the
    surprise in F6 rather than documenting it.
+10. **Should an *inherited* `spec_path` select a bead for mirroring?** §5.3 shows the
+    `specs: active` clause really means “every descendant of every spec-carrying epic.”
+    Selecting only the bead that carries the spec would cut the mirror sharply and
+    probably match what people expect the rule to say.
+11. **Should `spec_path` be renamed, or joined by `doc_path`?** It already accepts any
+    repository path and propagates usefully, but the name stops agents from pointing it
+    at research or architecture docs.
+    A rename is a format concern; an alias is not.
+12. **Should `refs` be pushed to the tracker as native links?** Linear attachments would
+    make PRs first-class in its UI rather than lines in a description block.
+    That is a nicer result and a larger surface: attachments are already used for the
+    bead metadata carrier, so the interaction needs thought.
 
 * * *
 
