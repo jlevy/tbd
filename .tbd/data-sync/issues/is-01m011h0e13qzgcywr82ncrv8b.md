@@ -3,13 +3,15 @@ type: is
 id: is-01m011h0e13qzgcywr82ncrv8b
 title: Repair empty cloned data worktrees during setup
 kind: bug
-status: in_progress
+status: closed
 priority: 1
-version: 3
+version: 4
 labels: []
 dependencies: []
 created_at: 2026-08-14T21:05:55.648Z
-updated_at: 2026-08-14T21:46:09.625Z
+updated_at: 2026-08-14T22:11:40.929Z
+closed_at: 2026-08-14T22:11:40.928Z
+close_reason: Released get-tbd v0.6.4 with historical scaffold recovery and verified exact tryscript upgrade proof.
 ---
 A fresh clone of jlevy/tryscript at 0.4.2/f06 has an empty remote tbd-sync branch whose shared worktree lacks .tbd/data-sync/{issues,mappings}. tbd 0.6.3 prime and setup both report the worktree healthy, but tbd create fails with Shared worktree not found. Make setup/initialization repair the missing current data layout automatically, align doctor/status with create, add regression coverage, release the patch, then retry the downstream upgrade from a fresh clone.
 
