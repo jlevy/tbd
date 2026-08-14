@@ -6,13 +6,17 @@ category: general
 ---
 ## Backward Compatibility Guidelines
 
-Backward compatibility is a cost paid to protect a consumer that cannot be updated in
-the same change. When such a consumer exists, that cost buys something real.
-When one does not, the same code buys nothing and cannot even be tested honestly,
-because no input can reach it.
+Backward compatibility protects a consumer that must keep using the old contract after
+your change ships. Where such a consumer exists, the cost buys something real.
+Where none exists, it buys nothing.
 
-These guidelines cover both halves: how to decide whether compatibility is needed, and
-what to do once you know.
+The cost is not one-time.
+Every alias, fallback branch, extra reader, and migration path becomes state that every
+later change has to discover, preserve, test, and describe.
+Those paths compose: each one multiplies the cases the next person must reason about,
+and each one looks like evidence of a constraint, so later work preserves it and adds
+more.
+Deciding the requirement *before* implementing is what keeps that from compounding.
 
 ### Types of Backward Compatibility
 
@@ -33,94 +37,90 @@ When making code changes, you should be aware of compatibility requirements for:
 
 - Database schema compatibility
 
-### The Deciding Question
+### Finding the Compatibility Boundary
 
-For each area, ask one question:
+For each area, ask:
 
-> **Does a consumer exist today that cannot be updated in the same commit?**
+> **After this change ships, must some real consumer keep using the old contract?**
 
-Name it. A specific released version, a separately deployed client, a third-party
-integration, data already on a user’s disk.
-If you cannot name one, the answer for that area is DO NOT MAINTAIN.
+Name that consumer: a released version still in use, a component that deploys on its own
+schedule, a third-party integration, data already written to a user’s disk.
+If you can name one, compatibility is real for that area.
+If you cannot, the answer is DO NOT MAINTAIN.
 
-The following are **not** consumers, and treating them as such is the most common way
-unnecessary compatibility code enters a codebase:
+The boundary is *shipping*, not the commit.
+Two components changed in one commit still need compatibility if they reach production
+independently, and components in separate repositories may need none if they always ship
+together.
 
-- “Someone might be running an older client.”
-  If they cannot be, they are not a consumer.
-- A future version of this same repository.
-- A hypothetical third-party integration that does not exist yet.
+These are not consumers, and treating them as such is the most common way unnecessary
+compatibility code enters a codebase:
+
+- “Someone might be running an older client,” where the deployment makes that
+  impossible.
+- A future version of this same codebase.
+- Your own tests, which you can update.
+- A hypothetical integration that does not exist yet.
 - An unreleased format or interface, however carefully designed.
 
-Three facts usually settle the question:
+Decide from evidence, not intuition:
 
-- **Deployment coupling.** If the client and server ship as one artifact and the client
-  cannot cache across an upgrade, there is no version skew for compatibility code to
-  protect against. A single deployable unit with cache-busted assets is internal code,
-  whatever protocol runs between its halves.
+- **Deployment topology.** Determine whether the pieces can actually run at different
+  versions. Independently deployed services usually can; a client shipped inside the same
+  artifact, with no stale cache path, usually cannot.
 - **Release history.** Persisted state and file formats need migration only for shapes
-  that some released version actually wrote.
-  Check the tags before assuming.
-- **Maturity and adoption.** A pre-1.0 interface with no external adopters is cheaper to
-  break than to carry.
+  some released version actually wrote.
+  Check the tags rather than assuming.
+- **Adoption.** Count the consumers you do not control.
+  A pre-1.0 interface with none is cheaper to change than to carry.
+- **Persisted data.** Data already written outlives the code that wrote it, so it is a
+  consumer even when no running program is.
 
-### Versioning Is Not Backward Compatibility
+A synthetic test can exercise an unneeded path, so coverage is not evidence of need: it
+shows the branch runs, and it entrenches the branch.
 
-These are separate decisions, and conflating them is expensive.
+### Choosing the Smallest Valid Response
 
-- **Versioning** stamps a payload with a version, revision, or fingerprint so a consumer
-  can detect a mismatch and **fail loudly**. This is cheap, and for anything that leaves
-  the process it is required.
-- **Backward compatibility** keeps a reader for the old shape alongside the new one.
-  This is the expensive part.
+Compatibility is not the only answer to a changing contract, and it is the most
+expensive one. Two alternatives often serve better, and neither is a compatibility mode:
 
-You can and usually should version without maintaining compatibility: stamp the
-identity, ship exactly one reader, and refuse anything else with a clear error.
-A consumer that sees an unfamiliar identity should stop, not guess.
+- **Detect and refuse.** Stamp a version, revision, or fingerprint, ship exactly one
+  reader, and reject anything else with a clear error.
+  Worth doing wherever a mismatch can actually occur and would otherwise be hard to
+  diagnose; unnecessary where the pieces cannot diverge.
+  Versioning is about diagnosis, not compatibility: you can version a payload without
+  accepting an old one.
+- **Enforce an upgrade.** Where a host loads code or data it does not ship — plugins,
+  extensions, adapters — declare the contract version the host provides and refuse
+  anything else at load time, with an error naming the required version and what to do.
+  For a young ecosystem, upgrading the consumers usually costs less than carrying a
+  compatibility layer per generation.
 
-### Enforce an Upgrade Instead of Absorbing It
+A version field that is recorded but never compared is worse than no field: it implies a
+guarantee the host does not provide.
 
-When a host loads code or data it does not ship — plugins, extensions, adapters — a hard
-version gate is usually cheaper and safer than a compatibility layer per generation.
-
-- Declare the contract version the host provides.
-- Refuse anything else at load time, with an error naming the required version and what
-  to do about it.
-- Bump that version only when the contract actually breaks, and update everything you
-  ship in the same commit.
-
-This makes a break loud and immediate instead of a mysterious failure deep inside a
-consumer. For a young ecosystem, upgrading the consumers is nearly always cheaper than
-carrying support for every generation of the interface.
-
-A version field that is recorded but never compared is worse than no field at all: it
-implies a guarantee the host does not actually provide.
-
-### Backward Compatibility Template
+### Backward Compatibility Requirements Template
 
 > Use the following template when clarifying backward compatibility requirements:
 
-For the following areas:
+Answer each area with one of:
 
-- “DO NOT MAINTAIN” means simply make the changes and DO NOT preserve any old stubs or
-  add comments about past changes
+- “DO NOT MAINTAIN” — make the change and remove the old path entirely
 
-- “KEEP DEPRECATED” means to add new features but also preserve support, function stubs,
-  and comments about past changes
+- “KEEP DEPRECATED” — keep the old surface working alongside the new one, and state what
+  is deprecated, how consumers are notified, and when it will be removed
 
-- “SUPPORT BOTH” means to add new features while also preserving a working path for the
-  old shape, so both remain usable at the same time
+- “SUPPORT BOTH” — keep both shapes usable at the same time, with no removal planned
 
-- “VERSION + FAIL FAST” means to stamp an identity and ship one reader, refusing an
-  unrecognized version with a clear error rather than interpreting it
+- “VERSION + FAIL FAST” — not compatibility: stamp an identity, ship one reader, refuse
+  anything else with a clear error
 
-- “UPGRADE + GATE” means to break the contract deliberately, refuse mismatched consumers
-  at load time with an actionable error, and expect them to update
+- “UPGRADE + GATE” — not compatibility: break the contract, refuse mismatched consumers
+  at load time, and expect them to update
 
-- “MIGRATE” means to add new features but also document and use database migrations or
-  automated tasks to migrate to new formats or schemas
+- “MIGRATE” — convert existing data or schemas forward through documented migrations
 
-- “N/A” means this area isn’t applicable
+- “N/A” — this area isn’t applicable
 
 **BACKWARD COMPATIBILITY REQUIREMENTS:**
 
@@ -131,7 +131,7 @@ For the following areas:
   [DO NOT MAINTAIN or KEEP DEPRECATED or N/A, plus any additional notes]
 
 - **Server APIs**:
-  [DO NOT MAINTAIN or KEEP DEPRECATED or N/A, plus any additional notes]
+  [DO NOT MAINTAIN or KEEP DEPRECATED or VERSION + FAIL FAST or N/A, plus any additional notes]
 
 - **Plugin and extension APIs**:
   [DO NOT MAINTAIN or UPGRADE + GATE or KEEP DEPRECATED or N/A, plus any additional notes]
@@ -144,61 +144,34 @@ For the following areas:
 
 - **Database schemas**: [DO NOT MAINTAIN or MIGRATE or N/A, plus any additional notes]
 
-### Always Clarify Backward Compatibility Requirements
+ALWAYS be clear on these requirements when making changes, and state them in any
+specification. If they are not clear, stop and ask for clarification.
 
-- ALWAYS be clear on backward compatibility requirements when making changes.
-  These should ALWAYS be clear in any specification.
+Better than asking per change: record the answers once in the repository’s own
+development guidance, so each change reads them instead of re-deciding.
+Revisit them when the boundary moves — a first external adopter, a published format, a
+component that starts deploying separately.
 
-- If they are not clear, stop and ask the user for clarification.
+### Removing Compatibility Code
 
-- Better than asking per change: record the standing answers once, in the repository’s
-  own development guidance, so each change reads them instead of re-deciding.
-  Revisit them when the deciding question’s answer changes — a first external adopter, a
-  published format, a client that starts shipping separately.
+Layers are easy to add and hard to remove, because removing one means re-deriving the
+argument that nothing depends on it.
 
-### When Backward Compatibility Is Important
+- Unless the spec or the user says otherwise, do not leave deprecated or compatibility
+  code behind after refactoring within a single application.
+  Remove the old functions, methods, classes, or files completely.
 
-- In general, compatibility for libraries, servers, file formats and database schemas is
-  VERY IMPORTANT. Compatibility and migration should be planned carefully.
-
-- That importance comes from having consumers you do not control, not from the category
-  itself. A server API consumed only by a client shipped in the same artifact, or a
-  library with no external adopters, is internal code and should be treated as such.
-
-- Backward compatibility and legacy support *within* a single application is usually NOT
-  important and should NOT be done if it needlessly complicates code changes.
-  But if not specified, it also should be clarified to be sure it is not needed.
-
-### Single Application Code Backward Compatibility
-
-- Unless stated in the spec or stated by the user, deprecated and backward compatibility
-  code support should NOT be left after refactors to a single application repository.
-
-- When doing normal refactoring or reorganizing code, REMOVE deprecated functions,
-  methods, classes, or files completely if backward compatibility is not needed.
-
-- Change an internal contract everywhere in one commit: rename the field, update every
-  caller, update the tests, and record it in the changelog.
-  Removing an internal interface is a normal edit, not a migration.
-
-### Removing Compatibility Code That Is No Longer Needed
-
-Compatibility layers are easy to add and hard to remove, because removing one means
-re-deriving the argument that nothing depends on it.
-
-- When you find an alias, fallback branch, or shim whose consumer you cannot name,
-  delete it as part of the change you are already making.
-
-- Do not file it as future cleanup.
-  A deferred removal is how a transitional layer becomes permanent, and the deadline
-  usually passes unnoticed.
+- When you find an alias, fallback, or shim whose consumer you cannot name, delete it as
+  part of the change you are already making.
+  Do not file it as future cleanup; a deferred removal is how a transitional layer
+  becomes permanent.
 
 - In review, a compatibility branch whose protected consumer nobody can name is a
   finding, not a detail.
 
-- Unreachable compatibility code is not merely unused.
-  No test can exercise it, so it rots silently, and it misleads every later reader into
-  believing a constraint exists.
+- Describe the surface that exists now.
+  Removed paths belong in release notes if they affect consumers, not in comments
+  narrating what the code used to do.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
