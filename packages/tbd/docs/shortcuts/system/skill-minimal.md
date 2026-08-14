@@ -6,7 +6,7 @@ description: >-
   best practices, planning features, setting up a Linear/external tracker integration
   or personal Linear API key, or viewing beads in a live browser.
 license: MIT
-compatibility: Requires Node.js 20.12+ and git. Install CLI first: npm install -g get-tbd@latest
+compatibility: Requires Node.js 22.12.0 or newer and git. Install CLI first: npm install -g get-tbd@latest
 metadata:
   author: jlevy
   repository: https://github.com/jlevy/tbd

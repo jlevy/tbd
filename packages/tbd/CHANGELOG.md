@@ -49,8 +49,16 @@
   additive and mixed-version safe.
 - `tbd doctor` gains hierarchy and integration checks.
 
+### Changed
+
+- Node.js 22.12.0 is now the minimum supported runtime.
+  The CLI bootstrap reports an actionable version error before loading the application
+  on older Node releases, and CI exercises the minimum version on Linux.
+
 ### Fixed
 
+- Pin transitive `js-yaml` 3.x and 4.x to the patched 3.15.1 and 4.3.1 releases,
+  resolving CVE-2026-59870’s quadratic `!!omap` parsing path.
 - Every display prefix accepted by `init` and `setup --force` (including digits, dots,
   and underscores) is now parsed by issue and integration commands.
   Exact imported short IDs win before prefix stripping, preserving short IDs that

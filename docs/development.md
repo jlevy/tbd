@@ -4,7 +4,7 @@ Development setup and workflows for `get-tbd` (the tbd CLI).
 
 ## Prerequisites
 
-- Node.js >= 20
+- Node.js 22.12.0 or newer
 - pnpm (will be installed automatically via corepack)
 
 ## Setup

@@ -4,9 +4,13 @@
   "type": "module",
   "packageManager": "pnpm@10.28.2",
   "engines": {
-    "node": ">=20.12"
+    "node": ">=22.12.0"
   },
   "pnpm": {
+    "overrides": {
+      "js-yaml@3": "3.15.1",
+      "js-yaml@4": "4.3.1"
+    },
     "onlyBuiltDependencies": [
       "esbuild",
       "lefthook"

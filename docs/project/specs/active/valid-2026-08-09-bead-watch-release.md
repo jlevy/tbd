@@ -142,8 +142,8 @@ The exact procedure and evidence checklist live in
 
 - [ ] Repeat the passing isolated-prefix tarball smoke at the exact release-tag SHA and
   record the artifact checksum.
-- [ ] Run that exact packed artifact under the supported Node.js 20 runtime floor; CI
-  covers the built candidate under Node.js 24.
+- [ ] Run that exact packed artifact under the supported Node.js 22.12.0 runtime floor;
+  CI covers the built candidate under Node.js 22.12.0 and Node.js 24 on Linux.
 - [ ] Run one selected wake over a disposable private GitHub remote using the same
   SSH/HTTPS credential path as the intended operator.
 - [ ] Confirm the remote-tracking ref, local sync ref, `FETCH_HEAD`, caller worktree,

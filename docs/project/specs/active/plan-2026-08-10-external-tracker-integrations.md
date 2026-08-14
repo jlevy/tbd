@@ -265,19 +265,17 @@ and the existing dependency set.
 
 | Need | Choice | Rationale |
 | --- | --- | --- |
-| `.env` parsing | **Node built-in `util.parseEnv`** | Node’s own dotenv-compatible parser: handles quotes, comments, `export` prefixes, and multiline values. It is the “library” answer without the dependency. Available since Node 20.12 / 21.7; see engines note below |
-| HTTP | **Native `fetch`** (Node ≥ 18) | Already the platform baseline; no undici/axios needed |
+| `.env` parsing | **Node built-in `util.parseEnv`** | Node’s own dotenv-compatible parser: handles quotes, comments, `export` prefixes, and multiline values. It is the “library” answer without the dependency and is available throughout tbd’s supported Node range |
+| HTTP | **Native `fetch`** | Available throughout tbd’s supported Node range; no undici/axios needed |
 | GraphQL | **Template strings over `fetch`** | The pilot needs ~6 queries and ~5 mutations. `@linear/sdk` brings typed models and pagination helpers but adds a dependency and its own release cadence for a surface this small. Revisit only if the query surface grows substantially |
 | Response/state validation | **`zod`** (already a dependency) | Same tool used for every other schema in the codebase |
 | Bridge-state files | **`yaml`** (already a dependency) | Same serializer as config and mappings |
 | GitHub REST | **Native `fetch`**, token via `gh auth token` fallback | Issues + PR linking is a handful of endpoints; Octokit is not warranted |
 | Secret masking, ref parsing, managed block | **Internal** (~30 lines each) | Trivial, and each has project-specific behavior worth owning |
 
-**Engines note:** `util.parseEnv` requires Node ≥ 20.12. Current engines say `>=20`.
-Bump `engines.node` to `>=20.12` in the same PR (a patch-level floor raise within the
-supported major; Node 20.12 shipped 2024-03). The alternative, shipping a fallback
-parser for 20.0–20.11, doubles the test surface to support Node versions nobody should
-be running.
+**Engines note:** tbd requires Node ≥ 22.12.0. This maintained runtime floor supports
+`util.parseEnv` directly, without a custom dotenv parser or a compatibility-only dynamic
+import path.
 
 What is deliberately **not** internal: quoting/escaping rules of dotenv files (use
 `util.parseEnv`), markdown rendering (not needed), and OAuth flows (out of scope; API
@@ -1331,7 +1329,8 @@ Shipped in Phase 1:
 - Commands: `tbd integration status` and `tbd integration sync --push`, with the bulk
   guard’s `--yes`.
 - `tbd doctor`: two non-fatal checks (integrations, parent hierarchy).
-- `engines.node`: `>=20` → `>=20.12` (for `util.parseEnv`).
+- `engines.node`: `>=22.12.0`; the bootstrap rejects older runtimes with an actionable
+  error before loading the CLI bundle.
 
 Phase 2 adds:
 
@@ -1413,8 +1412,8 @@ Validated live against the `tbd` Linear project: staged rollout (3 → 13 → 82
 bulk-guard refusal exercised, and a team move (0 creates, 80 updates, all keys refreshed
 `FIN-*` → `TBD-*`).
 
-- [x] `lib/env-file.ts` (`util.parseEnv`, no `process.env` mutation) + engines bump;
-  gitignore enforcement in status/doctor.
+- [x] `lib/env-file.ts` (`util.parseEnv`, no `process.env` mutation); gitignore
+  enforcement in status/doctor.
 - [x] `integrations/core/credentials.ts` with masking; secret-hygiene tests.
 - [x] `IntegrationsConfigSchema`; `integrations/core/registry.ts`.
 - [x] `cli/commands/integration.ts` on `BaseCommand`; `status` with probes, remedies,
@@ -1583,8 +1582,10 @@ Phase 2 extends the same structure:
 
 ## Rollout Plan
 
-1. ✅ Phase 1 landed with **no format bump** (links ride `extensions`) and the engines
-   bump. No behavior change for repositories without an `integrations` block.
+1. ✅ Phase 1 landed with **no format bump** (links ride `extensions`) and a Node
+   `>=22.12.0` runtime floor.
+   On supported runtimes, repositories without an `integrations` block remain inert and
+   offline.
 2. ✅ This repo is the pilot: 84 issues mirrored into the `tbd` project on the `TBD`
    team, through a staged rollout and a team move.
    Ongoing: keep mirroring as the epic set evolves.

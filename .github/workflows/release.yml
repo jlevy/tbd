@@ -28,6 +28,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - run: pnpm audit --prod
+
       - run: pnpm build
 
       - run: pnpm publint
