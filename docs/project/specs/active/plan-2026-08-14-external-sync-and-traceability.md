@@ -297,6 +297,36 @@ Design decisions, each with its reason:
   `refs`. The two coexist without ambiguity, which also means Phase 2 does not block on
   a GitHub adapter.
 
+#### The integration config reshapes in the same bump
+
+The provider block has grown one flat key at a time and already mixes five concerns
+(where, what, how marked, who, operation) as siblings.
+Phase 3’s labels and every future mode decision would continue the sprawl.
+Since `f08` is already a format ceremony, the integrations config reshapes in it — one
+bump, not two (moves inside the block are format-gated by the same rule that gated
+`f07`):
+
+```yaml
+integrations:
+  sync_on_tbd_sync: true
+  linear:
+    enabled: true
+    target: { team_key: TBD, project: tbd } # WHERE
+    policy: default # WHAT (absorbs max_nesting into policy.outbound)
+    labels: # HOW marked
+      origin: true # plain `tbd` label — default ON in every mode
+      repo: auto # `repo` group label: auto (git origin) | <name> | false
+      mirror: false # was mirror_labels
+      create: true # was create_labels
+    identity: { user_map: {} } # WHO
+```
+
+The migration is mechanical and lossless; the legacy `select` alias retires.
+**The integration mode is deliberately not serialized** — it is a claim about other
+repositories’ configs that this one cannot verify.
+Only local fact is stored; `doctor` infers cross-repo risk.
+Full rationale: research §4.7.
+
 #### CLI
 
 ```bash
@@ -378,8 +408,10 @@ the containment model (research §4.5):
 | Mode 2 | One team, one shared project, repo labels | No — needs the two changes below |
 | Mode 3 | One team, project per repo, shared initiative | Yes |
 
-Mode 2 is the topology this phase makes first-class, because it is also the answer to
-the human-clutter concern:
+The labels below apply in **every** integration mode, by default — they cost nothing,
+keep human filtering uniform, and make a Mode 1 repository consolidation-ready; a
+repository opts out via `labels.origin: false`. Mode 2 is the topology they make
+first-class, and they are also the answer to the human-clutter concern:
 
 - **Origin labels.** Every mirrored issue gets a plain `tbd` label and a per-repository
   label in a **Linear label group** named `repo` — the platform’s native namespace
@@ -506,6 +538,8 @@ performs no push. `tbd start` exists and the claim step appears in all four surf
 - [ ] `tbd-cak1` — the `docs` field, `tbd doc add|rm`, and `docs: 'union'`
 - [ ] `tbd-vo8b` — the `refs` field, `tbd ref add|rm`, and `refs: 'union'`
 - [ ] `tbd show` renders governing spec, docs, and refs, grouped
+- [ ] Integration config reshape: `target`/`policy`/`labels`/`identity` groups,
+  mechanical migration, `select` retired (research §4.7, E20)
 - [ ] `tbd-u25v` — decide whether an inherited `spec_path` should select a bead
 
 `tbd-8ksq` gates the other two: adding a field before the schema preserves it would ship

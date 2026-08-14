@@ -938,6 +938,103 @@ human decision rather than an inference.
 
 * * *
 
+### 4.7 The integration config is the data model
+
+The mode analysis above surfaces a deeper risk than any single missing feature:
+**snowflake variation.** Every topology, label, and remap decision so far lands as one
+more flat key on the provider block, and the block is already a mixture of five
+different concerns grown one key at a time:
+
+```yaml
+integrations:
+  sync_on_tbd_sync: true # operation
+  linear:
+    enabled: true # operation
+    team_key: TBD # where
+    project: tbd # where
+    policy: default # what to sync
+    select: {} # what to sync (legacy alias for policy.outbound)
+    max_nesting: 2 # what to sync (creation depth)
+    mirror_labels: false # how it is marked
+    create_labels: true # how it is marked
+    user_map: {} # who people are
+```
+
+Add `repo_label` and an origin toggle as two more flat keys and the trend is set: every
+future decision becomes a sibling of every past one, each with its own name style, and
+the only way to understand a config is to know the history of the feature.
+The robust alternative the modes require is a config whose *shape* answers the
+questions, so that variation lives in values rather than in structure.
+
+**The proposed model: one sub-object per question.** Every key under a provider answers
+exactly one of *where*, *what*, *how marked*, or *who* — plus the two operational
+booleans that gate the whole thing:
+
+```yaml
+integrations:
+  sync_on_tbd_sync: true
+  linear:
+    enabled: true
+    target: # WHERE the mirror lives
+      team_key: TBD
+      project: tbd # optional
+    policy: default # WHAT syncs (preset name or full object;
+    #   max_nesting moves into policy.outbound)
+    labels: # HOW mirrored items are marked
+      origin: true # the plain `tbd` label — default ON in every mode
+      repo: auto # `repo` group label: auto (from git origin) | <name> | false
+      mirror: false # was mirror_labels
+      create: true # was create_labels
+    identity: # WHO canonical assignees are
+      user_map: {}
+```
+
+The same shape serves GitHub with `target: {repo: owner/name}` — the grouping is
+provider-neutral even though the keys inside `target` differ.
+
+Decisions worth stating, because each one is a “simple simple, complex possible” call:
+
+- **Labels are on in every mode, by default.** The `tbd` origin label and the
+  `repo`-group label cost nothing, make Mode 1 repositories consolidation-ready (moving
+  to a shared scope later requires no relabeling), keep human filtering uniform across
+  modes, and make the inbound origin-scoping guard work everywhere.
+  `labels.origin: false` opts a repository out entirely; `labels.repo: false` drops just
+  the repo label; a string pins the name.
+  The *default* requires zero configuration — a repo with a bare `enabled` + `target`
+  gets the full marking behavior.
+- **The mode is deliberately NOT a config field.** A declared mode would be a claim
+  about *other repositories’* configs, which this repo cannot see and cannot keep true.
+  The modes remain documentation vocabulary; what is serialized is only local fact
+  (target, policy, labels).
+  `tbd doctor` and the sync report can *infer* risk — inbound `auto` on a scope with
+  foreign-labeled traffic, say — which is strictly more honest than trusting a
+  declaration.
+- **`policy` was already right, and absorbs `max_nesting`.** The preset-name-or-object
+  pattern is the model the rest of the config should follow: `policy: default` for the
+  simple case, the full object for the complex one, resolution total either way.
+  Creation depth is a selection concern, so it moves into `policy.outbound` and rides
+  presets.
+- **The legacy `select` alias retires.** Two spellings of the outbound clause is exactly
+  the variation this model exists to remove.
+- **The reshape rides `f08` — one ceremony, not two.** Moves and renames inside the
+  integrations block are format-gated by the same rule that gated `f07` (an older client
+  rewriting the block would mis-read moved keys), and Phase 2 of the plan spec is
+  already an `f08` bump for the bead schema.
+  The migration is mechanical and lossless: `team_key`/`project` → `target`,
+  `mirror_labels`/`create_labels` → `labels`, `user_map` → `identity`, `select` folds
+  into `policy.outbound` (which the resolver already does at runtime), `max_nesting`
+  into `policy.outbound`. After `f08`, both bead fields and config keys are
+  preserve-unknown, so the *next* decision — whatever it is — is a value in an existing
+  group or a new optional group, and needs no bump at all.
+
+This is also the honest answer to “make sure resync works when the mapping changes”
+(§4.6): a config whose groups are explicit makes the remap semantics teachable —
+changing `target` affects new creates only, changing `policy` is safe, changing `labels`
+re-marks on the next push — because each group has one remap rule instead of ten keys
+each having their own.
+
+* * *
+
 ## 5. Traceability: beads, docs, PRs, and the tracker
 
 The requirement, stated as a test a person can run: **open Linear, see what has been
@@ -1414,9 +1511,13 @@ sibling repo’s traffic.
 Include the repo name in new claim attachments so the one-source guard’s refusal can say
 who holds the claim.
 
-This is what makes topology Mode 2 (one team, one shared project, several repos)
-first-class, and it is also the human-clutter answer: `label != tbd` in any Linear view
-hides all agent-synced items.
+Labels apply in **every** integration mode, not only Mode 2 — they cost nothing, keep
+human filtering uniform, and make a Mode 1 repository consolidation-ready.
+`labels.origin: false` opts out; `labels.repo` pins or drops the repo label
+([§4.7](#47-the-integration-config-is-the-data-model) has the config home).
+This is what makes Mode 2 (one team, one shared project, several repos) first-class, and
+it is also the human-clutter answer: `label is not tbd` in any Linear view hides all
+agent-synced items.
 
 ### E19. Remap safety (F17)
 
@@ -1429,6 +1530,17 @@ No migration tooling — visibility and one guard:
 3. Document remap semantics in `setup-linear`: policy changes are safe; `project` and
    `team_key` changes affect new creates only; moving existing items is a deliberate
    operation, not something sync infers.
+
+### E20. One integration config model, grouped by concern (f08)
+
+The shape in [§4.7](#47-the-integration-config-is-the-data-model): `target` (where),
+`policy` (what, absorbing `max_nesting`), `labels` (how marked, absorbing
+`mirror_labels`/`create_labels` and adding `origin`/`repo`), `identity` (who, holding
+`user_map`), with the legacy `select` alias retired.
+Migration is mechanical and lossless, rides the same `f08` bump as the bead schema, and
+after it every future integration decision is a value in an existing group rather than a
+new sibling key. The mode is deliberately not serialized — it is a claim about other
+repositories that this one cannot verify; `doctor` infers risk instead.
 
 ### E9. Instruction changes
 
