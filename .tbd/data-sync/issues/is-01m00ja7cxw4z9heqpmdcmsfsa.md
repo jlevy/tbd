@@ -5,13 +5,14 @@ title: tbd sync --dry-run and --status never cover the tracker
 kind: bug
 status: open
 priority: 2
-version: 2
-spec_path: docs/project/research/current/research-2026-08-14-agent-sync-protocol-and-hooks.md
-labels: []
+version: 4
+spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+labels:
+  - phase-1
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:40:04.765Z
-updated_at: 2026-08-14T16:50:18.055Z
+updated_at: 2026-08-14T17:25:09.173Z
 ---
 Two gaps in the same surface:
 

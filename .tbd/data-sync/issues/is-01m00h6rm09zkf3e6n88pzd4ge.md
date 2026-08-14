@@ -5,13 +5,14 @@ title: "Zombie claim sweep: surface stale in_progress claims"
 kind: task
 status: open
 priority: 3
-version: 2
-spec_path: docs/project/research/current/research-2026-08-14-agent-sync-protocol-and-hooks.md
-labels: []
+version: 4
+spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+labels:
+  - phase-4
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:20:42.751Z
-updated_at: 2026-08-14T16:50:18.055Z
+updated_at: 2026-08-14T17:25:13.305Z
 ---
 An agent that crashes mid-work leaves a bead in_progress with an assignee forever, and tbd ready hides it from every other agent (ready means open, unblocked, AND unclaimed).
 

@@ -5,9 +5,10 @@ title: "Add tbd start: the claim primitive"
 kind: feature
 status: open
 priority: 1
-version: 4
-spec_path: docs/project/research/current/research-2026-08-14-agent-sync-protocol-and-hooks.md
-labels: []
+version: 6
+spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+labels:
+  - phase-1
 dependencies:
   - type: blocks
     target: is-01m00h5y6q413edk3j82zry3d9
@@ -15,7 +16,7 @@ dependencies:
     target: is-01m00h5zhsp0wh3nkcydjf0rtk
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:19:52.626Z
-updated_at: 2026-08-14T16:50:18.055Z
+updated_at: 2026-08-14T17:25:09.186Z
 ---
 One verb, symmetric with tbd close: 'tbd start <ids...>' sets status=in_progress and assignee=<resolved agent identity>; '--sync' publishes immediately. Collapses three concepts an agent must currently remember to combine, and gives hooks something unambiguous to check. ready/start/close is a complete teachable vocabulary; 'update --status' is a generic escape hatch that happens to also do this.
 

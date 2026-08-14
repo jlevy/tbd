@@ -5,13 +5,14 @@ title: Add tbd doctor check that executes the installed hook scripts
 kind: task
 status: open
 priority: 2
-version: 2
-spec_path: docs/project/research/current/research-2026-08-14-agent-sync-protocol-and-hooks.md
-labels: []
+version: 4
+spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+labels:
+  - phase-1
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:19:33.659Z
-updated_at: 2026-08-14T16:50:18.055Z
+updated_at: 2026-08-14T17:25:09.184Z
 ---
 doctor verifies hook files exist and are wired into settings, but never runs them, so it cannot detect the failure in §1.3. Execute each installed hook script with a probe input and report its exit code and first stderr line.
 
