@@ -242,16 +242,19 @@ It also bundles spec-driven workflows, reusable workflow shortcuts, and a curate
 knowledge base of engineering best practices that agents can inject into their context
 on demand.
 
-tbd provides **three integrated capabilities**:
+tbd provides **four integrated capabilities**:
 
 1. **Task tracking (beads)**—Git-native issues, bugs, epics, and dependencies that
    persist across sessions.
    This alone is a step change in what agents can do.
 2. **Spec-driven planning**—Workflows for writing specs, breaking them into issues, and
    implementing systematically.
-3. **Instant knowledge injection**—17+ detailed guideline docs covering TypeScript,
+3. **Instant knowledge injection**—25+ detailed guideline docs covering TypeScript,
    Python, Convex, monorepo architecture, TDD, and more—injected into the agent’s
    context on demand via shortcuts, guidelines, and templates.
+4. **Live views and tracker sync**—A local read-only web view of bead state (§4.15),
+   change watching for agents (§4.14), and synchronization with external trackers,
+   starting with Linear (§8.7).
 
 The **issue tracking layer** has four core principles:
 
@@ -263,15 +266,14 @@ The **issue tracking layer** has four core principles:
 - **Transparent internal format**—Markdown/YAML files that are debuggable and friendly
   to other tooling
 
-It does *not* aim to be a full solution for real-time agent coordination.
-Git works best when latency is seconds, not milliseconds, and volume is thousands of
-issues, not millions.
-
-That said, it may be the base for future coordination layers.
-Real-time agent coordination (such as used by
-[Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail),
-[Gas Town](https://github.com/steveyegge/gastown)) is a separate problem—one that can be
-layered on top of tbd or handled by other tools.
+Coordination and visibility build on that durable core: `tbd watch` (§4.14) wakes a
+process when selected bead state changes on the remote, `tbd web` (§4.15) serves a live
+read-only view, and `tbd integration` (§8.7) synchronizes beads with external trackers
+such as Linear. Git works best when latency is seconds, not milliseconds, and volume is
+thousands of issues, not millions, so sub-second messaging and atomic claim enforcement
+(as provided by [Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail) and
+[Gas Town](https://github.com/steveyegge/gastown)) remain separate problems—ones that
+can be layered on top of tbd or handled by other tools.
 
 **Key characteristics:**
 
@@ -297,6 +299,12 @@ layered on top of tbd or handled by other tools.
 
 - **Cross-environment**: Works on local machines, CI, cloud sandboxes, network
   filesystems
+
+- **Live local web view**: `tbd web` serves a loopback-only, read-only board that
+  updates as local bead state changes (§4.15)
+
+- **External tracker sync**: Optional per-repository integration mirrors or
+  bidirectionally synchronizes beads with Linear; GitHub is planned (§8.7)
 
 **Related Projects:**
 
@@ -352,7 +360,8 @@ tbd and Beads serve different use cases:
 
 **tbd is NOT:**
 
-- A real-time coordination system for multiple agents working simultaneously
+- A sub-second coordination system: `tbd watch` provides poll-latency wake-ups, not
+  atomic claims or push messaging
 
 - A replacement for Beads’ advanced orchestration features (molecules, wisps, formulas)
 
@@ -360,7 +369,8 @@ tbd and Beads serve different use cases:
 
 - A workflow automation engine with templates
 
-For advanced coordination needs, continue using Beads or wait for future tbd versions.
+For atomic claims or sub-second messaging, pair tbd with a real-time layer such as Agent
+Mail.
 
 ### 1.3 Why Replace Beads? (Architecture Comparison)
 
@@ -480,7 +490,8 @@ Explicitly deferred to future versions:
 
 - Atomic claim enforcement
 
-- GitHub bidirectional sync
+- GitHub bidirectional sync (external-tracker sync ships with Linear as the first
+  provider; §8.7)
 
 - Slack/Discord integration
 
@@ -5972,14 +5983,13 @@ simplifying the architecture:
 | Data locations | 4 (SQLite, local JSONL, sync branch, main) | 2 (files on sync branch, config on main) |
 | Storage | SQLite + JSONL | Markdown + YAML (file-per-entity) |
 | Daemon | Required (recommended) | Not required |
-| Agent coordination | External (Agent Mail) | Deferred |
+| Agent coordination | External (Agent Mail) | `tbd watch` wake-ups; atomic claims deferred |
 | Comments | Embedded in issue | Deferred |
 | Conflict resolution | 3-way merge | Git-based detection + field-level LWW + attic |
 
 **Core finding:** All essential Beads issue-tracking workflows have direct CLI
-equivalents in tbd.
-Advanced features (agent coordination, templates, real-time sync) are
-explicitly deferred.
+equivalents in tbd. Advanced features (atomic claims, workflow templates, real-time
+messaging) are explicitly deferred.
 
 ### A.2 CLI Command Mapping
 

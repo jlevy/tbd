@@ -4,9 +4,10 @@
 [![CI](https://github.com/jlevy/tbd/actions/workflows/ci.yml/badge.svg)](https://github.com/jlevy/tbd/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/get-tbd)](https://www.npmjs.com/package/get-tbd)
 
-**Task tracking, spec-driven planning, and knowledge injection for AI coding agents.**
+**Task tracking, spec-driven planning, and knowledge injection for AI coding agents—now
+with a live web view and Linear sync.**
 
-**tbd** (short for “To Be Done,” or “TypeScript beads” if you prefer) combines four
+**tbd** (short for “To Be Done,” or “TypeScript beads” if you prefer) combines five
 things that are each powerful on their own but work even better together:
 
 1. **Task tracking (beads):** Agent-friendly, CLI-native issue tracking for bugs,
@@ -24,6 +25,11 @@ things that are each powerful on their own but work even better together:
    when it needs it.
 4. **Shortcuts:** Reusable instructions for common tasks like code review, PR creation,
    and writing planning specs, architecture docs, and research briefs.
+5. **Live views and tracker sync:** A local web interface for browsing beads as they
+   change (`tbd web`) and synchronization with external trackers, starting with Linear.
+   Beads stay git-native, but the work is visible to your whole team.
+   These are the newest parts of `tbd`, but they work end to end.
+   (GitHub Issues is planned.)
 
 `tbd` comes pre-installed with in-depth guidelines docs on many topics, including
 TypeScript and Python best practices and common agent pitfalls, red-green TDD, golden
@@ -66,6 +72,14 @@ Running `tbd` with no arguments shows help with a prominent reminder for agents 
 `tbd prime`.
 
 You can then always ask questions like: “what can I do with tbd?”
+
+Two requests worth trying early:
+
+- ***“Show my beads in a browser”***—the agent runs `tbd web --open` and keeps the live,
+  read-only viewer running while you work.
+- ***“Set up Linear”***—the agent walks through connecting the repository to your Linear
+  team, including creating your personal API key (see
+  [Optional Linear Setup](#optional-linear-setup)).
 
 ## How Should You Use `tbd`?
 
@@ -110,16 +124,28 @@ I can now ship entire large features just with voice prompts like “use the sho
 create a new plan spec that …” and “now use the shortcut to file a PR with a validation
 plan.”
 
-### What `tbd` Doesn’t Do (Yet)
+### Watch Agents Work and Keep the Team in Sync (New)
 
 `tbd` focuses on the *durable layer* of agent development: issue tracking, planning, and
 knowledge that persist in git across sessions.
-It does not (yet) try to solve real-time multi-agent coordination features of Beads or
-[Gas Town](https://github.com/steveyegge/gastown) or
-[Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail) or unstructured agent
-loops like
-[Ralph Wiggum](https://github.com/anthropics/claude-code/tree/main/plugins/ralph-wiggum).
-These seem great for rapid prototyping, but so far, code where quality or scale matters,
+Newer releases add live visibility and coordination on top of that layer:
+
+- **A live web view:** `tbd web --open` serves a read-only browser view of your beads
+  that updates as agents work.
+  Ask an agent to “show my beads in a browser” and watch statuses, epics, and
+  dependencies change live instead of asking for status updates.
+- **Bead watching:** `tbd watch` blocks until selected bead state changes on the remote,
+  so unattended workers wake when work arrives—no daemon, no hand-rolled polling loops.
+- **External tracker sync:** `tbd integration sync` mirrors and synchronizes beads with
+  Linear, so teammates and stakeholders who never touch a CLI stay in the loop.
+
+The web view and Linear sync complete the picture: agents and humans share one durable,
+git-native task layer, visible from the terminal, the browser, and your tracker.
+
+On multi-agent style: unstructured agent loops like
+[Gas Town](https://github.com/steveyegge/gastown) and
+[Ralph Wiggum](https://github.com/anthropics/claude-code/tree/main/plugins/ralph-wiggum)
+seem great for rapid prototyping, but so far, for code where quality or scale matters,
 I’ve not fully embraced unstructured automation (e.g. 20+ concurrent agents or Ralph
 loops).
 I find having more process and discipline around specs (and around 6–8 concurrent
@@ -148,6 +174,7 @@ status or context or knowledge and know what to do next:
 | “Create a bead for the bug where …” | Agent creates and tracks a bead | `tbd create "..." --type=bug` |
 | “Let’s work on current beads” | Agent finds ready beads and starts working | `tbd ready` |
 | “Show my beads in a browser” | Agent opens and keeps alive the local viewer | `tbd web --open` |
+| “Watch for new work and keep going” | Agent blocks until a bead becomes ready, then picks it up | [`tbd shortcut watch-beads`](packages/tbd/docs/shortcuts/standard/watch-beads.md) |
 | “Set up Linear” / “Add my Linear key” | Agent distinguishes shared repository config from your personal credential and walks through only the needed path | [`tbd shortcut setup-linear`](packages/tbd/docs/shortcuts/standard/setup-linear.md) |
 | “Review this code” | Agent performs comprehensive code review with all guidelines | [`tbd shortcut review-code`](packages/tbd/docs/shortcuts/standard/review-code.md) |
 | “Review this PR” | Agent reviews a GitHub pull request and publishes the review | [`tbd shortcut review-github-pr`](packages/tbd/docs/shortcuts/standard/review-github-pr.md) |
@@ -175,20 +202,24 @@ You just talk naturally.
   Installs itself as a skill in Claude Code.
 - **Markdown and YAML frontmatter:** One file per bead, human-readable and editable.
   This eliminates most merge conflicts.
-- **Live local view:** `tbd web` serves a loopback-only, read-only browser view that
+- **Live web view (new):** `tbd web` serves a loopback-only, read-only browser view that
   shares the CLI’s filters and stays current as local bead state changes.
   It is a viewer, not an editor: ask your agent to change beads with ordinary `tbd`
   commands, and the open page updates automatically.
-  Cross-filtered facet tallies, relative update times, bounded title summaries, and
-  two-key column sorting keep large boards scannable without changing bead semantics.
   It never contacts a remote; explicit `tbd sync` remains the exchange step.
+- **External tracker sync (new):** `tbd integration` mirrors selected beads outward to
+  Linear for visibility, or synchronizes them bidirectionally under a per-repository
+  policy. GitHub Issues is planned.
+- **Agent watching:** `tbd watch` blocks until selected bead state changes on the
+  remote, reports the change, and exits—wake unattended agents with no daemon and no
+  polling loops.
 - **Beads alternative:** Largely compatible with `bd` at the CLI level, but with a
   simpler architecture: no JSONL merge conflicts, no daemon modifying your working tree,
   no SQLite file locking on network filesystems (see
   [FAQ: How does `tbd` compare to Beads?](#how-does-tbd-compare-to-beads)).
 - **Shortcuts:** Over a dozen reusable workflow documents—plan specs, code reviews,
   commit processes, PR creation, research briefs, and more.
-- **Guidelines:** [20+ guideline docs](packages/tbd/docs/guidelines/) of coding rules
+- **Guidelines:** [25+ guideline docs](packages/tbd/docs/guidelines/) of coding rules
   and best practices (see
   [Built-in Engineering Knowledge](#built-in-engineering-knowledge)).
 - **Templates:** Document templates for planning specs, research briefs, architecture
@@ -233,7 +264,7 @@ And yes, all the code *and* all the specs of `tbd` are agent written—see
 ## Built-in Engineering Knowledge
 
 When you run `tbd setup`, your agent gets instant access to
-[20+ guideline documents](packages/tbd/docs/guidelines/) covering real-world engineering
+[25+ guideline documents](packages/tbd/docs/guidelines/) covering real-world engineering
 practices. These aren’t generic tips; they’re mostly my own detailed and sometimes
 opinionated rules with concrete examples, built from months of heavy agentic coding.
 
@@ -346,10 +377,14 @@ tbd setup --auto                    # No --prefix needed—reads existing config
 ### Optional Linear Setup
 
 tbd works without an external tracker.
+Linear synchronization is one of the newest parts of tbd, but it works end to end:
+mirror selected beads outward for visibility, or synchronize bidirectionally so edits
+and comments flow both ways.
+
 To add Linear, say **“Set up Linear.”** The agent runs
 [`tbd shortcut setup-linear`](packages/tbd/docs/shortcuts/standard/setup-linear.md),
 which first determines whether this is a first-time repository setup or a teammate
-joining configuration that is already committed.
+joining a repository whose configuration is already committed.
 
 The distinction is intentional: `.tbd/config.yml` holds the shared Linear team, project,
 and policy, while every contributor supplies their own `LINEAR_API_KEY` through their
@@ -359,6 +394,14 @@ reconciliation, and then uses plain `tbd sync` so current team bead state is pul
 first. Create personal keys under Linear’s
 [**Settings > Account > Security & Access**](https://linear.app/docs/api-and-webhooks#api-keys),
 and never paste a raw key into chat or commit it.
+
+The default policy mirrors the *shape* of the work rather than every bead: open epics
+plus anything with a live plan spec, typically around 10% of a repository.
+Once configured, `tbd integration status` verifies the connection, and plain `tbd sync`
+covers Linear along with docs and issues, so a session-end sync keeps everything
+current. See
+[External Tracker Integrations](packages/tbd/docs/tbd-docs.md#external-tracker-integrations)
+in the CLI reference for policies, selectors, and bulk-change safety.
 
 ### Claude Code Integration
 
@@ -423,54 +466,27 @@ tbd changes --since <commit>   # What changed since a sync-branch commit
 `tbd watch` wakes an agent when bead state changes, with no daemon and no background
 process. It polls the remote sync-branch tip, fetches only once that tip moves, reports
 one matching change, and exits.
-
-`tbd web` stays in the foreground and serves the same bead queries and hierarchy in a
-local browser. It binds loopback only, has no write route, and does not open a browser
-unless you pass `--open`. Large results support up to 10,000 rows and render in
-5,000-row pages. Native local file events normally update it immediately, with a
-one-second reconciliation fallback for missed events.
-An optional path may name an initialized repository or any directory inside one, so the
-viewer can be started from elsewhere.
-An initialized repository with no beads shows a normal empty board.
-A missing path or a directory that has not been initialized reports the same clear
-repository error as other tbd commands.
-When you ask an agent to show your beads in a browser, the agent should run
-`tbd web --open`, wait for the URL, give it to you, and keep the process running.
-The browser’s controls only change the view; ask the agent to create, update, close,
-label, or sync beads with ordinary `tbd` commands.
-Their local results appear on the open page automatically.
-Status, Type, Priority, and the label chooser show counts after every other active
-filter. Zero-result unselected choices disappear.
-The label menu shows up to 32 choices at once; searching it queries the complete label
-vocabulary, so lower-ranked labels remain reachable.
-Label choices iteratively show the next intersection; selecting more than one retains
-the CLI’s repeatable `--label` behavior, so every selected label is required.
-Collapsed titles use at most four lines and expand in full, while Updated shows a
-compact sans relative age with the exact timestamp in a fast tooltip.
-The board defaults to Pretty with Updated descending, then Priority ascending.
-Clicking a data-column header makes it primary and retains only the previous primary as
-its tie-breaker; Reset sort restores the default stack without changing Pretty.
-Sorting never disables Pretty.
-In Pretty mode it reorders only outermost visible parent groups, using the latest
-Updated timestamp in each complete visible subtree while preserving official child
-order. Flat mode applies the sort stack to individual rows.
-The equivalent-command tooltip identifies browser-only ordering that the displayed CLI
-command does not reproduce.
-Each non-root row uses one `└──` elbow at its hierarchy indentation; deeper levels use
-spaces rather than ancestor bars, and sibling position never introduces a tee.
-Changing a filter, sort, display mode, or page closes expanded row details.
-During a live update, only rows still present in the bounded response remain expanded,
-with any display-ID change reconciled before their bodies reload.
-It never fetches automatically; run `tbd sync` and the resulting local changes appear
-without a browser refresh.
-See the [CLI reference](packages/tbd/docs/tbd-docs.md#web) for port, JSON, and dry-run
-options. Changed rows remain complete while verbose before/after detail is separately
-bounded. Separately, `tbd watch` writes no shared state, so remote watchers coexist with
-ordinary `tbd sync` in the same checkout.
-The [CLI reference](packages/tbd/docs/tbd-docs.md) documents the selectors, baseline
-commits, and report format; the
+It writes no shared state, so watchers coexist with ordinary `tbd sync` in the same
+checkout. The [CLI reference](packages/tbd/docs/tbd-docs.md) documents the selectors,
+baseline commits, and report format; the
 [watch-beads shortcut](packages/tbd/docs/shortcuts/standard/watch-beads.md) has the
 unattended worker loop and the Claude Code and Codex recipes.
+
+`tbd web` stays in the foreground and serves the same bead queries and hierarchy as the
+CLI in a live local board, with filters and facet counts, column sorting, an expandable
+hierarchy view, and the equivalent CLI command for the current view.
+It binds loopback only, has no write route, and does not open a browser unless you pass
+`--open`. An optional path (`tbd web ../another-repo --open`) serves any initialized
+repository from elsewhere.
+When you ask an agent to show your beads in a browser, the agent should run
+`tbd web --open`, wait for the URL, give it to you, and keep the process running.
+The page is a viewer, not an editor: its controls only change the view, so ask the agent
+to create, update, close, label, or sync beads with ordinary `tbd` commands, and their
+local results appear on the open page automatically.
+It never fetches from the remote on its own; run `tbd sync` and the resulting local
+changes appear without a browser refresh.
+See the [CLI reference](packages/tbd/docs/tbd-docs.md#web) for ports, JSON and dry-run
+options, and full details of the board’s behavior.
 
 ### Dependencies and Labels
 
@@ -482,6 +498,23 @@ tbd label remove proj-a7k2 urgent
 tbd label list                         # All labels in use
 tbd search "authentication"            # Search beads
 ```
+
+### External Trackers (Linear)
+
+```bash
+tbd integration status                 # Verify config, credential, and connectivity
+tbd --dry-run integration sync         # Preview the full reconciliation, write nothing
+tbd integration sync                   # Both directions: reconcile every linked pair
+tbd integration sync --push            # Outbound only: project beads to the tracker
+tbd integration link proj-a7k2 FIN-123 # Bind a bead to an existing issue
+tbd integration unlink proj-a7k2       # Sever the link; nothing is deleted anywhere
+```
+
+Once an integration is enabled, plain `tbd sync` includes it, so most sessions never
+need these commands directly.
+See
+[External Tracker Integrations](packages/tbd/docs/tbd-docs.md#external-tracker-integrations)
+in the CLI reference for policies, selectors, and bulk-change safety.
 
 ### Shortcuts, Guidelines, and Templates
 
@@ -554,7 +587,7 @@ tbd docs fork --all              # Or fork by name: tbd docs fork <name> [<name>
 
 **Available guidelines:** See
 [Built-in Engineering Knowledge](#built-in-engineering-knowledge) for the full list of
-20+ guidelines covering TypeScript, Python, testing, TDD, and more.
+25+ guidelines covering TypeScript, Python, testing, TDD, and more.
 
 **Available templates:**
 
@@ -646,14 +679,24 @@ If you already use Beads, `tbd setup --from-beads` migrates you to `tbd`. This i
 and sets up your `.tbd` directory and preserves the IDs of all issues.
 
 **Scope:** `tbd` focuses on the *durable layer*—issue tracking, specs, and knowledge
-that persist across sessions and live in git.
-It does *not* aim to solve real-time multi-agent coordination, which is a separate
-problem requiring sub-second messaging and atomic claims.
-Tools like [Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail) and
+that persist across sessions and live in git—and builds coordination on top of it:
+`tbd watch` wakes agents when bead state changes, `tbd web` shows the board live, and
+`tbd integration sync` keeps an external tracker current.
+Sub-second messaging and atomic claims are a separate problem; tools like
+[Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail) and
 [Gas Town](https://github.com/steveyegge/gastown) address that space and are
-complementary to `tbd`—you could layer real-time coordination on top of `tbd`’s durable
-tracking. See the [design doc](packages/tbd/docs/tbd-design.md) for a detailed
-comparison.
+complementary to `tbd`. See the [design doc](packages/tbd/docs/tbd-design.md) for a
+detailed comparison.
+
+### Can my team see beads without using the CLI?
+
+Yes, two ways, both newer additions:
+
+- **`tbd web --open`** serves a live, read-only board of your beads in a local
+  browser—the fastest way to watch agents’ progress.
+- **The Linear integration** mirrors or fully synchronizes selected beads with your
+  team’s tracker, so people who never clone the repo still see (and can update) the
+  work. See [Optional Linear Setup](#optional-linear-setup).
 
 ### Why spec-driven development?
 
@@ -711,7 +754,7 @@ $
 
 ### Can I add my own guidelines?
 
-Yes. `tbd` comes with 20+ bundled guidelines, but you can add your own team’s docs from
+Yes. `tbd` comes with 25+ bundled guidelines, but you can add your own team’s docs from
 any URL:
 
 ```bash

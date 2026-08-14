@@ -87,8 +87,14 @@ Every session must end with tbd in a clean state:
 
 - `tbd sync` - Sync with git remote (run at session end)
 - `tbd sync --status` - Check sync status without syncing
+- `tbd web --open` - Live, read-only browser view for the user (share the URL and keep
+  the process running; make bead changes via normal tbd commands)
+- `tbd watch --ready --json` - Block until a bead newly becomes ready (see
+  `tbd shortcut watch-beads`; never hand-roll polling loops)
 
 Note: `tbd sync` handles all git operations for issues--no manual git push needed.
+It also reconciles any enabled external tracker (e.g. Linear); to connect one, use
+`tbd shortcut setup-linear`.
 
 ### Project Health
 
