@@ -148,9 +148,12 @@ describeUnix('setup hooks (project-local)', { timeout: 15000 }, () => {
       const pinnedVersion = /get-tbd@(\d+\.\d+\.\d+)/u.exec(script)?.[1];
       expect(pinnedVersion).toBeDefined();
 
-      const fakeBin = join(tempDir, 'fake-bin');
+      // The generated hook deliberately prepends common user-local bin directories.
+      // Put the fakes in the first such directory so a runner-level /usr/local/bin/npx
+      // cannot shadow them on Linux.
+      const fakeBin = join(fakeHome, '.local', 'bin');
       const runnerLog = join(tempDir, 'runner.log');
-      await mkdir(fakeBin);
+      await mkdir(fakeBin, { recursive: true });
       await writeFile(
         join(fakeBin, 'tbd'),
         '#!/bin/bash\n' +
