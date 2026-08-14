@@ -864,11 +864,11 @@ There is no URL that opens the browser on a specific bead, so “click into the 
 browser” has nothing to link to.
 
 **F14 — no bead field can hold a PR.** External identity lives in
-`extensions.<provider>`, and the schema comment is explicit that this is deliberate:
-“The namespace key IS the provider, which makes 'at most one link per provider'
-structural rather than a rule the merge code has to enforce” (`schemas.ts:145-147`).
-That is exactly right for a tracker — one bead, one Linear issue — and exactly wrong for
-pull requests, which are many per bead and are not a tracker at all.
+`extensions.<provider>`, and the schema comment is explicit that this is deliberate: the
+namespace key **is** the provider, which makes at-most-one-link-per-provider structural
+rather than a rule the merge code has to enforce (`schemas.ts:145-147`). That is exactly
+right for a tracker — one bead, one Linear issue — and exactly wrong for pull requests,
+which are many per bead and are not a tracker at all.
 There is no other field for an arbitrary external reference.
 
 The net: of the three click-throughs the requirement names, **one works (doc), two are
