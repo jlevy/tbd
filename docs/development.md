@@ -322,19 +322,28 @@ publishes `get-tbd` to npm, and creates a GitHub Release whose body is the match
 
 ### Release process
 
-1. From clean `main`, review `git log <last-tag>..HEAD` and choose the version by the
+1. Open one release train and obtain explicit human approval for one published version.
+   A merged fix does not trigger a release.
+   Batch related fixes into one candidate; if validation finds another defect, fix that
+   candidate and restart validation instead of publishing an intermediate patch.
+   Any additional version requires new explicit approval.
+   See [publishing.md](publishing.md) §Step 0 for the emergency exception.
+2. From clean `main`, review `git log <last-tag>..HEAD` and choose the version by the
    substance of the user-facing change, not the commit-type label: a new CLI capability
    → minor; fixes, docs, and guidance-content changes → patch (even when a commit is
    labeled `feat`); breaking → major.
    Note for `0.x` a semver minor is `0.MINOR.0`. See [publishing.md](publishing.md)
    §Step 2 for details.
-2. On a `claude/release-vX.Y.Z` branch: bump `version` in `packages/tbd/package.json`
+3. On a `claude/release-vX.Y.Z` branch: bump `version` in `packages/tbd/package.json`
    and prepend a `## X.Y.Z` section to `packages/tbd/CHANGELOG.md` with notes written
    per
    [`release-notes-guidelines`](../packages/tbd/docs/guidelines/release-notes-guidelines.md).
-3. `pnpm release:verify` (build and publint) and `pnpm test`; open the release PR; merge
-   once CI is green.
-4. **Gate before tagging:** wait until main CI has reached `conclusion=success` on the
+4. Run `pnpm qa:upgrade-package`, `pnpm release:verify`, and `pnpm test`. For setup,
+   launcher, installation, fallback, format, or upgrade changes, validate the packed
+   candidate in a fresh first-party downstream checkout before opening the release PR.
+   Record the evidence in the PR and rerun it after any candidate change.
+5. Open the release PR and merge once CI is green.
+6. **Gate before tagging:** wait until main CI has reached `conclusion=success` on the
    merge commit itself (filter the run by that SHA—right after a merge an unfiltered
    query can return the previous run).
    Only then tag `vX.Y.Z` on that exact commit and push it—the Release workflow
