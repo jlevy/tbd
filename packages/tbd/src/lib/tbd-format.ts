@@ -567,9 +567,21 @@ function regroupIntegrationsBlock(
   }
   const changes: string[] = [];
   const next: Record<string, unknown> = { ...integrations };
-  for (const [name, block] of Object.entries(integrations)) {
+
+  // The fold gate became an enum in f08. Translate the value, do not just rename the
+  // key: carrying `false` into an enum field would write a config the next release
+  // cannot parse. `true`/`false` map onto the two modes that preserve their behavior
+  // exactly; the two new modes were unreachable before, so nothing legacy produces them.
+  if (typeof next.sync_on_tbd_sync === 'boolean' && next.on_tbd_sync === undefined) {
+    const mode = next.sync_on_tbd_sync ? 'auto' : 'off';
+    delete next.sync_on_tbd_sync;
+    next.on_tbd_sync = mode;
+    changes.push(`integrations: sync_on_tbd_sync → on_tbd_sync: ${mode}`);
+  }
+
+  for (const [name, block] of Object.entries(next)) {
     if (!isPlainObject(block)) {
-      continue; // sync_on_tbd_sync and any other scalar gate stays put.
+      continue; // on_tbd_sync and any other scalar gate stays put.
     }
     next[name] = regroupProviderBlock(block, name, changes);
   }

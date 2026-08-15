@@ -537,10 +537,14 @@ describe('tbd-format', () => {
       expect(linearAfter(result.config).a_newer_tbds_key).toBe('survives');
     });
 
-    it('leaves the sync_on_tbd_sync gate at the integrations level', () => {
+    it('leaves the fold gate at the integrations level, not swept into a provider group', () => {
+      // `f07WithLinear` sets the boolean gate, which f08 translates in place. The point
+      // of this test is where it lands, not what it is called: a scalar sibling of the
+      // provider blocks must not be pulled into one of the new groups.
       const result = migrateToLatest(f07WithLinear({ enabled: true, team_key: 'TBD' }));
 
-      expect(result.config.integrations!.sync_on_tbd_sync).toBe(true);
+      expect(result.config.integrations!.on_tbd_sync).toBe('auto');
+      expect(linearAfter(result.config).on_tbd_sync).toBeUndefined();
     });
 
     it('is a pure stamp when there is no integrations block', () => {
@@ -597,5 +601,56 @@ describe('tbd-format', () => {
       expect(pinned).toBe('f07');
       expect(isFormatCompatibleWithSupported('f08', pinned!)).toBe(false);
     });
+  });
+});
+
+describe('f07 → f08 sync fold gate', () => {
+  function f07WithGate(integrations: Record<string, unknown>): RawConfig {
+    return {
+      tbd_format: 'f07',
+      tbd_version: '0.6.5',
+      display: { id_prefix: 'test' },
+      integrations,
+    };
+  }
+
+  it('translates the boolean gate into a fold mode, not just renames the key', () => {
+    // Carrying `false` verbatim into an enum field would write a config the next
+    // release cannot parse — the same trap the label keys hit.
+    const result = migrateToLatest(
+      f07WithGate({ sync_on_tbd_sync: false, linear: { enabled: true } }),
+    );
+    const integrations = result.config.integrations!;
+    expect(integrations.on_tbd_sync).toBe('off');
+    expect(integrations.sync_on_tbd_sync).toBeUndefined();
+  });
+
+  it('maps the enabled gate to auto, preserving the affirmed bulk thresholds', () => {
+    const result = migrateToLatest(
+      f07WithGate({ sync_on_tbd_sync: true, linear: { enabled: true } }),
+    );
+    const integrations = result.config.integrations!;
+    expect(integrations.on_tbd_sync).toBe('auto');
+    expect(integrations.sync_on_tbd_sync).toBeUndefined();
+  });
+
+  it('leaves an already-migrated fold mode alone', () => {
+    const result = migrateToLatest(
+      f07WithGate({ on_tbd_sync: 'report', linear: { enabled: true } }),
+    );
+    const integrations = result.config.integrations!;
+    expect(integrations.on_tbd_sync).toBe('report');
+  });
+
+  it('still regroups provider blocks alongside the gate translation', () => {
+    // The gate translation mutates the same object the provider loop walks, so this
+    // pins that regrouping still happens rather than being skipped by the rewrite.
+    const result = migrateToLatest(
+      f07WithGate({ sync_on_tbd_sync: true, linear: { enabled: true, team_key: 'TBD' } }),
+    );
+    const integrations = result.config.integrations!;
+    const linear = integrations.linear as Record<string, unknown>;
+    expect(linear.target).toEqual({ team_key: 'TBD' });
+    expect(integrations.on_tbd_sync).toBe('auto');
   });
 });

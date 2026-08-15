@@ -136,3 +136,59 @@ export function resolveProviderSettings(config: ProviderConfigSlice): ProviderSe
     userMap: config.identity?.user_map ?? config.user_map ?? {},
   };
 }
+
+/** Resolved posture for the integration fold inside plain `tbd sync`. */
+export type SyncFoldModeType = 'auto' | 'guarded' | 'report' | 'off';
+
+/** How a fold-mode translates into the runner's execution options. */
+export interface SyncFoldPosture {
+  /** Whether the fold runs at all. */
+  runs: boolean;
+  /** Plan and report without writing. */
+  dryRun: boolean;
+  /** Affirm the bulk thresholds rather than letting the guard refuse. */
+  assumeYes: boolean;
+}
+
+/**
+ * Resolve the integration fold mode from the integrations block.
+ *
+ * The pre-f08 boolean maps onto the two modes that preserve its behavior exactly:
+ * `true` folded in with the bulk thresholds affirmed (`auto`), `false` kept providers
+ * out of `tbd sync` entirely (`off`). The two new modes were unreachable before, so no
+ * legacy value can produce them.
+ */
+export function resolveSyncFoldMode(
+  integrations: { on_tbd_sync?: SyncFoldModeType; sync_on_tbd_sync?: boolean } | undefined,
+): SyncFoldModeType {
+  if (!integrations) {
+    return 'auto';
+  }
+  if (integrations.on_tbd_sync !== undefined) {
+    return integrations.on_tbd_sync;
+  }
+  if (integrations.sync_on_tbd_sync !== undefined) {
+    return integrations.sync_on_tbd_sync ? 'auto' : 'off';
+  }
+  return 'auto';
+}
+
+/**
+ * The execution posture a fold mode implies.
+ *
+ * `assumeYes` is what the boolean used to hide: the folded run is non-interactive, so
+ * the bulk guard either refuses an oversized run or is waived, and only `guarded` picks
+ * the first. `report` waives it too — nothing is written, so there is nothing to guard.
+ */
+export function syncFoldPosture(mode: SyncFoldModeType): SyncFoldPosture {
+  switch (mode) {
+    case 'off':
+      return { runs: false, dryRun: false, assumeYes: false };
+    case 'report':
+      return { runs: true, dryRun: true, assumeYes: true };
+    case 'guarded':
+      return { runs: true, dryRun: false, assumeYes: false };
+    case 'auto':
+      return { runs: true, dryRun: false, assumeYes: true };
+  }
+}

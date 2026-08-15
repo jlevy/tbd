@@ -3,8 +3,8 @@
  * full synchronization inside an already-held data-sync context.
  *
  * Two callers share it. The `tbd integration sync` command wraps it in its own
- * context and prints the reports. Plain `tbd sync` (with `sync_on_tbd_sync`
- * enabled) calls it from INSIDE `fullSync`, between the git pull/merge and the
+ * context and prints the reports. Plain `tbd sync` (when `on_tbd_sync` resolves to
+ * a running mode) calls it from INSIDE `fullSync`, between the git pull/merge and the
  * push — after the merge so reconciliation sees other machines' bead changes
  * rather than pushing stale state to the tracker, and before the push so the
  * beads and bridge records it writes ride the same push out.

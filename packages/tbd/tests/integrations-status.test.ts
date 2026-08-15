@@ -33,7 +33,7 @@ function config(integrations?: unknown): Config {
 }
 
 const linearEnabled = {
-  sync_on_tbd_sync: false,
+  on_tbd_sync: 'off' as const,
   linear: {
     enabled: true,
     team_key: 'FIN',
@@ -172,7 +172,7 @@ describe('integration status', () => {
 
   it('reports a config error when an enabled provider has no target', async () => {
     const noTeam = {
-      sync_on_tbd_sync: false,
+      on_tbd_sync: 'off' as const,
       linear: { ...linearEnabled.linear, team_key: undefined },
     };
     process.env.LINEAR_API_KEY = SECRET;
@@ -215,7 +215,7 @@ describe('integration status', () => {
 
   it('reports a disabled provider without probing it', async () => {
     const disabled = {
-      sync_on_tbd_sync: false,
+      on_tbd_sync: 'off' as const,
       linear: { ...linearEnabled.linear, enabled: false },
     };
 

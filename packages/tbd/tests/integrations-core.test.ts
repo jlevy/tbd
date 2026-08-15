@@ -31,7 +31,11 @@ import {
 } from '../src/lib/issue-hierarchy.js';
 import { LinearIntegrationSchema } from '../src/lib/schemas.js';
 import { resolvePolicy } from '../src/integrations/core/policy.js';
-import { resolveProviderSettings } from '../src/integrations/core/provider-settings.js';
+import {
+  resolveProviderSettings,
+  resolveSyncFoldMode,
+  syncFoldPosture,
+} from '../src/integrations/core/provider-settings.js';
 import type { Issue, IntegrationSelect, IssueStatusType, PriorityType } from '../src/lib/types.js';
 
 function issue(overrides: Partial<Issue> = {}): Issue {
@@ -489,5 +493,39 @@ describe('parent hierarchy guards', () => {
       expect(() => LinearIntegrationSchema.parse({ labels: { create: 'sometimes' } })).toThrow();
       expect(() => LinearIntegrationSchema.parse({ labels: { mirror: true } })).toThrow();
     });
+  });
+});
+
+describe('sync fold mode (f08)', () => {
+  it('defaults to auto when nothing is configured', () => {
+    expect(resolveSyncFoldMode(undefined)).toBe('auto');
+    expect(resolveSyncFoldMode({})).toBe('auto');
+  });
+
+  it('maps the legacy boolean gate onto the modes that preserve its behavior', () => {
+    expect(resolveSyncFoldMode({ sync_on_tbd_sync: true })).toBe('auto');
+    expect(resolveSyncFoldMode({ sync_on_tbd_sync: false })).toBe('off');
+  });
+
+  it('prefers the new spelling when a config carries both', () => {
+    expect(resolveSyncFoldMode({ on_tbd_sync: 'report', sync_on_tbd_sync: true })).toBe('report');
+  });
+
+  it('separates the two decisions the boolean welded together', () => {
+    // This is the whole point of the enum. The old `true` folded in AND waived the bulk
+    // guard, with no way to ask for the fold and keep the guard; `guarded` is that
+    // previously unreachable combination.
+    expect(syncFoldPosture('auto')).toEqual({ runs: true, dryRun: false, assumeYes: true });
+    expect(syncFoldPosture('guarded')).toEqual({ runs: true, dryRun: false, assumeYes: false });
+  });
+
+  it('makes report a run that writes nothing', () => {
+    const posture = syncFoldPosture('report');
+    expect(posture.runs).toBe(true);
+    expect(posture.dryRun).toBe(true);
+  });
+
+  it('makes off skip the fold entirely', () => {
+    expect(syncFoldPosture('off').runs).toBe(false);
   });
 });

@@ -147,6 +147,21 @@ describe('the sync engine', () => {
     });
   }
 
+  it('plans a create under dryRun without touching the tracker or the bead', async () => {
+    // The `report` fold mode depends on this: it reports what a sync would do and
+    // writes nothing. If the engine wrote here, `report` would be a silent live sync.
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    store.set(epic.id, epic);
+
+    const dry = await run([epic], POLICY, true);
+
+    expect(dry.createdOutbound).toEqual(['mvrz']);
+    expect(server.issues.size).toBe(0);
+    expect(readLink(store.get(epic.id)!, 'linear')).toBeUndefined();
+    // Nothing was written, so there was nothing to affirm.
+    expect(affirmed).toEqual([]);
+  });
+
   it('creates outbound, links, seeds the base, then goes quiet', async () => {
     const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
     store.set(epic.id, epic);

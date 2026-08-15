@@ -38,12 +38,12 @@ describe('provider registry', () => {
 
   it('returns undefined for a provider with no config block', () => {
     expect(providerConfig(config(), 'linear')).toBeUndefined();
-    expect(providerConfig(config({ sync_on_tbd_sync: false }), 'linear')).toBeUndefined();
+    expect(providerConfig(config({ on_tbd_sync: 'off' as const }), 'linear')).toBeUndefined();
   });
 
   it('distinguishes a configured-but-disabled provider from an absent one', () => {
     const cfg = config({
-      sync_on_tbd_sync: false,
+      on_tbd_sync: 'off' as const,
       linear: {
         enabled: false,
         select: SELECT,
@@ -62,7 +62,7 @@ describe('provider registry', () => {
 
   it('reports a config error when an enabled provider is missing its target', () => {
     const cfg = config({
-      sync_on_tbd_sync: false,
+      on_tbd_sync: 'off' as const,
       linear: {
         enabled: true,
         select: SELECT,
@@ -77,7 +77,7 @@ describe('provider registry', () => {
 
   it('has no config error when the target is present', () => {
     const cfg = config({
-      sync_on_tbd_sync: false,
+      on_tbd_sync: 'off' as const,
       linear: {
         enabled: true,
         team_key: 'FIN',

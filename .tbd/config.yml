@@ -138,7 +138,7 @@ docs_cache:
     - .tbd/docs/shortcuts/system
     - .tbd/docs/shortcuts/standard
 integrations:
-  sync_on_tbd_sync: false
+  on_tbd_sync: 'off'
   linear:
     target:
       team_key: TBD

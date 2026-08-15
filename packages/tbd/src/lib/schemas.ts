@@ -760,17 +760,48 @@ export const GithubIntegrationSchema = z
   })
   .passthrough();
 
+/**
+ * What plain `tbd sync` does with enabled providers (f08+).
+ *
+ * This was a boolean (`sync_on_tbd_sync`), which welded two independent
+ * decisions together: whether the fold happens at all, and whether the bulk
+ * guard is in force when it does. The folded run passes `assumeYes` — so
+ * `true` silently waived the 20-create/40-update threshold that exists
+ * precisely because a mis-set selector turns "a couple of epics" into "every
+ * bead in the repo". There was no way to ask for the fold and keep the guard.
+ *
+ * - `auto` — fold in and affirm the bulk thresholds. The old `true`, and still
+ *   the default: a settled mirror runs small, and prompting a non-interactive
+ *   run is not an option anyway.
+ * - `guarded` — fold in, but let the bulk guard refuse an oversized run and
+ *   report it. The run is non-interactive, so the guard refuses rather than
+ *   prompting, leaving `tbd integration sync` for the reviewed pass.
+ * - `report` — plan and print, write nothing. What a pilot actually wants, and
+ *   what a repo that set `false` for cost reasons was approximating badly.
+ * - `off` — providers stay configured but out of `tbd sync`. The old `false`.
+ */
+export const SyncFoldMode = z.enum(['auto', 'guarded', 'report', 'off']);
+
 export const IntegrationsConfigSchema = z
   .object({
     /**
-     * Include enabled integrations in plain `tbd sync`.
+     * How enabled integrations participate in plain `tbd sync` (f08+).
      *
-     * On by default: enabling an integration IS the opt-in, and a second flag
-     * only creates a state where a configured tracker silently drifts. Set false
-     * to keep an integration configured but excluded from `tbd sync`, running
-     * `tbd integration sync` by hand instead.
+     * Enabling an integration IS the opt-in, so this defaults to `auto` rather
+     * than to a second off-switch that would let a configured tracker silently
+     * drift.
      */
-    sync_on_tbd_sync: z.boolean().default(true),
+    on_tbd_sync: SyncFoldMode.default('auto'),
+    /**
+     * Legacy boolean spelling of `on_tbd_sync` (pre-f08). Retired by the f08
+     * migration, which translates `true`/`false` into `auto`/`off`; still parsed
+     * so a config written before that migration runs is read correctly.
+     *
+     * Optional rather than `.default(true)`: with a default, Zod re-materializes
+     * the key on every read and `writeConfig` writes it back beside the group the
+     * migration just created. `resolveSyncFoldMode` supplies the fallback.
+     */
+    sync_on_tbd_sync: z.boolean().optional(),
     linear: LinearIntegrationSchema.optional(),
     github: GithubIntegrationSchema.optional(),
   })

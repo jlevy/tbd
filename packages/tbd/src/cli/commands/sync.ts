@@ -64,6 +64,7 @@ import {
 import { withDataSyncContext } from '../lib/data-context.js';
 import { runEnabledIntegrationPushes, runEnabledIntegrations } from '../lib/integration-runner.js';
 import { integrationsInert } from '../../integrations/core/registry.js';
+import { resolveSyncFoldMode, syncFoldPosture } from '../../integrations/core/provider-settings.js';
 import { readConfig } from '../../file/config.js';
 import type { Config } from '../../lib/types.js';
 import type { MirrorReport } from '../../integrations/core/types.js';
@@ -164,7 +165,10 @@ class SyncHandler extends BaseCommand {
     // this do?" has to include "not the tracker".
     if (!syncIntegrations && !options.status) {
       const config = await readConfig(tbdRoot);
-      if (!integrationsInert(config) && config.integrations?.sync_on_tbd_sync !== false) {
+      if (
+        !integrationsInert(config) &&
+        syncFoldPosture(resolveSyncFoldMode(config.integrations)).runs
+      ) {
         this.output.notice(
           hasDirectionFlag
             ? 'Skipping external trackers for this run (direction flag given). ' +
@@ -273,8 +277,11 @@ class SyncHandler extends BaseCommand {
         // so a repo with no enabled integration must not pay for one to learn
         // it has nothing to do.
         const preConfig = await readConfig(tbdRoot);
-        const inert =
-          preConfig.integrations?.sync_on_tbd_sync === false || integrationsInert(preConfig);
+        // `tbd sync --integrations` is still a `tbd sync`, so the fold mode governs it
+        // too. Otherwise scoping the sync would silently escape `report` and write.
+        // `tbd integration sync` is the command that runs outside this posture.
+        const posture = syncFoldPosture(resolveSyncFoldMode(preConfig.integrations));
+        const inert = !posture.runs || integrationsInert(preConfig);
         if (!inert) {
           await withDataSyncContext(tbdRoot, { lock: true }, async (context) => {
             attempted.push('integrations');
@@ -286,20 +293,20 @@ class SyncHandler extends BaseCommand {
             };
             if (options.push) {
               const reports = await runEnabledIntegrationPushes(integrationContext, {
-                assumeYes: true,
+                assumeYes: posture.assumeYes,
                 interactive: false,
-                dryRun: false,
+                dryRun: posture.dryRun,
               });
-              this.reportIntegrationPush(reports);
+              this.reportIntegrationPush(reports, posture.dryRun);
               this.assertIntegrationReportsHealthy(reports);
             } else {
               const reports = await runEnabledIntegrations(integrationContext, {
-                assumeYes: true,
+                assumeYes: posture.assumeYes,
                 interactive: false,
-                dryRun: false,
+                dryRun: posture.dryRun,
                 direction: options.pull ? 'inbound' : 'both',
               });
-              this.reportIntegrationRun(reports);
+              this.reportIntegrationRun(reports, posture.dryRun);
               this.assertIntegrationReportsHealthy(reports);
             }
             if (syncIssues) {
@@ -352,25 +359,34 @@ class SyncHandler extends BaseCommand {
       conflicts: unknown[];
       failures: unknown[];
     }[],
+    dryRun = false,
   ): void {
+    // `report` mode plans without writing, so the line has to say so. Printing
+    // "pushed 5" for a run that touched nothing would be a false report of work.
+    const verbs = dryRun
+      ? { push: 'would push', pull: 'would pull', create: 'would create' }
+      : { push: 'pushed', pull: 'pulled', create: 'created' };
     for (const report of reports) {
       if (report.nothingToDo) {
         continue;
       }
       this.output.info(
-        `Integrations (${report.provider}): pushed ${report.pushed.length}, ` +
-          `pulled ${report.pulled.length}, created ${report.createdOutbound.length}, ` +
+        `Integrations (${report.provider}): ${verbs.push} ${report.pushed.length}, ` +
+          `${verbs.pull} ${report.pulled.length}, ${verbs.create} ${report.createdOutbound.length}, ` +
           `conflicts ${report.conflicts.length}, failures ${report.failures.length}`,
       );
     }
   }
 
   /** Print one line per provider for the outbound-only projection. */
-  private reportIntegrationPush(reports: MirrorReport[]): void {
+  private reportIntegrationPush(reports: MirrorReport[], dryRun = false): void {
+    const verbs = dryRun
+      ? { create: 'would create', update: 'would update' }
+      : { create: 'created', update: 'updated' };
     for (const report of reports) {
       this.output.info(
-        `Integrations (${report.provider}): created ${report.created.length}, ` +
-          `updated ${report.updated.length}, skipped ${report.skipped.length}, ` +
+        `Integrations (${report.provider}): ${verbs.create} ${report.created.length}, ` +
+          `${verbs.update} ${report.updated.length}, skipped ${report.skipped.length}, ` +
           `failures ${report.failures.length}`,
       );
     }
@@ -402,12 +418,11 @@ class SyncHandler extends BaseCommand {
    * outer multi-surface rollup with a non-zero exit.
    */
   private async runIntegrationPushInPosition(): Promise<void> {
-    if (
-      !this.syncIntegrations ||
-      !this.config ||
-      integrationsInert(this.config) ||
-      this.config.integrations?.sync_on_tbd_sync === false
-    ) {
+    if (!this.syncIntegrations || !this.config || integrationsInert(this.config)) {
+      return;
+    }
+    const posture = syncFoldPosture(resolveSyncFoldMode(this.config.integrations));
+    if (!posture.runs) {
       return;
     }
 
@@ -419,9 +434,12 @@ class SyncHandler extends BaseCommand {
           dataSyncDir: this.dataSyncDir,
           worktreePath: this.worktreePath,
         },
-        { assumeYes: true, interactive: false, dryRun: false },
+        // Non-interactive by construction: this runs inside `tbd sync`, so the bulk
+        // guard either refuses an oversized run (`guarded`) or is affirmed, and the
+        // fold mode is the only thing that decides which.
+        { assumeYes: posture.assumeYes, interactive: false, dryRun: posture.dryRun },
       );
-      this.reportIntegrationPush(reports);
+      this.reportIntegrationPush(reports, posture.dryRun);
       this.assertIntegrationReportsHealthy(reports);
     } catch (error) {
       this.integrationFailure = error;
@@ -1187,20 +1205,26 @@ class SyncHandler extends BaseCommand {
       this.output.debug(`Fetch failed (may be first sync): ${(error as Error).message}`);
     }
 
-    // Integration fold, on by default (`sync_on_tbd_sync` defaults to true;
+    // Integration fold, on by default (`on_tbd_sync` defaults to `auto`;
     // enabling a provider IS the opt-in). This is the one correct moment for
     // it: AFTER pull/merge (so reconciliation sees other machines' bead
     // changes instead of pushing stale state to the tracker) and BEFORE the
     // push (so the beads and bridge records it writes ride this very push).
     // A failure is contained until git sync finishes, then the outer surface
-    // rollup returns a non-zero exit. The folded run implies affirmation of
-    // the bulk thresholds — use `tbd integration sync` directly for a guarded,
-    // reviewable run.
+    // rollup returns a non-zero exit.
+    //
+    // `auto` affirms the bulk thresholds, which is why `guarded` exists: the
+    // fold is non-interactive, so under `guarded` the bulk guard refuses an
+    // oversized run and reports it rather than writing it, leaving
+    // `tbd integration sync` for the reviewed pass.
+    const foldPosture = this.config
+      ? syncFoldPosture(resolveSyncFoldMode(this.config.integrations))
+      : undefined;
     if (
       this.syncIntegrations &&
       this.config &&
       !integrationsInert(this.config) &&
-      this.config.integrations?.sync_on_tbd_sync !== false
+      foldPosture?.runs
     ) {
       try {
         const reports = await runEnabledIntegrations(
@@ -1210,9 +1234,13 @@ class SyncHandler extends BaseCommand {
             dataSyncDir: this.dataSyncDir,
             worktreePath: this.worktreePath,
           },
-          { assumeYes: true, interactive: false, dryRun: false },
+          {
+            assumeYes: foldPosture.assumeYes,
+            interactive: false,
+            dryRun: foldPosture.dryRun,
+          },
         );
-        this.reportIntegrationRun(reports);
+        this.reportIntegrationRun(reports, foldPosture.dryRun);
         this.assertIntegrationReportsHealthy(reports);
       } catch (error) {
         // Contained: git sync continues and completes. Reported here, and the

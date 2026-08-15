@@ -160,8 +160,8 @@ $ tbd sync --status 2>&1 | grep -c "Skipping external trackers" || true
 
 ## Deliberately excluded from `tbd sync`
 
-A team that sets `sync_on_tbd_sync: false` has already decided the tracker is manual, so
-a scoped run has nothing to warn about.
+A team that turns the fold off has already decided the tracker is manual, so a scoped
+run has nothing to warn about.
 
 ```console
 $ node -e "const f=require('fs'),p='.tbd/config.yml';f.writeFileSync(p,f.readFileSync(p,'utf8').replace('integrations:','integrations:\n  sync_on_tbd_sync: false'))"
