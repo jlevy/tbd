@@ -47,6 +47,8 @@ import {
   USERS_BY_EMAIL_QUERY,
 } from './queries.js';
 import { spliceManagedBlock } from '../core/managed-block.js';
+import { isTbdOwnedLabel } from '../core/origin-labels.js';
+import type { LabelCreateModeType } from '../core/provider-settings.js';
 import { CONFLICT_COMMENT_MARKER } from '../core/types.js';
 
 interface RawIssue {
@@ -72,7 +74,7 @@ export interface LinearAdapterOptions {
   client: LinearClient;
   teamKey: string;
   /** Create labels that do not exist yet rather than dropping them. */
-  createLabels?: boolean;
+  createLabels?: LabelCreateModeType;
   /** Project to file mirrored issues under, by name or slug id. */
   project?: string;
   /** Maps canonical tbd assignee aliases to a Linear user UUID or email. */
@@ -91,7 +93,7 @@ export class LinearAdapter implements TrackerAdapter {
 
   private readonly client: LinearClient;
   private readonly teamKey: string;
-  private readonly createLabels: boolean;
+  private readonly createLabels: LabelCreateModeType;
   private readonly userMap: ReadonlyMap<string, string>;
   private readonly assigneeByExternalIdentity: ReadonlyMap<string, string>;
   private readonly resolvedUserIds = new Map<string, string>();
@@ -104,7 +106,7 @@ export class LinearAdapter implements TrackerAdapter {
   constructor(options: LinearAdapterOptions) {
     this.client = options.client;
     this.teamKey = options.teamKey;
-    this.createLabels = options.createLabels ?? true;
+    this.createLabels = options.createLabels ?? 'tbd';
     this.project = options.project;
     const configuredUsers = Object.entries(options.userMap ?? {});
     const reverse = new Map<string, string>();
@@ -704,7 +706,7 @@ export class LinearAdapter implements TrackerAdapter {
         ids.push(existing);
         continue;
       }
-      if (!this.createLabels) {
+      if (!this.mayCreateLabel(name)) {
         continue;
       }
       const created = await this.client.request<{
@@ -719,6 +721,25 @@ export class LinearAdapter implements TrackerAdapter {
       }
     }
     return ids;
+  }
+
+  /**
+   * Whether a label tbd needs may be created when the team does not have it.
+   *
+   * The distinction matters because the two categories have opposite risk profiles.
+   * tbd's own labels are a small bounded set the tool cannot work without — dropping
+   * `tbd` or `repo/<name>` leaves the item unlabelled, which the engine then notices and
+   * re-asserts on every sync, forever. Mirrored bead labels are unbounded and land in a
+   * team namespace other people share, which is why mass-creating them is opt-in.
+   */
+  private mayCreateLabel(name: string): boolean {
+    if (this.createLabels === 'all') {
+      return true;
+    }
+    if (this.createLabels === 'none') {
+      return false;
+    }
+    return isTbdOwnedLabel(name);
   }
 
   private async resolveUserId(assignee: string): Promise<string> {

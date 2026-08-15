@@ -237,7 +237,7 @@ describe('label mirroring', () => {
       selected: [bead],
       displayId,
       maxNesting: 2,
-      mirrorLabels: true,
+      mirrorLabels: 'prefixed',
     });
 
     expect(plan.creates[0]?.patch.labels).toEqual(['tbd:backend', 'tbd:ci']);

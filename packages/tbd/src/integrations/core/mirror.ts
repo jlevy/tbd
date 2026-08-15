@@ -8,6 +8,7 @@
  * any agent at any time: there is no merge, no base, and no conflict.
  */
 
+import type { LabelMirrorModeType } from './provider-settings.js';
 import type { Issue, LinkedEntryType, ProviderNameType } from '../../lib/types.js';
 import { readyIssueIds } from '../../lib/issue-selection.js';
 import { readLink } from './link-store.js';
@@ -53,7 +54,7 @@ export interface MirrorContext {
    * hundred-plus distinct labels, and creating one per label pollutes a shared
    * team namespace. They are mirrored as attachment metadata regardless.
    */
-  mirrorLabels?: boolean;
+  mirrorLabels?: LabelMirrorModeType;
   /**
    * Labels every mirrored item must carry: the plain `tbd` marker and the
    * `repo/<name>` group label. Applied additively (see `ensureLabels`), so asserting
@@ -251,7 +252,14 @@ export function planMirror(context: MirrorContext): MirrorPlan {
       // Omitting `labels` entirely leaves the tracker's labels alone except for
       // the status carriers the adapter adds. Sending [] would strip labels a
       // human applied in the tracker, which is not ours to remove.
-      ...(context.mirrorLabels ? { labels: prefixLabels(issue.labels ?? []) } : {}),
+      ...(context.mirrorLabels && context.mirrorLabels !== 'none'
+        ? {
+            labels:
+              context.mirrorLabels === 'prefixed'
+                ? prefixLabels(issue.labels ?? [])
+                : [...(issue.labels ?? [])],
+          }
+        : {}),
       ...(context.originLabels && context.originLabels.length > 0
         ? { ensureLabels: [...context.originLabels] }
         : {}),

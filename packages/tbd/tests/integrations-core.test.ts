@@ -251,14 +251,16 @@ describe('label-pollution guards', () => {
     // spelling is optional (the migration moves it to `labels.mirror`), so the default
     // lives in settings resolution — which is where every consumer reads it.
     const parsed = LinearIntegrationSchema.parse({});
-    expect(resolveProviderSettings(parsed).mirrorLabels).toBe(false);
+    expect(resolveProviderSettings(parsed).mirrorLabels).toBe('none');
   });
 
   it('reads the pre-f08 flat spelling when a committed config still carries it', () => {
     // A teammate's branch can hold the old shape while this build writes the new one.
     const legacy = LinearIntegrationSchema.parse({ mirror_labels: true, team_key: 'FIN' });
     const settings = resolveProviderSettings(legacy);
-    expect(settings.mirrorLabels).toBe(true);
+    // The legacy boolean maps onto the mode that preserves its exact behavior: it
+    // always meant prefixed, never verbatim.
+    expect(settings.mirrorLabels).toBe('prefixed');
     expect(settings.teamKey).toBe('FIN');
   });
 
@@ -445,5 +447,47 @@ describe('parent hierarchy guards', () => {
     const root = issue({ id: 'is-root' });
     const child = issue({ id: 'is-child', parent_id: 'is-root' });
     expect(findHierarchyProblems([root, child])).toEqual([]);
+  });
+
+  describe('label modes (f08)', () => {
+    it('defaults creation to tbd-owned labels only', () => {
+      // A boolean lumped two categories together: tbd's own bounded infrastructure labels
+      // and the unbounded set mirrored from beads. Creation off then silently dropped the
+      // origin labels, so the engine re-asserted them on every sync forever.
+      expect(resolveProviderSettings(LinearIntegrationSchema.parse({})).createLabels).toBe('tbd');
+    });
+
+    it('maps the legacy create_labels booleans onto the modes that preserve their meaning', () => {
+      expect(
+        resolveProviderSettings(LinearIntegrationSchema.parse({ create_labels: true }))
+          .createLabels,
+      ).toBe('all');
+      expect(
+        resolveProviderSettings(LinearIntegrationSchema.parse({ create_labels: false }))
+          .createLabels,
+      ).toBe('none');
+    });
+
+    it('maps the legacy mirror_labels booleans the same way', () => {
+      expect(
+        resolveProviderSettings(LinearIntegrationSchema.parse({ mirror_labels: true }))
+          .mirrorLabels,
+      ).toBe('prefixed');
+      expect(
+        resolveProviderSettings(LinearIntegrationSchema.parse({ mirror_labels: false }))
+          .mirrorLabels,
+      ).toBe('none');
+    });
+
+    it('accepts a custom origin label name, symmetric with repo', () => {
+      // A workspace already using `tbd` for something else needs to pick another name.
+      const parsed = LinearIntegrationSchema.parse({ labels: { origin: 'agents' } });
+      expect(resolveProviderSettings(parsed).originLabel).toBe('agents');
+    });
+
+    it('rejects a mode value outside the enum instead of coercing it', () => {
+      expect(() => LinearIntegrationSchema.parse({ labels: { create: 'sometimes' } })).toThrow();
+      expect(() => LinearIntegrationSchema.parse({ labels: { mirror: true } })).toThrow();
+    });
   });
 });

@@ -28,12 +28,29 @@ import type { PolicyConfigSlice } from './policy.js';
 export type RepoLabelSetting = string | false;
 
 /**
+ * Origin-label setting: `true` for the default name, a string to override it, `false` to
+ * disable. Typed as `string | boolean` because `'tbd' | string` collapses to `string`.
+ */
+export type OriginLabelSetting = string | boolean;
+
+/** How much of the repository's own bead labels to project. */
+export type LabelMirrorModeType = 'none' | 'prefixed' | 'verbatim';
+
+/** Which missing labels tbd may create on push. */
+export type LabelCreateModeType = 'none' | 'tbd' | 'all';
+
+/**
  * The provider-config slice these settings come from. Structural rather than a
  * provider-specific type so Linear and GitHub resolve identically.
  */
 export interface ProviderConfigSlice extends PolicyConfigSlice {
   target?: { team_key?: string; project?: string; repo?: string };
-  labels?: { origin?: boolean; repo?: RepoLabelSetting; mirror?: boolean; create?: boolean };
+  labels?: {
+    origin?: OriginLabelSetting;
+    repo?: RepoLabelSetting;
+    mirror?: LabelMirrorModeType;
+    create?: LabelCreateModeType;
+  };
   identity?: { user_map?: Record<string, string> };
 
   // Pre-f08 spellings. Retained for reading only; the f08 migration moves them.
@@ -53,14 +70,14 @@ export interface ProviderSettings {
   repo?: string;
   /** Levels of sub-issue nesting to mirror. */
   maxNesting: number;
-  /** Attach a plain `tbd` label to every mirrored issue. */
-  originLabel: boolean;
+  /** Origin marker: `true` for the default name, a string to override, `false` to skip. */
+  originLabel: OriginLabelSetting;
   /** Per-repository label: `'auto'` derives from the git origin, `false` disables. */
   repoLabel: RepoLabelSetting;
-  /** Push bead labels as tracker labels. */
-  mirrorLabels: boolean;
-  /** Create labels that do not yet exist in the team on push. */
-  createLabels: boolean;
+  /** How to project the repository's own bead labels. */
+  mirrorLabels: LabelMirrorModeType;
+  /** Which missing labels tbd may create on push. */
+  createLabels: LabelCreateModeType;
   userMap: Record<string, string>;
 }
 
@@ -71,10 +88,10 @@ export interface ProviderSettings {
  */
 const DEFAULTS = {
   maxNesting: 2,
-  originLabel: true,
+  originLabel: true as OriginLabelSetting,
   repoLabel: 'auto' as RepoLabelSetting,
-  mirrorLabels: false,
-  createLabels: true,
+  mirrorLabels: 'none' as LabelMirrorModeType,
+  createLabels: 'tbd' as LabelCreateModeType,
 };
 
 /**
@@ -98,8 +115,24 @@ export function resolveProviderSettings(config: ProviderConfigSlice): ProviderSe
 
     originLabel: config.labels?.origin ?? DEFAULTS.originLabel,
     repoLabel: config.labels?.repo ?? DEFAULTS.repoLabel,
-    mirrorLabels: config.labels?.mirror ?? config.mirror_labels ?? DEFAULTS.mirrorLabels,
-    createLabels: config.labels?.create ?? config.create_labels ?? DEFAULTS.createLabels,
+    // The pre-f08 booleans map onto the modes that preserve their behavior exactly:
+    // `mirror_labels: true` always meant prefixed, and `create_labels: true` meant
+    // create anything asked for. A fresh config gets the safer `tbd` default instead,
+    // which is a deliberate change of default, not of the legacy meaning.
+    mirrorLabels:
+      config.labels?.mirror ??
+      (config.mirror_labels === undefined
+        ? DEFAULTS.mirrorLabels
+        : config.mirror_labels
+          ? 'prefixed'
+          : 'none'),
+    createLabels:
+      config.labels?.create ??
+      (config.create_labels === undefined
+        ? DEFAULTS.createLabels
+        : config.create_labels
+          ? 'all'
+          : 'none'),
     userMap: config.identity?.user_map ?? config.user_map ?? {},
   };
 }

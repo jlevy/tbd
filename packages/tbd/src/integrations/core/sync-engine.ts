@@ -27,6 +27,8 @@ import { randomUUID } from 'node:crypto';
 
 import { ulid } from 'ulid';
 
+import type { LabelMirrorModeType } from './provider-settings.js';
+
 import type {
   InboundClause,
   Issue,
@@ -126,7 +128,7 @@ export interface SyncEngineOptions {
    * nor wipe — the tracker's labels (including tbd's own status carriers) are
    * left alone. When on, pushed labels are `tbd:`-prefixed.
    */
-  mirrorLabels: boolean;
+  mirrorLabels: LabelMirrorModeType;
   /**
    * Labels every linked item must carry — the plain `tbd` marker and the `repo/<name>`
    * group label.
@@ -674,7 +676,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       result.externalPatch.ensureLabels = missingOriginLabels;
     }
 
-    if (!options.mirrorLabels) {
+    if (options.mirrorLabels === 'none') {
       // Labels are inert unless explicitly mirrored: never pushed (which would
       // create one team label per bead label AND wipe tbd's status carriers on
       // beads without labels), never pulled, never a reportable overwrite.
@@ -683,7 +685,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       result.overwrites = result.overwrites.filter((o) => o.field !== 'labels');
       result.conflicts = result.conflicts.filter((c) => c.field !== 'labels');
       result.merged.labels = bead.labels ?? [];
-    } else if (result.externalPatch.labels) {
+    } else if (result.externalPatch.labels && options.mirrorLabels === 'prefixed') {
       result.externalPatch.labels = prefixLabels(result.externalPatch.labels);
     }
     let parentOverwrite = false;

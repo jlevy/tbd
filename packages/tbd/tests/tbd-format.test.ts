@@ -465,7 +465,7 @@ describe('tbd-format', () => {
       expect(linearAfter(result.config)).toEqual({
         enabled: true,
         target: { team_key: 'TBD', project: 'tbd' },
-        labels: { mirror: false, create: true },
+        labels: { mirror: 'none', create: 'all' },
         identity: { user_map: { alice: 'alice@example.com' } },
       });
     });
@@ -500,6 +500,33 @@ describe('tbd-format', () => {
         policy: 'default',
         max_nesting: 4,
       });
+    });
+
+    it('translates the boolean label keys into their enum modes, not just moves them', () => {
+      // Both keys became enums in f08. Copying the boolean across would produce a config
+      // that no longer parses — the migration would report success and leave the
+      // repository broken, which is worse than refusing to run.
+      const result = migrateToLatest(
+        f07WithLinear({ enabled: true, mirror_labels: true, create_labels: false }),
+      );
+
+      expect(linearAfter(result.config).labels).toEqual({ mirror: 'prefixed', create: 'none' });
+    });
+
+    it('maps the other boolean pairing the same way', () => {
+      const result = migrateToLatest(
+        f07WithLinear({ enabled: true, mirror_labels: false, create_labels: true }),
+      );
+
+      expect(linearAfter(result.config).labels).toEqual({ mirror: 'none', create: 'all' });
+    });
+
+    it('leaves an already-migrated enum value alone', () => {
+      const result = migrateToLatest(
+        f07WithLinear({ enabled: true, labels: { mirror: 'verbatim', create: 'tbd' } }),
+      );
+
+      expect(linearAfter(result.config).labels).toEqual({ mirror: 'verbatim', create: 'tbd' });
     });
 
     it('carries through a provider key this version does not know', () => {

@@ -88,6 +88,19 @@ export function buildAdapter(
  */
 async function resolveOriginLabels(tbdRoot: string, config: Config): Promise<string[]> {
   const settings = resolveProviderSettings(config.integrations?.linear ?? {});
+
+  // With creation disabled entirely, tbd cannot guarantee its own labels exist. Asserting
+  // one the tracker will never accept is worse than not labelling: the push silently
+  // drops it, the next sync sees it still missing, and the pair is dirty forever — a
+  // permanent write loop in the code path whose whole point is that a quiet sync is free.
+  //
+  // The trade is narrow and deliberate: a team that pre-created these labels by hand and
+  // set `create: none` loses the marking. `create: tbd` is the setting for "create what
+  // tbd needs, never mass-create from bead labels", and it is the default.
+  if (settings.createLabels === 'none') {
+    return [];
+  }
+
   let originRemoteUrl: string | undefined;
   try {
     originRemoteUrl = (await git('-C', tbdRoot, 'remote', 'get-url', 'origin')).trim();

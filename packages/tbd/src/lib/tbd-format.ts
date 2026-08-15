@@ -437,6 +437,19 @@ const F08_PROVIDER_MOVES = {
   identity: ['user_map'],
 } as const;
 
+/**
+ * Value translations for keys whose type changed in f08.
+ *
+ * `mirror_labels` and `create_labels` were booleans; their replacements are enums, and
+ * each boolean maps onto the mode that preserves its exact prior behavior. `true` for
+ * mirroring always meant the `tbd:`-prefixed form, and `true` for creation always meant
+ * "create whatever is asked for".
+ */
+const F08_LABEL_VALUE_TRANSLATIONS: Record<string, (value: unknown) => unknown> = {
+  mirror: (value) => (typeof value === 'boolean' ? (value ? 'prefixed' : 'none') : value),
+  create: (value) => (typeof value === 'boolean' ? (value ? 'all' : 'none') : value),
+};
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -487,7 +500,10 @@ function regroupProviderBlock(
   const labels = isPlainObject(provider.labels) ? { ...provider.labels } : {};
   for (const [from, to] of Object.entries(F08_PROVIDER_MOVES.labels)) {
     if (from in provider && !(to in labels)) {
-      labels[to] = provider[from];
+      // Translate the value, do not just move it. Both keys became enums in f08, so
+      // copying the boolean across would produce a config that no longer parses — the
+      // migration would appear to succeed and leave the repository broken.
+      labels[to] = F08_LABEL_VALUE_TRANSLATIONS[to]?.(provider[from]) ?? provider[from];
       consumed.add(from);
       changes.push(`Moved ${providerName}.${from} into ${providerName}.labels.${to}`);
     }

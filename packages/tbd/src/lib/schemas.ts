@@ -615,19 +615,57 @@ export const IntegrationTargetSchema = z
  * single-repo setup consolidation-ready. `mirror` and `create` are the former
  * `mirror_labels` / `create_labels`.
  */
+/**
+ * How much of the repository's own bead labels to project.
+ *
+ * Not a boolean, because "push bead labels" hides a second question that a boolean
+ * answers by fiat: under what name. `prefixed` writes `tbd:<label>`, which keeps tbd's
+ * labels identifiable and bulk-removable; `verbatim` writes the label as-is, which is
+ * what a team wants when their tracker already has a `bug` label and a second `tbd:bug`
+ * would be noise.
+ */
+export const LabelMirrorMode = z.enum(['none', 'prefixed', 'verbatim']);
+
+/**
+ * Which missing labels tbd may create on push.
+ *
+ * Not a boolean, and the reason is concrete rather than speculative. A single flag
+ * covered two unrelated categories: tbd's own infrastructure labels (`tbd`,
+ * `repo/<name>`, the `tbd:blocked` / `tbd:deferred` status carriers) — a bounded set
+ * tbd owns — and mirrored bead labels, which a repository can have hundreds of and which
+ * pollute a shared team namespace.
+ *
+ * Conflating them was a live defect: with creation off, the origin labels were silently
+ * dropped on push, so the tracker never received them, so every sync re-asserted them —
+ * a permanent write loop in the one code path whose whole purpose is to make a quiet
+ * sync free.
+ *
+ * `tbd` is the default: create what tbd needs to function, never mass-create from bead
+ * labels.
+ */
+export const LabelCreateMode = z.enum(['none', 'tbd', 'all']);
+
 export const IntegrationLabelsSchema = z
   .object({
-    /** Attach a plain `tbd` label to every mirrored issue, so humans can filter it out. */
-    origin: z.boolean().default(true),
+    /**
+     * The plain marker on every mirrored issue, so a human can filter agent traffic out
+     * with `label is not tbd`.
+     *
+     * `true` uses the default name; a string overrides it, which a workspace already
+     * using `tbd` for something else needs. Symmetric with `repo` below — an earlier
+     * draft made this a bare boolean while `repo` took a name, which was an asymmetry
+     * with no reason behind it.
+     */
+    origin: z.union([z.boolean(), z.string().min(1)]).default(true),
     /**
      * Per-repository label in a Linear label group named `repo`.
      * `auto` derives the name from the git origin; a string overrides it; false disables.
      */
     repo: z.union([z.literal('auto'), z.literal(false), z.string().min(1)]).default('auto'),
-    /** Push bead labels as tracker labels. Off by default: see the note on the alias. */
-    mirror: z.boolean().default(false),
-    /** Create labels that do not yet exist in the team on push. */
-    create: z.boolean().default(true),
+    /** How to project the repository's own bead labels. Off by default. */
+    mirror: LabelMirrorMode.default('none'),
+    /** Which missing labels tbd may create on push. */
+    create: LabelCreateMode.default('tbd'),
   })
   .passthrough();
 

@@ -23,7 +23,7 @@
 import type { ProviderSettings, RepoLabelSetting } from './provider-settings.js';
 import { parseRepoSlug } from './permalink.js';
 
-/** The plain marker every mirrored item carries. */
+/** Default name for the plain marker every mirrored item carries. */
 export const ORIGIN_LABEL = 'tbd';
 
 /** Linear label-group prefix for the per-repository label. */
@@ -88,13 +88,19 @@ export function originLabelsFor(options: {
   idPrefix?: string;
 }): string[] {
   const { settings, originRemoteUrl, idPrefix } = options;
-  if (!settings.originLabel) {
+  if (settings.originLabel === false) {
     // One switch turns off the whole scheme. A repository that wants the plain marker
     // but not the repo group sets `labels.repo: false` instead.
     return [];
   }
 
-  const labels = [ORIGIN_LABEL];
+  // `true` means the default name; a string overrides it, which a workspace already
+  // using `tbd` for something else needs.
+  const originName =
+    typeof settings.originLabel === 'string'
+      ? sanitizeRepoLabel(settings.originLabel)
+      : ORIGIN_LABEL;
+  const labels = [originName];
   const repoName = resolveRepoLabelName({
     setting: settings.repoLabel,
     originRemoteUrl,
@@ -119,4 +125,21 @@ export function isForeignRepoLabel(label: string, ownRepoName: string | undefine
   }
   const name = label.slice(REPO_LABEL_GROUP.length + 1);
   return name !== ownRepoName;
+}
+
+/**
+ * Whether a label is one tbd owns and needs, as opposed to one mirrored from a bead.
+ *
+ * The set is deliberately small and structural: the origin marker, anything in the
+ * `repo` group, and the `tbd:`-prefixed carriers (which cover both the status carriers
+ * and mirrored bead labels under the prefixed mode — mirrored ones are only ever sent
+ * when the operator asked for them, so treating the prefix as tbd-owned is right).
+ */
+export function isTbdOwnedLabel(name: string, originName: string = ORIGIN_LABEL): boolean {
+  return (
+    name === originName ||
+    name === ORIGIN_LABEL ||
+    name.startsWith(`${REPO_LABEL_GROUP}/`) ||
+    name.startsWith('tbd:')
+  );
 }
