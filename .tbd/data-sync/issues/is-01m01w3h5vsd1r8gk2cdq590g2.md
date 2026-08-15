@@ -5,11 +5,12 @@ title: tbd doctor should report duplicate and contested short IDs in ids.yml
 kind: feature
 status: open
 priority: 3
-version: 1
-labels: []
+version: 2
+labels:
+  - pause
 dependencies: []
 created_at: 2026-08-15T04:50:25.595Z
-updated_at: 2026-08-15T04:50:25.595Z
+updated_at: 2026-08-15T05:47:01.236Z
 ---
 PR #232 repairs contested duplicate short IDs in `mappings/ids.yml` at load time. That is the right place for the repair, but nothing surfaces the condition as a health signal — the user sees only a transient warning on the run that happened to load the file.
 

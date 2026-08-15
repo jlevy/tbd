@@ -3,13 +3,15 @@ type: is
 id: is-01m01bhc5nyc14brdbwn5ebr64
 title: Duplicate short-ID keys in ids.yml drop a bead's display mapping
 kind: bug
-status: in_progress
+status: closed
 priority: 1
-version: 4
+version: 5
 labels: []
 dependencies: []
 created_at: 2026-08-15T00:00:53.429Z
-updated_at: 2026-08-15T05:29:29.055Z
+updated_at: 2026-08-15T05:47:00.900Z
+closed_at: 2026-08-15T05:47:00.899Z
+close_reason: "Fixed and shipped in merged PR #232 (4dbefd65); the duplicate-ID repair and 44 focused tests are now on main."
 ---
 `mappings/ids.yml` is keyed short -> ulid and merged with `merge=union` (see the sync branch's `mappings/.gitattributes`). Union merge keeps both sides' lines, so two clones that each allocate the same unseen short ID produce a file with that key twice. `parseYamlToleratingDuplicateKeys` (yaml-utils.ts:183) resolves duplicates as "last occurrence wins", so one of the two beads silently loses its mapping.
 

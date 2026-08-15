@@ -5,11 +5,12 @@ title: parseYamlToleratingDuplicateKeys has no production callers after PR 232
 kind: chore
 status: open
 priority: 3
-version: 1
-labels: []
+version: 2
+labels:
+  - pause
 dependencies: []
 created_at: 2026-08-15T05:28:52.963Z
-updated_at: 2026-08-15T05:28:52.963Z
+updated_at: 2026-08-15T05:47:01.225Z
 ---
 PR #232 replaced `parseYamlToleratingDuplicateKeys`'s only production consumer (`file/id-mapping.ts`) with the new `parseYamlDocumentEntries` primitive. A repo-wide grep now finds no production callers at all — only its own declaration at `utils/yaml-utils.ts:246` and its tests in `tests/ids.test.ts`.
 
