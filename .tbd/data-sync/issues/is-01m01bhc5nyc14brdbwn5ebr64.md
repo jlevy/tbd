@@ -5,11 +5,11 @@ title: Duplicate short-ID keys in ids.yml drop a bead's display mapping
 kind: bug
 status: in_progress
 priority: 1
-version: 2
+version: 4
 labels: []
 dependencies: []
 created_at: 2026-08-15T00:00:53.429Z
-updated_at: 2026-08-15T00:59:54.540Z
+updated_at: 2026-08-15T05:29:29.055Z
 ---
 `mappings/ids.yml` is keyed short -> ulid and merged with `merge=union` (see the sync branch's `mappings/.gitattributes`). Union merge keeps both sides' lines, so two clones that each allocate the same unseen short ID produce a file with that key twice. `parseYamlToleratingDuplicateKeys` (yaml-utils.ts:183) resolves duplicates as "last occurrence wins", so one of the two beads silently loses its mapping.
 
@@ -38,10 +38,14 @@ Found while researching agent identity (research-2026-08-14-agent-and-session-id
 
 ## Notes
 
-Fix in PR #232 (branch claude/fix-ids-yml-duplicate-short-ids), authored by a subagent, reviewed here.
+Review fully addressed across 7b5f47e (R1/R2/R3/R4/R5/R7/S2 + docs) and 0024a4f (loud-failure path tests). Disposition posted at PR #232 comment 5300737158.
 
-Approach: deterministic repair at load. parseAllIdEntries reads every duplicate line-by-line, resolveDuplicateShortIds gives the contested short ID to the lexicographically smallest ULID (earliest-created bead), and deriveShortIdFromUlid assigns displaced ULIDs a replacement taken from 4-char windows of their own ULID — starting at the tail, so candidates come from the 80 random bits rather than the shared timestamp prefix. No randomness, so clones converge.
+Verified by execution, not by reading: loaded this repo's real 1,743-entry ids.yml (274 quoted keys) with an injected duplicate — 1,744 short IDs, 1,744 ULIDs, 0 beads fail to render, quoted bystander renders as tbd-0622. Before 7b5f47e that scenario dropped all 274. Conflict-marker ordering from 735e9ee survived the parser swap at all three read paths.
 
-Review found and got fixed: the first revision checked duplicates before merge-conflict markers, so a conflicted-AND-duplicated ids.yml parsed silently instead of raising MergeConflictError — parseAllIdEntries skips marker lines, so both sides of an unresolved conflict were treated as live data. Fixed in 735e9ee; verified by probe that conflicted input now throws in both loadIdMapping and parseIdMappingFromYaml while clean duplicates still repair.
+Correction to my own earlier note: I attributed uncovered yaml-utils.ts:277-278 to the new primitive. Those lines are in parseYamlToleratingDuplicateKeys (declared :246), which predates this PR. parseYamlDocumentEntries (198-245) is fully covered.
 
-Known residual, documented in the PR and deliberately not fixed here: clones at different sync states can derive different replacements for the same displaced ULID, producing two short IDs aliasing one bead. Alias, not data loss; the true two-ULID conflict still self-heals as a duplicate key.
+That misattribution surfaced tbd-xt7r: parseYamlToleratingDuplicateKeys now has zero production callers, kept alive only by its own tests. It is the last-occurrence-wins parser that caused this bug, so leaving it exported lets a future caller reach for the wrong one. Not folded into #232 to keep scope tight post-review.
+
+main advanced d55790f -> 2e56669 (PR #233) but touched only docs/development.md and docs/publishing.md — disjoint from this PR, no conflict.
+
+Awaiting re-review.
