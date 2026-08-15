@@ -9,11 +9,16 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Phase 1 in progress — the five items needing no product decision shipped in
+**Status:** **Phase 2 complete; Phase 1 substantially complete.** `f08` is implemented
+end to end — bead schema passthrough, `docs`/`refs` with `union_by_key`, the integration
+config regroup, and the migration — along with `tbd start`, `tbd whoami`, and agent
+identity. The cut is planned in
+[plan-2026-08-15-f08-release-rollout.md](./plan-2026-08-15-f08-release-rollout.md).
+Phases 3 and 4 are additive to `f08` and need no further format work, which was the
+point of doing the schema bump once.
+Earlier: the five items needing no product decision shipped in
 [#227](https://github.com/jlevy/tbd/pull/227) (quiet-sync write guard, `--no-verify`
 push, surface honesty, docs reframing).
-The rest of Phase 1 is specified and unblocked.
-Phase 2 specifies a bead-format bump (`f08`) and is the only phase with a migration.
 Phases 3 and 4 are designed here at the level needed to sequence them, and each is
 shippable on its own.
 
@@ -287,9 +292,11 @@ Design decisions, each with its reason:
   unrecognized value should render generically, never fail a sync.
 - **Identity is `path` for docs and `url` for refs**, so repeated adds are idempotent
   and the merge is a union keyed on that field.
-  `docs: 'union'` and `refs: 'union'` slot straight into the existing `FIELD_STRATEGIES`
-  table beside `labels` and `dependencies` — **no new merge machinery** — and two agents
-  attaching different PRs concurrently both survive.
+  Implementation correction: plain `union` was **not** enough, because it dedupes on
+  whole-item equality — two clones adding the same PR with different titles would keep
+  both and list one PR twice.
+  `union_by_key`, keyed on `path` / `url`, is what makes a repeated add idempotent while
+  still letting two agents attach different refs concurrently.
 - **Provider-neutral by construction.** A ref is a URL with a kind; nothing about it
   knows Linear exists.
   The same field carries a GitLab MR or a Notion page.
@@ -658,7 +665,9 @@ when the phase starts.
 - [ ] `tbd-iqgm` — delta-gate comment fetching (`F10`), after proving the `updatedAt`
   assumption in live QA
 - [ ] `tbd-9ulk` — on-disk `ensureMeta` cache with a TTL
-- [ ] `tbd-71am` — `tbd sync --push` must not silently do the outbound-only projection
+- [x] `tbd-71am` — `tbd sync --push` must not silently do the outbound-only projection —
+  it now narrows away from the tracker; `--push --integrations` remains the deliberate
+  form
 - [ ] `tbd-42u4` — `--dry-run` and `--status` cover the tracker
 - [x] `tbd-8ot8` — `--issues` says when it excluded the tracker —
   [#227](https://github.com/jlevy/tbd/pull/227)
@@ -666,8 +675,9 @@ when the phase starts.
   [#227](https://github.com/jlevy/tbd/pull/227)
 - [ ] `tbd-fnwc` — hook PATH order, local-first resolution, fail loudly
 - [ ] `tbd-qd1n` — `tbd doctor` executes the installed hook scripts
-- [ ] `tbd-mnci` — `tbd start`, the claim primitive
-- [ ] `tbd-f39i` — agent identity resolution and `tbd whoami`
+- [x] `tbd-mnci` — `tbd start`, the claim primitive — refuses to steal a live claim
+- [x] `tbd-f39i` — agent identity resolution and `tbd whoami` — `agid-{ulid}`, minted
+  idempotently by the SessionStart launcher
 - [ ] `tbd-c4zl` — teach the claim step in all four instruction surfaces
 - [x] `tbd-czhw` — reframe the selection-size guidance against *open* work; document the
   `max_nesting` skip — [#227](https://github.com/jlevy/tbd/pull/227)
@@ -680,14 +690,20 @@ performs no push. `tbd start` exists and the claim step appears in all four surf
 
 ### Phase 2: Schema — bead metadata and format `f08`
 
-- [ ] `tbd-8ksq` — `IssueSchema` preserves unknown keys; `mergeIssues` carries keys
+- [x] `tbd-8ksq` — `IssueSchema` preserves unknown keys; `mergeIssues` carries keys
   outside `FIELD_STRATEGIES`; `f08` migration entry, `CURRENT_FORMAT` bump,
-  `describeMigration`, and migration tests
-- [ ] `tbd-cak1` — the `docs` field, `tbd doc add|rm`, and `docs: 'union'`
-- [ ] `tbd-vo8b` — the `refs` field, `tbd ref add|rm`, and `refs: 'union'`
-- [ ] `tbd show` renders governing spec, docs, and refs, grouped
-- [ ] Integration config reshape: `target`/`policy`/`labels`/`identity` groups,
-  mechanical migration, `select` retired (research §4.7, E20)
+  `describeMigration`, and migration tests.
+  A fourth layer was needed that this spec did not anticipate:
+  `issuesSubstantivelyEqual` must compare unknown keys too, or an edit touching only one
+  reads as “no change” and never persists
+- [x] `tbd-cak1` — the `docs` field, `tbd doc add|rm`, and `docs: 'union_by_key'`
+- [x] `tbd-vo8b` — the `refs` field, `tbd ref add|rm`, and `refs: 'union_by_key'`
+- [x] `tbd show` renders governing spec, docs, and refs (frontmatter surfaces both)
+- [x] Integration config reshape: `target`/`policy`/`labels`/`identity` groups,
+  mechanical migration, `select` retired (research §4.7, E20). The move alone was not
+  enough — every legacy flat key carried a schema default, so Zod re-materialized it and
+  `writeConfig` wrote it back beside the new group.
+  The keys are now optional and defaults live in `resolveProviderSettings`
 - [ ] `tbd-u25v` — decide whether an inherited `spec_path` should select a bead
 
 `tbd-8ksq` gates the other two: adding a field before the schema preserves it would ship
