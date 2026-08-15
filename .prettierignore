@@ -10,3 +10,7 @@ coverage
 .tbd-sync
 attic
 .changeset
+# Transient worktree checkouts for background agents. Scanning them makes
+# quality checks depend on another agent's in-flight edits, and `pnpm format`
+# would rewrite those files underneath it.
+.claude/worktrees

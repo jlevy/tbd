@@ -45,6 +45,10 @@ export default [
       '**/.pnpm-store/**',
       '**/coverage/**',
       '**/attic/**',
+      // Transient worktree checkouts for background agents: a nested copy of
+      // this repo whose files are outside the tsconfig project and may be
+      // mid-edit. Linting them reports another agent's work as our failures.
+      '**/.claude/worktrees/**',
       'eslint.config.*',
     ],
   },
