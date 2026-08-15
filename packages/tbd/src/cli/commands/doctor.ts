@@ -70,7 +70,11 @@ import {
   withSharedDataSyncLock,
   writeCommonDirLayout,
 } from '../../file/common-dir-layout.js';
-import { isCompatibleFormat } from '../../lib/tbd-format.js';
+import {
+  isCompatibleFormat,
+  isFormatCompatibleWithSupported,
+  supportedFormatForVersion,
+} from '../../lib/tbd-format.js';
 import { type DiagnosticResult, renderDiagnostics } from '../lib/diagnostics.js';
 import { VERSION } from '../lib/version.js';
 import {
@@ -366,6 +370,9 @@ class DoctorHandler extends BaseCommand {
 
     // Check 2: Config directory and file
     healthChecks.push(await this.safeCheck('Config file', () => this.checkConfig()));
+    healthChecks.push(
+      await this.safeCheck('Launcher fallback', () => this.checkLauncherFallbackVersion()),
+    );
 
     // Check 3: Issues directory
     healthChecks.push(await this.safeCheck('Issues directory', () => this.checkIssuesDirectory()));
@@ -736,6 +743,48 @@ class DoctorHandler extends BaseCommand {
         path: configPath,
       };
     }
+  }
+
+  /**
+   * The launcher's registry fallback must be able to read this repository.
+   *
+   * `.claude/scripts/tbd-session.sh` prefers a local tbd, and when that local CLI cannot
+   * read the repository's `tbd_format` it installs the exact `tbd_fallback_version` from
+   * config instead. A format bump does not refresh that pin — only `tbd setup` does — so
+   * after an upgrade the pin can name a version that predates the new format. The
+   * fallback then deterministically installs a CLI that refuses the repository, which is
+   * the one job the fallback exists to prevent.
+   *
+   * Fails closed rather than silently, so this is a warning with an exact remedy, not an
+   * error.
+   */
+  private async checkLauncherFallbackVersion(): Promise<DiagnosticResult> {
+    const name = 'Launcher fallback';
+    let config;
+    try {
+      config = await readConfig(this.cwd);
+    } catch {
+      // checkConfig already reports an unreadable config; do not double-report.
+      return { name, status: 'ok' };
+    }
+
+    const pinned = config.tbd_fallback_version;
+    if (!pinned) {
+      // Absent is handled by the launcher itself, which stops with a repair instruction
+      // rather than installing anything.
+      return { name, status: 'ok' };
+    }
+
+    const supported = supportedFormatForVersion(pinned);
+    if (supported && !isFormatCompatibleWithSupported(config.tbd_format, supported)) {
+      return {
+        name,
+        status: 'warn',
+        message: `tbd_fallback_version ${pinned} cannot read format ${config.tbd_format}`,
+        suggestion: 'Run: tbd setup --auto',
+      };
+    }
+    return { name, status: 'ok' };
   }
 
   private async checkIssuesDirectory(): Promise<DiagnosticResult> {

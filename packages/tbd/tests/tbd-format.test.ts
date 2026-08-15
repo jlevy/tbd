@@ -14,6 +14,7 @@ import {
   describeMigration,
   formatUpgradeMessage,
   isFormatCompatibleWithSupported,
+  supportedFormatForVersion,
   type RawConfig,
 } from '../src/lib/tbd-format.js';
 
@@ -543,6 +544,31 @@ describe('tbd-format', () => {
       );
 
       expect(linearAfter(result.config).target).toEqual({ team_key: 'NEW' });
+    });
+  });
+
+  describe('supportedFormatForVersion', () => {
+    it('maps a published version to the newest format it can read', () => {
+      expect(supportedFormatForVersion('0.6.0')).toBe('f07');
+      expect(supportedFormatForVersion('0.6.5')).toBe('f07');
+      expect(supportedFormatForVersion('0.7.0')).toBe('f08');
+    });
+
+    it('treats a prerelease build as its base version', () => {
+      expect(supportedFormatForVersion('0.7.0-dev.4.abc1234')).toBe('f08');
+    });
+
+    it('returns undefined for an unparseable version rather than guessing', () => {
+      expect(supportedFormatForVersion('latest')).toBeUndefined();
+      expect(supportedFormatForVersion('')).toBeUndefined();
+    });
+
+    it('catches the stale launcher pin an upgrade leaves behind', () => {
+      // The real hazard: a format bump does not refresh tbd_fallback_version, so the
+      // launcher would install a CLI that refuses the repository it was meant to serve.
+      const pinned = supportedFormatForVersion('0.6.3');
+      expect(pinned).toBe('f07');
+      expect(isFormatCompatibleWithSupported('f08', pinned!)).toBe(false);
     });
   });
 });

@@ -603,6 +603,49 @@ function migrate_f07_to_f08(config: RawConfig): MigrationResult {
 // =============================================================================
 
 /**
+ * Compare two dotted numeric versions. Prerelease suffixes are ignored: a `-dev` build
+ * of a version supports what that version supports.
+ */
+function compareVersions(a: string, b: string): number {
+  const parts = (v: string) =>
+    v
+      .split('-')[0]!
+      .split('.')
+      .map((n) => Number.parseInt(n, 10) || 0);
+  const [pa, pb] = [parts(a), parts(b)];
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (diff !== 0) {
+      return diff;
+    }
+  }
+  return 0;
+}
+
+/**
+ * The newest format a published tbd version can read, derived from the `introduced`
+ * stamps in {@link FORMAT_HISTORY}.
+ *
+ * Used to check the launcher's registry fallback pin: an exact version that predates the
+ * repository's format would install a CLI that refuses the repository. Returns undefined
+ * for an unparseable version, so callers can skip the check rather than guess.
+ */
+export function supportedFormatForVersion(version: string): FormatVersion | undefined {
+  if (!/^\d+\.\d+\.\d+/.test(version)) {
+    return undefined;
+  }
+  let best: FormatVersion | undefined;
+  for (const [format, entry] of Object.entries(FORMAT_HISTORY)) {
+    if (compareVersions(version, entry.introduced) >= 0) {
+      if (!best || format > best) {
+        best = format as FormatVersion;
+      }
+    }
+  }
+  return best;
+}
+
+/**
  * Detect the format version of a config.
  * Returns INITIAL_FORMAT ('f01') if no tbd_format field is present.
  */
