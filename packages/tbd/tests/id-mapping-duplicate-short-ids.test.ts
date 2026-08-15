@@ -113,6 +113,132 @@ describe('deriveShortIdFromUlid', () => {
 });
 
 // =============================================================================
+// deriveShortIdFromUlid — escalation tiers under collision pressure
+// =============================================================================
+
+describe('deriveShortIdFromUlid escalation tiers', () => {
+  // This ULID has all-distinct characters so every 4-char and 5-char window is unique,
+  // making it possible to saturate each tier precisely without accidental collisions.
+  // Characters are valid Crockford base32 (a strict subset of the base36 ShortId allows).
+  const ulid = '0123456789abcdefghjkmnpqrs';
+
+  // Tier 1: non-overlapping windows (offsets 22, 18, 14, 10, 6, 2)
+  const tier1Windows = ['pqrs', 'jkmn', 'efgh', 'abcd', '6789', '2345'];
+
+  // Tier 2: all 23 single-offset 4-char windows (offsets 22 down to 0)
+  const allFourCharWindows = [
+    'pqrs',
+    'npqr',
+    'mnpq',
+    'kmnp',
+    'jkmn',
+    'hjkm',
+    'ghjk',
+    'fghj',
+    'efgh',
+    'defg',
+    'cdef',
+    'bcde',
+    'abcd',
+    '9abc',
+    '89ab',
+    '789a',
+    '6789',
+    '5678',
+    '4567',
+    '3456',
+    '2345',
+    '1234',
+    '0123',
+  ];
+
+  // Tier 3: all 22 five-char windows (offsets 21 down to 0)
+  const allFiveCharWindows = [
+    'npqrs',
+    'mnpqr',
+    'kmnpq',
+    'jkmnp',
+    'hjkmn',
+    'ghjkm',
+    'fghjk',
+    'efghj',
+    'defgh',
+    'cdefg',
+    'bcdef',
+    'abcde',
+    '9abcd',
+    '89abc',
+    '789ab',
+    '6789a',
+    '56789',
+    '45678',
+    '34567',
+    '23456',
+    '12345',
+    '01234',
+  ];
+
+  it('tier 2: falls through to single-offset window when all non-overlapping windows are taken', () => {
+    const used = new Set<string>(tier1Windows);
+    const result = deriveShortIdFromUlid(ulid, used);
+
+    // The single-offset loop starts at offset 22 and works down.
+    // Offsets 22, 18, 14, 10, 6, 2 are blocked (same as tier 1).
+    // First new offset tried is 21 → 'npqr'.
+    expect(result).toBe('npqr');
+    expect(result.length).toBe(4);
+    expect(result).toMatch(/^[0-9a-z._-]+$/);
+  });
+
+  it('tier 3: falls through to 5-char window when all 23 four-char windows are taken', () => {
+    const used = new Set<string>(allFourCharWindows);
+    const result = deriveShortIdFromUlid(ulid, used);
+
+    // All 4-char windows exhausted, so the function tries 5-char windows
+    // starting at offset 21 → 'npqrs'.
+    expect(result).toBe('npqrs');
+    expect(result.length).toBe(5);
+    expect(result).toMatch(/^[0-9a-z._-]+$/);
+  });
+
+  it('throws when every 4-char and 5-char window is taken', () => {
+    const used = new Set<string>([...allFourCharWindows, ...allFiveCharWindows]);
+
+    expect(() => deriveShortIdFromUlid(ulid, used)).toThrow(
+      `Cannot derive a unique short ID from ULID ${ulid}. ` +
+        `This should be extremely rare — please report this error.`,
+    );
+  });
+
+  it('determinism: identical inputs produce identical output at every tier', () => {
+    // Tier 1 (happy path — covered elsewhere but included for completeness)
+    const usedTier1 = new Set<string>();
+    expect(deriveShortIdFromUlid(ulid, usedTier1)).toBe(deriveShortIdFromUlid(ulid, usedTier1));
+
+    // Tier 2
+    const usedTier2 = new Set<string>(tier1Windows);
+    expect(deriveShortIdFromUlid(ulid, usedTier2)).toBe(deriveShortIdFromUlid(ulid, usedTier2));
+
+    // Tier 3
+    const usedTier3 = new Set<string>(allFourCharWindows);
+    expect(deriveShortIdFromUlid(ulid, usedTier3)).toBe(deriveShortIdFromUlid(ulid, usedTier3));
+  });
+
+  it('every tier returns a value matching the ShortId pattern', () => {
+    const shortIdPattern = /^[0-9a-z._-]+$/;
+
+    // Tier 1
+    expect(deriveShortIdFromUlid(ulid, new Set())).toMatch(shortIdPattern);
+
+    // Tier 2
+    expect(deriveShortIdFromUlid(ulid, new Set(tier1Windows))).toMatch(shortIdPattern);
+
+    // Tier 3
+    expect(deriveShortIdFromUlid(ulid, new Set(allFourCharWindows))).toMatch(shortIdPattern);
+  });
+});
+
+// =============================================================================
 // resolveDuplicateShortIds
 // =============================================================================
 
