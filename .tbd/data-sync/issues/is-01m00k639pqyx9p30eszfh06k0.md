@@ -3,9 +3,9 @@ type: is
 id: is-01m00k639pqyx9p30eszfh06k0
 title: Add a refs list to beads for PRs, external issues, and docs
 kind: feature
-status: open
+status: closed
 priority: 1
-version: 7
+version: 8
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - traceability
@@ -19,7 +19,9 @@ dependencies:
     target: is-01m00h5bwwh3cnhd087t7yc7dx
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:55:18.070Z
-updated_at: 2026-08-14T17:25:10.589Z
+updated_at: 2026-08-15T08:03:03.067Z
+closed_at: 2026-08-15T08:03:03.067Z
+close_reason: "refs field shipped with tbd ref add|rm, kind inferred from GitHub URLs. Needed union_by_key, not plain union: whole-item dedup would keep the same PR twice when two clones titled it differently."
 ---
 A bead has four things it needs to point at — a PR (often several), an external issue, a research doc, a plan spec — and exactly one place to put any of them: spec_path, which is singular. External identity lives in extensions.<provider>, which is deliberately one-link-per-provider ('The namespace key IS the provider, which makes at most one link per provider structural rather than a rule the merge code has to enforce', schemas.ts:145-147). That is right for a tracker and wrong for PRs.
 
