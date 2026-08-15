@@ -25,6 +25,7 @@ import { writeLink } from '../../integrations/core/link-store.js';
 import { LinearAdapter } from '../../integrations/linear/adapter.js';
 import { LinearClient } from '../../integrations/linear/client.js';
 import { priorityToLinear } from '../../integrations/linear/mapping.js';
+import { resolveProviderSettings } from '../../integrations/core/provider-settings.js';
 import { git, gitCommit } from '../../file/git.js';
 import {
   loadIdMapping,
@@ -61,16 +62,19 @@ export function buildAdapter(
     throw new CLIError(`No adapter is implemented for ${provider} yet.`);
   }
   if (!target) {
-    throw new CLIError('integrations.linear.team_key is required.');
+    throw new CLIError('integrations.linear.target.team_key is required.');
   }
+  // Both config shapes reconcile here, so nothing below cares which spelling the
+  // committed config happens to use.
+  const settings = resolveProviderSettings(config.integrations?.linear ?? {});
   return new LinearAdapter({
     // LINEAR_API_URL points the CLI at the mock server in golden tests; the
     // credential is still required so the auth path stays exercised.
     client: new LinearClient({ apiKey: credential, endpoint: process.env.LINEAR_API_URL }),
     teamKey: target,
-    createLabels: config.integrations?.linear?.create_labels ?? true,
-    project: config.integrations?.linear?.project,
-    userMap: config.integrations?.linear?.user_map,
+    createLabels: settings.createLabels,
+    project: settings.project,
+    userMap: settings.userMap,
   });
 }
 
@@ -266,7 +270,7 @@ export async function runEnabledIntegrationPushes(
       allIssues,
       selected,
       displayId,
-      mirrorLabels: config.integrations?.linear?.mirror_labels ?? false,
+      mirrorLabels: resolveProviderSettings(config.integrations?.linear ?? {}).mirrorLabels,
       maxNesting: entry.maxNesting,
       canPushAssignee: (assignee) => adapter.canPushAssignee(assignee),
       specUrl: (issue) => (issue.spec_path ? specLinks.get(issue.spec_path) : undefined),
@@ -384,7 +388,7 @@ export async function runEnabledIntegrations(
       allIssues,
       displayId,
       specUrl: (issue) => (issue.spec_path ? specLinks.get(issue.spec_path) : undefined),
-      mirrorLabels: config.integrations?.linear?.mirror_labels ?? false,
+      mirrorLabels: resolveProviderSettings(config.integrations?.linear ?? {}).mirrorLabels,
       // Linear cannot represent P4 (its 4 covers P3 and P4); without this
       // equivalence every P4 bead would oscillate as a phantom pull.
       equivalences: {

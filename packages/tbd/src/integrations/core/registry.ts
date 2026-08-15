@@ -7,6 +7,7 @@
 
 import type { Config, PolicyDefinition, ProviderNameType } from '../../lib/types.js';
 import { resolvePolicy } from './policy.js';
+import { resolveProviderSettings } from './provider-settings.js';
 
 /** Every provider tbd knows about, in a stable display order. */
 export const PROVIDERS: readonly ProviderNameType[] = ['linear', 'github'] as const;
@@ -48,15 +49,18 @@ export function providerConfig(
     if (!linear) {
       return undefined;
     }
+    // Read through resolveProviderSettings, never the raw keys: a committed config may
+    // still carry the pre-f08 flat spelling while this build writes the grouped one.
+    const settings = resolveProviderSettings(linear);
     return {
       provider,
       enabled: linear.enabled,
       policy: resolvePolicy(linear),
-      maxNesting: linear.max_nesting,
-      target: linear.team_key,
+      maxNesting: settings.maxNesting,
+      target: settings.teamKey,
       configError:
-        linear.enabled && !linear.team_key
-          ? 'integrations.linear.team_key is required when Linear is enabled'
+        linear.enabled && !settings.teamKey
+          ? 'integrations.linear.target.team_key is required when Linear is enabled'
           : undefined,
     };
   }
@@ -65,15 +69,16 @@ export function providerConfig(
   if (!github) {
     return undefined;
   }
+  const githubSettings = resolveProviderSettings(github);
   return {
     provider,
     enabled: github.enabled,
     policy: resolvePolicy(github),
-    maxNesting: github.max_nesting,
-    target: github.repo,
+    maxNesting: githubSettings.maxNesting,
+    target: githubSettings.repo,
     configError:
-      github.enabled && !github.repo
-        ? 'integrations.github.repo is required when GitHub is enabled'
+      github.enabled && !githubSettings.repo
+        ? 'integrations.github.target.repo is required when GitHub is enabled'
         : undefined,
   };
 }

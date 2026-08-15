@@ -24,6 +24,7 @@ import { readyCommand } from './commands/ready.js';
 import { blockedCommand } from './commands/blocked.js';
 import { staleCommand } from './commands/stale.js';
 import { labelCommand } from './commands/label.js';
+import { refCommand, docRefCommand } from './commands/ref.js';
 import { depCommand } from './commands/dep.js';
 import { syncCommand } from './commands/sync.js';
 import { changesCommand } from './commands/changes.js';
@@ -115,6 +116,10 @@ function createProgram(): Command {
   program.commandsGroup('Labels and Dependencies:');
   program.addCommand(depCommand);
   program.addCommand(labelCommand);
+
+  program.commandsGroup('Links:');
+  program.addCommand(docRefCommand);
+  program.addCommand(refCommand);
 
   program.commandsGroup('Sync and Status:');
   program.addCommand(changesCommand);

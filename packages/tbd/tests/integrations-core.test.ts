@@ -30,6 +30,8 @@ import {
   MAX_PARENT_DEPTH,
 } from '../src/lib/issue-hierarchy.js';
 import { LinearIntegrationSchema } from '../src/lib/schemas.js';
+import { resolvePolicy } from '../src/integrations/core/policy.js';
+import { resolveProviderSettings } from '../src/integrations/core/provider-settings.js';
 import type { Issue, IntegrationSelect, IssueStatusType, PriorityType } from '../src/lib/types.js';
 
 function issue(overrides: Partial<Issue> = {}): Issue {
@@ -244,9 +246,28 @@ describe('label-pollution guards', () => {
   // A mirror run once created 40 Linear labels in a shared team, one per bead
   // label. These pin the defaults that prevent it, so flipping either becomes a
   // deliberate, visible change rather than a silent regression.
-  it('defaults mirror_labels to false', () => {
+  it('defaults label mirroring to off', () => {
+    // Asserted through resolveProviderSettings, not the raw key: as of f08 the flat
+    // spelling is optional (the migration moves it to `labels.mirror`), so the default
+    // lives in settings resolution — which is where every consumer reads it.
     const parsed = LinearIntegrationSchema.parse({});
-    expect(parsed.mirror_labels).toBe(false);
+    expect(resolveProviderSettings(parsed).mirrorLabels).toBe(false);
+  });
+
+  it('reads the pre-f08 flat spelling when a committed config still carries it', () => {
+    // A teammate's branch can hold the old shape while this build writes the new one.
+    const legacy = LinearIntegrationSchema.parse({ mirror_labels: true, team_key: 'FIN' });
+    const settings = resolveProviderSettings(legacy);
+    expect(settings.mirrorLabels).toBe(true);
+    expect(settings.teamKey).toBe('FIN');
+  });
+
+  it('prefers the f08 group when a config carries both spellings', () => {
+    const both = LinearIntegrationSchema.parse({
+      team_key: 'OLD',
+      target: { team_key: 'NEW' },
+    });
+    expect(resolveProviderSettings(both).teamKey).toBe('NEW');
   });
 
   it('defaults an unconfigured integration to disabled', () => {
@@ -254,9 +275,13 @@ describe('label-pollution guards', () => {
   });
 
   it('defaults selection to epics only, not every bead', () => {
+    // Asserted through the resolved policy rather than the raw `select` key: as of f08
+    // `select` is optional (the migration folds it into policy.outbound), so the
+    // defaults live in the policy resolution, which is what selection actually reads.
     const parsed = LinearIntegrationSchema.parse({});
-    expect(parsed.select.kinds).toEqual(['epic']);
-    expect(parsed.select.statuses).not.toContain('closed');
+    const outbound = resolvePolicy(parsed).outbound;
+    expect(outbound.kinds).toEqual(['epic']);
+    expect(outbound.statuses).not.toContain('closed');
   });
 });
 

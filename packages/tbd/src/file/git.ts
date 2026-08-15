@@ -413,7 +413,24 @@ export async function commitToSyncBranch(
 /**
  * Field-level merge strategy types.
  */
-type MergeStrategy = 'lww' | 'union' | 'max' | 'immutable' | 'namespace_merge';
+type MergeStrategy = 'lww' | 'union' | 'union_by_key' | 'max' | 'immutable' | 'namespace_merge';
+
+/**
+ * Identity field for `union_by_key` fields (f08+).
+ *
+ * Plain `union` dedupes on whole-item equality, which is right for `dependencies` (the
+ * whole tuple IS the identity) and wrong for `docs`/`refs`, where one entry has optional
+ * descriptive fields alongside its identity. Two clones adding the same PR URL with
+ * different titles would otherwise both survive, leaving one PR listed twice.
+ *
+ * Keying on the identity field makes repeated adds idempotent and keeps the merge a
+ * union — the property that lets two agents attach different references concurrently and
+ * both survive.
+ */
+const UNION_KEY_FIELDS: Readonly<Record<string, string>> = {
+  docs: 'path',
+  refs: 'url',
+};
 
 /**
  * Field-level merge strategies for Issue fields.
@@ -449,6 +466,11 @@ const FIELD_STRATEGIES: Record<keyof Issue, MergeStrategy> = {
   // Union - combine arrays, deduplicate
   labels: 'union',
   dependencies: 'union',
+
+  // Union keyed on the entry's identity field, so two agents attaching different
+  // documents or references concurrently both survive and a repeated add is a no-op.
+  docs: 'union_by_key',
+  refs: 'union_by_key',
 
   // Merged per top-level namespace, not as one opaque value: two writers touching
   // different namespaces must both survive. Whole-object LWW here silently
@@ -589,6 +611,41 @@ function unionArrays<T>(a: T[], b: T[]): T[] {
   const result = [...a];
   for (const item of b) {
     if (!result.some((existing) => deepEqual(existing, item))) {
+      result.push(item);
+    }
+  }
+  return result;
+}
+
+/**
+ * Union two arrays of objects on one identity field (f08+).
+ *
+ * The local side wins a same-key collision, matching how every other both-changed
+ * resolution here breaks a tie toward local. Entries missing the key, which a
+ * hand-edited file could contain, fall back to whole-item equality rather than being
+ * dropped — losing data to a malformed entry would be worse than keeping a duplicate.
+ */
+function unionArraysByKey(a: unknown[], b: unknown[], keyField: string): unknown[] {
+  const result = [...a];
+  const keyOf = (item: unknown): string | undefined => {
+    if (!isPlainObject(item)) {
+      return undefined;
+    }
+    const value = item[keyField];
+    return typeof value === 'string' ? value : undefined;
+  };
+  const seen = new Set(a.map(keyOf).filter((k): k is string => k !== undefined));
+
+  for (const item of b) {
+    const key = keyOf(item);
+    if (key === undefined) {
+      if (!result.some((existing) => deepEqual(existing, item))) {
+        result.push(item);
+      }
+      continue;
+    }
+    if (!seen.has(key)) {
+      seen.add(key);
       result.push(item);
     }
   }
@@ -918,6 +975,14 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
         (merged as Record<string, unknown>)[key] = unionArrays(
           (Array.isArray(localVal) ? localVal : []) as unknown[],
           (Array.isArray(remoteVal) ? remoteVal : []) as unknown[],
+        );
+        break;
+
+      case 'union_by_key':
+        (merged as Record<string, unknown>)[key] = unionArraysByKey(
+          (Array.isArray(localVal) ? localVal : []) as unknown[],
+          (Array.isArray(remoteVal) ? remoteVal : []) as unknown[],
+          UNION_KEY_FIELDS[key] ?? 'url',
         );
         break;
 

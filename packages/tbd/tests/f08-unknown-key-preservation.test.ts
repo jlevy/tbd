@@ -213,3 +213,95 @@ describe('f08: older clients fail closed', () => {
     expect(isFormatCompatibleWithSupported(CURRENT_FORMAT, CURRENT_FORMAT)).toBe(true);
   });
 });
+
+describe('f08: docs and refs union-merge on their identity field', () => {
+  function withRefs(refs: unknown[], overrides: Record<string, unknown> = {}) {
+    const base = beadWithFutureField(overrides);
+    delete base.future_field;
+    return asIssue({ ...base, refs });
+  }
+
+  const PR = 'https://github.com/jlevy/tbd/pull/232';
+  const ISSUE = 'https://github.com/jlevy/tbd/issues/190';
+
+  it('keeps both sides when two clones attach different refs', () => {
+    // The concurrency case the union exists for: two agents each recording the PR they
+    // opened must not clobber each other.
+    const base = withRefs([]);
+    const local = withRefs([{ kind: 'pr', url: PR }], {
+      version: 2,
+      updated_at: '2026-08-15T01:00:00.000Z',
+    });
+    const remote = withRefs([{ kind: 'issue', url: ISSUE }], {
+      version: 2,
+      updated_at: '2026-08-15T02:00:00.000Z',
+    });
+
+    const { merged } = mergeIssues(base, local, remote);
+
+    expect(merged.refs?.map((r) => r.url).sort()).toEqual([PR, ISSUE].sort());
+  });
+
+  it('collapses the same url added on both sides, even with different titles', () => {
+    // Whole-item dedup would keep both of these, leaving one PR listed twice. The
+    // identity is the url, so the entries are the same entry.
+    const base = withRefs([]);
+    const local = withRefs([{ kind: 'pr', url: PR, title: 'as local named it' }], {
+      version: 2,
+      updated_at: '2026-08-15T03:00:00.000Z',
+    });
+    const remote = withRefs([{ kind: 'pr', url: PR, title: 'as remote named it' }], {
+      version: 2,
+      updated_at: '2026-08-15T01:00:00.000Z',
+    });
+
+    const { merged } = mergeIssues(base, local, remote);
+
+    expect(merged.refs).toHaveLength(1);
+    expect(merged.refs?.[0]?.title).toBe('as local named it');
+  });
+
+  it('converges regardless of which side merges first', () => {
+    const base = withRefs([]);
+    const a = withRefs([{ kind: 'pr', url: PR }], {
+      version: 2,
+      updated_at: '2026-08-15T04:00:00.000Z',
+    });
+    const b = withRefs([{ kind: 'issue', url: ISSUE }], {
+      version: 2,
+      updated_at: '2026-08-15T05:00:00.000Z',
+    });
+
+    const one = mergeIssues(base, a, b)
+      .merged.refs?.map((r) => r.url)
+      .sort();
+    const other = mergeIssues(base, b, a)
+      .merged.refs?.map((r) => r.url)
+      .sort();
+
+    expect(one).toEqual(other);
+  });
+
+  it('unions docs on path, not on the whole entry', () => {
+    const path = 'docs/project/research/current/research-2026-08-14-agent-and-session-identity.md';
+    const base = asIssue({ ...beadWithFutureField(), docs: [] });
+    const local = asIssue({
+      ...beadWithFutureField(),
+      docs: [{ path, role: 'research' }],
+      version: 2,
+      updated_at: '2026-08-15T06:00:00.000Z',
+    });
+    const remote = asIssue({
+      ...beadWithFutureField(),
+      docs: [{ path, role: 'architecture' }, { path: 'docs/other.md' }],
+      version: 2,
+      updated_at: '2026-08-15T05:00:00.000Z',
+    });
+
+    const { merged } = mergeIssues(base, local, remote);
+
+    expect(merged.docs?.map((d) => d.path).sort()).toEqual([path, 'docs/other.md'].sort());
+    // Local wins the same-key collision, matching every other tie-break here.
+    expect(merged.docs?.find((d) => d.path === path)?.role).toBe('research');
+  });
+});

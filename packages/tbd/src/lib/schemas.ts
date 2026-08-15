@@ -160,6 +160,49 @@ export const LinkedEntry = z.object({
 });
 
 /**
+ * A supporting document for a bead (f08+).
+ *
+ * Deliberately separate from `spec_path`, which stays singular and load-bearing: it is
+ * *the doc this work is defined by*, it propagates to descendants, and selection and
+ * `list --spec` read it. `docs` is *what else you should read* — plural, local, not
+ * inherited.
+ *
+ * The value is a repo-relative path rather than a URL because the document lives in this
+ * repository, where a path is stable and a URL is branch-dependent. `specPermalink`
+ * already resolves any path to a branch-correct blob URL for rendering.
+ *
+ * `role` is an open string with known values, not an enum: an unrecognized role should
+ * render generically, never fail a sync.
+ */
+export const IssueDoc = z.object({
+  /** Repo-relative path. The identity of the entry, so adds are idempotent. */
+  path: z.string().min(1),
+  /** Known values: research, architecture, qa, design. Open by design. */
+  role: z.string().min(1).nullable().optional(),
+  title: z.string().min(1).nullable().optional(),
+});
+
+/**
+ * An external reference from a bead (f08+): a GitHub issue, a PR, a dashboard.
+ *
+ * Distinct from `extensions.<provider>`, which is reserved for *tracker identity* — the
+ * one external item a bead **is** — and stays single-valued by design. A bead may
+ * reference several GitHub issues that are not its identity; those are refs. Keeping
+ * them apart is also why refs do not require a GitHub adapter to be useful.
+ *
+ * Provider-neutral by construction: a ref is a URL with a kind, and nothing about it
+ * knows Linear exists. The same field carries a GitLab MR or a Notion page.
+ */
+export const IssueRef = z.object({
+  /** Known values: pr, issue, design, other. Open for the same reason as `role`. */
+  kind: z.string().min(1),
+  /** Absolute URL. The identity of the entry, so adds are idempotent. */
+  url: z.string().min(1),
+  title: z.string().min(1).nullable().optional(),
+  at: Timestamp.nullable().optional(),
+});
+
+/**
  * Full issue schema.
  *
  * Field order is canonical and mirrored by ISSUE_FIELD_ORDER below:
@@ -191,6 +234,17 @@ export const IssueSchema = BaseEntity.extend({
 
   // Linkages
   spec_path: z.string().nullable().optional(),
+  /**
+   * Supporting documents in this repo (f08+). Union-merged on `path`.
+   *
+   * Optional rather than `.default([])` on purpose: a default would serialize
+   * `docs: []` into every one of the repository's beads, adding two lines of noise to
+   * ~1,700 files and a large diff the first time each is touched, to say nothing. Absent
+   * means absent.
+   */
+  docs: z.array(IssueDoc).optional(),
+  /** External references — PRs, issues, dashboards (f08+). Union-merged on `url`. */
+  refs: z.array(IssueRef).optional(),
 
   // Assignment and categorization
   assignee: z.string().nullable().optional(),
@@ -376,6 +430,14 @@ export const IntegrationSelectSchema = z
      */
     specs: SpecSelector.default('none'),
     linked: z.boolean().default(true),
+    /**
+     * Levels of sub-issue nesting to mirror (f08+; was a flat provider key).
+     *
+     * It is a selection concern, so it belongs beside the other outbound clauses where
+     * a policy preset can carry it. Optional so it is not written into every config
+     * that never set it; `resolveProviderSettings` supplies the default.
+     */
+    max_nesting: z.number().int().min(1).max(5).optional(),
   })
   // Passthrough (f08+). ConfigSchema and the provider blocks preserved unknown keys
   // from f07, but these nested clauses did not — so a selection key added by a newer
@@ -531,16 +593,78 @@ export const PolicyDefinitionSchema = z.object({
 export const PolicyName = z.enum(['default']);
 
 /**
+ * Where mirrored work goes (f08+).
+ *
+ * Provider-specific inside a provider-neutral group: Linear uses `team_key`/`project`,
+ * GitHub would use `repo`. Passthrough so a provider added later can put its own
+ * addressing here without another format bump.
+ */
+export const IntegrationTargetSchema = z
+  .object({
+    team_key: z.string().min(1).optional(),
+    project: z.string().min(1).optional(),
+    repo: z.string().min(1).optional(),
+  })
+  .passthrough();
+
+/**
+ * How mirrored work is marked (f08+).
+ *
+ * `origin` and `repo` are the labels that make a shared Linear surface filterable —
+ * they apply in every integration mode by default, because they cost nothing and make a
+ * single-repo setup consolidation-ready. `mirror` and `create` are the former
+ * `mirror_labels` / `create_labels`.
+ */
+export const IntegrationLabelsSchema = z
+  .object({
+    /** Attach a plain `tbd` label to every mirrored issue, so humans can filter it out. */
+    origin: z.boolean().default(true),
+    /**
+     * Per-repository label in a Linear label group named `repo`.
+     * `auto` derives the name from the git origin; a string overrides it; false disables.
+     */
+    repo: z.union([z.literal('auto'), z.literal(false), z.string().min(1)]).default('auto'),
+    /** Push bead labels as tracker labels. Off by default: see the note on the alias. */
+    mirror: z.boolean().default(false),
+    /** Create labels that do not yet exist in the team on push. */
+    create: z.boolean().default(true),
+  })
+  .passthrough();
+
+/**
+ * Who work maps to (f08+).
+ */
+export const IntegrationIdentitySchema = z
+  .object({
+    /** Maps a tbd assignee string to a tracker user email or UUID. */
+    user_map: z.record(z.string(), z.string()).default({}),
+  })
+  .passthrough();
+
+/**
  * Settings shared by every provider.
  */
 const IntegrationProviderBase = {
+  /** WHERE mirrored work goes (f08+). Absorbs the legacy team_key/project/repo. */
+  target: IntegrationTargetSchema.optional(),
+  /** HOW mirrored work is marked (f08+). Absorbs mirror_labels/create_labels. */
+  labels: IntegrationLabelsSchema.optional(),
+  /** WHO work maps to (f08+). Absorbs user_map. */
+  identity: IntegrationIdentitySchema.optional(),
+
   enabled: z.boolean().default(false),
   /**
-   * Deprecated spelling of `policy.outbound`, kept so Phase 1 configs parse
-   * unchanged. When `policy` is absent, this folds into it during resolution
-   * (see integrations/core/policy.ts).
+   * Deprecated spelling of `policy.outbound`. Retired by the f08 migration, which
+   * folds it into `policy.outbound`; still parsed so a config written before that
+   * migration runs is read correctly, and `resolvePolicy` still honours it when
+   * `policy` is absent (see integrations/core/policy.ts).
+   *
+   * Optional rather than `.default({})` on purpose. With a default, Zod
+   * re-materializes the key on every parse, so `writeConfig` puts it straight back
+   * into the file after the migration removed it — the alias would never actually
+   * retire, and every config would carry both spellings forever.
    */
-  select: IntegrationSelectSchema.default({}),
+  select: IntegrationSelectSchema.optional(),
   /**
    * The linking policy: a preset name or an inline definition. Absent means
    * "legacy": `select` becomes the outbound clause and everything else takes
@@ -551,19 +675,20 @@ const IntegrationProviderBase = {
    * Levels of sub-issue nesting to mirror. Linear's data model nests without
    * limit, but its views flatten past roughly two levels, so deeper structure
    * stays in beads where `tbd dep` can render it.
+   *
+   * Legacy position (pre-f08); the f08 migration moves it to `policy.outbound`.
+   * Optional so the move sticks — see the note on `select`. Read through
+   * `resolveProviderSettings`, never directly.
    */
-  max_nesting: z.number().int().min(1).max(5).default(2),
+  max_nesting: z.number().int().min(1).max(5).optional(),
 };
 
 export const LinearIntegrationSchema = z
   .object({
     ...IntegrationProviderBase,
-    /** Linear team key, e.g. "FIN". Required when enabled. */
+    /** Legacy spelling of `target.team_key` (pre-f08). */
     team_key: z.string().min(1).optional(),
-    /**
-     * Linear project to file mirrored issues under, by name or slug id. Optional:
-     * without it, issues land in the team with no project.
-     */
+    /** Legacy spelling of `target.project` (pre-f08). */
     project: z.string().min(1).optional(),
     /**
      * Push bead labels as Linear labels.
@@ -579,11 +704,11 @@ export const LinearIntegrationSchema = z
      * `tbd:deferred`) are pushed regardless, because they encode status Linear
      * has no state for.
      */
-    mirror_labels: z.boolean().default(false),
-    /** Create labels that do not yet exist in the team on push. */
-    create_labels: z.boolean().default(true),
-    /** Maps a tbd assignee string to a Linear user email or UUID. */
-    user_map: z.record(z.string(), z.string()).default({}),
+    mirror_labels: z.boolean().optional(),
+    /** Legacy spelling of `labels.create` (pre-f08). */
+    create_labels: z.boolean().optional(),
+    /** Legacy spelling of `identity.user_map` (pre-f08). */
+    user_map: z.record(z.string(), z.string()).optional(),
   })
   // Passthrough for the same reason as the block above: a per-provider setting added
   // by a newer tbd must survive this version rewriting config.yml.
@@ -592,7 +717,7 @@ export const LinearIntegrationSchema = z
 export const GithubIntegrationSchema = z
   .object({
     ...IntegrationProviderBase,
-    /** Repository as "owner/name". Required when enabled. */
+    /** Legacy spelling of `target.repo` (pre-f08). */
     repo: z.string().min(1).optional(),
   })
   .passthrough();
@@ -810,6 +935,8 @@ export const ISSUE_FIELD_ORDER = [
 
   // Linkages
   'spec_path',
+  'docs',
+  'refs',
 
   // Assignment and categorization
   'assignee',
