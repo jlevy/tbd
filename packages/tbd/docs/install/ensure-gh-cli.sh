@@ -1,5 +1,5 @@
 #!/bin/bash
-# Automated GitHub CLI setup for Claude Code sessions
+# Automated GitHub CLI setup for agent sessions
 # This script runs on SessionStart to ensure gh CLI is available and authenticated
 #
 # Supply-chain policy (see SUPPLY-CHAIN-SECURITY.md): the gh version is PINNED to
@@ -10,6 +10,18 @@
 #   https://github.com/cli/cli/releases/download/v<VERSION>/gh_<VERSION>_checksums.txt
 
 set -euo pipefail
+
+INSTALL_TMP_DIR=""
+INSTALL_STAGING=""
+
+cleanup() {
+    if [ -n "$INSTALL_STAGING" ]; then
+        rm -f -- "$INSTALL_STAGING"
+    fi
+    if [ -n "$INSTALL_TMP_DIR" ]; then
+        rm -rf -- "$INSTALL_TMP_DIR"
+    fi
+}
 
 # Add common binary locations to PATH
 export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"
@@ -55,6 +67,9 @@ if command -v gh &> /dev/null; then
 else
     echo "[gh] CLI not found, installing pinned v${GH_VERSION}..."
 
+    INSTALL_TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/tbd-gh.XXXXXX")
+    trap cleanup EXIT
+
     # Detect platform
     OS=$(uname -s | tr '[:upper:]' '[:lower:]')
     ARCH=$(uname -m)
@@ -65,11 +80,11 @@ else
     if [ "$OS" = "darwin" ]; then
         PLATFORM="macOS_${ARCH}.zip"
         ARCHIVE_EXT="zip"
-        EXTRACT_DIR="/tmp/gh_${GH_VERSION}_macOS_${ARCH}"
+        EXTRACT_DIR="${INSTALL_TMP_DIR}/gh_${GH_VERSION}_macOS_${ARCH}"
     else
         PLATFORM="${OS}_${ARCH}.tar.gz"
         ARCHIVE_EXT="tar.gz"
-        EXTRACT_DIR="/tmp/gh_${GH_VERSION}_${OS}_${ARCH}"
+        EXTRACT_DIR="${INSTALL_TMP_DIR}/gh_${GH_VERSION}_${OS}_${ARCH}"
     fi
 
     echo "[gh] Detected platform: ${PLATFORM}"
@@ -82,49 +97,49 @@ else
     fi
 
     ASSET="gh_${GH_VERSION}_${PLATFORM}"
+    ARCHIVE_PATH="${INSTALL_TMP_DIR}/${ASSET}"
     DOWNLOAD_URL="https://github.com/cli/cli/releases/download/v${GH_VERSION}/${ASSET}"
 
     echo "[gh] Downloading from ${DOWNLOAD_URL}..."
-    if ! curl -fsSL -o "/tmp/${ASSET}" "$DOWNLOAD_URL"; then
+    if ! curl -fsSL -o "$ARCHIVE_PATH" "$DOWNLOAD_URL"; then
         # Proxied remote sessions can intercept GitHub downloads with a proxy 403.
         # Retry once bypassing the proxy for GitHub hosts only; this succeeds when
         # the environment's egress policy allows direct GitHub connections.
         echo "[gh] Download failed (a session proxy may intercept GitHub); retrying with NO_PROXY for GitHub hosts..."
         NP="$(github_no_proxy)"
-        NO_PROXY="$NP" no_proxy="$NP" curl -fsSL --connect-timeout 15 -o "/tmp/${ASSET}" "$DOWNLOAD_URL"
+        NO_PROXY="$NP" no_proxy="$NP" curl -fsSL --connect-timeout 15 -o "$ARCHIVE_PATH" "$DOWNLOAD_URL"
     fi
 
     # Verify the download against the pinned checksum before extracting.
     if command -v sha256sum &> /dev/null; then
-        ACTUAL=$(sha256sum "/tmp/${ASSET}" | awk '{print $1}')
+        ACTUAL=$(sha256sum "$ARCHIVE_PATH" | awk '{print $1}')
     else
-        ACTUAL=$(shasum -a 256 "/tmp/${ASSET}" | awk '{print $1}')
+        ACTUAL=$(shasum -a 256 "$ARCHIVE_PATH" | awk '{print $1}')
     fi
     if [ "$ACTUAL" != "$EXPECTED" ]; then
         echo "[gh] ERROR: checksum mismatch for ${ASSET}"
         echo "[gh]   expected ${EXPECTED}"
         echo "[gh]   actual   ${ACTUAL}"
-        rm -f "/tmp/${ASSET}"
         exit 1
     fi
     echo "[gh] Checksum verified for ${ASSET}"
 
     # Extract based on archive type
     if [ "$ARCHIVE_EXT" = "zip" ]; then
-        unzip -q "/tmp/${ASSET}" -d /tmp
+        unzip -q "$ARCHIVE_PATH" -d "$INSTALL_TMP_DIR"
     else
-        tar -xzf "/tmp/${ASSET}" -C /tmp
+        tar -xzf "$ARCHIVE_PATH" -C "$INSTALL_TMP_DIR"
     fi
 
-    # Install to ~/.local/bin (works in cloud and local)
-    mkdir -p ~/.local/bin
-    cp "${EXTRACT_DIR}/bin/gh" ~/.local/bin/gh
-    chmod +x ~/.local/bin/gh
+    # Stage in the destination directory, then rename atomically into place.
+    mkdir -p "$HOME/.local/bin"
+    INSTALL_STAGING=$(mktemp "$HOME/.local/bin/.gh.XXXXXX")
+    cp "${EXTRACT_DIR}/bin/gh" "$INSTALL_STAGING"
+    chmod +x "$INSTALL_STAGING"
+    mv -f "$INSTALL_STAGING" "$HOME/.local/bin/gh"
+    INSTALL_STAGING=""
 
-    # Clean up
-    rm -rf "${EXTRACT_DIR}" "/tmp/${ASSET}"
-
-    echo "[gh] Installed to ~/.local/bin/gh"
+    echo "[gh] Installed to $HOME/.local/bin/gh"
 fi
 
 # Verify gh is now in PATH

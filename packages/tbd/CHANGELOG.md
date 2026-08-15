@@ -1,5 +1,125 @@
 # get-tbd
 
+## 0.6.5
+
+### Fixed
+
+- **Hardened generated GitHub CLI installer**: Setup now downloads and extracts the
+  pinned CLI inside a unique temporary directory, removes partial files on exit, and
+  atomically replaces the destination executable.
+  Upgrading no longer downgrades a downstream repository to shared fixed `/tmp` paths or
+  labels the Codex copy as a Claude-specific script.
+
+### Changed
+
+- **Packaged upgrade guard**: Release QA now verifies that the Claude and Codex surfaces
+  receive the same surface-neutral installer, with isolated temporary files and atomic
+  destination staging, across the 0.6.3, 0.4.2, and 0.5.0 upgrade paths.
+
+### Security
+
+- **Dependency posture**: No dependencies or lockfile entries changed.
+  The production audit remains clean, and exact first-party historical `get-tbd`
+  packages continue to run with lifecycle scripts disabled during upgrade QA.
+
+## 0.6.4
+
+### Fixed
+
+- **Smooth f06 repository upgrades**: Setup and the first data command now initialize
+  the f07 data scaffold when a pre-existing `tbd-sync` branch never contained one.
+  This repairs the real `get-tbd@0.4.2` repository state found during the downstream
+  upgrade trial while preserving every legacy branch file and remaining idempotent.
+- **Historical data recovery**: If the current branch lost its scaffold but Git history
+  still contains tracker data, the upgrade restores every missing issue and mapping
+  before continuing. Existing files are never overwritten, avoiding both silent data loss
+  and an empty-tracker reset.
+
+### Changed
+
+- **Release upgrade proof**: Packed-package QA now covers the latest 0.6.3 same-format
+  baseline and a fresh clone of the common 0.4.2-era remote-branch layout.
+  The latter proves setup, first issue creation, sync, legacy-file preservation, and a
+  byte-identical repeated setup before release.
+
+### Security
+
+- **Dependency posture**: No dependencies or lockfile entries changed.
+  Exact first-party historical `get-tbd` packages are used for upgrade QA with lifecycle
+  scripts disabled; the existing frozen dependency tree is reused.
+  The production audit is clean; the full audit reports the same 32 dev-only advisories
+  inherited from that unchanged tree.
+
+## 0.6.3
+
+### Fixed
+
+- **Version-independent repository launchers**: Generated session and closing scripts no
+  longer embed the tbd release that created them.
+  They use any installed CLI that can read the repository’s `tbd_format`, so routine
+  compatible releases do not rewrite every downstream repository’s Bash files.
+- **Deterministic incompatible-format recovery**: If the installed CLI cannot read the
+  repository format, launchers use the single exact `tbd_fallback_version` recorded in
+  `.tbd/config.yml`. The value is strictly validated before it reaches `npx`, retaining
+  the reviewed supply-chain pin without duplicating it across generated files.
+
+### Changed
+
+- **Representative upgrade proof**: Packed release QA now starts with the latest 0.6.2
+  same-format release as well as the common 0.4.2 and final f06 0.5.0 baselines.
+  It verifies compatible local selection, exact fallback behavior, preserved data,
+  fail-closed format boundaries, and byte-identical repeated setup.
+
+### Guidelines and content
+
+- **Centralized generated-runner pins**: CLI integration guidance now recommends one
+  validated repository-level fallback pin when several generated launchers share a
+  package, avoiding release-number churn in each script.
+- **Backward-compatibility decisions**: The bundled guideline now starts from verified
+  released consumers and persisted data, selects the smallest valid response, and calls
+  for obsolete aliases, fallbacks, and shims to be removed when their boundary ends.
+
+### Security
+
+- **Dependency posture**: No dependencies or lockfile entries changed.
+  Exact first-party historical `get-tbd` packages are used for upgrade QA with lifecycle
+  scripts disabled; the existing frozen dependency tree is reused.
+
+## 0.6.2
+
+### Fixed
+
+- **Version-aware generated hooks**: Session and closing hooks now use a local `tbd`
+  only when its numeric SemVer core satisfies the repository pin.
+  A stale or malformed installation falls through to the exact pinned `get-tbd` package,
+  so patch upgrades and repository-format upgrades no longer dead-end merely because an
+  older global CLI is still on `PATH`.
+- **Idempotent setup**: Repeated `tbd setup --auto` runs no longer classify the current
+  `.claude/scripts/tbd-session.sh` hooks as legacy, remove them, and then reinstall the
+  same entries while claiming cleanup work occurred.
+- **Clear upgrade handoff**: Setup now reports the previous and current tbd versions
+  when it stamps an existing repository and explicitly tells the operator to review and
+  commit the generated changes.
+  Identical reruns remain quiet.
+- **Consistent setup CLI**: Fresh setup and Beads migration now run their follow-up
+  import and dashboard with the current CLI process instead of dispatching to whichever
+  `tbd` happens to be on `PATH`, which could be an older, format-incompatible
+  installation.
+
+### Changed
+
+- **Verified upgrade paths**: Release packages are now exercised against the published
+  0.6.1 same-format baseline, the common 0.4.2 upgrade path, and the final 0.5.0 f06
+  baseline. The proof covers config and issue preservation, generated surfaces,
+  idempotent reruns, same-format backward compatibility, and the older client failing
+  closed after f07.
+
+### Security
+
+- **Dependency posture**: No dependencies or lockfile entries changed.
+  Packaged upgrade QA fetches only exact historical first-party `get-tbd` tarballs with
+  their lifecycle scripts disabled and reuses the frozen workspace dependency tree.
+
 ## 0.6.1
 
 ### Fixed

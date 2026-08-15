@@ -35,7 +35,7 @@ import {
 } from '../../file/workspace.js';
 import { withDataSyncContext } from '../lib/data-context.js';
 
-interface ImportOptions {
+export interface ImportOptions {
   beadsDir?: string;
   merge?: boolean;
   verbose?: boolean;
@@ -753,6 +753,16 @@ class ImportHandler extends BaseCommand {
   }
 }
 
+/** Run import inside the current CLI process so callers never dispatch to another PATH version. */
+export async function runImport(
+  command: Command,
+  file: string | undefined,
+  options: ImportOptions,
+): Promise<void> {
+  const handler = new ImportHandler(command);
+  await handler.run(file, options);
+}
+
 export const importCommand = new Command('import')
   .description(
     'Import issues from JSONL file or workspace.\n' +
@@ -770,6 +780,5 @@ export const importCommand = new Command('import')
   .option('--outbox', 'Shortcut for --workspace=outbox --clear-on-success')
   .option('--clear-on-success', 'Delete workspace after successful import')
   .action(async (file, options, command) => {
-    const handler = new ImportHandler(command);
-    await handler.run(file, options);
+    await runImport(command, file, options);
   });

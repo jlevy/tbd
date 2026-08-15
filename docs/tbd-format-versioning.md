@@ -23,6 +23,25 @@ SINGLE SOURCE OF TRUTH: `CURRENT_FORMAT`, `FORMAT_HISTORY`, the per-step migrati
 `formatUpgradeMessage` all live there.
 When bumping `fNN` → `fNN+1` follow the rules below.
 
+Generated session and closing launchers are content-managed artifacts, not additional
+on-disk format markers.
+They first run the installed CLI only if `tbd config get tbd_format` succeeds.
+If that compatibility probe fails, they read the single exact `tbd_fallback_version`
+from `.tbd/config.yml`, validate it as SemVer, and invoke that package.
+As a result:
+
+- compatible patch and minor releases update one central config pin without rewriting
+  every launcher;
+- launcher files change only when their actual behavior changes;
+- a real format boundary still fails closed and uses the exact reviewed fallback.
+
+`tbd_fallback_version` is an additive f07 top-level key, so f07 clients preserve it and
+its introduction does not itself require a format bump.
+Do not bump `tbd_format` merely for a compatible implementation change to a
+content-managed script.
+Do bump when repository data or a format-stamped managed surface becomes incompatible
+with older clients.
+
 ## When a Config Schema Change Needs a Bump
 
 Adding, removing, or changing the meaning of a config field is a format change.

@@ -82,6 +82,45 @@ commits at release time.
 
 Follow these steps to publish a new version.
 
+### Step 0: Open One Release Train and Decide Whether to Publish
+
+A merged fix is not, by itself, a reason to publish.
+Collect related fixes into one release candidate, validate that candidate, and publish
+once. A request to release authorizes one published version.
+Publishing an additional patch requires a new, explicit human approval after reporting
+what failed, what changed, and why the new release cannot wait for the next train.
+
+Before creating the release branch:
+
+1. Open or identify one release bead for the candidate version.
+2. Inventory commits since the previous tag, open fix PRs, release-blocking beads, and
+   known downstream upgrade findings.
+3. Merge every fix intended for the train or record an explicit deferral.
+   Do not start the release while another known fix for the same failure class is still
+   in flight.
+4. Freeze the candidate scope and complete the supply-chain, package, upgrade, and
+   downstream checks below.
+
+If validation finds another defect, fix it on the same train and restart candidate
+validation. Do not publish an intermediate patch merely to test the next patch against
+the registry. Packed candidates and temporary downstream branches provide that proof
+without creating a public version.
+
+After publication, queue a newly discovered problem for the next train.
+An immediate patch is reserved for an emergency that affects the published release, such
+as active data loss or corruption, a severe exploitable runtime vulnerability, or an
+install or startup regression that blocks normal use.
+The emergency record must include:
+
+- the concrete user impact and affected published versions;
+- why waiting for the next batched release is unsafe;
+- the smallest corrective scope and its validation evidence; and
+- a new human approval for that specific additional version.
+
+The ordinary release gates still apply to an emergency.
+When time makes one impossible, the approval record must name the skipped evidence and
+the follow-up that will restore it.
+
 ### Step 1: Prepare
 
 ```bash
@@ -204,6 +243,25 @@ No Changesets—bump by hand on a `claude/release-vX.X.X` branch:
 
 The notes you write here ARE the release notes (Step 5); there is no separate changeset
 summary to keep in sync.
+
+Before publishing every release, run `pnpm qa:upgrade-package`. It packs the candidate
+with the release version and upgrades disposable repositories created by the exact
+published same-format and previous-format baselines.
+Update `TBD_UPGRADE_SAME_FORMAT_FROM`, `TBD_UPGRADE_COMMON_FROM`, or
+`TBD_UPGRADE_PREVIOUS_FORMAT_FROM` when validating a different usage or compatibility
+boundary.
+
+For changes to setup, generated launchers, installation, fallback selection, format
+migration, or upgrade recovery, also exercise the packed candidate in a first-party
+downstream repository such as `jlevy/tryscript`. Start from a fresh clone or temporary
+branch at the representative old version, preserve the resulting diff for review, run
+the downstream repository’s complete quality gate, and repeat the upgrade to prove
+idempotency. The downstream test uses the packed candidate directly; publishing a patch
+is never a prerequisite for testing the next patch.
+
+Record the candidate commit, baseline versions, downstream starting commit, commands,
+and results in the release PR. Any candidate change after this evidence was collected
+invalidates it: rerun the applicable package and downstream proofs before tagging.
 
 **If the release bumps `tbd_format`** (`CURRENT_FORMAT` in
 [`tbd-format.ts`](../packages/tbd/src/lib/tbd-format.ts) differs from the last release):

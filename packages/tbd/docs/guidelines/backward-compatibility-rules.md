@@ -1,83 +1,106 @@
 ---
 title: Backward Compatibility Rules
-description: Guidelines for maintaining backward compatibility across code, APIs, file formats, and database schemas
+description: Guidelines for maintaining backward compatibility only for real consumers and data from released versions
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: general
 ---
 ## Backward Compatibility Guidelines
 
-### Types of Backward Compatibility
+Compatibility work preserves existing consumers and data across a contract change.
+It is justified only when a real consumer cannot update with the producer or data
+written by a released version requires migration.
 
-When making code changes, you should be aware of compatibility requirements for:
+> **Default:** Name that consumer or data and explain why a coordinated update is
+> insufficient. If none exists, choose **DO NOT MAINTAIN**.
 
-- Code compatibility internal to a single application (types and method or function
-  signatures)
+Compatibility is not free insurance.
+Every retained alias, shim, fallback, dual reader, and migration path is an ongoing tax.
+Each later agent must discover, understand, preserve, test, and document it.
+Each later change must account for every retained path, so the cost compounds.
+Because the paths look like real constraints, agents also propagate them.
+Decide before implementation and carry only the cost tied to a verified boundary.
 
-- API compatibility for libraries (types and method or function signatures)
+### Identify the Compatibility Boundary
 
-- Server API compatibility (REST, GraphQL, gRPC, etc.)
+Apply the decision independently to each contract area.
+A compatibility boundary may involve:
 
-- File format compatibility
+- A released library or application version used outside the repository
+- An independently deployed client or service
+- A third-party integration, plugin, or extension
+- A file, browser state, or database record written by a released version
 
-- Database schema compatibility
+These do not justify compatibility:
 
-### Backward Compatibility Template
+- An unreleased interface or format
+- A hypothetical future integration
+- A future version of the same codebase
+- Tests and fixtures that can update with the code
+- An old client that the deployment topology cannot serve
+- General caution without a named boundary
 
-> Use the following template when clarifying backward compatibility requirements:
+Verify the facts that define the boundary:
 
-For the following areas:
+- **Deployment:** Can old and new versions coexist after release?
+  A shared commit does not prove an atomic deployment.
+- **Release history:** Did any released version expose the contract or write the data?
+- **Ownership and adoption:** Can every real consumer move in one coordinated change?
+- **Persistence:** Will user-owned or long-lived data outlive the change?
 
-- “DO NOT MAINTAIN” means simply make the changes and DO NOT preserve any old stubs or
-  add comments about past changes
+If these facts are unknown, investigate or ask.
+Do not invent a boundary or break a confirmed public one on an assumption.
 
-- “KEEP DEPRECATED” means to add new features but also preserve support, function stubs,
-  and comments about past changes
+### Choose the Smallest Valid Response
 
-- “SUPPORT BOTH” means to add new features but also preserve support, function
+- **DO NOT MAINTAIN:** Update all producers, consumers, tests, and docs together.
+  Remove the old names, shapes, stubs, and branches.
+- **VERSION + FAIL FAST:** Stamp the current identity, accept one version, and reject an
+  unknown version with an actionable error.
+- **UPGRADE + GATE:** Reject an incompatible plugin or extension at load time and
+  require it to upgrade.
+- **KEEP DEPRECATED:** Retain an old public surface for named consumers, announce its
+  deprecation, and define when it will be removed.
+- **SUPPORT BOTH:** Keep old and new contracts working when their consumers must
+  coexist.
+- **MIGRATE:** Transform data written by released versions to one current format or
+  schema.
+- **N/A:** The area does not apply.
 
-- “MIGRATE” means to add new features but also document and use database migrations or
-  automated tasks to migrate to new formats or schemas
+**VERSION + FAIL FAST** and **UPGRADE + GATE** make a breaking contract explicit; they
+are not backward compatibility.
+Use them when mismatches can occur but old behavior need not remain supported.
+Do not add a version identifier unless the system checks it.
 
-- “N/A” means this area isn’t applicable
+### State Requirements Once
 
-**BACKWARD COMPATIBILITY REQUIREMENTS:**
+> Copy this template into a specification and choose the smallest valid response or
+> combination for each area.
 
-- **Code types, methods, and function signatures**:
-  [DO NOT MAINTAIN or KEEP DEPRECATED, additional notes if necessary]
+**Backward compatibility requirements:**
 
-- **Library APIs**:
-  [DO NOT MAINTAIN or KEEP DEPRECATED or N/A, plus any additional notes]
+- **Internal code:** [response]
+- **Library APIs:** [response]
+- **Server APIs:** [response]
+- **Plugin and extension APIs:** [response]
+- **File formats:** [response]
+- **Persisted client state:** [response]
+- **Database schemas:** [response]
 
-- **Server APIs**:
-  [DO NOT MAINTAIN or KEEP DEPRECATED or N/A, plus any additional notes]
+Briefly justify each answer.
+If old behavior remains supported, name the protected consumer or data, tests, and
+support horizon or removal condition.
 
-- **File formats**: [DO NOT MAINTAIN or SUPPORT BOTH or N/A, plus any additional notes]
+Record stable answers in project guidance rather than re-deciding them for every change.
+Revisit them when the boundary changes, such as after a first public release, external
+adoption, independent deployment, or newly persisted data.
 
-- **Database schemas**: [DO NOT MAINTAIN or MIGRATE or N/A, plus any additional notes]
+### Remove Compatibility When the Boundary Ends
 
-### Always Clarify Backward Compatibility Requirements
-
-- ALWAYS be clear on backward compatibility requirements when making changes.
-  These should ALWAYS be clear in any specification.
-
-- If they are not clear, stop and ask the user for clarification.
-
-### When Backward Compatibility Is Important
-
-- In general, compatibility for libraries, servers, file formats and database schemas is
-  VERY IMPORTANT. Compatibility and migration should be planned carefully.
-
-- Backward compatibility and legacy support *within* a single application is usually NOT
-  important and should NOT be done if it needlessly complicates code changes.
-  But if not specified, it also should be clarified to be sure it is not needed.
-
-### Single Application Code Backward Compatibility
-
-- Unless stated in the spec or stated by the user, deprecated and backward compatibility
-  code support should NOT be left after refactors to a single application repository.
-
-- When doing normal refactoring or reorganizing code, REMOVE deprecated functions,
-  methods, classes, or files completely if backward compatibility is not needed.
+Delete compatibility code when its named consumer disappears or its migration completes.
+Do not defer aliases, fallbacks, or shims as future cleanup.
+In review, treat a compatibility path without a verified boundary as a finding.
+Tests can show that a path works; they cannot establish that anyone needs it.
+Record consumer-visible removals in release notes, not comments that narrate history.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

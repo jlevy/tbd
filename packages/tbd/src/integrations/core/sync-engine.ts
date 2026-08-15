@@ -40,6 +40,7 @@ import {
   listLinkRecords,
   pullWatermark,
   writeLinkRecord,
+  writeLinkRecordIfChanged,
 } from './bridge-state.js';
 import {
   mergeExternalComments,
@@ -1213,22 +1214,31 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       if (inboundOnly && Object.keys(pair.result.externalPatch).length > 0) {
         continue;
       }
-      await writeLinkRecord(dataSyncDir, provider, {
-        type: 'lk',
-        bead_id: pair.bead.id,
-        external_id: link.id,
-        base: {
-          title: pair.result.merged.title,
-          status: pair.result.merged.status,
-          priority: pair.result.merged.priority,
-          labels: pair.result.merged.labels,
-          assignee: pair.result.merged.assignee,
-          description_hash: pair.result.merged.description_hash,
+      // Only when something actually changed: a settled pair reconciles to the
+      // same answer every run, and rewriting it would differ solely by
+      // `synced_at` — turning a sync with nothing to do into a commit and a
+      // push. See writeLinkRecordIfChanged.
+      await writeLinkRecordIfChanged(
+        dataSyncDir,
+        provider,
+        {
+          type: 'lk',
+          bead_id: pair.bead.id,
+          external_id: link.id,
+          base: {
+            title: pair.result.merged.title,
+            status: pair.result.merged.status,
+            priority: pair.result.merged.priority,
+            labels: pair.result.merged.labels,
+            assignee: pair.result.merged.assignee,
+            description_hash: pair.result.merged.description_hash,
+          },
+          remote_updated_at: postWriteUpdatedAt,
+          synced_at: options.now(),
+          state: 'linked',
         },
-        remote_updated_at: postWriteUpdatedAt,
-        synced_at: options.now(),
-        state: 'linked',
-      });
+        recordByBead.get(pair.bead.id),
+      );
     } catch (error) {
       if (journaledExternalIds.has(link.id) || journaledCommentBeads.has(pair.bead.id)) {
         journalDirty = true;

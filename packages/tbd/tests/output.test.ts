@@ -138,6 +138,14 @@ describe('OutputManager', () => {
       const output = new OutputManager(createMockContext({ json: true }));
       output.notice('Noteworthy event');
       expect(consoleLog).not.toHaveBeenCalled();
+      expect(consoleError).not.toHaveBeenCalled();
+    });
+
+    it('emits optional structured data to stderr in json mode', () => {
+      const output = new OutputManager(createMockContext({ json: true }));
+      output.notice('Noteworthy event', { skippedSurfaces: ['integrations'] });
+      expect(consoleLog).not.toHaveBeenCalled();
+      expect(consoleError).toHaveBeenCalledWith('{"skippedSurfaces":["integrations"]}');
     });
   });
 

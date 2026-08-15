@@ -1014,6 +1014,12 @@ export async function pushWithRetry(
 ): Promise<PushResult> {
   // Use explicit refspec to avoid ambiguity with tags or other refs
   const refspec = `refs/heads/${syncBranch}:refs/heads/${syncBranch}`;
+  // `--no-verify` for the same reason the sync-branch COMMITS use it: the
+  // branch carries bead bookkeeping, never source code, so a parent repo's
+  // pre-push gate (lefthook, husky) has nothing to say about it. Without this
+  // every sync pays for that gate — a full test suite in this repository — and
+  // the retry loop below pays for it again on each non-fast-forward.
+  const pushArgs = ['push', '--no-verify', remote, refspec];
   // Build -C prefix args when baseDir is provided
   const dirArgs = baseDir ? ['-C', baseDir] : [];
 
@@ -1026,7 +1032,7 @@ export async function pushWithRetry(
   for (let attempt = 1; attempt <= MAX_PUSH_RETRIES; attempt++) {
     try {
       // Try to push
-      await git(...dirArgs, 'push', remote, refspec);
+      await git(...dirArgs, ...pushArgs);
       return {
         success: true,
         attempt,
@@ -1579,7 +1585,16 @@ export async function pushFreshOrphan(
   dataSyncPath: string,
 ): Promise<{ pushed: boolean; adopted: boolean }> {
   try {
-    await gitNoPrompt('-C', worktreePath, 'push', remote, `HEAD:refs/heads/${syncBranch}`);
+    // `--no-verify` for the same reason as pushWithRetry: the sync branch is
+    // bead bookkeeping, not source, so parent-repo pre-push gates do not apply.
+    await gitNoPrompt(
+      '-C',
+      worktreePath,
+      'push',
+      '--no-verify',
+      remote,
+      `HEAD:refs/heads/${syncBranch}`,
+    );
     return { pushed: true, adopted: false };
   } catch (err) {
     if (!isNonFastForward(err)) {
@@ -1606,6 +1621,175 @@ export async function pushFreshOrphan(
   }
 }
 
+const DATA_SYNC_RELATIVE_PATH = `${TBD_DIR}/${DATA_SYNC_DIR_NAME}`;
+const GIT_PATH_BATCH_SIZE = 128;
+
+async function writeScaffoldFileIfMissing(path: string, contents: string): Promise<boolean> {
+  if (await pathExists(path)) {
+    return false;
+  }
+  await writeFile(path, contents);
+  return true;
+}
+
+/**
+ * Materialize the current data-sync scaffold without disturbing legacy branch files.
+ *
+ * Older tbd releases could create a tbd-sync branch containing a repository snapshot
+ * but no `.tbd/data-sync` directory. That branch is a valid Git worktree, so worktree
+ * health checks alone cannot distinguish it from an initialized data branch. This
+ * additive repair restores missing historical data when available, creates any remaining
+ * scaffold files, and records the repair in one internal commit. Existing worktree files
+ * are never overwritten.
+ *
+ * MUST be called while holding `withSharedDataSyncLock`.
+ */
+async function ensureDataSyncScaffold(baseDir: string): Promise<number> {
+  const { sharedWorktreePath: worktreePath, sharedDataSyncDir: dataSyncPath } =
+    await getSharedPaths(baseDir);
+  const hasHead = await git('-C', worktreePath, 'rev-parse', '--verify', 'HEAD').then(
+    () => true,
+    () => false,
+  );
+  const scaffoldCommitted =
+    hasHead &&
+    (await git(
+      '-C',
+      worktreePath,
+      'cat-file',
+      '-e',
+      `HEAD:${DATA_SYNC_RELATIVE_PATH}/meta.yml`,
+    ).then(
+      () => true,
+      () => false,
+    ));
+  const repairedPaths: string[] = [];
+  let recoveredHistoricalData = false;
+
+  if (!scaffoldCommitted && hasHead) {
+    const scaffoldCommits = await git(
+      '-C',
+      worktreePath,
+      'rev-list',
+      'HEAD',
+      '--',
+      DATA_SYNC_RELATIVE_PATH,
+    );
+    for (const commit of scaffoldCommits.split('\n').filter(Boolean)) {
+      const hasHistoricalScaffold = await git(
+        '-C',
+        worktreePath,
+        'cat-file',
+        '-e',
+        `${commit}:${DATA_SYNC_RELATIVE_PATH}/meta.yml`,
+      ).then(
+        () => true,
+        () => false,
+      );
+      if (!hasHistoricalScaffold) {
+        continue;
+      }
+
+      const historicalPaths = (
+        await git(
+          '-C',
+          worktreePath,
+          'ls-tree',
+          '-r',
+          '--name-only',
+          commit,
+          '--',
+          DATA_SYNC_RELATIVE_PATH,
+        )
+      )
+        .split('\n')
+        .filter(Boolean);
+      const missingPaths: string[] = [];
+      for (const path of historicalPaths) {
+        if (!(await pathExists(join(worktreePath, path)))) {
+          missingPaths.push(path);
+        }
+      }
+      if (missingPaths.length > 0) {
+        for (let index = 0; index < missingPaths.length; index += GIT_PATH_BATCH_SIZE) {
+          await git(
+            '-C',
+            worktreePath,
+            'checkout',
+            commit,
+            '--',
+            ...missingPaths.slice(index, index + GIT_PATH_BATCH_SIZE),
+          );
+        }
+        repairedPaths.push(...missingPaths);
+        recoveredHistoricalData = true;
+      }
+      break;
+    }
+  }
+
+  await mkdir(join(dataSyncPath, 'issues'), { recursive: true });
+  await mkdir(join(dataSyncPath, 'mappings'), { recursive: true });
+  await mkdir(join(dataSyncPath, 'attic', 'conflicts'), { recursive: true });
+
+  const scaffoldFiles = [
+    {
+      relative: `${DATA_SYNC_RELATIVE_PATH}/meta.yml`,
+      contents: `schema_version: ${DATA_SYNC_SCHEMA_VERSION}\n`,
+    },
+    { relative: `${DATA_SYNC_RELATIVE_PATH}/issues/.gitkeep`, contents: '' },
+    { relative: `${DATA_SYNC_RELATIVE_PATH}/mappings/.gitkeep`, contents: '' },
+    {
+      relative: `${DATA_SYNC_RELATIVE_PATH}/mappings/.gitattributes`,
+      contents: 'ids.yml merge=union\n',
+    },
+  ];
+  for (const file of scaffoldFiles) {
+    if (await writeScaffoldFileIfMissing(join(worktreePath, file.relative), file.contents)) {
+      repairedPaths.push(file.relative);
+    }
+  }
+
+  if (repairedPaths.length === 0 && scaffoldCommitted) {
+    return 0;
+  }
+
+  // A legacy repository snapshot on tbd-sync may carry the main branch's rule
+  // that ignores `.tbd/data-sync`. These are tbd's managed data files, so force the
+  // managed directory through that unrelated ignore rule. Staging the directory also
+  // finishes an interrupted recovery whose files reached disk before its commit.
+  await git('-C', worktreePath, 'add', '--force', '--', DATA_SYNC_RELATIVE_PATH);
+  if (hasHead) {
+    await gitCommit(
+      worktreePath,
+      '--no-verify',
+      '--only',
+      '-m',
+      recoveredHistoricalData
+        ? 'Restore missing tbd-sync data layout'
+        : 'Initialize tbd-sync data layout',
+      '--',
+      DATA_SYNC_RELATIVE_PATH,
+    );
+  } else {
+    await gitCommit(worktreePath, '--no-verify', '-m', 'Initialize tbd-sync branch');
+  }
+  return recoveredHistoricalData ? repairedPaths.length : 0;
+}
+
+/** Whether the required scaffold exists both in the worktree and its current commit. */
+export async function isDataSyncScaffoldReady(baseDir: string): Promise<boolean> {
+  const { sharedWorktreePath: worktreePath, sharedDataSyncDir: dataSyncPath } =
+    await getSharedPaths(baseDir);
+  if (!(await pathExists(join(dataSyncPath, 'meta.yml')))) {
+    return false;
+  }
+  return git('-C', worktreePath, 'cat-file', '-e', `HEAD:${DATA_SYNC_RELATIVE_PATH}/meta.yml`).then(
+    () => true,
+    () => false,
+  );
+}
+
 /**
  * Initialize the hidden worktree for the tbd-sync branch.
  * Follows the decision tree from tbd-design.md §2.3.
@@ -1623,13 +1807,27 @@ export async function initWorktree(
   baseDir: string,
   remote = 'origin',
   syncBranch: string = SYNC_BRANCH,
-): Promise<{ success: boolean; path?: string; created?: boolean; error?: string }> {
+): Promise<{
+  success: boolean;
+  path?: string;
+  created?: boolean;
+  restoredDataFiles?: number;
+  error?: string;
+}> {
   const paths = await getSharedPaths(baseDir);
   const worktreePath = paths.sharedWorktreePath;
 
   // Check if worktree already exists and is valid
   if (await worktreeExists(baseDir)) {
-    return { success: true, path: worktreePath, created: false };
+    try {
+      const restoredDataFiles = await ensureDataSyncScaffold(baseDir);
+      return { success: true, path: worktreePath, created: false, restoredDataFiles };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   await mkdir(paths.sharedTbdDir, { recursive: true });
@@ -1655,7 +1853,8 @@ export async function initWorktree(
       // Create worktree on local branch (no --detach, so commits update the branch)
       // Note: Don't use --detach here - we want commits to update tbd-sync branch
       await git('-C', baseDir, 'worktree', 'add', worktreePath, syncBranch);
-      return { success: true, path: worktreePath, created: true };
+      const restoredDataFiles = await ensureDataSyncScaffold(baseDir);
+      return { success: true, path: worktreePath, created: true, restoredDataFiles };
     }
 
     // Probe the remote. A configured-but-unreachable remote must NOT fall
@@ -1690,7 +1889,8 @@ export async function initWorktree(
         worktreePath,
         `${remote}/${syncBranch}`,
       );
-      return { success: true, path: worktreePath, created: true };
+      const restoredDataFiles = await ensureDataSyncScaffold(baseDir);
+      return { success: true, path: worktreePath, created: true, restoredDataFiles };
     }
 
     // No branch exists (probe === 'absent') - create orphan worktree (requires Git 2.42+)
@@ -1698,39 +1898,27 @@ export async function initWorktree(
     await requireGitVersion();
     await git('-C', baseDir, 'worktree', 'add', '--orphan', '-b', syncBranch, worktreePath);
 
-    // Initialize the data-sync directory structure in the worktree
+    // Initialize the data-sync directory structure in the worktree.
     const dataSyncPath = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME);
-    await mkdir(join(dataSyncPath, 'issues'), { recursive: true });
-    await mkdir(join(dataSyncPath, 'mappings'), { recursive: true });
-    await mkdir(join(dataSyncPath, 'attic', 'conflicts'), { recursive: true });
-
-    // Create initial commit in worktree
-    await writeFile(
-      join(dataSyncPath, 'meta.yml'),
-      `schema_version: ${DATA_SYNC_SCHEMA_VERSION}\n`,
-    );
-    await writeFile(join(dataSyncPath, 'issues', '.gitkeep'), '');
-    await writeFile(join(dataSyncPath, 'mappings', '.gitkeep'), '');
-
-    // Add .gitattributes for merge=union on ids.yml so concurrent additions
-    // (both sides add non-overlapping keys) merge cleanly instead of conflicting.
-    // This must be inside the worktree; .gitattributes on the main branch has
-    // no effect on merges happening on the tbd-sync branch.
-    await writeFile(join(dataSyncPath, 'mappings', '.gitattributes'), 'ids.yml merge=union\n');
-
-    // Stage and commit the initial structure
-    // Use --no-verify to bypass parent repo hooks (lefthook, husky, etc.)
-    await git('-C', worktreePath, 'add', '.');
-    await gitCommit(worktreePath, '--no-verify', '-m', 'Initialize tbd-sync branch');
+    let restoredDataFiles = await ensureDataSyncScaffold(baseDir);
 
     // Push the fresh orphan immediately so "first init wins" and the #137 race
     // window closes. Only when a remote is configured; best-effort on transient
     // failure, adopt-or-fail-loud on a detected rejected-race.
     if (hasRemote) {
-      await pushFreshOrphan(baseDir, worktreePath, remote, syncBranch, dataSyncPath);
+      const pushResult = await pushFreshOrphan(
+        baseDir,
+        worktreePath,
+        remote,
+        syncBranch,
+        dataSyncPath,
+      );
+      if (pushResult.adopted) {
+        restoredDataFiles = await ensureDataSyncScaffold(baseDir);
+      }
     }
 
-    return { success: true, path: worktreePath, created: true };
+    return { success: true, path: worktreePath, created: true, restoredDataFiles };
   } catch (error) {
     return {
       success: false,
@@ -2480,7 +2668,13 @@ export async function repairWorktree(
   status: 'missing' | 'prunable' | 'corrupted',
   remote = 'origin',
   syncBranch: string = SYNC_BRANCH,
-): Promise<{ success: boolean; path?: string; backedUp?: string; error?: string }> {
+): Promise<{
+  success: boolean;
+  path?: string;
+  backedUp?: string;
+  restoredDataFiles?: number;
+  error?: string;
+}> {
   const { sharedWorktreePath: worktreePath, sharedBackupsDir } = await getSharedPaths(baseDir);
 
   try {

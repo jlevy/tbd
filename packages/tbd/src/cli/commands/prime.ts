@@ -25,7 +25,7 @@ import type { Issue } from '../../lib/types.js';
 import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
 import { loadDataContext } from '../lib/data-context.js';
 
-interface PrimeOptions {
+export interface PrimeOptions {
   export?: boolean;
   brief?: boolean;
 }
@@ -432,11 +432,16 @@ class PrimeHandler extends BaseCommand {
   }
 }
 
+/** Run prime inside the current CLI process so callers never dispatch to another PATH version. */
+export async function runPrime(command: Command, options: PrimeOptions = {}): Promise<void> {
+  const handler = new PrimeHandler(command);
+  await handler.run(options);
+}
+
 export const primeCommand = new Command('prime')
   .description('Show full orientation with workflow context')
   .option('--export', 'Output default content (ignores PRIME.md override)')
   .option('--brief', 'Output abbreviated orientation (~35 lines) for constrained contexts')
   .action(async (options: PrimeOptions, command) => {
-    const handler = new PrimeHandler(command);
-    await handler.run(options);
+    await runPrime(command, options);
   });

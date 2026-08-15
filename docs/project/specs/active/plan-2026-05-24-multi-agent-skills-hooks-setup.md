@@ -319,7 +319,9 @@ parity, not graceful degradation:
 Generated skill text should prefer a local command when available, then a pinned
 fallback appropriate to the package manager:
 
-1. `mycli <command>` when already on `PATH`.
+1. `mycli <command>` when already on `PATH` and its numeric SemVer core is at least the
+   repository-pinned version.
+   A stale or malformed local version falls through to the pinned runner.
 2. A pinned zero-install fallback such as:
    - `npx --yes my-package@<version> mycli <command>` for npm packages.
    - `uvx --from my-package@<version> mycli <command>` for Python packages distributed
@@ -334,13 +336,15 @@ fallback appropriate to the package manager:
 the currently running tbd version (`PINNED_NPM_VERSION`, the clean published semver from
 `version.ts`), so a team and its agents all reproduce the same version.
 The generated session script (`.codex/tbd-session.sh`, `.claude/scripts/tbd-session.sh`)
-already does this via `npx --yes get-tbd@${PINNED_NPM_VERSION}`. An audit (2026-06-02,
-`tbd-shsb`) confirmed the remaining `@latest` usages are **all correct as-is** and must
-**not** be pinned: the forward-compatibility “requires a newer tbd” errors in
-`doctor.ts`, `setup.ts`, and `tbd-format.ts` exist precisely to fetch a newer release,
-and the first-install bootstrap one-liner in `output.ts` (Getting Started) is for a user
-who has no tbd yet. Pinning any of these to the running version would be a bug.
-So no code change is needed here beyond the already-pinned session script.
+does this via a version-aware local check followed by
+`npx --yes get-tbd@${PINNED_NPM_VERSION}`. An audit (2026-06-02, `tbd-shsb`) confirmed
+the remaining `@latest` usages are **all correct as-is** and must **not** be pinned: the
+forward-compatibility “requires a newer tbd” errors in `doctor.ts`, `setup.ts`, and
+`tbd-format.ts` exist precisely to fetch a newer release, and the first-install
+bootstrap one-liner in `output.ts` (Getting Started) is for a user who has no tbd yet.
+Pinning any of these to the running version would be a bug.
+The version-aware selector preserves that boundary while preventing a stale local CLI
+from shadowing the pinned fallback.
 
 Never recommend an unpinned network runner from generated agent instructions unless the
 user explicitly opts into that behavior.
@@ -563,7 +567,7 @@ These were open questions; resolved 2026-05-25 so the beads are unambiguous:
   treated as legacy format 1, and the new compact block is format 2. (`tbd-slsp`,
   `tbd-y84j`)
 
-Revised 2026-06-02:
+Revised through 2026-08-14:
 
 - **Single `--surfaces=<comma-list>` selector, default all** — replaces the per-agent
   flag taxonomy (`--claude`/`--codex`/`--cursor`/`--agents-md`/`--all`/`--skip-*`). With
@@ -586,11 +590,14 @@ Revised 2026-06-02:
   surface is self-contained and Codex hooks never reference `.claude/`. The guideline
   treats this as a valid alternative to a shared neutral script.
   (`tbd-orup`)
-- **Version pinning is already correct; no change needed** — the session script pins to
-  `PINNED_NPM_VERSION`; the remaining `@latest` usages are forward-compatibility upgrade
-  errors or the first-install bootstrap, all of which legitimately want the newest
-  release and must not be pinned.
-  (`tbd-shsb`)
+- **Format-compatible local selection with one central pin** — the session and closing
+  hooks use a local `tbd` whenever it can read the repository’s `tbd_format`. If it
+  cannot, they use the strictly validated exact `tbd_fallback_version` from
+  `.tbd/config.yml`. Generated Bash files contain no tbd release literal, so compatible
+  package releases update one config value rather than every launcher.
+  The remaining `@latest` usages are forward-compatibility upgrade errors or the
+  first-install bootstrap, all of which legitimately want the newest release and must
+  not be pinned. (`tbd-shsb`, revised 2026-08-14 by `tbd-2ezq`)
 
 ## Self-Upgrade and Forward-Compatibility (Tier-2 behavior)
 
@@ -612,8 +619,10 @@ For tbd specifically:
   This makes version pinning safe on teams: an older tbd fails loudly rather than
   clobbering a newer managed block.
   (`tbd-y84j`, surfaced by `tbd-ymts`)
-- Version pinning in generated invocations serves both supply-chain hardening and
-  cross-team/cross-agent behavioral consistency.
+- The one exact config-level fallback pin serves supply-chain hardening and
+  deterministic recovery at format boundaries.
+  Normal local execution is compatibility-gated rather than release-gated, avoiding
+  needless patch-version churn.
   (`tbd-1h2s`)
 
 ## References

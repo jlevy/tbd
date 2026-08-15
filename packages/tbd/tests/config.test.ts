@@ -36,12 +36,13 @@ describe('config operations', () => {
 
   describe('initConfig', () => {
     it('creates config file with defaults', async () => {
-      await initConfig(tempDir, '3.0.0', 'test');
+      await initConfig(tempDir, '3.0.0', 'test', '3.0.0');
 
       const configPath = join(tempDir, CONFIG_FILE);
       const content = await readFile(configPath, 'utf-8');
 
       expect(content).toContain('tbd_version: 3.0.0');
+      expect(content).toContain('tbd_fallback_version: 3.0.0');
       expect(content).toContain('branch: tbd-sync');
       expect(content).toContain('storage: git-common-dir-v1');
       expect(content).toContain('id_prefix: test');
@@ -70,6 +71,7 @@ describe('config operations', () => {
     const base: Config = {
       tbd_format: CURRENT_FORMAT,
       tbd_version: '0.3.0',
+      tbd_fallback_version: '0.3.0',
       tbd_upgrades: [{ version: '0.3.0', at: '2026-06-12T00:00:00.000Z' }],
       sync: { branch: 'tbd-sync', remote: 'origin', storage: 'git-common-dir-v1' },
       display: { id_prefix: 'test' },
@@ -77,26 +79,52 @@ describe('config operations', () => {
     };
 
     it('appends a new entry and updates tbd_version when the version changed', () => {
-      const stamped = stampSetupVersion(base, '0.3.1', '2026-06-13T00:00:00.000Z');
+      const stamped = stampSetupVersion(base, {
+        version: '0.3.1-dev.1.abc1234',
+        fallbackVersion: '0.3.1',
+        at: '2026-06-13T00:00:00.000Z',
+      });
 
       expect(stamped).not.toBe(base);
-      expect(stamped.tbd_version).toBe('0.3.1');
+      expect(stamped.tbd_version).toBe('0.3.1-dev.1.abc1234');
+      expect(stamped.tbd_fallback_version).toBe('0.3.1');
       expect(stamped.tbd_upgrades).toEqual([
         { version: '0.3.0', at: '2026-06-12T00:00:00.000Z' },
-        { version: '0.3.1', at: '2026-06-13T00:00:00.000Z' },
+        { version: '0.3.1-dev.1.abc1234', at: '2026-06-13T00:00:00.000Z' },
       ]);
     });
 
     it('is a no-op (same reference) when the version already heads the history', () => {
-      const stamped = stampSetupVersion(base, '0.3.0', '2026-06-13T00:00:00.000Z');
+      const stamped = stampSetupVersion(base, {
+        version: '0.3.0',
+        fallbackVersion: '0.3.0',
+        at: '2026-06-13T00:00:00.000Z',
+      });
 
       expect(stamped).toBe(base);
       expect(stamped.tbd_upgrades).toHaveLength(1);
     });
 
+    it('adds or refreshes the central fallback without duplicating upgrade history', () => {
+      const configWithoutFallback: Config = { ...base, tbd_fallback_version: undefined };
+      const stamped = stampSetupVersion(configWithoutFallback, {
+        version: '0.3.0',
+        fallbackVersion: '0.3.1',
+        at: '2026-06-13T00:00:00.000Z',
+      });
+
+      expect(stamped).not.toBe(configWithoutFallback);
+      expect(stamped.tbd_fallback_version).toBe('0.3.1');
+      expect(stamped.tbd_upgrades).toEqual(base.tbd_upgrades);
+    });
+
     it('seeds the first entry for a config with no history', () => {
       const noHistory: Config = { ...base, tbd_upgrades: [] };
-      const stamped = stampSetupVersion(noHistory, '0.3.0', '2026-06-13T00:00:00.000Z');
+      const stamped = stampSetupVersion(noHistory, {
+        version: '0.3.0',
+        fallbackVersion: '0.3.0',
+        at: '2026-06-13T00:00:00.000Z',
+      });
 
       expect(stamped.tbd_version).toBe('0.3.0');
       expect(stamped.tbd_upgrades).toEqual([{ version: '0.3.0', at: '2026-06-13T00:00:00.000Z' }]);
@@ -105,11 +133,12 @@ describe('config operations', () => {
 
   describe('readConfig', () => {
     it('reads existing config', async () => {
-      await initConfig(tempDir, '3.0.0', 'test');
+      await initConfig(tempDir, '3.0.0', 'test', '3.0.0');
 
       const config = await readConfig(tempDir);
 
       expect(config.tbd_version).toBe('3.0.0');
+      expect(config.tbd_fallback_version).toBe('3.0.0');
       expect(config.sync.branch).toBe('tbd-sync');
       expect(config.sync.remote).toBe('origin');
       expect(config.display.id_prefix).toBe('test');

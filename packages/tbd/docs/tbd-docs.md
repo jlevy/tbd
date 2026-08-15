@@ -1662,10 +1662,16 @@ Both are inert when nothing is enabled.
 
 ### What to sync
 
-**Mirror the shape of the work, not the work itself.** A useful rule of thumb is around
-**10% of your beads**: the epics someone would ask about in a status meeting, plus
-whatever carries a live plan spec.
-In this repository that is 122 of 1,372 beads, or 8%.
+**Mirror the shape of the work, not the work itself.** The target is the epics someone
+would ask about in a status meeting, plus whatever carries a live plan spec.
+
+**Judge that against *open* work, not against every bead you have ever closed.** Status
+gates the selection, so closed beads can never be mirrored and including them in the
+denominator makes any policy look small.
+Measured in this repository on 2026-08-14, the default policy selected 151 beads: about
+9% of all 1,726 beads, but **52% of the 291 that were still open**. Both numbers move as
+a repository grows; the second is the one that predicts what lands in the tracker.
+Run `tbd --dry-run integration sync --push` for your own current count.
 
 The default policy is *open epics, or anything whose `spec_path` points into
 `specs/active/`*. Kind and spec are **alternatives**, not requirements, so both “every

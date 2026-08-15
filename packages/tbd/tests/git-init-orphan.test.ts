@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdir, rm, writeFile as fsWriteFile } from 'node:fs/promises';
+import { access, mkdir, rm, writeFile as fsWriteFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir, platform } from 'node:os';
 import { randomBytes } from 'node:crypto';
@@ -120,6 +120,28 @@ describeUnlessWindows('initWorktree orphan hardening', () => {
     const result = await initWorktree(workPath);
     expect(result.success).toBe(true);
     expect(await branchExists(SYNC_BRANCH, workPath)).toBe(true);
+  });
+
+  it('initializes the data scaffold on a pre-existing remote sync branch', async () => {
+    await createBareRepo(barePath);
+    await seedRemoteOrphanSync(testDir, barePath);
+    await initRepoWithRemote(workPath, barePath);
+
+    const result = await initWorktree(workPath);
+    expect(result.success).toBe(true);
+
+    const dataSyncPath = join(result.path!, TBD_DIR, DATA_SYNC_DIR_NAME);
+    await expect(access(join(dataSyncPath, 'meta.yml'))).resolves.toBeUndefined();
+    await expect(access(join(dataSyncPath, 'issues', '.gitkeep'))).resolves.toBeUndefined();
+    await expect(access(join(dataSyncPath, 'mappings', '.gitkeep'))).resolves.toBeUndefined();
+    await expect(access(join(dataSyncPath, 'mappings', '.gitattributes'))).resolves.toBeUndefined();
+    expect(await gitInDir(result.path!, 'status', '--porcelain')).toBe('');
+
+    const initializedHead = await gitInDir(result.path!, 'rev-parse', 'HEAD');
+    const repeated = await initWorktree(workPath);
+    expect(repeated.success).toBe(true);
+    expect(repeated.created).toBe(false);
+    expect(await gitInDir(result.path!, 'rev-parse', 'HEAD')).toBe(initializedHead);
   });
 
   describe('pushFreshOrphan rejected-race handling', () => {

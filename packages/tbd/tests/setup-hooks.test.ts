@@ -10,9 +10,19 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm, mkdir, writeFile, readFile, access, realpath, stat } from 'node:fs/promises';
+import {
+  mkdtemp,
+  rm,
+  mkdir,
+  writeFile,
+  readFile,
+  access,
+  realpath,
+  stat,
+  chmod,
+} from 'node:fs/promises';
 import { tmpdir, platform } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
 
 // Shell script hooks are Unix-only; skip entire suite on Windows
@@ -117,13 +127,152 @@ describeUnix('setup hooks (project-local)', { timeout: 15000 }, () => {
       const scriptPath = join(projectDir, '.claude', 'scripts', 'tbd-session.sh');
       const content = await readFile(scriptPath, 'utf-8');
 
-      // Verify key parts of the script: local-first, then a pinned npx fallback.
+      // Verify key parts of the script: format-compatible local-first, then an exact
+      // npx fallback read from repository config. Release numbers must not be copied
+      // into every generated script on routine patch upgrades.
       expect(content).toContain('#!/bin/bash');
       expect(content).toContain('command -v tbd');
-      expect(content).toContain('npx --yes get-tbd@');
+      expect(content).toContain('tbd config get tbd_format');
+      expect(content).toContain('tbd_configured_fallback_version');
+      expect(content).toContain('npx --yes "get-tbd@$configured_fallback_version"');
       expect(content).toContain('tbd prime');
+      expect(content).not.toMatch(/get-tbd@\d+\.\d+\.\d+/u);
       // Must not use an unpinned runner.
       expect(content).not.toContain('npx get-tbd prime');
+    });
+
+    it('uses the configured fallback only when the local CLI cannot read the format', async () => {
+      const projectDir = join(tempDir, 'project');
+      await mkdir(projectDir, { recursive: true });
+      initGitRepo(projectDir);
+      expect(runTbd(['setup', '--auto', '--prefix=test'], projectDir).status).toBe(0);
+
+      const scriptPath = join(projectDir, '.claude', 'scripts', 'tbd-session.sh');
+      const scriptBeforePinChange = await readFile(scriptPath, 'utf-8');
+      const configPath = join(projectDir, '.tbd', 'config.yml');
+      const config = (await readFile(configPath, 'utf-8')).replace(
+        /^tbd_fallback_version:.*$/mu,
+        'tbd_fallback_version: 9.8.7-beta.2',
+      );
+      await writeFile(configPath, config);
+      expect(await readFile(scriptPath, 'utf-8')).toBe(scriptBeforePinChange);
+      const configuredVersion = /^tbd_fallback_version:\s*(\S+)$/mu.exec(config)?.[1];
+      expect(configuredVersion).toBeDefined();
+
+      // The generated hook deliberately prepends common user-local bin directories.
+      // Put the fakes in the first such directory so a runner-level /usr/local/bin/npx
+      // cannot shadow them on Linux.
+      const fakeBin = join(fakeHome, '.local', 'bin');
+      const runnerLog = join(tempDir, 'runner.log');
+      await mkdir(fakeBin, { recursive: true });
+      await writeFile(
+        join(fakeBin, 'tbd'),
+        '#!/bin/bash\n' +
+          'if [ "$1 $2 $3" = "config get tbd_format" ]; then\n' +
+          '  if [ "$FAKE_TBD_CAN_READ" = "true" ]; then printf "f07\\n"; exit 0; fi\n' +
+          '  exit 1\n' +
+          'fi\n' +
+          'printf "tbd %s\\n" "$*" >> "$TBD_RUNNER_LOG"\n',
+      );
+      await writeFile(
+        join(fakeBin, 'npx'),
+        '#!/bin/bash\nprintf "npx %s\\n" "$*" >> "$TBD_RUNNER_LOG"\n',
+      );
+      await chmod(join(fakeBin, 'tbd'), 0o755);
+      await chmod(join(fakeBin, 'npx'), 0o755);
+
+      const cases = [
+        {
+          name: 'format-compatible local CLI',
+          canRead: true,
+          expected: 'tbd prime --brief',
+          fallback: false,
+        },
+        {
+          name: 'format-incompatible local CLI',
+          canRead: false,
+          expected: `npx --yes get-tbd@${configuredVersion} prime --brief`,
+          fallback: true,
+        },
+      ];
+
+      for (const testCase of cases) {
+        await writeFile(runnerLog, '');
+        const result = spawnSync('bash', [scriptPath, '--brief'], {
+          cwd: projectDir,
+          encoding: 'utf-8',
+          env: {
+            ...process.env,
+            HOME: fakeHome,
+            PATH: `${fakeBin}${delimiter}${process.env.PATH ?? ''}`,
+            FAKE_TBD_CAN_READ: String(testCase.canRead),
+            TBD_RUNNER_LOG: runnerLog,
+          },
+        });
+
+        expect(result.status, `${testCase.name}: ${result.stderr}`).toBe(0);
+        expect((await readFile(runnerLog, 'utf-8')).trim()).toBe(testCase.expected);
+        if (testCase.fallback) {
+          expect(result.stderr).toContain('cannot read this repository format');
+        } else {
+          expect(result.stderr).not.toContain('cannot read this repository format');
+        }
+      }
+    });
+
+    it('rejects an invalid configured fallback without invoking npx', async () => {
+      const projectDir = join(tempDir, 'project');
+      await mkdir(projectDir, { recursive: true });
+      initGitRepo(projectDir);
+      expect(runTbd(['setup', '--auto', '--prefix=test'], projectDir).status).toBe(0);
+
+      const configPath = join(projectDir, '.tbd', 'config.yml');
+      await writeFile(
+        configPath,
+        (await readFile(configPath, 'utf-8')).replace(
+          /^tbd_fallback_version:.*$/mu,
+          'tbd_fallback_version: 0.6.3; touch SHOULD_NOT_RUN',
+        ),
+      );
+
+      const fakeBin = join(fakeHome, '.local', 'bin');
+      const runnerLog = join(tempDir, 'invalid-pin-runner.log');
+      await mkdir(fakeBin, { recursive: true });
+      await writeFile(
+        join(fakeBin, 'tbd'),
+        '#!/bin/bash\nif [ "$1 $2 $3" = "config get tbd_format" ]; then exit 1; fi\n',
+      );
+      await writeFile(
+        join(fakeBin, 'npx'),
+        '#!/bin/bash\nprintf "npx %s\\n" "$*" >> "$TBD_RUNNER_LOG"\n',
+      );
+      await chmod(join(fakeBin, 'tbd'), 0o755);
+      await chmod(join(fakeBin, 'npx'), 0o755);
+
+      const result = spawnSync('bash', [join(projectDir, '.claude', 'scripts', 'tbd-session.sh')], {
+        cwd: projectDir,
+        encoding: 'utf-8',
+        env: {
+          ...process.env,
+          HOME: fakeHome,
+          PATH: `${fakeBin}${delimiter}${process.env.PATH ?? ''}`,
+          TBD_RUNNER_LOG: runnerLog,
+        },
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('valid exact tbd_fallback_version');
+      await expect(access(runnerLog)).rejects.toThrow();
+      await expect(access(join(projectDir, 'SHOULD_NOT_RUN'))).rejects.toThrow();
+
+      // The recovery instruction must be truthful: setup reads the inert string,
+      // replaces it with its own package pin, and never evaluates the payload.
+      const repair = runTbd(['setup', '--auto'], projectDir);
+      expect(repair.status, repair.stderr).toBe(0);
+      expect(await readFile(configPath, 'utf-8')).toMatch(
+        /^tbd_fallback_version:\s*\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/mu,
+      );
+      await expect(access(join(projectDir, 'SHOULD_NOT_RUN'))).rejects.toThrow();
     });
   });
 
@@ -368,8 +517,12 @@ describeUnix('setup hooks (project-local)', { timeout: 15000 }, () => {
       initGitRepo(projectDir);
 
       // Run setup twice
-      runTbd(['setup', '--auto', '--prefix=test'], projectDir);
-      runTbd(['setup', '--auto'], projectDir);
+      const first = runTbd(['setup', '--auto', '--prefix=test'], projectDir);
+      const second = runTbd(['setup', '--auto'], projectDir);
+
+      expect(first.status).toBe(0);
+      expect(second.status).toBe(0);
+      expect(second.stdout + second.stderr).not.toContain('Cleaned up legacy');
 
       const settingsPath = join(projectDir, '.claude', 'settings.json');
       const content = await readFile(settingsPath, 'utf-8');
@@ -485,11 +638,11 @@ echo "This is outdated"
       const refreshedContent = await readFile(scriptPath, 'utf-8');
       expect(refreshedContent).not.toContain('This is outdated');
       expect(refreshedContent).toContain('command -v tbd');
-      expect(refreshedContent).toContain('npx --yes get-tbd@');
+      expect(refreshedContent).toContain('npx --yes "get-tbd@$configured_fallback_version"');
       expect(refreshedContent).toContain('tbd prime');
     });
 
-    it('pins the get-tbd version in the npx fallback', async () => {
+    it('reads the exact npx fallback from config without embedding a release', async () => {
       const projectDir = join(tempDir, 'project');
       await mkdir(projectDir, { recursive: true });
       initGitRepo(projectDir);
@@ -499,8 +652,9 @@ echo "This is outdated"
       const scriptPath = join(projectDir, '.claude', 'scripts', 'tbd-session.sh');
       const content = await readFile(scriptPath, 'utf-8');
 
-      // The fallback must reference a pinned version (get-tbd@<semver>), never bare.
-      expect(content).toMatch(/npx --yes get-tbd@\d+\.\d+\.\d+/);
+      expect(content).toContain('tbd_configured_fallback_version');
+      expect(content).toContain('npx --yes "get-tbd@$configured_fallback_version"');
+      expect(content).not.toMatch(/get-tbd@\d+\.\d+\.\d+/u);
     });
 
     it('refreshed script preserves executable permissions', async () => {

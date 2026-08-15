@@ -85,8 +85,19 @@ integrations:
 
 Leave `policy: default` unless the user asks for something else.
 It selects open epics plus anything whose `spec_path` points into `specs/active/`—the
-right starting point for “track our specs and major work”, and roughly 10% of a typical
-repository’s beads.
+right starting point for “track our specs and major work”.
+
+**Size that selection before the first sync, because it is easy to underestimate.**
+`spec_path` propagates from a parent bead to its descendants, so the spec clause selects
+every descendant of every epic carrying a live spec.
+In a spec-driven repository that can be a large share of open work rather than a small
+one. Two things to check with the user when the preview looks bigger than expected:
+
+- `tbd --dry-run integration sync --push` lists exactly which beads would be mirrored.
+- Beads nested deeper than `max_nesting` (default 2) *within the selected set* are
+  reported as skipped rather than created, so the number of Linear issues is normally
+  smaller than the number of selected beads.
+  Both numbers appear in the dry run.
 
 **Then run `tbd setup --auto` before committing.** Writing the block leaves the
 repository at whatever format it was on; setup stamps `tbd_format: f07`, which is what

@@ -62,10 +62,11 @@ function checkFormatCompatibility(data: RawConfig): void {
  * Create default config for a new project.
  * @param prefix - Required: the project prefix for display IDs (e.g., "proj", "myapp")
  */
-function createDefaultConfig(version: string, prefix: string): Config {
+function createDefaultConfig(version: string, prefix: string, fallbackVersion?: string): Config {
   return ConfigSchema.parse({
     tbd_format: CURRENT_FORMAT,
     tbd_version: version,
+    ...(fallbackVersion ? { tbd_fallback_version: fallbackVersion } : {}),
     // Seed the upgrade history with the version that created this repo.
     tbd_upgrades: [{ version, at: now() }],
     sync: {
@@ -92,18 +93,20 @@ export async function initConfig(
   baseDir: string,
   version: string,
   prefix: string,
+  fallbackVersion?: string,
 ): Promise<Config> {
   const tbdDir = join(baseDir, '.tbd');
   await mkdir(tbdDir, { recursive: true });
 
-  const config = createDefaultConfig(version, prefix);
+  const config = createDefaultConfig(version, prefix, fallbackVersion);
   await writeConfig(baseDir, config);
 
   return config;
 }
 
 /**
- * Stamp the config with the version that is running `tbd setup`.
+ * Stamp the config with the version that is running `tbd setup` and the exact published
+ * package version that generated launchers may use as a fallback.
  *
  * Sets `tbd_version` to the running version and, when that version differs from the most
  * recent `tbd_upgrades` entry, appends a new `{ version, at }` entry. Deduping by the
@@ -112,18 +115,26 @@ export async function initConfig(
  * Pure: returns the SAME object when nothing changed (so callers can skip the write via
  * an identity check), or a new config otherwise. The caller persists the result.
  */
-export function stampSetupVersion(config: Config, version: string, at: string = now()): Config {
+export function stampSetupVersion(
+  config: Config,
+  options: { version: string; fallbackVersion: string; at?: string },
+): Config {
+  const { version, fallbackVersion, at = now() } = options;
   const upgrades = config.tbd_upgrades ?? [];
   const last = upgrades[upgrades.length - 1];
 
   if (last?.version === version) {
-    // This version already heads the history; only ensure tbd_version reflects it.
-    return config.tbd_version === version ? config : { ...config, tbd_version: version };
+    // This version already heads the history; only ensure the current and fallback
+    // metadata reflect it. Existing f07 configs acquire the optional fallback here.
+    return config.tbd_version === version && config.tbd_fallback_version === fallbackVersion
+      ? config
+      : { ...config, tbd_version: version, tbd_fallback_version: fallbackVersion };
   }
 
   return {
     ...config,
     tbd_version: version,
+    tbd_fallback_version: fallbackVersion,
     tbd_upgrades: [...upgrades, { version, at }],
   };
 }
@@ -219,6 +230,7 @@ export async function writeConfig(baseDir: string, config: Config): Promise<void
   if (config.tbd_upgrades && config.tbd_upgrades.length > 0) {
     const upgradesComment = `# tbd_upgrades: tbd versions that have run \`tbd setup\` in this repo (oldest first);
 # tbd_version above is the most recent. Informational; updated automatically by setup.
+# tbd_fallback_version is the one exact registry fallback for format-incompatible launchers.
 `;
     content = content.replace('tbd_upgrades:', upgradesComment + 'tbd_upgrades:');
   }

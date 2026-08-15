@@ -4,12 +4,14 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm, mkdir, writeFile, readFile, access, realpath } from 'node:fs/promises';
+import { mkdtemp, rm, mkdir, writeFile, readFile, access, realpath, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
 import { subprocessTestTimeout } from './test-helpers.js';
 import { CURRENT_FORMAT } from '../src/lib/tbd-format.js';
+
+const itUnix = process.platform === 'win32' ? it.skip : it;
 
 describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
   let tempDir: string;
@@ -99,6 +101,28 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       const { readConfig } = await import('../src/file/config.js');
       const config = await readConfig(tempDir);
       expect(config.display.id_prefix).toBe('custom');
+    });
+
+    itUnix('keeps post-setup commands on the running CLI version', async () => {
+      initGitRepo();
+      const fakeBin = join(tempDir, 'foreign-bin');
+      const marker = join(tempDir, 'foreign-tbd-was-run');
+      await mkdir(fakeBin);
+      await writeFile(
+        join(fakeBin, 'tbd'),
+        '#!/bin/bash\nprintf "invoked\\n" > "$TBD_FOREIGN_MARKER"\nexit 99\n',
+      );
+      await chmod(join(fakeBin, 'tbd'), 0o755);
+
+      const result = runTbd(['setup', '--auto', '--prefix=test'], tempDir, {
+        PATH: `${fakeBin}${delimiter}${process.env.PATH ?? ''}`,
+        TBD_FOREIGN_MARKER: marker,
+      });
+
+      expect(result.status).toBe(0);
+      await expect(access(marker)).rejects.toThrow();
+      const config = await readFile(join(tempDir, '.tbd', 'config.yml'), 'utf8');
+      expect(config).toContain(`tbd_format: ${CURRENT_FORMAT}`);
     });
 
     it("shows What's Next section after setup", () => {
@@ -373,6 +397,26 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       expect(result.status).toBe(0);
       expect(result.stdout).toContain('tbd initialized');
     });
+
+    it('reports a same-format setup version upgrade once with the commit action', async () => {
+      initGitRepo();
+      expect(runTbd(['setup', '--auto', '--prefix=test']).status).toBe(0);
+
+      const configPath = join(tempDir, '.tbd', 'config.yml');
+      const initialConfig = await readFile(configPath, 'utf-8');
+      const runningVersion = /^tbd_version:\s+(.+)$/mu.exec(initialConfig)?.[1];
+      expect(runningVersion).toBeDefined();
+      await writeFile(configPath, initialConfig.split(runningVersion!).join('0.0.0'));
+
+      const upgraded = runTbd(['setup', '--auto']);
+      expect(upgraded.status).toBe(0);
+      expect(upgraded.stdout).toContain(`Recorded tbd setup version 0.0.0 → ${runningVersion}`);
+      expect(upgraded.stdout).toContain('Review and commit the generated repository changes.');
+
+      const repeated = runTbd(['setup', '--auto']);
+      expect(repeated.status).toBe(0);
+      expect(repeated.stdout).not.toContain('Recorded tbd setup version');
+    });
   });
 
   describe('docs summary', () => {
@@ -467,6 +511,32 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       const { readConfig } = await import('../src/file/config.js');
       const config = await readConfig(tempDir);
       expect(config.display.id_prefix).toBe('mylegacy');
+    });
+
+    itUnix('keeps import and dashboard commands on the running CLI version', async () => {
+      initGitRepo();
+      const beadsDir = join(tempDir, '.beads');
+      await mkdir(beadsDir, { recursive: true });
+      await writeFile(join(beadsDir, 'config.yaml'), 'display:\n  id_prefix: oldproj\n');
+      await writeFile(join(beadsDir, 'issues.jsonl'), '');
+
+      const fakeBin = join(tempDir, 'foreign-bin');
+      const marker = join(tempDir, 'foreign-tbd-was-run');
+      await mkdir(fakeBin);
+      await writeFile(
+        join(fakeBin, 'tbd'),
+        '#!/bin/bash\nprintf "invoked\\n" > "$TBD_FOREIGN_MARKER"\nexit 99\n',
+      );
+      await chmod(join(fakeBin, 'tbd'), 0o755);
+
+      const result = runTbd(['setup', '--auto'], tempDir, {
+        PATH: `${fakeBin}${delimiter}${process.env.PATH ?? ''}`,
+        TBD_FOREIGN_MARKER: marker,
+      });
+
+      expect(result.status).toBe(0);
+      await expect(access(marker)).rejects.toThrow();
+      await expect(access(join(tempDir, '.beads-disabled'))).resolves.not.toThrow();
     });
   });
 
@@ -661,16 +731,18 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
         'bash "$CLAUDE_PROJECT_DIR"/.claude/hooks/tbd-closing-reminder.sh',
       );
 
-      // Both generated scripts resolve the repo root before checking .tbd
-      // (the hook may start in a subdirectory) and fall back to a pinned npx
-      // runner when tbd is not on the hook's PATH.
+      // Both generated scripts resolve the repo root before checking .tbd,
+      // probe the local CLI's format compatibility, and read an exact fallback
+      // from config without embedding a release number.
       for (const rel of [
         '.claude/hooks/tbd-closing-reminder.sh',
         '.codex/tbd-closing-reminder.sh',
       ]) {
         const script = await readFile(join(tempDir, rel), 'utf-8');
         expect(script).toContain('git rev-parse --show-toplevel');
-        expect(script).toMatch(/npx --yes get-tbd@\d+\.\d+\.\d+ closing/);
+        expect(script).toContain('tbd config get tbd_format');
+        expect(script).toContain('npx --yes "get-tbd@$configured_fallback_version" closing');
+        expect(script).not.toMatch(/get-tbd@\d+\.\d+\.\d+/u);
       }
     });
 
@@ -906,6 +978,20 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       const bundled = await readFile(bundledPath, 'utf-8');
 
       expect(installed).toBe(bundled);
+    });
+
+    it('isolates installer files and replaces the destination atomically', async () => {
+      const bundledPath = join(__dirname, '..', 'docs', 'install', 'ensure-gh-cli.sh');
+      const bundled = await readFile(bundledPath, 'utf-8');
+
+      expect(bundled).toContain('# Automated GitHub CLI setup for agent sessions');
+      expect(bundled).toContain('INSTALL_TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/tbd-gh.XXXXXX")');
+      expect(bundled).toContain('trap cleanup EXIT');
+      expect(bundled).toContain('ARCHIVE_PATH="${INSTALL_TMP_DIR}/${ASSET}"');
+      expect(bundled).toContain('INSTALL_STAGING=$(mktemp "$HOME/.local/bin/.gh.XXXXXX")');
+      expect(bundled).toContain('mv -f "$INSTALL_STAGING" "$HOME/.local/bin/gh"');
+      expect(bundled).not.toContain('EXTRACT_DIR="/tmp/');
+      expect(bundled).not.toContain('curl -fsSL -o "/tmp/${ASSET}"');
     });
 
     it('refreshes stale ensure-gh-cli.sh copies on re-run (upgrade path)', async () => {

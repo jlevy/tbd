@@ -274,6 +274,20 @@ describe('ConfigSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('preserves the optional launcher fallback for setup and boundary validation', () => {
+    const base = {
+      tbd_version: '3.0.1-dev.2.abc1234',
+      display: { id_prefix: 'proj' },
+    };
+
+    const result = ConfigSchema.safeParse({ ...base, tbd_fallback_version: '3.1.0-beta.2' });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.tbd_fallback_version).toBe('3.1.0-beta.2');
+    }
+  });
+
   describe('docs_cache', () => {
     it('parses config with docs_cache.files', () => {
       const config = {
