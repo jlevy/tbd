@@ -128,6 +128,15 @@ v2.0: 01bbbbbbbbbbbbbbbbbbbbbbbb`;
     expect(entries[0]!.key).toBe('stat-in_progress');
     expect(entries[1]!.key).toBe('v2.0');
   });
+
+  it('throws on malformed YAML', () => {
+    // Unclosed quote is a parse error that parseDocument reports in doc.errors.
+    // parseYamlDocumentEntries must surface it, not silently return empty entries.
+    const malformed = `"unclosed: 01aaaaaaaaaaaaaaaaaaaaaaaa
+a1b2: 01bbbbbbbbbbbbbbbbbbbbbbbb`;
+
+    expect(() => parseYamlDocumentEntries(malformed)).toThrow(/YAML parse error/);
+  });
 });
 
 // =============================================================================
@@ -820,6 +829,25 @@ UPPER: 01cccccccccccccccccccccccc
     await writeFile(join(baseDir, 'mappings', 'ids.yml'), content);
 
     await expect(loadIdMapping(baseDir)).rejects.toThrow(/Invalid short ID/);
+  });
+
+  it('throws on invalid ULID in file with duplicates', async () => {
+    // A file with a duplicate AND an entry whose value is not a valid ULID
+    // (uppercase, which Ulid rejects). The repair path must throw, not skip.
+    const baseDir = join(
+      tmpdir(),
+      `tbd-test-ulid-validation-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
+    await mkdir(join(baseDir, 'mappings'), { recursive: true });
+
+    // "01CCCCCCCCCCCCCCCCCCCCCCCC" is 26 chars but uppercase — Ulid rejects it
+    const content = `a1b2: 01aaaaaaaaaaaaaaaaaaaaaaaa
+a1b2: 01bbbbbbbbbbbbbbbbbbbbbbbb
+c3d4: 01CCCCCCCCCCCCCCCCCCCCCCCC
+`;
+    await writeFile(join(baseDir, 'mappings', 'ids.yml'), content);
+
+    await expect(loadIdMapping(baseDir)).rejects.toThrow(/Invalid ULID.*c3d4/);
   });
 });
 
