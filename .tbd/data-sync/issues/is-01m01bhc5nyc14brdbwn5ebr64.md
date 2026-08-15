@@ -3,13 +3,24 @@ type: is
 id: is-01m01bhc5nyc14brdbwn5ebr64
 title: Duplicate short-ID keys in ids.yml drop a bead's display mapping
 kind: bug
-status: in_progress
+status: closed
 priority: 1
-version: 4
+version: 5
 labels: []
 dependencies: []
 created_at: 2026-08-15T00:00:53.429Z
-updated_at: 2026-08-15T05:29:29.055Z
+updated_at: 2026-08-15T06:24:40.457Z
+closed_at: 2026-08-15T06:24:40.456Z
+close_reason: |-
+  Fixed and merged to main as PR #232 (merge commit 4dbefd6, 4 commits).
+
+  Root cause: mappings/ids.yml is keyed short -> ulid under merge=union, so two clones could mint the same short ID for different beads; the loader resolved duplicates last-wins, dropping one bead's mapping entirely — formatDisplayId threw for it and its short ID silently addressed the other bead.
+
+  Fix: deterministic repair at load. Duplicate pairs are read from the YAML AST that parseDocument already builds (new parseYamlDocumentEntries primitive), the lexicographically smallest ULID keeps the contested short ID, and displaced ULIDs get a replacement derived from tail-first windows of their own ULID — no randomness, so clones converge.
+
+  Two defects were caught in review before merge, both by me and by jlevy's senior review: an ordering bug where duplicate-key handling ran before merge-conflict detection (so a conflicted file parsed as live data), and a blocker where the original regex line parser could not match YAML-quoted keys. The latter mattered far more than it looked: 274 of this repo's 1,739 live entries are quoted because migrated beads have numeric short IDs, so one duplicate would have broken 274 unrelated beads. Verified after the fix against the real file: 1,744 short IDs, 1,744 ULIDs, 0 beads fail to render.
+
+  Follow-ups filed, none blocking: tbd-64aq (invert ids.yml to ULID-keyed — the structural fix that makes union merge collision-proof), tbd-r0fv (doctor check), tbd-g2fd (diff3 markers, pre-existing), tbd-xt7r (parseYamlToleratingDuplicateKeys now has no production callers).
 ---
 `mappings/ids.yml` is keyed short -> ulid and merged with `merge=union` (see the sync branch's `mappings/.gitattributes`). Union merge keeps both sides' lines, so two clones that each allocate the same unseen short ID produce a file with that key twice. `parseYamlToleratingDuplicateKeys` (yaml-utils.ts:183) resolves duplicates as "last occurrence wins", so one of the two beads silently loses its mapping.
 
