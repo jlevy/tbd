@@ -5,9 +5,10 @@ title: "Q16: Decide bundle ↔ source cardinality (1:1 vs split)"
 kind: task
 status: open
 priority: 1
-version: 10
+version: 11
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
-labels: []
+labels:
+  - pause
 dependencies:
   - type: blocks
     target: is-01kra99jqbvtjysnr4gc0r7dwm
@@ -17,7 +18,7 @@ dependencies:
     target: is-01kra98tffpc00qar6ee3zk8tv
 parent_id: is-01kra98fgac70pjft7jnarmave
 created_at: 2026-05-11T01:09:15.758Z
-updated_at: 2026-08-11T07:05:51.190Z
+updated_at: 2026-08-15T05:43:42.622Z
 extensions:
   linear:
     id: 6ee3b84b-b2fc-49ad-be84-fefeb25c8cd0

@@ -3,9 +3,9 @@ type: is
 id: is-01ksdpqxp1bavjc60s2wynfawb
 title: Document pinned CLI runner fallback patterns
 kind: task
-status: open
+status: closed
 priority: 1
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md
 labels:
   - guidelines
@@ -18,7 +18,9 @@ dependencies:
     target: is-01ksc0ta2n1q3nkr2791574t56
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-05-24T19:17:42.717Z
-updated_at: 2026-08-10T21:54:20.496Z
+updated_at: 2026-08-15T05:34:12.669Z
+closed_at: 2026-08-15T05:34:12.669Z
+close_reason: "Shipped in the current setup system: generated agent surfaces, Codex integration, gitignore policy, format migrations, fallback pinning, surface selection, and end-to-end tests are present on main."
 extensions:
   linear:
     id: 7c004b91-a49f-458a-9c54-5297c0910aff

@@ -5,13 +5,14 @@ title: Update tbd-docs release notes and link from tbd's docs
 kind: task
 status: open
 priority: 4
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
-labels: []
+labels:
+  - pause
 dependencies: []
 parent_id: is-01kra98tz1mb3br9kg77933vdx
 created_at: 2026-05-11T01:10:27.266Z
-updated_at: 2026-08-11T07:02:08.479Z
+updated_at: 2026-08-15T05:43:42.396Z
 extensions:
   linear:
     id: 21a0f147-b56a-4ccc-94da-ad274aca2653

@@ -3,9 +3,9 @@ type: is
 id: is-01ksdq6jr5nrtjtc194fz17kry
 title: Shrink generated AGENTS.md block
 kind: task
-status: open
+status: closed
 priority: 1
-version: 8
+version: 9
 spec_path: docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md
 labels:
   - agents-md
@@ -22,7 +22,9 @@ dependencies:
     target: is-01ksc0thbsjf1629exkpyd5xn7
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-05-24T19:25:43.045Z
-updated_at: 2026-08-10T21:54:23.861Z
+updated_at: 2026-08-15T05:34:12.682Z
+closed_at: 2026-08-15T05:34:12.682Z
+close_reason: "Shipped in the current setup system: generated agent surfaces, Codex integration, gitignore policy, format migrations, fallback pinning, surface selection, and end-to-end tests are present on main."
 extensions:
   linear:
     id: c290f2a1-9b34-44d5-b151-e983ad3fabcb

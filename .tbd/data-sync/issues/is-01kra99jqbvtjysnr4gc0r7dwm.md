@@ -5,15 +5,16 @@ title: "Q17: Decide lockfile identity (docref-only vs source_id vs full config_h
 kind: task
 status: open
 priority: 1
-version: 8
+version: 9
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
-labels: []
+labels:
+  - pause
 dependencies:
   - type: blocks
     target: is-01kra98tffpc00qar6ee3zk8tv
 parent_id: is-01kra98fgac70pjft7jnarmave
 created_at: 2026-05-11T01:09:16.139Z
-updated_at: 2026-08-11T07:05:51.208Z
+updated_at: 2026-08-15T05:43:42.616Z
 extensions:
   linear:
     id: 767bd6ce-192e-418a-a2ca-3b7954ff1f7d

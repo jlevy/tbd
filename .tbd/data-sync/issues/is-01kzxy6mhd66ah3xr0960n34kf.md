@@ -3,9 +3,9 @@ type: is
 id: is-01kzxy6mhd66ah3xr0960n34kf
 title: Linear sync pilot — outbound round 1
 kind: task
-status: blocked
+status: closed
 priority: 3
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels:
   - linear
@@ -17,7 +17,9 @@ parent_id: is-01kzxxj27abvbje3nesecgsk3z
 child_order_hints:
   - is-01kzxymnqytjk2thcq4teskrbj
 created_at: 2026-08-13T16:10:06.764Z
-updated_at: 2026-08-13T20:17:24.483Z
+updated_at: 2026-08-15T05:33:51.516Z
+closed_at: 2026-08-15T05:33:51.516Z
+close_reason: "Completed by the production Linear integration and live dogfood validation merged in PR #206."
 extensions:
   linear:
     comments:

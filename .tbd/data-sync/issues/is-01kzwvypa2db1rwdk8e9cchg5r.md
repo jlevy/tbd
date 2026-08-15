@@ -5,15 +5,16 @@ title: "PR #209 review S12: Replace client source-substring assertions"
 kind: task
 status: open
 priority: 2
-version: 2
+version: 4
 labels:
   - review
   - testing
   - followup
+  - pause
 dependencies: []
-parent_id: is-01kzwv4rgyczfrw9dbxfw9f7x2
+parent_id: null
 created_at: 2026-08-13T06:11:34.849Z
-updated_at: 2026-08-13T06:29:37.256Z
+updated_at: 2026-08-15T05:44:06.022Z
 ---
 PR #209 senior review S12. packages/tbd/tests/bead-web-css.test.ts asserts exact packages/tbd/src/web/client.ts substrings and ordering. Keep CSS/page artifact contracts but move client behavior claims to DOM/jsdom rendering tests that survive harmless renames.
 

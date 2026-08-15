@@ -5,12 +5,13 @@ title: "Spec: Transactional Mode and Agent Registration"
 kind: epic
 status: open
 priority: 2
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-01-19-transactional-mode-and-agent-registration.md
-labels: []
+labels:
+  - pause
 dependencies: []
 created_at: 2026-01-25T18:22:32.792Z
-updated_at: 2026-08-10T21:53:39.454Z
+updated_at: 2026-08-15T05:43:10.879Z
 extensions:
   linear:
     id: a44940fb-deaf-4294-8a2b-27cfa801aabe

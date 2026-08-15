@@ -3,9 +3,9 @@ type: is
 id: is-01kfv5qn09cx1qwma0se7axqr0
 title: Create packages/tbd/docs/shortcuts/standard/closing-protocol.md
 kind: task
-status: open
+status: closed
 priority: 2
-version: 8
+version: 9
 labels: []
 dependencies:
   - type: blocks
@@ -13,5 +13,7 @@ dependencies:
   - type: blocks
     target: is-01kfv5qnfrz5dmywm3x4jetf40
 created_at: 2026-01-25T18:12:51.848Z
-updated_at: 2026-03-09T16:12:32.885Z
+updated_at: 2026-08-15T05:43:08.847Z
+closed_at: 2026-08-15T05:43:08.847Z
+close_reason: "Delivered in the evolved form: tbd closing and the packaged tbd-closing document now provide the protocol, while generated skill surfaces embed the current checklist directly."
 ---

@@ -1,15 +1,16 @@
 ---
 type: is
 id: is-01kv6252k13c1nk228rsknfa1j
-title: Update spec statuses after v0.3.0 ship (f05/f06)
+title: Finalize shipped f05/f06 spec status and placement
 kind: task
 status: open
 priority: 3
-version: 1
-labels: []
+version: 2
+labels:
+  - pause
 dependencies: []
 created_at: 2026-06-15T16:34:36.257Z
-updated_at: 2026-06-15T16:34:36.257Z
+updated_at: 2026-08-15T05:35:00.948Z
 ---
 Doc hygiene noticed during the v0.3.0 release review (not release-blocking):
 - docs/project/specs/active/plan-2026-06-12-config-upgrade-history.md (f06) is still in active/ though f06 shipped in v0.3.0 — move it to done/.

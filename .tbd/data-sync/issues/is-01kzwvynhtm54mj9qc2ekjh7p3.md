@@ -5,15 +5,16 @@ title: "PR #209 review S10: Make missing tree-map nodes deterministic"
 kind: bug
 status: open
 priority: 2
-version: 2
+version: 4
 labels:
   - review
   - robustness
   - followup
+  - pause
 dependencies: []
-parent_id: is-01kzwv4rgyczfrw9dbxfw9f7x2
+parent_id: null
 created_at: 2026-08-13T06:11:34.073Z
-updated_at: 2026-08-13T06:29:36.633Z
+updated_at: 2026-08-15T05:44:04.577Z
 ---
 PR #209 senior review S10. packages/tbd/src/cli/web/board.ts orderAsTree asserts issueByDisplayId membership while walk skips missing nodes and mis-indents descendants. Use a tree structure/map invariant that cannot desynchronize or handle missing nodes consistently in root sorting and traversal.
 

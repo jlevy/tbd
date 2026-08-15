@@ -3,9 +3,9 @@ type: is
 id: is-01kyt0apw3p31j7nbqt9p5fnfn
 title: "Guidelines: raise and align the ESLint/autoformatting floor across TypeScript project guidelines"
 kind: epic
-status: open
+status: closed
 priority: 1
-version: 10
+version: 11
 labels: []
 dependencies: []
 child_order_hints:
@@ -16,7 +16,9 @@ child_order_hints:
   - is-01kyt2g3c1hhj27qn4p42vfabs
   - is-01kyt6gxft0hnqrk43mzba890t
 created_at: 2026-07-30T17:14:37.827Z
-updated_at: 2026-08-10T21:54:46.758Z
+updated_at: 2026-08-15T05:33:40.112Z
+closed_at: 2026-08-15T05:33:40.112Z
+close_reason: "Shipped in merged PR #199; the final review confirmed these findings were addressed. Separate future ratchets remain open."
 extensions:
   linear:
     id: d5e549de-137a-401d-a810-f237c675658b

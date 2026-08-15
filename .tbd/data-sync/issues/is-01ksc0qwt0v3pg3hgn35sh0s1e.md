@@ -5,7 +5,7 @@ title: Modernize multi-agent skills and hooks setup
 kind: epic
 status: open
 priority: 1
-version: 25
+version: 26
 spec_path: docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md
 labels:
   - agent-skills
@@ -31,8 +31,9 @@ child_order_hints:
   - is-01ksgr45bkhqwwfhpna2xytqdz
   - is-01ktybykhe3b5ampe085nc87ha
   - is-01ktybyydyjx5gavcach1c0jn9
+  - is-01kytfhhschg0zt8btv7m0paaq
 created_at: 2026-05-24T03:33:58.719Z
-updated_at: 2026-08-10T21:54:11.717Z
+updated_at: 2026-08-15T05:36:51.599Z
 extensions:
   linear:
     id: 666ffd07-a190-48fe-9ce5-657967438c81

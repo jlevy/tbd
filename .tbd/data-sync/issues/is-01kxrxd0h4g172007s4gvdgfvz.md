@@ -5,10 +5,11 @@ title: Five docs on main are not flowmark-clean under the pinned flowmark-rs@0.3
 kind: chore
 status: open
 priority: 3
-version: 1
-labels: []
+version: 2
+labels:
+  - pause
 dependencies: []
 created_at: 2026-07-17T20:48:31.268Z
-updated_at: 2026-07-17T20:48:31.268Z
+updated_at: 2026-08-15T05:43:43.152Z
 ---
 Running pnpm format:md reflows research-running-claude-code.md, plan-2026-02-08-tbd-on-skills-sh.md, plan-2026-05-29-tbd-sync-unrelated-history-hardening.md, plan-2026-01-20-streamlined-init-setup-design.md, plan-2026-02-03-streamlined-outbox-workflow.md — committed text was formatted with a different flowmark version. Either commit the 0.3.1 output once or bump the pin; keep tree flowmark-clean.

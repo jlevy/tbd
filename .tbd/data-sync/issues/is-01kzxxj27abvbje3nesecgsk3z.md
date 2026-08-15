@@ -3,9 +3,9 @@ type: is
 id: is-01kzxxj27abvbje3nesecgsk3z
 title: Dogfood Linear synchronization against the legacy tbd repository
 kind: task
-status: in_progress
+status: closed
 priority: 1
-version: 15
+version: 16
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels:
   - integration
@@ -20,7 +20,9 @@ child_order_hints:
   - is-01kzxz1e815hsxmyhykdabhcxr
   - is-01kzxzx6e1dekec0pdbtxqqcpk
 created_at: 2026-08-13T15:58:52.645Z
-updated_at: 2026-08-13T17:56:09.938Z
+updated_at: 2026-08-15T05:33:51.507Z
+closed_at: 2026-08-15T05:33:51.506Z
+close_reason: "Completed by the production Linear integration and live dogfood validation merged in PR #206."
 extensions:
   linear:
     id: 583ad9a1-b8fa-4261-bfd6-a5c43fdec4a8

@@ -5,13 +5,14 @@ title: tbd doc new <type> <name> [--bundle <name>] (scaffold with template front
 kind: task
 status: open
 priority: 3
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
-labels: []
+labels:
+  - pause
 dependencies: []
 parent_id: is-01kra98tffpc00qar6ee3zk8tv
 created_at: 2026-05-11T01:10:12.415Z
-updated_at: 2026-08-11T06:50:37.847Z
+updated_at: 2026-08-15T05:43:42.448Z
 extensions:
   linear:
     id: f2e1256b-4fb4-4f3e-82a6-2dff23b254d4

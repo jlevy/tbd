@@ -3,9 +3,9 @@ type: is
 id: is-01kzmm9dhgj1ygc3qysrehs66v
 title: Run manual release-candidate QA for bead watch
 kind: task
-status: open
+status: closed
 priority: 1
-version: 5
+version: 6
 spec_path: tests/qa/watch-infrastructure-release.qa.md
 labels:
   - bead-watch
@@ -13,7 +13,9 @@ labels:
 dependencies: []
 parent_id: is-01kzmm8zqnf8q210etncddjn6h
 created_at: 2026-08-10T01:23:42.255Z
-updated_at: 2026-08-10T02:48:08.011Z
+updated_at: 2026-08-15T05:33:40.824Z
+closed_at: 2026-08-15T05:33:40.824Z
+close_reason: The old release-candidate validation work is complete and superseded by later releases with packed-artifact and cross-platform CI coverage.
 ---
 Execute the watch infrastructure QA playbook against a packed or published candidate on real GitHub transport and representative macOS/Linux/Windows shells; test network interruption, credentials, long-running worker restart/idempotency, existing-workflow non-disruption, cleanup, and operator-readable output. Record evidence before release promotion. Linear sandbox exercises are explicitly optional and non-gating.
 

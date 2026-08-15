@@ -5,12 +5,13 @@ title: Retire the legacy HTML-comment managed-block reader
 kind: task
 status: open
 priority: 3
-version: 4
+version: 5
+spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels: []
 dependencies: []
-parent_id: is-01kzymcx5gjwfra1z0s3rz1g05
+parent_id: is-01kzn2w85qxpbp8cqtn7mkbvkg
 created_at: 2026-08-13T21:39:23.358Z
-updated_at: 2026-08-13T22:48:26.930Z
+updated_at: 2026-08-15T05:44:09.618Z
 ---
 PR #212 made readers dual-format (current plain-text pair plus the legacy HTML-comment pair) with no removal plan, so LEGACY_MANAGED_BLOCK_MARKERS in core/managed-block.ts is load-bearing indefinitely.
 

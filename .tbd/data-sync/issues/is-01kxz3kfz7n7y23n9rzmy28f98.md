@@ -3,9 +3,9 @@ type: is
 id: is-01kxz3kfz7n7y23n9rzmy28f98
 title: "Epic: Linear integration pilot (design rework pending)"
 kind: epic
-status: blocked
+status: closed
 priority: 1
-version: 17
+version: 18
 spec_path: docs/project/specs/active/plan-2026-07-19-bead-watch-and-external-sync.md
 labels:
   - linear-sync
@@ -22,7 +22,9 @@ child_order_hints:
   - is-01kzbyhghkgw70wetew3ffy4cn
   - is-01kzbyhsm660v90763b5tr11rk
 created_at: 2026-07-20T06:32:21.735Z
-updated_at: 2026-08-11T07:02:08.566Z
+updated_at: 2026-08-15T05:33:51.850Z
+closed_at: 2026-08-15T05:33:51.849Z
+close_reason: "The legacy PR #197 integration design was superseded by the active external-tracker plan and the production implementation merged in PR #206."
 extensions:
   linear:
     id: 3a214faa-8f6e-45a6-b511-dfd271c5af42

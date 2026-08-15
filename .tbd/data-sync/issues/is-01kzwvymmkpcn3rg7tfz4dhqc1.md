@@ -5,15 +5,16 @@ title: "PR #209 review S8: Expose Pretty rolled-up updated timestamp"
 kind: task
 status: open
 priority: 2
-version: 2
+version: 4
 labels:
   - review
   - web
   - followup
+  - pause
 dependencies: []
-parent_id: is-01kzwv4rgyczfrw9dbxfw9f7x2
+parent_id: null
 created_at: 2026-08-13T06:11:33.138Z
-updated_at: 2026-08-13T06:29:36.066Z
+updated_at: 2026-08-15T05:44:05.546Z
 ---
 PR #209 senior review S8. packages/tbd/src/cli/web/board.ts orderAsTree sorts roots by subtree-recency rollup but toRow displays only each parent's own updated_at. Annotate parent roots or expose the rollup so visible data explains ordering, with exact-date tooltip and tests.
 

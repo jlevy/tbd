@@ -5,14 +5,16 @@ title: "[bug] tests/lockfile.test.ts EPERM flake on Windows still hangs main CI 
 kind: bug
 status: open
 priority: 2
-version: 3
-spec_path: tests/qa/release-v0.2.0-upgrade.qa.md
+version: 5
+spec_path: null
 labels:
-  - v0.2.0
+  - ci
+  - windows
+  - testing
 dependencies: []
-parent_id: is-01ksrpb7b8cfwrzzd34ya9874q
+parent_id: null
 created_at: 2026-05-29T06:23:49.268Z
-updated_at: 2026-07-10T01:51:21.357Z
+updated_at: 2026-08-15T05:34:49.976Z
 closed_at: 2026-05-29T16:22:02.977Z
 close_reason: "Addressed in #140 (merged 2f5746e): withLockfile atomic stale-break + resilient release + low-staleMs/timeout test hardening; Windows CI green."
 ---
@@ -29,4 +31,4 @@ Acceptance: main CI on a release merge commit consistently goes green within the
 
 ## Notes
 
-Recurred 2026-07-09 after being closed as fixed by #140: Test (windows-latest) on main merge commit 0002893a (PR #184, docs-only) failed with EPERM: operation not permitted, mkdir '...\tbd-lockfile-siArjh\test.lock' at tests/lockfile.test.ts:78 (withLockfile src/utils/lockfile.ts:198). Same content passed Windows on the PR run and on the next main commit 7bafb254, so this is the same environmental flake, not caused by the docs PRs. Run: https://github.com/jlevy/tbd/actions/runs/29055804058/job/86246852126. The #140 hardening reduced but did not eliminate the race; see the options list in the description (skip-on-Windows vs proper-lockfile vs EPERM retry/backoff).
+Still reproducible after prior mitigation. Retargeted from the completed v0.2 release: treat as an ongoing Windows CI reliability bug; acceptance remains stable main/release CI without EPERM hangs.

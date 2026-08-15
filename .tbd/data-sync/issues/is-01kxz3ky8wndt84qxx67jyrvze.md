@@ -3,9 +3,9 @@ type: is
 id: is-01kxz3ky8wndt84qxx67jyrvze
 title: Add last_actor field (TBD_ACTOR) set by mutating commands
 kind: task
-status: deferred
+status: closed
 priority: 2
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-07-19-bead-watch-and-external-sync.md
 labels:
   - linear-sync
@@ -14,7 +14,9 @@ dependencies:
     target: is-01kxz3mgdhc9j6ys7brk59z96e
 parent_id: is-01kxz3kfz7n7y23n9rzmy28f98
 created_at: 2026-07-20T06:32:36.380Z
-updated_at: 2026-08-10T01:37:18.382Z
+updated_at: 2026-08-15T05:33:51.901Z
+closed_at: 2026-08-15T05:33:51.901Z
+close_reason: "The legacy PR #197 integration design was superseded by the active external-tracker plan and the production implementation merged in PR #206."
 ---
 Optional last_actor frontmatter field (LWW), set from TBD_ACTOR env (default OS user; bridge sets linear-bridge). Minimum-viable actor attribution for watch anti-recursion per pilot spec Design §6 and the monitors research brief. Full per-transition journaling stays in the coordination-kernel follow-up.
 

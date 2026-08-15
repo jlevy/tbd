@@ -5,14 +5,15 @@ title: "kdex: Knowledge map + progressive reading (Phase 2)"
 kind: feature
 status: open
 priority: 2
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-02-16-kdex-knowledge-index-cli.md
-labels: []
+labels:
+  - pause
 dependencies:
   - type: blocks
     target: is-01khjmbxbgm5tvpg8j1r2svn7k
 created_at: 2026-02-16T07:06:48.285Z
-updated_at: 2026-08-10T21:53:58.430Z
+updated_at: 2026-08-15T05:43:10.891Z
 extensions:
   linear:
     id: 600e28bf-217d-416b-bc27-8932e9333d95

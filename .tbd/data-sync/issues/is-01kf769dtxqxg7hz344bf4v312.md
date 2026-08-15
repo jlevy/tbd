@@ -5,10 +5,11 @@ title: Architecture diagrams in docs
 kind: task
 status: open
 priority: 2
-version: 6
-labels: []
+version: 7
+labels:
+  - pause
 dependencies: []
 created_at: 2026-01-17T23:57:45.692Z
-updated_at: 2026-03-09T16:12:31.297Z
+updated_at: 2026-08-15T05:43:43.057Z
 ---
 Add mermaid diagrams to design doc. Sequence diagram for sync flow.

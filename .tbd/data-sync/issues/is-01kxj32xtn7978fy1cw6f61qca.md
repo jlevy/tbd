@@ -3,16 +3,18 @@ type: is
 id: is-01kxj32xtn7978fy1cw6f61qca
 title: Reconcile legacy skill-guidance tracking and close delivered issues
 kind: task
-status: in_progress
+status: closed
 priority: 2
-version: 4
+version: 5
 labels:
   - project-hygiene
   - agent-skills
 dependencies: []
 parent_id: is-01kxj30jgtpk96nys50nr6peve
 created_at: 2026-07-15T05:13:11.252Z
-updated_at: 2026-07-15T06:39:49.521Z
+updated_at: 2026-08-15T05:36:50.668Z
+closed_at: 2026-08-15T05:36:50.668Z
+close_reason: "Completed in merged PR #191; GitHub issues #161 and #190 were closed on merge and the full cross-platform validation passed."
 ---
 Clean up overlapping tracking after the implementation and validation work is complete.
 

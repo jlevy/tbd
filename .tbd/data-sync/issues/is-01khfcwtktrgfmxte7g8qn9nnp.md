@@ -5,9 +5,10 @@ title: "Add cross-reference to research-claude-code-sub-agents.md: Section 7 (Ra
 kind: task
 status: open
 priority: 3
-version: 2
-labels: []
+version: 3
+labels:
+  - pause
 dependencies: []
 created_at: 2026-02-15T00:58:31.930Z
-updated_at: 2026-03-09T16:12:34.341Z
+updated_at: 2026-08-15T05:43:10.549Z
 ---

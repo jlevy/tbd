@@ -5,13 +5,14 @@ title: "Phase 1 tests: migration golden (f03→f05, f04→f05), source resolutio
 kind: task
 status: open
 priority: 1
-version: 7
+version: 8
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
-labels: []
+labels:
+  - pause
 dependencies: []
 parent_id: is-01kra98szn2ah4f59kmbnfbery
 created_at: 2026-05-11T01:09:40.846Z
-updated_at: 2026-08-11T07:05:51.278Z
+updated_at: 2026-08-15T05:43:42.525Z
 extensions:
   linear:
     id: 86750d7d-601f-49f3-9cae-7a06a9dae633

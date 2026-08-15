@@ -5,12 +5,13 @@ title: "Consolidate --push onto the sync engine: two engines behind one flag voc
 kind: task
 status: open
 priority: 1
-version: 4
+version: 5
+spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels: []
 dependencies: []
-parent_id: is-01kzymcx5gjwfra1z0s3rz1g05
+parent_id: is-01kzn2w85qxpbp8cqtn7mkbvkg
 created_at: 2026-08-13T21:39:08.958Z
-updated_at: 2026-08-13T22:48:26.411Z
+updated_at: 2026-08-15T05:44:11.548Z
 ---
 'tbd integration sync --push' and 'tbd sync --push' route to runEnabledIntegrationPushes -> planMirror/applyMirror (the Phase 1 one-way mirror). Bare sync and --pull route to runSync. runSync has no outbound-only mode (direction?: 'both' | 'inbound', sync-engine.ts:143).
 

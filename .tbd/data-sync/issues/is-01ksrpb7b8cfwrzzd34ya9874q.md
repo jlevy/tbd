@@ -3,9 +3,9 @@ type: is
 id: is-01ksrpb7b8cfwrzzd34ya9874q
 title: "[epic] Release tbd v0.2.0 (shared common-dir worktree, f04 migration)"
 kind: epic
-status: open
+status: closed
 priority: 0
-version: 17
+version: 18
 spec_path: tests/qa/release-v0.2.0-upgrade.qa.md
 labels: []
 dependencies: []
@@ -25,7 +25,9 @@ child_order_hints:
   - is-01kss6er2p7pfg2v0wt4vqcjbp
   - is-01kss6f2ydhh5k0qnnpc3eve0w
 created_at: 2026-05-29T01:42:25.383Z
-updated_at: 2026-08-10T21:54:26.831Z
+updated_at: 2026-08-15T05:33:52.836Z
+closed_at: 2026-08-15T05:33:52.835Z
+close_reason: The v0.2 release is complete and has been superseded by later releases.
 extensions:
   linear:
     id: 67351357-3767-492e-bde1-c8d0d986b8dd

@@ -5,11 +5,12 @@ title: Improve sync commit messages with ticket IDs and summaries
 kind: feature
 status: open
 priority: 2
-version: 7
-labels: []
+version: 8
+labels:
+  - pause
 dependencies: []
 created_at: 2026-01-18T08:32:19.615Z
-updated_at: 2026-03-09T16:12:31.921Z
+updated_at: 2026-08-15T05:43:43.015Z
 ---
 Currently the sync commit message at sync.ts:290-296 is generic: 'tbd sync: {timestamp} ({count} file(s))'. This feature improves it to:
 

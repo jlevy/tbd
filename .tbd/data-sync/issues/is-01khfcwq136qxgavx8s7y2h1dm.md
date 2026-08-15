@@ -5,9 +5,10 @@ title: "Add cross-references to research-running-claude-code.md: Parts 7-8 shoul
 kind: task
 status: open
 priority: 3
-version: 2
-labels: []
+version: 3
+labels:
+  - pause
 dependencies: []
 created_at: 2026-02-15T00:58:28.258Z
-updated_at: 2026-03-09T16:12:34.336Z
+updated_at: 2026-08-15T05:43:10.542Z
 ---
