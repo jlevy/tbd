@@ -873,6 +873,15 @@ export const LocalStateSchema = z.object({
   last_doc_sync_at: Timestamp.optional(),
   /** Whether the user has seen the welcome message */
   welcome_seen: z.boolean().optional(),
+  /**
+   * This session's agent id (`agid-{ulid}`), minted at session start.
+   *
+   * Machine-local, never committed: it identifies a transient session in this working
+   * directory, and a committed value would be wrong for every other checkout.
+   */
+  agent_id: z.string().optional(),
+  /** Friendly name joined onto `agent_id`. Mutable; identity stays with the id. */
+  agent_name: z.string().optional(),
 });
 
 // =============================================================================
@@ -1018,4 +1027,6 @@ export const LOCAL_STATE_FIELD_ORDER = [
   'last_sync_at',
   'last_doc_sync_at',
   'welcome_seen',
+  'agent_id',
+  'agent_name',
 ] as const;

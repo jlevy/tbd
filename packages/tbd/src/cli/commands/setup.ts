@@ -313,6 +313,12 @@ cd "$repo_root" || exit 1
 ${TBD_REPOSITORY_RUNNER_FUNCTIONS}
 
 if tbd_local_can_read_repository; then
+    # Mint this working directory's agent id once, before priming, so tbd start has an
+    # identity to claim under. Idempotent: SessionStart fires again on resume, clear, and
+    # compact, and re-running must not mint a second agent for the same session.
+    # Failure here is never fatal - identity resolution falls back to a derived name, and
+    # an agent that cannot name itself precisely should still get its briefing.
+    tbd whoami --ensure-id --quiet >/dev/null 2>&1 || true
     tbd prime "$@"
     exit $?
 fi
