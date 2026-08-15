@@ -123,7 +123,17 @@ Beyond the standard steps in `docs/publishing.md`:
 
 - [ ] Open the release bead for 0.7.0 (publishing.md Step 0 requires one train, one
   bead)
-- [ ] `pnpm precommit` green on the merge commit
+- [ ] `pnpm precommit` green on the merge commit — **and `pnpm test:coverage`**, which
+  is the only thing that runs the `tryscript` golden CLI tests.
+  `precommit` is vitest-only, so a change to any CLI output passes locally and fails in
+  the Coverage & Lint job.
+  This bit once already: the f08 bump moved ten golden cases across six files
+- [ ] Update the two goldens that this release *un*-breaks.
+  Once the tagged version supports f08, `tbd_fallback_version` names a build that can
+  read the repository, so the doctor’s `Launcher fallback` warning disappears from
+  `cli-orientation-golden.tryscript.md`. In the same way, `validate-upgrade-package.mjs`
+  regains a genuine same-format baseline: add 0.7.0 as the `expectOldClientToWork: true`
+  scenario, which no published version can be today
 - [ ] Confirm `FORMAT_HISTORY.f08.introduced` equals the version being tagged
 - [ ] Migrate a scratch clone from `f07` and confirm: config regroups with no key left
   in both spellings, `tbd doctor` warns about the fallback pin, `tbd setup --auto`

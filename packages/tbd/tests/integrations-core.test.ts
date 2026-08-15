@@ -29,7 +29,7 @@ import {
   findHierarchyProblems,
   MAX_PARENT_DEPTH,
 } from '../src/lib/issue-hierarchy.js';
-import { LinearIntegrationSchema } from '../src/lib/schemas.js';
+import { IntegrationsConfigSchema, LinearIntegrationSchema } from '../src/lib/schemas.js';
 import { resolvePolicy } from '../src/integrations/core/policy.js';
 import {
   resolveProviderSettings,
@@ -505,6 +505,25 @@ describe('sync fold mode (f08)', () => {
   it('maps the legacy boolean gate onto the modes that preserve its behavior', () => {
     expect(resolveSyncFoldMode({ sync_on_tbd_sync: true })).toBe('auto');
     expect(resolveSyncFoldMode({ sync_on_tbd_sync: false })).toBe('off');
+  });
+
+  it('honours the legacy boolean AFTER the schema has parsed the config', () => {
+    // The resolver is not enough on its own. With `.default('auto')` on the new key,
+    // Zod materializes it on every read, the legacy branch becomes unreachable, and a
+    // repository that had turned the fold off silently starts syncing on upgrade.
+    // Testing the resolver with a hand-built object misses that entirely, so this goes
+    // through the schema the way real config does.
+    const parsed = IntegrationsConfigSchema.parse({
+      sync_on_tbd_sync: false,
+      linear: { enabled: true, team_key: 'TEST' },
+    });
+    expect(resolveSyncFoldMode(parsed)).toBe('off');
+    expect(syncFoldPosture(resolveSyncFoldMode(parsed)).runs).toBe(false);
+  });
+
+  it('still defaults to auto through the schema when nothing is set', () => {
+    const parsed = IntegrationsConfigSchema.parse({ linear: { enabled: true } });
+    expect(resolveSyncFoldMode(parsed)).toBe('auto');
   });
 
   it('prefers the new spelling when a config carries both', () => {

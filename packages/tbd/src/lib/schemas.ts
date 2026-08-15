@@ -787,11 +787,17 @@ export const IntegrationsConfigSchema = z
     /**
      * How enabled integrations participate in plain `tbd sync` (f08+).
      *
-     * Enabling an integration IS the opt-in, so this defaults to `auto` rather
+     * Enabling an integration IS the opt-in, so this resolves to `auto` rather
      * than to a second off-switch that would let a configured tracker silently
-     * drift.
+     * drift — but the default lives in `resolveSyncFoldMode`, NOT here.
+     *
+     * With `.default('auto')` on the schema, Zod materializes this key on every
+     * read, so it is never `undefined` and the legacy `sync_on_tbd_sync` branch
+     * below becomes unreachable. A repository that had set the old boolean to
+     * `false` would silently start syncing to its tracker on upgrade. Same trap
+     * the flat label keys hit, same fix: optional here, default in the resolver.
      */
-    on_tbd_sync: SyncFoldMode.default('auto'),
+    on_tbd_sync: SyncFoldMode.optional(),
     /**
      * Legacy boolean spelling of `on_tbd_sync` (pre-f08). Retired by the f08
      * migration, which translates `true`/`false` into `auto`/`off`; still parsed

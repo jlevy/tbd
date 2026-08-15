@@ -73,6 +73,8 @@ Working With Issues:
   create [options] [title]           Create a new issue
   show [options] <ids...>            Show details for one or more issues
   update [options] <ids...>          Update one or more issues
+  start [options] <ids...>           Claim issues: set them in progress and
+                                     record who is working on them
   close [options] <ids...>           Close one or more issues
   reopen [options] <ids...>          Reopen one or more closed issues
   search [options] <query>           Search issues by text
@@ -90,6 +92,10 @@ Labels and Dependencies:
   dep                                Manage issue dependencies
   label                              Manage issue labels
 
+Links:
+  doc                                Manage supporting documents on an issue
+  ref                                Manage external references on an issue
+
 Sync and Status:
   changes [options]                  Report committed bead changes since a
                                      sync-branch commit
@@ -99,6 +105,8 @@ Sync and Status:
                                      default)
   save [options]                     Save issues to a workspace or directory
   status                             Show repository status and orientation
+  whoami [options]                   Show the agent identity tbd will record
+                                     when claiming work
   stats                              Show repository statistics
   integration                        Manage external tracker integrations
                                      (Linear, GitHub)
