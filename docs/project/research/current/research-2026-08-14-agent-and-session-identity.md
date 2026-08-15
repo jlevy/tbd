@@ -1,6 +1,6 @@
 # Research Brief: Agent and Session Identity Across Coding Agents
 
-**Last Updated**: 2026-08-14
+**Last Updated**: 2026-08-15
 
 **Status**: Draft
 
@@ -70,8 +70,10 @@ of randomness and needing no registry to be safe.
 The friendly slugified name is then joined onto that canonical ID through the record,
 which lets the name be brief, repeatable, and renameable without ever changing identity.
 Storage follows the one-file-per-entity layout the sync branch already uses for issues
-and bridge links. §5 works this through, including a measured defect in the flat
-`ids.yml` layout that the per-entity layout avoids by construction.
+and bridge links. §5 works this through, including the defect the flat `ids.yml` layout
+actually produced — a data-loss bug found while writing this brief, since fixed in
+[#232](https://github.com/jlevy/tbd/pull/232) at the cost of ~900 lines and 44 tests.
+The per-entity layout avoids that whole class by construction.
 
 **Research Questions**:
 
@@ -206,9 +208,10 @@ Those are two different files, and conflating them is what makes the question fe
 
 **Status**: ✅ Complete (measured)
 
-tbd installs a `SessionStart` hook for Claude Code (`setup.ts:299-314`) and the
-equivalent for Codex (`setup.ts:451`), both invoking `.claude/scripts/tbd-session.sh` /
-`.codex/tbd-session.sh`. The script body (`setup.ts:265-292`) is:
+tbd installs a `SessionStart` hook for Claude Code (`setup.ts:359`) and the equivalent
+for Codex (`setup.ts:518`), both invoking `.claude/scripts/tbd-session.sh` /
+`.codex/tbd-session.sh`. The script body (`TBD_SESSION_SCRIPT`, `setup.ts:294`) reduces
+to:
 
 ```bash
 export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"
@@ -259,11 +262,11 @@ bits inside the same millisecond.
 The display ID is the tier that needs coordination.
 `generateShortId()` (`ids.ts:115`, `randomBytes` modulo 36) runs inside a
 **retry-until-free loop against the loaded mapping** (`generateUniqueShortId`,
-`id-mapping.ts:232-251`), which also widens 4 → 5 characters past 50,000 issues
-(`calculateOptimalLength`, `id-mapping.ts:219`). The mapping is a checked-in registry at
-`.tbd/data-sync/mappings/ids.yml` — a flat `short: ulid` map, 1,737 entries in this repo
-— saved under a lockfile with read-merge-write and an **append-only guard** that refuses
-any write that would shrink the file (`id-mapping.ts:154-160`).
+`id-mapping.ts:460`), which also widens 4 → 5 characters past 50,000 issues
+(`calculateOptimalLength`, `id-mapping.ts:447`). The mapping is a checked-in registry at
+`.tbd/data-sync/mappings/ids.yml` — a flat `short: ulid` map, ~1,740 entries in this
+repo — saved under a lockfile with read-merge-write and an **append-only guard** that
+refuses any write that would shrink the file (`id-mapping.ts:367-376`).
 
 **Assessment**: The framework transfers, and the split between its two tiers is exactly
 the split an agent identity needs.
@@ -803,16 +806,15 @@ rule. It also inherits the existing lockfile, atomic-write, and
 It is worth being explicit about why *not* to reuse `ids.yml`’s shape for the friendly
 name, because the flat-map layout carries a hazard that one-file-per-entity does not.
 
-### 5.4 The measured hazard in the flat-map layout
+### 5.4 The hazard the flat-map layout produced, and what it cost to repair
 
 `ids.yml` is keyed **short → ULID**, and merged with `merge=union`. Union merge keeps
 both sides’ lines, so two machines that independently allocate the same short ID produce
 a file with the same key twice.
-The loader tolerates that (`parseYamlToleratingDuplicateKeys`, `yaml-utils.ts:183`) with
-“last occurrence wins”.
+Before this was fixed, the loader resolved that with “last occurrence wins”.
 
-Probed directly against the shipped loader, with a three-line `ids.yml` in which `00wl`
-appears twice:
+Probed against the loader as it then shipped, with a three-line `ids.yml` in which
+`00wl` appears twice:
 
 ```
 Warning: ids.yml contains 1 duplicate key(s): 00wl.
@@ -824,20 +826,41 @@ display for A THREW: No short ID mapping found for internal ID: is-01aaaa…
 display for B: tbd-00wl
 ```
 
-So the first writer’s bead loses its display mapping entirely, and `formatDisplayId`
-throws its “this is a bug” error rather than rendering.
-The short ID meanwhile resolves to the *other* bead.
+The first writer’s bead lost its display mapping entirely, `formatDisplayId` threw its
+“this is a bug” error rather than rendering, and the short ID meanwhile resolved to the
+*other* bead.
 
-This is a latent defect in the existing issue-ID system, not a new one introduced by
-anything here — filed separately.
-It is reported in this brief because it settles the layout question: an agent registry
-keyed by a low-entropy friendly name in a flat union-merged file would reproduce it by
-construction, while one file per canonical ID cannot, since ULIDs do not collide and
-filenames therefore do not either.
+**Fixed and merged in PR #232** (`tbd-ysz0`), after two review rounds.
+What it took is the part worth keeping, because it is the cost this section is pricing:
 
-The probability is small in practice for beads — two machines must allocate the same
-unseen 4-char ID in the same offline window — but it scales with the square of how much
-work happens off-sync, and it is precisely the regime agent minting lives in.
+- A **deterministic** repair at load — smallest ULID keeps the contested short ID,
+  displaced ULIDs get a replacement derived from tail-first windows of their own ULID.
+  Randomness was not available: two clones repairing the same file must reach the same
+  answer or they diverge on the next merge.
+- Ordering care. The first attempt ran duplicate handling *before* merge-conflict
+  detection, so a conflicted file parsed as live data.
+- A rewrite of the input layer.
+  The first attempt read duplicates with a hand-rolled regex, which could not match
+  YAML-quoted keys — and tbd’s own serializer quotes any short ID that looks like a
+  scalar. **274 of this repo’s ~1,740 live entries are quoted** (migrated beads carry
+  numeric short IDs), so a single duplicate would have dropped 274 unrelated beads.
+  The fix was to read the AST the YAML parser already builds.
+
+That is roughly 900 lines of change and 44 tests to make one flat map survive
+uncoordinated writes.
+
+**This settles the layout question for agent records.** A registry keyed by a
+low-entropy friendly name in a flat union-merged file would reproduce the whole problem
+by construction and need the same apparatus.
+One file per canonical ID needs none of it: ULIDs do not collide, so filenames do not
+either, and union merge has nothing to arbitrate.
+
+The deeper lesson generalizes past this brief.
+The entire tiebreak-and-derivation machinery exists to compensate for a primary key that
+two clones can independently mint.
+Inverting the file to be ULID-keyed would make union merge collision-*proof* and delete
+the problem class rather than repairing it — filed as `tbd-64aq`, and the same reasoning
+that recommends `agents/agid-{ulid}.yml` here.
 
 ### 5.5 Why a short random ID could not have been the identity
 
@@ -972,8 +995,8 @@ not (§5.2).
 
 **Constraint 3a — Storage is one file per agent**, `agents/agid-{ulid}.yml` under
 `.tbd/data-sync/`, following the layout `issues/` and `bridge/*/links/` already use.
-Do not key a flat union-merged map by the friendly name: §5.4 measures what duplicate
-keys do to `ids.yml` today.
+Do not key a flat union-merged map by the friendly name: §5.4 records what duplicate
+keys did to `ids.yml`, and what repairing it cost.
 
 **Constraint 4 — The agent must be told its own ID.** A mint that the agent never sees
 is bookkeeping no one can use.
@@ -1087,8 +1110,8 @@ credentials.
 
 **Merge semantics.** One file per `agid-{ulid}`, written once by exactly one writer, is
 the easiest possible merge case — strictly easier than bridge records, which need a
-newest-observation tiebreaker, and strictly easier than `ids.yml`, whose union merge has
-the duplicate-key hazard measured in §5.4. Distinct ULIDs give distinct filenames, so
+newest-observation tiebreaker, and strictly easier than `ids.yml`, whose union merge
+needed the whole repair apparatus of §5.4. Distinct ULIDs give distinct filenames, so
 concurrent minting produces no overlapping paths at all.
 That is a point in the idea’s favor, and the one structural claim here that is worth
 verifying with an actual two-clone merge rather than assuming.

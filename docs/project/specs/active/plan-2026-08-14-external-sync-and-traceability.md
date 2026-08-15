@@ -153,7 +153,7 @@ fixes:
    record only when a field other than `synced_at` differs from the record on disk.
 2. ~~Drop `synced_at` from `LinkRecordSchema`.~~ **Wrong — do not do this.** This draft
    preferred it on the grounds that the field is diagnostic only.
-   It is not: `pickNewestLinkRecord` (`git.ts:2117-2125`) uses `synced_at` as the merge
+   It is not: `pickNewestLinkRecord` (`git.ts:2308-2314`) uses `synced_at` as the merge
    tiebreaker when two machines observe the same item and their `remote_updated_at`
    agree. The field is load-bearing; only its role as a *write trigger* was the defect.
 
