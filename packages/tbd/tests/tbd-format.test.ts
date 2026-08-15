@@ -20,7 +20,7 @@ import {
 describe('tbd-format', () => {
   describe('constants', () => {
     it('has current format', () => {
-      expect(CURRENT_FORMAT).toBe('f07');
+      expect(CURRENT_FORMAT).toBe('f08');
     });
 
     it('has initial format', () => {
@@ -35,6 +35,7 @@ describe('tbd-format', () => {
       expect(FORMAT_HISTORY.f05).toBeDefined();
       expect(FORMAT_HISTORY.f06).toBeDefined();
       expect(FORMAT_HISTORY.f07).toBeDefined();
+      expect(FORMAT_HISTORY.f08).toBeDefined();
     });
   });
 
@@ -89,7 +90,7 @@ describe('tbd-format', () => {
   });
 
   describe('migrateToLatest', () => {
-    it('migrates f01 to f07 through all format steps', () => {
+    it('migrates f01 to the current format through all format steps', () => {
       const config: RawConfig = {
         tbd_version: '0.1.0',
         display: { id_prefix: 'test' },
@@ -100,9 +101,9 @@ describe('tbd-format', () => {
       const result = migrateToLatest(config);
 
       expect(result.fromFormat).toBe('f01');
-      expect(result.toFormat).toBe('f07');
+      expect(result.toFormat).toBe(CURRENT_FORMAT);
       expect(result.changed).toBe(true);
-      expect(result.config.tbd_format).toBe('f07');
+      expect(result.config.tbd_format).toBe(CURRENT_FORMAT);
       expect(result.config.sync?.storage).toBe('git-common-dir-v1');
       expect(result.config.settings?.doc_auto_sync_hours).toBe(24);
       expect(result.changes).toContain('Added tbd_format: f02');
@@ -117,7 +118,7 @@ describe('tbd-format', () => {
       expect(result.config.tbd_upgrades).toEqual([{ version: '0.1.0' }]);
     });
 
-    it('migrates f02 to f07 (multi-revision jump, guards against a dropped rung)', () => {
+    it('migrates f02 to the current format (multi-revision jump, guards against a dropped rung)', () => {
       const config: RawConfig = {
         tbd_format: 'f02',
         tbd_version: '0.1.5',
@@ -130,9 +131,9 @@ describe('tbd-format', () => {
       const result = migrateToLatest(config);
 
       expect(result.fromFormat).toBe('f02');
-      expect(result.toFormat).toBe('f07');
+      expect(result.toFormat).toBe(CURRENT_FORMAT);
       expect(result.changed).toBe(true);
-      expect(result.config.tbd_format).toBe('f07');
+      expect(result.config.tbd_format).toBe(CURRENT_FORMAT);
       expect(result.config.sync?.storage).toBe('git-common-dir-v1');
       // doc_cache moved to docs_cache.files
       expect(result.config.doc_cache).toBeUndefined();
@@ -173,7 +174,7 @@ describe('tbd-format', () => {
       expect(result.config.sync?.storage).toBe('git-common-dir-v1');
     });
 
-    it('migrates f03 through f04 (sync storage marker) to f07', () => {
+    it('migrates f03 through f04 (sync storage marker) to the current format', () => {
       const config: RawConfig = {
         tbd_format: 'f03',
         tbd_version: '0.1.6',
@@ -185,9 +186,9 @@ describe('tbd-format', () => {
       const result = migrateToLatest(config);
 
       expect(result.fromFormat).toBe('f03');
-      expect(result.toFormat).toBe('f07');
+      expect(result.toFormat).toBe(CURRENT_FORMAT);
       expect(result.changed).toBe(true);
-      expect(result.config.tbd_format).toBe('f07');
+      expect(result.config.tbd_format).toBe(CURRENT_FORMAT);
       expect(result.config.sync).toEqual({
         branch: 'custom-sync',
         remote: 'upstream',
@@ -211,17 +212,20 @@ describe('tbd-format', () => {
       const result = migrateToLatest(config);
 
       expect(result.fromFormat).toBe('f05');
-      expect(result.toFormat).toBe('f07');
+      expect(result.toFormat).toBe(CURRENT_FORMAT);
       expect(result.changed).toBe(true);
       expect(result.changes).toEqual([
         'Updated tbd_format: f06',
         'Seeded tbd_upgrades history from tbd_version',
         'Updated tbd_format: f07',
+        'Updated tbd_format: f08',
       ]);
-      // Only the format stamp and the seeded history change; everything else is verbatim.
+      // Only the format stamps and the seeded history change; everything else is
+      // verbatim. f08 is a pure stamp here because there is no integrations block to
+      // regroup.
       expect(result.config).toEqual({
         ...config,
-        tbd_format: 'f07',
+        tbd_format: CURRENT_FORMAT,
         tbd_upgrades: [{ version: '0.2.3' }],
       });
     });
@@ -234,7 +238,7 @@ describe('tbd-format', () => {
 
       const result = migrateToLatest(config);
 
-      expect(result.toFormat).toBe('f07');
+      expect(result.toFormat).toBe(CURRENT_FORMAT);
       expect(result.config.tbd_upgrades).toEqual([]);
     });
 
@@ -248,15 +252,19 @@ describe('tbd-format', () => {
 
       const result = migrateToLatest(config);
 
-      expect(result.toFormat).toBe('f07');
+      expect(result.toFormat).toBe(CURRENT_FORMAT);
       expect(result.config.tbd_upgrades).toEqual([
         { version: '0.2.0' },
         { version: '0.3.0', at: '2026-06-12T00:00:00.000Z' },
       ]);
-      expect(result.changes).toEqual(['Updated tbd_format: f06', 'Updated tbd_format: f07']);
+      expect(result.changes).toEqual([
+        'Updated tbd_format: f06',
+        'Updated tbd_format: f07',
+        'Updated tbd_format: f08',
+      ]);
     });
 
-    it('migrates f06 to f07 as a stamp only, leaving an integrations block untouched', () => {
+    it('migrates f06 to f07 as a stamp, then f08 regroups the integrations block', () => {
       const config: RawConfig = {
         tbd_format: 'f06',
         tbd_version: '0.5.0',
@@ -270,13 +278,21 @@ describe('tbd-format', () => {
       const result = migrateToLatest(config);
 
       expect(result.fromFormat).toBe('f06');
-      expect(result.toFormat).toBe('f07');
-      expect(result.changes).toEqual(['Updated tbd_format: f07']);
-      // Nothing but the stamp moves: the block is written by integration setup.
-      expect(result.config).toEqual({ ...config, tbd_format: 'f07' });
+      expect(result.toFormat).toBe(CURRENT_FORMAT);
+      expect(result.changes).toEqual([
+        'Updated tbd_format: f07',
+        'Moved linear.team_key into linear.target',
+        'Updated tbd_format: f08',
+      ]);
+      // f07 is a pure stamp; f08 moves team_key into the target group and nothing else.
+      expect(result.config).toEqual({
+        ...config,
+        tbd_format: 'f08',
+        integrations: { linear: { enabled: true, target: { team_key: 'FIN' } } },
+      });
     });
 
-    it('is idempotent: re-migrating an f07 config changes nothing', () => {
+    it('is idempotent: re-migrating a current-format config changes nothing', () => {
       const once = migrateToLatest({
         tbd_format: 'f06',
         tbd_version: '0.5.0',
@@ -379,36 +395,154 @@ describe('tbd-format', () => {
   });
 
   describe('describeMigration', () => {
-    it('describes f01 migration (six steps)', () => {
+    it('describes f01 migration (seven steps)', () => {
       const descriptions = describeMigration('f01');
-      expect(descriptions).toHaveLength(6);
+      expect(descriptions).toHaveLength(7);
       expect(descriptions[0]).toContain('f01 → f02');
       expect(descriptions[1]).toContain('f02 → f03');
       expect(descriptions[2]).toContain('f03 → f04');
       expect(descriptions[3]).toContain('f04 → f05');
       expect(descriptions[4]).toContain('f05 → f06');
       expect(descriptions[5]).toContain('f06 → f07');
+      expect(descriptions[6]).toContain('f07 → f08');
     });
 
     it('describes f02 migration', () => {
       const descriptions = describeMigration('f02');
-      expect(descriptions).toHaveLength(5);
+      expect(descriptions).toHaveLength(6);
       expect(descriptions[0]).toContain('f02 → f03');
       expect(descriptions[1]).toContain('f03 → f04');
       expect(descriptions[2]).toContain('f04 → f05');
       expect(descriptions[3]).toContain('f05 → f06');
       expect(descriptions[4]).toContain('f06 → f07');
+      expect(descriptions[5]).toContain('f07 → f08');
     });
 
-    it('describes f06 migration (one step)', () => {
+    it('describes f06 migration (two steps)', () => {
       const descriptions = describeMigration('f06');
-      expect(descriptions).toHaveLength(1);
+      expect(descriptions).toHaveLength(2);
       expect(descriptions[0]).toContain('f06 → f07');
+      expect(descriptions[1]).toContain('f07 → f08');
     });
 
     it('returns empty for current format', () => {
       const descriptions = describeMigration(CURRENT_FORMAT);
       expect(descriptions).toHaveLength(0);
+    });
+  });
+
+  describe('f07 → f08 integration config regroup', () => {
+    function f07WithLinear(linear: Record<string, unknown>): RawConfig {
+      return {
+        tbd_format: 'f07',
+        tbd_version: '0.6.5',
+        display: { id_prefix: 'test' },
+        integrations: { sync_on_tbd_sync: true, linear },
+      };
+    }
+
+    function linearAfter(config: RawConfig): Record<string, unknown> {
+      const linear = config.integrations?.linear;
+      if (linear === undefined) {
+        throw new Error('expected an integrations.linear block after migration');
+      }
+      return linear as Record<string, unknown>;
+    }
+
+    it('groups the flat provider keys by concern', () => {
+      const result = migrateToLatest(
+        f07WithLinear({
+          enabled: true,
+          team_key: 'TBD',
+          project: 'tbd',
+          mirror_labels: false,
+          create_labels: true,
+          user_map: { alice: 'alice@example.com' },
+        }),
+      );
+
+      expect(linearAfter(result.config)).toEqual({
+        enabled: true,
+        target: { team_key: 'TBD', project: 'tbd' },
+        labels: { mirror: false, create: true },
+        identity: { user_map: { alice: 'alice@example.com' } },
+      });
+    });
+
+    it('folds the legacy select alias into policy.outbound, then lands max_nesting beside it', () => {
+      // Order matters here and got this wrong once: handling max_nesting before the
+      // select fold left it stranded at the top level next to a policy that had just
+      // been created for it.
+      const result = migrateToLatest(
+        f07WithLinear({
+          enabled: true,
+          select: { kinds: ['epic'], specs: 'active' },
+          max_nesting: 3,
+        }),
+      );
+
+      expect(linearAfter(result.config)).toEqual({
+        enabled: true,
+        policy: { outbound: { kinds: ['epic'], specs: 'active', max_nesting: 3 } },
+      });
+    });
+
+    it('leaves max_nesting alone under a named policy preset', () => {
+      // Folding it into `policy: default` would silently redefine that preset for this
+      // repository, which is a different thing than moving a local setting.
+      const result = migrateToLatest(
+        f07WithLinear({ enabled: true, policy: 'default', max_nesting: 4 }),
+      );
+
+      expect(linearAfter(result.config)).toEqual({
+        enabled: true,
+        policy: 'default',
+        max_nesting: 4,
+      });
+    });
+
+    it('carries through a provider key this version does not know', () => {
+      const result = migrateToLatest(
+        f07WithLinear({ enabled: true, team_key: 'TBD', a_newer_tbds_key: 'survives' }),
+      );
+
+      expect(linearAfter(result.config).a_newer_tbds_key).toBe('survives');
+    });
+
+    it('leaves the sync_on_tbd_sync gate at the integrations level', () => {
+      const result = migrateToLatest(f07WithLinear({ enabled: true, team_key: 'TBD' }));
+
+      expect(result.config.integrations!.sync_on_tbd_sync).toBe(true);
+    });
+
+    it('is a pure stamp when there is no integrations block', () => {
+      const result = migrateToLatest({
+        tbd_format: 'f07',
+        tbd_version: '0.6.5',
+        display: { id_prefix: 'test' },
+      });
+
+      expect(result.changes).toEqual(['Updated tbd_format: f08']);
+    });
+
+    it('is idempotent: regrouping an already-grouped block moves nothing', () => {
+      const once = migrateToLatest(
+        f07WithLinear({ enabled: true, team_key: 'TBD', max_nesting: 2, user_map: {} }),
+      );
+      const twice = migrateToLatest(once.config);
+
+      expect(twice.changed).toBe(false);
+      expect(twice.config).toEqual(once.config);
+    });
+
+    it('does not overwrite a group the config already carries', () => {
+      // A hand-written config that already uses the new shape must win over the flat
+      // key, rather than being clobbered by a stale sibling.
+      const result = migrateToLatest(
+        f07WithLinear({ enabled: true, team_key: 'OLD', target: { team_key: 'NEW' } }),
+      );
+
+      expect(linearAfter(result.config).target).toEqual({ team_key: 'NEW' });
     });
   });
 });

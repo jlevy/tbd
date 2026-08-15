@@ -18,6 +18,8 @@ import { access, cp, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/p
 import { tmpdir, platform } from 'node:os';
 import { join } from 'node:path';
 
+import { CURRENT_FORMAT } from '../src/lib/tbd-format.js';
+
 const execFileAsync = promisify(execFile);
 const isWindows = platform() === 'win32';
 const describeUnlessWindows = isWindows ? describe.skip : describe;
@@ -167,11 +169,14 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
     it('treats an older-format layout as a pending migration and applies it on --fix', async () => {
       const layoutPath = join(dir, '.git', 'tbd', 'layout.yml');
       const original = await readFile(layoutPath, 'utf-8');
-      expect(original).toContain('tbd_format: f07');
+      expect(original).toContain(`tbd_format: ${CURRENT_FORMAT}`);
 
       // A layout behind the config (downgraded to f03 here) is the normal
       // mid-migration state, not a mismatch.
-      await writeFile(layoutPath, original.replace('tbd_format: f07', 'tbd_format: f03'));
+      await writeFile(
+        layoutPath,
+        original.replace(`tbd_format: ${CURRENT_FORMAT}`, 'tbd_format: f03'),
+      );
 
       // Plain doctor reports a pending migration: a warning (exit 0, so CI on
       // un-migrated repos is not broken), fixable.
@@ -183,7 +188,7 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       // doctor --fix applies the migration; layout is re-stamped to current.
       const fix = runTbd(dir, ['doctor', '--fix']);
       expect(fix.status).toBe(0);
-      expect(await readFile(layoutPath, 'utf-8')).toContain('tbd_format: f07');
+      expect(await readFile(layoutPath, 'utf-8')).toContain(`tbd_format: ${CURRENT_FORMAT}`);
     });
 
     it('does not false-positive on a healthy older repo; --fix fully migrates (never half)', async () => {
@@ -193,11 +198,17 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       const layoutPath = join(dir, '.git', 'tbd', 'layout.yml');
       await writeFile(
         configPath,
-        (await readFile(configPath, 'utf-8')).replace('tbd_format: f07', 'tbd_format: f04'),
+        (await readFile(configPath, 'utf-8')).replace(
+          `tbd_format: ${CURRENT_FORMAT}`,
+          'tbd_format: f04',
+        ),
       );
       await writeFile(
         layoutPath,
-        (await readFile(layoutPath, 'utf-8')).replace('tbd_format: f07', 'tbd_format: f04'),
+        (await readFile(layoutPath, 'utf-8')).replace(
+          `tbd_format: ${CURRENT_FORMAT}`,
+          'tbd_format: f04',
+        ),
       );
 
       // Plain doctor must NOT error on a healthy un-migrated repo (was exit 1).
@@ -211,8 +222,8 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       // nothing to commit).
       const fix = runTbd(dir, ['doctor', '--fix']);
       expect(fix.status).toBe(0);
-      expect(await readFile(configPath, 'utf-8')).toContain('tbd_format: f07');
-      expect(await readFile(layoutPath, 'utf-8')).toContain('tbd_format: f07');
+      expect(await readFile(configPath, 'utf-8')).toContain(`tbd_format: ${CURRENT_FORMAT}`);
+      expect(await readFile(layoutPath, 'utf-8')).toContain(`tbd_format: ${CURRENT_FORMAT}`);
     });
 
     it('rewrites a corrupt layout.yml from config on --fix', async () => {
@@ -226,13 +237,16 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
 
       const fix = runTbd(dir, ['doctor', '--fix']);
       expect(fix.status).toBe(0);
-      expect(await readFile(layoutPath, 'utf-8')).toContain('tbd_format: f07');
+      expect(await readFile(layoutPath, 'utf-8')).toContain(`tbd_format: ${CURRENT_FORMAT}`);
     });
 
     it('surfaces future-format layout as needing a newer tbd (no fix attempted)', async () => {
       const layoutPath = join(dir, '.git', 'tbd', 'layout.yml');
       const original = await readFile(layoutPath, 'utf-8');
-      await writeFile(layoutPath, original.replace('tbd_format: f07', 'tbd_format: f99'));
+      await writeFile(
+        layoutPath,
+        original.replace(`tbd_format: ${CURRENT_FORMAT}`, 'tbd_format: f99'),
+      );
 
       const fix = runTbd(dir, ['doctor', '--fix']);
       // Future-format markers are ✗ findings: scripts/CI must see exit 1 (tbd-r7rt).
@@ -247,7 +261,10 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
     it('surfaces future-format config as a newer-tbd error in checkConfig', async () => {
       const configPath = join(dir, '.tbd', 'config.yml');
       const original = await readFile(configPath, 'utf-8');
-      await writeFile(configPath, original.replace('tbd_format: f07', 'tbd_format: f99'));
+      await writeFile(
+        configPath,
+        original.replace(`tbd_format: ${CURRENT_FORMAT}`, 'tbd_format: f99'),
+      );
 
       const out = runTbd(dir, ['doctor']);
       // Future-format config is a ✗ finding: exit 1 (tbd-r7rt).
@@ -284,7 +301,7 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       expect(await exists(worktreePath)).toBe(true);
       expect(await exists(layoutPath)).toBe(true);
       const layout = await readFile(layoutPath, 'utf-8');
-      expect(layout).toContain('tbd_format: f07');
+      expect(layout).toContain(`tbd_format: ${CURRENT_FORMAT}`);
     });
 
     it('serializes concurrent doctor --fix init under the shared data-sync lock (tbd-p6zo)', async () => {
@@ -317,7 +334,7 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       expect(await exists(worktreePath)).toBe(true);
       expect(await exists(layoutPath)).toBe(true);
       const layout = await readFile(layoutPath, 'utf-8');
-      expect(layout).toContain('tbd_format: f07');
+      expect(layout).toContain(`tbd_format: ${CURRENT_FORMAT}`);
 
       const worktreeList = await gitIn(dir, 'worktree', 'list', '--porcelain');
       const sharedWorktreeLines = worktreeList
@@ -395,17 +412,20 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       // command sees a stale per-checkout config and migrates it back in place. This
       // matches a real sibling worktree on a branch that did not yet pick up the
       // main checkout's f03 → f04 commit.
-      await writeFile(configPath, original.replace('tbd_format: f07', 'tbd_format: f03'));
+      await writeFile(
+        configPath,
+        original.replace(`tbd_format: ${CURRENT_FORMAT}`, 'tbd_format: f03'),
+      );
 
       const create = runTbd(dir, ['create', 'sibling-bump probe', '--type', 'task']);
       expect(create.status).toBe(0);
       // The notice goes to stderr so it cannot pollute JSON output on stdout.
       expect(create.stderr).toContain('tbd_format');
-      expect(create.stderr).toContain('→ f07');
+      expect(create.stderr).toContain(`→ ${CURRENT_FORMAT}`);
       expect(create.stderr).toMatch(/commit on this branch or merge main/i);
       // The on-disk config is now at f07 — the migration ran.
       const after = await readFile(configPath, 'utf-8');
-      expect(after).toContain('tbd_format: f07');
+      expect(after).toContain(`tbd_format: ${CURRENT_FORMAT}`);
 
       // Second mutating call must NOT re-emit the notice: nothing left to migrate.
       const second = runTbd(dir, ['create', 'sibling-bump probe 2', '--type', 'task']);
@@ -414,7 +434,7 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
     });
   });
 
-  describe('f04 → f07 upgrade (in-place config + layout migration)', () => {
+  describe('f04 → current-format upgrade (in-place config + layout migration)', () => {
     it('upgrades config and layout in place; the loop is revertible and repeatable', async () => {
       const configPath = join(dir, '.tbd', 'config.yml');
       const layoutPath = join(dir, '.git', 'tbd', 'layout.yml');
@@ -425,11 +445,17 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
         // machine-local layout looks like.
         await writeFile(
           configPath,
-          (await readFile(configPath, 'utf-8')).replace('tbd_format: f07', 'tbd_format: f04'),
+          (await readFile(configPath, 'utf-8')).replace(
+            `tbd_format: ${CURRENT_FORMAT}`,
+            'tbd_format: f04',
+          ),
         );
         await writeFile(
           layoutPath,
-          (await readFile(layoutPath, 'utf-8')).replace('tbd_format: f07', 'tbd_format: f04'),
+          (await readFile(layoutPath, 'utf-8')).replace(
+            `tbd_format: ${CURRENT_FORMAT}`,
+            'tbd_format: f04',
+          ),
         );
 
         // A plain data command must succeed (NOT fail with a layout/config
@@ -437,9 +463,9 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
         // one-time migration notice.
         const create = runTbd(dir, ['create', `upgrade probe ${round}`, '--type', 'task']);
         expect(create.status).toBe(0);
-        expect(create.stderr).toContain('f04 → f07');
-        expect(await readFile(configPath, 'utf-8')).toContain('tbd_format: f07');
-        expect(await readFile(layoutPath, 'utf-8')).toContain('tbd_format: f07');
+        expect(create.stderr).toContain(`f04 → ${CURRENT_FORMAT}`);
+        expect(await readFile(configPath, 'utf-8')).toContain(`tbd_format: ${CURRENT_FORMAT}`);
+        expect(await readFile(layoutPath, 'utf-8')).toContain(`tbd_format: ${CURRENT_FORMAT}`);
       };
 
       await migrateOnceFromF04(1);
@@ -460,16 +486,19 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       const layoutPath = join(dir, '.git', 'tbd', 'layout.yml');
       const before = await readFile(layoutPath, 'utf-8');
       const createdAt = before.split('\n').find((l) => l.startsWith('created_at:'));
-      await writeFile(layoutPath, before.replace('tbd_format: f07', 'tbd_format: f04'));
+      await writeFile(
+        layoutPath,
+        before.replace(`tbd_format: ${CURRENT_FORMAT}`, 'tbd_format: f04'),
+      );
 
       const list = runTbd(dir, ['list', '--json']);
       expect(list.status).toBe(0);
       const after = await readFile(layoutPath, 'utf-8');
-      expect(after).toContain('tbd_format: f07');
+      expect(after).toContain(`tbd_format: ${CURRENT_FORMAT}`);
       expect(after).toContain(createdAt);
     });
 
-    it('completes an interrupted upgrade (layout already f07, config still f04)', async () => {
+    it('completes an interrupted upgrade (layout already current, config still f04)', async () => {
       // The data-command crash window: ensureSharedDataSyncLayout re-stamps the
       // layout BEFORE writeConfig persists the config. A crash there leaves
       // layout f07 + config f04; the next command must finish the migration,
@@ -477,16 +506,19 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       const configPath = join(dir, '.tbd', 'config.yml');
       await writeFile(
         configPath,
-        (await readFile(configPath, 'utf-8')).replace('tbd_format: f07', 'tbd_format: f04'),
+        (await readFile(configPath, 'utf-8')).replace(
+          `tbd_format: ${CURRENT_FORMAT}`,
+          'tbd_format: f04',
+        ),
       );
       expect(await readFile(join(dir, '.git', 'tbd', 'layout.yml'), 'utf-8')).toContain(
-        'tbd_format: f07',
+        `tbd_format: ${CURRENT_FORMAT}`,
       );
 
       const create = runTbd(dir, ['create', 'resume probe', '--type', 'task']);
       expect(create.status).toBe(0);
-      expect(create.stderr).toContain('f04 → f07');
-      expect(await readFile(configPath, 'utf-8')).toContain('tbd_format: f07');
+      expect(create.stderr).toContain(`f04 → ${CURRENT_FORMAT}`);
+      expect(await readFile(configPath, 'utf-8')).toContain(`tbd_format: ${CURRENT_FORMAT}`);
     });
 
     it('aborts via the documented recipe: restore config, delete layout.yml', async () => {
@@ -496,7 +528,10 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       const layoutPath = join(dir, '.git', 'tbd', 'layout.yml');
       await writeFile(
         configPath,
-        (await readFile(configPath, 'utf-8')).replace('tbd_format: f07', 'tbd_format: f04'),
+        (await readFile(configPath, 'utf-8')).replace(
+          `tbd_format: ${CURRENT_FORMAT}`,
+          'tbd_format: f04',
+        ),
       );
       await rm(layoutPath);
 
@@ -508,8 +543,8 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       // command migrates the config and regenerates the layout at f07.
       const list = runTbd(dir, ['list', '--json']);
       expect(list.status).toBe(0);
-      expect(await readFile(configPath, 'utf-8')).toContain('tbd_format: f07');
-      expect(await readFile(layoutPath, 'utf-8')).toContain('tbd_format: f07');
+      expect(await readFile(configPath, 'utf-8')).toContain(`tbd_format: ${CURRENT_FORMAT}`);
+      expect(await readFile(layoutPath, 'utf-8')).toContain(`tbd_format: ${CURRENT_FORMAT}`);
     });
   });
 
@@ -536,7 +571,7 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       expect(list.status).toBe(0);
       expect(await exists(layoutPath)).toBe(true);
       const layout = await readFile(layoutPath, 'utf-8');
-      expect(layout).toContain('tbd_format: f07');
+      expect(layout).toContain(`tbd_format: ${CURRENT_FORMAT}`);
 
       // No direct .tbd/data-sync/ leakage: f04+ must fail closed, not fall back.
       expect(await exists(sharedDataSync)).toBe(true);

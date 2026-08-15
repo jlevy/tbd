@@ -458,6 +458,40 @@ const FIELD_STRATEGIES: Record<keyof Issue, MergeStrategy> = {
 };
 
 /**
+ * Strategy for a key that is not in {@link FIELD_STRATEGIES} — a field written by a
+ * newer tbd that this one does not know about (f08+).
+ *
+ * LWW is the only defensible default. Union would silently corrupt a scalar into an
+ * array, and immutable would freeze a field the owning version expects to update; LWW
+ * at worst discards one side of a genuine concurrent edit, and records that in the
+ * attic like any other LWW field. The alternative — dropping the key — is the data loss
+ * f08 exists to stop.
+ */
+const UNKNOWN_FIELD_STRATEGY: MergeStrategy = 'lww';
+
+/**
+ * Keys present on any side of a merge that {@link FIELD_STRATEGIES} does not cover.
+ *
+ * Order is deterministic (sorted) so a merge is reproducible regardless of YAML key
+ * order or which side introduced the key.
+ */
+function unknownIssueKeys(...sides: (Issue | null)[]): string[] {
+  const known = new Set(Object.keys(FIELD_STRATEGIES));
+  const seen = new Set<string>();
+  for (const side of sides) {
+    if (!side) {
+      continue;
+    }
+    for (const key of Object.keys(side)) {
+      if (!known.has(key)) {
+        seen.add(key);
+      }
+    }
+  }
+  return [...seen].sort();
+}
+
+/**
  * Conflict entry for attic storage.
  */
 export interface ConflictEntry {
@@ -499,6 +533,14 @@ export function issuesSubstantivelyEqual(a: Issue, b: Issue): boolean {
       continue;
     }
     if (!deepEqual(a[key], b[key])) {
+      return false;
+    }
+  }
+  // Unknown keys count too (f08+). Without this, an edit that touches only a field a
+  // newer tbd added reads as "no change" and is never saved — the preserved key would
+  // survive parsing and then quietly fail to persist.
+  for (const key of unknownIssueKeys(a, b)) {
+    if (!deepEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])) {
       return false;
     }
   }
@@ -789,7 +831,17 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
   // Field-by-field merge
   const merged = { ...base } as Issue;
 
-  for (const [field, strategy] of Object.entries(FIELD_STRATEGIES)) {
+  // Unknown keys (f08+) merge by the same rules, with a default strategy. Building the
+  // pair list this way — rather than iterating FIELD_STRATEGIES alone — is what stops a
+  // field a newer tbd added from being dropped here after the schema preserved it.
+  const strategyPairs: [string, MergeStrategy][] = [
+    ...Object.entries(FIELD_STRATEGIES),
+    ...unknownIssueKeys(base, local, remote).map(
+      (key) => [key, UNKNOWN_FIELD_STRATEGY] as [string, MergeStrategy],
+    ),
+  ];
+
+  for (const [field, strategy] of strategyPairs) {
     const key = field as keyof Issue;
     const localVal = local[key];
     const remoteVal = remote[key];

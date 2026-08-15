@@ -213,7 +213,18 @@ export const IssueSchema = BaseEntity.extend({
   created_by: z.string().nullable().optional(),
   closed_at: Timestamp.nullable().optional(),
   close_reason: z.string().nullable().optional(),
-});
+})
+  // Preserve unknown keys (f08+). This is the reason f08 exists.
+  //
+  // In strip mode a client silently DELETES any bead field it does not know, and
+  // `tbd sync` rewrites beads during ordinary merges — so an older client touching a
+  // repository would quietly strip newer metadata from every bead it saw, not just from
+  // a file someone explicitly edited. That is a data-loss vector, which is why the
+  // format bump accompanies this: pre-f08 clients now fail closed instead.
+  //
+  // Preserving here is only half the job. `mergeIssues` (file/git.ts) must also carry
+  // keys outside FIELD_STRATEGIES, or a preserved key is dropped at the next merge.
+  .passthrough();
 
 // =============================================================================
 // Config Schema (§2.6.4)
@@ -347,24 +358,31 @@ export const UpgradeEntrySchema = z.object({
  */
 export const SpecSelector = z.enum(['none', 'active', 'any']);
 
-export const IntegrationSelectSchema = z.object({
-  /** Kinds that qualify on their own, e.g. every open epic. */
-  kinds: z.array(IssueKind).default(['epic']),
-  /**
-   * Statuses a bead must be in to qualify. Acts as a gate over `kinds` and
-   * `specs` alike, which is what keeps closed work out of the mirror.
-   */
-  statuses: z.array(IssueStatus).default(['open', 'in_progress', 'blocked']),
-  labels: z.array(z.string()).default([]),
-  /**
-   * Qualify a bead by its linked plan spec, independently of its kind:
-   * `active` matches only specs under a `specs/active/` directory, `any`
-   * matches any `spec_path`, and `none` disables the rule. Specs that have been
-   * archived out of `active/` stop being mirrored, which is the point.
-   */
-  specs: SpecSelector.default('none'),
-  linked: z.boolean().default(true),
-});
+export const IntegrationSelectSchema = z
+  .object({
+    /** Kinds that qualify on their own, e.g. every open epic. */
+    kinds: z.array(IssueKind).default(['epic']),
+    /**
+     * Statuses a bead must be in to qualify. Acts as a gate over `kinds` and
+     * `specs` alike, which is what keeps closed work out of the mirror.
+     */
+    statuses: z.array(IssueStatus).default(['open', 'in_progress', 'blocked']),
+    labels: z.array(z.string()).default([]),
+    /**
+     * Qualify a bead by its linked plan spec, independently of its kind:
+     * `active` matches only specs under a `specs/active/` directory, `any`
+     * matches any `spec_path`, and `none` disables the rule. Specs that have been
+     * archived out of `active/` stop being mirrored, which is the point.
+     */
+    specs: SpecSelector.default('none'),
+    linked: z.boolean().default(true),
+  })
+  // Passthrough (f08+). ConfigSchema and the provider blocks preserved unknown keys
+  // from f07, but these nested clauses did not — so a selection key added by a newer
+  // tbd was stripped the next time an older one rewrote config.yml. That gap is why any
+  // new selection clause had to wait for a bump; closing it here means it does not
+  // recur.
+  .passthrough();
 
 /**
  * One synchronized comment, as persisted in a bead's `extensions.<provider>`
@@ -452,13 +470,16 @@ export const InboundMode = z.enum(['off', 'report', 'auto']);
  * commands; `auto` imports them during `sync`. `auto` stays opt-in because it
  * lets people outside the repo create work inside it.
  */
-export const InboundClauseSchema = z.object({
-  mode: InboundMode.default('report'),
-  /** Only items carrying one of these labels qualify (empty: any item). */
-  labels: z.array(z.string()).default([]),
-  /** Kind assigned to imported beads. */
-  as_kind: IssueKind.default('task'),
-});
+export const InboundClauseSchema = z
+  .object({
+    mode: InboundMode.default('report'),
+    /** Only items carrying one of these labels qualify (empty: any item). */
+    labels: z.array(z.string()).default([]),
+    /** Kind assigned to imported beads. */
+    as_kind: IssueKind.default('task'),
+  })
+  // Passthrough (f08+), same reason as IntegrationSelectSchema.
+  .passthrough();
 
 /**
  * The field_sync clause: how a linked pair's fields and comments flow.
@@ -469,20 +490,23 @@ export const InboundClauseSchema = z.object({
  * (names/emails) and nothing person-identifying lands in beads without an
  * explicit `user_map` and an explicit `assignee: merge`.
  */
-export const FieldSyncClauseSchema = z.object({
-  fields: z
-    .object({
-      title: FieldFlowRule.default('merge'),
-      description: FieldFlowRule.default('merge'),
-      status: FieldFlowRule.default('merge'),
-      priority: FieldFlowRule.default('merge'),
-      labels: FieldFlowRule.default('local'),
-      assignee: FieldFlowRule.default('local'),
-    })
-    .default({}),
-  comments: CommentsMode.default('two_way'),
-  tie_break: TieBreak.default('newest'),
-});
+export const FieldSyncClauseSchema = z
+  .object({
+    fields: z
+      .object({
+        title: FieldFlowRule.default('merge'),
+        description: FieldFlowRule.default('merge'),
+        status: FieldFlowRule.default('merge'),
+        priority: FieldFlowRule.default('merge'),
+        labels: FieldFlowRule.default('local'),
+        assignee: FieldFlowRule.default('local'),
+      })
+      .default({}),
+    comments: CommentsMode.default('two_way'),
+    tie_break: TieBreak.default('newest'),
+  })
+  // Passthrough (f08+), same reason as IntegrationSelectSchema.
+  .passthrough();
 
 /**
  * A linking policy: one structured object answering, per integration, when a
@@ -492,6 +516,11 @@ export const FieldSyncClauseSchema = z.object({
  * The clause names state their direction deliberately; `sync` is reserved for
  * the full synchronization the `tbd integration sync` command performs.
  */
+// Deliberately NOT passthrough, unlike the three clauses it contains. Adding a fourth
+// level of passthrough here pushed the inferred ConfigSchema type past what TypeScript
+// will serialize for declaration emit (TS7056), and it buys little: the clauses are
+// where new keys actually land, and a whole new sibling clause is a big enough change
+// to warrant its own format decision anyway.
 export const PolicyDefinitionSchema = z.object({
   outbound: IntegrationSelectSchema.default({}),
   inbound: InboundClauseSchema.default({}),
