@@ -110,6 +110,41 @@ describe('tbd integration, end to end via the built binary', () => {
     expect(result.stdout).toContain('team FIN');
   });
 
+  it('setup --dry-run reports the missing scaffolding without creating it', async () => {
+    const before = server.labels.length;
+    const result = await cli(['integration', 'setup', '--dry-run']);
+
+    expect(result.code).toBe(0);
+    // Same command, flag in the global leading position: both must be inert.
+    const leading = await cli(['--dry-run', 'integration', 'setup']);
+    expect(leading.code).toBe(0);
+    expect(leading.stdout).toContain('would create');
+    expect(result.stdout).toContain('label group repo');
+    expect(result.stdout).toContain('would create');
+    expect(result.stdout).toContain('Re-run without --dry-run to apply');
+    // A dry run that writes is worse than no dry run at all.
+    expect(server.labels.length).toBe(before);
+  });
+
+  it('setup creates the origin label and the repo group, and is idempotent', async () => {
+    const first = await cli(['integration', 'setup']);
+    expect(first.code).toBe(0);
+    expect(first.stdout).toContain('created');
+
+    const group = server.labels.find((l) => l.name === 'repo' && l.isGroup);
+    expect(group).toBeDefined();
+    // The repo label is a child of the group, not a flat label with a slash in its name.
+    expect(server.labels.find((l) => l.name.includes('/'))).toBeUndefined();
+    expect(server.labels.some((l) => l.parent?.id === group!.id)).toBe(true);
+
+    const countAfterFirst = server.labels.length;
+    const second = await cli(['integration', 'setup']);
+
+    expect(second.code).toBe(0);
+    expect(second.stdout).toContain('Already provisioned');
+    expect(server.labels.length).toBe(countAfterFirst);
+  });
+
   it('rejects outbound selectors unless --push is present', async () => {
     const result = await cli(['--dry-run', 'integration', 'sync', '--limit', '1']);
 

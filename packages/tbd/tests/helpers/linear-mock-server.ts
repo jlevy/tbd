@@ -11,6 +11,14 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
+/** A label as Linear models it: a group flag and a parent, with `name` as the leaf. */
+export interface MockLabel {
+  id: string;
+  name: string;
+  isGroup?: boolean;
+  parent?: { id: string; name: string };
+}
+
 export interface MockIssue {
   id: string;
   identifier: string;
@@ -21,7 +29,7 @@ export interface MockIssue {
   updatedAt: string;
   state: { id: string; name: string; type: string };
   assignee: { id: string; name: string; displayName: string; email?: string } | null;
-  labels: { nodes: { id: string; name: string }[] };
+  labels: { nodes: MockLabel[] };
   parent: { id: string; identifier: string } | null;
   archivedAt: string | null;
   trashed: boolean;
@@ -83,7 +91,7 @@ export class LinearMockServer {
     { id: 'state-duplicate', name: 'Duplicate', type: 'duplicate', position: 5 },
   ];
 
-  labels = [
+  labels: MockLabel[] = [
     { id: 'label-bug', name: 'Bug' },
     { id: 'label-feature', name: 'Feature' },
   ];
@@ -629,7 +637,21 @@ export class LinearMockServer {
 
     if (query.includes('mutation LabelCreate')) {
       const input = variables.input as Record<string, unknown>;
-      const label = { id: this.nextId('label'), name: input.name as string };
+      const parentId = input.parentId as string | undefined;
+      const parent = parentId ? this.labels.find((l) => l.id === parentId) : undefined;
+      if (parentId && !parent) {
+        return {
+          status: 200,
+          payload: { errors: [{ message: `Unknown parent label: ${parentId}` }] },
+        };
+      }
+      // Linear stores the LEAF name on a grouped label; the group is carried by `parent`.
+      const label: MockLabel = {
+        id: this.nextId('label'),
+        name: input.name as string,
+        ...(input.isGroup === true ? { isGroup: true } : {}),
+        ...(parent ? { parent: { id: parent.id, name: parent.name } } : {}),
+      };
       this.labels.push(label);
       return {
         status: 200,

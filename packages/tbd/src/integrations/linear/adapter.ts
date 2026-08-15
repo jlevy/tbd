@@ -48,8 +48,16 @@ import {
 } from './queries.js';
 import { spliceManagedBlock } from '../core/managed-block.js';
 import { isTbdOwnedLabel } from '../core/origin-labels.js';
+import {
+  indexLabels,
+  qualifiedIssueLabels,
+  splitQualifiedName,
+  type QualifiedLabel,
+  type RawLabelNode,
+} from './label-groups.js';
 import type { LabelCreateModeType } from '../core/provider-settings.js';
 import { CONFLICT_COMMENT_MARKER } from '../core/types.js';
+import type { ProvisionItem, ProvisionOptions, ProvisionReport } from '../core/types.js';
 
 interface RawIssue {
   id: string;
@@ -63,7 +71,7 @@ interface RawIssue {
   assignee: { id: string; name: string; displayName: string; email?: string } | null;
   labels: {
     pageInfo?: { hasNextPage: boolean; endCursor: string | null };
-    nodes: { id: string; name: string }[];
+    nodes: RawLabelNode[];
   };
   parent: { id: string; identifier: string } | null;
   archivedAt: string | null;
@@ -100,6 +108,8 @@ export class LinearAdapter implements TrackerAdapter {
 
   private teamId?: string;
   private meta?: ProviderMeta;
+  /** Team labels by qualified name, including groups. Populated by `ensureMeta`. */
+  private labelIndex?: Map<string, QualifiedLabel>;
   private readonly project?: string;
   private projectId?: string | null;
 
@@ -505,7 +515,7 @@ export class LinearAdapter implements TrackerAdapter {
           states: { nodes: { id: string; name: string; type: string; position: number }[] };
           labels: {
             pageInfo: { hasNextPage: boolean; endCursor: string | null };
-            nodes: { id: string; name: string }[];
+            nodes: RawLabelNode[];
           };
         }[];
       };
@@ -537,7 +547,7 @@ export class LinearAdapter implements TrackerAdapter {
         team: {
           labels: {
             pageInfo: { hasNextPage: boolean; endCursor: string | null };
-            nodes: { id: string; name: string }[];
+            nodes: RawLabelNode[];
           };
         } | null;
       }>(TEAM_LABELS_QUERY, { id: team.id, first: MAX_PAGE_SIZE, after: labelsAfter });
@@ -550,9 +560,18 @@ export class LinearAdapter implements TrackerAdapter {
         : undefined;
     }
 
+    // Keyed by QUALIFIED name (`repo/tbd`), not the bare leaf Linear stores. See
+    // label-groups.ts: bare keys collide between a root label and a grouped leaf of the
+    // same name, and never match the `group/leaf` names tbd asks for.
+    const index = indexLabels(labels);
+    this.labelIndex = index;
     this.meta = {
       stateIdsByType: Object.fromEntries([...byType].map(([type, v]) => [type, v.id])),
-      labelIdsByName: Object.fromEntries(labels.map((label) => [label.name, label.id])),
+      labelIdsByName: Object.fromEntries(
+        [...index.values()]
+          .filter((label) => !label.isGroup)
+          .map((label) => [label.qualifiedName, label.id]),
+      ),
       fetchedAt: new Date().toISOString(),
     };
     return this.meta;
@@ -569,7 +588,7 @@ export class LinearAdapter implements TrackerAdapter {
   }
 
   private toCanonical(raw: RawIssue): ExternalIssue {
-    const labels = raw.labels.nodes.map((l) => l.name);
+    const labels = qualifiedIssueLabels(raw.labels.nodes);
     const stateType = raw.state?.type ?? 'unstarted';
     const mappedAssignee = raw.assignee
       ? (this.assigneeByExternalIdentity.get(raw.assignee.id.toLowerCase()) ??
@@ -620,7 +639,7 @@ export class LinearAdapter implements TrackerAdapter {
         issue: {
           labels: {
             pageInfo: { hasNextPage: boolean; endCursor: string | null };
-            nodes: { id: string; name: string }[];
+            nodes: RawLabelNode[];
           };
         } | null;
       } = await this.client.request(ISSUE_LABELS_QUERY, {
@@ -709,18 +728,205 @@ export class LinearAdapter implements TrackerAdapter {
       if (!this.mayCreateLabel(name)) {
         continue;
       }
-      const created = await this.client.request<{
-        issueLabelCreate: { success: boolean; issueLabel: { id: string; name: string } | null };
-      }>(LABEL_CREATE_MUTATION, {
-        input: { name, teamId: await this.resolveTeamId() },
-      });
-      const label = created.issueLabelCreate.issueLabel;
-      if (label) {
-        meta.labelIdsByName[label.name] = label.id;
-        ids.push(label.id);
+      const created = await this.ensureLabel(name);
+      if (created) {
+        meta.labelIdsByName[name] = created.id;
+        ids.push(created.id);
       }
     }
     return ids;
+  }
+
+  /**
+   * Find or create one label by qualified name, creating its group first when needed.
+   *
+   * A qualified name is two creates, not one: `repo/tbd` needs the group `repo` to exist
+   * before a child can point at it. Creating the leaf without the group would produce a
+   * flat label literally named `repo/tbd`, which looks right in a list and silently
+   * loses the one-per-issue guarantee the group exists to provide.
+   *
+   * Returns undefined rather than throwing when Linear declines the create: losing one
+   * label is better than losing the status change it was travelling with.
+   */
+  private async ensureLabel(qualifiedName: string): Promise<QualifiedLabel | undefined> {
+    const index = await this.ensureLabelIndex();
+    const found = index.get(qualifiedName);
+    if (found && !found.isGroup) {
+      return found;
+    }
+
+    const { group, leaf } = splitQualifiedName(qualifiedName);
+    let parentId: string | undefined;
+    if (group) {
+      const existingGroup = index.get(group);
+      if (existingGroup?.isGroup) {
+        parentId = existingGroup.id;
+      } else if (existingGroup) {
+        // A plain label already holds the group's name. Promoting it would rewrite data
+        // tbd does not own, so the label is skipped and the caller carries on without it.
+        return undefined;
+      } else {
+        const createdGroup = await this.createLabel({ name: group, isGroup: true });
+        if (!createdGroup) {
+          return undefined;
+        }
+        parentId = createdGroup.id;
+      }
+    }
+
+    return await this.createLabel({ name: leaf, parentId, qualifiedName });
+  }
+
+  /** Create one label and record it in the index. */
+  private async createLabel(options: {
+    name: string;
+    isGroup?: boolean;
+    parentId?: string;
+    qualifiedName?: string;
+  }): Promise<QualifiedLabel | undefined> {
+    const input: Record<string, unknown> = {
+      name: options.name,
+      teamId: await this.resolveTeamId(),
+    };
+    if (options.isGroup) {
+      input.isGroup = true;
+    }
+    if (options.parentId) {
+      input.parentId = options.parentId;
+    }
+    const created = await this.client.request<{
+      issueLabelCreate: {
+        success: boolean;
+        issueLabel: { id: string; name: string } | null;
+      };
+    }>(LABEL_CREATE_MUTATION, { input });
+    const label = created.issueLabelCreate.issueLabel;
+    if (!label) {
+      return undefined;
+    }
+    const qualifiedName = options.qualifiedName ?? label.name;
+    const record: QualifiedLabel = {
+      id: label.id,
+      qualifiedName,
+      leafName: label.name,
+      groupName: splitQualifiedName(qualifiedName).group,
+      isGroup: options.isGroup === true,
+    };
+    (await this.ensureLabelIndex()).set(record.qualifiedName, record);
+    return record;
+  }
+
+  /**
+   * Inspect, and optionally create, the label scaffolding this mirror needs.
+   *
+   * Idempotent by construction: everything is find-or-create against the qualified-name
+   * index, so running it twice creates nothing the second time. The group is reported as
+   * its own item because it is a distinct object in Linear with its own failure mode —
+   * a plain label already sitting on the group's name blocks the child, and an operator
+   * needs to be told that rather than watching the label quietly not appear.
+   */
+  async provision(options: ProvisionOptions): Promise<ProvisionReport> {
+    const index = await this.ensureLabelIndex();
+    const items: ProvisionItem[] = [];
+
+    // Several origin labels can share one group, so each group is resolved once and its
+    // outcome remembered — both to avoid duplicate report lines and to avoid racing two
+    // creates for the same group.
+    const groups = new Map<string, 'ready' | 'unavailable'>();
+
+    const ensureGroup = async (group: string): Promise<'ready' | 'unavailable'> => {
+      const already = groups.get(group);
+      if (already) {
+        return already;
+      }
+      const existing = index.get(group);
+      let outcome: 'ready' | 'unavailable';
+      if (existing?.isGroup) {
+        items.push({ kind: 'label group', name: group, state: 'present' });
+        outcome = 'ready';
+      } else if (existing) {
+        items.push({
+          kind: 'label group',
+          name: group,
+          state: 'blocked',
+          reason:
+            `a plain label named "${group}" already exists in this team; ` +
+            `rename it, or point labels.repo at a different name`,
+        });
+        outcome = 'unavailable';
+      } else if (!options.apply) {
+        items.push({ kind: 'label group', name: group, state: 'missing' });
+        outcome = 'unavailable';
+      } else {
+        const created = await this.createLabel({ name: group, isGroup: true });
+        items.push({
+          kind: 'label group',
+          name: group,
+          state: created ? 'created' : 'blocked',
+          ...(created ? {} : { reason: 'Linear declined to create the label group' }),
+        });
+        outcome = created ? 'ready' : 'unavailable';
+      }
+      groups.set(group, outcome);
+      return outcome;
+    };
+
+    for (const qualifiedName of options.originLabels) {
+      const { group, leaf } = splitQualifiedName(qualifiedName);
+
+      const existing = index.get(qualifiedName);
+      if (existing && !existing.isGroup) {
+        // Present already implies its group is present, so the group is reported only
+        // when something else in this run needs to look at it.
+        if (group) {
+          await ensureGroup(group);
+        }
+        items.push({ kind: 'label', name: qualifiedName, state: 'present' });
+        continue;
+      }
+
+      if (group && (await ensureGroup(group)) === 'unavailable') {
+        // A report-only run calls this "missing" (nothing was attempted); an applying
+        // run calls it "blocked" (something was attempted and could not proceed).
+        items.push({
+          kind: 'label',
+          name: qualifiedName,
+          state: options.apply ? 'blocked' : 'missing',
+          ...(options.apply ? { reason: `needs the "${group}" label group` } : {}),
+        });
+        continue;
+      }
+
+      if (!options.apply) {
+        items.push({ kind: 'label', name: qualifiedName, state: 'missing' });
+        continue;
+      }
+
+      const created = await this.createLabel({
+        name: leaf,
+        parentId: group ? index.get(group)?.id : undefined,
+        qualifiedName,
+      });
+      items.push({
+        kind: 'label',
+        name: qualifiedName,
+        state: created ? 'created' : 'blocked',
+        ...(created ? {} : { reason: 'Linear declined to create the label' }),
+      });
+    }
+
+    return { provider: 'linear', scope: `team ${this.teamKey}`, items };
+  }
+
+  /** The team's labels indexed by qualified name, fetched once per adapter. */
+  private async ensureLabelIndex(): Promise<Map<string, QualifiedLabel>> {
+    if (!this.labelIndex) {
+      await this.ensureMeta();
+    }
+    if (!this.labelIndex) {
+      throw new Error(`Linear labels unavailable for team ${this.teamKey}`);
+    }
+    return this.labelIndex;
   }
 
   /**

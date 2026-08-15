@@ -147,6 +147,67 @@ describe('the sync engine', () => {
     });
   }
 
+  describe('origin labels in a Linear label group', () => {
+    it('creates repo/<name> as a real group, not a flat slash-named label', async () => {
+      const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+      store.set(epic.id, epic);
+
+      await run([...store.values()], POLICY, false, ['tbd', 'repo/tbd']);
+
+      const flat = server.labels.find((l) => l.name === 'repo/tbd');
+      expect(flat).toBeUndefined();
+
+      const group = server.labels.find((l) => l.name === 'repo' && l.isGroup);
+      expect(group).toBeDefined();
+
+      // The child stores only the LEAF name; the group is carried by `parent`.
+      const child = server.labels.find((l) => l.name === 'tbd' && l.parent?.id === group!.id);
+      expect(child).toBeDefined();
+
+      // The plain origin marker is a separate root label that happens to share the
+      // repo's leaf name. Keyed by bare name these two collide; keyed by qualified
+      // name they do not.
+      const origin = server.labels.find((l) => l.name === 'tbd' && !l.parent);
+      expect(origin).toBeDefined();
+      expect(origin!.id).not.toBe(child!.id);
+    });
+
+    it('applies both labels to the created issue', async () => {
+      const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+      store.set(epic.id, epic);
+
+      await run([...store.values()], POLICY, false, ['tbd', 'repo/tbd']);
+
+      const issue = [...server.issues.values()][0]!;
+      const applied = issue.labels.nodes.map((n) =>
+        n.parent ? `${n.parent.name}/${n.name}` : n.name,
+      );
+      expect(applied.sort()).toEqual(['repo/tbd', 'tbd']);
+    });
+
+    it('settles once the group exists, rather than re-asserting the grouped label', async () => {
+      // The loop this guards against: a grouped label reads back as its bare leaf
+      // (`tbd`), so an engine comparing against its required `repo/tbd` never finds it,
+      // and re-asserts on every sync for the life of the repository. Qualifying both
+      // sides is what makes the comparison terminate.
+      const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+      store.set(epic.id, epic);
+
+      const labels = ['tbd', 'repo/tbd'];
+      await run([...store.values()], POLICY, false, labels);
+      await run([...store.values()], POLICY, false, labels); // settle, as any mirror does
+      const labelCountAfterSettle = server.labels.length;
+
+      const settled = await run([...store.values()], POLICY, false, labels);
+
+      expect(settled.nothingToDo).toBe(true);
+      expect(settled.pushed).toEqual([]);
+      // No duplicate group or child was minted on the way to quiet.
+      expect(server.labels.length).toBe(labelCountAfterSettle);
+      expect(server.labels.filter((l) => l.name === 'repo' && l.isGroup)).toHaveLength(1);
+    });
+  });
+
   it('plans a create under dryRun without touching the tracker or the bead', async () => {
     // The `report` fold mode depends on this: it reports what a sync would do and
     // writes nothing. If the engine wrote here, `report` would be a silent live sync.

@@ -27,7 +27,10 @@ export const TEAM_META_QUERY = `query TeamMeta($key: String!) {
       key
       name
       states(first: 50) { nodes { id name type position } }
-      labels(first: 250) { pageInfo { hasNextPage endCursor } nodes { id name } }
+      labels(first: 250) {
+        pageInfo { hasNextPage endCursor }
+        nodes { id name isGroup parent { id name } }
+      }
     }
   }
 }`;
@@ -43,7 +46,10 @@ const ISSUE_FIELDS = `
   updatedAt
   state { id name type }
   assignee { id name displayName email }
-  labels(first: 50) { pageInfo { hasNextPage endCursor } nodes { id name } }
+  labels(first: 50) {
+    pageInfo { hasNextPage endCursor }
+    nodes { id name isGroup parent { id name } }
+  }
   parent { id identifier }
   archivedAt
   trashed
@@ -134,7 +140,7 @@ export const ISSUE_LABELS_QUERY = `query IssueLabels($id: String!, $first: Int!,
   issue(id: $id) {
     labels(first: $first, after: $after) {
       pageInfo { hasNextPage endCursor }
-      nodes { id name }
+      nodes { id name isGroup parent { id name } }
     }
   }
 }`;
@@ -144,7 +150,7 @@ export const TEAM_LABELS_QUERY = `query TeamLabels($id: String!, $first: Int!, $
   team(id: $id) {
     labels(first: $first, after: $after) {
       pageInfo { hasNextPage endCursor }
-      nodes { id name }
+      nodes { id name isGroup parent { id name } }
     }
   }
 }`;

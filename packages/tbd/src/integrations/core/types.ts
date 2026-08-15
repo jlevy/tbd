@@ -233,4 +233,41 @@ export interface TrackerAdapter {
 
   /** Resolve, and cache, the provider metadata needed to push. */
   ensureMeta(force?: boolean): Promise<ProviderMeta>;
+
+  /**
+   * Inspect, and optionally create, the tracker-side scaffolding a sync depends on.
+   *
+   * Separate from `ensureMeta` because it writes. A sync must never quietly provision a
+   * shared workspace, and an operator must be able to see what is missing before
+   * agreeing to create it — so this is the one place that reports and repairs, and
+   * `apply: false` is a pure read.
+   */
+  provision(options: ProvisionOptions): Promise<ProvisionReport>;
+}
+
+/** What the tracker-side scaffolding check should do. */
+export interface ProvisionOptions {
+  /** Labels the mirror asserts on every item, in tbd's qualified `group/leaf` form. */
+  originLabels: readonly string[];
+  /** Create what is missing. False reports only, writing nothing. */
+  apply: boolean;
+}
+
+/** One piece of tracker-side scaffolding and its state. */
+export interface ProvisionItem {
+  /** What the thing is, for the operator: `label` or `label group`. */
+  kind: 'label' | 'label group';
+  /** The name tbd refers to it by. */
+  name: string;
+  /** `present` needed nothing; `created` was made now; `missing` is an unapplied gap. */
+  state: 'present' | 'created' | 'missing' | 'blocked';
+  /** Why a `blocked` item cannot be provisioned. */
+  reason?: string;
+}
+
+export interface ProvisionReport {
+  provider: ProviderNameType;
+  /** The scope the scaffolding lives in, for the operator to recognize. */
+  scope: string;
+  items: ProvisionItem[];
 }

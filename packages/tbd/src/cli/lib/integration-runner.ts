@@ -26,6 +26,7 @@ import { LinearAdapter } from '../../integrations/linear/adapter.js';
 import { LinearClient } from '../../integrations/linear/client.js';
 import { priorityToLinear } from '../../integrations/linear/mapping.js';
 import { resolveProviderSettings } from '../../integrations/core/provider-settings.js';
+import type { LabelCreateModeType } from '../../integrations/core/provider-settings.js';
 import { originLabelsFor } from '../../integrations/core/origin-labels.js';
 import { git, gitCommit } from '../../file/git.js';
 import {
@@ -87,7 +88,7 @@ export function buildAdapter(
  * than silently losing the marker that makes its items filterable.
  */
 async function resolveOriginLabels(tbdRoot: string, config: Config): Promise<string[]> {
-  const settings = resolveProviderSettings(config.integrations?.linear ?? {});
+  const { labels, createMode } = await originLabelPlan(tbdRoot, config);
 
   // With creation disabled entirely, tbd cannot guarantee its own labels exist. Asserting
   // one the tracker will never accept is worse than not labelling: the push silently
@@ -97,9 +98,25 @@ async function resolveOriginLabels(tbdRoot: string, config: Config): Promise<str
   // The trade is narrow and deliberate: a team that pre-created these labels by hand and
   // set `create: none` loses the marking. `create: tbd` is the setting for "create what
   // tbd needs, never mass-create from bead labels", and it is the default.
-  if (settings.createLabels === 'none') {
+  if (createMode === 'none') {
     return [];
   }
+  return labels;
+}
+
+/**
+ * The origin labels this repository would assert, and the creation mode that governs
+ * them — without the `none` short-circuit that {@link resolveOriginLabels} applies.
+ *
+ * `tbd integration setup` needs both halves: the names, so it provisions exactly what a
+ * sync will later assert rather than a parallel guess at them, and the mode, so it can
+ * say plainly that `create: none` means there is nothing to provision.
+ */
+export async function originLabelPlan(
+  tbdRoot: string,
+  config: Config,
+): Promise<{ labels: string[]; createMode: LabelCreateModeType }> {
+  const settings = resolveProviderSettings(config.integrations?.linear ?? {});
 
   let originRemoteUrl: string | undefined;
   try {
@@ -107,11 +124,14 @@ async function resolveOriginLabels(tbdRoot: string, config: Config): Promise<str
   } catch {
     originRemoteUrl = undefined;
   }
-  return originLabelsFor({
-    settings,
-    originRemoteUrl,
-    idPrefix: config.display.id_prefix,
-  });
+  return {
+    labels: originLabelsFor({
+      settings,
+      originRemoteUrl,
+      idPrefix: config.display.id_prefix,
+    }),
+    createMode: settings.createLabels,
+  };
 }
 
 /**

@@ -19,7 +19,11 @@ import {
 import { LinearClient } from '../../integrations/linear/client.js';
 import { LinearAdapter } from '../../integrations/linear/adapter.js';
 import { VIEWER_QUERY } from '../../integrations/linear/queries.js';
-import type { MirrorReport } from '../../integrations/core/types.js';
+import type {
+  MirrorReport,
+  ProvisionItem,
+  ProvisionReport,
+} from '../../integrations/core/types.js';
 import { withDataSyncContext } from '../lib/data-context.js';
 import { listIssues, readIssue, writeIssue } from '../../file/storage.js';
 import { formatDisplayId } from '../../lib/ids.js';
@@ -28,6 +32,7 @@ import { now } from '../../utils/time-utils.js';
 import {
   buildAdapter,
   confirm,
+  originLabelPlan,
   runEnabledIntegrationPushes,
   runEnabledIntegrations,
 } from '../lib/integration-runner.js';
@@ -161,6 +166,102 @@ class StatusHandler extends BaseCommand {
     if (hasErrors(filtered)) {
       process.exitCode = EXIT_OPERATIONAL_ERROR;
     }
+  }
+}
+
+interface SetupOptions {
+  provider?: string;
+}
+
+/**
+ * Create the tracker-side scaffolding a mirror depends on.
+ *
+ * This exists because the labels are not optional decoration: the origin marker is what
+ * lets a human filter agent traffic out of a shared workspace, and the `repo` group is
+ * what keeps a second repository from making that workspace unreadable. Leaving their
+ * creation to the first sync would mean a shared workspace is silently restructured by a
+ * routine command, so provisioning is its own explicit step — and idempotent, so running
+ * it again after adding a repository is the normal way to use it.
+ */
+class SetupHandler extends BaseCommand {
+  async run(options: SetupOptions): Promise<void> {
+    const tbdRoot = await requireInit();
+    const config = await readConfig(tbdRoot);
+    const provider = (options.provider ?? 'linear') as ProviderNameType;
+    const entry = providerConfig(config, provider);
+    if (!entry?.enabled) {
+      throw new CLIError(
+        `${provider} is not enabled. Configure it first: tbd shortcut setup-linear`,
+      );
+    }
+    const credential = await resolveCredential(provider, tbdRoot);
+    if (!credential) {
+      throw new CLIError(
+        `${CREDENTIAL_ENV_VARS[provider]} is not set. ` +
+          `A personal API key is the one piece of setup tbd cannot create for you: ` +
+          `make one in Linear under Settings > Security & access > Personal API keys.`,
+      );
+    }
+
+    const dryRun = this.ctx.dryRun;
+    const { labels, createMode } = await originLabelPlan(tbdRoot, config);
+    if (createMode === 'none') {
+      this.output.notice(
+        'labels.create is `none`, so this repository asserts no origin labels and there ' +
+          'is nothing to provision. Set labels.create to `tbd` to mark mirrored items.',
+      );
+      return;
+    }
+    if (labels.length === 0) {
+      this.output.notice(
+        'labels.origin is disabled, so this repository asserts no origin labels and ' +
+          'there is nothing to provision.',
+      );
+      return;
+    }
+
+    const adapter = buildAdapter(provider, credential.value, entry.target, config);
+    const report = await adapter.provision({ originLabels: labels, apply: !dryRun });
+
+    this.output.data(report, () => {
+      printProvisionReport(report, dryRun);
+    });
+
+    if (report.items.some((item) => item.state === 'blocked')) {
+      process.exitCode = EXIT_OPERATIONAL_ERROR;
+    }
+  }
+}
+
+/** Render the provisioning outcome, one line per piece of scaffolding. */
+function printProvisionReport(report: ProvisionReport, dryRun: boolean): void {
+  const marks: Record<ProvisionItem['state'], string> = {
+    present: '\u2713',
+    created: '+',
+    missing: '\u00b7',
+    blocked: '\u2717',
+  };
+  console.log(`${report.provider} (${report.scope}):`);
+  for (const item of report.items) {
+    const verb = item.state === 'missing' && dryRun ? 'would create' : item.state;
+    const suffix = item.reason ? ` \u2014 ${item.reason}` : '';
+    console.log(`  ${marks[item.state]} ${item.kind} ${item.name}: ${verb}${suffix}`);
+  }
+  const created = report.items.filter((i) => i.state === 'created').length;
+  const blocked = report.items.filter((i) => i.state === 'blocked').length;
+  if (dryRun) {
+    const missing = report.items.filter((i) => i.state === 'missing').length;
+    console.log(
+      missing === 0
+        ? '\nNothing to do; the tracker already has everything this repository needs.'
+        : `\n${missing} to create. Re-run without --dry-run to apply.`,
+    );
+  } else if (blocked > 0) {
+    console.log(`\n${created} created, ${blocked} blocked. Resolve the blocked items above.`);
+  } else {
+    console.log(
+      `\n${created === 0 ? 'Already provisioned' : `${created} created`}; ready to sync.`,
+    );
   }
 }
 
@@ -595,6 +696,16 @@ export const integrationCommand = new Command('integration')
       .option('--offline', 'Skip network checks')
       .action(async (options, command) => {
         const handler = new StatusHandler(command);
+        await handler.run(options);
+      }),
+  )
+  .addCommand(
+    new Command('setup')
+      .description('Create the tracker-side labels and label groups this repository needs')
+      .option('--provider <name>', 'Provider (default: linear)')
+      .option('--dry-run', 'Report what is missing without creating anything')
+      .action(async (options, command) => {
+        const handler = new SetupHandler(command);
         await handler.run(options);
       }),
   )
