@@ -3,9 +3,9 @@ type: is
 id: is-01kxz3kwxeqkvm82y0k4xxs8br
 title: "Fix extensions merge: lww → deep_merge_by_key per design §3.5"
 kind: bug
-status: open
+status: closed
 priority: 1
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-07-19-bead-watch-and-external-sync.md
 labels:
   - linear-sync
@@ -14,7 +14,9 @@ dependencies:
     target: is-01kxz3mf4ytsqe23z53h0z8c7q
 parent_id: is-01kxz3kfz7n7y23n9rzmy28f98
 created_at: 2026-07-20T06:32:34.989Z
-updated_at: 2026-08-10T21:54:46.239Z
+updated_at: 2026-08-15T05:33:52.214Z
+closed_at: 2026-08-15T05:33:52.213Z
+close_reason: "Fixed in merged PR #206: extension data now uses namespace-aware merge semantics."
 extensions:
   linear:
     id: 6fb042cf-05ec-4bb9-b06b-ffb10b7d2dc0

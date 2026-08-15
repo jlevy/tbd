@@ -3,9 +3,9 @@ type: is
 id: is-01kzymcx5gjwfra1z0s3rz1g05
 title: "Address review: PR #212 — Linear managed blocks"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 14
+version: 15
 labels: []
 dependencies: []
 child_order_hints:
@@ -21,7 +21,9 @@ child_order_hints:
   - is-01kzyp9mn2ffjctzjtyzvq87s8
   - is-01kzyrkn6qdkhm332t69yhe45w
 created_at: 2026-08-13T22:38:00.875Z
-updated_at: 2026-08-13T23:51:36.406Z
+updated_at: 2026-08-15T05:33:52.525Z
+closed_at: 2026-08-15T05:33:52.524Z
+close_reason: "PR #212 merged after its blocking review findings were resolved; explicitly deferred standalone follow-ups remain open."
 ---
 Track dispositions for R1-R9 from GitHub review 4931891999 on PR #212. Existing finding beads are attached as children; each will be fixed, rebutted, or explicitly deferred.
 

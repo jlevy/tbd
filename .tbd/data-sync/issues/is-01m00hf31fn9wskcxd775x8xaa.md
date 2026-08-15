@@ -3,9 +3,9 @@ type: is
 id: is-01m00hf31fn9wskcxd775x8xaa
 title: Push the sync branch with --no-verify so tbd sync stops running the parent repo's pre-push hook
 kind: bug
-status: open
+status: closed
 priority: 1
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - sync-efficiency
@@ -13,7 +13,9 @@ labels:
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:25:15.567Z
-updated_at: 2026-08-14T17:25:09.163Z
+updated_at: 2026-08-15T05:34:13.306Z
+closed_at: 2026-08-15T05:34:13.306Z
+close_reason: "Shipped in merged PR #227 (commit 65297780); the release workflow now handles these review findings as designed."
 ---
 tbd deliberately passes --no-verify on its commits to the sync branch so parent-repo hooks (lefthook, husky) do not fire on bead bookkeeping — git.ts:1722 states that intent directly. pushWithRetry does not do the same: it issues a plain 'git push <remote> refs/heads/tbd-sync:refs/heads/tbd-sync' (git.ts:1029), which fires .git/hooks/pre-push.
 

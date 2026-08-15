@@ -3,9 +3,9 @@ type: is
 id: is-01m00j9jkhwgbczp3hkcy38z7q
 title: A quiet tbd sync must write nothing (bridge records rewritten on every run)
 kind: bug
-status: open
+status: closed
 priority: 0
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - sync-efficiency
@@ -17,7 +17,9 @@ dependencies:
     target: is-01m00h57nkvtvkbqn992w5fm2e
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:39:43.473Z
-updated_at: 2026-08-14T21:27:09.703Z
+updated_at: 2026-08-15T05:34:13.284Z
+closed_at: 2026-08-15T05:34:13.279Z
+close_reason: "Shipped in merged PR #227 (commit 65297780); the release workflow now handles these review findings as designed."
 ---
 
 ## Notes

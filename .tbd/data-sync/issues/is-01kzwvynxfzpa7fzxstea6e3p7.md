@@ -5,15 +5,16 @@ title: "PR #209 review S11: Extract reloadOnce snapshot guards"
 kind: task
 status: open
 priority: 2
-version: 2
+version: 4
 labels:
   - review
   - refactor
   - followup
+  - pause
 dependencies: []
-parent_id: is-01kzwv4rgyczfrw9dbxfw9f7x2
+parent_id: null
 created_at: 2026-08-13T06:11:34.446Z
-updated_at: 2026-08-13T06:29:36.960Z
+updated_at: 2026-08-15T05:44:05.236Z
 ---
 PR #209 senior review S11. packages/tbd/src/cli/web/board.ts reloadOnce repeats four epoch/marker guard blocks across roughly 220 lines. Extract capture/compare helpers or a small guarded-phase abstraction while preserving the proven concurrency semantics and tests.
 

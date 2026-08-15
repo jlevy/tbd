@@ -5,9 +5,10 @@ title: "Phase 3: Migrate bundled docs to external repo (tbd-docs)"
 kind: epic
 status: open
 priority: 3
-version: 11
+version: 12
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
-labels: []
+labels:
+  - pause
 dependencies: []
 parent_id: is-01kra98fgac70pjft7jnarmave
 child_order_hints:
@@ -20,7 +21,7 @@ child_order_hints:
   - is-01kra9br63f467mxc3fjwga2wz
   - is-01kra9brkfj969kby0dk36khzg
 created_at: 2026-05-11T01:08:51.809Z
-updated_at: 2026-08-10T21:54:04.430Z
+updated_at: 2026-08-15T05:43:42.632Z
 extensions:
   linear:
     id: 7ad54ee7-74aa-4285-9edb-e7458ec25a9a

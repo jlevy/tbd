@@ -3,9 +3,9 @@ type: is
 id: is-01ksdpr4q999zpz14nqmv3ycpz
 title: Add --surfaces=<list> setup selector (replaces per-agent flags)
 kind: task
-status: open
+status: closed
 priority: 2
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md
 labels:
   - setup
@@ -15,7 +15,9 @@ dependencies:
     target: is-01ksc0ta2n1q3nkr2791574t56
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-05-24T19:17:49.928Z
-updated_at: 2026-08-10T21:54:21.863Z
+updated_at: 2026-08-15T05:34:12.700Z
+closed_at: 2026-08-15T05:34:12.700Z
+close_reason: "Shipped in the current setup system: generated agent surfaces, Codex integration, gitignore policy, format migrations, fallback pinning, surface selection, and end-to-end tests are present on main."
 extensions:
   linear:
     id: f7872fb4-7472-46cb-8633-9577779a690c

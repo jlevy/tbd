@@ -5,13 +5,14 @@ title: Migration path for existing installs (tbd setup --auto / tbd doctor adds 
 kind: task
 status: open
 priority: 3
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
-labels: []
+labels:
+  - pause
 dependencies: []
 parent_id: is-01kra98tz1mb3br9kg77933vdx
 created_at: 2026-05-11T01:10:26.869Z
-updated_at: 2026-08-11T06:50:47.946Z
+updated_at: 2026-08-15T05:43:42.402Z
 extensions:
   linear:
     id: 136b03c1-4293-44be-b2f6-75d1982dc87d

@@ -3,13 +3,15 @@ type: is
 id: is-01kf7mmyyjapv7szwbkhe66p83
 title: Message format testing
 kind: task
-status: open
+status: closed
 priority: 2
-version: 8
+version: 9
 labels: []
 dependencies: []
 created_at: 2026-01-18T04:08:43.729Z
-updated_at: 2026-03-09T16:12:31.630Z
+updated_at: 2026-08-15T05:43:09.450Z
+closed_at: 2026-08-15T05:43:09.449Z
+close_reason: Delivered/superseded by the current CLI golden and integration suites covering errors, progress/output contracts, and sync summaries.
 ---
 Test message formats meet design system:
 - Verify error messages follow guidelines

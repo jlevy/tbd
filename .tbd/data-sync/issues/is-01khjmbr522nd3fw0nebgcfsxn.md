@@ -5,14 +5,15 @@ title: "kdex: Core store + source resolution (Phase 1)"
 kind: feature
 status: open
 priority: 2
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-02-16-kdex-knowledge-index-cli.md
-labels: []
+labels:
+  - pause
 dependencies:
   - type: blocks
     target: is-01khjmbw2yx3pbgd1edn23ekws
 created_at: 2026-02-16T07:06:44.257Z
-updated_at: 2026-08-10T21:53:56.947Z
+updated_at: 2026-08-15T05:43:10.898Z
 extensions:
   linear:
     id: 941739c1-da00-4197-91ed-1a8a11bef1cd

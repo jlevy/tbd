@@ -3,22 +3,24 @@ type: is
 id: is-01kg5jhe5v1zx94azhqn57bnzq
 title: "Phase 6: Update documentation for unified sync"
 kind: task
-status: open
+status: closed
 priority: 3
-version: 16
+version: 17
 spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
 labels: []
 dependencies: []
 parent_id: is-01kg5jgqscrbp94t3hb1cegr39
 created_at: 2026-01-29T19:09:04.058Z
-updated_at: 2026-08-11T07:10:52.413Z
+updated_at: 2026-08-15T05:33:39.741Z
+closed_at: 2026-08-15T05:33:39.741Z
+close_reason: Completed specs are in docs/project/specs/done and their implementations, documentation, and tests ship on main.
 extensions:
   linear:
     id: 8303672a-5715-4cf5-a8fd-8d9bd682fa20
     key: TBD-47
     url: https://linear.app/finterm-ai/issue/TBD-47/phase-6-update-documentation-for-unified-sync
     linked_at: 2026-08-10T19:36:24.682Z
-    comments:
+    comments: null
 ---
 Update documentation:
 - Update tbd-design.md sync section

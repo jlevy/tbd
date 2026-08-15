@@ -3,16 +3,18 @@ type: is
 id: is-01m00h4r097kwbjg224wn8xxbk
 title: Correct the '~10% of beads' selection claim and document max_nesting skips
 kind: bug
-status: open
+status: closed
 priority: 2
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-1
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:19:36.585Z
-updated_at: 2026-08-14T17:25:09.193Z
+updated_at: 2026-08-15T05:34:13.333Z
+closed_at: 2026-08-15T05:34:13.333Z
+close_reason: "Shipped in merged PR #227 (commit 65297780); the release workflow now handles these review findings as designed."
 ---
 The 'roughly 10% of a typical repository's beads' figure appears in the setup-linear shortcut and in the PRESETS comment in integrations/core/policy.ts. Measured here it is 45% (114 of 254 active), because the specs:active clause dominates in a spec-driven repo: 105 of the 114 qualify on spec, not on being an epic.
 
