@@ -26,6 +26,7 @@ import { LinearAdapter } from '../../integrations/linear/adapter.js';
 import { LinearClient } from '../../integrations/linear/client.js';
 import { priorityToLinear } from '../../integrations/linear/mapping.js';
 import { resolveProviderSettings } from '../../integrations/core/provider-settings.js';
+import { originLabelsFor } from '../../integrations/core/origin-labels.js';
 import { git, gitCommit } from '../../file/git.js';
 import {
   loadIdMapping,
@@ -75,6 +76,28 @@ export function buildAdapter(
     createLabels: settings.createLabels,
     project: settings.project,
     userMap: settings.userMap,
+  });
+}
+
+/**
+ * The origin labels for this repository, or an empty list when the scheme is off.
+ *
+ * A missing or unreadable git remote is not an error: the label falls back to the
+ * repository's display prefix, so a local-only checkout still gets a stable name rather
+ * than silently losing the marker that makes its items filterable.
+ */
+async function resolveOriginLabels(tbdRoot: string, config: Config): Promise<string[]> {
+  const settings = resolveProviderSettings(config.integrations?.linear ?? {});
+  let originRemoteUrl: string | undefined;
+  try {
+    originRemoteUrl = (await git('-C', tbdRoot, 'remote', 'get-url', 'origin')).trim();
+  } catch {
+    originRemoteUrl = undefined;
+  }
+  return originLabelsFor({
+    settings,
+    originRemoteUrl,
+    idPrefix: config.display.id_prefix,
   });
 }
 
@@ -271,6 +294,7 @@ export async function runEnabledIntegrationPushes(
       selected,
       displayId,
       mirrorLabels: resolveProviderSettings(config.integrations?.linear ?? {}).mirrorLabels,
+      originLabels: await resolveOriginLabels(tbdRoot, config),
       maxNesting: entry.maxNesting,
       canPushAssignee: (assignee) => adapter.canPushAssignee(assignee),
       specUrl: (issue) => (issue.spec_path ? specLinks.get(issue.spec_path) : undefined),
@@ -389,6 +413,7 @@ export async function runEnabledIntegrations(
       displayId,
       specUrl: (issue) => (issue.spec_path ? specLinks.get(issue.spec_path) : undefined),
       mirrorLabels: resolveProviderSettings(config.integrations?.linear ?? {}).mirrorLabels,
+      originLabels: await resolveOriginLabels(tbdRoot, config),
       // Linear cannot represent P4 (its 4 covers P3 and P4); without this
       // equivalence every P4 bead would oscillate as a phantom pull.
       equivalences: {

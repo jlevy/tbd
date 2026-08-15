@@ -273,7 +273,12 @@ export class LinearAdapter implements TrackerAdapter {
   async applyChanges(id: string, patch: CanonicalPatch): Promise<{ updatedAt: string }> {
     const meta = await this.ensureMeta();
     let preservedLabels: string[] | undefined;
-    if (patch.status !== undefined && patch.labels === undefined) {
+    // Read the current labels whenever this write will set labelIds but does not carry a
+    // full replacement set. Both triggers need it for the same reason — Linear replaces
+    // the whole list — and missing either one silently strips every human-applied label
+    // from the issue.
+    const assertsLabels = (patch.ensureLabels?.length ?? 0) > 0;
+    if ((patch.status !== undefined || assertsLabels) && patch.labels === undefined) {
       const [current] = await this.fetchIssues([id]);
       preservedLabels = current?.labels.filter(
         (label) => label !== BLOCKED_LABEL && label !== DEFERRED_LABEL,
@@ -671,9 +676,14 @@ export class LinearAdapter implements TrackerAdapter {
       statusLabels = target.labels;
     }
 
+    // `ensureLabels` is additive: it joins whatever label set is already being written
+    // rather than defining it. Linear's update replaces labelIds wholesale, so the only
+    // safe way to assert a label is to send it alongside the ones already there — which
+    // is why applyChanges reads current labels when it has none in hand.
+    const ensure = patch.ensureLabels ?? [];
     const baseLabels = patch.labels ?? preservedLabels;
-    if (baseLabels !== undefined || statusLabels.length > 0) {
-      const names = [...new Set([...(baseLabels ?? []), ...statusLabels])];
+    if (baseLabels !== undefined || statusLabels.length > 0 || ensure.length > 0) {
+      const names = [...new Set([...(baseLabels ?? []), ...statusLabels, ...ensure])];
       input.labelIds = await this.resolveLabelIds(names, meta);
     }
 

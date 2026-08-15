@@ -54,6 +54,16 @@ export interface MirrorContext {
    * team namespace. They are mirrored as attachment metadata regardless.
    */
   mirrorLabels?: boolean;
+  /**
+   * Labels every mirrored item must carry: the plain `tbd` marker and the
+   * `repo/<name>` group label. Applied additively (see `ensureLabels`), so asserting
+   * them never removes a label a person applied in the tracker.
+   *
+   * These apply regardless of `mirrorLabels`, which governs a different question — that
+   * one is about projecting the repository's own bead labels, this one is about making
+   * agent traffic identifiable at all.
+   */
+  originLabels?: readonly string[];
   /** Provider/config capability for projecting a canonical assignee. */
   canPushAssignee?: (assignee: string | null) => boolean;
 }
@@ -242,6 +252,9 @@ export function planMirror(context: MirrorContext): MirrorPlan {
       // the status carriers the adapter adds. Sending [] would strip labels a
       // human applied in the tracker, which is not ours to remove.
       ...(context.mirrorLabels ? { labels: prefixLabels(issue.labels ?? []) } : {}),
+      ...(context.originLabels && context.originLabels.length > 0
+        ? { ensureLabels: [...context.originLabels] }
+        : {}),
       ...(context.canPushAssignee?.(issue.assignee ?? null)
         ? { assignee: issue.assignee ?? null }
         : {}),

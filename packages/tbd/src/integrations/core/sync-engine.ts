@@ -127,6 +127,21 @@ export interface SyncEngineOptions {
    * left alone. When on, pushed labels are `tbd:`-prefixed.
    */
   mirrorLabels: boolean;
+  /**
+   * Labels every linked item must carry — the plain `tbd` marker and the `repo/<name>`
+   * group label.
+   *
+   * Applied at the LINKED-PAIR level rather than only on outbound creates, so an item
+   * that entered by any route — created here, imported from the tracker, or linked by
+   * hand — ends up marked. A scheme that only marked what tbd created would leave the
+   * imported half of a shared surface unfilterable, which is exactly the case the labels
+   * exist for.
+   *
+   * Additive: asserted through `ensureLabels`, which never removes a label a person
+   * applied in the tracker. Independent of `mirrorLabels`, which answers the different
+   * question of whether to project the repository's own bead labels.
+   */
+  originLabels?: readonly string[];
   /** Levels of the selected outbound hierarchy that may exist in the provider. */
   maxNesting?: number;
   /** Provider-specific field equivalences (see reconcile.ts). */
@@ -645,6 +660,20 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         assigneePull: remote.assigneeSyncable !== false,
       },
     );
+    // Assert the origin labels only when the remote is actually missing one.
+    //
+    // Adding them unconditionally would put a key in every externalPatch, which is what
+    // decides whether a pair counts as changed — every settled pair would look dirty and
+    // a quiet sync would write, commit, and push again. Diffing against the remote's
+    // current labels keeps a settled mirror silent while still backfilling an item that
+    // predates the labels or was imported without them.
+    const missingOriginLabels = (options.originLabels ?? []).filter(
+      (label) => !remote.labels.includes(label),
+    );
+    if (missingOriginLabels.length > 0) {
+      result.externalPatch.ensureLabels = missingOriginLabels;
+    }
+
     if (!options.mirrorLabels) {
       // Labels are inert unless explicitly mirrored: never pushed (which would
       // create one team label per bead label AND wipe tbd's status carriers on
@@ -1266,6 +1295,13 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
             ? { assignee: issue.assignee ?? null }
             : {}),
           ...(parentExternalId ? { parentId: parentExternalId } : {}),
+          // Mark it at birth. This patch is built here rather than by planMirror, so
+          // without this an item the engine creates arrives unlabelled and the next
+          // sync has to notice and backfill it — a guaranteed second write for every
+          // create, and an unlabelled window in between.
+          ...((options.originLabels?.length ?? 0) > 0
+            ? { ensureLabels: [...(options.originLabels ?? [])] }
+            : {}),
         },
         clientId,
       );

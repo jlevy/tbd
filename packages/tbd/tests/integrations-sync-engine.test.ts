@@ -131,7 +131,7 @@ describe('the sync engine', () => {
     });
   }
 
-  function run(allIssues: Issue[], policy = POLICY, dryRun = false) {
+  function run(allIssues: Issue[], policy = POLICY, dryRun = false, originLabels: string[] = []) {
     return runSync({
       provider: 'linear',
       adapter,
@@ -140,6 +140,7 @@ describe('the sync engine', () => {
       allIssues,
       displayId: (id) => id.slice(-4),
       mirrorLabels: false,
+      originLabels,
       callbacks,
       dryRun,
       now: () => new Date().toISOString(),
@@ -164,6 +165,40 @@ describe('the sync engine', () => {
     expect(second.pulled).toEqual([]);
     expect(second.conflicts).toEqual([]);
     expect(second.createdOutbound).toEqual([]);
+  });
+
+  it('asserts origin labels once, then stays quiet', async () => {
+    // The trap this guards: putting ensureLabels in every patch would make every pair
+    // look changed, because a non-empty externalPatch is what "changed" means here. A
+    // settled mirror would then write, commit, and push on every sync — undoing the
+    // property that makes frequent syncing affordable at all.
+    const id = 'is-01hx5zzkbkactav9wevgemmb01';
+    store.set(id, bead(id));
+
+    const labels = ['tbd', 'repo/tbd'];
+    await run([...store.values()], POLICY, false, labels);
+    await run([...store.values()], POLICY, false, labels); // settle, as any mirror does
+
+    // Once the labels are on the remote, asserting them again is not a change.
+    const settled = await run([...store.values()], POLICY, false, labels);
+    expect(settled.nothingToDo).toBe(true);
+  });
+
+  it('backfills origin labels onto an item that predates them', async () => {
+    // An item linked before the labels existed — or imported from the tracker — must
+    // pick them up rather than staying invisible to the filters they exist for.
+    const id = 'is-01hx5zzkbkactav9wevgemmb02';
+    store.set(id, bead(id));
+
+    await run([...store.values()]);
+    await run([...store.values()]); // settle with no origin labels
+
+    const labelled = await run([...store.values()], POLICY, false, ['tbd', 'repo/tbd']);
+    expect(labelled.nothingToDo).toBe(false);
+
+    // And once backfilled, it settles again rather than re-asserting forever.
+    const after = await run([...store.values()], POLICY, false, ['tbd', 'repo/tbd']);
+    expect(after.nothingToDo).toBe(true);
   });
 
   it('a settled mirror writes nothing on a further quiet sync', async () => {

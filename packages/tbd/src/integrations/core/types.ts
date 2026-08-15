@@ -68,7 +68,21 @@ export interface CanonicalPatch {
   description?: string | null;
   status?: IssueStatusType;
   priority?: PriorityType;
+  /**
+   * REPLACES the item's labels. Absent leaves them alone, which is the default:
+   * sending `[]` would strip labels a human applied in the tracker, and those are not
+   * ours to remove.
+   */
   labels?: string[];
+  /**
+   * ADDS these labels, leaving every other label in place.
+   *
+   * Separate from `labels` because the two have opposite semantics and the difference
+   * matters: origin markers (`tbd`, `repo/<name>`) must be present on every mirrored
+   * item so a human can filter agent traffic in or out, but asserting them must never
+   * remove a label a person put there deliberately.
+   */
+  ensureLabels?: string[];
   assignee?: string | null;
   parentId?: string | null;
 }

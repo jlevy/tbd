@@ -384,6 +384,19 @@ export class LinearMockServer {
                 return parent ? { id: parent.id, identifier: parent.identifier } : null;
               })()
             : null,
+        // Real Linear applies labelIds on create, and the IssueUpdate handler below
+        // already does. Ignoring them here made a created issue come back unlabelled,
+        // so anything asserting a label on create looked like it had failed to apply
+        // and would re-assert on the next sync forever.
+        ...(Array.isArray(input.labelIds)
+          ? {
+              labels: {
+                nodes: (input.labelIds as string[])
+                  .map((lid) => this.labels.find((l) => l.id === lid))
+                  .filter((l): l is { id: string; name: string } => Boolean(l)),
+              },
+            }
+          : {}),
         updatedAt: new Date(Date.now() + this.sequence * 1000).toISOString(),
       });
       return {
