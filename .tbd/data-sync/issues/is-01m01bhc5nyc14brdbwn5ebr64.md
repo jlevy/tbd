@@ -5,11 +5,11 @@ title: Duplicate short-ID keys in ids.yml drop a bead's display mapping
 kind: bug
 status: in_progress
 priority: 1
-version: 2
+version: 3
 labels: []
 dependencies: []
 created_at: 2026-08-15T00:00:53.429Z
-updated_at: 2026-08-15T00:59:54.540Z
+updated_at: 2026-08-15T04:50:43.331Z
 ---
 `mappings/ids.yml` is keyed short -> ulid and merged with `merge=union` (see the sync branch's `mappings/.gitattributes`). Union merge keeps both sides' lines, so two clones that each allocate the same unseen short ID produce a file with that key twice. `parseYamlToleratingDuplicateKeys` (yaml-utils.ts:183) resolves duplicates as "last occurrence wins", so one of the two beads silently loses its mapping.
 
@@ -38,10 +38,16 @@ Found while researching agent identity (research-2026-08-14-agent-and-session-id
 
 ## Notes
 
-Fix in PR #232 (branch claude/fix-ids-yml-duplicate-short-ids), authored by a subagent, reviewed here.
+Senior review on PR #232 (jlevy, OWNER) requested changes. One blocker, independently verified here and worse than the review measured.
 
-Approach: deterministic repair at load. parseAllIdEntries reads every duplicate line-by-line, resolveDuplicateShortIds gives the contested short ID to the lexicographically smallest ULID (earliest-created bead), and deriveShortIdFromUlid assigns displaced ULIDs a replacement taken from 4-char windows of their own ULID — starting at the tail, so candidates come from the 80 random bits rather than the shared timestamp prefix. No randomness, so clones converge.
+R1 blocker: parseAllIdEntries' regex cannot match a QUOTED key, and tbd's own stringifyYaml quotes any short ID that looks like a YAML scalar. Measured: 1,727 of 200,000 generateShortId(4) outputs (0.864%, ~1 in 116) serialize unreadably. But in this repo 274 of 1,739 live ids.yml entries are quoted — 15.8% — because migrated beads have numeric short IDs ('1', '100', '1000', '0622'). Once any duplicate exists anywhere in the file, the repair branch discards EVERY quoted entry in the whole file, so a single union-merge duplicate would break 274 unrelated beads here. Verified end to end: bystander entry dropped, formatDisplayId throws. That is this very bug reintroduced by its own fix.
 
-Review found and got fixed: the first revision checked duplicates before merge-conflict markers, so a conflicted-AND-duplicated ids.yml parsed silently instead of raising MergeConflictError — parseAllIdEntries skips marker lines, so both sides of an unresolved conflict were treated as live data. Fixed in 735e9ee; verified by probe that conflicted input now throws in both loadIdMapping and parseIdMappingFromYaml while clean duplicates still repair.
+Fix direction (R2, subsumes R1/R3/R4/R5): delete the regex rather than patch it. parseYamlToleratingDuplicateKeys already builds an AST via parseDocument(uniqueKeys: false) that retains every duplicate pair, then discards it with toJSON(). Add one yaml-utils primitive returning all pairs plus the duplicate-key set, and use it for both detection and extraction — collapsing three parsers with three notions of a line into one.
 
-Known residual, documented in the PR and deliberately not fixed here: clones at different sync states can derive different replacements for the same displaced ULID, producing two short IDs aliasing one bead. Alias, not data loss; the true two-ULID conflict still self-heals as a duplicate key.
+Also in scope: R3 trailing-comment drop, R4 undefined written into Map<string,string>, R5 restore loud failure on non-conforming lines, R6 27-char ULID fixture, R7 hardcoded length 4 vs calculateOptimalLength, S2 loadIdMappingRaw, and tbd-design.md:675 which still carries the false auto-fix claim.
+
+Root cause of the gap: every fixture used hand-picked keys (a1b2, 00wl) the regex happens to handle. Coverage measured the repair code; nothing measured whether the repair could see the file.
+
+Filed out of scope: tbd-64aq (invert ids.yml to ULID-keyed — the structural fix), tbd-r0fv (doctor check), tbd-g2fd (diff3 markers, pre-existing on main).
+
+Confirmed correct and not to be touched: the 735e9ee conflict-marker ordering fix, resolveIdMappingConflicts, the smallest-ULID-wins tiebreak, and the tail-first window scan.
