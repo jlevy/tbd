@@ -140,7 +140,17 @@ class SyncHandler extends BaseCommand {
 
     const syncDocs = Boolean(options.docs) || (!hasSurfaceFlag && !hasDirectionFlag);
     const syncIssues = Boolean(options.issues) || hasDirectionFlag || !hasSurfaceFlag;
-    const syncIntegrations = Boolean(options.integrations) || (!hasSurfaceFlag && !options.status);
+    // A direction flag no longer drags the tracker along. `--push` used to reach
+    // `runEnabledIntegrationPushes`, the outbound-only projection that `setup-linear`
+    // warns joiners never to run — it writes local state over the tracker without
+    // reconciling first. A natural-looking flag must not be the dangerous one, so
+    // `--push` now narrows away from the tracker like any other surface flag, and the
+    // projection stays behind the command that names it: `tbd integration sync --push`.
+    //
+    // `--push --integrations` still performs it: naming both the surface and the
+    // direction is a deliberate request, not an accident.
+    const syncIntegrations =
+      Boolean(options.integrations) || (!hasSurfaceFlag && !hasDirectionFlag && !options.status);
 
     // Narrowing to a surface excludes the tracker, which is easy to do by
     // accident (`--issues` reads like "the issue surface", and the tracker IS
@@ -156,8 +166,12 @@ class SyncHandler extends BaseCommand {
       const config = await readConfig(tbdRoot);
       if (!integrationsInert(config) && config.integrations?.sync_on_tbd_sync !== false) {
         this.output.notice(
-          'Skipping external trackers for this run (surface flag given). ' +
-            'Run `tbd sync` or `tbd sync --integrations` to reconcile them.',
+          hasDirectionFlag
+            ? 'Skipping external trackers for this run (direction flag given). ' +
+                'Run `tbd sync` to reconcile them, or `tbd integration sync --push` ' +
+                'for the outbound-only projection.'
+            : 'Skipping external trackers for this run (surface flag given). ' +
+                'Run `tbd sync` or `tbd sync --integrations` to reconcile them.',
           { skippedSurfaces: ['integrations'] },
         );
       }

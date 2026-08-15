@@ -144,7 +144,12 @@ describe('tbd integration, end to end via the built binary', () => {
     expect(settle.stdout).toContain('nothing to do');
   });
 
-  it('keeps tbd sync --push outbound-only for integrations', async () => {
+  it('keeps tbd sync --push away from the tracker entirely', async () => {
+    // `--push` used to reach the outbound-only projection, writing local state over the
+    // tracker without reconciling first — the operation `setup-linear` warns joiners
+    // never to run. A natural-looking flag must not be the dangerous one, so `--push`
+    // now narrows away from the tracker like any other surface flag and leaves both
+    // sides untouched. The projection stays behind `tbd integration sync --push`.
     expect((await cli(['create', 'Push direction sentinel', '-t', 'epic'])).code).toBe(0);
     const rows = JSON.parse((await cli(['list', '--json'])).stdout) as {
       id: string;
@@ -156,7 +161,7 @@ describe('tbd integration, end to end via the built binary', () => {
     const remote = [...server.issues.values()].find(
       (issue) => issue.title === 'Push direction sentinel',
     )!;
-    remote.title = 'Remote edit must not pull';
+    remote.title = 'Remote edit must survive a --push';
     remote.updatedAt = new Date(Date.now() + 60_000).toISOString();
 
     const pushed = await cli(['sync', '--push']);
@@ -166,7 +171,15 @@ describe('tbd integration, end to end via the built binary', () => {
       id: string;
       title: string;
     }[];
+    // Nothing pulled: the local bead is unchanged.
     expect(after.find((row) => row.id === bead.id)?.title).toBe('Push direction sentinel');
+    // And nothing projected: the tracker-side edit is still there, where the old
+    // behavior would have silently overwritten it.
+    expect(server.issues.get(remote.id)?.title).toBe('Remote edit must survive a --push');
+
+    // Naming both the surface and the direction is still a deliberate request for the
+    // projection, and still performs it.
+    expect((await cli(['sync', '--push', '--integrations'])).code).toBe(0);
     expect(server.issues.get(remote.id)?.title).toBe('Push direction sentinel');
   });
 
