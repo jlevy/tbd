@@ -14,6 +14,7 @@ import { writeFile } from 'atomically';
 import {
   parseYamlToleratingDuplicateKeys,
   detectDuplicateYamlKeys,
+  MergeConflictError,
   stringifyYaml,
   hasMergeConflictMarkers,
 } from '../utils/yaml-utils.js';
@@ -246,6 +247,19 @@ export async function loadIdMapping(baseDir: string): Promise<IdMapping> {
       shortToUlid: new Map(),
       ulidToShort: new Map(),
     };
+  }
+
+  // Check for unresolved merge conflict markers before any other parsing.
+  // This must run before the duplicate-key branch, because parseAllIdEntries
+  // silently skips conflict marker lines and would treat both sides of an
+  // unresolved conflict as live data.
+  if (hasMergeConflictMarkers(content)) {
+    throw new MergeConflictError(
+      `File in ${filePath} contains unresolved git merge conflict markers.\n` +
+        `This usually happens when 'tbd sync' encountered conflicts that weren't properly resolved.\n` +
+        `To fix: manually edit the file to resolve conflicts, or run 'tbd doctor --fix'.`,
+      filePath,
+    );
   }
 
   // Detect duplicate keys from the raw content before YAML parsing.
@@ -544,7 +558,19 @@ export function resolveToInternalId(input: string, mapping: IdMapping): Internal
  * @throws MergeConflictError if content contains merge conflict markers
  */
 export function parseIdMappingFromYaml(content: string): IdMapping {
-  // Detect duplicates from raw content first
+  // Check for unresolved merge conflict markers before any other parsing.
+  // This must run before the duplicate-key branch, because parseAllIdEntries
+  // silently skips conflict marker lines and would treat both sides of an
+  // unresolved conflict as live data.
+  if (hasMergeConflictMarkers(content)) {
+    throw new MergeConflictError(
+      `File contains unresolved git merge conflict markers.\n` +
+        `This usually happens when 'tbd sync' encountered conflicts that weren't properly resolved.\n` +
+        `To fix: manually edit the file to resolve conflicts, or run 'tbd doctor --fix'.`,
+    );
+  }
+
+  // Detect duplicates from raw content
   const duplicateKeys = detectDuplicateYamlKeys(content);
 
   if (duplicateKeys.length > 0) {

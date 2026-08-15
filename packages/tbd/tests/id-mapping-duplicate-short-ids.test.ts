@@ -23,6 +23,7 @@ import {
   parseIdMappingFromYaml,
 } from '../src/file/id-mapping.js';
 import { formatDisplayId } from '../src/lib/ids.js';
+import { MergeConflictError } from '../src/utils/yaml-utils.js';
 
 // =============================================================================
 // parseAllIdEntries
@@ -485,5 +486,70 @@ a1b2: 01hx5zzkbkxctav9wevgemmabc`;
     // Displaced ULID has a replacement
     expect(mapping.ulidToShort.has('01hx5zzkbkxctav9wevgemmabc')).toBe(true);
     expect(mapping.ulidToShort.get('01hx5zzkbkxctav9wevgemmabc')).not.toBe('a1b2');
+  });
+});
+
+// =============================================================================
+// Merge conflict markers must throw even when duplicates are present
+// =============================================================================
+
+describe('conflict markers take priority over duplicate-key resolution', () => {
+  async function createTempDir(): Promise<string> {
+    const baseDir = join(
+      tmpdir(),
+      `tbd-test-conflict-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
+    await mkdir(join(baseDir, 'mappings'), { recursive: true });
+    return baseDir;
+  }
+
+  it('parseIdMappingFromYaml throws MergeConflictError when content has both conflict markers and duplicate keys', () => {
+    // Conflicted content that also has duplicate keys — the conflict marker
+    // check must run first, not be bypassed by the duplicate-key branch.
+    const conflictedWithDuplicates = `00wl: 01aaaaaaaaaaaaaaaaaaaaaaaa
+<<<<<<< HEAD
+00wl: 01bbbbbbbbbbbbbbbbbbbbbbbb
+=======
+c3d4: 01cccccccccccccccccccccccc
+>>>>>>> origin/tbd-sync`;
+
+    expect(() => parseIdMappingFromYaml(conflictedWithDuplicates)).toThrow(MergeConflictError);
+  });
+
+  it('parseIdMappingFromYaml still throws on conflict markers without duplicate keys', () => {
+    const conflictedNoDuplicates = `<<<<<<< HEAD
+a1b2: 01aaaaaaaaaaaaaaaaaaaaaaaa
+=======
+c3d4: 01bbbbbbbbbbbbbbbbbbbbbbbb
+>>>>>>> origin/tbd-sync`;
+
+    expect(() => parseIdMappingFromYaml(conflictedNoDuplicates)).toThrow(MergeConflictError);
+  });
+
+  it('loadIdMapping throws MergeConflictError when file has both conflict markers and duplicate keys', async () => {
+    const baseDir = await createTempDir();
+    const conflictedWithDuplicates = `00wl: 01aaaaaaaaaaaaaaaaaaaaaaaa
+<<<<<<< HEAD
+00wl: 01bbbbbbbbbbbbbbbbbbbbbbbb
+=======
+c3d4: 01cccccccccccccccccccccccc
+>>>>>>> origin/tbd-sync
+`;
+    await writeFile(join(baseDir, 'mappings', 'ids.yml'), conflictedWithDuplicates);
+
+    await expect(loadIdMapping(baseDir)).rejects.toThrow(MergeConflictError);
+  });
+
+  it('loadIdMapping still throws on conflict markers without duplicate keys', async () => {
+    const baseDir = await createTempDir();
+    const conflictedNoDuplicates = `<<<<<<< HEAD
+a1b2: 01aaaaaaaaaaaaaaaaaaaaaaaa
+=======
+c3d4: 01bbbbbbbbbbbbbbbbbbbbbbbb
+>>>>>>> origin/tbd-sync
+`;
+    await writeFile(join(baseDir, 'mappings', 'ids.yml'), conflictedNoDuplicates);
+
+    await expect(loadIdMapping(baseDir)).rejects.toThrow(MergeConflictError);
   });
 });
