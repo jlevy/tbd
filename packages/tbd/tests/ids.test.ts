@@ -819,7 +819,9 @@ vb4g: 01hx5zzkbkdctav9wevgemmvry`;
   });
 
   it('handles duplicate keys mapping to different ULIDs', () => {
-    // Edge case: same short ID maps to different ULIDs after merge
+    // Edge case: same short ID maps to different ULIDs after merge.
+    // Both ULIDs must be preserved — the smaller ULID keeps the original
+    // short ID, and the displaced ULID gets a deterministic replacement.
     const yamlWithConflictingDuplicates = `a1b2: 01hx5zzkbkactav9wevgemmvrz
 c3d4: 01hx5zzkbkbctav9wevgemmvrw
 a1b2: 01hx5zzkbkxctav9wevgemmabc`;
@@ -827,10 +829,15 @@ a1b2: 01hx5zzkbkxctav9wevgemmabc`;
     // Should NOT throw
     const mapping = parseIdMappingFromYaml(yamlWithConflictingDuplicates);
 
-    expect(mapping.shortToUlid.size).toBe(2);
-    // Last occurrence wins (yaml parser behavior with uniqueKeys: false)
-    expect(mapping.shortToUlid.get('a1b2')).toBe('01hx5zzkbkxctav9wevgemmabc');
+    // All 3 ULIDs preserved (no data loss)
+    expect(mapping.shortToUlid.size).toBe(3);
+    expect(mapping.ulidToShort.size).toBe(3);
+    // Smallest ULID keeps the contested short ID
+    expect(mapping.shortToUlid.get('a1b2')).toBe('01hx5zzkbkactav9wevgemmvrz');
     expect(mapping.shortToUlid.get('c3d4')).toBe('01hx5zzkbkbctav9wevgemmvrw');
+    // Displaced ULID has a deterministic replacement
+    expect(mapping.ulidToShort.has('01hx5zzkbkxctav9wevgemmabc')).toBe(true);
+    expect(mapping.ulidToShort.get('01hx5zzkbkxctav9wevgemmabc')).not.toBe('a1b2');
   });
 });
 

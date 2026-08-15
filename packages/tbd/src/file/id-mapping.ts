@@ -13,6 +13,7 @@ import { writeFile } from 'atomically';
 
 import {
   parseYamlToleratingDuplicateKeys,
+  detectDuplicateYamlKeys,
   stringifyYaml,
   hasMergeConflictMarkers,
 } from '../utils/yaml-utils.js';
@@ -58,8 +59,175 @@ function serializeIdMapping(mapping: IdMapping): string {
 }
 
 /**
+ * Parse all key-value entries from raw ids.yml content, preserving every
+ * occurrence of duplicate keys. The YAML parser's `uniqueKeys: false` mode
+ * silently drops all but the last value for each key; this line-level parser
+ * captures every entry so that duplicate-key repair can see all competing ULIDs.
+ *
+ * Only matches top-level `shortId: ulid` lines; comments and blank lines are
+ * skipped. This is safe because ids.yml is a flat key-value map.
+ */
+export function parseAllIdEntries(content: string): { shortId: string; ulid: string }[] {
+  const entries: { shortId: string; ulid: string }[] = [];
+  for (const line of content.split('\n')) {
+    // Match lines like "a7k2: 01hx5zzkbkactav9wevgemmvrz"
+    // ShortId allows [0-9a-z._-]+, Ulid is exactly 26 [0-9a-z] chars
+    const match = /^([0-9a-z._-]+):\s+([0-9a-z]{26})\s*$/.exec(line);
+    if (match) {
+      entries.push({ shortId: match[1]!, ulid: match[2]! });
+    }
+  }
+  return entries;
+}
+
+/**
+ * Derive a deterministic short ID from a ULID by extracting character windows.
+ *
+ * Tries successive non-overlapping 4-char windows from the end of the ULID,
+ * then overlapping single-offset windows, then 5-char windows as a last resort.
+ * The derivation is a pure function of the ULID and the set of already-used
+ * short IDs, so two clones repairing the same file independently will compute
+ * the same replacement — no randomness involved.
+ */
+export function deriveShortIdFromUlid(ulid: string, usedShortIds: Set<string>, length = 4): string {
+  // Try non-overlapping windows from the end: [22:26], [18:22], [14:18], ...
+  for (let offset = ulid.length - length; offset >= 0; offset -= length) {
+    const candidate = ulid.slice(offset, offset + length);
+    if (!usedShortIds.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  // Try every single-offset window from the end
+  for (let offset = ulid.length - length; offset >= 0; offset--) {
+    const candidate = ulid.slice(offset, offset + length);
+    if (!usedShortIds.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  // Last resort: try 5-char windows (longer ID)
+  const longerLength = length + 1;
+  for (let offset = ulid.length - longerLength; offset >= 0; offset--) {
+    const candidate = ulid.slice(offset, offset + longerLength);
+    if (!usedShortIds.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new Error(
+    `Cannot derive a unique short ID from ULID ${ulid}. ` +
+      `This should be extremely rare — please report this error.`,
+  );
+}
+
+/**
+ * Resolve duplicate short IDs that map to different ULIDs.
+ *
+ * When `merge=union` combines two clones' ids.yml files that independently
+ * allocated the same short ID for different beads, the merged file contains
+ * the same key twice with different values. This function deterministically
+ * resolves the conflict:
+ *
+ * 1. For each contested short ID, the lexicographically smallest ULID keeps it
+ *    (ULIDs are time-ordered, so the earlier-created bead wins).
+ * 2. Each displaced ULID receives a new short ID derived from its own characters
+ *    via `deriveShortIdFromUlid` — no randomness, so every clone that sees the
+ *    same merged file computes the same repair.
+ * 3. Duplicate keys are processed in sorted order for full determinism.
+ *
+ * @param allEntries - Every key-value pair from the raw file, in file order
+ * @param duplicateKeys - The set of short IDs that appear more than once
+ * @returns A resolved IdMapping where every ULID is addressable
+ */
+export function resolveDuplicateShortIds(
+  allEntries: { shortId: string; ulid: string }[],
+  duplicateKeys: string[],
+): IdMapping {
+  // Collect all ULIDs for each duplicate short ID
+  const duplicateUlids = new Map<string, Set<string>>();
+  for (const key of duplicateKeys) {
+    duplicateUlids.set(key, new Set());
+  }
+  for (const { shortId, ulid } of allEntries) {
+    const set = duplicateUlids.get(shortId);
+    if (set) {
+      set.add(ulid);
+    }
+  }
+
+  // Build the base mapping from all unique entries (non-duplicated keys).
+  // For duplicated keys, only the winner (smallest ULID) gets the original short ID.
+  const shortToUlid = new Map<string, string>();
+  const ulidToShort = new Map<string, string>();
+  const usedShortIds = new Set<string>();
+
+  // First pass: add all non-duplicate entries
+  const seenShortIds = new Set<string>();
+  for (const { shortId, ulid } of allEntries) {
+    if (duplicateUlids.has(shortId)) {
+      continue; // Handle duplicates separately below
+    }
+    if (!seenShortIds.has(shortId)) {
+      shortToUlid.set(shortId, ulid);
+      ulidToShort.set(ulid, shortId);
+      usedShortIds.add(shortId);
+      seenShortIds.add(shortId);
+    }
+  }
+
+  // Second pass: resolve each duplicate key deterministically.
+  // Process duplicate keys in sorted order for cross-clone determinism.
+  const sortedDuplicateKeys = [...duplicateKeys].sort();
+  const displacedUlids: { ulid: string; originalShortId: string }[] = [];
+
+  for (const shortId of sortedDuplicateKeys) {
+    const ulids = duplicateUlids.get(shortId)!;
+
+    if (ulids.size <= 1) {
+      // Same ULID repeated (harmless duplicate); just keep one copy
+      const ulid = ulids.values().next().value!;
+      shortToUlid.set(shortId, ulid);
+      ulidToShort.set(ulid, shortId);
+      usedShortIds.add(shortId);
+      continue;
+    }
+
+    // Multiple different ULIDs: smallest ULID keeps the short ID
+    const sorted = [...ulids].sort();
+    const winner = sorted[0]!;
+    shortToUlid.set(shortId, winner);
+    ulidToShort.set(winner, shortId);
+    usedShortIds.add(shortId);
+
+    // Collect displaced ULIDs for re-allocation
+    for (let i = 1; i < sorted.length; i++) {
+      displacedUlids.push({ ulid: sorted[i]!, originalShortId: shortId });
+    }
+  }
+
+  // Third pass: assign deterministic replacement short IDs to displaced ULIDs.
+  // Process in sorted order by ULID for determinism.
+  displacedUlids.sort((a, b) => (a.ulid < b.ulid ? -1 : a.ulid > b.ulid ? 1 : 0));
+
+  for (const { ulid } of displacedUlids) {
+    const newShortId = deriveShortIdFromUlid(ulid, usedShortIds);
+    shortToUlid.set(newShortId, ulid);
+    ulidToShort.set(ulid, newShortId);
+    usedShortIds.add(newShortId);
+  }
+
+  return { shortToUlid, ulidToShort };
+}
+
+/**
  * Load the ID mapping from disk.
  * Returns empty mapping if file doesn't exist.
+ *
+ * When the file contains duplicate short IDs (from a `merge=union` merge where
+ * two clones independently allocated the same short ID for different beads),
+ * the duplicates are resolved deterministically at load time so that every ULID
+ * remains addressable. The file is corrected on the next save.
  */
 export async function loadIdMapping(baseDir: string): Promise<IdMapping> {
   const filePath = getMappingPath(baseDir);
@@ -80,19 +248,28 @@ export async function loadIdMapping(baseDir: string): Promise<IdMapping> {
     };
   }
 
-  // Parse tolerating duplicate keys; this handles the case where a git merge
-  // conflict resolution kept entries from both sides, creating duplicate YAML keys.
-  // Without this, the yaml parser throws "Map keys must be unique".
-  const { data: rawData, duplicateKeys } = parseYamlToleratingDuplicateKeys(content, filePath);
-  const data = rawData ?? {};
+  // Detect duplicate keys from the raw content before YAML parsing.
+  const duplicateKeys = detectDuplicateYamlKeys(content);
 
   if (duplicateKeys.length > 0) {
+    // Parse all entries from raw content (preserving every duplicate) and
+    // resolve deterministically so no ULID loses its mapping.
+    const allEntries = parseAllIdEntries(content);
+    const mapping = resolveDuplicateShortIds(allEntries, duplicateKeys);
+
     console.warn(
       `Warning: ${filePath} contains ${duplicateKeys.length} duplicate key(s): ${duplicateKeys.join(', ')}. ` +
-        `This usually happens after a git merge conflict resolution. ` +
+        `This usually happens after a union merge of two clones. ` +
+        `Displaced entries have been assigned deterministic replacement short IDs. ` +
         `The file will be auto-fixed on next save.`,
     );
+
+    return mapping;
   }
+
+  // No duplicates: standard YAML parse path
+  const { data: rawData } = parseYamlToleratingDuplicateKeys(content, filePath);
+  const data = rawData ?? {};
 
   // Validate with Zod schema - ensures all keys are valid short IDs and values are ULIDs
   const parseResult = IdMappingYamlSchema.safeParse(data);
@@ -361,19 +538,29 @@ export function resolveToInternalId(input: string, mapping: IdMapping): Internal
  * Parse an ID mapping from raw YAML content.
  * Used for loading mappings from git show output during conflict resolution.
  *
+ * When duplicate keys map to different ULIDs (from a union merge), resolves
+ * them deterministically so no ULID loses its mapping.
+ *
  * @throws MergeConflictError if content contains merge conflict markers
  */
 export function parseIdMappingFromYaml(content: string): IdMapping {
-  // Parse tolerating duplicate keys; handles post-merge-conflict duplicates
-  const { data: rawData, duplicateKeys } = parseYamlToleratingDuplicateKeys(content);
-  const data = rawData ?? {};
+  // Detect duplicates from raw content first
+  const duplicateKeys = detectDuplicateYamlKeys(content);
 
   if (duplicateKeys.length > 0) {
     console.warn(
       `Warning: ID mapping YAML contains ${duplicateKeys.length} duplicate key(s): ${duplicateKeys.join(', ')}. ` +
         `Duplicates will be auto-resolved.`,
     );
+
+    // Parse all entries preserving duplicates, then resolve deterministically
+    const allEntries = parseAllIdEntries(content);
+    return resolveDuplicateShortIds(allEntries, duplicateKeys);
   }
+
+  // No duplicates: standard parse path
+  const { data: rawData } = parseYamlToleratingDuplicateKeys(content);
+  const data = rawData ?? {};
 
   // Validate with Zod schema
   const parseResult = IdMappingYamlSchema.safeParse(data);
