@@ -12,8 +12,7 @@ import { join, dirname } from 'node:path';
 import { writeFile } from 'atomically';
 
 import {
-  parseYamlToleratingDuplicateKeys,
-  detectDuplicateYamlKeys,
+  parseYamlDocumentEntries,
   MergeConflictError,
   stringifyYaml,
   hasMergeConflictMarkers,
@@ -30,7 +29,7 @@ import {
   type InternalIssueId,
 } from '../lib/ids.js';
 import { naturalSort } from '../lib/sort.js';
-import { IdMappingYamlSchema } from '../lib/schemas.js';
+import { ShortId, Ulid } from '../lib/schemas.js';
 
 /**
  * ID mapping from short ID to ULID.
@@ -60,25 +59,50 @@ function serializeIdMapping(mapping: IdMapping): string {
 }
 
 /**
- * Parse all key-value entries from raw ids.yml content, preserving every
- * occurrence of duplicate keys. The YAML parser's `uniqueKeys: false` mode
- * silently drops all but the last value for each key; this line-level parser
- * captures every entry so that duplicate-key repair can see all competing ULIDs.
+ * Extract validated ID mapping entries from raw YAML content, preserving every
+ * occurrence of duplicate keys.
  *
- * Only matches top-level `shortId: ulid` lines; comments and blank lines are
- * skipped. This is safe because ids.yml is a flat key-value map.
+ * Uses the `yaml` library's AST (via `parseYamlDocumentEntries`) to handle
+ * quoted keys, trailing comments, and all other YAML formatting correctly —
+ * unlike a line-level regex, which cannot match keys that `stringifyYaml`
+ * quotes (e.g., all-digit short IDs like `"1234"`, `"0000"`, or YAML
+ * special scalars like `"true"`, `"null"`).
+ *
+ * Each extracted entry is validated against `ShortId` and `Ulid` schemas.
+ * Entries that fail validation cause a loud error rather than being silently
+ * skipped, preserving the same failure behavior as the Zod-validated parse path.
+ *
+ * @param content - Raw ids.yml YAML content
+ * @param filePath - Optional file path for error messages
+ * @returns Every (shortId, ulid) pair in document order, plus duplicate keys
  */
-export function parseAllIdEntries(content: string): { shortId: string; ulid: string }[] {
-  const entries: { shortId: string; ulid: string }[] = [];
-  for (const line of content.split('\n')) {
-    // Match lines like "a7k2: 01hx5zzkbkactav9wevgemmvrz"
-    // ShortId allows [0-9a-z._-]+, Ulid is exactly 26 [0-9a-z] chars
-    const match = /^([0-9a-z._-]+):\s+([0-9a-z]{26})\s*$/.exec(line);
-    if (match) {
-      entries.push({ shortId: match[1]!, ulid: match[2]! });
+function extractValidatedIdEntries(
+  content: string,
+  filePath?: string,
+): {
+  allEntries: { shortId: string; ulid: string }[];
+  duplicateKeys: string[];
+} {
+  const { entries, duplicateKeys } = parseYamlDocumentEntries(content, filePath);
+
+  const allEntries: { shortId: string; ulid: string }[] = [];
+  for (const { key, value } of entries) {
+    const shortIdResult = ShortId.safeParse(key);
+    if (!shortIdResult.success) {
+      const location = filePath ? ` in ${filePath}` : '';
+      throw new Error(`Invalid short ID "${key}"${location}: ${shortIdResult.error.message}`);
     }
+    const ulidResult = Ulid.safeParse(value);
+    if (!ulidResult.success) {
+      const location = filePath ? ` in ${filePath}` : '';
+      throw new Error(
+        `Invalid ULID "${value}" for key "${key}"${location}: ${ulidResult.error.message}`,
+      );
+    }
+    allEntries.push({ shortId: key, ulid: value });
   }
-  return entries;
+
+  return { allEntries, duplicateKeys };
 }
 
 /**
@@ -185,7 +209,14 @@ export function resolveDuplicateShortIds(
   for (const shortId of sortedDuplicateKeys) {
     const ulids = duplicateUlids.get(shortId)!;
 
-    if (ulids.size <= 1) {
+    // Guard: a reported duplicate key with no matching parsed entries is a no-op.
+    // This should not happen when detection and extraction use the same parser,
+    // but the guard prevents writing undefined into the Map if it ever does.
+    if (ulids.size === 0) {
+      continue;
+    }
+
+    if (ulids.size === 1) {
       // Same ULID repeated (harmless duplicate); just keep one copy
       const ulid = ulids.values().next().value!;
       shortToUlid.set(shortId, ulid);
@@ -212,7 +243,11 @@ export function resolveDuplicateShortIds(
   displacedUlids.sort((a, b) => (a.ulid < b.ulid ? -1 : a.ulid > b.ulid ? 1 : 0));
 
   for (const { ulid } of displacedUlids) {
-    const newShortId = deriveShortIdFromUlid(ulid, usedShortIds);
+    const newShortId = deriveShortIdFromUlid(
+      ulid,
+      usedShortIds,
+      calculateOptimalLength(usedShortIds.size),
+    );
     shortToUlid.set(newShortId, ulid);
     ulidToShort.set(ulid, newShortId);
     usedShortIds.add(newShortId);
@@ -250,8 +285,8 @@ export async function loadIdMapping(baseDir: string): Promise<IdMapping> {
   }
 
   // Check for unresolved merge conflict markers before any other parsing.
-  // This must run before the duplicate-key branch, because parseAllIdEntries
-  // silently skips conflict marker lines and would treat both sides of an
+  // Conflict markers must be caught before the duplicate-key branch, because
+  // the YAML AST parser skips marker lines and would treat both sides of an
   // unresolved conflict as live data.
   if (hasMergeConflictMarkers(content)) {
     throw new MergeConflictError(
@@ -262,13 +297,13 @@ export async function loadIdMapping(baseDir: string): Promise<IdMapping> {
     );
   }
 
-  // Detect duplicate keys from the raw content before YAML parsing.
-  const duplicateKeys = detectDuplicateYamlKeys(content);
+  // Single AST parse: extracts every (key, value) pair in document order,
+  // handles quoted keys and trailing comments, and detects duplicates — all
+  // from one parseDocument call rather than separate regex + YAML passes.
+  const { allEntries, duplicateKeys } = extractValidatedIdEntries(content, filePath);
 
   if (duplicateKeys.length > 0) {
-    // Parse all entries from raw content (preserving every duplicate) and
-    // resolve deterministically so no ULID loses its mapping.
-    const allEntries = parseAllIdEntries(content);
+    // Resolve deterministically so no ULID loses its mapping.
     const mapping = resolveDuplicateShortIds(allEntries, duplicateKeys);
 
     console.warn(
@@ -281,21 +316,11 @@ export async function loadIdMapping(baseDir: string): Promise<IdMapping> {
     return mapping;
   }
 
-  // No duplicates: standard YAML parse path
-  const { data: rawData } = parseYamlToleratingDuplicateKeys(content, filePath);
-  const data = rawData ?? {};
-
-  // Validate with Zod schema - ensures all keys are valid short IDs and values are ULIDs
-  const parseResult = IdMappingYamlSchema.safeParse(data);
-  if (!parseResult.success) {
-    throw new Error(`Invalid ID mapping format in ${filePath}: ${parseResult.error.message}`);
-  }
-  const validData = parseResult.data;
-
+  // No duplicates: build mapping directly from validated entries.
   const shortToUlid = new Map<string, string>();
   const ulidToShort = new Map<string, string>();
 
-  for (const [shortId, ulid] of Object.entries(validData)) {
+  for (const { shortId, ulid } of allEntries) {
     shortToUlid.set(shortId, ulid);
     ulidToShort.set(ulid, shortId);
   }
@@ -375,23 +400,35 @@ export async function replaceRecoveredIdMapping(
 /**
  * Load an ID mapping directly from a file path (internal helper for save merging).
  * Separated from loadIdMapping to avoid coupling the save path to baseDir resolution.
+ *
+ * Uses the same AST-based parser as `loadIdMapping` so that quoted keys,
+ * trailing comments, and duplicate entries are all handled consistently
+ * across every read path.
  */
 async function loadIdMappingRaw(filePath: string): Promise<IdMapping> {
   const content = await readFile(filePath, 'utf-8');
 
-  const { data: rawData } = parseYamlToleratingDuplicateKeys(content, filePath);
-  const data = rawData ?? {};
-
-  const parseResult = IdMappingYamlSchema.safeParse(data);
-  if (!parseResult.success) {
-    throw new Error(`Invalid ID mapping format in ${filePath}: ${parseResult.error.message}`);
+  // Conflict markers inside the lock would be a serious consistency problem;
+  // let the caller surface it rather than silently dropping entries.
+  if (hasMergeConflictMarkers(content)) {
+    throw new MergeConflictError(
+      `File in ${filePath} contains unresolved git merge conflict markers.\n` +
+        `This usually happens when 'tbd sync' encountered conflicts that weren't properly resolved.\n` +
+        `To fix: manually edit the file to resolve conflicts, or run 'tbd doctor --fix'.`,
+      filePath,
+    );
   }
-  const validData = parseResult.data;
+
+  const { allEntries, duplicateKeys } = extractValidatedIdEntries(content, filePath);
+
+  if (duplicateKeys.length > 0) {
+    return resolveDuplicateShortIds(allEntries, duplicateKeys);
+  }
 
   const shortToUlid = new Map<string, string>();
   const ulidToShort = new Map<string, string>();
 
-  for (const [shortId, ulid] of Object.entries(validData)) {
+  for (const { shortId, ulid } of allEntries) {
     shortToUlid.set(shortId, ulid);
     ulidToShort.set(ulid, shortId);
   }
@@ -559,8 +596,8 @@ export function resolveToInternalId(input: string, mapping: IdMapping): Internal
  */
 export function parseIdMappingFromYaml(content: string): IdMapping {
   // Check for unresolved merge conflict markers before any other parsing.
-  // This must run before the duplicate-key branch, because parseAllIdEntries
-  // silently skips conflict marker lines and would treat both sides of an
+  // Conflict markers must be caught before the duplicate-key branch, because
+  // the YAML AST parser skips marker lines and would treat both sides of an
   // unresolved conflict as live data.
   if (hasMergeConflictMarkers(content)) {
     throw new MergeConflictError(
@@ -570,8 +607,9 @@ export function parseIdMappingFromYaml(content: string): IdMapping {
     );
   }
 
-  // Detect duplicates from raw content
-  const duplicateKeys = detectDuplicateYamlKeys(content);
+  // Single AST parse: extracts every (key, value) pair in document order,
+  // handles quoted keys and trailing comments, and detects duplicates.
+  const { allEntries, duplicateKeys } = extractValidatedIdEntries(content);
 
   if (duplicateKeys.length > 0) {
     console.warn(
@@ -579,26 +617,14 @@ export function parseIdMappingFromYaml(content: string): IdMapping {
         `Duplicates will be auto-resolved.`,
     );
 
-    // Parse all entries preserving duplicates, then resolve deterministically
-    const allEntries = parseAllIdEntries(content);
     return resolveDuplicateShortIds(allEntries, duplicateKeys);
   }
 
-  // No duplicates: standard parse path
-  const { data: rawData } = parseYamlToleratingDuplicateKeys(content);
-  const data = rawData ?? {};
-
-  // Validate with Zod schema
-  const parseResult = IdMappingYamlSchema.safeParse(data);
-  if (!parseResult.success) {
-    throw new Error(`Invalid ID mapping format: ${parseResult.error.message}`);
-  }
-  const validData = parseResult.data;
-
+  // No duplicates: build mapping directly from validated entries.
   const shortToUlid = new Map<string, string>();
   const ulidToShort = new Map<string, string>();
 
-  for (const [shortId, ulid] of Object.entries(validData)) {
+  for (const { shortId, ulid } of allEntries) {
     shortToUlid.set(shortId, ulid);
     ulidToShort.set(ulid, shortId);
   }

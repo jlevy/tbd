@@ -6,7 +6,7 @@
  * - Short ID: Base36, human-friendly for CLI (a7k2)
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   generateInternalId,
   generateShortId,
@@ -807,8 +807,10 @@ c3d4: 01hx5zzkbkcctav9wevgemmvrx
 vb4g: 01hx5zzkbkdctav9wevgemmvry
 vb4g: 01hx5zzkbkdctav9wevgemmvry`;
 
-    // Should NOT throw — this is the fix
+    // Suppress the expected duplicate-key warning
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const mapping = parseIdMappingFromYaml(yamlWithDuplicates);
+    warnSpy.mockRestore();
 
     // All unique entries should be present
     expect(mapping.shortToUlid.size).toBe(4); // 5j0r, a1b2, c3d4, vb4g
@@ -826,8 +828,10 @@ vb4g: 01hx5zzkbkdctav9wevgemmvry`;
 c3d4: 01hx5zzkbkbctav9wevgemmvrw
 a1b2: 01hx5zzkbkxctav9wevgemmabc`;
 
-    // Should NOT throw
+    // Suppress the expected duplicate-key warning
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const mapping = parseIdMappingFromYaml(yamlWithConflictingDuplicates);
+    warnSpy.mockRestore();
 
     // All 3 ULIDs preserved (no data loss)
     expect(mapping.shortToUlid.size).toBe(3);

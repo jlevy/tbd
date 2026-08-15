@@ -17,53 +17,116 @@ import { tmpdir } from 'node:os';
 import {
   loadIdMapping,
   saveIdMapping,
-  parseAllIdEntries,
   deriveShortIdFromUlid,
   resolveDuplicateShortIds,
   parseIdMappingFromYaml,
 } from '../src/file/id-mapping.js';
 import { formatDisplayId } from '../src/lib/ids.js';
-import { MergeConflictError } from '../src/utils/yaml-utils.js';
+import {
+  MergeConflictError,
+  parseYamlDocumentEntries,
+  stringifyYaml,
+} from '../src/utils/yaml-utils.js';
 
 // =============================================================================
-// parseAllIdEntries
+// parseYamlDocumentEntries — the AST-based primitive
 // =============================================================================
 
-describe('parseAllIdEntries', () => {
-  it('parses all entries including duplicates', () => {
+describe('parseYamlDocumentEntries', () => {
+  it('extracts all entries including duplicates', () => {
     const content = `00wl: 01aaaaaaaaaaaaaaaaaaaaaaaa
 00wl: 01bbbbbbbbbbbbbbbbbbbbbbbb
 zzzz: 01cccccccccccccccccccccccc`;
 
-    const entries = parseAllIdEntries(content);
+    const { entries, duplicateKeys } = parseYamlDocumentEntries(content);
     expect(entries).toHaveLength(3);
-    expect(entries[0]).toEqual({ shortId: '00wl', ulid: '01aaaaaaaaaaaaaaaaaaaaaaaa' });
-    expect(entries[1]).toEqual({ shortId: '00wl', ulid: '01bbbbbbbbbbbbbbbbbbbbbbbb' });
-    expect(entries[2]).toEqual({ shortId: 'zzzz', ulid: '01cccccccccccccccccccccccc' });
+    expect(entries[0]).toEqual({ key: '00wl', value: '01aaaaaaaaaaaaaaaaaaaaaaaa' });
+    expect(entries[1]).toEqual({ key: '00wl', value: '01bbbbbbbbbbbbbbbbbbbbbbbb' });
+    expect(entries[2]).toEqual({ key: 'zzzz', value: '01cccccccccccccccccccccccc' });
+    expect(duplicateKeys).toEqual(['00wl']);
   });
 
-  it('skips comments and blank lines', () => {
-    const content = `# comment
-a1b2: 01aaaaaaaaaaaaaaaaaaaaaaaa
+  it('handles quoted keys (all-digit short IDs)', () => {
+    // stringifyYaml quotes all-digit keys since they look like YAML numbers.
+    // This is the shape produced by tbd's own serializer for numeric short IDs.
+    const content = `"1234": 01aaaaaaaaaaaaaaaaaaaaaaaa
+a1b2: 01bbbbbbbbbbbbbbbbbbbbbbbb
+"0000": 01cccccccccccccccccccccccc`;
 
+    const { entries, duplicateKeys } = parseYamlDocumentEntries(content);
+    expect(entries).toHaveLength(3);
+    expect(entries[0]).toEqual({ key: '1234', value: '01aaaaaaaaaaaaaaaaaaaaaaaa' });
+    expect(entries[1]).toEqual({ key: 'a1b2', value: '01bbbbbbbbbbbbbbbbbbbbbbbb' });
+    expect(entries[2]).toEqual({ key: '0000', value: '01cccccccccccccccccccccccc' });
+    expect(duplicateKeys).toEqual([]);
+  });
+
+  it('handles quoted special YAML scalars', () => {
+    const content = `"true": 01aaaaaaaaaaaaaaaaaaaaaaaa
+"null": 01bbbbbbbbbbbbbbbbbbbbbbbb
+"9999": 01cccccccccccccccccccccccc`;
+
+    const { entries } = parseYamlDocumentEntries(content);
+    expect(entries).toHaveLength(3);
+    expect(entries[0]!.key).toBe('true');
+    expect(entries[1]!.key).toBe('null');
+    expect(entries[2]!.key).toBe('9999');
+  });
+
+  it('handles trailing comments on lines', () => {
+    const content = `a1b2: 01aaaaaaaaaaaaaaaaaaaaaaaa # from clone A
 c3d4: 01bbbbbbbbbbbbbbbbbbbbbbbb`;
 
-    const entries = parseAllIdEntries(content);
+    const { entries } = parseYamlDocumentEntries(content);
     expect(entries).toHaveLength(2);
+    // Trailing comment is stripped by the YAML parser
+    expect(entries[0]).toEqual({ key: 'a1b2', value: '01aaaaaaaaaaaaaaaaaaaaaaaa' });
+    expect(entries[1]).toEqual({ key: 'c3d4', value: '01bbbbbbbbbbbbbbbbbbbbbbbb' });
   });
 
   it('handles empty content', () => {
-    expect(parseAllIdEntries('')).toEqual([]);
+    const { entries, duplicateKeys } = parseYamlDocumentEntries('');
+    expect(entries).toEqual([]);
+    expect(duplicateKeys).toEqual([]);
   });
 
-  it('handles short IDs with dots, dashes, and underscores', () => {
+  it('handles comments-only content', () => {
+    const { entries, duplicateKeys } = parseYamlDocumentEntries('# just a comment\n# another\n');
+    expect(entries).toEqual([]);
+    expect(duplicateKeys).toEqual([]);
+  });
+
+  it('handles duplicates with quoted keys', () => {
+    const content = `"1234": 01aaaaaaaaaaaaaaaaaaaaaaaa
+"1234": 01bbbbbbbbbbbbbbbbbbbbbbbb`;
+
+    const { entries, duplicateKeys } = parseYamlDocumentEntries(content);
+    expect(entries).toHaveLength(2);
+    expect(entries[0]!.key).toBe('1234');
+    expect(entries[1]!.key).toBe('1234');
+    expect(duplicateKeys).toEqual(['1234']);
+  });
+
+  it('detects duplicates with trailing comments on duplicated lines', () => {
+    const content = `a1b2: 01aaaaaaaaaaaaaaaaaaaaaaaa # from clone A
+a1b2: 01bbbbbbbbbbbbbbbbbbbbbbbb # from clone B
+c3d4: 01cccccccccccccccccccccccc`;
+
+    const { entries, duplicateKeys } = parseYamlDocumentEntries(content);
+    expect(entries).toHaveLength(3);
+    expect(entries[0]!.value).toBe('01aaaaaaaaaaaaaaaaaaaaaaaa');
+    expect(entries[1]!.value).toBe('01bbbbbbbbbbbbbbbbbbbbbbbb');
+    expect(duplicateKeys).toEqual(['a1b2']);
+  });
+
+  it('handles keys with dots, dashes, and underscores', () => {
     const content = `stat-in_progress: 01aaaaaaaaaaaaaaaaaaaaaaaa
 v2.0: 01bbbbbbbbbbbbbbbbbbbbbbbb`;
 
-    const entries = parseAllIdEntries(content);
+    const { entries } = parseYamlDocumentEntries(content);
     expect(entries).toHaveLength(2);
-    expect(entries[0]!.shortId).toBe('stat-in_progress');
-    expect(entries[1]!.shortId).toBe('v2.0');
+    expect(entries[0]!.key).toBe('stat-in_progress');
+    expect(entries[1]!.key).toBe('v2.0');
   });
 });
 
@@ -97,8 +160,8 @@ describe('deriveShortIdFromUlid', () => {
 
   it('falls back to overlapping windows', () => {
     const ulid = '01aabbccddeeffffgghhjjkkll';
-    // Block all non-overlapping 4-char windows
-    const used = new Set<string>(['kkll', 'gghh', 'ccdd', 'ffff', 'aabb', 'jjkk', '01aa']);
+    // Block all non-overlapping 4-char windows: offsets 22, 18, 14, 10, 6, 2
+    const used = new Set<string>(['kkll', 'hhjj', 'ffgg', 'eeff', 'ccdd', 'aabb']);
     const result = deriveShortIdFromUlid(ulid, used);
     expect(result.length).toBe(4);
     expect(used.has(result)).toBe(false);
@@ -184,7 +247,7 @@ describe('deriveShortIdFromUlid escalation tiers', () => {
 
     // The single-offset loop starts at offset 22 and works down.
     // Offsets 22, 18, 14, 10, 6, 2 are blocked (same as tier 1).
-    // First new offset tried is 21 → 'npqr'.
+    // First new offset tried is 21 -> 'npqr'.
     expect(result).toBe('npqr');
     expect(result.length).toBe(4);
     expect(result).toMatch(/^[0-9a-z._-]+$/);
@@ -195,7 +258,7 @@ describe('deriveShortIdFromUlid escalation tiers', () => {
     const result = deriveShortIdFromUlid(ulid, used);
 
     // All 4-char windows exhausted, so the function tries 5-char windows
-    // starting at offset 21 → 'npqrs'.
+    // starting at offset 21 -> 'npqrs'.
     expect(result).toBe('npqrs');
     expect(result.length).toBe(5);
     expect(result).toMatch(/^[0-9a-z._-]+$/);
@@ -314,7 +377,7 @@ describe('resolveDuplicateShortIds', () => {
   it('tiebreak: lexicographically smallest ULID keeps the short ID', () => {
     // Deliberately put the larger ULID first in file order
     const entries = [
-      { shortId: 'x9m3', ulid: '01zzzzzzzzzzzzzzzzzzzzzzzzz' },
+      { shortId: 'x9m3', ulid: '01zzzzzzzzzzzzzzzzzzzzzzzz' },
       { shortId: 'x9m3', ulid: '01aaaaaaaaaaaaaaaaaaaaaaaa' },
     ];
     const duplicateKeys = ['x9m3'];
@@ -338,11 +401,10 @@ describe('convergence', () => {
 zzzz: 01cccccccccccccccccccccccc`;
 
     // Simulate two clones independently repairing the same file
-    const entries1 = parseAllIdEntries(content);
-    const mapping1 = resolveDuplicateShortIds(entries1, ['00wl']);
-
-    const entries2 = parseAllIdEntries(content);
-    const mapping2 = resolveDuplicateShortIds(entries2, ['00wl']);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const mapping1 = parseIdMappingFromYaml(content);
+    const mapping2 = parseIdMappingFromYaml(content);
+    warnSpy.mockRestore();
 
     // Both must produce identical results
     expect([...mapping1.shortToUlid.entries()].sort()).toEqual(
@@ -360,11 +422,10 @@ c3d4: 01cccccccccccccccccccccccc
 c3d4: 01dddddddddddddddddddddddd
 e5f6: 01eeeeeeeeeeeeeeeeeeeeeeee`;
 
-    const entries1 = parseAllIdEntries(content);
-    const mapping1 = resolveDuplicateShortIds(entries1, ['a1b2', 'c3d4']);
-
-    const entries2 = parseAllIdEntries(content);
-    const mapping2 = resolveDuplicateShortIds(entries2, ['a1b2', 'c3d4']);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const mapping1 = parseIdMappingFromYaml(content);
+    const mapping2 = parseIdMappingFromYaml(content);
+    warnSpy.mockRestore();
 
     expect([...mapping1.shortToUlid.entries()].sort()).toEqual(
       [...mapping2.shortToUlid.entries()].sort(),
@@ -385,8 +446,10 @@ zzzz: 01cccccccccccccccccccccccc`;
 00wl: 01bbbbbbbbbbbbbbbbbbbbbbbb
 zzzz: 01cccccccccccccccccccccccc`;
 
-    const mapping1 = resolveDuplicateShortIds(parseAllIdEntries(content1), ['00wl']);
-    const mapping2 = resolveDuplicateShortIds(parseAllIdEntries(content2), ['00wl']);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const mapping1 = parseIdMappingFromYaml(content1);
+    const mapping2 = parseIdMappingFromYaml(content2);
+    warnSpy.mockRestore();
 
     // Same result regardless of file order
     expect([...mapping1.shortToUlid.entries()].sort()).toEqual(
@@ -479,6 +542,126 @@ zzzz: 01cccccccccccccccccccccccc
     } finally {
       warnSpy.mockRestore();
     }
+  });
+});
+
+// =============================================================================
+// Quoted-key bystander test — the test that would have caught R1
+// =============================================================================
+
+describe('quoted keys (numeric short IDs) survive duplicate resolution', () => {
+  async function createTempDir(): Promise<string> {
+    const baseDir = join(
+      tmpdir(),
+      `tbd-test-quoted-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
+    await mkdir(join(baseDir, 'mappings'), { recursive: true });
+    return baseDir;
+  }
+
+  it('bystander with a quoted numeric short ID stays addressable after duplicate repair', async () => {
+    // This is the killer scenario: a file written by tbd's own stringifyYaml
+    // containing an at-risk short ID ("100", mirroring the real ids.yml which
+    // has 274 quoted entries) alongside a duplicate. The bystander must survive.
+    const bystander = { shortId: '100', ulid: '01cccccccccccccccccccccccc' };
+
+    // Build the file the way tbd's serializer would write it, then append a
+    // duplicate to simulate a union merge.
+    const data: Record<string, string> = {
+      '100': bystander.ulid,
+      a1b2: '01aaaaaaaaaaaaaaaaaaaaaaaa',
+    };
+    const base = stringifyYaml(data);
+    // Append a duplicate of a1b2 (simulating the other clone's allocation)
+    const merged = base + 'a1b2: 01bbbbbbbbbbbbbbbbbbbbbbbb\n';
+
+    const baseDir = await createTempDir();
+    await writeFile(join(baseDir, 'mappings', 'ids.yml'), merged);
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const mapping = await loadIdMapping(baseDir);
+    warnSpy.mockRestore();
+
+    // The bystander must still be addressable
+    expect(mapping.ulidToShort.has(bystander.ulid)).toBe(true);
+    expect(mapping.ulidToShort.get(bystander.ulid)).toBe(bystander.shortId);
+    expect(() => formatDisplayId(`is-${bystander.ulid}`, mapping)).not.toThrow();
+
+    // Both duplicate ULIDs must also be addressable
+    expect(mapping.ulidToShort.has('01aaaaaaaaaaaaaaaaaaaaaaaa')).toBe(true);
+    expect(mapping.ulidToShort.has('01bbbbbbbbbbbbbbbbbbbbbbbb')).toBe(true);
+
+    // All 3 ULIDs present
+    expect(mapping.shortToUlid.size).toBe(3);
+  });
+
+  it('parseIdMappingFromYaml handles quoted keys with duplicates', () => {
+    // File with a quoted key and a duplicate — the shape that broke with regex parsing
+    const content = `"0622": 01cccccccccccccccccccccccc
+a1b2: 01aaaaaaaaaaaaaaaaaaaaaaaa
+a1b2: 01bbbbbbbbbbbbbbbbbbbbbbbb`;
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const mapping = parseIdMappingFromYaml(content);
+    warnSpy.mockRestore();
+
+    expect(mapping.ulidToShort.size).toBe(3);
+    expect(mapping.shortToUlid.size).toBe(3);
+    expect(mapping.ulidToShort.get('01cccccccccccccccccccccccc')).toBe('0622');
+    expect(() => formatDisplayId('is-01cccccccccccccccccccccccc', mapping)).not.toThrow();
+  });
+
+  it('loadIdMapping handles a file produced by stringifyYaml with no duplicates', async () => {
+    // Verify that the normal (non-duplicate) path also handles quoted keys
+    const data: Record<string, string> = {
+      '1234': '01aaaaaaaaaaaaaaaaaaaaaaaa',
+      '0000': '01bbbbbbbbbbbbbbbbbbbbbbbb',
+      wxyz: '01cccccccccccccccccccccccc',
+    };
+    const content = stringifyYaml(data);
+
+    const baseDir = join(
+      tmpdir(),
+      `tbd-test-normal-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
+    await mkdir(join(baseDir, 'mappings'), { recursive: true });
+    await writeFile(join(baseDir, 'mappings', 'ids.yml'), content);
+
+    const mapping = await loadIdMapping(baseDir);
+    expect(mapping.shortToUlid.size).toBe(3);
+    expect(mapping.shortToUlid.get('1234')).toBe('01aaaaaaaaaaaaaaaaaaaaaaaa');
+    expect(mapping.shortToUlid.get('0000')).toBe('01bbbbbbbbbbbbbbbbbbbbbbbb');
+    expect(mapping.shortToUlid.get('wxyz')).toBe('01cccccccccccccccccccccccc');
+  });
+});
+
+// =============================================================================
+// Trailing comments on duplicated lines (R3 regression test)
+// =============================================================================
+
+describe('trailing comments on duplicated lines', () => {
+  it('trailing comments do not prevent duplicate detection or value extraction', () => {
+    // The old regex parser could not match lines with trailing comments,
+    // causing entries to be silently dropped. The AST parser handles them.
+    const content = `a1b2: 01aaaaaaaaaaaaaaaaaaaaaaaa # from clone A
+a1b2: 01bbbbbbbbbbbbbbbbbbbbbbbb # from clone B
+c3d4: 01cccccccccccccccccccccccc`;
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const mapping = parseIdMappingFromYaml(content);
+    warnSpy.mockRestore();
+
+    // All 3 ULIDs must be addressable
+    expect(mapping.ulidToShort.size).toBe(3);
+    expect(mapping.shortToUlid.size).toBe(3);
+
+    // Smallest ULID keeps a1b2
+    expect(mapping.shortToUlid.get('a1b2')).toBe('01aaaaaaaaaaaaaaaaaaaaaaaa');
+    // Displaced ULID has a replacement
+    expect(mapping.ulidToShort.has('01bbbbbbbbbbbbbbbbbbbbbbbb')).toBe(true);
+    expect(mapping.ulidToShort.get('01bbbbbbbbbbbbbbbbbbbbbbbb')).not.toBe('a1b2');
+    // Bystander unchanged
+    expect(mapping.shortToUlid.get('c3d4')).toBe('01cccccccccccccccccccccccc');
   });
 });
 
@@ -612,6 +795,31 @@ a1b2: 01hx5zzkbkxctav9wevgemmabc`;
     // Displaced ULID has a replacement
     expect(mapping.ulidToShort.has('01hx5zzkbkxctav9wevgemmabc')).toBe(true);
     expect(mapping.ulidToShort.get('01hx5zzkbkxctav9wevgemmabc')).not.toBe('a1b2');
+  });
+});
+
+// =============================================================================
+// Validation on the repair path (R5)
+// =============================================================================
+
+describe('repair path validates entries loudly', () => {
+  it('throws on invalid short ID in file with duplicates', async () => {
+    // A file with a duplicate AND an entry whose key is not a valid ShortId.
+    // The repair path must fail loudly, not silently skip.
+    const baseDir = join(
+      tmpdir(),
+      `tbd-test-validation-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
+    await mkdir(join(baseDir, 'mappings'), { recursive: true });
+
+    // "UPPER" contains uppercase which ShortId rejects
+    const content = `a1b2: 01aaaaaaaaaaaaaaaaaaaaaaaa
+a1b2: 01bbbbbbbbbbbbbbbbbbbbbbbb
+UPPER: 01cccccccccccccccccccccccc
+`;
+    await writeFile(join(baseDir, 'mappings', 'ids.yml'), content);
+
+    await expect(loadIdMapping(baseDir)).rejects.toThrow(/Invalid short ID/);
   });
 });
 
