@@ -10,7 +10,7 @@
  * This ensures consistent formatting and proper error handling across the codebase.
  */
 
-import { parse as parseYaml, stringify, parseDocument } from 'yaml';
+import { parse as parseYaml, stringify, parseDocument, isMap, isPair, isScalar } from 'yaml';
 
 import {
   YAML_LINE_WIDTH,
@@ -164,6 +164,69 @@ export function detectDuplicateYamlKeys(content: string): string[] {
   }
 
   return Array.from(duplicates);
+}
+
+/**
+ * Result from extracting all key-value pairs from a YAML document via AST.
+ */
+export interface YamlDocumentEntries {
+  /** Every (key, value) pair in document order, including duplicates. */
+  entries: { key: string; value: string }[];
+  /** Keys that appeared more than once (empty if no duplicates). */
+  duplicateKeys: string[];
+}
+
+/**
+ * Parse a flat YAML map via the `yaml` library's AST, retaining every duplicate
+ * key-value pair in document order.
+ *
+ * Unlike `parseYaml()` or `doc.toJSON()`, which silently drop all but the last
+ * occurrence of a duplicate key, this walks `parseDocument(…, { uniqueKeys: false })`
+ * to return every pair the parser saw. Quoted keys (`"1234"`, `"true"`),
+ * trailing comments, and all other YAML formatting are handled by the real parser
+ * rather than a regex, so the result always agrees with what YAML semantics say
+ * the keys and values are.
+ *
+ * Intended for flat key-value files like ids.yml. Nested maps or sequences are
+ * not supported and will cause their pairs to be skipped.
+ *
+ * @param content - Raw YAML content (may contain duplicate keys)
+ * @param filePath - Optional file path for error messages
+ * @returns All entries in document order, plus the set of duplicated keys
+ * @throws On YAML parse errors (other than duplicate keys)
+ */
+export function parseYamlDocumentEntries(content: string, filePath?: string): YamlDocumentEntries {
+  const doc = parseDocument(content, { uniqueKeys: false });
+
+  // Check for parse errors (other than duplicate keys, which uniqueKeys: false suppresses)
+  if (doc.errors.length > 0) {
+    const location = filePath ? ` in ${filePath}` : '';
+    throw new Error(`YAML parse error${location}: ${doc.errors.map((e) => e.message).join('; ')}`);
+  }
+
+  const entries: { key: string; value: string }[] = [];
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+
+  if (isMap(doc.contents)) {
+    for (const item of doc.contents.items) {
+      if (isPair(item) && isScalar(item.key) && isScalar(item.value)) {
+        const key = String(item.key.value);
+        const value = String(item.value.value);
+        entries.push({ key, value });
+
+        if (seen.has(key)) {
+          duplicates.add(key);
+        }
+        seen.add(key);
+      }
+    }
+  }
+
+  return {
+    entries,
+    duplicateKeys: Array.from(duplicates),
+  };
 }
 
 /**

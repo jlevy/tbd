@@ -674,7 +674,11 @@ serialization:
 > file” as the correct state.
 > The `merge=union` strategy keeps all lines from both sides, which is safe for
 > `ids.yml` since it’s an append-only mapping.
-> Duplicate keys (if any) are tolerated by the YAML parser and auto-fixed on next save.
+> Contested duplicate keys (same short ID mapped to different ULIDs) are resolved
+> deterministically at load time: the lexicographically smallest ULID keeps the
+> contested short ID, and each displaced ULID receives a replacement derived from its
+> own characters (no randomness).
+> The corrected mapping is written on next save.
 > This file is placed inside `.tbd/` so all tbd settings are self-contained in one
 > directory. Git supports `.gitattributes` in subdirectories with paths relative to that
 > directory.
