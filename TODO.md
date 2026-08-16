@@ -13,13 +13,19 @@ Plan:
 [plan-2026-08-15-f08-release-rollout.md](./docs/project/specs/active/plan-2026-08-15-f08-release-rollout.md).
 That document owns the mechanics; this is the status.
 
-**Ready.** The format bump, the integration work, and the multi-repo rollout are merged
-or in review. CI is green on `main`.
+**Ready.** Everything is merged and CI is green on `main`. Two independent checks pass:
+the packed upgrade proof across all four scenarios
+(`packages/tbd/scripts/validate-upgrade-package.mjs`), and the live integration QA end
+to end — see
+[valid-2026-08-16-linear-integration-live.md](./docs/project/specs/active/valid-2026-08-16-linear-integration-live.md).
+
+The Linear integration is **new in 0.7.0**, not a change to a shipped one: `v0.6.5`
+contains the adapter but never wires it into the CLI and never asserts origin labels.
+So there is no existing integration to migrate and no label-scheme upgrade to warn
+about.
 
 Blocking the tag:
 
-- [ ] Land [#236](https://github.com/jlevy/tbd/pull/236) (honest import dates, archive
-  ownership policy, the Linear design reference)
 - [ ] `tbd-62a5` — flip the two goldens this release *un*-breaks.
   They will “fail” on success: the doctor’s `Launcher fallback` warning disappears once
   the tagged version can read f08, and `validate-upgrade-package.mjs` regains a genuine
@@ -36,16 +42,9 @@ anyone whose launcher needs the registry fallback.
 
 These cannot be closed by writing code.
 
-- **The Linear workspace is over its Free-plan cap.** 250 issues, non-archived; the
-  workspace sits at about 275. metabrowser’s remaining 32 issues are journaled and
-  converge on the first sync after the cap clears — that recovery path is tested.
-  Options: upgrade to Basic (about $30/mo for 3 users, and it likely doubles the API
-  rate limit from the undocumented 2,500/hr the Free tier actually enforces), archive
-  the completed issues, or narrow what gets mirrored.
-  Honest import dates (#236) make this largely self-correcting going forward, but do not
-  retroactively re-date the 99 issues already mirrored with sync-time stamps.
-- **Re-date those 99 issues, or leave them.** Cleanest fix is unlink and re-mirror once
-  #236 lands, so they get correct `createdAt`. Costs a batch of creates against the cap.
+- **Re-date the 99 issues mirrored before honest dates shipped, or leave them.** They
+  carry sync-time `createdAt`, so Linear’s auto-archive will not retire them on their
+  real schedule. Cleanest fix is unlink and re-mirror; new work is already correct.
 - **`tbd-b7cy`** — whether to create the shared “filter out agent traffic” Linear view,
   and whether labels should be workspace-scoped rather than team-scoped.
   Both are decisions about someone’s workspace, not gaps in the code.
