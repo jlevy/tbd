@@ -120,7 +120,7 @@ describe('the sync engine', () => {
       dataSyncDir: dir,
       allIssues,
       displayId: (id) => id.slice(-4),
-      mirrorLabels: false,
+      mirrorLabels: 'none',
       equivalences: {
         priority: (a, b) =>
           priorityToLinear(a as PriorityType) === priorityToLinear(b as PriorityType),
@@ -131,7 +131,13 @@ describe('the sync engine', () => {
     });
   }
 
-  function run(allIssues: Issue[], policy = POLICY, dryRun = false) {
+  function run(
+    allIssues: Issue[],
+    policy = POLICY,
+    dryRun = false,
+    originLabels: string[] = [],
+    specUrl?: (issue: Issue) => string | undefined,
+  ) {
     return runSync({
       provider: 'linear',
       adapter,
@@ -139,12 +145,131 @@ describe('the sync engine', () => {
       dataSyncDir: dir,
       allIssues,
       displayId: (id) => id.slice(-4),
-      mirrorLabels: false,
+      mirrorLabels: 'none',
+      originLabels,
+      ...(specUrl ? { specUrl } : {}),
       callbacks,
       dryRun,
       now: () => new Date().toISOString(),
     });
   }
+
+  it('settles when the managed block contains a link the tracker rewrites', async () => {
+    // The third write loop found in this feature, and the one no other check could see.
+    // tbd renders `Spec: [name](url)`; Linear stores `[name](<url>)`, which CommonMark
+    // renders identically. The managed-block comparison ran on raw strings, so it found
+    // a difference every run and rewrote the block forever — and the base hash could not
+    // catch it, because hashing strips the managed block before comparing.
+    const id = 'is-01hx5zzkbkactav9wevgemma21';
+    store.set(
+      id,
+      bead(id, { spec_path: 'docs/project/specs/active/plan-2026-01-19-transactional.md' }),
+    );
+    const specUrl = () => 'https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/x.md';
+
+    await run([...store.values()], POLICY, false, [], specUrl);
+    await run([...store.values()], POLICY, false, [], specUrl); // settle
+
+    // The stored description really did come back rewritten, or this proves nothing.
+    const remote = [...server.issues.values()][0]!;
+    expect(remote.description).toContain('](<https://github.com/');
+
+    const settled = await run([...store.values()], POLICY, false, [], specUrl);
+    expect(settled.pushed).toEqual([]);
+    expect(settled.nothingToDo).toBe(true);
+  });
+
+  describe('origin labels in a Linear label group', () => {
+    it('creates repo/<name> as a real group, not a flat slash-named label', async () => {
+      const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+      store.set(epic.id, epic);
+
+      await run([...store.values()], POLICY, false, ['tbd:sync', 'repo/tbd']);
+
+      const flat = server.labels.find((l) => l.name === 'repo/tbd');
+      expect(flat).toBeUndefined();
+
+      const group = server.labels.find((l) => l.name === 'repo' && l.isGroup);
+      expect(group).toBeDefined();
+
+      // The child stores only the LEAF name; the group is carried by `parent`.
+      const child = server.labels.find((l) => l.name === 'tbd' && l.parent?.id === group!.id);
+      expect(child).toBeDefined();
+
+      // The origin marker is a separate root label, and it must NOT share the repo's
+      // leaf name: Linear enforces name uniqueness across the whole team regardless of
+      // group, so `tbd` beside `repo/tbd` is rejected outright. The `tbd:` prefix is
+      // what keeps the two namespaces disjoint — a repo leaf can never contain a colon.
+      const origin = server.labels.find((l) => l.name === 'tbd:sync' && !l.parent);
+      expect(origin).toBeDefined();
+      expect(origin!.id).not.toBe(child!.id);
+    });
+
+    it('refuses the shape Linear refuses: a root label sharing a grouped leaf name', async () => {
+      // The guard that would have caught this before it reached a live workspace. If the
+      // mock ever stops enforcing team-wide leaf uniqueness, this test goes green while
+      // real provisioning stays broken — which is exactly what happened once already.
+      const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+      store.set(epic.id, epic);
+
+      await run([...store.values()], POLICY, false, ['tbd', 'repo/tbd']);
+
+      const rootTbd = server.labels.filter((l) => l.name === 'tbd' && !l.parent);
+      const groupedTbd = server.labels.filter((l) => l.name === 'tbd' && l.parent);
+      // One of the two can exist, never both.
+      expect(rootTbd.length + groupedTbd.length).toBe(1);
+    });
+
+    it('applies both labels to the created issue', async () => {
+      const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+      store.set(epic.id, epic);
+
+      await run([...store.values()], POLICY, false, ['tbd:sync', 'repo/tbd']);
+
+      const issue = [...server.issues.values()][0]!;
+      const applied = issue.labels.nodes.map((n) =>
+        n.parent ? `${n.parent.name}/${n.name}` : n.name,
+      );
+      expect(applied.sort()).toEqual(['repo/tbd', 'tbd:sync']);
+    });
+
+    it('settles once the group exists, rather than re-asserting the grouped label', async () => {
+      // The loop this guards against: a grouped label reads back as its bare leaf
+      // (`tbd`), so an engine comparing against its required `repo/tbd` never finds it,
+      // and re-asserts on every sync for the life of the repository. Qualifying both
+      // sides is what makes the comparison terminate.
+      const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+      store.set(epic.id, epic);
+
+      const labels = ['tbd:sync', 'repo/tbd'];
+      await run([...store.values()], POLICY, false, labels);
+      await run([...store.values()], POLICY, false, labels); // settle, as any mirror does
+      const labelCountAfterSettle = server.labels.length;
+
+      const settled = await run([...store.values()], POLICY, false, labels);
+
+      expect(settled.nothingToDo).toBe(true);
+      expect(settled.pushed).toEqual([]);
+      // No duplicate group or child was minted on the way to quiet.
+      expect(server.labels.length).toBe(labelCountAfterSettle);
+      expect(server.labels.filter((l) => l.name === 'repo' && l.isGroup)).toHaveLength(1);
+    });
+  });
+
+  it('plans a create under dryRun without touching the tracker or the bead', async () => {
+    // The `report` fold mode depends on this: it reports what a sync would do and
+    // writes nothing. If the engine wrote here, `report` would be a silent live sync.
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    store.set(epic.id, epic);
+
+    const dry = await run([epic], POLICY, true);
+
+    expect(dry.createdOutbound).toEqual(['mvrz']);
+    expect(server.issues.size).toBe(0);
+    expect(readLink(store.get(epic.id)!, 'linear')).toBeUndefined();
+    // Nothing was written, so there was nothing to affirm.
+    expect(affirmed).toEqual([]);
+  });
 
   it('creates outbound, links, seeds the base, then goes quiet', async () => {
     const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
@@ -164,6 +289,40 @@ describe('the sync engine', () => {
     expect(second.pulled).toEqual([]);
     expect(second.conflicts).toEqual([]);
     expect(second.createdOutbound).toEqual([]);
+  });
+
+  it('asserts origin labels once, then stays quiet', async () => {
+    // The trap this guards: putting ensureLabels in every patch would make every pair
+    // look changed, because a non-empty externalPatch is what "changed" means here. A
+    // settled mirror would then write, commit, and push on every sync — undoing the
+    // property that makes frequent syncing affordable at all.
+    const id = 'is-01hx5zzkbkactav9wevgemmb01';
+    store.set(id, bead(id));
+
+    const labels = ['tbd:sync', 'repo/tbd'];
+    await run([...store.values()], POLICY, false, labels);
+    await run([...store.values()], POLICY, false, labels); // settle, as any mirror does
+
+    // Once the labels are on the remote, asserting them again is not a change.
+    const settled = await run([...store.values()], POLICY, false, labels);
+    expect(settled.nothingToDo).toBe(true);
+  });
+
+  it('backfills origin labels onto an item that predates them', async () => {
+    // An item linked before the labels existed — or imported from the tracker — must
+    // pick them up rather than staying invisible to the filters they exist for.
+    const id = 'is-01hx5zzkbkactav9wevgemmb02';
+    store.set(id, bead(id));
+
+    await run([...store.values()]);
+    await run([...store.values()]); // settle with no origin labels
+
+    const labelled = await run([...store.values()], POLICY, false, ['tbd:sync', 'repo/tbd']);
+    expect(labelled.nothingToDo).toBe(false);
+
+    // And once backfilled, it settles again rather than re-asserting forever.
+    const after = await run([...store.values()], POLICY, false, ['tbd:sync', 'repo/tbd']);
+    expect(after.nothingToDo).toBe(true);
   });
 
   it('a settled mirror writes nothing on a further quiet sync', async () => {
@@ -196,6 +355,39 @@ describe('the sync engine', () => {
       after.set(file, await readFile(join(linksDir, file), 'utf8'));
     }
     expect(after).toEqual(before);
+  });
+
+  it('refreshes a renamed identifier on a settled pair, where nothing else changed', async () => {
+    // Renaming a Linear team rewrites every identifier in it (TBD-7 becomes
+    // OS-7) while the UUID — the actual link — is untouched. That leaves a
+    // settled mirror with nothing to push, so a refresh that only ran for pairs
+    // with pending writes would strand every stored identifier at its old
+    // value. The record is the one thing every linked pair rewrites, which is
+    // why the identifier lives there rather than on the bead.
+    const id = 'is-01hx5zzkbkactav9wevgemma11';
+    store.set(id, bead(id));
+    await run([...store.values()]);
+    await run([...store.values()]); // settle
+
+    const before = await readLinkRecord(dir, 'linear', id);
+    expect(before?.external_key).toBe('FIN-1');
+
+    const remote = server.issues.get(before!.external_id)!;
+    remote.identifier = 'OS-1';
+    remote.url = 'https://linear.app/acme/issue/OS-1';
+
+    const renamed = await run([...store.values()]);
+
+    // Nothing was pushed: the rename is a tracker-side relabelling, not a
+    // change tbd has any edit to send.
+    expect(renamed.pushed).toEqual([]);
+    const after = await readLinkRecord(dir, 'linear', id);
+    expect(after?.external_key).toBe('OS-1');
+    expect(after?.external_url).toBe('https://linear.app/acme/issue/OS-1');
+    // The link itself never moved.
+    expect(after?.external_id).toBe(before!.external_id);
+    // And the bead is untouched — no version churn in git for a remote rename.
+    expect(store.get(id)!.extensions?.linear).not.toHaveProperty('key');
   });
 
   it('backfills and preserves the managed block on a pre-existing linked item', async () => {
@@ -391,7 +583,7 @@ describe('the sync engine', () => {
       dataSyncDir: dir,
       allIssues: [deep, middle, root],
       displayId: (id) => id.slice(-4),
-      mirrorLabels: false,
+      mirrorLabels: 'none',
       maxNesting: 2,
       callbacks,
       dryRun: false,
@@ -428,7 +620,7 @@ describe('the sync engine', () => {
       dataSyncDir: dir,
       allIssues: [store.get(child.id)!, store.get(parent.id)!],
       displayId: (id) => id.slice(-4),
-      mirrorLabels: false,
+      mirrorLabels: 'none',
       callbacks,
       direction: 'inbound',
       dryRun: false,
@@ -483,7 +675,11 @@ describe('the sync engine', () => {
     expect(result.failures).toHaveLength(2);
     expect(result.failures.map((failure) => failure.beadId).sort()).toEqual(['mvra', 'mvrb']);
     for (const failure of result.failures) {
-      expect(failure.error).toContain('FIN-10');
+      // The external id, not the human identifier: this check runs before the
+      // bridge records are loaded, and the bead no longer carries a key. The
+      // parts the remedy acts on — which beads, and which command — are what
+      // the message must carry.
+      expect(failure.error).toContain('duplicate-item');
       expect(failure.error).toContain('mvra, mvrb');
       expect(failure.error).toContain('integration unlink');
     }
@@ -762,7 +958,7 @@ describe('the sync engine', () => {
       dataSyncDir: dir,
       allIssues: [localEdit],
       displayId: (id) => id.slice(-4),
-      mirrorLabels: false,
+      mirrorLabels: 'none',
       callbacks,
       direction: 'inbound',
       dryRun: false,
@@ -881,7 +1077,7 @@ describe('the sync engine', () => {
       dataSyncDir: dir,
       allIssues: [withComment],
       displayId: (id) => id.slice(-4),
-      mirrorLabels: false,
+      mirrorLabels: 'none',
       callbacks,
       direction: 'inbound',
       dryRun: false,
@@ -1318,7 +1514,7 @@ describe('the sync engine', () => {
       dataSyncDir: dir,
       allIssues: [],
       displayId: (id) => id.slice(-4),
-      mirrorLabels: false,
+      mirrorLabels: 'none',
       callbacks,
       direction: 'inbound',
       externalIssueIds: ['explicit-external'],
@@ -1349,7 +1545,7 @@ describe('the sync engine', () => {
       dataSyncDir: dir,
       allIssues: [importedBead],
       displayId: (id) => id.slice(-4),
-      mirrorLabels: false,
+      mirrorLabels: 'none',
       callbacks,
       dryRun: false,
       now: () => new Date().toISOString(),
@@ -1381,7 +1577,7 @@ describe('the sync engine', () => {
       dataSyncDir: dir,
       allIssues: [],
       displayId: (id) => id.slice(-4),
-      mirrorLabels: false,
+      mirrorLabels: 'none',
       callbacks,
       direction: 'inbound',
       externalIssueIds: ['external-child', 'external-parent'],
@@ -1412,7 +1608,7 @@ describe('the sync engine', () => {
       dataSyncDir: dir,
       allIssues: [],
       displayId: (id) => id.slice(-4),
-      mirrorLabels: false,
+      mirrorLabels: 'none',
       callbacks,
       direction: 'inbound',
       externalIssueIds: ['external-child-only'],
@@ -1451,7 +1647,7 @@ describe('the sync engine', () => {
       dataSyncDir: dir,
       allIssues: [],
       displayId: (id) => id.slice(-4),
-      mirrorLabels: false,
+      mirrorLabels: 'none',
       callbacks,
       direction: 'inbound',
       externalIssueIds: ['claimed-external'],
@@ -1562,11 +1758,12 @@ describe('the sync engine', () => {
     expect(recovered.failures).toEqual([]);
     expect(recovered.replayedOps).toBe(3);
     expect(server.issues.size).toBe(1);
+    // Identity only. The human identifier and URL live on the bridge record;
+    // what the replayed claim has to preserve is the id it claimed under.
     expect(readLink(store.get(epic.id)!, 'linear')).toMatchObject({
       id: pendingLink!.id,
-      key: expect.any(String),
-      url: expect.any(String),
     });
+    expect(store.get(epic.id)!.extensions?.linear).not.toHaveProperty('key');
     expect(readComments(store.get(epic.id)!, 'linear')).toEqual([
       expect.objectContaining({
         body: 'Authored after the provisional link commit',
@@ -1604,7 +1801,7 @@ describe('the sync engine', () => {
       dataSyncDir: dir,
       allIssues: [store.get(epic.id)!],
       displayId: (id) => id.slice(-4),
-      mirrorLabels: false,
+      mirrorLabels: 'none',
       callbacks,
       direction: 'inbound',
       dryRun: false,
@@ -1659,7 +1856,7 @@ describe('the sync engine', () => {
       dataSyncDir: dir,
       allIssues: [linked],
       displayId: (id) => id.slice(-4),
-      mirrorLabels: false,
+      mirrorLabels: 'none',
       callbacks,
       direction: 'inbound',
       dryRun: false,
@@ -1710,7 +1907,7 @@ describe('the sync engine', () => {
       dataSyncDir: dir,
       allIssues: [pending],
       displayId: (id) => id.slice(-4),
-      mirrorLabels: false,
+      mirrorLabels: 'none',
       callbacks,
       direction: 'inbound',
       dryRun: false,
@@ -1814,7 +2011,7 @@ describe('the sync engine', () => {
       dataSyncDir: dir,
       allIssues: [linked],
       displayId: (id) => id.slice(-4),
-      mirrorLabels: false,
+      mirrorLabels: 'none',
       callbacks,
       direction: 'inbound',
       dryRun: false,
@@ -1849,7 +2046,7 @@ describe('the sync engine', () => {
       dataSyncDir: dir,
       allIssues: [localEdit],
       displayId: (id) => id.slice(-4),
-      mirrorLabels: false,
+      mirrorLabels: 'none',
       callbacks,
       direction: 'inbound',
       dryRun: false,

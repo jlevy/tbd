@@ -3,8 +3,8 @@
  * full synchronization inside an already-held data-sync context.
  *
  * Two callers share it. The `tbd integration sync` command wraps it in its own
- * context and prints the reports. Plain `tbd sync` (with `sync_on_tbd_sync`
- * enabled) calls it from INSIDE `fullSync`, between the git pull/merge and the
+ * context and prints the reports. Plain `tbd sync` (when `on_tbd_sync` resolves to
+ * a running mode) calls it from INSIDE `fullSync`, between the git pull/merge and the
  * push — after the merge so reconciliation sees other machines' bead changes
  * rather than pushing stale state to the tracker, and before the push so the
  * beads and bridge records it writes ride the same push out.
@@ -16,7 +16,12 @@ import { join } from 'node:path';
 import { checkBulkThreshold } from '../../integrations/core/bulk-guard.js';
 import { CREDENTIAL_ENV_VARS, resolveCredential } from '../../integrations/core/credentials.js';
 import { applyMirror, planMirror } from '../../integrations/core/mirror.js';
-import { parseRepoSlug, specPermalink } from '../../integrations/core/permalink.js';
+import {
+  parseRepoSlug,
+  specPermalink,
+  type BranchCandidate,
+} from '../../integrations/core/permalink.js';
+import { readLinkRecord, writeLinkRecordIfChanged } from '../../integrations/core/bridge-state.js';
 import { enabledProviders } from '../../integrations/core/registry.js';
 import { mirrorSet } from '../../integrations/core/selection.js';
 import { runSync, type SyncRunReport } from '../../integrations/core/sync-engine.js';
@@ -25,6 +30,9 @@ import { writeLink } from '../../integrations/core/link-store.js';
 import { LinearAdapter } from '../../integrations/linear/adapter.js';
 import { LinearClient } from '../../integrations/linear/client.js';
 import { priorityToLinear } from '../../integrations/linear/mapping.js';
+import { resolveProviderSettings } from '../../integrations/core/provider-settings.js';
+import type { LabelCreateModeType } from '../../integrations/core/provider-settings.js';
+import { originLabelsFor } from '../../integrations/core/origin-labels.js';
 import { git, gitCommit } from '../../file/git.js';
 import {
   loadIdMapping,
@@ -61,17 +69,74 @@ export function buildAdapter(
     throw new CLIError(`No adapter is implemented for ${provider} yet.`);
   }
   if (!target) {
-    throw new CLIError('integrations.linear.team_key is required.');
+    throw new CLIError('integrations.linear.target.team_key is required.');
   }
+  // Both config shapes reconcile here, so nothing below cares which spelling the
+  // committed config happens to use.
+  const settings = resolveProviderSettings(config.integrations?.linear ?? {});
   return new LinearAdapter({
     // LINEAR_API_URL points the CLI at the mock server in golden tests; the
     // credential is still required so the auth path stays exercised.
     client: new LinearClient({ apiKey: credential, endpoint: process.env.LINEAR_API_URL }),
     teamKey: target,
-    createLabels: config.integrations?.linear?.create_labels ?? true,
-    project: config.integrations?.linear?.project,
-    userMap: config.integrations?.linear?.user_map,
+    createLabels: settings.createLabels,
+    project: settings.project,
+    userMap: settings.userMap,
   });
+}
+
+/**
+ * The origin labels for this repository, or an empty list when the scheme is off.
+ *
+ * A missing or unreadable git remote is not an error: the label falls back to the
+ * repository's display prefix, so a local-only checkout still gets a stable name rather
+ * than silently losing the marker that makes its items filterable.
+ */
+async function resolveOriginLabels(tbdRoot: string, config: Config): Promise<string[]> {
+  const { labels, createMode } = await originLabelPlan(tbdRoot, config);
+
+  // With creation disabled entirely, tbd cannot guarantee its own labels exist. Asserting
+  // one the tracker will never accept is worse than not labelling: the push silently
+  // drops it, the next sync sees it still missing, and the pair is dirty forever — a
+  // permanent write loop in the code path whose whole point is that a quiet sync is free.
+  //
+  // The trade is narrow and deliberate: a team that pre-created these labels by hand and
+  // set `create: none` loses the marking. `create: tbd` is the setting for "create what
+  // tbd needs, never mass-create from bead labels", and it is the default.
+  if (createMode === 'none') {
+    return [];
+  }
+  return labels;
+}
+
+/**
+ * The origin labels this repository would assert, and the creation mode that governs
+ * them — without the `none` short-circuit that {@link resolveOriginLabels} applies.
+ *
+ * `tbd integration setup` needs both halves: the names, so it provisions exactly what a
+ * sync will later assert rather than a parallel guess at them, and the mode, so it can
+ * say plainly that `create: none` means there is nothing to provision.
+ */
+export async function originLabelPlan(
+  tbdRoot: string,
+  config: Config,
+): Promise<{ labels: string[]; createMode: LabelCreateModeType }> {
+  const settings = resolveProviderSettings(config.integrations?.linear ?? {});
+
+  let originRemoteUrl: string | undefined;
+  try {
+    originRemoteUrl = (await git('-C', tbdRoot, 'remote', 'get-url', 'origin')).trim();
+  } catch {
+    originRemoteUrl = undefined;
+  }
+  return {
+    labels: originLabelsFor({
+      settings,
+      originRemoteUrl,
+      idPrefix: config.display.id_prefix,
+    }),
+    createMode: settings.createLabels,
+  };
 }
 
 /**
@@ -104,11 +169,28 @@ export async function resolveSpecLinks(
     // Detached HEAD or a fresh repo; the remaining candidates still apply.
   }
 
-  // Prefer the branch in hand, then the usual trunks. The sync branch never
-  // holds specs, so it is not a candidate.
-  const candidates = [currentBranch, 'main', 'master'].filter(
-    (branch): branch is string => branch.length > 0 && branch !== syncBranch,
-  );
+  // Durable trunk first, working branch only as a fallback. These URLs are
+  // written into a tracker that outlives the branch, so naming the working
+  // branch produces links that 404 the moment it is deleted after merge — and,
+  // because the link is rendered inside the managed block, makes the block
+  // differ on every sync run from a different branch, rewriting the entire
+  // mirror for no reason. A spec that exists only on the working branch is
+  // still linkable; the first sync after the merge moves it to the trunk.
+  //
+  // Each trunk is checked against its remote-tracking ref first: a local `main`
+  // that has not been pulled recently may not contain a spec that is already on
+  // the remote, and the reader's URL should name the plain branch either way.
+  // The sync branch never holds specs, so it is not a candidate.
+  const trunks = ['main', 'master'].filter((branch) => branch !== syncBranch);
+  const candidates: BranchCandidate[] = [
+    ...trunks.flatMap((branch) => [
+      { check: `origin/${branch}`, url: branch },
+      { check: branch, url: branch },
+    ]),
+    ...(currentBranch.length > 0 && currentBranch !== syncBranch && !trunks.includes(currentBranch)
+      ? [{ check: currentBranch, url: currentBranch }]
+      : []),
+  ];
 
   const specPaths = new Set(
     issues.map((issue) => issue.spec_path).filter((path): path is string => Boolean(path)),
@@ -266,7 +348,8 @@ export async function runEnabledIntegrationPushes(
       allIssues,
       selected,
       displayId,
-      mirrorLabels: config.integrations?.linear?.mirror_labels ?? false,
+      mirrorLabels: resolveProviderSettings(config.integrations?.linear ?? {}).mirrorLabels,
+      originLabels: await resolveOriginLabels(tbdRoot, config),
       maxNesting: entry.maxNesting,
       canPushAssignee: (assignee) => adapter.canPushAssignee(assignee),
       specUrl: (issue) => (issue.spec_path ? specLinks.get(issue.spec_path) : undefined),
@@ -314,6 +397,24 @@ export async function runEnabledIntegrationPushes(
           linkedIssue.version += 1;
           linkedIssue.updated_at = now();
           await writeIssue(dataSyncDir, linkedIssue);
+        },
+        // Keep the identifier cache current on a mirror-only run. The mirror
+        // holds no bridge state of its own, so without this a `--push` workflow
+        // never noticed a team rename and the stored `OS-77` went stale until
+        // someone happened to run a full sync. Only an existing record is
+        // updated: the mirror does not own reconciliation state and must not
+        // start creating it.
+        onIdentifier: async (issue, identifier) => {
+          const record = await readLinkRecord(dataSyncDir, entry.provider, issue.id);
+          if (!record) {
+            return;
+          }
+          const next = {
+            ...record,
+            external_key: identifier.key ?? record.external_key ?? null,
+            external_url: identifier.url ?? record.external_url ?? null,
+          };
+          await writeLinkRecordIfChanged(dataSyncDir, entry.provider, next, record);
         },
       }),
     );
@@ -384,7 +485,8 @@ export async function runEnabledIntegrations(
       allIssues,
       displayId,
       specUrl: (issue) => (issue.spec_path ? specLinks.get(issue.spec_path) : undefined),
-      mirrorLabels: config.integrations?.linear?.mirror_labels ?? false,
+      mirrorLabels: resolveProviderSettings(config.integrations?.linear ?? {}).mirrorLabels,
+      originLabels: await resolveOriginLabels(tbdRoot, config),
       // Linear cannot represent P4 (its 4 covers P3 and P4); without this
       // equivalence every P4 bead would oscillate as a phantom pull.
       equivalences: {

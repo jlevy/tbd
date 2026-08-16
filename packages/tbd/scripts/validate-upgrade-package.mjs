@@ -5,10 +5,26 @@
  * Prove a packed candidate upgrades real published repositories safely.
  *
  * Three baselines exercise the real-world path and distinct compatibility contracts:
- * - the latest same-format patch (0.6.3 / f07), whose older client must keep working;
+ * - the latest published patch (0.6.3 / f07), which guards the immediate format boundary;
  * - the common pre-f07 release (0.4.2 / f06), whose client must fail closed after upgrade;
- * - the last pre-f07 release (0.5.0 / f06), which guards the immediate format boundary.
+ * - the last pre-f07 release (0.5.0 / f06), the older boundary.
+ *
+ * Note the first baseline changes meaning with each format bump. While the candidate was
+ * f07 it was the same-format case and its client had to keep working; now the candidate
+ * is f08, every published version is older-format, and all three must fail closed. That
+ * is the point of the bump — a pre-f08 client parses beads in Zod strip mode and would
+ * delete fields it does not know — so there is deliberately no same-format baseline
+ * until the candidate ships.
  */
+
+/**
+ * The format a candidate build is expected to produce.
+ *
+ * Kept beside the scenarios rather than imported: this script runs against a *packed*
+ * tarball, so reading the constant out of the working tree would assert the candidate
+ * against itself and pass no matter what it produced.
+ */
+const CANDIDATE_FORMAT = 'f08';
 
 import { execFile } from 'node:child_process';
 import {
@@ -319,7 +335,10 @@ async function validateScenario({
   );
 
   const upgradedConfig = parseYaml(await readFile(configPath, 'utf8'));
-  invariant(upgradedConfig.tbd_format === 'f07', `${name}: candidate did not produce f07`);
+  invariant(
+    upgradedConfig.tbd_format === CANDIDATE_FORMAT,
+    `${name}: candidate did not produce ${CANDIDATE_FORMAT}`,
+  );
   invariant(
     upgradedConfig.tbd_version === candidateVersion,
     `${name}: config reports ${String(upgradedConfig.tbd_version)}, expected ${candidateVersion}`,
@@ -425,12 +444,15 @@ async function validateScenario({
       `${name}: same-format baseline stopped working\n${oldClient.stdout}\n${oldClient.stderr}`,
     );
   } else {
-    invariant(oldClient.code !== 0, `${name}: pre-f07 client accepted the f07 repository`);
+    invariant(
+      oldClient.code !== 0,
+      `${name}: older-format client accepted the ${CANDIDATE_FORMAT} repository`,
+    );
     invariant(
       /newer version of tbd|newer tbd version|supports up to format/iu.test(
         oldClient.stdout + oldClient.stderr,
       ),
-      `${name}: pre-f07 rejection omitted the upgrade explanation`,
+      `${name}: older-format rejection omitted the upgrade explanation`,
     );
   }
   invariant(
@@ -440,7 +462,7 @@ async function validateScenario({
   if (!expectOldClientToWork) {
     invariant(
       JSON.stringify(await snapshotIssueData(repository)) === JSON.stringify(issueDataBefore),
-      `${name}: pre-f07 client changed issue or mapping data`,
+      `${name}: older-format client changed issue or mapping data`,
     );
   }
 
@@ -450,7 +472,8 @@ async function validateScenario({
     `${name}: seed issue missing`,
   );
   console.log(
-    `Packed upgrade proof passed: ${baselineVersion} (${expectedBaselineFormat}) -> ${candidateVersion} (f07)`,
+    `Packed upgrade proof passed: ${baselineVersion} (${expectedBaselineFormat}) -> ` +
+      `${candidateVersion} (${CANDIDATE_FORMAT})`,
   );
 }
 
@@ -526,7 +549,10 @@ async function validateLegacyRemoteSyncUpgrade({
   );
   const configPath = join(repository, '.tbd', 'config.yml');
   const config = parseYaml(await readFile(configPath, 'utf8'));
-  invariant(config.tbd_format === 'f07', 'legacy-remote: candidate did not produce f07');
+  invariant(
+    config.tbd_format === CANDIDATE_FORMAT,
+    `legacy-remote: candidate did not produce ${CANDIDATE_FORMAT}`,
+  );
   invariant(
     config.tbd_version === candidateVersion,
     `legacy-remote: config reports ${String(config.tbd_version)}, expected ${candidateVersion}`,
@@ -580,7 +606,8 @@ async function validateLegacyRemoteSyncUpgrade({
     'legacy-remote: repeated setup changed the repository diff',
   );
   console.log(
-    `Packed legacy-remote proof passed: ${baselineVersion} (f06) -> ${candidateVersion} (f07)`,
+    `Packed legacy-remote proof passed: ${baselineVersion} (f06) -> ` +
+      `${candidateVersion} (${CANDIDATE_FORMAT})`,
   );
 }
 
@@ -663,9 +690,9 @@ try {
     candidate,
     candidateVersion,
     expectedBaselineFormat: 'f07',
-    expectManagedScriptChange: false,
-    expectOldClientToWork: true,
-    name: 'same-format',
+    expectManagedScriptChange: true,
+    expectOldClientToWork: false,
+    name: 'latest-published',
     root: temporaryDir,
   });
   await validateScenario({

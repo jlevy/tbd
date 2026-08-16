@@ -230,6 +230,50 @@ describe('freshly linked pairs (no base)', () => {
     expect(result.conflicts).toHaveLength(1);
     expect(result.conflicts[0]?.field).toBe('priority');
   });
+
+  it('pushes bead prose rather than conflicting when the tracker has none', () => {
+    // An item tbd created carries only the managed block until its prose lands, and
+    // that splice makes the tracker's clock newer. Under `tie_break: newest` the empty
+    // side would then win and delete the bead's description — tbd losing to its own
+    // write. Holding nothing is not a competing edit.
+    const result = reconcile(
+      undefined,
+      local({ description: 'Real bead prose', updated_at: '2026-08-10T14:00:00.000Z' }),
+      remote({
+        description: `${MANAGED_BLOCK_MARKERS.begin}\nmachine\n${MANAGED_BLOCK_MARKERS.end}`,
+        updatedAt: '2026-08-10T15:00:00.000Z',
+      }),
+      RULES,
+    );
+
+    expect(result.conflicts).toHaveLength(0);
+    expect(result.externalPatch.description).toBe('Real bead prose');
+    expect(result.beadPatch.description).toBeUndefined();
+  });
+
+  it('pulls tracker prose when the bead has none', () => {
+    const result = reconcile(
+      undefined,
+      local({ description: '', updated_at: '2026-08-10T15:00:00.000Z' }),
+      remote({ description: 'Written in the tracker', updatedAt: '2026-08-10T14:00:00.000Z' }),
+      RULES,
+    );
+
+    expect(result.conflicts).toHaveLength(0);
+    expect(result.beadPatch.description).toBe('Written in the tracker');
+  });
+
+  it('still conflicts when both sides hold real, differing prose', () => {
+    const result = reconcile(
+      undefined,
+      local({ description: 'Local prose' }),
+      remote({ description: 'Remote prose' }),
+      RULES,
+    );
+
+    expect(result.conflicts).toHaveLength(1);
+    expect(result.conflicts[0]?.field).toBe('description');
+  });
 });
 
 describe('description semantics', () => {

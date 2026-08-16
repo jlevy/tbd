@@ -146,6 +146,36 @@ describe('the reverse index and watermark', () => {
 });
 
 describe('description normalization and hashing', () => {
+  it('ignores angle brackets Linear adds around every link destination', () => {
+    // `[a](url)` is stored as `[a](<url>)`; CommonMark renders them identically.
+    // Left unhandled this made the managed block differ from itself on every sync.
+    expect(descriptionHash('See [the plan](https://example.com/p.md).')).toBe(
+      descriptionHash('See [the plan](<https://example.com/p.md>).'),
+    );
+  });
+
+  it('ignores the mailto link Linear wraps around a bare email address', () => {
+    expect(descriptionHash('assignee: agents@example.com  # a comment')).toBe(
+      descriptionHash('assignee: [agents@example.com](mailto:agents@example.com)  # a comment'),
+    );
+  });
+
+  it('ignores one to three leading spaces, which markdown itself ignores', () => {
+    expect(descriptionHash('Intro:\n\n  indented continuation')).toBe(
+      descriptionHash('Intro:\n\nindented continuation'),
+    );
+  });
+
+  it('keeps four leading spaces, which open an indented code block', () => {
+    expect(descriptionHash('Intro:\n\n    const x = 1;')).not.toBe(
+      descriptionHash('Intro:\n\nconst x = 1;'),
+    );
+  });
+
+  it('keeps a nested list item indented, since that indent carries depth', () => {
+    expect(descriptionHash('- outer\n  - inner')).not.toBe(descriptionHash('- outer\n- inner'));
+  });
+
   it('ignores the managed block', () => {
     const withBlock = `Prose.\n\n${MANAGED_BLOCK_MARKERS.begin}\nmachine text\n${MANAGED_BLOCK_MARKERS.end}`;
     expect(descriptionHash(withBlock)).toBe(descriptionHash('Prose.'));
@@ -236,6 +266,11 @@ describe('writeLinkRecordIfChanged', () => {
     ['remote_updated_at', record({ remote_updated_at: '2099-01-01T00:00:00.000Z' })],
     ['state', record({ state: 'orphaned' as const })],
     ['external_id', record({ external_id: 'other' })],
+    // A team rename changes nothing else about a settled pair, so if these read
+    // as cosmetic the record never rewrites and every stored identifier stays
+    // stranded at its pre-rename value.
+    ['external_key', record({ external_key: 'OS-11' })],
+    ['external_url', record({ external_url: 'https://linear.app/acme/issue/OS-11' })],
     ['base.title', record({ base: { ...record().base, title: 'Renamed' } })],
     ['base.status', record({ base: { ...record().base, status: 'closed' as const } })],
     ['base.priority', record({ base: { ...record().base, priority: 0 as const } })],

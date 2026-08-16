@@ -1,2 +1,7 @@
 # Backup files
 *.bak
+
+# Isolated git worktrees created for background subagents. These are
+# transient checkouts of this same repo and are removed when the agent
+# finishes; committing one would nest the repo inside itself.
+worktrees/

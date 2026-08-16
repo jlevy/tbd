@@ -68,7 +68,21 @@ export interface CanonicalPatch {
   description?: string | null;
   status?: IssueStatusType;
   priority?: PriorityType;
+  /**
+   * REPLACES the item's labels. Absent leaves them alone, which is the default:
+   * sending `[]` would strip labels a human applied in the tracker, and those are not
+   * ours to remove.
+   */
   labels?: string[];
+  /**
+   * ADDS these labels, leaving every other label in place.
+   *
+   * Separate from `labels` because the two have opposite semantics and the difference
+   * matters: origin markers (`tbd`, `repo/<name>`) must be present on every mirrored
+   * item so a human can filter agent traffic in or out, but asserting them must never
+   * remove a label a person put there deliberately.
+   */
+  ensureLabels?: string[];
   assignee?: string | null;
   parentId?: string | null;
 }
@@ -180,7 +194,16 @@ export interface TrackerAdapter {
   createIssue(patch: CanonicalPatch, clientId?: string): Promise<ExternalRef>;
 
   /** Apply a patch, returning the provider's new updatedAt for echo suppression. */
-  applyChanges(id: string, patch: CanonicalPatch): Promise<{ updatedAt: string }>;
+  /**
+   * Apply a patch. Returns the post-write timestamp, which is what suppresses
+   * the echo on the next pull, plus the item's human identifier and URL when the
+   * provider hands them back for free — both change under a team rename, and a
+   * caller that has just written the item is the cheapest place to notice.
+   */
+  applyChanges(
+    id: string,
+    patch: CanonicalPatch,
+  ): Promise<{ updatedAt: string; key?: string; url?: string }>;
 
   /** Upsert attachments, keyed by url. Idempotent. */
   upsertAttachments(id: string, attachments: AttachmentSpec[]): Promise<void>;
@@ -219,4 +242,41 @@ export interface TrackerAdapter {
 
   /** Resolve, and cache, the provider metadata needed to push. */
   ensureMeta(force?: boolean): Promise<ProviderMeta>;
+
+  /**
+   * Inspect, and optionally create, the tracker-side scaffolding a sync depends on.
+   *
+   * Separate from `ensureMeta` because it writes. A sync must never quietly provision a
+   * shared workspace, and an operator must be able to see what is missing before
+   * agreeing to create it — so this is the one place that reports and repairs, and
+   * `apply: false` is a pure read.
+   */
+  provision(options: ProvisionOptions): Promise<ProvisionReport>;
+}
+
+/** What the tracker-side scaffolding check should do. */
+export interface ProvisionOptions {
+  /** Labels the mirror asserts on every item, in tbd's qualified `group/leaf` form. */
+  originLabels: readonly string[];
+  /** Create what is missing. False reports only, writing nothing. */
+  apply: boolean;
+}
+
+/** One piece of tracker-side scaffolding and its state. */
+export interface ProvisionItem {
+  /** What the thing is, for the operator: `label` or `label group`. */
+  kind: 'label' | 'label group';
+  /** The name tbd refers to it by. */
+  name: string;
+  /** `present` needed nothing; `created` was made now; `missing` is an unapplied gap. */
+  state: 'present' | 'created' | 'missing' | 'blocked';
+  /** Why a `blocked` item cannot be provisioned. */
+  reason?: string;
+}
+
+export interface ProvisionReport {
+  provider: ProviderNameType;
+  /** The scope the scaffolding lives in, for the operator to recognize. */
+  scope: string;
+  items: ProvisionItem[];
 }

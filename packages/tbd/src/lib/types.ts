@@ -8,6 +8,8 @@ import type { z } from 'zod';
 
 import type {
   IssueSchema,
+  IssueDoc,
+  IssueRef,
   IssueStatus,
   IssueKind,
   Priority,
@@ -39,6 +41,16 @@ import type {
  * A tbd issue entity.
  */
 export type Issue = z.infer<typeof IssueSchema>;
+
+/**
+ * A supporting document attached to a bead (f08+).
+ */
+export type IssueDocEntry = z.infer<typeof IssueDoc>;
+
+/**
+ * An external reference attached to a bead (f08+).
+ */
+export type IssueRefEntry = z.infer<typeof IssueRef>;
 
 /**
  * Issue status enum values.

@@ -277,7 +277,7 @@ settings:
 ```console
 $ tbd config show --json
 {
-  "tbd_format": "f07",
+  "tbd_format": "f08",
   "tbd_version": "[..]",
   "tbd_fallback_version": "[..]",
   "tbd_upgrades": [

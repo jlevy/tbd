@@ -52,7 +52,7 @@
  * Current format version.
  * Bump this ONLY for breaking changes that require migration.
  */
-export const CURRENT_FORMAT = 'f07';
+export const CURRENT_FORMAT = 'f08';
 
 /**
  * Initial format version for configs that don't have tbd_format field.
@@ -153,6 +153,29 @@ export const FORMAT_HISTORY = {
       'additive config blocks no longer need a format bump. Revert: restore ' +
       '.tbd/config.yml (git checkout) and delete $GIT_COMMON_DIR/tbd/layout.yml; it ' +
       'regenerates from the config.',
+  },
+  f08: {
+    introduced: '0.7.0',
+    description: 'Beads preserve unknown keys and gain docs/refs; the integrations config regroups',
+    changes: [
+      'IssueSchema now preserves unknown keys instead of stripping them',
+      'mergeIssues carries keys outside FIELD_STRATEGIES through a three-way merge',
+      'Added issue docs: supporting documents, repo-relative paths, union-merged on path',
+      'Added issue refs: external references (PRs, issues, dashboards), union-merged on url',
+      'The nested integration clauses preserve unknown keys too (select, inbound, fields)',
+      'Regrouped the integration provider block into target/policy/labels/identity',
+    ],
+    migration:
+      'Metadata-only for beads: no issue file is rewritten, because the bump exists to ' +
+      'stop pre-f08 clients from touching them at all. Those clients parse beads in ' +
+      'strip mode, so they delete any field they do not know — and tbd sync rewrites ' +
+      'beads during ordinary merges, which makes that a data-loss path across every bead ' +
+      'an old client sees, not a single-file inconvenience. The integrations block is ' +
+      'regrouped in place (team_key/project into target, max_nesting into ' +
+      'policy.outbound, mirror_labels/create_labels into labels, user_map into identity); ' +
+      'the transform is mechanical and lossless, and the legacy select alias retires. ' +
+      'Revert: restore .tbd/config.yml (git checkout) and delete ' +
+      '$GIT_COMMON_DIR/tbd/layout.yml; it regenerates from the config.',
   },
 } as const;
 
@@ -407,9 +430,248 @@ function migrate_f06_to_f07(config: RawConfig): MigrationResult {
   };
 }
 
+/** Provider keys that move into a group by f08. Everything else is left untouched. */
+const F08_PROVIDER_MOVES = {
+  target: ['team_key', 'project', 'repo'],
+  labels: { mirror_labels: 'mirror', create_labels: 'create' },
+  identity: ['user_map'],
+} as const;
+
+/**
+ * Value translations for keys whose type changed in f08.
+ *
+ * `mirror_labels` and `create_labels` were booleans; their replacements are enums, and
+ * each boolean maps onto the mode that preserves its exact prior behavior. `true` for
+ * mirroring always meant the `tbd:`-prefixed form, and `true` for creation always meant
+ * "create whatever is asked for".
+ */
+const F08_LABEL_VALUE_TRANSLATIONS: Record<string, (value: unknown) => unknown> = {
+  mirror: (value) => (typeof value === 'boolean' ? (value ? 'prefixed' : 'none') : value),
+  create: (value) => (typeof value === 'boolean' ? (value ? 'all' : 'none') : value),
+};
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Regroup one provider block from flat keys into concern groups.
+ *
+ * The block grew one flat key at a time and ended up mixing five concerns as siblings —
+ * where the work goes, what is selected, how it is marked, who it maps to, and how the
+ * operation runs. Grouping them means a future decision is a value inside an existing
+ * group rather than another flat sibling, which is the thing that made this sprawl.
+ *
+ * Lossless and idempotent: a key already in its group is left alone, a key absent stays
+ * absent (so defaults still come from the schema rather than being frozen into the file),
+ * and any key this function does not know is carried through untouched.
+ */
+function regroupProviderBlock(
+  provider: Record<string, unknown>,
+  providerName: string,
+  changes: string[],
+): Record<string, unknown> {
+  // Keys consumed by a move. Collected rather than deleted as we go, so the result is
+  // built by filtering at the end — one pass, no mutation of the input, and no dynamic
+  // delete.
+  const consumed = new Set<string>();
+  const added: Record<string, unknown> = {};
+
+  const group = (
+    groupKey: 'target' | 'identity',
+    keys: readonly string[],
+  ): Record<string, unknown> | undefined => {
+    const existing = isPlainObject(provider[groupKey]) ? { ...provider[groupKey] } : {};
+    for (const key of keys) {
+      if (key in provider && !(key in existing)) {
+        existing[key] = provider[key];
+        consumed.add(key);
+        changes.push(`Moved ${providerName}.${key} into ${providerName}.${groupKey}`);
+      }
+    }
+    return Object.keys(existing).length > 0 ? existing : undefined;
+  };
+
+  const target = group('target', F08_PROVIDER_MOVES.target);
+  if (target) {
+    added.target = target;
+  }
+
+  const labels = isPlainObject(provider.labels) ? { ...provider.labels } : {};
+  for (const [from, to] of Object.entries(F08_PROVIDER_MOVES.labels)) {
+    if (from in provider && !(to in labels)) {
+      // Translate the value, do not just move it. Both keys became enums in f08, so
+      // copying the boolean across would produce a config that no longer parses — the
+      // migration would appear to succeed and leave the repository broken.
+      labels[to] = F08_LABEL_VALUE_TRANSLATIONS[to]?.(provider[from]) ?? provider[from];
+      consumed.add(from);
+      changes.push(`Moved ${providerName}.${from} into ${providerName}.labels.${to}`);
+    }
+  }
+  if (Object.keys(labels).length > 0) {
+    added.labels = labels;
+  }
+
+  const identity = group('identity', F08_PROVIDER_MOVES.identity);
+  if (identity) {
+    added.identity = identity;
+  }
+
+  // The `select` alias retires into `policy.outbound`, which is what the runtime
+  // resolver already does with it. Only safe when there is no explicit policy to
+  // contradict; otherwise leaving it is the honest move and resolution is unchanged.
+  //
+  // Resolved BEFORE max_nesting so that a config carrying `select` but no `policy` ends
+  // up with both in the same place. The other order left max_nesting stranded at the top
+  // level beside a policy that had just been created for it.
+  let policy = provider.policy;
+  if (isPlainObject(provider.select) && policy === undefined) {
+    policy = { outbound: { ...provider.select } };
+    consumed.add('select');
+    changes.push(`Folded ${providerName}.select into ${providerName}.policy.outbound`);
+  }
+
+  // `max_nesting` is a selection concern, so it belongs beside the other outbound
+  // selection settings where policy presets can carry it. With a preset name
+  // (`policy: default`) or no policy at all it stays put: folding it into a preset would
+  // silently redefine that preset for this repository, and the schema still reads the
+  // flat key.
+  if ('max_nesting' in provider && isPlainObject(policy)) {
+    const outbound = isPlainObject(policy.outbound) ? { ...policy.outbound } : {};
+    if (!('max_nesting' in outbound)) {
+      outbound.max_nesting = provider.max_nesting;
+      policy = { ...policy, outbound };
+      consumed.add('max_nesting');
+      changes.push(`Moved ${providerName}.max_nesting into ${providerName}.policy.outbound`);
+    }
+  }
+  if (policy !== undefined) {
+    added.policy = policy;
+  }
+
+  return {
+    ...Object.fromEntries(Object.entries(provider).filter(([key]) => !consumed.has(key))),
+    ...added,
+  };
+}
+
+/**
+ * Regroup every provider block in the integrations config. Returns undefined when
+ * there is nothing to do, so the caller can leave the key absent entirely.
+ */
+function regroupIntegrationsBlock(
+  integrations: unknown,
+): { integrations: Record<string, unknown>; changes: string[] } | undefined {
+  if (!isPlainObject(integrations)) {
+    return undefined;
+  }
+  const changes: string[] = [];
+  const next: Record<string, unknown> = { ...integrations };
+
+  // The fold gate became an enum in f08. Translate the value, do not just rename the
+  // key: carrying `false` into an enum field would write a config the next release
+  // cannot parse. `true`/`false` map onto the two modes that preserve their behavior
+  // exactly; the two new modes were unreachable before, so nothing legacy produces them.
+  if (typeof next.sync_on_tbd_sync === 'boolean' && next.on_tbd_sync === undefined) {
+    const mode = next.sync_on_tbd_sync ? 'auto' : 'off';
+    delete next.sync_on_tbd_sync;
+    next.on_tbd_sync = mode;
+    changes.push(`integrations: sync_on_tbd_sync → on_tbd_sync: ${mode}`);
+  }
+
+  for (const [name, block] of Object.entries(next)) {
+    if (!isPlainObject(block)) {
+      continue; // on_tbd_sync and any other scalar gate stays put.
+    }
+    next[name] = regroupProviderBlock(block, name, changes);
+  }
+  return changes.length > 0 ? { integrations: next, changes } : undefined;
+}
+
+/**
+ * Migrate from f07 to f08.
+ *
+ * - Metadata-only for beads. No issue file is rewritten, because the bump exists
+ *   precisely to stop pre-f08 clients from touching them: those clients parse beads in
+ *   Zod strip mode and delete any field they do not know. `tbd sync` rewrites beads
+ *   during ordinary merges, so that is a data-loss path across every bead an old client
+ *   sees — a wider blast radius than the f07 config case, where one file lost one block
+ *   on an explicit command.
+ * - The integrations block regroups in place. See {@link regroupIntegrationsBlock}; the
+ *   transform is mechanical and lossless, and it rides this bump rather than earning its
+ *   own because a repository should pay the format ceremony once.
+ * - After f08 both the bead schema and the config preserve unknown keys, so a future
+ *   additive field is either a value in an existing group or a new optional one, and
+ *   neither needs a bump.
+ */
+function migrate_f07_to_f08(config: RawConfig): MigrationResult {
+  const changes: string[] = [];
+  const migrated = { ...config };
+
+  const regrouped = regroupIntegrationsBlock(migrated.integrations);
+  if (regrouped) {
+    migrated.integrations = regrouped.integrations;
+    changes.push(...regrouped.changes);
+  }
+
+  migrated.tbd_format = 'f08';
+  changes.push('Updated tbd_format: f08');
+
+  return {
+    config: migrated,
+    fromFormat: 'f07',
+    toFormat: 'f08',
+    changed: changes.length > 0,
+    changes,
+  };
+}
+
 // =============================================================================
 // Public API
 // =============================================================================
+
+/**
+ * Compare two dotted numeric versions. Prerelease suffixes are ignored: a `-dev` build
+ * of a version supports what that version supports.
+ */
+function compareVersions(a: string, b: string): number {
+  const parts = (v: string) =>
+    v
+      .split('-')[0]!
+      .split('.')
+      .map((n) => Number.parseInt(n, 10) || 0);
+  const [pa, pb] = [parts(a), parts(b)];
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (diff !== 0) {
+      return diff;
+    }
+  }
+  return 0;
+}
+
+/**
+ * The newest format a published tbd version can read, derived from the `introduced`
+ * stamps in {@link FORMAT_HISTORY}.
+ *
+ * Used to check the launcher's registry fallback pin: an exact version that predates the
+ * repository's format would install a CLI that refuses the repository. Returns undefined
+ * for an unparseable version, so callers can skip the check rather than guess.
+ */
+export function supportedFormatForVersion(version: string): FormatVersion | undefined {
+  if (!/^\d+\.\d+\.\d+/.test(version)) {
+    return undefined;
+  }
+  let best: FormatVersion | undefined;
+  for (const [format, entry] of Object.entries(FORMAT_HISTORY)) {
+    if (compareVersions(version, entry.introduced) >= 0) {
+      if (!best || format > best) {
+        best = format as FormatVersion;
+      }
+    }
+  }
+  return best;
+}
 
 /**
  * Detect the format version of a config.
@@ -505,6 +767,13 @@ export function migrateToLatest(config: RawConfig): MigrationResult {
     allChanges.push(...result.changes);
   }
 
+  if (currentFormat === 'f07') {
+    const result = migrate_f07_to_f08(current);
+    current = result.config;
+    currentFormat = 'f08' as FormatVersion;
+    allChanges.push(...result.changes);
+  }
+
   return {
     config: current,
     fromFormat,
@@ -596,6 +865,13 @@ export function describeMigration(fromFormat: FormatVersion): string[] {
   if (current === 'f06') {
     descriptions.push('f06 → f07: Add external tracker integrations config (stamp only)');
     current = 'f07';
+  }
+
+  if (current === 'f07') {
+    descriptions.push(
+      'f07 → f08: Preserve unknown bead keys; add docs/refs; regroup the integrations config',
+    );
+    current = 'f08';
   }
 
   return descriptions;

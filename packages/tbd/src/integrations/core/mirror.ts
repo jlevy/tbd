@@ -8,9 +8,11 @@
  * any agent at any time: there is no merge, no base, and no conflict.
  */
 
+import type { LabelMirrorModeType } from './provider-settings.js';
 import type { Issue, LinkedEntryType, ProviderNameType } from '../../lib/types.js';
 import { readyIssueIds } from '../../lib/issue-selection.js';
 import { readLink } from './link-store.js';
+import { TBD_LABEL_PREFIX } from './origin-labels.js';
 import { renderManagedBlock, type MirrorLinks } from './managed-block.js';
 import type {
   AttachmentSpec,
@@ -26,7 +28,9 @@ import type {
  * removed in bulk if someone turns the option off again.
  */
 export function prefixLabels(labels: readonly string[]): string[] {
-  return labels.map((label) => (label.startsWith('tbd:') ? label : `tbd:${label}`));
+  return labels.map((label) =>
+    label.startsWith(TBD_LABEL_PREFIX) ? label : `${TBD_LABEL_PREFIX}${label}`,
+  );
 }
 
 /** Attachment url scheme identifying a bead. Also the upsert idempotency key. */
@@ -53,7 +57,17 @@ export interface MirrorContext {
    * hundred-plus distinct labels, and creating one per label pollutes a shared
    * team namespace. They are mirrored as attachment metadata regardless.
    */
-  mirrorLabels?: boolean;
+  mirrorLabels?: LabelMirrorModeType;
+  /**
+   * Labels every mirrored item must carry: the plain `tbd` marker and the
+   * `repo/<name>` group label. Applied additively (see `ensureLabels`), so asserting
+   * them never removes a label a person applied in the tracker.
+   *
+   * These apply regardless of `mirrorLabels`, which governs a different question — that
+   * one is about projecting the repository's own bead labels, this one is about making
+   * agent traffic identifiable at all.
+   */
+  originLabels?: readonly string[];
   /** Provider/config capability for projecting a canonical assignee. */
   canPushAssignee?: (assignee: string | null) => boolean;
 }
@@ -241,7 +255,17 @@ export function planMirror(context: MirrorContext): MirrorPlan {
       // Omitting `labels` entirely leaves the tracker's labels alone except for
       // the status carriers the adapter adds. Sending [] would strip labels a
       // human applied in the tracker, which is not ours to remove.
-      ...(context.mirrorLabels ? { labels: prefixLabels(issue.labels ?? []) } : {}),
+      ...(context.mirrorLabels && context.mirrorLabels !== 'none'
+        ? {
+            labels:
+              context.mirrorLabels === 'prefixed'
+                ? prefixLabels(issue.labels ?? [])
+                : [...(issue.labels ?? [])],
+          }
+        : {}),
+      ...(context.originLabels && context.originLabels.length > 0
+        ? { ensureLabels: [...context.originLabels] }
+        : {}),
       ...(context.canPushAssignee?.(issue.assignee ?? null)
         ? { assignee: issue.assignee ?? null }
         : {}),
@@ -276,6 +300,15 @@ export interface ApplyOptions {
    * something that was never created.
    */
   onLinked: (issue: Issue, entry: LinkedEntryType) => Promise<void>;
+  /**
+   * Record the tracker's current human identifier for a bead already linked.
+   *
+   * Separate from {@link onLinked} because it must not touch the bead: the
+   * identifier is display cache and lives on the bridge record, so writing it
+   * through the bead would churn `version` and `updated_at` in git every time a
+   * team is renamed. Optional, so the mirror stays usable without bridge state.
+   */
+  onIdentifier?: (issue: Issue, identifier: { key?: string; url?: string }) => Promise<void>;
   now?: () => string;
 }
 
@@ -341,26 +374,23 @@ export async function applyMirror(options: ApplyOptions): Promise<MirrorReport> 
       if (action.parentBeadId && !parentId) {
         throw new Error(`parent ${options.displayId(action.parentBeadId)} was not mirrored`);
       }
-      await adapter.applyChanges(action.externalId, { ...action.patch, parentId });
+      const applied = await adapter.applyChanges(action.externalId, {
+        ...action.patch,
+        parentId,
+      });
       await adapter.upsertAttachments(action.externalId, action.attachments);
       if (action.managedBlock) {
         await adapter.spliceDescription(action.externalId, action.managedBlock);
       }
 
-      // Refresh the stored human identifier and URL. Both are display-only and
-      // both change when an issue moves between teams (Linear identifiers are
-      // team-scoped: FIN-11 becomes TBD-4). The UUID is why the link still
-      // resolves at all; without this the bead would keep showing the old key.
-      const existing = linkFor(action.bead, plan.provider);
-      const [current] = await adapter.fetchIssues([action.externalId]);
-      if (existing && current && (existing.key !== current.key || existing.url !== current.url)) {
-        await options.onLinked(action.bead, {
-          ...existing,
-          key: current.key ?? null,
-          url: current.url ?? null,
-        });
+      // The identifier the write already returned, handed to the caller for the
+      // bridge record. No extra request, and nothing is read back: the previous
+      // version of this refreshed the bead with a fetch per updated item, which
+      // cost a request each and still never repaired a settled mirror, since
+      // this loop only sees beads that already had something to push.
+      if (options.onIdentifier && (applied.key != null || applied.url != null)) {
+        await options.onIdentifier(action.bead, { key: applied.key, url: applied.url });
       }
-
       report.updated.push(displayId);
     } catch (error) {
       report.failures.push({ beadId: displayId, error: describeError(error) });

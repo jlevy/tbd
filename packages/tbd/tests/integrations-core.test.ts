@@ -29,7 +29,13 @@ import {
   findHierarchyProblems,
   MAX_PARENT_DEPTH,
 } from '../src/lib/issue-hierarchy.js';
-import { LinearIntegrationSchema } from '../src/lib/schemas.js';
+import { IntegrationsConfigSchema, LinearIntegrationSchema } from '../src/lib/schemas.js';
+import { resolvePolicy } from '../src/integrations/core/policy.js';
+import {
+  resolveProviderSettings,
+  resolveSyncFoldMode,
+  syncFoldPosture,
+} from '../src/integrations/core/provider-settings.js';
 import type { Issue, IntegrationSelect, IssueStatusType, PriorityType } from '../src/lib/types.js';
 
 function issue(overrides: Partial<Issue> = {}): Issue {
@@ -244,9 +250,30 @@ describe('label-pollution guards', () => {
   // A mirror run once created 40 Linear labels in a shared team, one per bead
   // label. These pin the defaults that prevent it, so flipping either becomes a
   // deliberate, visible change rather than a silent regression.
-  it('defaults mirror_labels to false', () => {
+  it('defaults label mirroring to off', () => {
+    // Asserted through resolveProviderSettings, not the raw key: as of f08 the flat
+    // spelling is optional (the migration moves it to `labels.mirror`), so the default
+    // lives in settings resolution — which is where every consumer reads it.
     const parsed = LinearIntegrationSchema.parse({});
-    expect(parsed.mirror_labels).toBe(false);
+    expect(resolveProviderSettings(parsed).mirrorLabels).toBe('none');
+  });
+
+  it('reads the pre-f08 flat spelling when a committed config still carries it', () => {
+    // A teammate's branch can hold the old shape while this build writes the new one.
+    const legacy = LinearIntegrationSchema.parse({ mirror_labels: true, team_key: 'FIN' });
+    const settings = resolveProviderSettings(legacy);
+    // The legacy boolean maps onto the mode that preserves its exact behavior: it
+    // always meant prefixed, never verbatim.
+    expect(settings.mirrorLabels).toBe('prefixed');
+    expect(settings.teamKey).toBe('FIN');
+  });
+
+  it('prefers the f08 group when a config carries both spellings', () => {
+    const both = LinearIntegrationSchema.parse({
+      team_key: 'OLD',
+      target: { team_key: 'NEW' },
+    });
+    expect(resolveProviderSettings(both).teamKey).toBe('NEW');
   });
 
   it('defaults an unconfigured integration to disabled', () => {
@@ -254,9 +281,13 @@ describe('label-pollution guards', () => {
   });
 
   it('defaults selection to epics only, not every bead', () => {
+    // Asserted through the resolved policy rather than the raw `select` key: as of f08
+    // `select` is optional (the migration folds it into policy.outbound), so the
+    // defaults live in the policy resolution, which is what selection actually reads.
     const parsed = LinearIntegrationSchema.parse({});
-    expect(parsed.select.kinds).toEqual(['epic']);
-    expect(parsed.select.statuses).not.toContain('closed');
+    const outbound = resolvePolicy(parsed).outbound;
+    expect(outbound.kinds).toEqual(['epic']);
+    expect(outbound.statuses).not.toContain('closed');
   });
 });
 
@@ -420,5 +451,100 @@ describe('parent hierarchy guards', () => {
     const root = issue({ id: 'is-root' });
     const child = issue({ id: 'is-child', parent_id: 'is-root' });
     expect(findHierarchyProblems([root, child])).toEqual([]);
+  });
+
+  describe('label modes (f08)', () => {
+    it('defaults creation to tbd-owned labels only', () => {
+      // A boolean lumped two categories together: tbd's own bounded infrastructure labels
+      // and the unbounded set mirrored from beads. Creation off then silently dropped the
+      // origin labels, so the engine re-asserted them on every sync forever.
+      expect(resolveProviderSettings(LinearIntegrationSchema.parse({})).createLabels).toBe('tbd');
+    });
+
+    it('maps the legacy create_labels booleans onto the modes that preserve their meaning', () => {
+      expect(
+        resolveProviderSettings(LinearIntegrationSchema.parse({ create_labels: true }))
+          .createLabels,
+      ).toBe('all');
+      expect(
+        resolveProviderSettings(LinearIntegrationSchema.parse({ create_labels: false }))
+          .createLabels,
+      ).toBe('none');
+    });
+
+    it('maps the legacy mirror_labels booleans the same way', () => {
+      expect(
+        resolveProviderSettings(LinearIntegrationSchema.parse({ mirror_labels: true }))
+          .mirrorLabels,
+      ).toBe('prefixed');
+      expect(
+        resolveProviderSettings(LinearIntegrationSchema.parse({ mirror_labels: false }))
+          .mirrorLabels,
+      ).toBe('none');
+    });
+
+    it('accepts a custom origin label name, symmetric with repo', () => {
+      // A workspace already using `tbd` for something else needs to pick another name.
+      const parsed = LinearIntegrationSchema.parse({ labels: { origin: 'agents' } });
+      expect(resolveProviderSettings(parsed).originLabel).toBe('agents');
+    });
+
+    it('rejects a mode value outside the enum instead of coercing it', () => {
+      expect(() => LinearIntegrationSchema.parse({ labels: { create: 'sometimes' } })).toThrow();
+      expect(() => LinearIntegrationSchema.parse({ labels: { mirror: true } })).toThrow();
+    });
+  });
+});
+
+describe('sync fold mode (f08)', () => {
+  it('defaults to auto when nothing is configured', () => {
+    expect(resolveSyncFoldMode(undefined)).toBe('auto');
+    expect(resolveSyncFoldMode({})).toBe('auto');
+  });
+
+  it('maps the legacy boolean gate onto the modes that preserve its behavior', () => {
+    expect(resolveSyncFoldMode({ sync_on_tbd_sync: true })).toBe('auto');
+    expect(resolveSyncFoldMode({ sync_on_tbd_sync: false })).toBe('off');
+  });
+
+  it('honours the legacy boolean AFTER the schema has parsed the config', () => {
+    // The resolver is not enough on its own. With `.default('auto')` on the new key,
+    // Zod materializes it on every read, the legacy branch becomes unreachable, and a
+    // repository that had turned the fold off silently starts syncing on upgrade.
+    // Testing the resolver with a hand-built object misses that entirely, so this goes
+    // through the schema the way real config does.
+    const parsed = IntegrationsConfigSchema.parse({
+      sync_on_tbd_sync: false,
+      linear: { enabled: true, team_key: 'TEST' },
+    });
+    expect(resolveSyncFoldMode(parsed)).toBe('off');
+    expect(syncFoldPosture(resolveSyncFoldMode(parsed)).runs).toBe(false);
+  });
+
+  it('still defaults to auto through the schema when nothing is set', () => {
+    const parsed = IntegrationsConfigSchema.parse({ linear: { enabled: true } });
+    expect(resolveSyncFoldMode(parsed)).toBe('auto');
+  });
+
+  it('prefers the new spelling when a config carries both', () => {
+    expect(resolveSyncFoldMode({ on_tbd_sync: 'report', sync_on_tbd_sync: true })).toBe('report');
+  });
+
+  it('separates the two decisions the boolean welded together', () => {
+    // This is the whole point of the enum. The old `true` folded in AND waived the bulk
+    // guard, with no way to ask for the fold and keep the guard; `guarded` is that
+    // previously unreachable combination.
+    expect(syncFoldPosture('auto')).toEqual({ runs: true, dryRun: false, assumeYes: true });
+    expect(syncFoldPosture('guarded')).toEqual({ runs: true, dryRun: false, assumeYes: false });
+  });
+
+  it('makes report a run that writes nothing', () => {
+    const posture = syncFoldPosture('report');
+    expect(posture.runs).toBe(true);
+    expect(posture.dryRun).toBe(true);
+  });
+
+  it('makes off skip the fold entirely', () => {
+    expect(syncFoldPosture('off').runs).toBe(false);
   });
 });

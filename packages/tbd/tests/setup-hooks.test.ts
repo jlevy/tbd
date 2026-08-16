@@ -184,12 +184,17 @@ describeUnix('setup hooks (project-local)', { timeout: 15000 }, () => {
       const cases = [
         {
           name: 'format-compatible local CLI',
+          // Two local invocations: the agent-id mint, then the briefing. The mint runs
+          // first so `tbd start` has an identity to claim under, and is idempotent
+          // because SessionStart fires again on resume, clear, and compact.
           canRead: true,
-          expected: 'tbd prime --brief',
+          expected: 'tbd whoami --ensure-id --quiet\ntbd prime --brief',
           fallback: false,
         },
         {
           name: 'format-incompatible local CLI',
+          // No mint here: the local CLI cannot read this repository at all, so the only
+          // thing that runs is the pinned fallback.
           canRead: false,
           expected: `npx --yes get-tbd@${configuredVersion} prime --brief`,
           fallback: true,

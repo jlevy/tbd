@@ -170,7 +170,7 @@ describe('config operations', () => {
       await expect(readConfig(tempDir)).rejects.toThrow(
         'This repository requires a newer version of tbd.\n' +
           "Config format 'f99' is from a newer tbd version.\n" +
-          "This tbd version supports up to format 'f07'.\n" +
+          `This tbd version supports up to format '${CURRENT_FORMAT}'.\n` +
           'Upgrade tbd: npm install -g get-tbd@latest',
       );
     });

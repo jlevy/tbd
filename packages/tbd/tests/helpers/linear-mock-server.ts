@@ -11,6 +11,14 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
+/** A label as Linear models it: a group flag and a parent, with `name` as the leaf. */
+export interface MockLabel {
+  id: string;
+  name: string;
+  isGroup?: boolean;
+  parent?: { id: string; name: string };
+}
+
 export interface MockIssue {
   id: string;
   identifier: string;
@@ -21,7 +29,7 @@ export interface MockIssue {
   updatedAt: string;
   state: { id: string; name: string; type: string };
   assignee: { id: string; name: string; displayName: string; email?: string } | null;
-  labels: { nodes: { id: string; name: string }[] };
+  labels: { nodes: MockLabel[] };
   parent: { id: string; identifier: string } | null;
   archivedAt: string | null;
   trashed: boolean;
@@ -83,7 +91,7 @@ export class LinearMockServer {
     { id: 'state-duplicate', name: 'Duplicate', type: 'duplicate', position: 5 },
   ];
 
-  labels = [
+  labels: MockLabel[] = [
     { id: 'label-bug', name: 'Bug' },
     { id: 'label-feature', name: 'Feature' },
   ];
@@ -125,6 +133,25 @@ export class LinearMockServer {
       );
       this.server = undefined;
     }
+  }
+
+  /**
+   * Rewrite markdown the way Linear does when it stores a description.
+   *
+   * Linear wraps every link destination in angle brackets: `[a](https://x)` is read back
+   * as `[a](<https://x>)`. CommonMark renders the two identically, so it is invisible to
+   * a person and lethal to a raw string comparison — tbd's managed block renders the
+   * plain form, and comparing it raw against the stored form found a difference on every
+   * sync, rewriting a settled mirror forever.
+   *
+   * Modelled here because a mock that round-trips prose more faithfully than the real
+   * tracker cannot catch that class of bug at all: the suite was green throughout.
+   */
+  private static storeDescription(text: string | null): string | null {
+    if (text === null) {
+      return null;
+    }
+    return text.replace(/\]\((?!<)([^()\s]+)\)/g, '](<$1>)');
   }
 
   addIssue(partial: Partial<MockIssue> & { id: string; identifier: string }): MockIssue {
@@ -370,7 +397,9 @@ export class LinearMockServer {
         id,
         identifier,
         title: (input.title as string) ?? 'Untitled',
-        description: (input.description as string | null) ?? null,
+        description: LinearMockServer.storeDescription(
+          (input.description as string | null) ?? null,
+        ),
         priority: (input.priority as number) ?? 0,
         projectId: typeof input.projectId === 'string' ? input.projectId : null,
         assignee:
@@ -384,6 +413,19 @@ export class LinearMockServer {
                 return parent ? { id: parent.id, identifier: parent.identifier } : null;
               })()
             : null,
+        // Real Linear applies labelIds on create, and the IssueUpdate handler below
+        // already does. Ignoring them here made a created issue come back unlabelled,
+        // so anything asserting a label on create looked like it had failed to apply
+        // and would re-assert on the next sync forever.
+        ...(Array.isArray(input.labelIds)
+          ? {
+              labels: {
+                nodes: (input.labelIds as string[])
+                  .map((lid) => this.labels.find((l) => l.id === lid))
+                  .filter((l): l is { id: string; name: string } => Boolean(l)),
+              },
+            }
+          : {}),
         updatedAt: new Date(Date.now() + this.sequence * 1000).toISOString(),
       });
       return {
@@ -403,7 +445,7 @@ export class LinearMockServer {
         issue.title = input.title;
       }
       if ('description' in input) {
-        issue.description = input.description as string | null;
+        issue.description = LinearMockServer.storeDescription(input.description as string | null);
       }
       if (typeof input.priority === 'number') {
         issue.priority = input.priority;
@@ -616,7 +658,46 @@ export class LinearMockServer {
 
     if (query.includes('mutation LabelCreate')) {
       const input = variables.input as Record<string, unknown>;
-      const label = { id: this.nextId('label'), name: input.name as string };
+      const parentId = input.parentId as string | undefined;
+      const parent = parentId ? this.labels.find((l) => l.id === parentId) : undefined;
+      if (parentId && !parent) {
+        return {
+          status: 200,
+          payload: { errors: [{ message: `Unknown parent label: ${parentId}` }] },
+        };
+      }
+      // Label names are unique across the whole team, and a group does NOT scope them:
+      // Linear stores only the leaf in `name` and rejects a second label using it, even
+      // inside a group. Enforced here because omitting it let the suite bless a shape
+      // Linear refuses — a root `tbd` beside a `repo/tbd` child — which passed every
+      // test and then failed against the real API on the first live provisioning run.
+      const name = input.name as string;
+      if (this.labels.some((l) => l.name === name)) {
+        return {
+          status: 200,
+          payload: {
+            errors: [
+              {
+                message: 'duplicate label name',
+                extensions: {
+                  type: 'invalid input',
+                  code: 'INPUT_ERROR',
+                  statusCode: 400,
+                  userError: true,
+                  userPresentableMessage: `Label "${name}" already exists in team FIN. Please pick a different name and try again.`,
+                },
+              },
+            ],
+          },
+        };
+      }
+      // Linear stores the LEAF name on a grouped label; the group is carried by `parent`.
+      const label: MockLabel = {
+        id: this.nextId('label'),
+        name,
+        ...(input.isGroup === true ? { isGroup: true } : {}),
+        ...(parent ? { parent: { id: parent.id, name: parent.name } } : {}),
+      };
       this.labels.push(label);
       return {
         status: 200,

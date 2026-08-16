@@ -40,26 +40,36 @@ function recordPath(dataSyncDir: string, provider: ProviderNameType, beadId: str
 }
 
 /**
- * Normalize a description for comparison: strip tbd's managed block (our own
- * splice must never read as a remote edit), normalize line endings, drop
- * trailing whitespace per line, and trim. Linear round-trips markdown with
- * exactly these kinds of cosmetic differences.
+ * Undo the cosmetic rewrites the tracker applies to markdown on a round trip.
+ *
+ * Separate from {@link normalizeDescription} because two callers need it against
+ * different inputs: the base hash compares prose with tbd's managed block removed,
+ * while the managed-block splice has to compare a whole description *including* the
+ * block. Comparing the block raw is what let a rendering-identical rewrite read as an
+ * edit and write on every sync forever.
  */
-export function normalizeDescription(text: string | null | undefined): string {
-  const stripped = stripManagedBlock(text ?? '');
+export function normalizeTrackerProse(text: string): string {
   return (
-    stripped
+    text
       .replace(/\r\n/g, '\n')
       .split('\n')
-      .map((line) =>
-        line
-          .replace(/[ \t]+$/, '')
-          // Linear rewrites list bullets (`- item` comes back `* item`), which
-          // is rendering-identical markdown. Normalize the marker so bullet
-          // style never reads as a content change — observed live: without
-          // this, every bead body with a dash list ping-ponged through sync.
-          .replace(/^(\s*)[*+-] /, '$1- '),
-      )
+      .map((line) => {
+        const trimmed = line.replace(/[ \t]+$/, '');
+        // CommonMark ignores one to three leading spaces before an ordinary line, and
+        // Linear drops them on the way in. Four or more are left alone because they
+        // open an indented code block, and a list marker keeps its own indent because
+        // that is what carries nesting depth. Observed live: a bead whose body had a
+        // two-space hanging indent could never match the stored copy, so it conflicted
+        // on every sync with neither side able to change to agree.
+        const insignificantIndent =
+          /^ {1,3}(?! )/.test(trimmed) && !/^\s*(?:[*+-] |\d+[.)] )/.test(trimmed);
+        const dedented = insignificantIndent ? trimmed.replace(/^ +/, '') : trimmed;
+        // Linear rewrites list bullets (`- item` comes back `* item`), which
+        // is rendering-identical markdown. Normalize the marker so bullet
+        // style never reads as a content change — observed live: without
+        // this, every bead body with a dash list ping-ponged through sync.
+        return dedented.replace(/^(\s*)[*+-] /, '$1- ');
+      })
       .join('\n')
       // Blank-line runs are also reflowed by the tracker; more than one blank
       // line is rendering-identical to one.
@@ -68,17 +78,35 @@ export function normalizeDescription(text: string | null | undefined): string {
       // paragraph and a following list item — bulleted or ordered. Rendering-
       // identical, so blank lines directly before a list item are cosmetic.
       .replace(/\n+(?=\n(?:- |\d+[.)] ))/g, '')
-      // The tracker auto-linkifies bare URLs: `https://x` comes back as
-      // `[https://x](<https://x>)`. A link whose label IS its target is the
-      // same link; unwrap it (angle-bracketed or not) before hashing.
-      .replace(/\[([^\]\s]+)\]\(<\1>\)/g, '$1')
+      // Linear wraps every link destination in angle brackets: `[a](https://x)`
+      // comes back `[a](<https://x>)`. CommonMark treats the two as the same
+      // destination, so this must be undone before any comparison. Observed
+      // live: the managed block renders a plain `Spec: [name](url)` link, Linear
+      // stored the angle-bracketed form, and the raw string compare then found a
+      // difference on every single sync — 109 of 205 issues rewritten forever.
+      .replace(/\]\(<([^>]*)>\)/g, ']($1)')
+      // A link whose label IS its target is the same link; unwrap it. Runs after
+      // the angle-bracket rule above, so it sees both spellings.
       .replace(/\[([^\]\s]+)\]\(\1\)/g, '$1')
+      // Email addresses get the same treatment, scheme and all: an `agents@x.com`
+      // written in a config example comes back `[agents@x.com](mailto:agents@x.com)`.
+      // Observed live inside a fenced YAML block, where it is plainly not a link
+      // anybody wrote.
+      .replace(/\[([^\]\s]+)\]\(mailto:\1\)/g, '$1')
       // Bare domains get a scheme added on top: `skills.sh` comes back as
-      // `[skills.sh](<http://skills.sh>)`. Same unwrap, scheme-tolerant.
-      .replace(/\[([^\]\s]+)\]\(<https?:\/\/\1\/?>\)/g, '$1')
+      // `[skills.sh](http://skills.sh)`. Same unwrap, scheme-tolerant.
       .replace(/\[([^\]\s]+)\]\(https?:\/\/\1\/?\)/g, '$1')
       .trim()
   );
+}
+
+/**
+ * Normalize a description for comparison: strip tbd's managed block (our own
+ * splice must never read as a remote edit), then undo the tracker's cosmetic
+ * markdown rewrites.
+ */
+export function normalizeDescription(text: string | null | undefined): string {
+  return normalizeTrackerProse(stripManagedBlock(text ?? ''));
 }
 
 /**
@@ -87,7 +115,7 @@ export function normalizeDescription(text: string | null | undefined): string {
  * both-changed conflict, so consumers treat stale-prefixed hashes as "no
  * recorded base" for the description field instead.
  */
-export const DESCRIPTION_HASH_PREFIX = 'sha256v6:';
+export const DESCRIPTION_HASH_PREFIX = 'sha256v7:';
 
 /** Hash of the normalized description; equal hashes mean "unchanged". */
 export function descriptionHash(text: string | null | undefined): string {
@@ -148,6 +176,12 @@ const SUBSTANTIVE_FIELDS: Readonly<Record<Exclude<keyof LinkRecord, 'synced_at'>
   type: true,
   bead_id: true,
   external_id: true,
+  // Substantive despite being display-only: these are the cache that a team
+  // rename or a cross-team move invalidates, and a settled mirror has no other
+  // reason to rewrite the record. Treating them as cosmetic would strand every
+  // stored identifier at its pre-rename value indefinitely.
+  external_key: true,
+  external_url: true,
   base: true,
   remote_updated_at: true,
   state: true,

@@ -27,6 +27,9 @@ import { DESCRIPTION_HASH_PREFIX, descriptionHash } from './bridge-state.js';
 import { stripManagedBlock } from './managed-block.js';
 import type { CanonicalPatch } from './types.js';
 
+/** What a description with no prose of its own hashes to. */
+const EMPTY_DESCRIPTION_HASH = descriptionHash('');
+
 /** The fields the engine reconciles, in stable report order. */
 export const SYNCED_FIELDS = [
   'title',
@@ -129,6 +132,13 @@ interface FieldOps {
   reportRemote?: unknown;
   /** The recorded base value; undefined means "no base" (freshly linked). */
   base: unknown;
+  /**
+   * Whether a value means "nothing was ever set here", as opposed to a deliberate
+   * edit to an empty value. Only consulted when there is no base, to keep an
+   * absent side from winning a coin toss against real content. Same reasoning
+   * {@link FieldEquivalences} documents for Linear priority 0.
+   */
+  isAbsent?: (value: unknown) => boolean;
   equal: (a: unknown, b: unknown) => boolean;
   applyLocal: (value: unknown) => void; // write into beadPatch
   applyRemote: (value: unknown) => void; // write into externalPatch
@@ -218,6 +228,10 @@ export function reconcile(
       base: base?.description_hash?.startsWith(DESCRIPTION_HASH_PREFIX)
         ? base.description_hash
         : undefined,
+      // Compared as hashes, so "empty" is the hash of empty rather than the
+      // value itself. A tracker item created from a bead starts with no prose
+      // of its own, and that must not read as an edit that deletes the bead's.
+      isAbsent: (value) => value === EMPTY_DESCRIPTION_HASH,
       equal: scalarEqual,
       applyLocal: () => {
         beadPatch.description = remoteProse;
@@ -340,7 +354,27 @@ export function reconcile(
       continue; // includes both-changed-to-same-value: converged
     }
     if (ops.base === undefined) {
-      // Freshly linked, values differ: genuinely ambiguous, so conflict.
+      // One side holding nothing is not a competing edit, so this is not the
+      // ambiguous case the tie-break exists for. Without this, an empty tracker
+      // description beats real bead prose whenever the tracker's clock is newer —
+      // and tbd's own managed-block splice is enough to make it newer, so tbd
+      // would discard its content by losing to its own write.
+      const localAbsent = ops.isAbsent?.(ops.local) ?? false;
+      const remoteAbsent = ops.isAbsent?.(ops.remote) ?? false;
+      if (remoteAbsent && !localAbsent) {
+        if (ops.canPush) {
+          ops.applyRemote(ops.local);
+        } else {
+          skipPush(field, ops);
+        }
+        continue;
+      }
+      if (localAbsent && !remoteAbsent) {
+        ops.applyLocal(ops.remote);
+        continue;
+      }
+      // Freshly linked, both sides hold content that differs: genuinely
+      // ambiguous, so conflict.
       resolveConflict(field, ops, localWins, rules.tie_break, conflicts, skipPush);
       continue;
     }

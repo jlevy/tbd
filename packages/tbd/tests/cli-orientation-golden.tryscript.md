@@ -9,6 +9,7 @@ timeout: 30000
 patterns:
   VERSION: 'v[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9.-]+)?'
   GIT_VERSION: '[0-9]+\.[0-9]+\.[0-9]+'
+  SEMVER: '[0-9]+\.[0-9]+\.[0-9]+'
   PATH: '/[^\s]+'
 before: |
   # Set up a test git repository
@@ -106,6 +107,8 @@ INTEGRATIONS
 HEALTH CHECKS
 ✓ Git version - [GIT_VERSION]
 ✓ Config file (.tbd/config.yml)
+⚠ Launcher fallback - tbd_fallback_version [SEMVER] cannot read format f08
+    Run: tbd setup --auto
 ✓ Issues directory (.tbd/issues)
 ✓ Dependencies
 ✓ Unique IDs

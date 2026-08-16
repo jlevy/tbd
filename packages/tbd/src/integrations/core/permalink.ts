@@ -43,22 +43,53 @@ export function blobUrl(slug: RepoSlug, ref: string, path: string): string {
 }
 
 /**
+ * One place to look for a spec, and the ref the resulting URL should name.
+ *
+ * The two differ whenever the authoritative copy is a remote-tracking ref: a
+ * stale local `main` may not contain a spec that is already on the remote, so
+ * `origin/main` answers the question while `main` is what belongs in the URL.
+ */
+export interface BranchCandidate {
+  /** Git ref to inspect. */
+  check: string;
+  /** Ref to name in the URL, which a reader will open on the forge. */
+  url: string;
+}
+
+/**
  * Find a branch that contains `path`, preferring the ones a reader would expect.
  *
  * Checks the candidates in order and returns the first that has the file. A
  * branch ref (rather than a commit sha) keeps the link current while work is in
  * flight; callers rewrite to a merge sha once the bead closes.
+ *
+ * Order matters more than it looks. Callers put the durable trunk first and the
+ * working branch last, because a link is written into a tracker that outlives
+ * the branch: naming the working branch produces a URL that dies the moment the
+ * branch is deleted after merge, and — since the rendered link is part of the
+ * managed block — changes the block on every sync run from a different branch,
+ * rewriting the whole mirror for no reason. The working branch is still a
+ * candidate, so a spec that exists nowhere else stays linkable while in flight;
+ * the next sync after the merge moves the link to the trunk on its own.
  */
 export async function findBranchContaining(
   repoDir: string,
   path: string,
-  candidates: readonly string[],
+  candidates: readonly BranchCandidate[],
 ): Promise<string | undefined> {
-  for (const branch of candidates) {
+  for (const candidate of candidates) {
     try {
-      const output = await git('-C', repoDir, 'ls-tree', '--name-only', branch, '--', path);
+      const output = await git(
+        '-C',
+        repoDir,
+        'ls-tree',
+        '--name-only',
+        candidate.check,
+        '--',
+        path,
+      );
       if (output.trim().length > 0) {
-        return branch;
+        return candidate.url;
       }
     } catch {
       // A missing branch is not an error here: try the next candidate.
@@ -71,8 +102,8 @@ export interface SpecPermalinkOptions {
   repoDir: string;
   specPath: string;
   slug: RepoSlug;
-  /** Branches to try, in preference order (e.g. current branch, then main). */
-  candidates: readonly string[];
+  /** Branches to try, in preference order: durable trunk first, working branch last. */
+  candidates: readonly BranchCandidate[];
 }
 
 /**

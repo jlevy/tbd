@@ -16,6 +16,9 @@ Design options are mapped but deliberately not decided.
   — OpenAI Symphony, the reference Linear-polling orchestrator
 - [Agent Coordination Kernel](research-agent-coordination-kernel.md) — durable truth vs.
   live coordination
+- [Keeping Agent Sessions Synchronized](research-2026-08-14-agent-sync-protocol-and-hooks.md)
+  — turns §7b.4’s “agents announcing themselves in beads” into a concrete protocol, and
+  audits what the shipped integration actually projects
 - [API References for Bridge Integrations](api-references-bridge-integrations.md) —
   GitHub and Slack bridge APIs.
   PR #197 adds a Linear §5 to that file; see
@@ -785,6 +788,65 @@ Linear’s first-class answer to “assign an issue to an agent”:
 
 This is the highest-quality trigger surface Linear offers, and it is where the ecosystem
 is converging. It is also the one that most requires hosted infrastructure.
+
+#### 6.4a The agent ecosystem, surveyed 2026-08-14
+
+“Where the ecosystem is converging” was a prediction when this brief was written.
+It has since converged: Linear’s
+[agents directory](https://linear.app/integrations/agents) lists **27 agents**, and the
+coding ones are the incumbents rather than curiosities — **Codex**, **Cursor**, **GitHub
+Copilot**, **Devin**, **Factory** (“assign issues from your backlog to Droids”),
+**Sentry’s Seer**, and **Charlie**.
+
+Two entries matter directly for tbd:
+
+- **Cyrus** — “your Claude Code powered Linear agent that runs anywhere.”
+  The closest prior art to what tbd is building: Claude Code driven from Linear issues.
+- **Tembo** — “delegate work to any coding agent.”
+  A delegation broker rather than an agent, which is the same architectural slot a tbd
+  bridge would occupy.
+
+There is also a third-party
+[`linear-agent-bridge`](https://github.com/tokezooo/linear-agent-bridge) that “turns
+Linear into a multi-agent workspace,” so the DIY variant exists too.
+
+**The user-facing gesture the ecosystem settled on is delegation, not labelling.** Two
+native triggers, per [Linear’s agent docs](https://linear.app/docs/agents-in-linear):
+
+1. **Delegate the issue to the agent** (the assignment menu), and
+2. **`@mention` the agent** in a comment or description.
+
+`delegate` is deliberately a *separate field* from `assignee`
+([assigning issues](https://linear.app/docs/assigning-issues)): “the assignee remains
+responsible for the work, while the agent contributes on their behalf.”
+An issue can carry a human assignee **and** an agent delegate at once, which is exactly
+the ownership model a human/agent team wants — nobody loses the issue by handing it to a
+bot. It is filterable in custom views, search, and Insights (“issues by the agent they
+have been delegated to”), and agents are **not billable seats**.
+
+**Labels still participate, but indirectly and natively.** Linear’s custom **Triage
+rules** can route on team, status, or **label** — and a rule can *delegate to an agent*
+as part of the same flow.
+So “label an issue `tbd-take` and an agent picks it up” is achievable today with a
+Triage rule and no bridge code at all.
+That is worth knowing before building a label-scanning importer: for teams already on
+Triage, the label→delegate path is configuration, not software.
+
+**Implications for tbd**, which
+[the agent-sync brief](research-2026-08-14-agent-sync-protocol-and-hooks.md) carries
+forward in detail:
+
+- An inbound “hand this to tbd” selector should understand **`delegate`**, not only
+  `assignee`. Matching on assignee would fight the platform’s ownership model; matching
+  on delegate agrees with it.
+- Being a *real* Linear agent (`actor=app`, `AgentSession`) is a different and larger
+  product than mirroring beads — it needs an OAuth app, a public endpoint, and a
+  10-second acknowledgement budget.
+  The mirror does not need any of that, and the two can coexist: tbd projects durable
+  bead state, while an agent session carries live conversation.
+- `AgentSession` has moved since: `AgentSessionUpdate` exists, `AgentSessionEvent`
+  webhooks were revised, and `AgentSession.type` is deprecated.
+  Anything built here should re-probe rather than trust this paragraph.
 
 * * *
 

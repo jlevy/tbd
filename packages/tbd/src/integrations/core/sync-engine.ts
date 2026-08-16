@@ -27,6 +27,8 @@ import { randomUUID } from 'node:crypto';
 
 import { ulid } from 'ulid';
 
+import type { LabelMirrorModeType } from './provider-settings.js';
+
 import type {
   InboundClause,
   Issue,
@@ -38,6 +40,7 @@ import { readyIssueIds } from '../../lib/issue-selection.js';
 import {
   descriptionHash,
   listLinkRecords,
+  normalizeTrackerProse,
   pullWatermark,
   writeLinkRecord,
   writeLinkRecordIfChanged,
@@ -126,7 +129,22 @@ export interface SyncEngineOptions {
    * nor wipe — the tracker's labels (including tbd's own status carriers) are
    * left alone. When on, pushed labels are `tbd:`-prefixed.
    */
-  mirrorLabels: boolean;
+  mirrorLabels: LabelMirrorModeType;
+  /**
+   * Labels every linked item must carry — the plain `tbd` marker and the `repo/<name>`
+   * group label.
+   *
+   * Applied at the LINKED-PAIR level rather than only on outbound creates, so an item
+   * that entered by any route — created here, imported from the tracker, or linked by
+   * hand — ends up marked. A scheme that only marked what tbd created would leave the
+   * imported half of a shared surface unfilterable, which is exactly the case the labels
+   * exist for.
+   *
+   * Additive: asserted through `ensureLabels`, which never removes a label a person
+   * applied in the tracker. Independent of `mirrorLabels`, which answers the different
+   * question of whether to project the repository's own bead labels.
+   */
+  originLabels?: readonly string[];
   /** Levels of the selected outbound hierarchy that may exist in the provider. */
   maxNesting?: number;
   /** Provider-specific field equivalences (see reconcile.ts). */
@@ -645,7 +663,21 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         assigneePull: remote.assigneeSyncable !== false,
       },
     );
-    if (!options.mirrorLabels) {
+    // Assert the origin labels only when the remote is actually missing one.
+    //
+    // Adding them unconditionally would put a key in every externalPatch, which is what
+    // decides whether a pair counts as changed — every settled pair would look dirty and
+    // a quiet sync would write, commit, and push again. Diffing against the remote's
+    // current labels keeps a settled mirror silent while still backfilling an item that
+    // predates the labels or was imported without them.
+    const missingOriginLabels = (options.originLabels ?? []).filter(
+      (label) => !remote.labels.includes(label),
+    );
+    if (missingOriginLabels.length > 0) {
+      result.externalPatch.ensureLabels = missingOriginLabels;
+    }
+
+    if (options.mirrorLabels === 'none') {
       // Labels are inert unless explicitly mirrored: never pushed (which would
       // create one team label per bead label AND wipe tbd's status carriers on
       // beads without labels), never pulled, never a reportable overwrite.
@@ -654,7 +686,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       result.overwrites = result.overwrites.filter((o) => o.field !== 'labels');
       result.conflicts = result.conflicts.filter((c) => c.field !== 'labels');
       result.merged.labels = bead.labels ?? [];
-    } else if (result.externalPatch.labels) {
+    } else if (result.externalPatch.labels && options.mirrorLabels === 'prefixed') {
       result.externalPatch.labels = prefixLabels(result.externalPatch.labels);
     }
     let parentOverwrite = false;
@@ -792,10 +824,16 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       });
       continue;
     }
+    // Compare normalized, never raw. Linear rewrites the block's own markdown on the
+    // way in — a plain `[name](url)` comes back `[name](<url>)` — so a raw comparison
+    // finds a difference on every sync and rewrites a settled mirror forever. The base
+    // hash could not catch this either: it strips the managed block before hashing, so
+    // the block is the one region no other check covers.
     if (
       !inboundOnly &&
       (pair.result.externalPatch.description !== undefined ||
-        spliced.result !== pair.remote.description)
+        normalizeTrackerProse(spliced.result) !==
+          normalizeTrackerProse(pair.remote.description ?? ''))
     ) {
       managedBlocks.set(pair.bead.id, block);
     }
@@ -1225,6 +1263,11 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
           type: 'lk',
           bead_id: pair.bead.id,
           external_id: link.id,
+          // From the remote already in hand: this is the one path every linked
+          // pair takes on every sync, so a renamed team is picked up here even
+          // when the pair has nothing else to push.
+          external_key: pair.remote.key ?? null,
+          external_url: pair.remote.url ?? null,
           base: {
             title: pair.result.merged.title,
             status: pair.result.merged.status,
@@ -1266,6 +1309,13 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
             ? { assignee: issue.assignee ?? null }
             : {}),
           ...(parentExternalId ? { parentId: parentExternalId } : {}),
+          // Mark it at birth. This patch is built here rather than by planMirror, so
+          // without this an item the engine creates arrives unlabelled and the next
+          // sync has to notice and backfill it — a guaranteed second write for every
+          // create, and an unlabelled window in between.
+          ...((options.originLabels?.length ?? 0) > 0
+            ? { ensureLabels: [...(options.originLabels ?? [])] }
+            : {}),
         },
         clientId,
       );
@@ -1295,6 +1345,11 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         type: 'lk',
         bead_id: issue.id,
         external_id: ref.id,
+        // `current` is the post-create read; `ref` is what the create returned.
+        // Prefer the read, but fall back rather than storing null for a brand
+        // new link whose identifier the create already told us.
+        external_key: current?.key ?? ref.key ?? null,
+        external_url: current?.url ?? ref.url ?? null,
         base: {
           title: issue.title,
           status: issue.status,
@@ -1423,6 +1478,8 @@ async function importExternal(
     type: 'lk',
     bead_id: created.id,
     external_id: candidate.id,
+    external_key: candidate.key ?? null,
+    external_url: candidate.url ?? null,
     base: {
       title: candidate.title,
       status: candidate.status,

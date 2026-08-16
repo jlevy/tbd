@@ -1,4 +1,4 @@
-tbd_format: f07
+tbd_format: f08
 tbd_version: 0.6.5
 tbd_fallback_version: 0.6.5
 # tbd_upgrades: tbd versions that have run `tbd setup` in this repo (oldest first);
@@ -140,22 +140,42 @@ docs_cache:
     - .tbd/docs/shortcuts/system
     - .tbd/docs/shortcuts/standard
 integrations:
-  sync_on_tbd_sync: false
+  on_tbd_sync: 'off'
   linear:
+    target:
+      team_key: OS
+      project: tbd
+    labels:
+      origin: true
+      repo: auto
+      mirror: none
+      create: tbd
+    identity:
+      user_map: {}
     enabled: true
-    select:
-      kinds:
-        - epic
-      statuses:
-        - open
-        - in_progress
-        - blocked
-      labels: []
-      specs: active
-      linked: true
-    max_nesting: 2
-    team_key: TBD
-    project: tbd
-    mirror_labels: false
-    create_labels: true
-    user_map: {}
+    policy:
+      outbound:
+        kinds:
+          - epic
+        statuses:
+          - open
+          - in_progress
+          - blocked
+        labels: []
+        specs: active
+        linked: true
+        max_nesting: 2
+      inbound:
+        mode: report
+        labels: []
+        as_kind: task
+      field_sync:
+        fields:
+          title: merge
+          description: merge
+          status: merge
+          priority: merge
+          labels: local
+          assignee: local
+        comments: two_way
+        tie_break: newest

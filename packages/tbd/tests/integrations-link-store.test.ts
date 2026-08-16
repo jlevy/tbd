@@ -41,6 +41,11 @@ function issue(overrides: Partial<Issue> = {}): Issue {
   } as Issue;
 }
 
+/**
+ * What a caller hands to `writeLink`. It still carries the tracker's
+ * identifier and URL, because the adapter has them and callers render from
+ * them immediately — they are simply not written to the bead.
+ */
 const entry: LinkedEntryType = {
   provider: 'linear',
   id: '9cbb48f8-7a2e-4b9d-9f3e-0c1d2e3f4a5b',
@@ -49,10 +54,29 @@ const entry: LinkedEntryType = {
   linked_at: '2026-08-10T00:00:00.000Z',
 };
 
+/**
+ * What survives onto the bead: identity and nothing else. `key` and `url` are
+ * derived from mutable tracker state — a team rename rewrites every identifier
+ * in the team — so they live on the bridge record, which every sync rewrites.
+ */
+const persisted: LinkedEntryType = {
+  provider: 'linear',
+  id: entry.id,
+  linked_at: entry.linked_at,
+};
+
 describe('link store', () => {
   it('round-trips a link', () => {
     const linked = writeLink(issue(), entry);
-    expect(readLink(linked, 'linear')).toEqual(entry);
+    expect(readLink(linked, 'linear')).toEqual(persisted);
+  });
+
+  it('does not persist the tracker identifier or URL, which a rename invalidates', () => {
+    const namespace = writeLink(issue(), entry).extensions?.linear as Record<string, unknown>;
+
+    expect(namespace).not.toHaveProperty('key');
+    expect(namespace).not.toHaveProperty('url');
+    expect(namespace.id).toBe(entry.id);
   });
 
   it('returns undefined when there is no link', () => {
@@ -67,7 +91,7 @@ describe('link store', () => {
     // unknown contents, so Zod has nothing to strip.
     const parsed = IssueSchema.parse(linked);
 
-    expect(readLink(parsed, 'linear')).toEqual(entry);
+    expect(readLink(parsed, 'linear')).toEqual(persisted);
   });
 
   it('keeps a second provider link independent', () => {
@@ -136,7 +160,7 @@ describe('link store', () => {
     const linked = writeLink(withOther, entry);
 
     expect(linked.extensions?.someTool).toEqual({ data: 1 });
-    expect(readLink(linked, 'linear')).toEqual(entry);
+    expect(readLink(linked, 'linear')).toEqual(persisted);
   });
 
   it('clears one provider without touching the others', () => {
@@ -176,7 +200,16 @@ describe('link store', () => {
     const linked = writeLink(issue(), entry);
     const stored = linked.extensions?.linear as Record<string, unknown>;
 
-    expect(Object.keys(stored).sort()).toEqual([...PERSISTED_LINK_KEYS].sort());
+    expect(Object.keys(stored).sort()).toEqual(['id', 'linked_at']);
+  });
+
+  it('owns more keys than it writes, so retired ones are cleaned up', () => {
+    // PERSISTED_LINK_KEYS is the set writeLink *manages*, which is deliberately
+    // wider than the set it writes: `key` and `url` stay listed so a bead from
+    // an older tbd has them stripped rather than preserved as opaque siblings.
+    // Narrowing this list to the written keys would make a stale identifier
+    // permanent, which is the exact failure this move exists to prevent.
+    expect([...PERSISTED_LINK_KEYS].sort()).toEqual(['id', 'key', 'linked_at', 'url']);
   });
 
   it('drops extra fields smuggled into the entry rather than storing them', () => {
@@ -226,11 +259,52 @@ describe('link store', () => {
       extensions: { linear: { id: 12 } },
     });
 
+    // Grouping is by external id — the UUID — so it is unaffected by whether a
+    // human identifier is available at all.
     expect(duplicateExternalLinks([later, unrelated, malformed, earlier], 'linear')).toEqual([
       {
         externalId: entry.id,
-        externalKey: 'FIN-11-renamed',
+        // Null rather than 'FIN-11-renamed': the bead no longer carries a key,
+        // so without bridge records there is nothing to label it with. The
+        // report still names the external id and every holding bead, which is
+        // what the remedy acts on.
+        externalKey: null,
         beadIds: [earlier.id, later.id],
+      },
+    ]);
+  });
+
+  it('labels a duplicate from bridge records when they are supplied', () => {
+    const later = writeLink(issue({ id: 'is-01hx5zzkbkactav9wevgemmvsa' }), entry);
+    const earlier = writeLink(issue({ id: 'is-01hx5zzkbkactav9wevgemmvra' }), entry);
+
+    const keyByExternalId = new Map([[entry.id, 'OS-11']]);
+
+    expect(duplicateExternalLinks([later, earlier], 'linear', keyByExternalId)).toEqual([
+      {
+        externalId: entry.id,
+        externalKey: 'OS-11',
+        beadIds: [earlier.id, later.id],
+      },
+    ]);
+  });
+
+  it('falls back to a legacy bead-side key for a bead written before the move', () => {
+    // Transitional: a bead last written by an older tbd still carries `key`.
+    // It should still label the report until the next sync rewrites the bead.
+    const legacy = issue({
+      id: 'is-01hx5zzkbkactav9wevgemmvra',
+      extensions: {
+        linear: { id: entry.id, key: 'FIN-11', linked_at: entry.linked_at },
+      },
+    });
+    const modern = writeLink(issue({ id: 'is-01hx5zzkbkactav9wevgemmvsa' }), entry);
+
+    expect(duplicateExternalLinks([modern, legacy], 'linear')).toEqual([
+      {
+        externalId: entry.id,
+        externalKey: 'FIN-11',
+        beadIds: [legacy.id, modern.id],
       },
     ]);
   });

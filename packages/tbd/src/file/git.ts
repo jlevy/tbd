@@ -413,7 +413,24 @@ export async function commitToSyncBranch(
 /**
  * Field-level merge strategy types.
  */
-type MergeStrategy = 'lww' | 'union' | 'max' | 'immutable' | 'namespace_merge';
+type MergeStrategy = 'lww' | 'union' | 'union_by_key' | 'max' | 'immutable' | 'namespace_merge';
+
+/**
+ * Identity field for `union_by_key` fields (f08+).
+ *
+ * Plain `union` dedupes on whole-item equality, which is right for `dependencies` (the
+ * whole tuple IS the identity) and wrong for `docs`/`refs`, where one entry has optional
+ * descriptive fields alongside its identity. Two clones adding the same PR URL with
+ * different titles would otherwise both survive, leaving one PR listed twice.
+ *
+ * Keying on the identity field makes repeated adds idempotent and keeps the merge a
+ * union — the property that lets two agents attach different references concurrently and
+ * both survive.
+ */
+const UNION_KEY_FIELDS: Readonly<Record<string, string>> = {
+  docs: 'path',
+  refs: 'url',
+};
 
 /**
  * Field-level merge strategies for Issue fields.
@@ -450,12 +467,51 @@ const FIELD_STRATEGIES: Record<keyof Issue, MergeStrategy> = {
   labels: 'union',
   dependencies: 'union',
 
+  // Union keyed on the entry's identity field, so two agents attaching different
+  // documents or references concurrently both survive and a repeated add is a no-op.
+  docs: 'union_by_key',
+  refs: 'union_by_key',
+
   // Merged per top-level namespace, not as one opaque value: two writers touching
   // different namespaces must both survive. Whole-object LWW here silently
   // dropped one side's namespace, which now matters more because external
   // tracker links live in these namespaces.
   extensions: 'namespace_merge',
 };
+
+/**
+ * Strategy for a key that is not in {@link FIELD_STRATEGIES} — a field written by a
+ * newer tbd that this one does not know about (f08+).
+ *
+ * LWW is the only defensible default. Union would silently corrupt a scalar into an
+ * array, and immutable would freeze a field the owning version expects to update; LWW
+ * at worst discards one side of a genuine concurrent edit, and records that in the
+ * attic like any other LWW field. The alternative — dropping the key — is the data loss
+ * f08 exists to stop.
+ */
+const UNKNOWN_FIELD_STRATEGY: MergeStrategy = 'lww';
+
+/**
+ * Keys present on any side of a merge that {@link FIELD_STRATEGIES} does not cover.
+ *
+ * Order is deterministic (sorted) so a merge is reproducible regardless of YAML key
+ * order or which side introduced the key.
+ */
+function unknownIssueKeys(...sides: (Issue | null)[]): string[] {
+  const known = new Set(Object.keys(FIELD_STRATEGIES));
+  const seen = new Set<string>();
+  for (const side of sides) {
+    if (!side) {
+      continue;
+    }
+    for (const key of Object.keys(side)) {
+      if (!known.has(key)) {
+        seen.add(key);
+      }
+    }
+  }
+  return [...seen].sort();
+}
 
 /**
  * Conflict entry for attic storage.
@@ -499,6 +555,14 @@ export function issuesSubstantivelyEqual(a: Issue, b: Issue): boolean {
       continue;
     }
     if (!deepEqual(a[key], b[key])) {
+      return false;
+    }
+  }
+  // Unknown keys count too (f08+). Without this, an edit that touches only a field a
+  // newer tbd added reads as "no change" and is never saved — the preserved key would
+  // survive parsing and then quietly fail to persist.
+  for (const key of unknownIssueKeys(a, b)) {
+    if (!deepEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])) {
       return false;
     }
   }
@@ -547,6 +611,41 @@ function unionArrays<T>(a: T[], b: T[]): T[] {
   const result = [...a];
   for (const item of b) {
     if (!result.some((existing) => deepEqual(existing, item))) {
+      result.push(item);
+    }
+  }
+  return result;
+}
+
+/**
+ * Union two arrays of objects on one identity field (f08+).
+ *
+ * The local side wins a same-key collision, matching how every other both-changed
+ * resolution here breaks a tie toward local. Entries missing the key, which a
+ * hand-edited file could contain, fall back to whole-item equality rather than being
+ * dropped — losing data to a malformed entry would be worse than keeping a duplicate.
+ */
+function unionArraysByKey(a: unknown[], b: unknown[], keyField: string): unknown[] {
+  const result = [...a];
+  const keyOf = (item: unknown): string | undefined => {
+    if (!isPlainObject(item)) {
+      return undefined;
+    }
+    const value = item[keyField];
+    return typeof value === 'string' ? value : undefined;
+  };
+  const seen = new Set(a.map(keyOf).filter((k): k is string => k !== undefined));
+
+  for (const item of b) {
+    const key = keyOf(item);
+    if (key === undefined) {
+      if (!result.some((existing) => deepEqual(existing, item))) {
+        result.push(item);
+      }
+      continue;
+    }
+    if (!seen.has(key)) {
+      seen.add(key);
       result.push(item);
     }
   }
@@ -789,7 +888,17 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
   // Field-by-field merge
   const merged = { ...base } as Issue;
 
-  for (const [field, strategy] of Object.entries(FIELD_STRATEGIES)) {
+  // Unknown keys (f08+) merge by the same rules, with a default strategy. Building the
+  // pair list this way — rather than iterating FIELD_STRATEGIES alone — is what stops a
+  // field a newer tbd added from being dropped here after the schema preserved it.
+  const strategyPairs: [string, MergeStrategy][] = [
+    ...Object.entries(FIELD_STRATEGIES),
+    ...unknownIssueKeys(base, local, remote).map(
+      (key) => [key, UNKNOWN_FIELD_STRATEGY] as [string, MergeStrategy],
+    ),
+  ];
+
+  for (const [field, strategy] of strategyPairs) {
     const key = field as keyof Issue;
     const localVal = local[key];
     const remoteVal = remote[key];
@@ -866,6 +975,14 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
         (merged as Record<string, unknown>)[key] = unionArrays(
           (Array.isArray(localVal) ? localVal : []) as unknown[],
           (Array.isArray(remoteVal) ? remoteVal : []) as unknown[],
+        );
+        break;
+
+      case 'union_by_key':
+        (merged as Record<string, unknown>)[key] = unionArraysByKey(
+          (Array.isArray(localVal) ? localVal : []) as unknown[],
+          (Array.isArray(remoteVal) ? remoteVal : []) as unknown[],
+          UNION_KEY_FIELDS[key] ?? 'url',
         );
         break;
 

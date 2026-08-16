@@ -66,6 +66,34 @@ $ tbd sync --docs 2>&1 | grep -c "Skipping external trackers"
 ? 0
 ```
 
+# Test: --push narrows away from the tracker instead of projecting onto it
+
+`--push` used to reach the outbound-only projection that `setup-linear` warns joiners
+never to run, which writes local state over the tracker without reconciling first.
+A natural-looking flag must not be the dangerous one.
+
+```console
+$ tbd sync --push --dry-run 2>&1 | grep -c "Skipping external trackers"
+1
+? 0
+```
+
+# Test: the --push notice names the command that does perform the projection
+
+```console
+$ tbd sync --push --dry-run 2>&1 | grep -c "tbd integration sync --push"
+1
+? 0
+```
+
+# Test: naming both the surface and the direction still performs it
+
+```console
+$ tbd sync --push --integrations --dry-run 2>&1 | grep -c "Skipping external trackers" || true
+0
+? 0
+```
+
 # Test: a dry run still reports it
 
 ```console
@@ -132,8 +160,8 @@ $ tbd sync --status 2>&1 | grep -c "Skipping external trackers" || true
 
 ## Deliberately excluded from `tbd sync`
 
-A team that sets `sync_on_tbd_sync: false` has already decided the tracker is manual, so
-a scoped run has nothing to warn about.
+A team that turns the fold off has already decided the tracker is manual, so a scoped
+run has nothing to warn about.
 
 ```console
 $ node -e "const f=require('fs'),p='.tbd/config.yml';f.writeFileSync(p,f.readFileSync(p,'utf8').replace('integrations:','integrations:\n  sync_on_tbd_sync: false'))"
