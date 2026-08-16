@@ -1746,6 +1746,8 @@ Pull request builds should package without signing, which is fast and needs no s
 
 - For monorepo setup with pnpm, see `tbd guidelines pnpm-monorepo-patterns`
 - For monorepo setup with Bun, see `tbd guidelines bun-monorepo-patterns`
+- For Tauri, see `tbd guidelines tauri-app-development-patterns`
+- For Electrobun, see `tbd guidelines electrobun-app-development-patterns`
 - For dependency policy, see `tbd guidelines supply-chain-hardening`
 - For TypeScript conventions, see `tbd guidelines typescript-rules`
 

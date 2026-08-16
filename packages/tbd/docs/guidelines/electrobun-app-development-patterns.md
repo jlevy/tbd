@@ -13,6 +13,7 @@ category: desktop
 - [Electrobun documentation](https://framework.blackboard.sh/electrobun/)
 - [Electrobun source](https://github.com/blackboardsh/electrobun)
 - [Companion: Electron App Development Patterns](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/electron-app-development-patterns.md)
+- [Companion: Tauri App Development Patterns](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/tauri-app-development-patterns.md)
 
 * * *
 
@@ -713,6 +714,7 @@ platform-specific bugs that a larger project would have found already.
 ## Related Guidelines
 
 - For Electron, see `tbd guidelines electron-app-development-patterns`
+- For Tauri, see `tbd guidelines tauri-app-development-patterns`
 - For dependency policy, see `tbd guidelines supply-chain-hardening`
 - For TypeScript conventions, see `tbd guidelines typescript-rules`
 

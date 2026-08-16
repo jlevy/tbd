@@ -292,6 +292,7 @@ opinionated rules with concrete examples, built from months of heavy agentic cod
 | [cli-agent-skill-patterns](packages/tbd/docs/guidelines/cli-agent-skill-patterns.md) | Building CLIs that function as agent skills in Claude Code |
 | [electron-app-development-patterns](packages/tbd/docs/guidelines/electron-app-development-patterns.md) | Standalone Electron apps: process model, Vite build, Node/Bun/Python backends, security, signing, updates |
 | [electrobun-app-development-patterns](packages/tbd/docs/guidelines/electrobun-app-development-patterns.md) | Electrobun apps: runtime and process model, typed RPC, packaging and the delta updater, maturity and security assessment |
+| [tauri-app-development-patterns](packages/tbd/docs/guidelines/tauri-app-development-patterns.md) | Tauri 2 apps: Rust core and system webview, capabilities and permissions, sidecars and non-Rust backends, signing and the signed updater |
 | [typescript-yaml-handling-rules](packages/tbd/docs/guidelines/typescript-yaml-handling-rules.md) | YAML parsing/serialization with the `yaml` package, Zod validation, consistent formatting |
 | [python-rules](packages/tbd/docs/guidelines/python-rules.md) | Type hints, docstrings, exception handling, resource management |
 | [python-cli-patterns](packages/tbd/docs/guidelines/python-cli-patterns.md) | Modern Python CLI stack: uv, Typer, Rich, Ruff, BasedPyright |
