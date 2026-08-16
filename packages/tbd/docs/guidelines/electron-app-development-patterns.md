@@ -35,9 +35,9 @@ given as the pin, per [Supply-Chain Mitigation](#supply-chain-mitigation).
 | Tool / Package | Version | Check For Updates |
 | --- | --- | --- |
 | **Electron** | ^43.2.0 (43.3.0/43.4.0 too recent) | [releases.electronjs.org](https://releases.electronjs.org/)—**43.4.0** (2026-08-11) is current stable: Chromium 150, Node 24.18.1, V8 15.0. Supported majors are **41, 42, 43**; **41 reaches EOL 2026-08-25**, so 42 is the practical floor. 44 is in beta and **drops macOS 12, 32-bit Windows (ia32), and linux-armv7l**. Security fixes ship on the supported line only—track the latest patch, not just the major. |
-| **Node.js (host toolchain)** | 24 (LTS “Krypton”) | [nodejs.org/releases](https://nodejs.org/en/about/previous-releases)—Node 24 Active LTS until Apr 2028; Node 26 Current (LTS Oct 2026); Node 22 in maintenance; **Node 20 EOL 2026-03-24**. Note the Node version *inside* Electron is set by Electron, not by your host Node. |
+| **Node.js (host toolchain)** | 24 (LTS “Krypton”) | [nodejs.org/releases](https://nodejs.org/en/about/previous-releases)—Node 24 Active LTS (EOL Apr 2028; moves to maintenance when Node 26 enters LTS in Oct 2026); Node 26 Current; Node 22 in maintenance; **Node 20 EOL 2026-03-24**. Note the Node version *inside* Electron is set by Electron, not by your host Node. |
 | **electron-vite** | ^5.0.0 | [electron-vite.org](https://electron-vite.org/)—5.0.0 (2025-12-07). Supports Vite 7 and 8. Added `build.isolatedEntries` for multi-entry isolation and stronger bytecode string protection. 6.0.0-beta.1 exists; not stable. |
-| **vite-plugin-electron** | ^1.1.1 | [github.com/electron-vite/vite-plugin-electron](https://github.com/electron-vite/vite-plugin-electron)—1.1.1 (2026-08-03). Same org as electron-vite, currently the more frequently released of the two. Auto-selects `rolldownOptions` on Vite 8+ and `rollupOptions` below. Use when you want a plugin inside a standard Vite project rather than a separate CLI. |
+| **vite-plugin-electron** | ^1.1.0 (1.1.1 too recent) | [github.com/electron-vite/vite-plugin-electron](https://github.com/electron-vite/vite-plugin-electron)—**Pinned to 1.1.0 (2026-06-24) per the 14-day rule**; 1.1.1 (2026-08-03) is 12 days old today. Same org as electron-vite, currently the more frequently released of the two. Auto-selects `rolldownOptions` on Vite 8+ and `rollupOptions` below. Use when you want a plugin inside a standard Vite project rather than a separate CLI. |
 | **Vite** | ^8.2.0 (8.2.1 too recent) | [vite.dev](https://vite.dev/blog/announcing-vite8)—Vite 8 (2026-03-12) ships **Rolldown as its sole bundler**, replacing the esbuild-for-dev / Rollup-for-prod split. Requires Node 20.19+ or 22.12+. |
 | **Rolldown** | ^1.2.1 (1.2.2+ too recent) | [rolldown.rs](https://rolldown.rs/)—1.0 stable May 2026; 1.2.4 (2026-08-12) newest. Adopted Rollup’s plugin API, so most Vite plugins work unmodified. Maintained by VoidZero, **acquired by Cloudflare 2026-06-04**; tools remain MIT. |
 | **esbuild** | ^0.28.1 (0.28.2 too recent) | [github.com/evanw/esbuild/releases](https://github.com/evanw/esbuild/releases)—still pre-1.0. No longer inside Vite’s production path, but still the simplest standalone choice for bundling a main process without adopting a framework. |
@@ -54,7 +54,7 @@ given as the pin, per [Supply-Chain Mitigation](#supply-chain-mitigation).
 | **update-electron-app** | ^3.3.0 | [github.com/electron/update-electron-app](https://github.com/electron/update-electron-app)—3.3.0 (2026-06-28). |
 | **Playwright** | ^1.62.1 | [playwright.dev](https://playwright.dev/docs/api/class-electron)—1.62.1 (2026-07-30). `_electron` is still an experimental namespace but is the standard way to drive a packaged app in tests. |
 | **better-sqlite3** | ^13.0.2 (13.0.3 too recent) | [npmjs.com/package/better-sqlite3](https://www.npmjs.com/package/better-sqlite3)—13.0.3 (2026-08-05) newest. Needs `@electron/rebuild`. Consider `node:sqlite` first (see [Native Modules](#native-modules)). |
-| **pnpm** | ^11.21.0 | [github.com/pnpm/pnpm/releases](https://github.com/pnpm/pnpm/releases)—pnpm 11 moved `nodeLinker` and `shamefullyHoist` out of `.npmrc` into `pnpm-workspace.yaml`, replaced `onlyBuiltDependencies` with `allowBuilds`, and made `strictDepBuilds` default to `true`. |
+| **pnpm** | ^11.19.0 (11.20+ too recent) | [github.com/pnpm/pnpm/releases](https://github.com/pnpm/pnpm/releases)—**Pinned to 11.19.0 (2026-07-31) per the 14-day rule**; 11.20.0 through 11.22.0 are all under 14 days old today. pnpm 11 moved `nodeLinker` and `shamefullyHoist` out of `.npmrc` into `pnpm-workspace.yaml`, replaced `onlyBuiltDependencies` with `allowBuilds`, and made `strictDepBuilds` default to `true`. |
 | **npm** | ^12.0.2 | [npmjs.com/package/npm](https://www.npmjs.com/package/npm)—npm 12 (2026-07-08) **disables dependency install scripts by default** (`allowScripts`); approve with `npm approve-scripts`. |
 | **Bun** | ^1.3.14 | [bun.com/blog](https://bun.com/blog)—1.3.14 (2026-05-13). Fine as a package manager and as a sidecar runtime; **not** a supported driver for Forge, and still unreliable through electron-builder’s script hooks. |
 
@@ -160,6 +160,10 @@ architecture early rather than as a later optimization.
 A rule that resolves most confusion: **there is no Node.js in the renderer, and there
 should never be.** If the renderer needs to read a file, call an API with a secret, or
 spawn a process, it asks the main process to do it through a named, validated channel.
+
+One API note for apps that embed more than one web view in a window: use
+`WebContentsView`. Its predecessor `BrowserView` has been deprecated since Electron 29,
+and the `<webview>` tag is disabled by default and discouraged by the Electron team.
 
 ### Module Format: The ESM Situation
 
@@ -301,7 +305,7 @@ The parts that matter:
 const win = new BrowserWindow({
   show: false, // avoid the white flash; show on 'ready-to-show'
   webPreferences: {
-    preload: path.join(__dirname, '../preload/index.cjs'),
+    preload: path.join(__dirname, '../preload/index.js'),
     // sandbox, contextIsolation, nodeIntegration are already correct by default.
     // They are listed in Appendix C explicitly, as documentation, not as a fix.
   },
@@ -460,7 +464,7 @@ best practice is not the one most tutorials describe.
 
 | Approach | Status (Aug 2026) | Notes |
 | --- | --- | --- |
-| **python-build-standalone + uv** (recommended) | Actively maintained by Astral since Dec 2024; release tag 20260610 ships CPython 3.13.14 and 3.14.6 | Relocatable CPython builds—statically linked, with the build system patched to use relative paths. Assemble the app environment at build time with `uv venv` and `uv pip sync` against a lockfile, then ship the tree. Most predictable and most debuggable. |
+| **python-build-standalone + uv** (recommended) | Actively maintained by Astral since Dec 2024; release tag 20260610 ships CPython 3.13.14 and 3.14.6 | Relocatable CPython builds—statically linked, with the build system patched to use relative paths. At build time, `uv pip sync` your lockfile **directly into the standalone tree** and ship that tree. Do not ship a venv: venv scripts and `pyvenv.cfg` hardcode build-machine paths, and the venv’s interpreter is a symlink back to wherever it was created. Most predictable and most debuggable. |
 | **PyInstaller** | 6.22.1, actively maintained, Python 3.8–3.15 | Mature and widely used. Sizes run ~28MB for a Flask app to ~180MB with PyTorch; startup ~2–3s, and onefile mode adds unpacking time that is worst on Windows. |
 | **Nuitka** | 4.x, actively maintained | Compiles to C. Faster execution, some IP protection. AGPLv3 with an exemption for compiled output; a commercial edition exists. Python 3.14 support is experimental. |
 | **Briefcase** (BeeWare) | Actively maintained | Whole-app packager rather than a backend packager. Cannot cross-build; you build on each target platform. |
@@ -654,11 +658,11 @@ restore.
 
 ### The Preload Boundary Is an RPC Boundary
 
-Covered in [Typed IPC](#typed-ipc-across-the-context-bridge); restated here because it
-is the single highest-value control.
 Most Electron security incidents are effectively **XSS to RCE**, and the escalation path
-runs through an over-broad preload API. Expose named capabilities, never a generic
-channel. Validate the sender and the payload in every handler.
+runs through an over-broad preload API. This is the single highest-value control.
+Expose named capabilities, never a generic channel, and validate the sender and the
+payload in every handler—the pattern and code are in
+[Typed IPC](#typed-ipc-across-the-context-bridge).
 
 ### Content Security Policy
 
@@ -692,9 +696,12 @@ contents.setWindowOpenHandler(({ url }) => {
   return { action: 'deny' };
 });
 
-// 2. Navigation: pin the app to its own origin.
+// 2. Navigation: allow only the URLs the app itself loads. With loadFile the
+//    renderer's origin is the opaque 'null', so compare against a URL prefix
+//    (dev server URL or the packaged renderer's file:// base), not an origin.
+//    A custom protocol gives you a real origin to compare instead.
 contents.on('will-navigate', (event, url) => {
-  if (new URL(url).origin !== APP_ORIGIN) event.preventDefault();
+  if (!url.startsWith(trustedRendererBase)) event.preventDefault();
 });
 
 // 3. Permissions: deny everything you have not deliberately enabled.
@@ -905,18 +912,17 @@ This requirement is documented in electron-builder’s issue tracker rather than
 its docs, and Electron Forge documents the equivalent requirement for its pnpm support
 added in 7.7.0.
 
-**On Bun specifically.** An older version of this document rated Bun’s Electron support
-“low” on the strength of four issue reports.
-Rechecking them in August 2026: the electron-builder segfault
-([bun#18249](https://github.com/oven-sh/bun/issues/18249)) is closed, the ancient
-install failure ([bun#1588](https://github.com/oven-sh/bun/issues/1588), filed against
-Bun 0.2.2 in 2022) is closed, and the Quasar lockfile mismatch is closed with a
-documented workaround.
-The two that remain open are the ones that matter: Forge does not support Bun, and
+**On Bun specifically.** Advice that Bun and Electron are broadly incompatible rests on
+issue reports from 2024–2025, most of which have since been resolved: the
+electron-builder segfault ([bun#18249](https://github.com/oven-sh/bun/issues/18249)) is
+closed, the install failure ([bun#1588](https://github.com/oven-sh/bun/issues/1588),
+filed against Bun 0.2.2 in 2022) is closed, and the Quasar lockfile mismatch is closed
+with a documented workaround.
+The two still open are the ones that matter: Forge does not support Bun, and
 electron-builder’s `rebuild` script lookup still fails under Bun.
-The accurate statement is narrower than the old one: **Bun is a fine package manager and
-sidecar runtime for an Electron project; it is not a supported driver for the Electron
-build step.** Install with Bun if you like, and invoke the packager through Node.
+So the accurate claim is narrow: **Bun is a fine package manager and sidecar runtime for
+an Electron project; it is not a supported driver for the Electron build step.** Install
+with Bun if you like, and invoke the packager through Node.
 
 * * *
 
@@ -971,12 +977,12 @@ actual build configuration on 2026-08-16.
 
 What generalizes, and what does not:
 
-- **electron-builder wins on adoption, decisively.** Every app here uses it except VS
-  Code, which runs a custom pipeline justified by its scale, and Logseq, whose packager
-  could not be confirmed.
-  **None use Electron Forge**, despite Forge being the officially supported tool.
-  This is the strongest empirical signal in the survey, and it is why electron-builder
-  is the recommendation here despite not being an official Electron project.
+- **electron-builder wins on adoption.** Every app here uses it except VS Code, which
+  runs a custom pipeline justified by its scale, and Logseq, whose packager could not be
+  confirmed. **None use Electron Forge**, despite Forge being the officially supported
+  tool. This is the strongest empirical signal in the survey, and it is why
+  electron-builder is the recommendation here despite not being an official Electron
+  project.
 
 - **CJS for main and preload is universal.** Every app in the survey emits CJS for the
   preload, and all but VS Code emit CJS for main.
@@ -1098,7 +1104,7 @@ scope here and is tracked as separate research; this document stays focused on E
 - [ ] `sandbox`, `contextIsolation`, and `nodeIntegration` left at their defaults.
 - [ ] CSP set via response header, with no `unsafe-inline` or `unsafe-eval`.
 - [ ] `setWindowOpenHandler` denies by default.
-- [ ] `will-navigate` pins the app to its own origin.
+- [ ] `will-navigate` blocks navigation outside the URLs the app itself loads.
 - [ ] Permission request handler denies by default.
 - [ ] `shell.openExternal` allowlists the scheme.
 - [ ] Fuses flipped: `runAsNode`, `nodeCliInspect`, `nodeOptions`, and
@@ -1167,6 +1173,12 @@ Electron 43 + Node 24 (host toolchain) + pnpm 11
 ├── Playwright             # end-to-end against the built app
 └── node:sqlite            # persistence, when its API suffices
 ```
+
+On the package manager: npm works with zero Electron-specific configuration and is an
+equally sound choice.
+pnpm appears here because it matches the companion monorepo guidelines; its
+`nodeLinker: hoisted` requirement is the one non-obvious step, covered in
+[§6](#6-package-managers-and-the-electron-toolchain).
 
 ### Minimal Stack
 
@@ -1327,6 +1339,9 @@ Notes on why this is short:
   avoids a surprise if that changes.
 - `rollupOptions` remains the option name on Vite 8 even though Rolldown is the bundler
   underneath.
+- Leave `package.json` without `"type": "module"`. The built main and preload are CJS
+  (emitted as `out/main/index.js` and `out/preload/index.js`), and a `"type": "module"`
+  declaration would make Node treat those `.js` files as ESM.
 
 ### Appendix B: electron-builder.yml
 
@@ -1406,9 +1421,15 @@ Matching `entitlements.mac.plist`:
 ```ts
 import { app, BrowserWindow, session, shell, ipcMain } from 'electron';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-const APP_ORIGIN = 'app://-';
-const isDev = !app.isPackaged;
+// The URL prefix the renderer legitimately lives under: the dev server in
+// development, the packaged renderer directory in production. With loadFile
+// the page's origin is the opaque 'null', so trust is a URL prefix, not an
+// origin. (A custom app:// protocol would give you a real origin instead.)
+const trustedRendererBase =
+  process.env.ELECTRON_RENDERER_URL ??
+  pathToFileURL(path.join(__dirname, '../renderer/')).href;
 
 function applySecurityPolicy(ses: Electron.Session): void {
   ses.webRequest.onHeadersReceived((details, callback) => {
@@ -1434,7 +1455,7 @@ function createWindow(): BrowserWindow {
     height: 800,
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, '../preload/index.cjs'),
+      preload: path.join(__dirname, '../preload/index.js'),
       // These three are already the defaults. They are written out because a reviewer
       // should see an explicit, deliberate value here rather than an absence.
       sandbox: true,
@@ -1445,9 +1466,9 @@ function createWindow(): BrowserWindow {
 
   win.once('ready-to-show', () => win.show());
 
-  // Never let the app itself navigate away from its own origin.
+  // Never let the app navigate outside the URLs it loads itself.
   win.webContents.on('will-navigate', (event, url) => {
-    if (new URL(url).origin !== APP_ORIGIN) event.preventDefault();
+    if (!url.startsWith(trustedRendererBase)) event.preventDefault();
   });
 
   // Open external links in the real browser; never in an app window.
@@ -1457,7 +1478,7 @@ function createWindow(): BrowserWindow {
     return { action: 'deny' };
   });
 
-  if (isDev && process.env.ELECTRON_RENDERER_URL) {
+  if (process.env.ELECTRON_RENDERER_URL) {
     void win.loadURL(process.env.ELECTRON_RENDERER_URL);
   } else {
     void win.loadFile(path.join(__dirname, '../renderer/index.html'));
@@ -1547,21 +1568,31 @@ export function registerIpcHandlers(ipcMain: Electron.IpcMain): void {
   });
 }
 
+// Same trustedRendererBase as the entry point (Appendix C): dev server URL in
+// development, the packaged renderer's file:// base in production.
 function assertTrustedSender(event: Electron.IpcMainInvokeEvent): void {
-  const url = new URL(event.senderFrame?.url ?? '');
-  if (url.origin !== APP_ORIGIN) throw new Error('untrusted IPC sender');
+  const url = event.senderFrame?.url ?? '';
+  if (!url.startsWith(trustedRendererBase)) throw new Error('untrusted IPC sender');
 }
 ```
 
 ### Appendix E: Python Sidecar End to End
 
-**1. Build the interpreter tree** (at build time, not install time):
+**1. Build the interpreter tree** (at build time, not install time).
+Unpack a python-build-standalone release for each target and install the locked
+dependencies **directly into that tree**—not into a venv, whose scripts and `pyvenv.cfg`
+hardcode build-machine paths and whose interpreter is a symlink back to wherever the
+venv was created:
 
 ```bash
-# Fetch a relocatable CPython and assemble a locked environment beside it.
-uv python install 3.13
-uv venv --python 3.13 resources/bin/${OS}/${ARCH}/pyenv
-uv pip sync --python resources/bin/${OS}/${ARCH}/pyenv/bin/python requirements.lock
+# One target shown; repeat per {os, arch}. Use the install_only variant.
+PBS=https://github.com/astral-sh/python-build-standalone/releases/download/20260610
+curl -LO $PBS/cpython-3.13.14+20260610-aarch64-apple-darwin-install_only.tar.gz
+mkdir -p resources/bin/darwin/arm64
+tar -xzf cpython-*.tar.gz -C resources/bin/darwin/arm64   # yields .../python/
+
+uv pip sync --python resources/bin/darwin/arm64/python/bin/python3 requirements.lock
+cp -r backend resources/bin/darwin/arm64/backend   # the app's own Python source
 ```
 
 **2. Speak newline-delimited JSON over stdio** — no port, no auth, dies with the parent:
@@ -1588,11 +1619,14 @@ export function startBackend(): void {
   const root = app.isPackaged
     ? path.join(process.resourcesPath, 'bin')
     : path.join(__dirname, '../../resources/bin', process.platform, process.arch);
-  const python = path.join(root, 'pyenv', 'bin', 'python');
+  const python =
+    process.platform === 'win32'
+      ? path.join(root, 'python', 'python.exe')
+      : path.join(root, 'python', 'bin', 'python3');
 
   if (process.platform !== 'win32') fs.chmodSync(python, 0o755); // +x is not reliably preserved
 
-  backend = spawn(python, [path.join(root, 'main.py')], {
+  backend = spawn(python, [path.join(root, 'backend', 'main.py')], {
     stdio: ['pipe', 'pipe', 'pipe'],
     detached: process.platform !== 'win32', // own process group, so we can kill the tree
   });
@@ -1625,7 +1659,11 @@ exports.default = async function afterPack(context) {
   if (context.electronPlatformName !== 'darwin') return;
   const resources = `${context.appOutDir}/${context.packager.appInfo.productFilename}.app/Contents/Resources`;
   // The interpreter, every .so extension module, and every bundled .dylib.
-  for (const file of globSync(`${resources}/bin/**/*(*.so|*.dylib|python*)`, { nodir: true })) {
+  const machO = globSync(
+    [`${resources}/bin/**/*.so`, `${resources}/bin/**/*.dylib`, `${resources}/bin/**/bin/python*`],
+    { nodir: true },
+  );
+  for (const file of machO) {
     execFileSync('codesign', [
       '--force', '--options', 'runtime', '--timestamp',
       '--entitlements', 'build/entitlements.mac.plist',
@@ -1653,6 +1691,10 @@ jobs:
           - os: windows-latest
           - os: ubuntu-latest
     runs-on: ${{ matrix.os }}
+    env:
+      # Pin the Electron download cache to one path so the cache step below is
+      # correct on all three runners (the OS-default location differs per OS).
+      ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v6
@@ -1664,25 +1706,38 @@ jobs:
       # The Electron binary download is the largest cost in a cold build.
       - uses: actions/cache@v4
         with:
-          path: ~/.cache/electron
+          path: ${{ github.workspace }}/.cache/electron
           key: electron-${{ matrix.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
+      # electron-builder's notarization wants APPLE_API_KEY as a file path.
+      - name: Write Apple API key
+        if: runner.os == 'macOS'
+        run: printf '%s' "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/apple_api_key.p8"
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+
       - name: Build and publish
         run: pnpm exec electron-builder --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS: certificate and notarization credentials.
+          # macOS: signing certificate plus notarization credentials.
           CSC_LINK: ${{ secrets.MAC_CERT_P12 }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+          APPLE_API_KEY: ${{ runner.temp }}/apple_api_key.p8
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          # Windows: a cloud signing service. Key material cannot live in a file.
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          # Windows: cloud signing (Azure Artifact Signing); key material cannot
+          # live in a file. Also requires win.azureSignOptions in electron-builder.yml.
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
 ```
+
+Environment variables that do not apply to a given OS are ignored, so one shared step
+works across the matrix.
 
 Notarize on tags only.
 Pull request builds should package without signing, which is fast and needs no secrets.
