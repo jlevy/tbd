@@ -3,9 +3,9 @@ type: is
 id: is-01ksgr45bkhqwwfhpna2xytqdz
 title: Implement existing-install upgrade, migration and format guard
 kind: task
-status: open
+status: closed
 priority: 1
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md
 labels: []
 dependencies:
@@ -15,7 +15,9 @@ dependencies:
     target: is-01ksc0ta2n1q3nkr2791574t56
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-05-25T23:39:35.667Z
-updated_at: 2026-08-10T21:54:25.472Z
+updated_at: 2026-08-15T05:34:12.687Z
+closed_at: 2026-08-15T05:34:12.687Z
+close_reason: "Shipped in the current setup system: generated agent surfaces, Codex integration, gitignore policy, format migrations, fallback pinning, surface selection, and end-to-end tests are present on main."
 extensions:
   linear:
     id: db482f8e-9167-4f53-8a73-863694f262ef

@@ -5,13 +5,14 @@ title: "Query-driven mutation: close/update --where (reuse list grammar)"
 kind: task
 status: open
 priority: 3
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-06-13-agent-cli-ergonomics.md
-labels: []
+labels:
+  - pause
 dependencies: []
 parent_id: is-01kv197ns6jwkg2q82w7awjn15
 created_at: 2026-06-13T20:03:17.740Z
-updated_at: 2026-08-10T21:54:33.759Z
+updated_at: 2026-08-15T05:43:43.120Z
 extensions:
   linear:
     id: 1f760527-47c0-47a2-8e1a-01b086c6eb05

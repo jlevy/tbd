@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v6:a5dfda97fffc606fb6dbf86a7c10bf3702fccc802733d7ca72871e1b975af5af
+  labels:
+    - github
+    - integration
+  priority: 2
+  status: open
+  title: Implement GitHub issue link, explicit inbound selection, outbound projection, and
+    bidirectional sync
+bead_id: is-01kzx8kn4vtndb0t84345snpy5
+external_id: 0e08d8c7-a478-49f2-aedf-db9934fc6f5a
+remote_updated_at: 2026-08-13T16:00:40.448Z
+state: linked
+synced_at: 2026-08-13T16:21:10.968Z
+type: lk

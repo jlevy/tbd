@@ -3,9 +3,9 @@ type: is
 id: is-01kzmm8zqnf8q210etncddjn6h
 title: Release-validate bead watch infrastructure
 kind: epic
-status: in_progress
+status: closed
 priority: 1
-version: 11
+version: 12
 spec_path: docs/project/specs/active/plan-2026-07-19-bead-watch-and-external-sync.md
 labels:
   - bead-watch
@@ -17,7 +17,9 @@ child_order_hints:
   - is-01kzmpyc9j5y853fnrwzvptt8q
   - is-01kzmr3vyqrttcgjfzwkbyncgh
 created_at: 2026-08-10T01:23:28.116Z
-updated_at: 2026-08-10T21:54:52.564Z
+updated_at: 2026-08-15T05:33:40.814Z
+closed_at: 2026-08-15T05:33:40.814Z
+close_reason: The old release-candidate validation work is complete and superseded by later releases with packed-artifact and cross-platform CI coverage.
 extensions:
   linear:
     id: 0c7780af-e280-430f-9356-2c1d096d9928

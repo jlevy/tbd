@@ -5,8 +5,9 @@ title: Track modified issues at commit time and pass to commit message generator
 kind: task
 status: open
 priority: 2
-version: 9
-labels: []
+version: 10
+labels:
+  - pause
 dependencies:
   - type: blocks
     target: is-01kf83qst1yakat6384xpw3bx1
@@ -14,7 +15,7 @@ dependencies:
     target: is-01kf83qt6gtdzx5gx98cc0y6jj
 parent_id: is-01kf83qm50827p60a7cg7jkqpd
 created_at: 2026-01-18T08:33:38.923Z
-updated_at: 2026-03-09T16:12:31.949Z
+updated_at: 2026-08-15T05:43:43.024Z
 ---
 During sync operations, we already know which issues are being modified. The approach:
 

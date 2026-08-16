@@ -3,9 +3,9 @@ type: is
 id: is-01kg5jhdtwzxw7ce1xvnnc5tn3
 title: "Phase 5: Update setup command to use shared function"
 kind: task
-status: open
+status: closed
 priority: 2
-version: 17
+version: 18
 spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
 labels: []
 dependencies:
@@ -13,14 +13,16 @@ dependencies:
     target: is-01kg5jhee3nrrtkqa80h52p1d8
 parent_id: is-01kg5jgqscrbp94t3hb1cegr39
 created_at: 2026-01-29T19:09:03.708Z
-updated_at: 2026-08-11T07:10:52.400Z
+updated_at: 2026-08-15T05:33:39.735Z
+closed_at: 2026-08-15T05:33:39.735Z
+close_reason: Completed specs are in docs/project/specs/done and their implementations, documentation, and tests ship on main.
 extensions:
   linear:
     id: 932943f1-8b90-4b7b-a13d-77f78cbf7fd5
     key: TBD-48
     url: https://linear.app/finterm-ai/issue/TBD-48/phase-5-update-setup-command-to-use-shared-function
     linked_at: 2026-08-10T19:36:23.943Z
-    comments:
+    comments: null
 ---
 Update setup.ts to:
 - Replace inline doc sync logic with syncDocsWithDefaults()

@@ -3,9 +3,9 @@ type: is
 id: is-01ktybyydyjx5gavcach1c0jn9
 title: Pin repren skill fallback instead of uvx repren@latest
 kind: bug
-status: open
+status: closed
 priority: 2
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md
 labels:
   - supply-chain
@@ -13,7 +13,9 @@ labels:
 dependencies: []
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-06-12T16:52:05.692Z
-updated_at: 2026-08-10T21:54:30.708Z
+updated_at: 2026-08-15T05:34:12.984Z
+closed_at: 2026-08-15T05:34:12.983Z
+close_reason: "Obsolete/resolved: the unsafe repren fallback is no longer present in the repository or published setup assets."
 extensions:
   linear:
     id: 35ca8a8f-a997-482b-b287-d2bf254b54f0

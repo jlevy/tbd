@@ -3,13 +3,15 @@ type: is
 id: is-01kgh3ebft6bxjvtfrgccpxawn
 title: Add golden test for fresh clone with remote tbd-sync data
 kind: task
-status: open
+status: closed
 priority: 1
-version: 8
+version: 9
 labels: []
 dependencies: []
 created_at: 2026-02-03T06:36:07.545Z
-updated_at: 2026-03-09T16:12:33.894Z
+updated_at: 2026-08-15T05:34:04.287Z
+closed_at: 2026-08-15T05:34:04.287Z
+close_reason: "Shipped: doctor reports remote issue counts and the behavior is covered by golden tests."
 ---
 ## Overview
 

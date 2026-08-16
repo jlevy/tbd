@@ -3,13 +3,15 @@ type: is
 id: is-01kf7j53z1gahrqswh8x4v4b6t
 title: Agent documentation consolidation and cleanup
 kind: epic
-status: open
+status: closed
 priority: 2
-version: 8
+version: 9
 labels: []
 dependencies: []
 created_at: 2026-01-18T03:25:07.424Z
-updated_at: 2026-08-10T21:53:37.184Z
+updated_at: 2026-08-15T05:34:03.632Z
+closed_at: 2026-08-15T05:34:03.631Z
+close_reason: "Completed: all child work for agent documentation consolidation has shipped."
 extensions:
   linear:
     id: b946be8f-1f25-4942-b7ad-d52bd9496fb3

@@ -3,14 +3,16 @@ type: is
 id: is-01kfxpnctge6yktmfndca9z88e
 title: "Redesign stats command output: unified status section with active/closed/total columns"
 kind: bug
-status: open
+status: closed
 priority: 2
-version: 12
+version: 13
 labels: []
 dependencies: []
 parent_id: is-01kfxpq9c0j5wdsqy6vsqc3d1g
 created_at: 2026-01-26T17:47:12.591Z
-updated_at: 2026-03-09T16:12:32.990Z
+updated_at: 2026-08-15T05:34:03.922Z
+closed_at: 2026-08-15T05:34:03.922Z
+close_reason: "Shipped: tbd stats now presents the unified active/closed/total breakdown by kind and priority."
 ---
 The `tbd stats` output needs restructuring and better formatting.
 

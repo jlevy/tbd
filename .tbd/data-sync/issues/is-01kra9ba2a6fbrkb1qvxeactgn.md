@@ -5,13 +5,14 @@ title: tbd doctor checks for source health (clones, refs, lockfile hashes, orpha
 kind: task
 status: open
 priority: 3
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
-labels: []
+labels:
+  - pause
 dependencies: []
 parent_id: is-01kra98tffpc00qar6ee3zk8tv
 created_at: 2026-05-11T01:10:12.809Z
-updated_at: 2026-08-11T06:50:38.975Z
+updated_at: 2026-08-15T05:43:42.442Z
 extensions:
   linear:
     id: 0b9c4385-b6fa-406e-9392-cb3f897cea19

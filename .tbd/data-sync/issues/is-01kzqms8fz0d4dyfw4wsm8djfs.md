@@ -3,9 +3,9 @@ type: is
 id: is-01kzqms8fz0d4dyfw4wsm8djfs
 title: "Address review: PR #206 — Bugbot findings + owner design comments"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 11
+version: 12
 labels: []
 dependencies: []
 child_order_hints:
@@ -19,7 +19,9 @@ child_order_hints:
   - is-01kzqx1tdr7t2ewphxbes5pvwe
   - is-01kzqx1tsyqgcprgyx6y6e0ach
 created_at: 2026-08-11T05:30:04.670Z
-updated_at: 2026-08-11T07:54:34.174Z
+updated_at: 2026-08-15T05:33:51.182Z
+closed_at: 2026-08-15T05:33:51.181Z
+close_reason: "Superseded and fixed by the production tbd web rewrite merged in PR #207."
 ---
 Tracking parent for the 2026-08-11 review round on PR #206: three unresolved Bugbot findings (R1 link-store legacy shape, R2/R3 web-spike board races) plus two owner comments (development.md web framing, policy clause naming). Disposition map posted on the PR.
 

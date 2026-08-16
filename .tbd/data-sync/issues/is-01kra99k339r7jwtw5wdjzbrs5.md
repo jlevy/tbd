@@ -5,9 +5,10 @@ title: "Q18: Decide override provenance (computed-by-name vs recorded edge)"
 kind: task
 status: open
 priority: 1
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
-labels: []
+labels:
+  - pause
 dependencies:
   - type: blocks
     target: is-01kra98tffpc00qar6ee3zk8tv
@@ -15,7 +16,7 @@ dependencies:
     target: is-01kra9b8m3jtk1jp7qyzdkvy1a
 parent_id: is-01kra98fgac70pjft7jnarmave
 created_at: 2026-05-11T01:09:16.515Z
-updated_at: 2026-08-11T07:05:51.226Z
+updated_at: 2026-08-15T05:43:42.611Z
 extensions:
   linear:
     id: f1363c49-cc37-4472-8edf-5f44de0bc481

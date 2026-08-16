@@ -5,13 +5,14 @@ title: "Phase 3 tests: tryscripts that depend on bundled-doc content point at ne
 kind: task
 status: open
 priority: 3
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
-labels: []
+labels:
+  - pause
 dependencies: []
 parent_id: is-01kra98tz1mb3br9kg77933vdx
 created_at: 2026-05-11T01:10:27.694Z
-updated_at: 2026-08-11T06:50:50.586Z
+updated_at: 2026-08-15T05:43:42.387Z
 extensions:
   linear:
     id: 7bf5482e-1e0e-4949-8746-f9c7e4e51806

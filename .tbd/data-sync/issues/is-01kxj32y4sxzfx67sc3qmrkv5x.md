@@ -5,14 +5,15 @@ title: Defer redundant surface marker cleanup to the next real format migration
 kind: task
 status: open
 priority: 3
-version: 1
+version: 2
 labels:
   - agent-skills
   - external-followup
   - github-190
+  - pause
 dependencies: []
 created_at: 2026-07-15T05:13:11.576Z
-updated_at: 2026-07-15T05:13:11.576Z
+updated_at: 2026-08-15T05:36:51.902Z
 ---
 Non-blocking follow-up from GitHub #190. tbd and Flowmark still emit redundant surface=agents-md attributes even though artifact location identifies the surface.
 

@@ -3,9 +3,9 @@ type: is
 id: is-01kzbyhghkgw70wetew3ffy4cn
 title: Rework Linear pilot spec under the integration layering (extensions-first, separable module)
 kind: task
-status: open
+status: closed
 priority: 1
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-07-19-bead-watch-and-external-sync.md
 labels:
   - linear-sync
@@ -14,7 +14,9 @@ dependencies:
     target: is-01kxz3kfz7n7y23n9rzmy28f98
 parent_id: is-01kxz3kfz7n7y23n9rzmy28f98
 created_at: 2026-08-06T16:29:43.335Z
-updated_at: 2026-08-10T21:54:48.321Z
+updated_at: 2026-08-15T05:33:51.860Z
+closed_at: 2026-08-15T05:33:51.860Z
+close_reason: "The legacy PR #197 integration design was superseded by the active external-tracker plan and the production implementation merged in PR #206."
 extensions:
   linear:
     id: 1820450c-c0ab-461f-8df7-0a1c755a59cc
