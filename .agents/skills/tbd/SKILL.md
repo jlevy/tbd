@@ -403,6 +403,7 @@ Load the **General engineering** group first, then the language or framework gro
 | --- | --- |
 | cli-agent-skill-patterns | A concise decision guide for portable skills, CLI-backed skills, safe bundle installation, and agent integration |
 | common-doc-guidelines | Common cross-project standards for writing and organizing docs, code comments, and text files—how to organize, structure, write, and format documents, plus the guideline footer convention. Downstream of github.com/jlevy/practical-prose. Use whenever writing or editing any documentation, README, guideline, or design doc. |
+| electrobun-app-development-patterns | Building desktop apps with Electrobun—runtime and process model, typed RPC, project layout, packaging and the delta updater, plus an evidence-based maturity and security assessment |
 | release-notes-guidelines | Guidelines for writing clear, accurate release notes |
 | supply-chain-hardening | Strongly recommended for EVERY repo—apply it if a repo has not been hardened yet. Cross-ecosystem policy for installing dependencies safely (the 14-day cool-off, disabled install scripts, lockfile discipline, untrusted-repo handling). Use whenever a user mentions hardening, security, supply chain, or setting up a new repo; before adding/upgrading dependencies; when auditing for compromised packages; or when reviewing install/build/run commands across npm/pnpm, PyPI, Cargo, or Go. |
 | tbd-sync-troubleshooting | Common issues and solutions for tbd sync and workspace operations |
