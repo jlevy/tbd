@@ -35,7 +35,7 @@ given as the pin, per [Supply-Chain Mitigation](#supply-chain-mitigation).
 | Tool / Package | Version | Check For Updates |
 | --- | --- | --- |
 | **Electron** | ^43.2.0 (43.3.0/43.4.0 too recent) | [releases.electronjs.org](https://releases.electronjs.org/)—**43.4.0** (2026-08-11) is current stable: Chromium 150, Node 24.18.1, V8 15.0. Supported majors are **41, 42, 43**; **41 reaches EOL 2026-08-25**, so 42 is the practical floor. 44 is in beta and **drops macOS 12, 32-bit Windows (ia32), and linux-armv7l**. Security fixes ship on the supported line only—track the latest patch, not just the major. |
-| **Node.js (host toolchain)** | 24 (LTS “Krypton”) | [nodejs.org/releases](https://nodejs.org/en/about/previous-releases)—Node 24 Active LTS (EOL Apr 2028; moves to maintenance when Node 26 enters LTS in Oct 2026); Node 26 Current; Node 22 in maintenance; **Node 20 EOL 2026-03-24**. Note the Node version *inside* Electron is set by Electron, not by your host Node. |
+| **Node.js (host toolchain)** | 24 (LTS “Krypton”) | [nodejs.org/releases](https://nodejs.org/en/about/previous-releases)—Node 24 Active LTS (EOL Apr 2028; moves to maintenance when Node 26 enters LTS in Oct 2026); Node 26 Current; Node 22 in maintenance; **Node 20 EOL 2026-03-24**. Note the Node version *inside* Electron is set by Electron, not by your host Node (Electron 43.4.0 embeds Node 24.18.1). |
 | **electron-vite** | ^5.0.0 | [electron-vite.org](https://electron-vite.org/)—5.0.0 (2025-12-07). Supports Vite 7 and 8. Added `build.isolatedEntries` for multi-entry isolation and stronger bytecode string protection. 6.0.0-beta.1 exists; not stable. |
 | **vite-plugin-electron** | ^1.1.0 (1.1.1 too recent) | [github.com/electron-vite/vite-plugin-electron](https://github.com/electron-vite/vite-plugin-electron)—**Pinned to 1.1.0 (2026-06-24) per the 14-day rule**; 1.1.1 (2026-08-03) is 12 days old today. Same org as electron-vite, currently the more frequently released of the two. Auto-selects `rolldownOptions` on Vite 8+ and `rollupOptions` below. Use when you want a plugin inside a standard Vite project rather than a separate CLI. |
 | **Vite** | ^8.2.0 (8.2.1 too recent) | [vite.dev](https://vite.dev/blog/announcing-vite8)—Vite 8 (2026-03-12) ships **Rolldown as its sole bundler**, replacing the esbuild-for-dev / Rollup-for-prod split. Requires Node 20.19+ or 22.12+. |
@@ -545,11 +545,15 @@ Notarization rejects the bundle if any of them is unsigned.
 locations; TN2206 directs that scripts and other non-Mach-O executables belong in
 `Contents/Resources`. Since `extraResources` writes to `Contents/Resources`, a Mach-O
 sidecar placed there sits outside its canonical location.
-Signed nested Mach-O binaries under `Resources` do ship successfully in practice, so
-treat this as a risk to verify rather than a guaranteed rejection—but if you hit
-notarization errors about nested code, relocating the binary to `Contents/Frameworks` or
+In practice this passes notarization, and the evidence is stronger than “some apps get
+away with it”: every Electron app that ships a native module already places individually
+signed Mach-O `.node` files under `Contents/Resources/app.asar.unpacked`—asar archives
+cannot be `dlopen`ed, so unpacking them is mechanical necessity—and those apps, Signal
+with `better-sqlite3` among the ones surveyed here, notarize and ship.
+Notarization checks that each Mach-O it finds is signed with the hardened runtime; it
+does not reject binaries for living under `Resources`. If an unusual layout does produce
+a nested-code error, relocating the binary to `Contents/Frameworks` or
 `Contents/Helpers` in an `afterPack` hook is the standard fix.
-See [Open Research Questions](#open-research-questions).
 
 **Hardened runtime and entitlements.** Notarization requires signing with
 `--options runtime`. Electron’s V8 needs, at minimum:
@@ -866,9 +870,11 @@ Node, so a module built for your system Node will fail to load inside Electron.
   Prefer dependencies that ship them.
 - **For SQLite, check `node:sqlite` first.** It is built into Node, so it needs no
   rebuild step and no native dependency at all.
-  It reached release-candidate stability in Node and ships in the Node embedded in
-  current Electron. Use `better-sqlite3` when you need its richer API—transactions
-  wrapper, user-defined function options, BigInt control—and accept the rebuild step.
+  In the Node line Electron 43 embeds (24.18.1 as of Electron 43.4.0), `node:sqlite` is
+  at **Stability 1.2, release candidate**, promoted at Node 24.15.0—so treat the API as
+  settling rather than frozen, and keep data access behind a thin wrapper.
+  Use `better-sqlite3` when you need its richer API—transactions wrapper, user-defined
+  function options, BigInt control—and accept the rebuild step.
   This single change removes the most common source of native-module pain in Electron
   apps.
 
@@ -1136,27 +1142,16 @@ Wails and Neutralino are not covered.
 
 ## Open Research Questions
 
-1. **Do Mach-O sidecars under `Contents/Resources` reliably pass notarization?** Apple’s
-   TN2206 designates `Resources` for scripts and non-Mach-O executables, yet signed
-   binaries placed there by `extraResources` are widely shipped.
-   Resolving this needs a controlled test: notarize one build with a Mach-O sidecar in
-   `Resources` and another with it relocated to `Contents/Helpers`, and compare.
-
-2. **Is `node:sqlite` at full stability in the Node embedded in Electron 43?** It
-   reached release-candidate status in Node and stabilized in later Node versions than
-   Electron 43 embeds. Confirm before recommending it without qualification for
-   production data.
-
-3. **When does the Bun `--compile` macOS 27 signature defect
+1. **When does the Bun `--compile` macOS 27 signature defect
    ([bun#32159](https://github.com/oven-sh/bun/issues/32159)) land a fix?** This gates
    Bun-compiled sidecars on the newest macOS.
 
-4. **Will electron-builder 27 ship, and on what timeline?** The alpha has been in
+2. **Will electron-builder 27 ship, and on what timeline?** The alpha has been in
    progress for a while.
    Its ESM migration and consolidated signing config are worth adopting, but not before
    it is stable.
 
-5. **Does Electron Forge 8 close the gap with electron-builder** on Linux targets and
+3. **Does Electron Forge 8 close the gap with electron-builder** on Linux targets and
    differential updates?
    If so, the default recommendation here should move to the officially supported tool.
 
