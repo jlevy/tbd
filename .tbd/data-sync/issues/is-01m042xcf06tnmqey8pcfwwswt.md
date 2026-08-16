@@ -5,7 +5,7 @@ title: "[epic] Senior engineering review and refresh of Electron app guidelines"
 kind: epic
 status: closed
 priority: 1
-version: 14
+version: 15
 labels: []
 dependencies: []
 child_order_hints:
@@ -21,8 +21,9 @@ child_order_hints:
   - is-01m042ynxdamhqxttb1vskbm14
   - is-01m0444p5jysk5vb20e5snpa4d
   - is-01m0444r3p8svdaxtxgd4txe32
+  - is-01m045a8k2kht81a71reskkyq8
 created_at: 2026-08-16T01:27:53.056Z
-updated_at: 2026-08-16T01:50:38.235Z
+updated_at: 2026-08-16T02:09:52.226Z
 closed_at: 2026-08-16T01:50:38.235Z
 close_reason: "Guideline refreshed and pushed. Four deferred P3 beads remain for follow-up work that was deliberately out of scope: the two alternatives-framework docs and the two open research verifications."
 ---
