@@ -21,6 +21,7 @@ import {
   specPermalink,
   type BranchCandidate,
 } from '../../integrations/core/permalink.js';
+import { readLinkRecord, writeLinkRecordIfChanged } from '../../integrations/core/bridge-state.js';
 import { enabledProviders } from '../../integrations/core/registry.js';
 import { mirrorSet } from '../../integrations/core/selection.js';
 import { runSync, type SyncRunReport } from '../../integrations/core/sync-engine.js';
@@ -396,6 +397,24 @@ export async function runEnabledIntegrationPushes(
           linkedIssue.version += 1;
           linkedIssue.updated_at = now();
           await writeIssue(dataSyncDir, linkedIssue);
+        },
+        // Keep the identifier cache current on a mirror-only run. The mirror
+        // holds no bridge state of its own, so without this a `--push` workflow
+        // never noticed a team rename and the stored `OS-77` went stale until
+        // someone happened to run a full sync. Only an existing record is
+        // updated: the mirror does not own reconciliation state and must not
+        // start creating it.
+        onIdentifier: async (issue, identifier) => {
+          const record = await readLinkRecord(dataSyncDir, entry.provider, issue.id);
+          if (!record) {
+            return;
+          }
+          const next = {
+            ...record,
+            external_key: identifier.key ?? record.external_key ?? null,
+            external_url: identifier.url ?? record.external_url ?? null,
+          };
+          await writeLinkRecordIfChanged(dataSyncDir, entry.provider, next, record);
         },
       }),
     );

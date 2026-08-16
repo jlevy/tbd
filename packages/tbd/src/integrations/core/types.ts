@@ -194,7 +194,16 @@ export interface TrackerAdapter {
   createIssue(patch: CanonicalPatch, clientId?: string): Promise<ExternalRef>;
 
   /** Apply a patch, returning the provider's new updatedAt for echo suppression. */
-  applyChanges(id: string, patch: CanonicalPatch): Promise<{ updatedAt: string }>;
+  /**
+   * Apply a patch. Returns the post-write timestamp, which is what suppresses
+   * the echo on the next pull, plus the item's human identifier and URL when the
+   * provider hands them back for free — both change under a team rename, and a
+   * caller that has just written the item is the cheapest place to notice.
+   */
+  applyChanges(
+    id: string,
+    patch: CanonicalPatch,
+  ): Promise<{ updatedAt: string; key?: string; url?: string }>;
 
   /** Upsert attachments, keyed by url. Idempotent. */
   upsertAttachments(id: string, attachments: AttachmentSpec[]): Promise<void>;

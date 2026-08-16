@@ -504,6 +504,45 @@ describe('applyMirror', () => {
     expect(linked).toHaveLength(0);
   });
 
+  it('reports the renamed identifier for the bridge record, without touching the bead', async () => {
+    // The mirror keeps no bridge state of its own, so a `--push` workflow used
+    // to notice a team rename nowhere at all: the stored identifier went stale
+    // until someone happened to run a full sync. The write already returns the
+    // identifier, so reporting it costs no extra request — and it goes to the
+    // caller rather than through onLinked, which would churn the bead in git.
+    server.addIssue({ id: 'uuid-renamed', identifier: 'OS-4', title: 'Renamed' });
+    const bead = issue({
+      id: 'is-renamed',
+      title: 'Local edit that gives the mirror something to push',
+      extensions: {
+        linear: { id: 'uuid-renamed', linked_at: '2026-08-10T00:00:00.000Z' },
+      },
+    });
+
+    const seen: { beadId: string; key?: string; url?: string }[] = [];
+    const plan = planMirror({
+      provider: 'linear',
+      allIssues: [bead],
+      selected: [bead],
+      displayId,
+      maxNesting: 2,
+    });
+    await applyMirror({
+      adapter,
+      plan,
+      displayId,
+      onLinked,
+      onIdentifier: (issue_, identifier) => {
+        seen.push({ beadId: issue_.id, ...identifier });
+        return Promise.resolve();
+      },
+    });
+
+    expect(seen).toEqual([expect.objectContaining({ beadId: 'is-renamed', key: 'OS-4' })]);
+    // The bead itself is untouched: no version churn for a remote rename.
+    expect(linked).toHaveLength(0);
+  });
+
   it('writes the managed block into the description', async () => {
     const bead = issue({ id: 'is-a', title: 'Described' });
     const plan = planMirror({

@@ -298,7 +298,10 @@ export class LinearAdapter implements TrackerAdapter {
     }
     const input = await this.toInput(patch, meta, preservedLabels);
     const data = await this.client.request<{
-      issueUpdate: { success: boolean; issue: { updatedAt: string } | null };
+      issueUpdate: {
+        success: boolean;
+        issue: { updatedAt: string; identifier?: string; url?: string } | null;
+      };
     }>(ISSUE_UPDATE_MUTATION, { id, input });
 
     const issue = data.issueUpdate.issue;
@@ -306,7 +309,14 @@ export class LinearAdapter implements TrackerAdapter {
       throw new Error(`Linear rejected the update to ${id}`);
     }
     // The post-write timestamp is what suppresses the echo on the next pull.
-    return { updatedAt: issue.updatedAt };
+    // The identifier and URL ride along because the mutation already selects
+    // them: returning them costs nothing and saves the caller a second read
+    // just to notice a team rename.
+    return {
+      updatedAt: issue.updatedAt,
+      ...(issue.identifier != null ? { key: issue.identifier } : {}),
+      ...(issue.url != null ? { url: issue.url } : {}),
+    };
   }
 
   /**

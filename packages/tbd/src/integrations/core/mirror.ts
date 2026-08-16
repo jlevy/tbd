@@ -300,6 +300,15 @@ export interface ApplyOptions {
    * something that was never created.
    */
   onLinked: (issue: Issue, entry: LinkedEntryType) => Promise<void>;
+  /**
+   * Record the tracker's current human identifier for a bead already linked.
+   *
+   * Separate from {@link onLinked} because it must not touch the bead: the
+   * identifier is display cache and lives on the bridge record, so writing it
+   * through the bead would churn `version` and `updated_at` in git every time a
+   * team is renamed. Optional, so the mirror stays usable without bridge state.
+   */
+  onIdentifier?: (issue: Issue, identifier: { key?: string; url?: string }) => Promise<void>;
   now?: () => string;
 }
 
@@ -365,18 +374,23 @@ export async function applyMirror(options: ApplyOptions): Promise<MirrorReport> 
       if (action.parentBeadId && !parentId) {
         throw new Error(`parent ${options.displayId(action.parentBeadId)} was not mirrored`);
       }
-      await adapter.applyChanges(action.externalId, { ...action.patch, parentId });
+      const applied = await adapter.applyChanges(action.externalId, {
+        ...action.patch,
+        parentId,
+      });
       await adapter.upsertAttachments(action.externalId, action.attachments);
       if (action.managedBlock) {
         await adapter.spliceDescription(action.externalId, action.managedBlock);
       }
 
-      // No identifier refresh here. The human identifier and URL now live on
-      // the bridge record, which the sync engine rewrites from the remote it
-      // already fetched during reconciliation. Refreshing them here cost one
-      // extra fetch per updated bead and — because this loop only ever sees
-      // beads with a pending write — never repaired a settled mirror, which is
-      // exactly the state a team rename leaves behind.
+      // The identifier the write already returned, handed to the caller for the
+      // bridge record. No extra request, and nothing is read back: the previous
+      // version of this refreshed the bead with a fetch per updated item, which
+      // cost a request each and still never repaired a settled mirror, since
+      // this loop only sees beads that already had something to push.
+      if (options.onIdentifier && (applied.key != null || applied.url != null)) {
+        await options.onIdentifier(action.bead, { key: applied.key, url: applied.url });
+      }
       report.updated.push(displayId);
     } catch (error) {
       report.failures.push({ beadId: displayId, error: describeError(error) });
