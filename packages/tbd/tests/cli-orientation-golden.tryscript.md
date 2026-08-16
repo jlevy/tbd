@@ -107,8 +107,7 @@ INTEGRATIONS
 HEALTH CHECKS
 ✓ Git version - [GIT_VERSION]
 ✓ Config file (.tbd/config.yml)
-⚠ Launcher fallback - tbd_fallback_version [SEMVER] cannot read format f08
-    Run: tbd setup --auto
+✓ Launcher fallback
 ✓ Issues directory (.tbd/issues)
 ✓ Dependencies
 ✓ Unique IDs

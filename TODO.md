@@ -19,10 +19,13 @@ the packed upgrade proof across all four scenarios
 to end — see
 [valid-2026-08-16-linear-integration-live.md](./docs/project/specs/active/valid-2026-08-16-linear-integration-live.md).
 
-The Linear integration is **new in 0.7.0**, not a change to a shipped one: `v0.6.5`
-contains the adapter but never wires it into the CLI and never asserts origin labels.
-So there is no existing integration to migrate and no label-scheme upgrade to warn
-about.
+The Linear integration **did ship in 0.6.5**
+(`tbd integration status|sync|link|unlink| comment`), so 0.7.0 changes a live surface
+rather than introducing one.
+What is new: `integration setup`, origin labels, honest import dates, and
+`policy.archive`. Origin labels are additive — a 0.6.5 user’s linked beads simply gain
+`tbd` and `repo:<name>` on the next sync — so there is no migration, but the release
+notes must describe real fixes to a shipped integration, not just new features.
 
 Blocking the tag:
 
