@@ -16,7 +16,11 @@ import { join } from 'node:path';
 import { checkBulkThreshold } from '../../integrations/core/bulk-guard.js';
 import { CREDENTIAL_ENV_VARS, resolveCredential } from '../../integrations/core/credentials.js';
 import { applyMirror, planMirror } from '../../integrations/core/mirror.js';
-import { parseRepoSlug, specPermalink } from '../../integrations/core/permalink.js';
+import {
+  parseRepoSlug,
+  specPermalink,
+  type BranchCandidate,
+} from '../../integrations/core/permalink.js';
 import { enabledProviders } from '../../integrations/core/registry.js';
 import { mirrorSet } from '../../integrations/core/selection.js';
 import { runSync, type SyncRunReport } from '../../integrations/core/sync-engine.js';
@@ -164,11 +168,28 @@ export async function resolveSpecLinks(
     // Detached HEAD or a fresh repo; the remaining candidates still apply.
   }
 
-  // Prefer the branch in hand, then the usual trunks. The sync branch never
-  // holds specs, so it is not a candidate.
-  const candidates = [currentBranch, 'main', 'master'].filter(
-    (branch): branch is string => branch.length > 0 && branch !== syncBranch,
-  );
+  // Durable trunk first, working branch only as a fallback. These URLs are
+  // written into a tracker that outlives the branch, so naming the working
+  // branch produces links that 404 the moment it is deleted after merge — and,
+  // because the link is rendered inside the managed block, makes the block
+  // differ on every sync run from a different branch, rewriting the entire
+  // mirror for no reason. A spec that exists only on the working branch is
+  // still linkable; the first sync after the merge moves it to the trunk.
+  //
+  // Each trunk is checked against its remote-tracking ref first: a local `main`
+  // that has not been pulled recently may not contain a spec that is already on
+  // the remote, and the reader's URL should name the plain branch either way.
+  // The sync branch never holds specs, so it is not a candidate.
+  const trunks = ['main', 'master'].filter((branch) => branch !== syncBranch);
+  const candidates: BranchCandidate[] = [
+    ...trunks.flatMap((branch) => [
+      { check: `origin/${branch}`, url: branch },
+      { check: branch, url: branch },
+    ]),
+    ...(currentBranch.length > 0 && currentBranch !== syncBranch && !trunks.includes(currentBranch)
+      ? [{ check: currentBranch, url: currentBranch }]
+      : []),
+  ];
 
   const specPaths = new Set(
     issues.map((issue) => issue.spec_path).filter((path): path is string => Boolean(path)),
