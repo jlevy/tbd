@@ -1,59 +1,101 @@
 /**
  * Origin labels: the marks that make a shared tracker legible.
  *
- * Every mirrored item carries a `tbd:sync` label and a per-repository label in a group
- * named `repo`. Two things follow, and both are the point:
+ * Every mirrored item carries a `tbd` label and a `repo:<name>` label. Two things
+ * follow, and both are the point:
  *
  * - **A human can filter agent traffic out.** Linear views support "is not", so
- *   `label is not tbd:sync` gives a person their own board back in a workspace that
- *   agents also write to. Without a uniform marker there is no such filter.
- * - **Many repositories can report into one surface.** The `repo` group answers "where
- *   did this come from", which is the question that otherwise makes a shared team or
- *   project unusable past the second repository.
+ *   `label is not tbd` gives a person their own board back in a workspace that agents
+ *   also write to. Without a uniform marker there is no such filter.
+ * - **Many repositories can report into one surface.** `repo:<name>` answers "where did
+ *   this come from", which is the question that otherwise makes a shared team or project
+ *   unusable past the second repository.
  *
  * They apply in **every** integration mode, by default. A single-repo setup pays nothing
  * for them and becomes consolidation-ready for free; a repository that genuinely does not
  * want them sets `labels.origin: false`.
  *
- * The group form (`repo/<name>`) is Linear's native namespace convention, and a Linear
- * label group allows only one of its labels per issue — which matches one-repo-per-bead
- * structurally rather than by a rule this code has to enforce.
+ * ## Why both are flat, and why the marker is bare
  *
- * A group does **not**, however, scope the label's name: Linear stores only the leaf and
- * enforces uniqueness across the entire team, so `repo/tbd` and a root `tbd` are a
- * genuine conflict that Linear rejects outright. That is why tbd's own markers live
- * behind {@link TBD_LABEL_PREFIX}, which repository names provably cannot reach. A repo
- * name can still collide with a label a human already made; that is a real conflict and
- * `tbd integration setup` reports it rather than half-applying.
+ * A Linear label name must be unique across the **entire team**, and a label group does
+ * *not* scope it: Linear stores only the leaf name and rejects a duplicate outright. So
+ * an earlier shape — a `repo` group whose children were bare repository names — put the
+ * marker and the label for a repository named `tbd` in direct conflict, and Linear
+ * refused to create the second. Mirroring this very repository was impossible.
+ *
+ * Prefixing the *repository* labels instead of the marker resolves it in the direction
+ * that reads better. {@link sanitizeRepoLabel} emits only `[a-z0-9._-]`, so a repository
+ * segment can never contain a colon — which makes `repo:<name>` unable to collide with
+ * the bare marker, with another repository's label, or with a plain name a human chose.
+ * Disjoint by construction rather than by luck, exactly as before, but now the common
+ * label on every bead is simply `tbd`.
+ *
+ * The cost is Linear's one-label-per-group guarantee, which the group form gave for
+ * free. It is a small loss: tbd asserts exactly one repository label per item, so the
+ * invariant already holds from this side, and the group's other use — "show me
+ * everything from any tbd repository" — is what the `tbd` marker is for.
+ *
+ * {@link TBD_LABEL_PREFIX} remains for tbd's occasional purposeful carriers
+ * (`tbd:blocked`, `tbd:deferred`). Those are deliberately uncommon; the label on *every*
+ * mirrored item is the bare marker.
  */
 
 import type { ProviderSettings, RepoLabelSetting } from './provider-settings.js';
 import { parseRepoSlug } from './permalink.js';
 
 /**
- * Namespace for every root-level label tbd creates for itself.
+ * Namespace for tbd's own purposeful carriers — `tbd:blocked`, `tbd:deferred`.
  *
- * A Linear label name must be unique across the whole team — a label group does *not*
- * scope it, which is the constraint the rest of this file is shaped around. Since
- * {@link sanitizeRepoLabel} can only emit `[a-z0-9._-]`, a name containing `:` can never
- * collide with a repository label, so putting tbd's own markers behind this prefix makes
- * the two namespaces disjoint by construction rather than by luck.
+ * Deliberately NOT where the origin marker lives: these mark specific conditions on
+ * some items, whereas the marker is on every mirrored item and should read as plainly
+ * as possible.
  */
 export const TBD_LABEL_PREFIX = 'tbd:';
 
 /**
- * Default name for the plain marker every mirrored item carries.
+ * The marker every mirrored item carries.
  *
- * Prefixed rather than a bare `tbd` because the bare form shares one flat namespace with
- * repository labels and every label a human already made. Mirroring a repository named
- * `tbd` — this one — made Linear reject the whole provisioning run with
- * `Label "tbd" already exists in team`, and a repository named `docs` would collide with
- * an existing `docs` label just as hard.
+ * Bare on purpose. It is the single most-seen label in the workspace, it is what the
+ * documented `label is not tbd` filter names, and nothing forces it to be longer: the
+ * repository labels carry the prefix instead (see {@link REPO_LABEL_PREFIX}).
  */
-export const ORIGIN_LABEL = `${TBD_LABEL_PREFIX}sync`;
+export const ORIGIN_LABEL = 'tbd';
 
-/** Linear label-group prefix for the per-repository label. */
-export const REPO_LABEL_GROUP = 'repo';
+/**
+ * Prefix for the per-repository label, e.g. `repo:tbd`.
+ *
+ * The colon is load-bearing. Repository segments are sanitized to `[a-z0-9._-]`, so a
+ * prefixed name can never equal a bare one — which is what keeps `repo:tbd` and the
+ * `tbd` marker from being the same Linear label in a namespace that has no scoping.
+ */
+export const REPO_LABEL_PREFIX = 'repo:';
+
+/**
+ * Colors tbd asks for when it creates one of its own labels.
+ *
+ * Set only at creation, never on update: the color is a presentation choice, and once a
+ * label exists it belongs to the workspace. Someone who recolors `tbd` to fit their own
+ * scheme should not have it changed back on the next sync.
+ *
+ * The marker is deliberately the odd one out. It appears on every mirrored item, so it
+ * is the one that has to be recognizable at a glance in a mixed board; the repository
+ * labels are supporting detail and share a quieter tone.
+ */
+export function labelColorFor(name: string): string | undefined {
+  if (name.startsWith(REPO_LABEL_PREFIX)) {
+    return '#6B7280'; // slate — metadata, not a signal
+  }
+  if (name === `${TBD_LABEL_PREFIX}blocked`) {
+    return '#EB5757'; // red, matching what "blocked" means everywhere else
+  }
+  if (name === `${TBD_LABEL_PREFIX}deferred`) {
+    return '#F2C94C'; // amber: paused, not stopped
+  }
+  if (name === ORIGIN_LABEL || name.startsWith(TBD_LABEL_PREFIX)) {
+    return '#556B2F'; // dark olive green: tbd's mark, distinct from Linear's own palette
+  }
+  return undefined;
+}
 
 /**
  * Sanitize a repository name into a label segment.
@@ -116,7 +158,7 @@ export function originLabelsFor(options: {
   const { settings, originRemoteUrl, idPrefix } = options;
   if (settings.originLabel === false) {
     // One switch turns off the whole scheme. A repository that wants the plain marker
-    // but not the repo group sets `labels.repo: false` instead.
+    // but not the repository label sets `labels.repo: false` instead.
     return [];
   }
 
@@ -133,42 +175,41 @@ export function originLabelsFor(options: {
     idPrefix,
   });
   if (repoName) {
-    labels.push(`${REPO_LABEL_GROUP}/${repoName}`);
+    labels.push(`${REPO_LABEL_PREFIX}${repoName}`);
   }
   return labels;
 }
 
 /**
- * Whether a label belongs to another repository's `repo` group.
+ * Whether a label names a repository other than this one.
  *
- * Used by the inbound scan: a candidate carrying a sibling repository's origin label is
- * that repository's business, and importing it here would duplicate the bead on both
- * sides of a shared scope.
+ * Used by the inbound scan: a candidate carrying a sibling repository's label is that
+ * repository's business, and importing it here would duplicate the bead on both sides of
+ * a shared scope.
  */
 export function isForeignRepoLabel(label: string, ownRepoName: string | undefined): boolean {
-  if (!label.startsWith(`${REPO_LABEL_GROUP}/`)) {
+  if (!label.startsWith(REPO_LABEL_PREFIX)) {
     return false;
   }
-  const name = label.slice(REPO_LABEL_GROUP.length + 1);
-  return name !== ownRepoName;
+  return label.slice(REPO_LABEL_PREFIX.length) !== ownRepoName;
 }
 
 /**
  * Whether a label is one tbd owns and needs, as opposed to one mirrored from a bead.
  *
- * The set is deliberately small and structural: anything in the `tbd:` namespace (the
- * default origin marker, the status carriers, and mirrored bead labels under the
- * prefixed mode — mirrored ones are only ever sent when the operator asked for them, so
- * treating the prefix as tbd-owned is right), plus anything in the `repo` group.
+ * The set is deliberately small and structural: the origin marker itself, anything in
+ * the `tbd:` namespace (the status carriers, and mirrored bead labels under the prefixed
+ * mode — those are only ever sent when the operator asked for them, so treating the
+ * prefix as tbd-owned is right), and any `repo:` label.
  *
- * `originName` is still consulted because an operator may override the marker with a
- * bare name via `labels.origin: <string>`. That override is theirs to make, but it opts
- * out of the collision-proofing the prefix provides.
+ * `originName` is consulted separately because an operator may rename the marker via
+ * `labels.origin: <string>`, and a renamed marker is still tbd's.
  */
 export function isTbdOwnedLabel(name: string, originName: string = ORIGIN_LABEL): boolean {
   return (
     name === originName ||
+    name === ORIGIN_LABEL ||
     name.startsWith(TBD_LABEL_PREFIX) ||
-    name.startsWith(`${REPO_LABEL_GROUP}/`)
+    name.startsWith(REPO_LABEL_PREFIX)
   );
 }

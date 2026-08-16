@@ -39,6 +39,8 @@ import {
   ISSUE_ATTACHMENTS_QUERY,
   ISSUE_CREATE_MUTATION,
   ISSUE_LABELS_QUERY,
+  ISSUE_ARCHIVE_MUTATION,
+  ISSUE_UNARCHIVE_MUTATION,
   ISSUE_UPDATE_MUTATION,
   LABEL_CREATE_MUTATION,
   PROJECT_CREATE_MUTATION,
@@ -48,7 +50,7 @@ import {
   USERS_BY_EMAIL_QUERY,
 } from './queries.js';
 import { spliceManagedBlock } from '../core/managed-block.js';
-import { isTbdOwnedLabel } from '../core/origin-labels.js';
+import { isTbdOwnedLabel, labelColorFor } from '../core/origin-labels.js';
 import {
   indexLabels,
   qualifiedIssueLabels,
@@ -96,6 +98,55 @@ const LINEAR_URL_RE = /linear\.app\/[^/]+\/issue\/([A-Za-z0-9]+-\d+)/;
 const IDENTIFIER_RE = /^[A-Za-z][A-Za-z0-9]*-\d+$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const EMAIL_RE = /^[^@\s]+@[^@\s]+$/;
+
+/**
+ * The bead's real timestamps, shaped into what `IssueCreateInput` will accept.
+ *
+ * Linear enforces three rules, and violating any of them fails the whole create — so a
+ * date good enough to be worth sending is clamped rather than trusted, and one that
+ * cannot be made legal is dropped. A mirrored issue with a slightly-adjusted date is
+ * strictly better than a bead that will not mirror at all.
+ *
+ * 1. Both must be in the past. Clock skew between the machine writing beads and
+ *    Linear's servers is enough to make "now" land in the future, so anything at or
+ *    after now is dropped rather than sent.
+ * 2. `completedAt` must be after `createdAt`. A bead created and closed inside the same
+ *    second — routine for scripted work — otherwise fails, so it is nudged forward by a
+ *    millisecond instead.
+ * 3. `completedAt` requires a completed-type workflow state. Only tbd's `closed` maps to
+ *    one, so any other status omits it even when the bead carries a `closed_at`.
+ */
+export function importTimestamps(patch: CanonicalPatch): {
+  createdAt?: string;
+  completedAt?: string;
+} {
+  const now = Date.now();
+  const out: { createdAt?: string; completedAt?: string } = {};
+
+  const created = patch.sourceCreatedAt ? Date.parse(patch.sourceCreatedAt) : Number.NaN;
+  const createdOk = Number.isFinite(created) && created < now;
+  if (createdOk) {
+    out.createdAt = new Date(created).toISOString();
+  }
+
+  // Only `closed` reaches a completed state; sending completedAt with any other is a
+  // hard rejection, not a silently ignored field.
+  if (patch.status !== 'closed' || !patch.sourceCompletedAt) {
+    return out;
+  }
+  const completed = Date.parse(patch.sourceCompletedAt);
+  if (!Number.isFinite(completed) || completed >= now) {
+    return out;
+  }
+  // Ordering only has to hold when a createdAt is actually being sent; without one
+  // Linear stamps creation at now, and any past completedAt precedes it — which it
+  // rejects. So a completedAt is only safe alongside a createdAt.
+  if (!createdOk) {
+    return out;
+  }
+  out.completedAt = new Date(Math.max(completed, created + 1)).toISOString();
+  return out;
+}
 
 export class LinearAdapter implements TrackerAdapter {
   readonly provider: ProviderNameType = 'linear';
@@ -269,6 +320,7 @@ export class LinearAdapter implements TrackerAdapter {
   async createIssue(patch: CanonicalPatch, clientId?: string): Promise<ExternalRef> {
     const meta = await this.ensureMeta();
     const input = await this.toInput(patch, meta);
+    Object.assign(input, importTimestamps(patch));
     let data: { issueCreate: { success: boolean; issue: RawIssue | null } };
     try {
       data = await this.client.request<{
@@ -336,6 +388,26 @@ export class LinearAdapter implements TrackerAdapter {
       ...(issue.identifier != null ? { key: issue.identifier } : {}),
       ...(issue.url != null ? { url: issue.url } : {}),
     };
+  }
+
+  async archiveIssue(id: string): Promise<void> {
+    const data = await this.client.request<{ issueArchive: { success: boolean } }>(
+      ISSUE_ARCHIVE_MUTATION,
+      { id },
+    );
+    if (!data.issueArchive.success) {
+      throw new Error(`Linear declined to archive ${id}`);
+    }
+  }
+
+  async unarchiveIssue(id: string): Promise<void> {
+    const data = await this.client.request<{ issueUnarchive: { success: boolean } }>(
+      ISSUE_UNARCHIVE_MUTATION,
+      { id },
+    );
+    if (!data.issueUnarchive.success) {
+      throw new Error(`Linear declined to unarchive ${id}`);
+    }
   }
 
   /**
@@ -817,6 +889,12 @@ export class LinearAdapter implements TrackerAdapter {
       name: options.name,
       teamId: await this.resolveTeamId(),
     };
+    // Only on create. Recoloring an existing label on every sync would overwrite a
+    // choice the workspace made; see labelColorFor.
+    const color = labelColorFor(options.qualifiedName ?? options.name);
+    if (color) {
+      input.color = color;
+    }
     if (options.isGroup) {
       input.isGroup = true;
     }

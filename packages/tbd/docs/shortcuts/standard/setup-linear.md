@@ -250,7 +250,16 @@ session-end `tbd sync` keeps Linear current with no extra command.
 | Sync says `nothing to do` but Linear looks stale | The policy does not select those beads | Check `policy.outbound` against what the user expects; `--dry-run integration sync --push` lists the selected set |
 | A bead reports malformed managed-block markers | A human edited inside the `⟦tbd⟧` … `⟦/tbd⟧` region in Linear | Repair the region in Linear (one `⟦tbd⟧` and one `⟦/tbd⟧`, in that order) or delete it entirely; the next sync rewrites it |
 
+| A reopened bead stops syncing, warning that its item is archived | Under the default `policy.archive: manual` the tracker’s archive is yours to manage | Restore the issue in Linear, or set `policy.archive: on_close` to let tbd own the lifecycle |
+| Newly mirrored issues all show today’s dates | A tbd older than 0.7.0 stamped them at sync time instead of sending the bead’s own | Upgrade; dates are sent on create, so already-mirrored issues keep their original stamps |
+
 Full reference: the External Tracker Integrations section of `tbd docs`.
+
+For the design behind all of this—why the link stores a UUID, why the origin label is
+`tbd` and repository labels `repo:<name>`, why prose is normalized before comparison,
+and who owns the archive—see `tbd docs show linear-integration-design`. Read that before
+changing sync behavior: each rule there is paired with the Linear behavior that forces
+it.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

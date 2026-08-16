@@ -251,6 +251,11 @@ export function planMirror(context: MirrorContext): MirrorPlan {
       title: issue.title,
       status: issue.status,
       priority: issue.priority,
+      // Carried on every action, consumed only by the create path: the adapter's
+      // update surface ignores these, and the provider does not accept them there
+      // either. See CanonicalPatch.sourceCreatedAt.
+      sourceCreatedAt: issue.created_at,
+      sourceCompletedAt: issue.closed_at ?? null,
       ...(!linkedBeyondMaxNesting ? { parentId: parentLink?.id ?? null } : {}),
       // Omitting `labels` entirely leaves the tracker's labels alone except for
       // the status carriers the adapter adds. Sending [] would strip labels a
