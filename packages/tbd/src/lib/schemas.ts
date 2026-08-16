@@ -664,11 +664,12 @@ export const LabelCreateMode = z.enum(['none', 'tbd', 'all']);
 export const IntegrationLabelsSchema = z
   .object({
     /**
-     * The plain marker on every mirrored issue, so a human can filter agent traffic out
-     * with `label is not tbd`.
+     * The marker on every mirrored issue, so a human can filter agent traffic out
+     * with `label is not tbd:sync`.
      *
      * `true` uses the default name; a string overrides it, which a workspace already
-     * using `tbd` for something else needs. Symmetric with `repo` below — an earlier
+     * using that name for something else needs. Overriding with a bare name opts out
+     * of the collision-proofing the `tbd:` prefix provides — see ORIGIN_LABEL. Symmetric with `repo` below — an earlier
      * draft made this a bare boolean while `repo` took a name, which was an asymmetry
      * with no reason behind it.
      */

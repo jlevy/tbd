@@ -1,9 +1,13 @@
 /**
- * Origin labels: the `tbd` marker and the `repo/<name>` group label.
+ * Origin labels: the `tbd:sync` marker and the `repo/<name>` group label.
  *
- * These are what make a shared tracker legible — `label is not tbd` gives a human their
- * board back, and the `repo` group answers "which repository is this from" when several
- * report into one surface.
+ * These are what make a shared tracker legible — `label is not tbd:sync` gives a human
+ * their board back, and the `repo` group answers "which repository is this from" when
+ * several report into one surface.
+ *
+ * The marker is prefixed rather than a bare `tbd` because Linear enforces label-name
+ * uniqueness across a whole team and a group does not scope it, so a bare marker
+ * collides with the repo label of any repository sharing its name.
  */
 
 import { describe, it, expect } from 'vitest';
