@@ -166,9 +166,9 @@ because it is both the framework’s main security asset and its main source of 
 
 ### The Three Layers
 
-1. **Permissions** — per-command on/off switches, named `<plugin>:<identifier>`.
-2. **Scopes** — parameter validation that narrows what a permitted command may touch.
-3. **Capabilities** — bind a set of permissions and scopes to specific windows.
+1. **Permissions:** per-command on/off switches, named `<plugin>:<identifier>`.
+2. **Scopes:** parameter validation that narrows what a permitted command may touch.
+3. **Capabilities:** bind a set of permissions and scopes to specific windows.
 
 A real `src-tauri/capabilities/default.json`:
 

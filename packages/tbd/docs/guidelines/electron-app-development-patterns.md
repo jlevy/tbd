@@ -95,7 +95,7 @@ This document is a reference for building a **clean, minimal, standalone Electro
 desktop app** with a modern build system and a backend written in whatever language
 suits the problem—Node.js, Bun, Python, Go, or a combination.
 
-The recommended default: **Electron 43 + electron-vite + TypeScript +
+The recommended default: **Electron 43 and electron-vite with TypeScript and
 electron-builder**, with the renderer as an ordinary Vite web app, the main process as a
 thin bundled CommonJS entry point, a CommonJS preload exposing a narrow typed API over
 `contextBridge`, and any substantial backend work pushed into a **`utilityProcess`**
@@ -1082,9 +1082,16 @@ the app is small enough that the runtime dominates it.
 The main tradeoff you are accepting in exchange is **webview fragmentation**:
 system-webview frameworks render on WebView2 on Windows, WKWebView on macOS, and
 WebKitGTK on Linux, so you write once and debug three times.
+That cost is concrete rather than
+theoretical—`tbd guidelines tauri-app-development-patterns` catalogues what actually
+breaks, and the Linux list is long.
 
-A detailed comparison of Tauri, Electrobun, Wails, and Neutralino is deliberately out of
-scope here and is tracked as separate research; this document stays focused on Electron.
+The two alternatives worth evaluating have their own guidelines: **Tauri**
+(`tbd guidelines tauri-app-development-patterns`) for a small, signed, auto-updating app
+if you can accept Rust in the build, and **Electrobun**
+(`tbd guidelines electrobun-app-development-patterns`) for internal or trusted-audience
+distribution only, since its updater verifies nothing.
+Wails and Neutralino are not covered.
 
 * * *
 
