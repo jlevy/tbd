@@ -5,7 +5,7 @@ title: Support Linear delegate as the agent gesture (not assignee)
 kind: feature
 status: open
 priority: 2
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-3
@@ -14,7 +14,11 @@ dependencies:
     target: is-01m010epmrrmp2s67x1pe8xqa3
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T21:26:50.810Z
-updated_at: 2026-08-14T21:27:05.151Z
+updated_at: 2026-08-16T00:10:47.295Z
+extensions:
+  linear:
+    id: c8f8e501-c470-41bb-b12c-cd0116a11b3c
+    linked_at: 2026-08-16T00:10:47.295Z
 ---
 ECOSYSTEM SURVEY (2026-08-14): Linear's agents directory lists 27 agents — Codex, Cursor, GitHub Copilot, Devin, Factory, Sentry Seer, Charlie, and Cyrus ('your Claude Code powered Linear agent that runs anywhere'), plus Tembo ('delegate work to any coding agent'), which occupies the same architectural slot a tbd bridge would.
 

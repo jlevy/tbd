@@ -5,7 +5,7 @@ title: Research/spec shortcuts should create the tracking bead first, not last
 kind: task
 status: open
 priority: 2
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - traceability
@@ -13,7 +13,11 @@ labels:
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:55:42.919Z
-updated_at: 2026-08-14T17:25:11.927Z
+updated_at: 2026-08-16T00:10:47.236Z
+extensions:
+  linear:
+    id: 28755771-99c4-4a23-9e38-b36be27978dd
+    linked_at: 2026-08-16T00:10:47.236Z
 ---
 Worked example, from this brief: the research doc was written first, an epic was created afterwards to track it, 24 children were filed under that epic — and spec_path was set on NONE of them until the traceability section went looking and found the linkage missing. Nothing in tbd prime, the skill tiers, new-research-brief, or AGENTS.md asks for it. new-research-brief says to create the document and update it as you learn; it never mentions a bead.
 

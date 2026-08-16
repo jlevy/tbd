@@ -5,14 +5,18 @@ title: tbd sync --dry-run and --status never cover the tracker
 kind: bug
 status: open
 priority: 2
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-1
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:40:04.765Z
-updated_at: 2026-08-14T17:25:09.173Z
+updated_at: 2026-08-16T00:10:47.204Z
+extensions:
+  linear:
+    id: 06dcff61-bba3-4a97-9c7e-71d3ef8a40e4
+    linked_at: 2026-08-16T00:10:47.204Z
 ---
 Two gaps in the same surface:
 

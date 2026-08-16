@@ -5,7 +5,7 @@ title: "Wire the two dead link renderers: repoUrl and prUrls are never populated
 kind: bug
 status: open
 priority: 1
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - traceability
@@ -13,7 +13,11 @@ labels:
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:55:19.546Z
-updated_at: 2026-08-14T17:25:11.909Z
+updated_at: 2026-08-16T00:10:47.215Z
+extensions:
+  linear:
+    id: 60ce3049-b663-4fde-9a72-72fd5d994bb3
+    linked_at: 2026-08-16T00:10:47.215Z
 ---
 Both link renderers in the Linear managed block exist, are correct, and have no data behind them.
 

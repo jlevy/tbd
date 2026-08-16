@@ -5,14 +5,18 @@ title: tbd sync --push silently performs the outbound-only mirror the docs warn 
 kind: bug
 status: open
 priority: 1
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-1
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:40:03.292Z
-updated_at: 2026-08-14T17:25:09.170Z
+updated_at: 2026-08-16T00:10:47.198Z
+extensions:
+  linear:
+    id: 2a74d5e3-c260-4db1-b6df-1b3cb5403ce6
+    linked_at: 2026-08-16T00:10:47.198Z
 ---
 tbd sync --push calls runEnabledIntegrationPushes (sync.ts:205) — the same one-way projection as tbd integration sync --push, with no three-way reconcile.
 

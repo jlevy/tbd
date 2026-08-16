@@ -5,7 +5,7 @@ title: Give tbd web an addressable bead so Linear can link into it
 kind: feature
 status: open
 priority: 2
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - traceability
@@ -13,7 +13,11 @@ labels:
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:55:40.058Z
-updated_at: 2026-08-14T17:25:11.922Z
+updated_at: 2026-08-16T00:10:47.222Z
+extensions:
+  linear:
+    id: 61b9801f-a7e5-4b43-b0bf-f9df8dac4a5d
+    linked_at: 2026-08-16T00:10:47.222Z
 ---
 The web server exposes /, /api/board, /api/bead?id=, and /api/events (http.ts:383-411), and the client never reads location.hash or a query parameter to select a bead at load. There is no URL that opens the browser on a specific bead, so 'click through into the bead browser' has nothing to link to (F13).
 

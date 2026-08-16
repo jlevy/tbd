@@ -5,14 +5,18 @@ title: "Attention-based selection: mirror anything in_progress regardless of kin
 kind: feature
 status: open
 priority: 2
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-3
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:20:20.016Z
-updated_at: 2026-08-14T17:25:11.925Z
+updated_at: 2026-08-16T00:10:47.152Z
+extensions:
+  linear:
+    id: 60dd6442-02e4-4a6d-9667-2435051892b3
+    linked_at: 2026-08-16T00:10:47.152Z
 ---
 mirrorSet applies statuses as a global gate over both the kind rule and the spec rule, so 'epics in any active status OR anything at all that is in_progress' is inexpressible: narrowing statuses to [in_progress] would drop every open epic.
 
