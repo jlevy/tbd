@@ -256,9 +256,10 @@ session-end `tbd sync` keeps Linear current with no extra command.
 Full reference: the External Tracker Integrations section of `tbd docs`.
 
 For the design behind all of this—why the link stores a UUID, why the origin label is
-`tbd:sync`, why prose is normalized before comparison, and who owns the archive—see
-`tbd docs show linear-integration-design`. Read that before changing sync behavior: each
-rule there is paired with the Linear behavior that forces it.
+`tbd` and repository labels `repo:<name>`, why prose is normalized before comparison,
+and who owns the archive—see `tbd docs show linear-integration-design`. Read that before
+changing sync behavior: each rule there is paired with the Linear behavior that forces
+it.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

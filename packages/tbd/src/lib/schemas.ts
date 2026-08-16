@@ -690,7 +690,7 @@ export const IntegrationLabelsSchema = z
   .object({
     /**
      * The marker on every mirrored issue, so a human can filter agent traffic out
-     * with `label is not tbd:sync`.
+     * with `label is not tbd`.
      *
      * `true` uses the default name; a string overrides it, which a workspace already
      * using that name for something else needs. Overriding with a bare name opts out

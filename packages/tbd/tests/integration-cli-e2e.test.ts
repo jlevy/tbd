@@ -119,23 +119,25 @@ describe('tbd integration, end to end via the built binary', () => {
     const leading = await cli(['--dry-run', 'integration', 'setup']);
     expect(leading.code).toBe(0);
     expect(leading.stdout).toContain('would create');
-    expect(result.stdout).toContain('label group repo');
+    expect(result.stdout).toContain('label repo:');
     expect(result.stdout).toContain('would create');
     expect(result.stdout).toContain('Re-run without --dry-run to apply');
     // A dry run that writes is worse than no dry run at all.
     expect(server.labels.length).toBe(before);
   });
 
-  it('setup creates the origin label and the repo group, and is idempotent', async () => {
+  it('setup creates both origin labels flat, and is idempotent', async () => {
     const first = await cli(['integration', 'setup']);
     expect(first.code).toBe(0);
     expect(first.stdout).toContain('created');
 
-    const group = server.labels.find((l) => l.name === 'repo' && l.isGroup);
-    expect(group).toBeDefined();
-    // The repo label is a child of the group, not a flat label with a slash in its name.
+    // Both flat, and the marker is bare: a `repo` group with bare children would put
+    // `repo/<name>` and the marker in conflict for any repo sharing the marker's name.
+    expect(server.labels.find((l) => l.name === 'tbd' && !l.parent)).toBeDefined();
+    expect(server.labels.find((l) => l.name.startsWith('repo:') && !l.parent)).toBeDefined();
+    expect(server.labels.some((l) => l.isGroup)).toBe(false);
+    // And never a flat label with a slash in its name.
     expect(server.labels.find((l) => l.name.includes('/'))).toBeUndefined();
-    expect(server.labels.some((l) => l.parent?.id === group!.id)).toBe(true);
 
     const countAfterFirst = server.labels.length;
     const second = await cli(['integration', 'setup']);

@@ -65,24 +65,38 @@ A grouped label stores only its leaf in `name`, with the group in `parent`. So
 `repo/tbd` and a root label named `tbd` are a genuine collision, and Linear rejects the
 second with `duplicate label name`.
 
-That is why the origin marker is **`tbd:sync`** and not a bare `tbd`. Repository label
-names are sanitized to `[a-z0-9._-]`, which cannot contain a colon—so everything in the
-`tbd:` namespace is collision-proof against every possible repository name **by
+That collision is why the **repository** labels carry a prefix: `repo:tbd`,
+`repo:metaproc`. Repository segments are sanitized to `[a-z0-9._-]` and can never
+contain a colon, so a prefixed name cannot equal a bare one—collision-proof **by
 construction** rather than by luck.
-Before this, mirroring a repository named `tbd` was impossible, and one named `docs`
-would have collided with an ordinary `docs` label.
+
+Prefixing the repository side rather than the marker is deliberate.
+The marker is the single most-seen label in the workspace and the one the documented
+filter names, so it stays plain `tbd`; the prefix goes on the supporting detail.
+An earlier shape did the reverse (`tbd` beside a `repo` group) and read worse for no
+benefit.
+
+The cost is Linear’s one-label-per-group guarantee, which the group form gave free.
+It is small: tbd asserts exactly one repository label per item, so the invariant already
+holds from this side, and “show me everything from any tbd repository” is what the `tbd`
+marker is for.
 
 The scheme:
 
 | Label | Purpose |
 | --- | --- |
-| `tbd:sync` | Every mirrored item. `label is not tbd:sync` gives a human their board back |
+| `tbd` | Every mirrored item. `label is not tbd` gives a human their board back |
 | `repo/<name>` | Which repository. A Linear group allows one label per issue, which is one-repo-per-bead enforced structurally |
 | `tbd:*` | tbd’s own carriers (`tbd:blocked`, and mirrored labels under `mirror: prefixed`) |
 
-**Rule:** every label tbd creates for itself lives under `tbd:`. Repository labels live
-in the `repo` group.
-The two namespaces cannot collide, and neither can collide with a name a human chose.
+tbd sets a color when it *creates* one of its own labels—indigo for the marker, slate
+for repository labels, red and amber for the blocked and deferred carriers—and never on
+update. Colour is presentation, and once a label exists it belongs to the workspace.
+
+**Rule:** the marker is bare; everything else tbd creates is prefixed, `tbd:` for its
+own carriers and `repo:` for repository identity.
+No prefixed name can collide with a bare one, so none of the three can collide with each
+other or with a name a human chose.
 
 ## The managed block, and markdown round-tripping
 
@@ -184,12 +198,12 @@ here without another format bump.
 
 ## Multi-repo shape
 
-One team, one project per repository, one shared label group:
+One team, one project per repository, one flat label namespace:
 
 ```
-team OS ── project tbd          ── repo/tbd        ─┐
-        ├─ project metaproc     ── repo/metaproc   ─┼─ all carry tbd:sync
-        └─ project metabrowser  ── repo/metabrowser ┘
+team OS ── project tbd          ── repo:tbd         ─┐
+        ├─ project metaproc     ── repo:metaproc    ─┼─ all carry `tbd`
+        └─ project metabrowser  ── repo:metabrowser ─┘
 ```
 
 `tbd integration setup` provisions all of it—including the **project**, because
@@ -224,7 +238,7 @@ sync.
 
 Each of these is a judgment about whose workspace it is:
 
-- **Auto-provision on sync.** Creating label groups restructures a shared workspace;
+- **Auto-provision on sync.** Creating labels restructures a shared workspace;
   `tbd integration setup` is the command you run on purpose.
 - **Create shared views.** `customViewCreate` would work, but a saved view is more
   invasive than a label.

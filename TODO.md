@@ -66,7 +66,7 @@ Real, tracked, and not blocking the release.
 | `tbd-iqgm` | Comment fetching is not delta-gated, so cost is `2+N` per sync rather than `2+changed` |
 | `tbd-fbr6` | `repoUrl` and `prUrls` are rendering code with no data behind them |
 | `tbd-1emr` | Sync’s duplicate-link failure names a UUID where doctor names the issue key |
-| `tbd-t9hi` | Research and active-plan docs still say `label is not tbd`; the marker is `tbd:sync`. In-code references were corrected |
+| `tbd-t9hi` | Research and active-plan docs describe the pre-f08 label scheme. The shipped shape is a bare `tbd` marker plus `repo:<name>`; in-code and reference docs are current |
 | `tbd-j3q1` | Flaky tryscript: `cli-edge-cases` “Non-existent short ID” collides with did-you-mean suggestions |
 
 ## Open epics

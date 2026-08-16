@@ -179,69 +179,48 @@ describe('the sync engine', () => {
     expect(settled.nothingToDo).toBe(true);
   });
 
-  describe('origin labels in a Linear label group', () => {
-    it('creates repo/<name> as a real group, not a flat slash-named label', async () => {
+  describe('origin labels', () => {
+    it('creates both markers as flat labels, and applies them to the issue', async () => {
       const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
       store.set(epic.id, epic);
 
-      await run([...store.values()], POLICY, false, ['tbd:sync', 'repo/tbd']);
-
-      const flat = server.labels.find((l) => l.name === 'repo/tbd');
-      expect(flat).toBeUndefined();
-
-      const group = server.labels.find((l) => l.name === 'repo' && l.isGroup);
-      expect(group).toBeDefined();
-
-      // The child stores only the LEAF name; the group is carried by `parent`.
-      const child = server.labels.find((l) => l.name === 'tbd' && l.parent?.id === group!.id);
-      expect(child).toBeDefined();
-
-      // The origin marker is a separate root label, and it must NOT share the repo's
-      // leaf name: Linear enforces name uniqueness across the whole team regardless of
-      // group, so `tbd` beside `repo/tbd` is rejected outright. The `tbd:` prefix is
-      // what keeps the two namespaces disjoint — a repo leaf can never contain a colon.
-      const origin = server.labels.find((l) => l.name === 'tbd:sync' && !l.parent);
-      expect(origin).toBeDefined();
-      expect(origin!.id).not.toBe(child!.id);
-    });
-
-    it('refuses the shape Linear refuses: a root label sharing a grouped leaf name', async () => {
-      // The guard that would have caught this before it reached a live workspace. If the
-      // mock ever stops enforcing team-wide leaf uniqueness, this test goes green while
-      // real provisioning stays broken — which is exactly what happened once already.
-      const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
-      store.set(epic.id, epic);
-
-      await run([...store.values()], POLICY, false, ['tbd', 'repo/tbd']);
-
-      const rootTbd = server.labels.filter((l) => l.name === 'tbd' && !l.parent);
-      const groupedTbd = server.labels.filter((l) => l.name === 'tbd' && l.parent);
-      // One of the two can exist, never both.
-      expect(rootTbd.length + groupedTbd.length).toBe(1);
-    });
-
-    it('applies both labels to the created issue', async () => {
-      const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
-      store.set(epic.id, epic);
-
-      await run([...store.values()], POLICY, false, ['tbd:sync', 'repo/tbd']);
+      await run([...store.values()], POLICY, false, ['tbd', 'repo:tbd']);
 
       const issue = [...server.issues.values()][0]!;
       const applied = issue.labels.nodes.map((n) =>
         n.parent ? `${n.parent.name}/${n.name}` : n.name,
       );
-      expect(applied.sort()).toEqual(['repo/tbd', 'tbd:sync']);
+      expect(applied.sort()).toEqual(['repo:tbd', 'tbd']);
+
+      // Neither is grouped: the repository label carries its own prefix instead, which
+      // is what lets the marker stay a bare `tbd`.
+      expect(server.labels.find((l) => l.name === 'tbd' && !l.parent)).toBeDefined();
+      expect(server.labels.find((l) => l.name === 'repo:tbd' && !l.parent)).toBeDefined();
+      expect(server.labels.some((l) => l.isGroup)).toBe(false);
     });
 
-    it('settles once the group exists, rather than re-asserting the grouped label', async () => {
-      // The loop this guards against: a grouped label reads back as its bare leaf
-      // (`tbd`), so an engine comparing against its required `repo/tbd` never finds it,
-      // and re-asserts on every sync for the life of the repository. Qualifying both
-      // sides is what makes the comparison terminate.
+    it('marker and repository label coexist for a repo whose name is the marker', async () => {
+      // The collision that forced this shape. As a `repo` group with bare children,
+      // `repo/tbd` and a root `tbd` are the same name to Linear and the second create
+      // is rejected — so mirroring this very repository was impossible.
       const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
       store.set(epic.id, epic);
 
-      const labels = ['tbd:sync', 'repo/tbd'];
+      await run([...store.values()], POLICY, false, ['tbd', 'repo:tbd']);
+
+      expect(server.labels.filter((l) => l.name === 'tbd')).toHaveLength(1);
+      expect(server.labels.filter((l) => l.name === 'repo:tbd')).toHaveLength(1);
+      const issue = [...server.issues.values()][0]!;
+      expect(issue.labels.nodes.map((n) => n.name).sort()).toEqual(['repo:tbd', 'tbd']);
+    });
+
+    it('settles rather than re-asserting labels that are already present', async () => {
+      // The loop this guards against: an engine that cannot recognize a label it just
+      // applied re-asserts it on every sync for the life of the repository.
+      const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+      store.set(epic.id, epic);
+
+      const labels = ['tbd', 'repo:tbd'];
       await run([...store.values()], POLICY, false, labels);
       await run([...store.values()], POLICY, false, labels); // settle, as any mirror does
       const labelCountAfterSettle = server.labels.length;
@@ -250,9 +229,37 @@ describe('the sync engine', () => {
 
       expect(settled.nothingToDo).toBe(true);
       expect(settled.pushed).toEqual([]);
-      // No duplicate group or child was minted on the way to quiet.
       expect(server.labels.length).toBe(labelCountAfterSettle);
-      expect(server.labels.filter((l) => l.name === 'repo' && l.isGroup)).toHaveLength(1);
+    });
+
+    it('still reads a human-made grouped label by its qualified name', async () => {
+      // tbd no longer CREATES groups, but a workspace may well have them, and a grouped
+      // label reads back as its bare leaf. Qualifying on read is what stops an engine
+      // mistaking `area/api` for a label named `api`.
+      const group = { id: 'label-grp', name: 'area', isGroup: true };
+      server.labels.push(group, { id: 'label-api', name: 'api', parent: group });
+      server.addIssue({
+        id: 'grouped-item',
+        identifier: 'FIN-77',
+        labels: { nodes: [{ id: 'label-api', name: 'api', parent: group }] },
+      });
+
+      const epic = writeLink(bead('is-01hx5zzkbkactav9wevgemmvrz'), {
+        provider: 'linear',
+        id: 'grouped-item',
+        linked_at: '2026-08-10T00:00:00.000Z',
+      });
+      store.set(epic.id, epic);
+
+      const result = await run([...store.values()], POLICY, false, ['tbd', 'repo:tbd']);
+
+      // The human's grouped label survives untouched alongside tbd's own.
+      const applied = server.issues
+        .get('grouped-item')!
+        .labels.nodes.map((n) => (n.parent ? `${n.parent.name}/${n.name}` : n.name));
+      expect(applied).toContain('area/api');
+      expect(applied).toContain('tbd');
+      expect(result.failures).toEqual([]);
     });
   });
 
@@ -299,7 +306,7 @@ describe('the sync engine', () => {
     const id = 'is-01hx5zzkbkactav9wevgemmb01';
     store.set(id, bead(id));
 
-    const labels = ['tbd:sync', 'repo/tbd'];
+    const labels = ['tbd', 'repo:tbd'];
     await run([...store.values()], POLICY, false, labels);
     await run([...store.values()], POLICY, false, labels); // settle, as any mirror does
 
@@ -317,11 +324,11 @@ describe('the sync engine', () => {
     await run([...store.values()]);
     await run([...store.values()]); // settle with no origin labels
 
-    const labelled = await run([...store.values()], POLICY, false, ['tbd:sync', 'repo/tbd']);
+    const labelled = await run([...store.values()], POLICY, false, ['tbd', 'repo:tbd']);
     expect(labelled.nothingToDo).toBe(false);
 
     // And once backfilled, it settles again rather than re-asserting forever.
-    const after = await run([...store.values()], POLICY, false, ['tbd:sync', 'repo/tbd']);
+    const after = await run([...store.values()], POLICY, false, ['tbd', 'repo:tbd']);
     expect(after.nothingToDo).toBe(true);
   });
 

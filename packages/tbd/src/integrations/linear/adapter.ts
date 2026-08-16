@@ -50,7 +50,7 @@ import {
   USERS_BY_EMAIL_QUERY,
 } from './queries.js';
 import { spliceManagedBlock } from '../core/managed-block.js';
-import { isTbdOwnedLabel } from '../core/origin-labels.js';
+import { isTbdOwnedLabel, labelColorFor } from '../core/origin-labels.js';
 import {
   indexLabels,
   qualifiedIssueLabels,
@@ -889,6 +889,12 @@ export class LinearAdapter implements TrackerAdapter {
       name: options.name,
       teamId: await this.resolveTeamId(),
     };
+    // Only on create. Recoloring an existing label on every sync would overwrite a
+    // choice the workspace made; see labelColorFor.
+    const color = labelColorFor(options.qualifiedName ?? options.name);
+    if (color) {
+      input.color = color;
+    }
     if (options.isGroup) {
       input.isGroup = true;
     }

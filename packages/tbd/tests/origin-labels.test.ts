@@ -1,20 +1,22 @@
 /**
- * Origin labels: the `tbd:sync` marker and the `repo/<name>` group label.
+ * Origin labels: the `tbd` marker and the `repo:<name>` label.
  *
- * These are what make a shared tracker legible — `label is not tbd:sync` gives a human
- * their board back, and the `repo` group answers "which repository is this from" when
- * several report into one surface.
+ * These are what make a shared tracker legible — `label is not tbd` gives a human their
+ * board back, and `repo:<name>` answers "which repository is this from" when several
+ * report into one surface.
  *
- * The marker is prefixed rather than a bare `tbd` because Linear enforces label-name
- * uniqueness across a whole team and a group does not scope it, so a bare marker
- * collides with the repo label of any repository sharing its name.
+ * Both are flat, and the REPOSITORY label carries the prefix rather than the marker.
+ * Linear enforces label-name uniqueness across a whole team and a label group does not
+ * scope it, so a `repo` group whose children were bare repository names collided with
+ * the marker for a repo named `tbd`. Prefixing the repository side resolves that while
+ * leaving the most-seen label in the workspace as plain `tbd`.
  */
 
 import { describe, it, expect } from 'vitest';
 
 import {
   ORIGIN_LABEL,
-  REPO_LABEL_GROUP,
+  REPO_LABEL_PREFIX,
   sanitizeRepoLabel,
   resolveRepoLabelName,
   originLabelsFor,
@@ -69,12 +71,12 @@ describe('repo label naming', () => {
 });
 
 describe('origin labels', () => {
-  it('marks every mirrored item with tbd and its repo group', () => {
+  it('marks every mirrored item with tbd and its repo label', () => {
     const labels = originLabelsFor({
       settings: ON,
       originRemoteUrl: 'git@github.com:jlevy/tbd.git',
     });
-    expect(labels).toEqual([ORIGIN_LABEL, `${REPO_LABEL_GROUP}/tbd`]);
+    expect(labels).toEqual([ORIGIN_LABEL, `${REPO_LABEL_PREFIX}tbd`]);
   });
 
   it('drops the whole scheme when origin labelling is off', () => {
@@ -94,20 +96,20 @@ describe('origin labels', () => {
     // filtered out of a human's board at all.
     expect(originLabelsFor({ settings: ON, idPrefix: 'proj' })).toEqual([
       ORIGIN_LABEL,
-      `${REPO_LABEL_GROUP}/proj`,
+      `${REPO_LABEL_PREFIX}proj`,
     ]);
   });
 });
 
 describe('foreign repo labels', () => {
   it('recognizes a sibling repository’s label in a shared scope', () => {
-    // A candidate carrying another repo's group label is that repo's business; importing
+    // A candidate carrying another repo's label is that repo's business; importing
     // it here would duplicate the bead on both sides.
-    expect(isForeignRepoLabel(`${REPO_LABEL_GROUP}/other-repo`, 'tbd')).toBe(true);
-    expect(isForeignRepoLabel(`${REPO_LABEL_GROUP}/tbd`, 'tbd')).toBe(false);
+    expect(isForeignRepoLabel(`${REPO_LABEL_PREFIX}other-repo`, 'tbd')).toBe(true);
+    expect(isForeignRepoLabel(`${REPO_LABEL_PREFIX}tbd`, 'tbd')).toBe(false);
   });
 
-  it('ignores labels outside the repo group', () => {
+  it('ignores labels outside the repo namespace', () => {
     expect(isForeignRepoLabel(ORIGIN_LABEL, 'tbd')).toBe(false);
     expect(isForeignRepoLabel('bug', 'tbd')).toBe(false);
   });

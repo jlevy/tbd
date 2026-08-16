@@ -61,10 +61,12 @@ single-repo integration hid all of it.
   Worth remembering: the issue’s `updatedAt` landed 21ms *earlier* than the comment’s
   `createdAt`, so nothing should assume the reverse ordering
 - Linear enforces **label-name uniqueness across a whole team**, and a label group does
-  not scope it. This is why the origin marker is `tbd:sync` rather than a bare `tbd`:
-  repository label names are sanitized to `[a-z0-9._-]` and cannot contain a colon, so
-  the namespaces are disjoint by construction.
-  Before this, mirroring a repository named `tbd` was impossible
+  not scope it. A `repo` group with bare children therefore put `repo/tbd` and a root
+  `tbd` in direct conflict, and mirroring this very repository was impossible.
+  Resolved by prefixing the REPOSITORY labels (`repo:<name>`) rather than the marker:
+  segments are sanitized to `[a-z0-9._-]` and cannot contain a colon, so a prefixed name
+  can never equal a bare one — leaving the most-seen label in the workspace as plain
+  `tbd`
 - **Linear rewrites markdown on store.** A link written `[a](url)` reads back
   `[a](<url>)`. Comparing the managed block as a raw string therefore found a difference
   on every sync and rewrote 109 of 205 issues forever — the third distinct write loop
