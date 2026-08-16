@@ -599,10 +599,35 @@ export const FieldSyncClauseSchema = z
 // will serialize for declaration emit (TS7056), and it buys little: the clauses are
 // where new keys actually land, and a whole new sibling clause is a big enough change
 // to warrant its own format decision anyway.
+/**
+ * Who owns a mirrored item's archive state.
+ *
+ * `manual` (the default) means the tracker's archive belongs to the people using it.
+ * tbd never archives or unarchives; it treats an archived item as a settled pair and
+ * goes quiet, and if a bead reopens under an archived item it reports that plainly
+ * rather than reaching into the tracker. Archiving in most trackers is a filing
+ * decision — it governs what a human sees in their own views — and a repository's
+ * automation is a poor judge of when someone is finished looking at something. The
+ * tracker's own retention rules (Linear's team-level auto-archive, for instance) keep
+ * working underneath, which is the right place for that policy to live.
+ *
+ * `on_close` hands the whole lifecycle to tbd: closing a bead archives its item, and
+ * reopening one restores it. Coherent because whoever owns the state owns both halves —
+ * an integration that archived but never restored would strand reopened work. Suits a
+ * tracker used purely as a projection of the repository, where a settled pair has no
+ * reason to occupy a human's active view.
+ *
+ * The enum, rather than a boolean, is the extension point: `on_close_after: <duration>`
+ * and similar belong here without another format bump.
+ */
+export const ArchiveMode = z.enum(['manual', 'on_close']);
+
 export const PolicyDefinitionSchema = z.object({
   outbound: IntegrationSelectSchema.default({}),
   inbound: InboundClauseSchema.default({}),
   field_sync: FieldSyncClauseSchema.default({}),
+  /** Optional so it is not written into configs that never set it; resolved to `manual`. */
+  archive: ArchiveMode.optional(),
 });
 
 /** Named policy presets. Growing this enum is the extension point. */

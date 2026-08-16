@@ -85,6 +85,28 @@ export interface CanonicalPatch {
   ensureLabels?: string[];
   assignee?: string | null;
   parentId?: string | null;
+  /**
+   * The bead's own timestamps, for a provider that can backdate on create.
+   *
+   * **Create-only, by the provider's design and ours.** Linear accepts `createdAt` and
+   * `completedAt` on `IssueCreateInput` — self-described as "e.g. if importing from
+   * another system", which is exactly what a mirror is — and accepts neither on update.
+   * That asymmetry is the right shape rather than a limitation to route around: in
+   * steady state a bead closes and the next sync pushes the transition within minutes,
+   * so a provider-stamped time is already honest. The distortion is an onboarding
+   * artifact, where months of history are mirrored in one afternoon, and onboarding
+   * goes through create.
+   *
+   * Getting this wrong is not cosmetic. The tracker's own lifecycle automation keys off
+   * these: Linear auto-archives from `completedAt`, so a backfilled repository whose
+   * long-closed work is stamped "today" keeps that work in the active view — and, on a
+   * capped plan, in the issue quota — for the whole archive period.
+   *
+   * `applyChanges` ignores both, so an update path cannot accidentally rewrite history.
+   */
+  sourceCreatedAt?: string;
+  /** Null when the bead is not closed; omitted entirely for a non-completed state. */
+  sourceCompletedAt?: string | null;
 }
 
 /**
@@ -238,6 +260,27 @@ export interface TrackerAdapter {
    * primitive for pull: an efficiency prefilter, never a correctness input.
    */
   fetchUpdatedSince(since: string): Promise<ExternalIssue[]>;
+
+  /**
+   * Retire an item from the active view, under the `on_close` archive policy.
+   *
+   * Optional, like its counterpart: a provider without an archive concept omits both,
+   * and the policy then has nothing to act on.
+   */
+  archiveIssue?(id: string): Promise<void>;
+
+  /**
+   * Bring an archived item back into the active view.
+   *
+   * The counterpart to letting the tracker's own archival end a pair's life. Archived
+   * items are skipped as orphaned, which is right for closed work — but a reopened bead
+   * must be able to revive its issue rather than silently stopping syncing, and rather
+   * than creating a duplicate alongside the archived original.
+   *
+   * Optional: a provider without an archive concept simply omits it, and the engine
+   * treats an archived remote as terminal there.
+   */
+  unarchiveIssue?(id: string): Promise<void>;
 
   /** Resolve, and cache, the provider metadata needed to push. */
   ensureMeta(force?: boolean): Promise<ProviderMeta>;

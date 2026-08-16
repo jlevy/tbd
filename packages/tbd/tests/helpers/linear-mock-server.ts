@@ -27,6 +27,9 @@ export interface MockIssue {
   description: string | null;
   priority: number;
   updatedAt: string;
+  /** Backdatable on create only, like the real API. */
+  createdAt: string;
+  completedAt: string | null;
   state: { id: string; name: string; type: string };
   assignee: { id: string; name: string; displayName: string; email?: string } | null;
   labels: { nodes: MockLabel[] };
@@ -165,6 +168,8 @@ export class LinearMockServer {
       description: null,
       priority: 0,
       updatedAt: '2026-08-10T00:00:00.000Z',
+      createdAt: '2026-08-10T00:00:00.000Z',
+      completedAt: null,
       state: this.states[1]!,
       assignee: null,
       labels: { nodes: [] },
@@ -398,6 +403,30 @@ export class LinearMockServer {
       };
     }
 
+    if (query.includes('mutation IssueArchive')) {
+      const issue = this.issues.get(variables.id as string);
+      if (!issue) {
+        return {
+          status: 200,
+          payload: { errors: [{ message: 'Could not find referenced Issue.' }] },
+        };
+      }
+      issue.archivedAt = new Date().toISOString();
+      return { status: 200, payload: { data: { issueArchive: { success: true } } } };
+    }
+
+    if (query.includes('mutation IssueUnarchive')) {
+      const issue = this.issues.get(variables.id as string);
+      if (!issue) {
+        return {
+          status: 200,
+          payload: { errors: [{ message: 'Could not find referenced Issue.' }] },
+        };
+      }
+      issue.archivedAt = null;
+      return { status: 200, payload: { data: { issueUnarchive: { success: true } } } };
+    }
+
     if (query.includes('mutation IssueCreate')) {
       const input = variables.input as Record<string, unknown>;
       if (this.failCreateTitles.has(input.title as string)) {
@@ -468,10 +497,47 @@ export class LinearMockServer {
           },
         };
       }
+      // Backdating rules, enforced exactly as the real API states them. Modelled
+      // because a mock that accepts any date would let tbd ship an import that
+      // Linear rejects outright — the create fails whole, it does not drop the field.
+      const nowMs = Date.now();
+      const createdAtIn = input.createdAt as string | undefined;
+      const completedAtIn = input.completedAt as string | undefined;
+      if (createdAtIn !== undefined && Date.parse(createdAtIn) >= nowMs) {
+        return {
+          status: 200,
+          payload: { errors: [{ message: 'createdAt must be a time in the past' }] },
+        };
+      }
+      if (completedAtIn !== undefined) {
+        const state = this.states.find((s) => s.id === input.stateId);
+        if (Date.parse(completedAtIn) >= nowMs) {
+          return {
+            status: 200,
+            payload: { errors: [{ message: 'completedAt must be a time in the past' }] },
+          };
+        }
+        if (createdAtIn !== undefined && Date.parse(completedAtIn) <= Date.parse(createdAtIn)) {
+          return {
+            status: 200,
+            payload: { errors: [{ message: 'completedAt must be after createdAt' }] },
+          };
+        }
+        if (state?.type !== 'completed') {
+          return {
+            status: 200,
+            payload: {
+              errors: [{ message: 'completedAt cannot be provided with an incompatible state' }],
+            },
+          };
+        }
+      }
       const identifier = `FIN-${this.issues.size + 1}`;
       const issue = this.addIssue({
         id,
         identifier,
+        ...(createdAtIn !== undefined ? { createdAt: createdAtIn } : {}),
+        ...(completedAtIn !== undefined ? { completedAt: completedAtIn } : {}),
         title: (input.title as string) ?? 'Untitled',
         description: LinearMockServer.storeDescription(
           (input.description as string | null) ?? null,

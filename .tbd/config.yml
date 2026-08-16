@@ -136,11 +136,12 @@ docs_cache:
     references/agent-skill-distribution.md: internal:references/agent-skill-distribution.md
     references/docmap-format.md: internal:references/docmap-format.md
     references/docref-format.md: internal:references/docref-format.md
+    references/linear-integration-design.md: internal:references/linear-integration-design.md
   lookup_path:
     - .tbd/docs/shortcuts/system
     - .tbd/docs/shortcuts/standard
 integrations:
-  on_tbd_sync: 'off'
+  on_tbd_sync: off
   linear:
     target:
       team_key: OS

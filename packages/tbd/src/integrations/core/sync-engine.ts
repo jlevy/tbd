@@ -182,6 +182,10 @@ export interface SyncRunReport {
   commentsPulled: number;
   commentsPushed: number;
   orphaned: string[];
+  /** Pairs whose archived tracker item was revived because the bead reopened. */
+  unarchived: string[];
+  /** Pairs retired to the tracker's archive under `policy.archive: on_close`. */
+  archived: string[];
   createdOutbound: string[];
   skippedOutbound: { beadId: string; reason: string }[];
   importedInbound: string[];
@@ -360,6 +364,8 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     commentsPulled: 0,
     commentsPushed: 0,
     orphaned: [],
+    unarchived: [],
+    archived: [],
     createdOutbound: [],
     skippedOutbound: [],
     importedInbound: [],
@@ -557,6 +563,10 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   const outboundSelected = mirrorSet(currentIssues, policy.outbound, provider);
   const outboundSelectedIds = new Set(outboundSelected.map((issue) => issue.id));
   const maxNesting = options.maxNesting ?? 2;
+  // Manual by default: the tracker's archive is a human filing decision, and a
+  // repository's automation is a poor judge of when someone is done looking at
+  // something. See ArchiveMode.
+  const archiveMode = options.policy.archive ?? 'manual';
   const outboundDepth = new Map(
     outboundSelected.map((issue) => [
       issue.id,
@@ -607,12 +617,56 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       continue;
     }
     if (remote.archivedAt || remote.trashed) {
-      const record = recordByBead.get(bead.id);
-      if (!dryRun && record && record.state !== 'orphaned') {
-        await writeLinkRecord(dataSyncDir, provider, { ...record, state: 'orphaned' });
+      // A reopened bead revives its issue rather than going quiet. Archival is how a
+      // settled pair is meant to end — the tracker's own retention runs it, and the
+      // pair costs nothing afterwards — but that has to be reversible, or reopening
+      // work silently stops syncing it forever. Creating a fresh issue instead would
+      // be worse: two issues for one bead, the history stranded in the archived one.
+      //
+      // Trashed items are deliberately excluded. Linear purges trash after 30 days,
+      // so reviving one races a deletion that would strand the link again; a human
+      // restores it, or unlinks and lets a clean issue be created.
+      const reopened = !remote.trashed && bead.status !== 'closed';
+      if (reopened && archiveMode === 'on_close' && adapter.unarchiveIssue && !inboundOnly) {
+        if (!dryRun) {
+          try {
+            await adapter.unarchiveIssue(link.id);
+          } catch (error) {
+            report.failures.push({
+              beadId: options.displayId(bead.id),
+              error: `could not unarchive: ${error instanceof Error ? error.message : String(error)}`,
+            });
+            continue;
+          }
+          const record = recordByBead.get(bead.id);
+          if (record && record.state !== 'linked') {
+            await writeLinkRecord(dataSyncDir, provider, { ...record, state: 'linked' });
+          }
+        }
+        report.unarchived.push(options.displayId(bead.id));
+        // Fall through: the pair is live again, so it reconciles in this same run
+        // and any edits made while it was archived flow normally.
+      } else {
+        const record = recordByBead.get(bead.id);
+        if (!dryRun && record && record.state !== 'orphaned') {
+          await writeLinkRecord(dataSyncDir, provider, { ...record, state: 'orphaned' });
+        }
+        report.orphaned.push(options.displayId(bead.id));
+        // Under `manual` the archive belongs to whoever is using the tracker, so a
+        // reopened bead is reported rather than acted on. Saying so matters: the pair
+        // has gone quiet in a way the operator did not ask for and would otherwise
+        // have no way to notice.
+        if (reopened) {
+          report.warnings.push({
+            externalId: link.id,
+            ...(remote.key ? { externalKey: remote.key } : {}),
+            message:
+              `${options.displayId(bead.id)} reopened but its tracker item is archived; ` +
+              `restore it in the tracker, or set policy.archive: on_close to let tbd do it.`,
+          });
+        }
+        continue;
       }
-      report.orphaned.push(options.displayId(bead.id));
-      continue;
     }
     const record = recordByBead.get(bead.id);
     // A live pending create has an exact creation snapshot in its journal even
@@ -1156,6 +1210,22 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         }
       }
 
+      // Retire a settled pair, when the operator has handed tbd that job. Last among
+      // the pair's writes on purpose: Linear rejects edits to an archived issue, so
+      // archiving before the patch and splice would lose them. Not journaled as an
+      // intent either — it is idempotent and inferable from the bead's own status, so
+      // a crash before it simply means the next sync archives instead.
+      if (
+        !inboundOnly &&
+        archiveMode === 'on_close' &&
+        adapter.archiveIssue &&
+        pair.result.merged.status === 'closed' &&
+        !pair.remote.archivedAt
+      ) {
+        await adapter.archiveIssue(link.id);
+        report.archived.push(displayId);
+      }
+
       // Conflict artifacts: a comment per conflicted field, exactly-once. An
       // inbound-only run writes nothing outward, so it reports the conflict
       // without posting; the next full sync posts it.
@@ -1342,6 +1412,12 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
           ...(issue.description != null ? { description: issue.description } : {}),
           status: issue.status,
           priority: issue.priority,
+          // The bead's real dates, not the moment this sync happened to run. Only the
+          // create surface accepts them, which is also the only place they matter:
+          // backfilling an existing repository is what would otherwise stamp years of
+          // history as today. See CanonicalPatch.sourceCreatedAt.
+          sourceCreatedAt: issue.created_at,
+          sourceCompletedAt: issue.closed_at ?? null,
           ...(adapter.canPushAssignee(issue.assignee ?? null)
             ? { assignee: issue.assignee ?? null }
             : {}),

@@ -134,6 +134,20 @@ export const ISSUE_CREATE_MUTATION = `mutation IssueCreate($input: IssueCreateIn
   }
 }`;
 
+/** Archive an issue, under the `on_close` archive policy. */
+export const ISSUE_ARCHIVE_MUTATION = `mutation IssueArchive($id: String!) {
+  issueArchive(id: $id) {
+    success
+  }
+}`;
+
+/** Bring an archived issue back, so a reopened bead can revive its pair. */
+export const ISSUE_UNARCHIVE_MUTATION = `mutation IssueUnarchive($id: String!) {
+  issueUnarchive(id: $id) {
+    success
+  }
+}`;
+
 export const ISSUE_UPDATE_MUTATION = `mutation IssueUpdate($id: String!, $input: IssueUpdateInput!) {
   issueUpdate(id: $id, input: $input) {
     success
