@@ -829,6 +829,22 @@ export class LinearAdapter implements TrackerAdapter {
     const index = await this.ensureLabelIndex();
     const items: ProvisionItem[] = [];
 
+    /**
+     * Where each leaf name is already taken, keyed by the bare leaf.
+     *
+     * Linear enforces label-name uniqueness across the whole team and a group does not
+     * scope it: it stores only the leaf in `name`. So creating `repo/tbd` while a root
+     * `tbd` exists is rejected with `duplicate label name`, and the qualified-name index
+     * cannot see that coming — `tbd` and `repo/tbd` are different keys there. Without
+     * this check the dry run promises a create that Linear will refuse.
+     */
+    const holderByLeaf = new Map<string, QualifiedLabel>();
+    for (const label of index.values()) {
+      if (!holderByLeaf.has(label.leafName)) {
+        holderByLeaf.set(label.leafName, label);
+      }
+    }
+
     // Several origin labels can share one group, so each group is resolved once and its
     // outcome remembered — both to avoid duplicate report lines and to avoid racing two
     // creates for the same group.
@@ -858,14 +874,24 @@ export class LinearAdapter implements TrackerAdapter {
         items.push({ kind: 'label group', name: group, state: 'missing' });
         outcome = 'unavailable';
       } else {
-        const created = await this.createLabel({ name: group, isGroup: true });
-        items.push({
-          kind: 'label group',
-          name: group,
-          state: created ? 'created' : 'blocked',
-          ...(created ? {} : { reason: 'Linear declined to create the label group' }),
-        });
-        outcome = created ? 'ready' : 'unavailable';
+        try {
+          const created = await this.createLabel({ name: group, isGroup: true });
+          items.push({
+            kind: 'label group',
+            name: group,
+            state: created ? 'created' : 'blocked',
+            ...(created ? {} : { reason: 'Linear declined to create the label group' }),
+          });
+          outcome = created ? 'ready' : 'unavailable';
+        } catch (error) {
+          items.push({
+            kind: 'label group',
+            name: group,
+            state: 'blocked',
+            reason: error instanceof Error ? error.message : String(error),
+          });
+          outcome = 'unavailable';
+        }
       }
       groups.set(group, outcome);
       return outcome;
@@ -897,22 +923,56 @@ export class LinearAdapter implements TrackerAdapter {
         continue;
       }
 
+      // The leaf is spoken for elsewhere in the team, so Linear will refuse. Report it
+      // the same way in a dry run and a real one: a preview whose only difference from
+      // the real run is that the failure arrives later is not a preview.
+      const holder = holderByLeaf.get(leaf);
+      if (holder) {
+        // Name the holder the way the operator will find it in Linear: a root label is
+        // just its name, whereas a grouped one is only recognizable qualified.
+        const held = holder.groupName
+          ? `the label "${holder.qualifiedName}"`
+          : `a root label named "${leaf}"`;
+        items.push({
+          kind: 'label',
+          name: qualifiedName,
+          state: 'blocked',
+          reason:
+            `${held} already exists in this team, and Linear requires label names to be ` +
+            `unique across the whole team even inside a group; rename or delete it, or ` +
+            `set labels.repo to a different name`,
+        });
+        continue;
+      }
+
       if (!options.apply) {
         items.push({ kind: 'label', name: qualifiedName, state: 'missing' });
         continue;
       }
 
-      const created = await this.createLabel({
-        name: leaf,
-        parentId: group ? index.get(group)?.id : undefined,
-        qualifiedName,
-      });
-      items.push({
-        kind: 'label',
-        name: qualifiedName,
-        state: created ? 'created' : 'blocked',
-        ...(created ? {} : { reason: 'Linear declined to create the label' }),
-      });
+      // A rejection must not abort the run: earlier iterations may already have created
+      // labels, and throwing here would discard the report of them — leaving a shared
+      // workspace half-provisioned with nothing on screen saying so.
+      try {
+        const created = await this.createLabel({
+          name: leaf,
+          parentId: group ? index.get(group)?.id : undefined,
+          qualifiedName,
+        });
+        items.push({
+          kind: 'label',
+          name: qualifiedName,
+          state: created ? 'created' : 'blocked',
+          ...(created ? {} : { reason: 'Linear declined to create the label' }),
+        });
+      } catch (error) {
+        items.push({
+          kind: 'label',
+          name: qualifiedName,
+          state: 'blocked',
+          reason: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
 
     return { provider: 'linear', scope: `team ${this.teamKey}`, items };

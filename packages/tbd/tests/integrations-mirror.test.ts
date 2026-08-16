@@ -469,16 +469,23 @@ describe('applyMirror', () => {
     expect(server.issues.get('linear-deep')?.parent?.id).toBe('linear-mid2');
   });
 
-  it('refreshes a stale identifier after the issue moves team', async () => {
-    // Linear identifiers are team-scoped, so moving a project renumbers its
-    // issues. The UUID is why the link survives; the stored key must catch up.
-    server.addIssue({ id: 'uuid-moved', identifier: 'TBD-4', title: 'Moved' });
+  it.each([
+    ['renumbered by a team move', 'uuid-moved', 'TBD-4', 'FIN-11'],
+    ['unchanged', 'uuid-same', 'FIN-20', 'FIN-20'],
+  ])('never rewrites the bead when the identifier is %s', async (_case, id, remoteKey, beadKey) => {
+    // Linear identifiers are team-scoped, so a team rename or a cross-team move
+    // renumbers issues. Mirroring used to chase that here, refetching each
+    // updated issue to refresh the bead's copy. It no longer does: the
+    // identifier lives on the bridge record, which the sync engine rewrites
+    // from the remote it already holds. Rewriting the bead would churn
+    // `version` and `updated_at` on every rename, in a file committed to git.
+    server.addIssue({ id, identifier: remoteKey, title: 'Moved' });
     const bead = issue({
       id: 'is-moved',
       extensions: {
         linear: {
-          id: 'uuid-moved',
-          key: 'FIN-11',
+          id,
+          key: beadKey,
           url: 'old',
           linked_at: '2026-08-10T00:00:00.000Z',
         },
@@ -494,35 +501,6 @@ describe('applyMirror', () => {
     });
     await applyMirror({ adapter, plan, displayId, onLinked });
 
-    expect(linked).toHaveLength(1);
-    expect(linked[0]?.entry.key).toBe('TBD-4');
-    expect(linked[0]?.entry.id).toBe('uuid-moved');
-  });
-
-  it('does not rewrite the link when the identifier is unchanged', async () => {
-    server.addIssue({ id: 'uuid-same', identifier: 'FIN-20' });
-    const bead = issue({
-      id: 'is-same',
-      extensions: {
-        linear: {
-          id: 'uuid-same',
-          key: 'FIN-20',
-          url: 'https://linear.app/acme/issue/FIN-20',
-          linked_at: '2026-08-10T00:00:00.000Z',
-        },
-      },
-    });
-
-    const plan = planMirror({
-      provider: 'linear',
-      allIssues: [bead],
-      selected: [bead],
-      displayId,
-      maxNesting: 2,
-    });
-    await applyMirror({ adapter, plan, displayId, onLinked });
-
-    // No pointless bead rewrite, which would churn version and updated_at.
     expect(linked).toHaveLength(0);
   });
 

@@ -135,6 +135,25 @@ export class LinearMockServer {
     }
   }
 
+  /**
+   * Rewrite markdown the way Linear does when it stores a description.
+   *
+   * Linear wraps every link destination in angle brackets: `[a](https://x)` is read back
+   * as `[a](<https://x>)`. CommonMark renders the two identically, so it is invisible to
+   * a person and lethal to a raw string comparison — tbd's managed block renders the
+   * plain form, and comparing it raw against the stored form found a difference on every
+   * sync, rewriting a settled mirror forever.
+   *
+   * Modelled here because a mock that round-trips prose more faithfully than the real
+   * tracker cannot catch that class of bug at all: the suite was green throughout.
+   */
+  private static storeDescription(text: string | null): string | null {
+    if (text === null) {
+      return null;
+    }
+    return text.replace(/\]\((?!<)([^()\s]+)\)/g, '](<$1>)');
+  }
+
   addIssue(partial: Partial<MockIssue> & { id: string; identifier: string }): MockIssue {
     const issue: MockIssue = {
       url: `https://linear.app/acme/issue/${partial.identifier}`,
@@ -378,7 +397,9 @@ export class LinearMockServer {
         id,
         identifier,
         title: (input.title as string) ?? 'Untitled',
-        description: (input.description as string | null) ?? null,
+        description: LinearMockServer.storeDescription(
+          (input.description as string | null) ?? null,
+        ),
         priority: (input.priority as number) ?? 0,
         projectId: typeof input.projectId === 'string' ? input.projectId : null,
         assignee:
@@ -424,7 +445,7 @@ export class LinearMockServer {
         issue.title = input.title;
       }
       if ('description' in input) {
-        issue.description = input.description as string | null;
+        issue.description = LinearMockServer.storeDescription(input.description as string | null);
       }
       if (typeof input.priority === 'number') {
         issue.priority = input.priority;
@@ -645,10 +666,35 @@ export class LinearMockServer {
           payload: { errors: [{ message: `Unknown parent label: ${parentId}` }] },
         };
       }
+      // Label names are unique across the whole team, and a group does NOT scope them:
+      // Linear stores only the leaf in `name` and rejects a second label using it, even
+      // inside a group. Enforced here because omitting it let the suite bless a shape
+      // Linear refuses — a root `tbd` beside a `repo/tbd` child — which passed every
+      // test and then failed against the real API on the first live provisioning run.
+      const name = input.name as string;
+      if (this.labels.some((l) => l.name === name)) {
+        return {
+          status: 200,
+          payload: {
+            errors: [
+              {
+                message: 'duplicate label name',
+                extensions: {
+                  type: 'invalid input',
+                  code: 'INPUT_ERROR',
+                  statusCode: 400,
+                  userError: true,
+                  userPresentableMessage: `Label "${name}" already exists in team FIN. Please pick a different name and try again.`,
+                },
+              },
+            ],
+          },
+        };
+      }
       // Linear stores the LEAF name on a grouped label; the group is carried by `parent`.
       const label: MockLabel = {
         id: this.nextId('label'),
-        name: input.name as string,
+        name,
         ...(input.isGroup === true ? { isGroup: true } : {}),
         ...(parent ? { parent: { id: parent.id, name: parent.name } } : {}),
       };

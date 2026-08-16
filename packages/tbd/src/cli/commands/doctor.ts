@@ -893,10 +893,19 @@ class DoctorHandler extends BaseCommand {
     const problems: string[] = [];
 
     const { loadIdMapping } = await import('../../file/id-mapping.js');
+    const { listLinkRecords } = await import('../../integrations/core/bridge-state.js');
     const mapping = await loadIdMapping(this.dataSyncDir);
     const displayPrefix = this.config.display.id_prefix;
     for (const provider of ['linear', 'github'] as const) {
-      for (const duplicate of duplicateExternalLinks(this.issues, provider)) {
+      // The human identifier lives on the bridge record now; without it the
+      // report would name a bare UUID.
+      const keyByExternalId = new Map(
+        (await listLinkRecords(this.dataSyncDir, provider)).map((record) => [
+          record.external_id,
+          record.external_key ?? null,
+        ]),
+      );
+      for (const duplicate of duplicateExternalLinks(this.issues, provider, keyByExternalId)) {
         const holders = duplicate.beadIds
           .map((id) => formatDisplayId(id, mapping, displayPrefix))
           .sort();

@@ -12,6 +12,7 @@ import type { LabelMirrorModeType } from './provider-settings.js';
 import type { Issue, LinkedEntryType, ProviderNameType } from '../../lib/types.js';
 import { readyIssueIds } from '../../lib/issue-selection.js';
 import { readLink } from './link-store.js';
+import { TBD_LABEL_PREFIX } from './origin-labels.js';
 import { renderManagedBlock, type MirrorLinks } from './managed-block.js';
 import type {
   AttachmentSpec,
@@ -27,7 +28,9 @@ import type {
  * removed in bulk if someone turns the option off again.
  */
 export function prefixLabels(labels: readonly string[]): string[] {
-  return labels.map((label) => (label.startsWith('tbd:') ? label : `tbd:${label}`));
+  return labels.map((label) =>
+    label.startsWith(TBD_LABEL_PREFIX) ? label : `${TBD_LABEL_PREFIX}${label}`,
+  );
 }
 
 /** Attachment url scheme identifying a bead. Also the upsert idempotency key. */
@@ -368,20 +371,12 @@ export async function applyMirror(options: ApplyOptions): Promise<MirrorReport> 
         await adapter.spliceDescription(action.externalId, action.managedBlock);
       }
 
-      // Refresh the stored human identifier and URL. Both are display-only and
-      // both change when an issue moves between teams (Linear identifiers are
-      // team-scoped: FIN-11 becomes TBD-4). The UUID is why the link still
-      // resolves at all; without this the bead would keep showing the old key.
-      const existing = linkFor(action.bead, plan.provider);
-      const [current] = await adapter.fetchIssues([action.externalId]);
-      if (existing && current && (existing.key !== current.key || existing.url !== current.url)) {
-        await options.onLinked(action.bead, {
-          ...existing,
-          key: current.key ?? null,
-          url: current.url ?? null,
-        });
-      }
-
+      // No identifier refresh here. The human identifier and URL now live on
+      // the bridge record, which the sync engine rewrites from the remote it
+      // already fetched during reconciliation. Refreshing them here cost one
+      // extra fetch per updated bead and — because this loop only ever sees
+      // beads with a pending write — never repaired a settled mirror, which is
+      // exactly the state a team rename leaves behind.
       report.updated.push(displayId);
     } catch (error) {
       report.failures.push({ beadId: displayId, error: describeError(error) });

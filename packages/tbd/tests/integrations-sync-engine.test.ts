@@ -131,7 +131,13 @@ describe('the sync engine', () => {
     });
   }
 
-  function run(allIssues: Issue[], policy = POLICY, dryRun = false, originLabels: string[] = []) {
+  function run(
+    allIssues: Issue[],
+    policy = POLICY,
+    dryRun = false,
+    originLabels: string[] = [],
+    specUrl?: (issue: Issue) => string | undefined,
+  ) {
     return runSync({
       provider: 'linear',
       adapter,
@@ -141,18 +147,44 @@ describe('the sync engine', () => {
       displayId: (id) => id.slice(-4),
       mirrorLabels: 'none',
       originLabels,
+      ...(specUrl ? { specUrl } : {}),
       callbacks,
       dryRun,
       now: () => new Date().toISOString(),
     });
   }
 
+  it('settles when the managed block contains a link the tracker rewrites', async () => {
+    // The third write loop found in this feature, and the one no other check could see.
+    // tbd renders `Spec: [name](url)`; Linear stores `[name](<url>)`, which CommonMark
+    // renders identically. The managed-block comparison ran on raw strings, so it found
+    // a difference every run and rewrote the block forever — and the base hash could not
+    // catch it, because hashing strips the managed block before comparing.
+    const id = 'is-01hx5zzkbkactav9wevgemma21';
+    store.set(
+      id,
+      bead(id, { spec_path: 'docs/project/specs/active/plan-2026-01-19-transactional.md' }),
+    );
+    const specUrl = () => 'https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/x.md';
+
+    await run([...store.values()], POLICY, false, [], specUrl);
+    await run([...store.values()], POLICY, false, [], specUrl); // settle
+
+    // The stored description really did come back rewritten, or this proves nothing.
+    const remote = [...server.issues.values()][0]!;
+    expect(remote.description).toContain('](<https://github.com/');
+
+    const settled = await run([...store.values()], POLICY, false, [], specUrl);
+    expect(settled.pushed).toEqual([]);
+    expect(settled.nothingToDo).toBe(true);
+  });
+
   describe('origin labels in a Linear label group', () => {
     it('creates repo/<name> as a real group, not a flat slash-named label', async () => {
       const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
       store.set(epic.id, epic);
 
-      await run([...store.values()], POLICY, false, ['tbd', 'repo/tbd']);
+      await run([...store.values()], POLICY, false, ['tbd:sync', 'repo/tbd']);
 
       const flat = server.labels.find((l) => l.name === 'repo/tbd');
       expect(flat).toBeUndefined();
@@ -164,25 +196,41 @@ describe('the sync engine', () => {
       const child = server.labels.find((l) => l.name === 'tbd' && l.parent?.id === group!.id);
       expect(child).toBeDefined();
 
-      // The plain origin marker is a separate root label that happens to share the
-      // repo's leaf name. Keyed by bare name these two collide; keyed by qualified
-      // name they do not.
-      const origin = server.labels.find((l) => l.name === 'tbd' && !l.parent);
+      // The origin marker is a separate root label, and it must NOT share the repo's
+      // leaf name: Linear enforces name uniqueness across the whole team regardless of
+      // group, so `tbd` beside `repo/tbd` is rejected outright. The `tbd:` prefix is
+      // what keeps the two namespaces disjoint — a repo leaf can never contain a colon.
+      const origin = server.labels.find((l) => l.name === 'tbd:sync' && !l.parent);
       expect(origin).toBeDefined();
       expect(origin!.id).not.toBe(child!.id);
+    });
+
+    it('refuses the shape Linear refuses: a root label sharing a grouped leaf name', async () => {
+      // The guard that would have caught this before it reached a live workspace. If the
+      // mock ever stops enforcing team-wide leaf uniqueness, this test goes green while
+      // real provisioning stays broken — which is exactly what happened once already.
+      const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+      store.set(epic.id, epic);
+
+      await run([...store.values()], POLICY, false, ['tbd', 'repo/tbd']);
+
+      const rootTbd = server.labels.filter((l) => l.name === 'tbd' && !l.parent);
+      const groupedTbd = server.labels.filter((l) => l.name === 'tbd' && l.parent);
+      // One of the two can exist, never both.
+      expect(rootTbd.length + groupedTbd.length).toBe(1);
     });
 
     it('applies both labels to the created issue', async () => {
       const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
       store.set(epic.id, epic);
 
-      await run([...store.values()], POLICY, false, ['tbd', 'repo/tbd']);
+      await run([...store.values()], POLICY, false, ['tbd:sync', 'repo/tbd']);
 
       const issue = [...server.issues.values()][0]!;
       const applied = issue.labels.nodes.map((n) =>
         n.parent ? `${n.parent.name}/${n.name}` : n.name,
       );
-      expect(applied.sort()).toEqual(['repo/tbd', 'tbd']);
+      expect(applied.sort()).toEqual(['repo/tbd', 'tbd:sync']);
     });
 
     it('settles once the group exists, rather than re-asserting the grouped label', async () => {
@@ -193,7 +241,7 @@ describe('the sync engine', () => {
       const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
       store.set(epic.id, epic);
 
-      const labels = ['tbd', 'repo/tbd'];
+      const labels = ['tbd:sync', 'repo/tbd'];
       await run([...store.values()], POLICY, false, labels);
       await run([...store.values()], POLICY, false, labels); // settle, as any mirror does
       const labelCountAfterSettle = server.labels.length;
@@ -251,7 +299,7 @@ describe('the sync engine', () => {
     const id = 'is-01hx5zzkbkactav9wevgemmb01';
     store.set(id, bead(id));
 
-    const labels = ['tbd', 'repo/tbd'];
+    const labels = ['tbd:sync', 'repo/tbd'];
     await run([...store.values()], POLICY, false, labels);
     await run([...store.values()], POLICY, false, labels); // settle, as any mirror does
 
@@ -269,11 +317,11 @@ describe('the sync engine', () => {
     await run([...store.values()]);
     await run([...store.values()]); // settle with no origin labels
 
-    const labelled = await run([...store.values()], POLICY, false, ['tbd', 'repo/tbd']);
+    const labelled = await run([...store.values()], POLICY, false, ['tbd:sync', 'repo/tbd']);
     expect(labelled.nothingToDo).toBe(false);
 
     // And once backfilled, it settles again rather than re-asserting forever.
-    const after = await run([...store.values()], POLICY, false, ['tbd', 'repo/tbd']);
+    const after = await run([...store.values()], POLICY, false, ['tbd:sync', 'repo/tbd']);
     expect(after.nothingToDo).toBe(true);
   });
 
@@ -307,6 +355,39 @@ describe('the sync engine', () => {
       after.set(file, await readFile(join(linksDir, file), 'utf8'));
     }
     expect(after).toEqual(before);
+  });
+
+  it('refreshes a renamed identifier on a settled pair, where nothing else changed', async () => {
+    // Renaming a Linear team rewrites every identifier in it (TBD-7 becomes
+    // OS-7) while the UUID — the actual link — is untouched. That leaves a
+    // settled mirror with nothing to push, so a refresh that only ran for pairs
+    // with pending writes would strand every stored identifier at its old
+    // value. The record is the one thing every linked pair rewrites, which is
+    // why the identifier lives there rather than on the bead.
+    const id = 'is-01hx5zzkbkactav9wevgemma11';
+    store.set(id, bead(id));
+    await run([...store.values()]);
+    await run([...store.values()]); // settle
+
+    const before = await readLinkRecord(dir, 'linear', id);
+    expect(before?.external_key).toBe('FIN-1');
+
+    const remote = server.issues.get(before!.external_id)!;
+    remote.identifier = 'OS-1';
+    remote.url = 'https://linear.app/acme/issue/OS-1';
+
+    const renamed = await run([...store.values()]);
+
+    // Nothing was pushed: the rename is a tracker-side relabelling, not a
+    // change tbd has any edit to send.
+    expect(renamed.pushed).toEqual([]);
+    const after = await readLinkRecord(dir, 'linear', id);
+    expect(after?.external_key).toBe('OS-1');
+    expect(after?.external_url).toBe('https://linear.app/acme/issue/OS-1');
+    // The link itself never moved.
+    expect(after?.external_id).toBe(before!.external_id);
+    // And the bead is untouched — no version churn in git for a remote rename.
+    expect(store.get(id)!.extensions?.linear).not.toHaveProperty('key');
   });
 
   it('backfills and preserves the managed block on a pre-existing linked item', async () => {
@@ -594,7 +675,11 @@ describe('the sync engine', () => {
     expect(result.failures).toHaveLength(2);
     expect(result.failures.map((failure) => failure.beadId).sort()).toEqual(['mvra', 'mvrb']);
     for (const failure of result.failures) {
-      expect(failure.error).toContain('FIN-10');
+      // The external id, not the human identifier: this check runs before the
+      // bridge records are loaded, and the bead no longer carries a key. The
+      // parts the remedy acts on — which beads, and which command — are what
+      // the message must carry.
+      expect(failure.error).toContain('duplicate-item');
       expect(failure.error).toContain('mvra, mvrb');
       expect(failure.error).toContain('integration unlink');
     }
@@ -1673,11 +1758,12 @@ describe('the sync engine', () => {
     expect(recovered.failures).toEqual([]);
     expect(recovered.replayedOps).toBe(3);
     expect(server.issues.size).toBe(1);
+    // Identity only. The human identifier and URL live on the bridge record;
+    // what the replayed claim has to preserve is the id it claimed under.
     expect(readLink(store.get(epic.id)!, 'linear')).toMatchObject({
       id: pendingLink!.id,
-      key: expect.any(String),
-      url: expect.any(String),
     });
+    expect(store.get(epic.id)!.extensions?.linear).not.toHaveProperty('key');
     expect(readComments(store.get(epic.id)!, 'linear')).toEqual([
       expect.objectContaining({
         body: 'Authored after the provisional link commit',

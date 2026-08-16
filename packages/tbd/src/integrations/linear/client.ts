@@ -62,7 +62,13 @@ interface GraphQLResponse<T> {
   data?: T;
   errors?: {
     message: string;
-    extensions?: { code?: string; type?: string; statusCode?: number };
+    extensions?: {
+      code?: string;
+      type?: string;
+      statusCode?: number;
+      /** Linear's operator-facing text; far more specific than `message`. */
+      userPresentableMessage?: string;
+    };
   }[];
 }
 
@@ -193,13 +199,18 @@ export class LinearClient {
         // Rate limiting arrives as HTTP 400 with this code, not as HTTP 429.
         throw new LinearApiError(firstError.message, code, true, response.status);
       }
-      if (
-        /already exists/i.test(firstError.message) ||
-        /conflict on insert/i.test(firstError.message)
-      ) {
-        throw new LinearDuplicateIdError(firstError.message);
+      // Linear sends two strings: a terse internal `message` ("duplicate label name")
+      // and a `userPresentableMessage` that names the offending value, the team, and the
+      // remedy. Prefer the latter — it is the difference between an operator knowing
+      // what to fix and filing a bug. Classification reads both, because the terse form
+      // routinely omits the phrase the detailed one spells out.
+      const presentable = firstError.extensions?.userPresentableMessage;
+      const detail = presentable ?? firstError.message;
+      const haystack = `${firstError.message} ${presentable ?? ''}`;
+      if (/already exists/i.test(haystack) || /conflict on insert/i.test(haystack)) {
+        throw new LinearDuplicateIdError(detail);
       }
-      throw new LinearApiError(firstError.message, code, false, response.status);
+      throw new LinearApiError(detail, code, false, response.status);
     }
 
     if (body.data === undefined) {

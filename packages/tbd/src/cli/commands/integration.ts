@@ -605,6 +605,8 @@ class IntegrationLinkHandler extends BaseCommand {
         type: 'lk',
         bead_id: internalId,
         external_id: ref.id,
+        external_key: remote.key ?? null,
+        external_url: remote.url ?? null,
         base: {
           title: remote.title,
           status: remote.status,

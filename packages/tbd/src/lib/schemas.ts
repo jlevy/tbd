@@ -499,6 +499,22 @@ export const LinkRecordSchema = z.object({
   type: z.literal('lk'),
   bead_id: IssueId,
   external_id: z.string().min(1),
+  /**
+   * The tracker's human identifier and URL as of the last sync (`OS-77`).
+   *
+   * Cache for display, never identity. Both are derived from mutable tracker
+   * state: a Linear identifier is `{teamKey}-{number}`, so renaming a team
+   * rewrites every identifier in it, and moving an issue between teams
+   * renumbers it. `external_id` — an immutable UUID — is why a link still
+   * resolves across either change.
+   *
+   * They live here rather than on the bead precisely because they churn:
+   * the bead records identity, this record records dynamics, and a value the
+   * tracker can invalidate wholesale belongs on the side that is rewritten
+   * every sync. Optional because not every provider has both.
+   */
+  external_key: z.string().min(1).nullable().optional(),
+  external_url: z.string().min(1).nullable().optional(),
   base: BridgeBaseSchema,
   /** The provider's clock at last sync. A fetch prefilter, never correctness. */
   remote_updated_at: Timestamp,
