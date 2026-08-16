@@ -5,18 +5,18 @@ title: Two goldens invert when 0.7.0 ships, and will 'break' on success
 kind: task
 status: open
 priority: 2
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-4
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-16T01:59:37.390Z
-updated_at: 2026-08-16T02:10:12.659Z
+updated_at: 2026-08-16T02:12:01.319Z
 extensions:
   linear:
     id: e4fe7e8d-63cc-4b9b-8485-a712bc5175dc
-    linked_at: 2026-08-16T02:10:12.659Z
+    linked_at: 2026-08-16T02:12:01.319Z
 ---
 Both are correct today and become wrong the moment a published release can read f08:
 

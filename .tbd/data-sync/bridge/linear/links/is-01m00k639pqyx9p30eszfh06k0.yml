@@ -5,13 +5,13 @@ base:
     - traceability
     - phase-2
   priority: 1
-  status: open
+  status: closed
   title: Add a refs list to beads for PRs, external issues, and docs
 bead_id: is-01m00k639pqyx9p30eszfh06k0
 external_id: ea60aadb-6294-4650-b30d-2b5a4a755993
 external_key: OS-229
 external_url: https://linear.app/finterm-ai/issue/OS-229/add-a-refs-list-to-beads-for-prs-external-issues-and-docs
-remote_updated_at: 2026-08-16T00:13:57.652Z
+remote_updated_at: 2026-08-16T02:11:40.292Z
 state: linked
-synced_at: 2026-08-16T01:14:17.508Z
+synced_at: 2026-08-16T02:11:40.577Z
 type: lk

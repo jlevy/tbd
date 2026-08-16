@@ -5,18 +5,18 @@ title: Decide on customViewCreate and workspace-scoped labels for multi-repo
 kind: task
 status: open
 priority: 3
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-4
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-16T01:59:38.892Z
-updated_at: 2026-08-16T02:10:12.672Z
+updated_at: 2026-08-16T02:12:02.910Z
 extensions:
   linear:
     id: 4b6d44e1-e8a3-4ee6-a16f-c9253b272088
-    linked_at: 2026-08-16T02:10:12.672Z
+    linked_at: 2026-08-16T02:12:02.910Z
 ---
 Two things the sync deliberately does not do, both now more relevant because more repositories are planned for the opensource team:
 

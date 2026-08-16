@@ -5,18 +5,18 @@ title: Managed block embeds the current git branch, so spec links break after me
 kind: bug
 status: in_progress
 priority: 1
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-3
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-16T01:58:30.073Z
-updated_at: 2026-08-16T02:10:12.617Z
+updated_at: 2026-08-16T02:11:47.227Z
 extensions:
   linear:
     id: d998d291-f161-4713-9d55-e1ae03e17c4f
-    linked_at: 2026-08-16T02:10:12.617Z
+    linked_at: 2026-08-16T02:11:47.227Z
 ---
 The managed block renders the spec permalink against whichever branch the sync ran from: `blob/claude/linear-sync-agent-hooks-vqatny/docs/...`. Two consequences, both real as of 2026-08-15:
 

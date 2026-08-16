@@ -5,13 +5,13 @@ base:
     - phase-2
     - multi-repo
   priority: 1
-  status: open
+  status: closed
   title: "f08: reshape the integration config into target/policy/labels/identity groups"
 bead_id: is-01m00y5g4nha1jb0kxnempajex
 external_id: 27b67c86-7101-4b98-8b4f-be12231fc560
 external_key: OS-240
 external_url: https://linear.app/finterm-ai/issue/OS-240/f08-reshape-the-integration-config-into-targetpolicylabelsidentity
-remote_updated_at: 2026-08-16T00:14:15.019Z
+remote_updated_at: 2026-08-16T02:11:45.971Z
 state: linked
-synced_at: 2026-08-16T01:14:20.236Z
+synced_at: 2026-08-16T02:11:46.252Z
 type: lk
