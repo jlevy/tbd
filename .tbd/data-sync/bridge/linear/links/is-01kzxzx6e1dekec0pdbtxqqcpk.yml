@@ -3,11 +3,13 @@ base:
   description_hash: sha256v6:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   labels: []
   priority: 2
-  status: open
+  status: closed
   title: New sub-issue for Dogfood
 bead_id: is-01kzxzx6e1dekec0pdbtxqqcpk
 external_id: 10610293-33d6-4e35-844f-d6c32d066752
-remote_updated_at: 2026-08-13T16:21:17.627Z
+external_key: OS-166
+external_url: https://linear.app/finterm-ai/issue/OS-166/new-sub-issue-for-dogfood
+remote_updated_at: 2026-08-16T00:13:18.007Z
 state: linked
-synced_at: 2026-08-13T16:39:54.664Z
+synced_at: 2026-08-16T00:13:18.221Z
 type: lk

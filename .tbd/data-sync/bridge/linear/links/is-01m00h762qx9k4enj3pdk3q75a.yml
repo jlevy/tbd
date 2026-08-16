@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v6:02a66fc19043b00f6bece64644372c556e61349d93bf834cba7f0089efc17534
+  labels:
+    - phase-4
+  priority: 3
+  status: open
+  title: Document pulled Linear comments as untrusted input
+bead_id: is-01m00h762qx9k4enj3pdk3q75a
+external_id: 892fe7fe-48f1-456e-bf3f-4b6c19c7c35f
+external_key: OS-225
+external_url: https://linear.app/finterm-ai/issue/OS-225/document-pulled-linear-comments-as-untrusted-input
+remote_updated_at: 2026-08-16T00:13:50.965Z
+state: linked
+synced_at: 2026-08-16T00:13:51.176Z
+type: lk

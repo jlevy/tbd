@@ -3,11 +3,13 @@ base:
   description_hash: sha256v6:d475ddca61aa770f1c38b0d8bee59bff7252d5e2c67603baff34b249bfe82f66
   labels: []
   priority: 2
-  status: open
+  status: closed
   title: "Phase 1: Extract shared syncDocsWithDefaults() function"
 bead_id: is-01kg5jhcrf73dwx67jm7xhsb5a
 external_id: b3fc13b3-ecc2-468c-b5fb-2df336e72f44
-remote_updated_at: 2026-08-11T07:07:04.454Z
+external_key: OS-52
+external_url: https://linear.app/finterm-ai/issue/OS-52/phase-1-extract-shared-syncdocswithdefaults-function
+remote_updated_at: 2026-08-16T00:11:11.132Z
 state: linked
-synced_at: 2026-08-13T16:20:43.342Z
+synced_at: 2026-08-16T00:11:11.360Z
 type: lk

@@ -1,14 +1,17 @@
 base:
   assignee: null
   description_hash: sha256v6:c46bb79924fc040a1808976110231948a6557f4663b177ba03a9fd4c46a16af4
-  labels: []
+  labels:
+    - pause
   priority: 3
   status: open
   title: "Phase 3 tests: tryscripts that depend on bundled-doc content point at new bundle
     name"
 bead_id: is-01kra9brkfj969kby0dk36khzg
 external_id: 7bf5482e-1e0e-4949-8746-f9c7e4e51806
-remote_updated_at: 2026-08-11T06:50:51.261Z
+external_key: OS-120
+external_url: https://linear.app/finterm-ai/issue/OS-120/phase-3-tests-tryscripts-that-depend-on-bundled-doc-content-point-at
+remote_updated_at: 2026-08-16T00:11:55.540Z
 state: linked
-synced_at: 2026-08-13T16:20:56.300Z
+synced_at: 2026-08-16T00:11:55.731Z
 type: lk

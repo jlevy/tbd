@@ -10,7 +10,9 @@ base:
   title: "Phase 6: validate and land production tbd web end to end"
 bead_id: is-01kzrs779s8d2t4qmvpx310p22
 external_id: 9437aa72-43f0-46bf-87b9-cc8a023e198e
-remote_updated_at: 2026-08-13T16:00:26.974Z
+external_key: OS-138
+external_url: https://linear.app/finterm-ai/issue/OS-138/phase-6-validate-and-land-production-tbd-web-end-to-end
+remote_updated_at: 2026-08-16T00:12:57.837Z
 state: linked
-synced_at: 2026-08-13T16:21:08.446Z
+synced_at: 2026-08-16T00:12:58.033Z
 type: lk

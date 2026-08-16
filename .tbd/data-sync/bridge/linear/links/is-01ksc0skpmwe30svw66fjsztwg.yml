@@ -9,7 +9,9 @@ base:
   title: Update setup check remove status and doctor
 bead_id: is-01ksc0skpmwe30svw66fjsztwg
 external_id: 0d69bd5c-f051-45cb-a8e3-ebb53025e04b
-remote_updated_at: 2026-08-11T07:03:03.574Z
+external_key: OS-26
+external_url: https://linear.app/finterm-ai/issue/OS-26/update-setup-check-remove-status-and-doctor
+remote_updated_at: 2026-08-16T00:12:01.408Z
 state: linked
-synced_at: 2026-08-13T16:20:56.974Z
+synced_at: 2026-08-16T00:12:01.622Z
 type: lk

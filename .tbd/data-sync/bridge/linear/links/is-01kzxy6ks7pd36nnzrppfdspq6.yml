@@ -6,11 +6,13 @@ base:
     - integration
     - comments
   priority: 1
-  status: in_progress
+  status: closed
   title: Audit Linear comment synchronization completeness
 bead_id: is-01kzxy6ks7pd36nnzrppfdspq6
 external_id: 39aeb027-34ef-42d1-89bd-98f45318844e
-remote_updated_at: 2026-08-13T16:11:13.393Z
+external_key: OS-163
+external_url: https://linear.app/finterm-ai/issue/OS-163/audit-linear-comment-synchronization-completeness
+remote_updated_at: 2026-08-16T00:13:14.877Z
 state: linked
-synced_at: 2026-08-13T16:21:12.553Z
+synced_at: 2026-08-16T00:13:15.097Z
 type: lk

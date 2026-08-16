@@ -1,14 +1,17 @@
 base:
   assignee: null
   description_hash: sha256v6:38199bad129271990252634ab38ecc6725c3262c08e6e28d7aa63f8ea6c451f2
-  labels: []
+  labels:
+    - pause
   priority: 2
   status: open
   title: "Phase 2 tests: e2e eject→edit→diff→unfork, bundle-add preview golden, status
     golden, lockfile round-trip"
 bead_id: is-01kra9bae7t8hk71z0dg3jtztx
 external_id: 039bbcc8-35e4-4960-956f-a9d568610588
-remote_updated_at: 2026-08-11T07:04:04.766Z
+external_key: OS-112
+external_url: https://linear.app/finterm-ai/issue/OS-112/phase-2-tests-e2e-ejecteditdiffunfork-bundle-add-preview-golden-status
+remote_updated_at: 2026-08-16T00:11:47.437Z
 state: linked
-synced_at: 2026-08-13T16:20:54.817Z
+synced_at: 2026-08-16T00:11:47.632Z
 type: lk

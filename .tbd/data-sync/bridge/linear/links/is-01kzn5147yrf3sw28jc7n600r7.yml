@@ -7,7 +7,9 @@ base:
   title: Phase 2 documentation and sync golden tests
 bead_id: is-01kzn5147yrf3sw28jc7n600r7
 external_id: cb7fc720-11d6-48bf-88ad-5860f2160a4f
-remote_updated_at: 2026-08-13T16:00:19.413Z
+external_key: OS-127
+external_url: https://linear.app/finterm-ai/issue/OS-127/phase-2-documentation-and-sync-golden-tests
+remote_updated_at: 2026-08-16T00:12:47.365Z
 state: linked
-synced_at: 2026-08-13T16:21:05.251Z
+synced_at: 2026-08-16T00:12:47.576Z
 type: lk

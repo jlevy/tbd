@@ -7,7 +7,9 @@ base:
   title: Fold into tbd sync behind sync_on_tbd_sync (default off)
 bead_id: is-01kzn513t5rt6bak750hcvzeta
 external_id: 490f9047-fbe4-4065-92bf-9cf61aad7c3f
-remote_updated_at: 2026-08-13T16:00:15.317Z
+external_key: OS-126
+external_url: https://linear.app/finterm-ai/issue/OS-126/fold-into-tbd-sync-behind-sync-on-tbd-sync-default-off
+remote_updated_at: 2026-08-16T00:12:46.464Z
 state: linked
-synced_at: 2026-08-13T16:21:05.111Z
+synced_at: 2026-08-16T00:12:46.684Z
 type: lk

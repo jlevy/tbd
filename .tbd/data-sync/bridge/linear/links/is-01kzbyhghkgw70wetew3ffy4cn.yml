@@ -4,12 +4,14 @@ base:
   labels:
     - linear-sync
   priority: 1
-  status: open
+  status: closed
   title: Rework Linear pilot spec under the integration layering (extensions-first,
     separable module)
 bead_id: is-01kzbyhghkgw70wetew3ffy4cn
 external_id: 1820450c-c0ab-461f-8df7-0a1c755a59cc
-remote_updated_at: 2026-08-11T07:02:59.341Z
+external_key: OS-5
+external_url: https://linear.app/finterm-ai/issue/OS-5/rework-linear-pilot-spec-under-the-integration-layering-extensions
+remote_updated_at: 2026-08-16T00:12:28.428Z
 state: linked
-synced_at: 2026-08-13T16:21:02.266Z
+synced_at: 2026-08-16T00:12:28.670Z
 type: lk

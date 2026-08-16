@@ -5,7 +5,7 @@ title: Dogfood Linear synchronization against the legacy tbd repository
 kind: task
 status: closed
 priority: 1
-version: 16
+version: 17
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels:
   - integration
@@ -20,7 +20,7 @@ child_order_hints:
   - is-01kzxz1e815hsxmyhykdabhcxr
   - is-01kzxzx6e1dekec0pdbtxqqcpk
 created_at: 2026-08-13T15:58:52.645Z
-updated_at: 2026-08-15T05:33:51.507Z
+updated_at: 2026-08-16T00:13:14.221Z
 closed_at: 2026-08-15T05:33:51.506Z
 close_reason: "Completed by the production Linear integration and live dogfood validation merged in PR #206."
 extensions:
@@ -40,8 +40,6 @@ extensions:
         body: That last comment and this comment are made in Linear
 ---
 Exercise the live Linear adapter against this 1,626-bead repository: verify connectivity and selection policy, inspect a dry-run disposition, perform bidirectional synchronization, prove a second run converges, persist tracker state, and expose the live read-only web view for comparison.
-
-This was edited by Josh
 
 ## Notes
 

@@ -1,13 +1,16 @@
 base:
   assignee: null
   description_hash: sha256v6:dffd6be564c93e8e492e5a7441540484fd9a2bedc12625b7d89151bcd4d99bb0
-  labels: []
+  labels:
+    - pause
   priority: 2
   status: open
   title: "Q20: Decide categories/types/folders, glob-first matching, CLI aliases"
 bead_id: is-01kra99kvf2ys81vcakyb8vbzz
 external_id: e317500b-8de7-4581-b1fb-100d11cf3b9c
-remote_updated_at: 2026-08-11T07:03:55.718Z
+external_key: OS-30
+external_url: https://linear.app/finterm-ai/issue/OS-30/q20-decide-categoriestypesfolders-glob-first-matching-cli-aliases
+remote_updated_at: 2026-08-16T00:11:31.819Z
 state: linked
-synced_at: 2026-08-13T16:20:48.148Z
+synced_at: 2026-08-16T00:11:32.002Z
 type: lk

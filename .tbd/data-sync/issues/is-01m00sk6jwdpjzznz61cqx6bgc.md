@@ -5,16 +5,16 @@ title: Implement GitHub CLI session readiness for coding agents
 kind: feature
 status: open
 priority: 2
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-08-14-github-cli-session-readiness.md
 labels: []
 dependencies: []
 created_at: 2026-08-14T18:47:18.874Z
-updated_at: 2026-08-16T00:10:47.261Z
+updated_at: 2026-08-16T00:14:09.227Z
 extensions:
   linear:
     id: ba9c0016-a9d4-435f-b547-b7c7a04103f1
-    linked_at: 2026-08-16T00:10:47.261Z
+    linked_at: 2026-08-16T00:14:09.227Z
 ---
 Make GitHub CLI reliably usable in supported remote sessions by verifying the direct GitHub channel, persisting a scoped proxy bypass through documented session environment support, emitting one environment-appropriate verdict, and keeping proxy internals on demand.
 

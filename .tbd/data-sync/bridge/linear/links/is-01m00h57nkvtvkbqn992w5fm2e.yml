@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v6:e73635acc4fbddffef198607cf5d49174b1ecbb2b195fb40a64634664f255423
+  labels:
+    - phase-1
+  priority: 1
+  status: open
+  title: "Add tbd start: the claim primitive"
+bead_id: is-01m00h57nkvtvkbqn992w5fm2e
+external_id: 4fd428a0-cc81-4317-b53f-78118f9b0b9b
+external_key: OS-213
+external_url: https://linear.app/finterm-ai/issue/OS-213/add-tbd-start-the-claim-primitive
+remote_updated_at: 2026-08-16T00:13:32.982Z
+state: linked
+synced_at: 2026-08-16T00:13:32.982Z
+type: lk

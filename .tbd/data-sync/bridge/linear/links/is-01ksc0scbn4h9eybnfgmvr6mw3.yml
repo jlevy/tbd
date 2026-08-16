@@ -6,11 +6,13 @@ base:
     - hooks
     - setup
   priority: 1
-  status: open
+  status: closed
   title: Add Codex startup and gh CLI setup parity
 bead_id: is-01ksc0scbn4h9eybnfgmvr6mw3
 external_id: 3cf6fe4a-7e19-4b26-acbf-a83a96bf68ca
-remote_updated_at: 2026-08-11T07:07:28.106Z
+external_key: OS-27
+external_url: https://linear.app/finterm-ai/issue/OS-27/add-codex-startup-and-gh-cli-setup-parity
+remote_updated_at: 2026-08-16T00:12:00.298Z
 state: linked
-synced_at: 2026-08-13T16:20:56.807Z
+synced_at: 2026-08-16T00:12:00.553Z
 type: lk

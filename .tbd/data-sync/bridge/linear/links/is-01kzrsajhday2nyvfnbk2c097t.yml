@@ -11,7 +11,9 @@ base:
   title: "Phase 6.2: prove packaged install, lifecycle, wake, and Git isolation"
 bead_id: is-01kzrsajhday2nyvfnbk2c097t
 external_id: 6a507fb2-ddf1-4fa0-a230-2feef233958b
-remote_updated_at: 2026-08-13T16:00:37.474Z
+external_key: OS-151
+external_url: https://linear.app/finterm-ai/issue/OS-151/phase-62-prove-packaged-install-lifecycle-wake-and-git-isolation
+remote_updated_at: 2026-08-16T00:13:04.889Z
 state: linked
-synced_at: 2026-08-13T16:21:10.667Z
+synced_at: 2026-08-16T00:13:05.070Z
 type: lk

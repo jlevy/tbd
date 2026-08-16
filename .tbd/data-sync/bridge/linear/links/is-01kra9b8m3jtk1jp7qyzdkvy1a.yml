@@ -1,14 +1,17 @@
 base:
   assignee: null
   description_hash: sha256v6:cb0003e4e1789b4466291c1c92089e07f25070877d6f8b049e36474fc7ab4270
-  labels: []
+  labels:
+    - pause
   priority: 3
   status: open
   title: "tbd source upstream <key> (github: → branch+commit+push+open PR via gh; others →
     patch)"
 bead_id: is-01kra9b8m3jtk1jp7qyzdkvy1a
 external_id: fde3fb2b-2223-4702-8d6e-5b0e52ae479f
-remote_updated_at: 2026-08-11T06:50:35.467Z
+external_key: OS-108
+external_url: https://linear.app/finterm-ai/issue/OS-108/tbd-source-upstream-key-github-branchcommitpushopen-pr-via-gh-others
+remote_updated_at: 2026-08-16T00:11:43.820Z
 state: linked
-synced_at: 2026-08-13T16:20:54.076Z
+synced_at: 2026-08-16T00:11:44.031Z
 type: lk

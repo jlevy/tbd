@@ -7,7 +7,9 @@ base:
   title: "integrations/core/intents.ts: write-ahead journal and replay"
 bead_id: is-01kzn512qgfk7bt4grjfwcsab9
 external_id: 1bc76460-8812-4ce8-b3bf-5844dee9ef8b
-remote_updated_at: 2026-08-13T16:00:12.612Z
+external_key: OS-123
+external_url: https://linear.app/finterm-ai/issue/OS-123/integrationscoreintentsts-write-ahead-journal-and-replay
+remote_updated_at: 2026-08-16T00:12:43.330Z
 state: linked
-synced_at: 2026-08-13T16:21:04.631Z
+synced_at: 2026-08-16T00:12:43.710Z
 type: lk

@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v6:0268d053ff07af180d3171af8508b5ba02781242c388300dcf419821e259989c
+  labels: []
+  priority: 2
+  status: open
+  title: Malformed managed markers freeze all sync for a pair, including comments and pulls
+bead_id: is-01kzyh14se51kt9hhs2ar1ehtr
+external_id: dcdabf81-26a9-4832-862e-2136f785208c
+external_key: OS-204
+external_url: https://linear.app/finterm-ai/issue/OS-204/malformed-managed-markers-freeze-all-sync-for-a-pair-including
+remote_updated_at: 2026-08-16T00:13:21.828Z
+state: linked
+synced_at: 2026-08-16T00:13:22.050Z
+type: lk

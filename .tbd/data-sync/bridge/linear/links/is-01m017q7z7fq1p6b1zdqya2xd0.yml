@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v6:681ee9fec2122f528cf0cd1dcc26c7bab34335fbced71e5fd0f4cd9a83417caf
+  labels:
+    - sync-efficiency
+  priority: 2
+  status: open
+  title: A crashed sync leaves the bead store unwritable for up to 30 minutes
+bead_id: is-01m017q7z7fq1p6b1zdqya2xd0
+external_id: 9c50fe97-2266-4a27-b017-00883b295288
+external_key: OS-243
+external_url: https://linear.app/finterm-ai/issue/OS-243/a-crashed-sync-leaves-the-bead-store-unwritable-for-up-to-30-minutes
+remote_updated_at: 2026-08-16T00:14:21.769Z
+state: linked
+synced_at: 2026-08-16T00:14:21.985Z
+type: lk

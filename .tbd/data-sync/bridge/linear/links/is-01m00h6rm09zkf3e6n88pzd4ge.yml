@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v6:e075959e3b4a5a3089601565a23461cdde2de8059cc1f0106b31391b2b5d02d9
+  labels:
+    - phase-4
+  priority: 3
+  status: open
+  title: "Zombie claim sweep: surface stale in_progress claims"
+bead_id: is-01m00h6rm09zkf3e6n88pzd4ge
+external_id: 82fec4e9-db54-4ec0-adb4-f627f3738a36
+external_key: OS-223
+external_url: https://linear.app/finterm-ai/issue/OS-223/zombie-claim-sweep-surface-stale-in-progress-claims
+remote_updated_at: 2026-08-16T00:13:48.165Z
+state: linked
+synced_at: 2026-08-16T00:13:48.380Z
+type: lk

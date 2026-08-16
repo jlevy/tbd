@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v6:6c08b6a1dd8511de78401d7d8c2954688ecc302b8c73506c247884bbf771ee35
+  labels:
+    - phase-3
+    - multi-repo
+  priority: 1
+  status: open
+  title: Origin and repo labels on mirrored issues; origin-scoped inbound scan
+bead_id: is-01m00v3wqaatz90kaztwafsz1c
+external_id: e703e67f-cae0-4264-94b5-b37fb6047aae
+external_key: OS-238
+external_url: https://linear.app/finterm-ai/issue/OS-238/origin-and-repo-labels-on-mirrored-issues-origin-scoped-inbound-scan
+remote_updated_at: 2026-08-16T00:14:11.212Z
+state: linked
+synced_at: 2026-08-16T00:14:11.446Z
+type: lk

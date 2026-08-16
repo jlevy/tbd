@@ -4,11 +4,13 @@ base:
   labels:
     - linear-sync
   priority: 1
-  status: open
+  status: closed
   title: "Fix extensions merge: lww → deep_merge_by_key per design §3.5"
 bead_id: is-01kxz3kwxeqkvm82y0k4xxs8br
 external_id: 6fb042cf-05ec-4bb9-b06b-ffb10b7d2dc0
-remote_updated_at: 2026-08-11T07:02:59.372Z
+external_key: OS-8
+external_url: https://linear.app/finterm-ai/issue/OS-8/fix-extensions-merge-lww-deep-merge-by-key-per-design-35
+remote_updated_at: 2026-08-16T00:12:25.424Z
 state: linked
-synced_at: 2026-08-13T16:21:01.782Z
+synced_at: 2026-08-16T00:12:25.632Z
 type: lk

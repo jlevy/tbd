@@ -3,11 +3,13 @@ base:
   description_hash: sha256v6:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   labels: []
   priority: 2
-  status: open
+  status: closed
   title: "Unified sync command: sync both issues and docs by default"
 bead_id: is-01kg5jgqscrbp94t3hb1cegr39
 external_id: be5d4c05-3b2f-4866-8412-ecef4295064b
-remote_updated_at: 2026-08-10T21:51:00.887Z
+external_key: OS-53
+external_url: https://linear.app/finterm-ai/issue/OS-53/unified-sync-command-sync-both-issues-and-docs-by-default
+remote_updated_at: 2026-08-16T00:11:09.337Z
 state: linked
-synced_at: 2026-08-13T16:39:19.745Z
+synced_at: 2026-08-16T00:11:09.546Z
 type: lk

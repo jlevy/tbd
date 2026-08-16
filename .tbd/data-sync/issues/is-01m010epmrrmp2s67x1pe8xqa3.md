@@ -5,18 +5,18 @@ title: "Inbound selectors: label or assignee triggers, kind overrides, consume o
 kind: feature
 status: open
 priority: 2
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-3
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T20:47:11.512Z
-updated_at: 2026-08-16T00:10:47.288Z
+updated_at: 2026-08-16T00:14:17.280Z
 extensions:
   linear:
     id: 81c998b0-bf8c-415d-a54e-6212b641a6cc
-    linked_at: 2026-08-16T00:10:47.288Z
+    linked_at: 2026-08-16T00:14:17.280Z
 ---
 How does a human hand work from Linear to tbd? Three routes exist:
 A. Explicit: tbd integration sync --pull --external FIN-123 — COMPLETE, bypasses the policy gate.

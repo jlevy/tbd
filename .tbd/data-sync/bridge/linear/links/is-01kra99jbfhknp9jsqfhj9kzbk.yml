@@ -1,13 +1,16 @@
 base:
   assignee: null
   description_hash: sha256v6:133509ff38e2c14855a34c0a9d0ba21e80d8705dde5fb2545d10e529ee39a2e9
-  labels: []
+  labels:
+    - pause
   priority: 1
   status: open
   title: "Q16: Decide bundle ↔ source cardinality (1:1 vs split)"
 bead_id: is-01kra99jbfhknp9jsqfhj9kzbk
 external_id: 6ee3b84b-b2fc-49ad-be84-fefeb25c8cd0
-remote_updated_at: 2026-08-11T07:03:54.443Z
+external_key: OS-34
+external_url: https://linear.app/finterm-ai/issue/OS-34/q16-decide-bundle-source-cardinality-11-vs-split
+remote_updated_at: 2026-08-16T00:11:29.284Z
 state: linked
-synced_at: 2026-08-13T16:20:47.429Z
+synced_at: 2026-08-16T00:11:29.484Z
 type: lk

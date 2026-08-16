@@ -10,7 +10,9 @@ base:
   title: "Phase 5.1: amend architecture and document shipped tbd web behavior"
 bead_id: is-01kzrs9vkh8j1vsrfytqdx3sr1
 external_id: 979c938b-b151-428d-9ea4-b2cb93f02e0f
-remote_updated_at: 2026-08-13T16:00:35.605Z
+external_key: OS-148
+external_url: https://linear.app/finterm-ai/issue/OS-148/phase-51-amend-architecture-and-document-shipped-tbd-web-behavior
+remote_updated_at: 2026-08-16T00:13:03.431Z
 state: linked
-synced_at: 2026-08-13T16:21:10.199Z
+synced_at: 2026-08-16T00:13:03.633Z
 type: lk

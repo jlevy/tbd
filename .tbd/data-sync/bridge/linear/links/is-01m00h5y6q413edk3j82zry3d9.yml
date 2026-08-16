@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v6:5a3df1c356573487b737a1ea772e90a8ec08c3b68b1870b59f36674cfa117ebc
+  labels:
+    - phase-1
+  priority: 2
+  status: open
+  title: Resolve and expose an agent identity
+bead_id: is-01m00h5y6q413edk3j82zry3d9
+external_id: 83ebe9ac-2eff-46ef-b638-56a66091922a
+external_key: OS-216
+external_url: https://linear.app/finterm-ai/issue/OS-216/resolve-and-expose-an-agent-identity
+remote_updated_at: 2026-08-16T00:13:37.070Z
+state: linked
+synced_at: 2026-08-16T00:13:37.269Z
+type: lk

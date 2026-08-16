@@ -7,7 +7,9 @@ base:
   title: "Phase 2: tbd integration sync — the full synchronization command"
 bead_id: is-01kzn2wa8b53y8wjh1gegbzhhx
 external_id: 8675d876-1c1a-4672-a073-5980ff8568dc
-remote_updated_at: 2026-08-11T06:49:53.325Z
+external_key: OS-2
+external_url: https://linear.app/finterm-ai/issue/OS-2/phase-2-tbd-integration-sync-the-full-synchronization-command
+remote_updated_at: 2026-08-16T00:12:35.672Z
 state: linked
-synced_at: 2026-08-13T16:21:03.644Z
+synced_at: 2026-08-16T00:12:35.877Z
 type: lk

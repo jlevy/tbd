@@ -7,7 +7,9 @@ base:
   title: "integrations/core/three-way.ts: diffAgainstBase and fieldwise merge"
 bead_id: is-01kzn512cr6x4z2bb5yns27mn0
 external_id: 3c59726b-a627-44e5-add4-787d72fb078b
-remote_updated_at: 2026-08-13T16:00:10.837Z
+external_key: OS-122
+external_url: https://linear.app/finterm-ai/issue/OS-122/integrationscorethree-wayts-diffagainstbase-and-fieldwise-merge
+remote_updated_at: 2026-08-16T00:12:42.184Z
 state: linked
-synced_at: 2026-08-13T16:21:04.468Z
+synced_at: 2026-08-16T00:12:42.413Z
 type: lk

@@ -1,13 +1,16 @@
 base:
   assignee: null
   description_hash: sha256v6:7cda4312f83914de4203de822c8ada59ce06f7e49856c544f573b011d8d679c1
-  labels: []
+  labels:
+    - pause
   priority: 1
   status: open
   title: "Phase 1: Basic capabilities and migration (f06+ framework backing impl)"
 bead_id: is-01kra98szn2ah4f59kmbnfbery
 external_id: ba931b64-4c5b-49cc-9b3f-bcaf4d36dc0c
-remote_updated_at: 2026-08-11T06:49:25.999Z
+external_key: OS-38
+external_url: https://linear.app/finterm-ai/issue/OS-38/phase-1-basic-capabilities-and-migration-f06-framework-backing-impl
+remote_updated_at: 2026-08-16T00:11:27.201Z
 state: linked
-synced_at: 2026-08-13T16:20:46.314Z
+synced_at: 2026-08-16T00:11:27.392Z
 type: lk

@@ -1,13 +1,16 @@
 base:
   assignee: null
   description_hash: sha256v6:af15ad8cafcea3f615267c4582e243322913cac5d245c7213d020149b9e8297f
-  labels: []
+  labels:
+    - pause
   priority: 2
   status: open
   title: Update tbd setup to seed default sources (single internal bundle for Phase 1)
 bead_id: is-01kra9aa46rm710x8f5mh0bbbt
 external_id: 2c324d31-147e-46fd-9491-c5f9bb1ae4e4
-remote_updated_at: 2026-08-11T06:50:09.491Z
+external_key: OS-95
+external_url: https://linear.app/finterm-ai/issue/OS-95/update-tbd-setup-to-seed-default-sources-single-internal-bundle-for
+remote_updated_at: 2026-08-16T00:11:36.077Z
 state: linked
-synced_at: 2026-08-13T16:20:50.740Z
+synced_at: 2026-08-16T00:11:36.269Z
 type: lk

@@ -3,11 +3,13 @@ base:
   description_hash: sha256v6:1c1e3c2b61f39836c25d4a3915e9f20507f72d754e1f6dcef28809675872ffe4
   labels: []
   priority: 2
-  status: open
+  status: closed
   title: "Phase 3: Update auto-sync in DocCache to merge defaults"
 bead_id: is-01kg5jhd9dbyg3k2c5j8seahk5
 external_id: 6fca87f0-1602-46fa-9d1b-b4072ed53152
-remote_updated_at: 2026-08-11T07:07:06.219Z
+external_key: OS-50
+external_url: https://linear.app/finterm-ai/issue/OS-50/phase-3-update-auto-sync-in-doccache-to-merge-defaults
+remote_updated_at: 2026-08-16T00:11:13.165Z
 state: linked
-synced_at: 2026-08-13T16:20:43.661Z
+synced_at: 2026-08-16T00:11:13.412Z
 type: lk

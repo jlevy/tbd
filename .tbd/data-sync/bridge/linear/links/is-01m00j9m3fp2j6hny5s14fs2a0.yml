@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v6:2eb7b4fdaac242cbc029dc3d91123ffcb71beffb71a53343d41cbafec6cfe7f5
+  labels:
+    - sync-efficiency
+    - phase-1
+  priority: 1
+  status: open
+  title: Fetch Linear comments only for pairs the delta moved (cost is 2+N requests per sync)
+bead_id: is-01m00j9m3fp2j6hny5s14fs2a0
+external_id: 07dd9f8a-24fe-4ccc-b567-230f29cdcd42
+external_key: OS-226
+external_url: https://linear.app/finterm-ai/issue/OS-226/fetch-linear-comments-only-for-pairs-the-delta-moved-cost-is-2n
+remote_updated_at: 2026-08-16T00:13:52.992Z
+state: linked
+synced_at: 2026-08-16T00:13:53.187Z
+type: lk

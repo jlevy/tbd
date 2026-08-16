@@ -10,7 +10,9 @@ base:
   title: "Phase 6.1: run full quality matrix plus 5k performance and payload gates"
 bead_id: is-01kzrsac4r354tm2b2f89mg0ve
 external_id: 706626fd-ddbc-4090-85ba-8d3f23909c52
-remote_updated_at: 2026-08-13T16:00:36.507Z
+external_key: OS-150
+external_url: https://linear.app/finterm-ai/issue/OS-150/phase-61-run-full-quality-matrix-plus-5k-performance-and-payload-gates
+remote_updated_at: 2026-08-16T00:13:04.385Z
 state: linked
-synced_at: 2026-08-13T16:21:10.504Z
+synced_at: 2026-08-16T00:13:04.565Z
 type: lk

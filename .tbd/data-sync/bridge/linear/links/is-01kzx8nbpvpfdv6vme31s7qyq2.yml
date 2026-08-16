@@ -9,7 +9,9 @@ base:
   title: Project allow-listed external links into web board and bead detail responses
 bead_id: is-01kzx8nbpvpfdv6vme31s7qyq2
 external_id: 40f5fc06-fa0e-4aa4-a8cf-297cd9216a59
-remote_updated_at: 2026-08-13T16:00:48.179Z
+external_key: OS-159
+external_url: https://linear.app/finterm-ai/issue/OS-159/project-allow-listed-external-links-into-web-board-and-bead-detail
+remote_updated_at: 2026-08-16T00:13:10.115Z
 state: linked
-synced_at: 2026-08-13T16:21:11.878Z
+synced_at: 2026-08-16T00:13:10.349Z
 type: lk

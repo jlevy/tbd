@@ -5,7 +5,7 @@ title: Capture the PR ref automatically when a PR is created or updated
 kind: task
 status: open
 priority: 2
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - traceability
@@ -13,11 +13,11 @@ labels:
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:55:41.510Z
-updated_at: 2026-08-16T00:10:47.229Z
+updated_at: 2026-08-16T00:14:01.059Z
 extensions:
   linear:
     id: fd390f4f-40db-418f-9b8d-203d80a37c08
-    linked_at: 2026-08-16T00:10:47.229Z
+    linked_at: 2026-08-16T00:14:01.059Z
 ---
 create-or-update-pr-simple holds the PR URL at its step 6 and currently only reports it to the user. Have it record the ref on the beads the branch closes.
 

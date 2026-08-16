@@ -7,7 +7,9 @@ base:
   title: "tbd integration sync: batched pull, push, echo suppression, orphans"
 bead_id: is-01kzn513dx5caz86bq89cm502s
 external_id: 08910b15-b6fe-47d0-9668-fc74bde4b973
-remote_updated_at: 2026-08-13T16:00:14.693Z
+external_key: OS-125
+external_url: https://linear.app/finterm-ai/issue/OS-125/tbd-integration-sync-batched-pull-push-echo-suppression-orphans
+remote_updated_at: 2026-08-16T00:12:45.179Z
 state: linked
-synced_at: 2026-08-13T16:21:04.951Z
+synced_at: 2026-08-16T00:12:45.442Z
 type: lk

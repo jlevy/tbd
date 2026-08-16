@@ -10,7 +10,9 @@ base:
   title: "Phase 4.2: move viewer DOM, template, and design system into strict sources"
 bead_id: is-01kzrs94ma78nxv4qyd4yx8hr5
 external_id: 051fc604-e4b3-47e2-9db1-eed9cca757ed
-remote_updated_at: 2026-08-13T16:00:34.244Z
+external_key: OS-145
+external_url: https://linear.app/finterm-ai/issue/OS-145/phase-42-move-viewer-dom-template-and-design-system-into-strict
+remote_updated_at: 2026-08-16T00:13:01.924Z
 state: linked
-synced_at: 2026-08-13T16:21:09.623Z
+synced_at: 2026-08-16T00:13:02.116Z
 type: lk

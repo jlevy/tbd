@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v6:5b36cae31ce00550b1ed5aefe529c0e01053628e2ec1091abc72bc643f3a4119
+  labels:
+    - phase-2
+    - multi-repo
+  priority: 1
+  status: open
+  title: "f08: reshape the integration config into target/policy/labels/identity groups"
+bead_id: is-01m00y5g4nha1jb0kxnempajex
+external_id: 27b67c86-7101-4b98-8b4f-be12231fc560
+external_key: OS-240
+external_url: https://linear.app/finterm-ai/issue/OS-240/f08-reshape-the-integration-config-into-targetpolicylabelsidentity
+remote_updated_at: 2026-08-16T00:14:15.019Z
+state: linked
+synced_at: 2026-08-16T00:14:15.222Z
+type: lk

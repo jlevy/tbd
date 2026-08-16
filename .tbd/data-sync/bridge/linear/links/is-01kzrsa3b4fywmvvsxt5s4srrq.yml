@@ -10,7 +10,9 @@ base:
   title: "Phase 5.2: retire development spike and reconcile release/spec metadata"
 bead_id: is-01kzrsa3b4fywmvvsxt5s4srrq
 external_id: 9c286db2-62f0-45e8-a147-30497157ddb1
-remote_updated_at: 2026-08-13T16:00:36.052Z
+external_key: OS-149
+external_url: https://linear.app/finterm-ai/issue/OS-149/phase-52-retire-development-spike-and-reconcile-releasespec-metadata
+remote_updated_at: 2026-08-16T00:13:03.917Z
 state: linked
-synced_at: 2026-08-13T16:21:10.348Z
+synced_at: 2026-08-16T00:13:04.091Z
 type: lk

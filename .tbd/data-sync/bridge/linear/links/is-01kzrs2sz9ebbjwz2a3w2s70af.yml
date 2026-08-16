@@ -10,7 +10,9 @@ base:
   title: "PR #207 review R1: stale bead fetch error overwrites fresh body"
 bead_id: is-01kzrs2sz9ebbjwz2a3w2s70af
 external_id: 9098e057-0eff-4c26-b459-5c9b9827b1f2
-remote_updated_at: 2026-08-13T16:00:24.666Z
+external_key: OS-134
+external_url: https://linear.app/finterm-ai/issue/OS-134/pr-207-review-r1-stale-bead-fetch-error-overwrites-fresh-body
+remote_updated_at: 2026-08-16T00:12:55.466Z
 state: linked
-synced_at: 2026-08-13T16:21:07.442Z
+synced_at: 2026-08-16T00:12:55.670Z
 type: lk
