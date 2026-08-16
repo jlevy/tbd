@@ -106,6 +106,7 @@ docs_cache:
     guidelines/common-doc-guidelines.md: internal:guidelines/common-doc-guidelines.md
     guidelines/convex-limits-best-practices.md: internal:guidelines/convex-limits-best-practices.md
     guidelines/convex-rules.md: internal:guidelines/convex-rules.md
+    guidelines/electrobun-app-development-patterns.md: internal:guidelines/electrobun-app-development-patterns.md
     guidelines/electron-app-development-patterns.md: internal:guidelines/electron-app-development-patterns.md
     guidelines/error-handling-rules.md: internal:guidelines/error-handling-rules.md
     guidelines/general-coding-rules.md: internal:guidelines/general-coding-rules.md
@@ -120,6 +121,7 @@ docs_cache:
     guidelines/python-rules.md: internal:guidelines/python-rules.md
     guidelines/release-notes-guidelines.md: internal:guidelines/release-notes-guidelines.md
     guidelines/supply-chain-hardening.md: internal:guidelines/supply-chain-hardening.md
+    guidelines/tauri-app-development-patterns.md: internal:guidelines/tauri-app-development-patterns.md
     guidelines/tbd-sync-troubleshooting.md: internal:guidelines/tbd-sync-troubleshooting.md
     guidelines/typescript-cli-tool-rules.md: internal:guidelines/typescript-cli-tool-rules.md
     guidelines/typescript-code-coverage.md: internal:guidelines/typescript-code-coverage.md
