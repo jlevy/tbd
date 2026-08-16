@@ -5,7 +5,7 @@ title: Origin and repo labels on mirrored issues; origin-scoped inbound scan
 kind: feature
 status: open
 priority: 1
-version: 7
+version: 8
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-3
@@ -15,27 +15,16 @@ dependencies:
     target: is-01m010epmrrmp2s67x1pe8xqa3
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T19:13:54.410Z
-updated_at: 2026-08-16T00:14:10.412Z
+updated_at: 2026-08-16T19:06:50.331Z
 extensions:
   linear:
     id: e703e67f-cae0-4264-94b5-b37fb6047aae
     linked_at: 2026-08-16T00:14:10.412Z
 ---
-PROBED: two repositories pointed at one Linear team+project see each other's mirrored items in their inbound scans. Under the default inbound: report, repo A's items appear in repo B's importable list on every sync (nothingToDo never true, and an agent is invited to import beads that belong to another repo). Under inbound: auto, every foreign item fails assertExternalUnclaimed into report.failures, and the folded tbd sync converts per-item failures to a non-zero exit — every sync of each repo fails while the other is active. Each claim check also costs one listAttachmentUrls request per foreign candidate per sync. (F15)
+PARTIALLY SHIPPED. The label half landed in #222 and was hardened afterwards: every mirrored item carries the tbd:sync origin marker plus repo/<name> in the shared repo group, asserted additively so a human's labels are never removed, and provisioned by `tbd integration setup`.
 
-There is also no origin marker at all (F16): a human using Linear manually cannot filter agent-synced items in or out, and the tbd://bead/<displayId> claim names a bead but not a repository.
+The origin-scoped INBOUND SCAN did not land. `isForeignRepoLabel` (src/integrations/core/origin-labels.ts) exists, is exported, is documented as the inbound guard — and is called from nowhere. Verified by grep: zero non-definition references in src/.
 
-THE THREE INTEGRATION MODES (working vocabulary):
-- Mode 1: team per repo, one shared project. Works TODAY, zero changes — scans are team-filtered, isolation is structural, per-team prefix names the repo.
-- Mode 2: one team, one shared project, repo labels. Needs this bead.
-- Mode 3: one team, project per repo, shared initiative. Works today.
+The consequence is live today: three repositories share team OS, and each one's inbound scan sees the others' issues rather than skipping items carrying a sibling's repo label. Project scoping currently hides this — each repo filters to its own project — so it is latent rather than active. It becomes real the moment two repositories share a project, or inbound mode moves off `report`.
 
-Fix (makes Mode 2 first-class AND answers the human-clutter concern):
-- Apply a plain 'tbd' label plus a per-repository label in a Linear LABEL GROUP named 'repo' (created as repo/<name> — Linear's native namespace convention; only one label from a group per issue, matching one-repo-per-bead). Verified: Linear views support 'is not' label negation, so 'label is not tbd' hides agent traffic and the repo group filter selects one repository.
-- The label names the GITHUB REPOSITORY: default is the repo name from the origin remote via parseRepoSlug (permalink.ts:27-37); sanitized owner-name on collision; display.id_prefix when no remote; integrations.linear.repo_label overrides. Avoid the literal owner/name form — '/' is Linear's label-group separator.
-- Skip inbound candidates carrying another repo's repo-group label — silently, BEFORE the per-candidate claim check. Untagged (human-authored) items still flow.
-- Include the repo name in new claim attachments so the one-source guard's refusal can say who holds the claim.
-- Apply via the status-carrier machinery that already creates/attaches labels regardless of mirror_labels.
-
-Research: research-2026-08-14-agent-sync-protocol-and-hooks.md §4.5, E18
-Spec: plan-2026-08-14-external-sync-and-traceability.md Phase 3
+Remaining work: wire isForeignRepoLabel into the inbound candidate filter in sync-engine, and add a test with two repo labels in one scope.

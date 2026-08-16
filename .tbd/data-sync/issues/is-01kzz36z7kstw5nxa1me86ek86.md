@@ -3,14 +3,16 @@ type: is
 id: is-01kzz36z7kstw5nxa1me86ek86
 title: Stamp this repo to tbd_format f07 after v0.6.0 publishes
 kind: task
-status: open
+status: closed
 priority: 1
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels: []
 dependencies: []
 created_at: 2026-08-14T02:56:55.027Z
-updated_at: 2026-08-16T00:13:24.686Z
+updated_at: 2026-08-16T19:06:49.992Z
+closed_at: 2026-08-16T19:06:49.991Z
+close_reason: "Obsolete: superseded by the f08 bump. This repo is stamped tbd_format f08 and 0.6.0 is long published; the f07 stamp it describes never needs doing."
 extensions:
   linear:
     id: 4ea92f00-17d9-43f5-a4dd-898d1d71175a
