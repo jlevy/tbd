@@ -93,8 +93,8 @@ repository:
   There is also no `contextIsolation` equivalent.
 
 - **The bus factor is one.** Roughly 12,700 GitHub stars and genuine engineering depth,
-  but effectively a single maintainer, 86 open issues against about a dozen closed, no
-  CHANGELOG, and versioning that carries no semver signal.
+  but effectively a single maintainer, 86 open issues against about a dozen visibly
+  closed, no CHANGELOG, and versioning that carries no semver signal.
 
 **Recommendation in one line:** promising for internal tools, prototypes, and apps you
 distribute to a trusted audience without auto-update; not currently a responsible choice
@@ -142,7 +142,8 @@ From `package/src/config/ElectrobunConfig.ts`:
 mainProcess?: "bun" | "cottontail" | "zig" | "rust" | "go" | "odin";
 ```
 
-**Cottontail is the default** and is what the templates use.
+**Cottontail is the default**—the config type declares `@default "cottontail"`—and it is
+what the templates use.
 It is Electrobun’s own JavaScriptCore-based runtime.
 Choose `bun` only if you specifically need Bun APIs; note that doing so ties you to
 Bun’s FFI layer at a moment when Bun is rewriting its core.
@@ -362,9 +363,10 @@ framework-independent and applies here unchanged.
 Two Electrobun-specific cautions:
 
 - **Signing nested binaries is unverifiable from source.** Signing lives inside the
-  closed-source Hutch CLI, so you cannot audit how, or whether, it signs binaries you
-  add to the bundle. Expect to debug notarization failures without being able to read the
-  signing code.
+  Hutch CLI, which ships as a binary and is not part of the open repository—the repo
+  contains the launcher, core, extractor, and SDKs, but no signing code—so you cannot
+  audit how, or whether, it signs binaries you add to the bundle.
+  Expect to debug notarization failures without being able to read the signing code.
 - **The macOS bundle layout is unconventional.** Binaries live in `Contents/MacOS/` with
   a `Resources/` directory nested inside `MacOS/` rather than at the standard
   `Contents/Resources/`. If you have tooling or expectations built around Apple’s
@@ -503,15 +505,16 @@ and Tauri’s updater requires a signature made with a key you hold.
 **If you ship Electrobun today, disable the updater and distribute through a channel
 that provides its own integrity guarantees.**
 
-One honest caveat: the Hutch CLI is closed-source, so build-time behavior cannot be
-fully audited. But the code that runs on a user’s machine at update time is the code
-above, and the verification is absent there.
+One honest caveat: the Hutch CLI ships as a binary outside the open repository, so
+build-time behavior cannot be fully audited.
+But the code that runs on a user’s machine at update time is the code above, and the
+verification is absent there.
 
 ### Code Signing
 
 | Platform | State |
 | --- | --- |
-| **macOS** | Configurable via `mac.codesign` and `mac.entitlements`, but the implementation lives inside the closed-source Hutch CLI and cannot be audited. Open issue [#515](https://github.com/blackboardsh/electrobun/issues/515) reports the signing setup exposing a personal Apple ID credential. |
+| **macOS** | Configurable via `mac.codesign` and `mac.entitlements`, but the implementation ships inside the Hutch CLI binary rather than the open repository, so it cannot be audited from source. Open issue [#515](https://github.com/blackboardsh/electrobun/issues/515) reports the signing setup exposing a personal Apple ID credential. |
 | **Windows** | **No code signing at all.** No Authenticode, no SignTool integration. Binaries ship unsigned, which means SmartScreen warnings and no trust chain. |
 | **Linux** | No GPG signing and no repository integration. |
 
@@ -626,9 +629,9 @@ should be evaluated on those terms rather than on its star count.
    governs whether Electrobun can be recommended for public distribution.
    Recheck `Updater.ts` on every upgrade.
 
-2. **What does the closed-source Hutch CLI do at signing time?** macOS entitlements,
-   hardened runtime flags, and nested-binary signing are all unverifiable from source
-   today.
+2. **What does the Hutch CLI actually do at signing time?** It ships as a binary outside
+   the open repository, so macOS entitlements, hardened runtime flags, and nested-binary
+   signing are all unverifiable from source today.
 
 3. **Does Cottontail change the performance and compatibility story versus Bun?** It is
    now the default runtime, but there is no published comparison of JavaScriptCore-based

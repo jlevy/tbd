@@ -86,11 +86,12 @@ Four things matter most when deciding:
   host, and it is the single strongest reason to prefer Tauri over less mature
   alternatives.
 
-- **The security model is genuinely two-sided.** `core:default` grants around 106 window
-  and menu permissions and *zero* filesystem, shell, or network access, so the deny-all
-  baseline is real. But there is no equivalent of Electron’s OS-level renderer sandbox,
-  CSP is off by default, and **the webview’s patch cycle belongs to the user’s operating
-  system, not to you**.
+- **The security model is genuinely two-sided.** `core:default` grants the default sets
+  of the nine core UI modules and *zero* filesystem, shell, or network access, so the
+  deny-all baseline is real.
+  But there is no equivalent of Electron’s OS-level renderer sandbox, CSP is off by
+  default, and **the webview’s patch cycle belongs to the user’s operating system, not
+  to you**.
 
 - **Linux is the weak platform.** WebRTC is unavailable in distro WebKitGTK, media
   served through Tauri’s own asset protocol does not play, and drag-and-drop is broken
@@ -152,10 +153,82 @@ Four mechanisms, in the order you will reach for them:
 | `Channel<T>` | Streaming a sequence of values, e.g. download progress. |
 | `ipc::Response` / `ipc::Request` | Raw binary, bypassing JSON. |
 
-The raw-binary path is worth knowing about before you need it: a 64KB binary round trip
-measures roughly **600µs through `ipc::Response` against about 6.7ms through standard
-JSON serialization**. If you move images, audio, or file contents across the boundary,
-this is a tenfold difference, not a micro-optimization.
+The raw-binary path is worth knowing about before you need it: in one third-party
+benchmark, a 64KB binary round trip measured roughly **600µs through `ipc::Response`
+against about 6.7ms through standard JSON serialization**. If you move images, audio, or
+file contents across the boundary, this is a tenfold difference, not a
+micro-optimization.
+
+### Project Layout
+
+Scaffold with `create-tauri-app`, which produces the shape every surveyed app follows:
+an ordinary frontend project with a Rust crate beside it.
+
+```
+my-app/
+├── src/                        # frontend—any framework; Vite is the near-universal bundler
+├── package.json
+└── src-tauri/
+    ├── Cargo.toml              # tauri = "2.11.1"+, plugins as crates
+    ├── tauri.conf.json
+    ├── capabilities/
+    │   └── default.json        # permission grants (see §2)
+    ├── binaries/               # sidecars, target-triple suffixed (see §3)
+    ├── icons/
+    └── src/
+        ├── main.rs             # thin entry; calls into lib.rs
+        └── lib.rs              # commands, state, plugin registration
+```
+
+The frontend never imports from `src-tauri`; the crate never imports from `src/`. The
+only contract between them is the command names, the event names, and the capability
+files.
+
+### Configuration and the Dev Loop
+
+A minimal complete `tauri.conf.json`, with the four keys that wire in your frontend
+toolchain:
+
+```json
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "my-app",
+  "version": "0.1.0",
+  "identifier": "com.example.my-app",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [{ "title": "my-app", "width": 1200, "height": 800 }],
+    "security": {
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.icns", "icons/icon.ico", "icons/icon.png"]
+  }
+}
+```
+
+Two details in that file repay attention.
+The `identifier` is the reverse-DNS bundle identifier and is painful to change after
+shipping, because it keys installation paths, update identity, and macOS signing.
+And the CSP’s `connect-src` must include `ipc: http://ipc.localhost`—that is the custom
+protocol IPC from the previous section, and a CSP that omits it silently breaks
+`invoke()` on Windows and Linux.
+
+The loop itself: `tauri dev` runs `beforeDevCommand` (your Vite dev server, with normal
+HMR), compiles the Rust crate, and launches the app pointing at `devUrl`. Frontend edits
+hot-reload instantly; **Rust edits trigger a recompile and relaunch, which takes
+seconds, not milliseconds**—structure your app so iteration happens on the frontend side
+and commands stay stable.
+`tauri build` runs `beforeBuildCommand`, embeds `frontendDist`, and produces the bundle
+targets.
 
 * * *
 
@@ -196,9 +269,10 @@ and **deny always beats allow**.
 
 ### What You Get by Default
 
-`core:default` grants roughly **106 window permissions, 42 menu, 24 tray, and 24 app
-permissions—and no filesystem, shell, HTTP, or plugin access whatsoever.** That is the
-fact to internalize: the default is a fully usable UI with no reach into the machine.
+`core:default` bundles the default permission sets of the nine core modules—window,
+menu, tray, app, event, image, path, resources, and webview—**and no filesystem, shell,
+HTTP, or plugin access whatsoever.** That is the fact to internalize: the default is a
+fully usable UI with no reach into the machine.
 Every capability beyond drawing a window is something you deliberately added.
 
 ### What Real Apps Actually Do
@@ -479,6 +553,48 @@ Generate the keypair with `tauri signer generate`, keep the private key in CI se
 **`TAURI_SIGNING_PRIVATE_KEY`** (renamed from `TAURI_PRIVATE_KEY`; the old name still
 works), and put the public key in your config.
 
+The wiring is three pieces.
+First, tell the bundler to produce signed update artifacts, and give the updater plugin
+your public key and endpoints:
+
+```json
+{
+  "bundle": { "createUpdaterArtifacts": true },
+  "plugins": {
+    "updater": {
+      "pubkey": "…base64 minisign public key from tauri signer generate…",
+      "endpoints": [
+        "https://releases.example.com/{{target}}/{{arch}}/{{current_version}}"
+      ]
+    }
+  }
+}
+```
+
+The `{{target}}`, `{{arch}}`, and `{{current_version}}` variables are substituted at
+request time, so one endpoint template serves every platform.
+
+Second, host a manifest at that endpoint—either a static JSON file or a dynamic server
+response:
+
+```json
+{
+  "version": "1.2.0",
+  "notes": "Release notes shown to the user",
+  "pub_date": "2026-08-01T00:00:00Z",
+  "platforms": {
+    "darwin-aarch64": { "signature": "…", "url": "https://…/my-app.app.tar.gz" },
+    "windows-x86_64": { "signature": "…", "url": "https://…/my-app-setup.exe" }
+  }
+}
+```
+
+The `signature` values are the contents of the `.sig` files the build emits beside each
+updater artifact; the verification above runs against exactly these.
+
+Third, call `check()` and `downloadAndInstall()` from `@tauri-apps/plugin-updater` when
+your app wants to update.
+
 This is near-universal practice, not just documentation: **ten of the surveyed apps ship
 the official updater, and every one of them ships a pubkey.**
 
@@ -631,8 +747,8 @@ holdouts show reduced maintenance.
 - [ ] Set a CSP with script hashes, and `devCsp` separately for development.
 - [ ] Enable `security.freezePrototype` unless a dependency breaks under it.
 - [ ] Use the Isolation pattern if your frontend has a large dependency tree.
-- [ ] Ship the official updater with a minisign key; keep the private key in CI secrets
-  only.
+- [ ] Ship the official updater with `bundle.createUpdaterArtifacts: true` and a
+  minisign key; keep the private key in CI secrets only.
 - [ ] Use `ipc::Response` or `Channel<T>` for binary and streaming payloads.
 - [ ] Suffix sidecar binaries with the correct target triple, and remember the Rust and
   JS APIs take different path arguments.
