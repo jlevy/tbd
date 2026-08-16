@@ -3,16 +3,22 @@ type: is
 id: is-01m044ntts3mchercdbj5ysc1w
 title: Mirror-only push maintains no bridge record, so identifiers never refresh
 kind: bug
-status: open
+status: closed
 priority: 2
-version: 1
+version: 5
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-3
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-16T01:58:42.775Z
-updated_at: 2026-08-16T01:58:42.775Z
+updated_at: 2026-08-16T02:44:45.933Z
+closed_at: 2026-08-16T02:44:45.931Z
+close_reason: "The mirror now reports the tracker identifier the write already returned, and the caller persists it to the bridge record if one exists. No extra request: ISSUE_UPDATE_MUTATION already selected identifier and url, and applyChanges was discarding them. Deliberately routed through a new onIdentifier callback rather than onLinked, so the bead is never rewritten for a remote rename. Verified live: a scoped 'integration sync --push --bead tbd-ktji' populated external_key OS-245 on the record."
+extensions:
+  linear:
+    id: 46a50021-938f-404f-83ee-bde1d36dd1f8
+    linked_at: 2026-08-16T02:11:49.719Z
 ---
 `tbd integration sync --push` runs the one-way mirror (applyMirror), which writes bead links but no bridge records. Since the tracker identifier moved to the bridge record, a push-only workflow now stores it nowhere.
 

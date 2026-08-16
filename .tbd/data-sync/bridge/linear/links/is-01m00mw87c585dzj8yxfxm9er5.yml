@@ -4,13 +4,13 @@ base:
   labels:
     - phase-2
   priority: 0
-  status: open
+  status: closed
   title: "f08: make IssueSchema preserve unknown keys and carry them through merge"
 bead_id: is-01m00mw87c585dzj8yxfxm9er5
 external_id: 69378054-10f5-49b7-967d-591996d3832c
 external_key: OS-235
 external_url: https://linear.app/finterm-ai/issue/OS-235/f08-make-issueschema-preserve-unknown-keys-and-carry-them-through
-remote_updated_at: 2026-08-16T00:14:07.422Z
+remote_updated_at: 2026-08-16T02:11:42.454Z
 state: linked
-synced_at: 2026-08-16T01:14:18.500Z
+synced_at: 2026-08-16T02:11:42.696Z
 type: lk

@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:6d9b801c346aa3cbe3c627345dcb6766ab54fb9e803558e32c7062a12f07c061
+  labels:
+    - phase-3
+  priority: 2
+  status: open
+  title: Prove whether Linear bumps updatedAt when a comment is created
+bead_id: is-01m044p9c6bhvyb8bbryag33hz
+external_id: 19fa31e8-49b0-47be-891d-93f9c181b11c
+external_key: OS-247
+external_url: https://linear.app/finterm-ai/issue/OS-247/prove-whether-linear-bumps-updatedat-when-a-comment-is-created
+remote_updated_at: 2026-08-16T02:30:58.529Z
+state: linked
+synced_at: 2026-08-16T02:31:58.792Z
+type: lk
