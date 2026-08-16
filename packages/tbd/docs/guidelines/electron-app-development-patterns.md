@@ -397,6 +397,27 @@ the Electron binary in Node mode.
 `utilityProcess` is the supported path that survives hardening, which makes it the right
 default rather than merely the modern one.
 
+### Wrapping an Existing Local Web App
+
+A recurring case deserves its own name: the product is already a local server plus a
+browser UI—a tool normally launched from the CLI and used at `http://127.0.0.1:{port}`.
+Wrapping one in a desktop shell is the thinnest possible Electron app, and three rules
+keep it that way:
+
+- **The shell is a window plus lifecycle, nothing more.** One `BrowserWindow` pointed at
+  the loopback URL, plus tray, menus, file associations, and single-instance handling.
+  There is no IPC surface to design; the page already talks to the server over HTTP.
+- **Keep the frontend framework-free.** If the page never imports Electron APIs and
+  speaks only HTTP and WebSocket to its server, the shell stays a commodity: it can be
+  replaced by another shell—or by a plain browser tab—without touching the product.
+  The moment the frontend calls shell APIs, you have coupled the UI to one framework.
+- **If the product also runs shell-less** (installed from a package registry and opened
+  in a normal browser), keep that tier working.
+  The shell is then one consumer of the same server, not a fork of it.
+
+Everything in [Local Server Security](#local-server-security) applies with full
+force—wrapping a server in a shell does not make its loopback port private.
+
 ### Node Backends
 
 `utilityProcess` has been stable since Electron 22. It runs a Node script in a Chromium
@@ -479,6 +500,13 @@ Note the signing consequence: a Python tree contains many Mach-O objects (the
 interpreter plus every compiled extension module’s `.so`). Every one of them must be
 signed. See [Signing Nested Binaries](#signing-nested-binaries).
 
+On performance: before considering a rewrite of a Python backend in a compiled language,
+move the measured hot paths into **native wheels** (Rust via PyO3/maturin is the current
+standard—`pydantic-core` and `watchfiles` are the pattern).
+Wheels flow through the same environment, lockfile, and update chain as every other
+dependency, and they leave the backend hackable in Python—which is often part of the
+product, not an implementation detail.
+
 ### Compiled Sidecars
 
 Go and Rust backends are the least troublesome sidecars: a single static binary, no
@@ -527,6 +555,39 @@ const binDir = app.isPackaged
 ([electron-builder#1790](https://github.com/electron-userland/electron-builder/issues/1790)).
 Fix it in an `afterPack` hook, and defensively `fs.chmodSync(bin, 0o755)` before
 spawning on non-Windows.
+
+### Runtime-Extensible Apps: The Two-Layer Artifact
+
+If users install plugins that are real packages—Python wheels, npm modules, anything a
+package manager materializes on disk—one rule reshapes the whole packaging design:
+**never write into the app bundle after it is signed.** On macOS, installing anything
+into the `.app` breaks the code-signature seal; on every platform it collides with how
+updaters replace the install atomically.
+
+Split the artifact in two:
+
+- **Immutable layer, inside the signed bundle**: the shell, the runtime tree (for
+  example a python-build-standalone interpreter), a pinned copy of the package installer
+  itself (for example a `uv` binary), the application code, and a **hash-pinned
+  lockfile** for the base environment.
+- **Mutable layer, in per-user app data**: a real environment, materialized on first run
+  by the bundled installer syncing the bundled lock.
+  Plugins install here at runtime, through the same installer.
+
+This split preserves a clean **update-integrity chain**: shell updates arrive through
+the platform’s signed updater; each shell version carries a new hash-pinned lock; the
+bundled installer applies only what that signed lock names.
+The only code outside the chain is what the user explicitly chose to install—which is
+the package manager’s own trust model, stated honestly rather than laundered through
+your updater.
+
+Two consequences to plan for.
+Native code loaded from the mutable layer runs inside your signed processes, so on macOS
+the loading process needs `com.apple.security.cs.disable-library-validation` (see
+[Signing Nested Binaries](#signing-nested-binaries))—without it, natively compiled
+plugin packages fail to load under the hardened runtime.
+And first-run materialization is a real user-visible step: budget for progress UI and
+for recovery when it is interrupted.
 
 ### Signing Nested Binaries
 

@@ -436,6 +436,8 @@ GitButler git binaries.
 **Yaak** is the instructive variant: it bundles a whole Node.js runtime as a
 **resource** rather than an `externalBin`, which is the right move when you need an
 interpreter rather than a single triple-named executable.
+A python-build-standalone tree ships the same way: as a resource directory, spawned by
+path, with the target-triple convention reserved for single-file binaries.
 
 * * *
 
