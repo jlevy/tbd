@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:a5dfda97fffc606fb6dbf86a7c10bf3702fccc802733d7ca72871e1b975af5af
+  description_hash: sha256v7:a5dfda97fffc606fb6dbf86a7c10bf3702fccc802733d7ca72871e1b975af5af
   labels:
     - github
     - integration
@@ -14,5 +14,5 @@ external_key: OS-155
 external_url: https://linear.app/finterm-ai/issue/OS-155/implement-github-issue-link-explicit-inbound-selection-outbound
 remote_updated_at: 2026-08-16T00:13:06.471Z
 state: linked
-synced_at: 2026-08-16T00:13:06.690Z
+synced_at: 2026-08-16T01:14:05.390Z
 type: lk

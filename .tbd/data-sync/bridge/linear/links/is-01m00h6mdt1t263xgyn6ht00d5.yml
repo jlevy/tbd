@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:4fe7ce9597115e562d7eb6e4e72861bbd6c461d88b0a45822e144e8a46243b7e
+  description_hash: sha256v7:4fe7ce9597115e562d7eb6e4e72861bbd6c461d88b0a45822e144e8a46243b7e
   labels:
     - phase-4
   priority: 3
@@ -12,5 +12,5 @@ external_key: OS-220
 external_url: https://linear.app/finterm-ai/issue/OS-220/add-a-cursor-setup-surface-cursorhooksjson
 remote_updated_at: 2026-08-16T00:13:44.289Z
 state: linked
-synced_at: 2026-08-16T00:13:44.544Z
+synced_at: 2026-08-16T01:14:16.196Z
 type: lk

@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:beaa02822036e86f01c168cdc247895804f9dac64cc4a4bdfaf7b1d3a8663ee0
+  description_hash: sha256v7:beaa02822036e86f01c168cdc247895804f9dac64cc4a4bdfaf7b1d3a8663ee0
   labels:
     - validation
     - performance
@@ -14,5 +14,5 @@ external_key: OS-150
 external_url: https://linear.app/finterm-ai/issue/OS-150/phase-61-run-full-quality-matrix-plus-5k-performance-and-payload-gates
 remote_updated_at: 2026-08-16T00:13:04.385Z
 state: linked
-synced_at: 2026-08-16T00:13:04.565Z
+synced_at: 2026-08-16T01:14:04.964Z
 type: lk

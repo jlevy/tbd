@@ -1,6 +1,6 @@
 base:
   assignee: josh
-  description_hash: sha256v6:c2ae0055a588fe253ceb9adda905dd4d8975ecad88e748c4e318836164a304e5
+  description_hash: sha256v7:c2ae0055a588fe253ceb9adda905dd4d8975ecad88e748c4e318836164a304e5
   labels:
     - integration
     - dogfood
@@ -13,5 +13,5 @@ external_key: OS-162
 external_url: https://linear.app/finterm-ai/issue/OS-162/dogfood-linear-synchronization-against-the-legacy-tbd-repository
 remote_updated_at: 2026-08-16T00:13:13.650Z
 state: linked
-synced_at: 2026-08-16T00:13:14.234Z
+synced_at: 2026-08-16T01:14:06.493Z
 type: lk

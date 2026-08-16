@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:ccbb27145b142702c10c267c6cdd878566b8c6e04d31b17b92f516454aee49a7
+  description_hash: sha256v7:ccbb27145b142702c10c267c6cdd878566b8c6e04d31b17b92f516454aee49a7
   labels: []
   priority: 2
   status: closed
@@ -11,5 +11,5 @@ external_key: OS-59
 external_url: https://linear.app/finterm-ai/issue/OS-59/spec-beads-migration
 remote_updated_at: 2026-08-16T00:10:58.819Z
 state: linked
-synced_at: 2026-08-16T00:10:59.026Z
+synced_at: 2026-08-16T01:13:39.254Z
 type: lk

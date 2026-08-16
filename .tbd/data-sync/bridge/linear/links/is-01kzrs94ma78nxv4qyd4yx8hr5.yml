@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:9f18e2fef264de5fe348ceda58fa3b65aaf7879ac80cb87f4648f9b0881aeea5
+  description_hash: sha256v7:9f18e2fef264de5fe348ceda58fa3b65aaf7879ac80cb87f4648f9b0881aeea5
   labels:
     - client
     - ui
@@ -14,5 +14,5 @@ external_key: OS-145
 external_url: https://linear.app/finterm-ai/issue/OS-145/phase-42-move-viewer-dom-template-and-design-system-into-strict
 remote_updated_at: 2026-08-16T00:13:01.924Z
 state: linked
-synced_at: 2026-08-16T00:13:02.116Z
+synced_at: 2026-08-16T01:14:03.668Z
 type: lk

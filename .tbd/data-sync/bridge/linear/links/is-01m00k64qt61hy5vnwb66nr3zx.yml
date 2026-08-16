@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:78be1786302e456c422d771cc2bef4a3a14769a86b5a174de5f6818e221fc263
+  description_hash: sha256v7:78be1786302e456c422d771cc2bef4a3a14769a86b5a174de5f6818e221fc263
   labels:
     - traceability
     - phase-3
@@ -13,5 +13,5 @@ external_key: OS-230
 external_url: https://linear.app/finterm-ai/issue/OS-230/wire-the-two-dead-link-renderers-repourl-and-prurls-are-never
 remote_updated_at: 2026-08-16T00:13:58.818Z
 state: linked
-synced_at: 2026-08-16T00:13:59.047Z
+synced_at: 2026-08-16T01:14:17.662Z
 type: lk

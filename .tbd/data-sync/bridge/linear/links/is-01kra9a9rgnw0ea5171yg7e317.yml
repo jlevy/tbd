@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:3ea0447aefb4b26ef89286ee118a8149bd55ff74a840846a060c869a719c009d
+  description_hash: sha256v7:3ea0447aefb4b26ef89286ee118a8149bd55ff74a840846a060c869a719c009d
   labels:
     - pause
   priority: 1
@@ -13,5 +13,5 @@ external_key: OS-94
 external_url: https://linear.app/finterm-ai/issue/OS-94/doc-map-build-tbddocsmapyml-per-format-spec-4-three-layer-metadata
 remote_updated_at: 2026-08-16T00:11:35.539Z
 state: linked
-synced_at: 2026-08-16T00:11:35.748Z
+synced_at: 2026-08-16T01:13:47.065Z
 type: lk

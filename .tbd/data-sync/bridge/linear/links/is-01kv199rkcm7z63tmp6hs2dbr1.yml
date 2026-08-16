@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:fed14a50074aef03d646b1b13cc348fcaf40c9821498b34e6624e9872ba36975
+  description_hash: sha256v7:fed14a50074aef03d646b1b13cc348fcaf40c9821498b34e6624e9872ba36975
   labels:
     - pause
   priority: 3
@@ -12,5 +12,5 @@ external_key: OS-12
 external_url: https://linear.app/finterm-ai/issue/OS-12/query-driven-mutation-closeupdate-where-reuse-list-grammar
 remote_updated_at: 2026-08-16T00:12:17.955Z
 state: linked
-synced_at: 2026-08-16T00:12:18.207Z
+synced_at: 2026-08-16T01:13:55.402Z
 type: lk

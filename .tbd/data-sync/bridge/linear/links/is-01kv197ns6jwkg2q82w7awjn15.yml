@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:260b8c721be1df16d5a8ca3906f9e384344f0d014c83b59153e5bed26f39fbd3
+  description_hash: sha256v7:260b8c721be1df16d5a8ca3906f9e384344f0d014c83b59153e5bed26f39fbd3
   labels: []
   priority: 1
   status: open
@@ -11,5 +11,5 @@ external_key: OS-13
 external_url: https://linear.app/finterm-ai/issue/OS-13/spec-agent-cli-ergonomics-bulk-ops-output-contract-sync-clarity
 remote_updated_at: 2026-08-16T00:12:17.061Z
 state: linked
-synced_at: 2026-08-16T00:12:17.292Z
+synced_at: 2026-08-16T01:13:55.260Z
 type: lk

@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:f582ba479749c932e4204664c51742f7565113606de2175b46ffc9428174d4e7
+  description_hash: sha256v7:f582ba479749c932e4204664c51742f7565113606de2175b46ffc9428174d4e7
   labels:
     - client
     - testing
@@ -14,5 +14,5 @@ external_key: OS-144
 external_url: https://linear.app/finterm-ai/issue/OS-144/phase-41-implement-transport-injected-web-client-store-and-race-tests
 remote_updated_at: 2026-08-16T00:13:01.384Z
 state: linked
-synced_at: 2026-08-16T00:13:01.599Z
+synced_at: 2026-08-16T01:14:03.531Z
 type: lk

@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:bdbb71ced2079ead1a88b621af321b5b90d5e5dbf2bfe25fe28222fc6440fc95
+  description_hash: sha256v7:bdbb71ced2079ead1a88b621af321b5b90d5e5dbf2bfe25fe28222fc6440fc95
   labels:
     - server
     - web
@@ -13,5 +13,5 @@ external_key: OS-139
 external_url: https://linear.app/finterm-ai/issue/OS-139/phase-31-implement-boardstate-snapshot-query-parsing-tree-rows-and
 remote_updated_at: 2026-08-16T00:12:58.388Z
 state: linked
-synced_at: 2026-08-16T00:12:58.691Z
+synced_at: 2026-08-16T01:14:02.538Z
 type: lk

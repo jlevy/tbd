@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:86d83542d4fad05954a3496cfd8d9ed75b95ba77a31fbc25971af95619fbd1d4
+  description_hash: sha256v7:86d83542d4fad05954a3496cfd8d9ed75b95ba77a31fbc25971af95619fbd1d4
   labels:
     - linear
     - integration
@@ -14,5 +14,5 @@ external_key: OS-165
 external_url: https://linear.app/finterm-ai/issue/OS-165/report-planned-comment-work-accurately-in-integration-dry-runs
 remote_updated_at: 2026-08-16T00:13:16.622Z
 state: linked
-synced_at: 2026-08-16T00:13:16.848Z
+synced_at: 2026-08-16T01:14:06.928Z
 type: lk

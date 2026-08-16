@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:46a31c37fcb95e9df893ee0ff72a5307be977387db88fd86f08c634bcf90ca3c
+  description_hash: sha256v7:46a31c37fcb95e9df893ee0ff72a5307be977387db88fd86f08c634bcf90ca3c
   labels:
     - validation
     - web
@@ -14,5 +14,5 @@ external_key: OS-138
 external_url: https://linear.app/finterm-ai/issue/OS-138/phase-6-validate-and-land-production-tbd-web-end-to-end
 remote_updated_at: 2026-08-16T00:12:57.837Z
 state: linked
-synced_at: 2026-08-16T00:12:58.033Z
+synced_at: 2026-08-16T01:14:02.383Z
 type: lk

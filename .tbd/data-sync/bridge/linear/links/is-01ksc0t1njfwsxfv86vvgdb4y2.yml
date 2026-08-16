@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:cf5159d6260008fc59d630c0cb515d046cfbf860b47bd647172bd7a5f7560751
+  description_hash: sha256v7:cf5159d6260008fc59d630c0cb515d046cfbf860b47bd647172bd7a5f7560751
   labels:
     - gitignore
     - setup
@@ -13,5 +13,5 @@ external_key: OS-25
 external_url: https://linear.app/finterm-ai/issue/OS-25/audit-gitignore-policy-for-agent-integration-files
 remote_updated_at: 2026-08-16T00:12:02.554Z
 state: linked
-synced_at: 2026-08-16T00:12:02.809Z
+synced_at: 2026-08-16T01:13:51.884Z
 type: lk

@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:20fa7ba7ee7a8bea55180eaca7f5cfaf3bdb7ea52ddb040fd66ab56eb2651df6
+  description_hash: sha256v7:20fa7ba7ee7a8bea55180eaca7f5cfaf3bdb7ea52ddb040fd66ab56eb2651df6
   labels: []
   priority: 2
   status: closed
@@ -11,5 +11,5 @@ external_key: OS-125
 external_url: https://linear.app/finterm-ai/issue/OS-125/tbd-integration-sync-batched-pull-push-echo-suppression-orphans
 remote_updated_at: 2026-08-16T00:12:45.179Z
 state: linked
-synced_at: 2026-08-16T00:12:45.442Z
+synced_at: 2026-08-16T01:14:00.030Z
 type: lk

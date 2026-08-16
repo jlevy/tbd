@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  description_hash: sha256v7:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   labels: []
   priority: 1
   status: closed
@@ -12,5 +12,5 @@ external_key: OS-66
 external_url: https://linear.app/finterm-ai/issue/OS-66/phase-1-tbd-integration-mirror-epic-mirror-attachments-managed
 remote_updated_at: 2026-08-16T00:12:34.732Z
 state: linked
-synced_at: 2026-08-16T00:12:34.945Z
+synced_at: 2026-08-16T01:13:58.375Z
 type: lk

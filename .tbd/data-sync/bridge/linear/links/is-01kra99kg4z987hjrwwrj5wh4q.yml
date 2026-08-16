@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:ffd95f20a64f1259c7273160a3713ccb37c20920ca8fab8990c537fb38d4a52c
+  description_hash: sha256v7:ffd95f20a64f1259c7273160a3713ccb37c20920ca8fab8990c537fb38d4a52c
   labels:
     - pause
   priority: 2
@@ -12,5 +12,5 @@ external_key: OS-31
 external_url: https://linear.app/finterm-ai/issue/OS-31/q19-decide-as-field-disambiguation-keep-vs-mode-discriminator-vs-kdex
 remote_updated_at: 2026-08-16T00:11:31.274Z
 state: linked
-synced_at: 2026-08-16T00:11:31.499Z
+synced_at: 2026-08-16T01:13:45.811Z
 type: lk

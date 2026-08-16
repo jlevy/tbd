@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:f637d12511be845f1d9b79f621c01ea9318ea17d63823969aaa70f3018307628
+  description_hash: sha256v7:f637d12511be845f1d9b79f621c01ea9318ea17d63823969aaa70f3018307628
   labels: []
   priority: 2
   status: open
@@ -11,5 +11,5 @@ external_key: OS-237
 external_url: https://linear.app/finterm-ai/issue/OS-237/implement-github-cli-session-readiness-for-coding-agents
 remote_updated_at: 2026-08-16T00:14:09.900Z
 state: linked
-synced_at: 2026-08-16T00:14:10.101Z
+synced_at: 2026-08-16T01:14:19.786Z
 type: lk

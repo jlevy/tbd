@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:d8d517da1d820a0ec1564a908ab7c58114a930ac1a2ea6c70d460afdc89b1d91
+  description_hash: sha256v7:d8d517da1d820a0ec1564a908ab7c58114a930ac1a2ea6c70d460afdc89b1d91
   labels:
     - pause
   priority: 2
@@ -12,5 +12,5 @@ external_key: OS-102
 external_url: https://linear.app/finterm-ai/issue/OS-102/explicit-contents-mapping-fully-wired-and-tested-path-type-as
 remote_updated_at: 2026-08-16T00:11:39.878Z
 state: linked
-synced_at: 2026-08-16T00:11:40.061Z
+synced_at: 2026-08-16T01:13:48.285Z
 type: lk

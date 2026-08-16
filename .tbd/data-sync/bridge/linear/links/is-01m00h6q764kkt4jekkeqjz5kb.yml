@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:b38f55d82c6871fde626d79e3fafdcce5610204a776aeb4a91ff6d665e42f67e
+  description_hash: sha256v7:b38f55d82c6871fde626d79e3fafdcce5610204a776aeb4a91ff6d665e42f67e
   labels:
     - sync-efficiency
     - phase-1
@@ -13,5 +13,5 @@ external_key: OS-222
 external_url: https://linear.app/finterm-ai/issue/OS-222/cache-linear-provider-meta-on-disk-with-a-ttl
 remote_updated_at: 2026-08-16T00:13:46.446Z
 state: linked
-synced_at: 2026-08-16T00:13:46.661Z
+synced_at: 2026-08-16T01:14:16.458Z
 type: lk

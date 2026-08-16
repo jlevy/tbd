@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:df16415c9b6edd7207e7e1a7da7f7d40fb53d75d8aeaa3ba8005d5d1880c9a18
+  description_hash: sha256v7:df16415c9b6edd7207e7e1a7da7f7d40fb53d75d8aeaa3ba8005d5d1880c9a18
   labels:
     - agent-skills
     - setup
@@ -12,7 +12,7 @@ bead_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 external_id: 666ffd07-a190-48fe-9ce5-657967438c81
 external_key: OS-29
 external_url: https://linear.app/finterm-ai/issue/OS-29/modernize-multi-agent-skills-and-hooks-setup
-remote_updated_at: 2026-08-16T00:11:56.410Z
+remote_updated_at: 2026-08-16T00:13:18.326Z
 state: linked
-synced_at: 2026-08-16T00:11:56.667Z
+synced_at: 2026-08-16T01:13:51.296Z
 type: lk

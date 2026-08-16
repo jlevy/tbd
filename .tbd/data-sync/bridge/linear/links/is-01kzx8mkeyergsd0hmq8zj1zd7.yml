@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:df968831e7c5db494e29891ea8cd4370030af5463ca9ccd00d02dc899e500c5a
+  description_hash: sha256v7:df968831e7c5db494e29891ea8cd4370030af5463ca9ccd00d02dc899e500c5a
   labels:
     - web
     - integration
@@ -13,5 +13,5 @@ external_key: OS-157
 external_url: https://linear.app/finterm-ai/issue/OS-157/phase-4-external-tracker-links-and-facets-in-tbd-web
 remote_updated_at: 2026-08-16T00:13:08.193Z
 state: linked
-synced_at: 2026-08-16T00:13:08.411Z
+synced_at: 2026-08-16T01:14:05.725Z
 type: lk

@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:3cb99502a71948e76465f5bd6eda8d951082d83dcafd6c513bbdb37583f04f0e
+  description_hash: sha256v7:3cb99502a71948e76465f5bd6eda8d951082d83dcafd6c513bbdb37583f04f0e
   labels:
     - pause
   priority: 2
@@ -12,5 +12,5 @@ external_key: OS-58
 external_url: https://linear.app/finterm-ai/issue/OS-58/spec-transactional-mode-and-agent-registration
 remote_updated_at: 2026-08-16T00:10:59.684Z
 state: linked
-synced_at: 2026-08-16T00:11:00.017Z
+synced_at: 2026-08-16T01:13:39.374Z
 type: lk

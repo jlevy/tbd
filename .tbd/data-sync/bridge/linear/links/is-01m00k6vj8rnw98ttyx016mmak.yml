@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:06c50f8b94f80d54f6e64a9dbc495e7088e72f8fa7730d1a50ca5927ea95ff66
+  description_hash: sha256v7:06c50f8b94f80d54f6e64a9dbc495e7088e72f8fa7730d1a50ca5927ea95ff66
   labels:
     - traceability
     - phase-3
@@ -13,5 +13,5 @@ external_key: OS-233
 external_url: https://linear.app/finterm-ai/issue/OS-233/researchspec-shortcuts-should-create-the-tracking-bead-first-not-last
 remote_updated_at: 2026-08-16T00:14:02.911Z
 state: linked
-synced_at: 2026-08-16T00:14:03.132Z
+synced_at: 2026-08-16T01:14:18.140Z
 type: lk

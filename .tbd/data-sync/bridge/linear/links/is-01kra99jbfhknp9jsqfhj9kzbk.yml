@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:133509ff38e2c14855a34c0a9d0ba21e80d8705dde5fb2545d10e529ee39a2e9
+  description_hash: sha256v7:133509ff38e2c14855a34c0a9d0ba21e80d8705dde5fb2545d10e529ee39a2e9
   labels:
     - pause
   priority: 1
@@ -12,5 +12,5 @@ external_key: OS-34
 external_url: https://linear.app/finterm-ai/issue/OS-34/q16-decide-bundle-source-cardinality-11-vs-split
 remote_updated_at: 2026-08-16T00:11:29.284Z
 state: linked
-synced_at: 2026-08-16T00:11:29.484Z
+synced_at: 2026-08-16T01:13:45.386Z
 type: lk

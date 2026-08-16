@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:1e13163714ae98914d495f43ca1088ca7f9bd455567993a8ec8abf467ed46964
+  description_hash: sha256v7:1e13163714ae98914d495f43ca1088ca7f9bd455567993a8ec8abf467ed46964
   labels:
     - traceability
     - phase-2
@@ -13,5 +13,5 @@ external_key: OS-234
 external_url: https://linear.app/finterm-ai/issue/OS-234/decide-whether-an-inherited-spec-path-should-select-a-bead-for
 remote_updated_at: 2026-08-16T00:14:04.718Z
 state: linked
-synced_at: 2026-08-16T00:14:05.210Z
+synced_at: 2026-08-16T01:14:18.294Z
 type: lk

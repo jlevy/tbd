@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:d475ddca61aa770f1c38b0d8bee59bff7252d5e2c67603baff34b249bfe82f66
+  description_hash: sha256v7:d475ddca61aa770f1c38b0d8bee59bff7252d5e2c67603baff34b249bfe82f66
   labels: []
   priority: 2
   status: closed
@@ -11,5 +11,5 @@ external_key: OS-52
 external_url: https://linear.app/finterm-ai/issue/OS-52/phase-1-extract-shared-syncdocswithdefaults-function
 remote_updated_at: 2026-08-16T00:11:11.132Z
 state: linked
-synced_at: 2026-08-16T00:11:11.360Z
+synced_at: 2026-08-16T01:13:40.314Z
 type: lk

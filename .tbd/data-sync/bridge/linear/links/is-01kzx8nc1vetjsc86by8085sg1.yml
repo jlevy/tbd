@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:49d8139bf0586a02f242545cc006ee49f1fda2e1f9595d02d0011874782f535d
+  description_hash: sha256v7:49d8139bf0586a02f242545cc006ee49f1fda2e1f9595d02d0011874782f535d
   labels:
     - web
     - integration
@@ -13,5 +13,5 @@ external_key: OS-160
 external_url: https://linear.app/finterm-ai/issue/OS-160/render-accessible-linear-and-github-link-marks-in-bead-rows-and
 remote_updated_at: 2026-08-16T00:13:11.242Z
 state: linked
-synced_at: 2026-08-16T00:13:11.583Z
+synced_at: 2026-08-16T01:14:06.221Z
 type: lk

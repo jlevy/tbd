@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:2e5abc9dbab2c0d0c4a252c6741b9caa54b8739897f19a15f290ad7ea0f1a059
+  description_hash: sha256v7:de395fbd32aca8fadeab54d8e0db125c7b995fa8d6bde4208999e139777f0a27
   labels:
     - phase-2
   priority: 1
@@ -12,5 +12,5 @@ external_key: OS-236
 external_url: https://linear.app/finterm-ai/issue/OS-236/add-a-docs-list-to-beads-for-supporting-context-documents
 remote_updated_at: 2026-08-16T00:14:08.684Z
 state: linked
-synced_at: 2026-08-16T00:14:08.960Z
+synced_at: 2026-08-16T01:14:19.640Z
 type: lk

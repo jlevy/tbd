@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:271b5c57fc2d54e2ca53dc89b84296ed4d6f7e5bc710a9f23aeb1c5da93377d6
+  description_hash: sha256v7:271b5c57fc2d54e2ca53dc89b84296ed4d6f7e5bc710a9f23aeb1c5da93377d6
   labels: []
   priority: 1
   status: open
@@ -11,5 +11,5 @@ external_key: OS-207
 external_url: https://linear.app/finterm-ai/issue/OS-207/stamp-this-repo-to-tbd-format-f07-after-v060-publishes
 remote_updated_at: 2026-08-16T00:13:25.562Z
 state: linked
-synced_at: 2026-08-16T00:13:25.775Z
+synced_at: 2026-08-16T01:14:08.727Z
 type: lk

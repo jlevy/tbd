@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:08b96dea8a6724d0832c52d10c83c20638ea050b7b0a004a4f1a33f7625bfe2e
+  description_hash: sha256v7:08b96dea8a6724d0832c52d10c83c20638ea050b7b0a004a4f1a33f7625bfe2e
   labels: []
   priority: 4
   status: open
@@ -11,5 +11,5 @@ external_key: OS-206
 external_url: https://linear.app/finterm-ai/issue/OS-206/repourl-is-threaded-through-the-mirror-but-never-supplied
 remote_updated_at: 2026-08-16T00:13:24.250Z
 state: linked
-synced_at: 2026-08-16T00:13:24.435Z
+synced_at: 2026-08-16T01:14:08.501Z
 type: lk

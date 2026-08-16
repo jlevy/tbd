@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:f452cabf4317547ea3a81bc4e5125cf169b01be086b5cbd63f3bbfce67daa418
+  description_hash: sha256v7:f452cabf4317547ea3a81bc4e5125cf169b01be086b5cbd63f3bbfce67daa418
   labels: []
   priority: 2
   status: closed
@@ -11,5 +11,5 @@ external_key: OS-61
 external_url: https://linear.app/finterm-ai/issue/OS-61/agent-documentation-consolidation-and-cleanup
 remote_updated_at: 2026-08-16T00:10:56.984Z
 state: linked
-synced_at: 2026-08-16T00:10:57.198Z
+synced_at: 2026-08-16T01:13:38.946Z
 type: lk

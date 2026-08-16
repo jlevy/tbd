@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:b5b27968ec75dcb04955a7e9c2e752c22e10776e3d37d4aef7861d3b6b5a7be6
+  description_hash: sha256v7:b5b27968ec75dcb04955a7e9c2e752c22e10776e3d37d4aef7861d3b6b5a7be6
   labels:
     - pause
   priority: 3
@@ -13,5 +13,5 @@ external_key: OS-118
 external_url: https://linear.app/finterm-ai/issue/OS-118/migration-path-for-existing-installs-tbd-setup-auto-tbd-doctor-adds
 remote_updated_at: 2026-08-16T00:11:51.814Z
 state: linked
-synced_at: 2026-08-16T00:11:52.678Z
+synced_at: 2026-08-16T01:13:50.847Z
 type: lk

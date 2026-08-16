@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:1911b4e5eab97d24412dc12e7ed627c1c6c4507f9d22108b1dc34231324f1a98
+  description_hash: sha256v7:1911b4e5eab97d24412dc12e7ed627c1c6c4507f9d22108b1dc34231324f1a98
   labels:
     - github
     - integration
@@ -13,5 +13,5 @@ external_key: OS-129
 external_url: https://linear.app/finterm-ai/issue/OS-129/pr-links-extensionsgithubprs-to-attachmentlinkgithubpr
 remote_updated_at: 2026-08-16T00:12:49.187Z
 state: linked
-synced_at: 2026-08-16T00:12:49.458Z
+synced_at: 2026-08-16T01:14:00.606Z
 type: lk

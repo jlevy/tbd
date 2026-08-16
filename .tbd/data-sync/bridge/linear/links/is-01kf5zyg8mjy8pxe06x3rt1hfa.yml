@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:312212e460b5f1f0c69fdf93f0e111c268b2b0fe8e2cf4216166dfa213c8e922
+  description_hash: sha256v7:312212e460b5f1f0c69fdf93f0e111c268b2b0fe8e2cf4216166dfa213c8e922
   labels:
     - import
     - phase-15
@@ -14,5 +14,5 @@ external_key: OS-69
 external_url: https://linear.app/finterm-ai/issue/OS-69/phase-15-import-validation
 remote_updated_at: 2026-08-16T00:10:55.162Z
 state: linked
-synced_at: 2026-08-16T00:10:55.357Z
+synced_at: 2026-08-16T01:13:38.663Z
 type: lk

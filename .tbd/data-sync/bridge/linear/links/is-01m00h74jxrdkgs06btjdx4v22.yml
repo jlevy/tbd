@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:2831b2c2904b99ee261cf78c5a58f98d1aa0370e718babe586ec3f4760b95695
+  description_hash: sha256v7:2831b2c2904b99ee261cf78c5a58f98d1aa0370e718babe586ec3f4760b95695
   labels:
     - phase-1
   priority: 2
@@ -12,5 +12,5 @@ external_key: OS-224
 external_url: https://linear.app/finterm-ai/issue/OS-224/decide-whether-to-lift-this-repos-sync-on-tbd-sync-false-pilot
 remote_updated_at: 2026-08-16T00:13:49.425Z
 state: linked
-synced_at: 2026-08-16T00:13:49.642Z
+synced_at: 2026-08-16T01:14:16.780Z
 type: lk

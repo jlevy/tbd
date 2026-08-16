@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:45963eb39ffd46ced3500efd774caff02d47c7c10bbcb935dddcf0fb8003dbb2
+  description_hash: sha256v7:45963eb39ffd46ced3500efd774caff02d47c7c10bbcb935dddcf0fb8003dbb2
   labels:
     - docs
     - phase-12
@@ -14,5 +14,5 @@ external_key: OS-71
 external_url: https://linear.app/finterm-ai/issue/OS-71/phase-12-polish-and-documentation
 remote_updated_at: 2026-08-16T00:10:53.839Z
 state: linked
-synced_at: 2026-08-16T00:10:54.059Z
+synced_at: 2026-08-16T01:13:38.394Z
 type: lk

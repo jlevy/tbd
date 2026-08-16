@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:db1b7117bdd53ab4ed0141cbf42c4e5936c2c3199004c4df8df82eab6f85101f
+  description_hash: sha256v7:db1b7117bdd53ab4ed0141cbf42c4e5936c2c3199004c4df8df82eab6f85101f
   labels:
     - pause
   priority: 4
@@ -12,5 +12,5 @@ external_key: OS-10
 external_url: https://linear.app/finterm-ai/issue/OS-10/delivery-provenance-by-pr-and-documented-verb-ids-spine
 remote_updated_at: 2026-08-16T00:12:20.133Z
 state: linked
-synced_at: 2026-08-16T00:12:21.411Z
+synced_at: 2026-08-16T01:13:56.232Z
 type: lk

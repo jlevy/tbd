@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:1c1e3c2b61f39836c25d4a3915e9f20507f72d754e1f6dcef28809675872ffe4
+  description_hash: sha256v7:1c1e3c2b61f39836c25d4a3915e9f20507f72d754e1f6dcef28809675872ffe4
   labels: []
   priority: 2
   status: closed
@@ -11,5 +11,5 @@ external_key: OS-50
 external_url: https://linear.app/finterm-ai/issue/OS-50/phase-3-update-auto-sync-in-doccache-to-merge-defaults
 remote_updated_at: 2026-08-16T00:11:13.165Z
 state: linked
-synced_at: 2026-08-16T00:11:13.412Z
+synced_at: 2026-08-16T01:13:40.709Z
 type: lk

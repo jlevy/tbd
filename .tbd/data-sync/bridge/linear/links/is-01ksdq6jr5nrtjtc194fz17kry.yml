@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:7dacc8b38f0bc320b0aa26392710d39ee93d02bd1913aa8ab32a150f6bd6f4f9
+  description_hash: sha256v7:7dacc8b38f0bc320b0aa26392710d39ee93d02bd1913aa8ab32a150f6bd6f4f9
   labels:
     - agents-md
     - setup
@@ -14,5 +14,5 @@ external_key: OS-18
 external_url: https://linear.app/finterm-ai/issue/OS-18/shrink-generated-agentsmd-block
 remote_updated_at: 2026-08-16T00:12:09.548Z
 state: linked
-synced_at: 2026-08-16T00:12:09.758Z
+synced_at: 2026-08-16T01:13:53.485Z
 type: lk

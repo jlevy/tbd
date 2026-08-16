@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:ff83723b1aa3690119b5149092869144013772e1d434260778b48f6ed3fe71c8
+  description_hash: sha256v7:ff83723b1aa3690119b5149092869144013772e1d434260778b48f6ed3fe71c8
   labels:
     - phase-3
   priority: 2
@@ -12,5 +12,5 @@ external_key: OS-242
 external_url: https://linear.app/finterm-ai/issue/OS-242/support-linear-delegate-as-the-agent-gesture-not-assignee
 remote_updated_at: 2026-08-16T00:14:20.550Z
 state: linked
-synced_at: 2026-08-16T00:14:20.757Z
+synced_at: 2026-08-16T01:14:20.525Z
 type: lk

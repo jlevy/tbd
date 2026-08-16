@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:bda2f06ba67be72706d689dbfa265444c69d6692e591b16eb91366133ab18424
+  description_hash: sha256v7:bda2f06ba67be72706d689dbfa265444c69d6692e591b16eb91366133ab18424
   labels:
     - pause
   priority: 1
@@ -12,5 +12,5 @@ external_key: OS-90
 external_url: https://linear.app/finterm-ai/issue/OS-90/source-resolution-walk-sources-in-order-produce-bundle-type-name-path
 remote_updated_at: 2026-08-16T00:11:33.426Z
 state: linked
-synced_at: 2026-08-16T00:11:33.641Z
+synced_at: 2026-08-16T01:13:46.506Z
 type: lk

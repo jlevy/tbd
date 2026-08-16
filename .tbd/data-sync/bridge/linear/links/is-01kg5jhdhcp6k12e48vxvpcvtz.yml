@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:2cb1a8ec8b956ba56fddb077d65eaf5891fc7e4d92d4daaefa05d81c61a955cc
+  description_hash: sha256v7:2cb1a8ec8b956ba56fddb077d65eaf5891fc7e4d92d4daaefa05d81c61a955cc
   labels: []
   priority: 2
   status: closed
@@ -11,5 +11,5 @@ external_key: OS-49
 external_url: https://linear.app/finterm-ai/issue/OS-49/phase-4-remove-docs-refresh-command
 remote_updated_at: 2026-08-16T00:11:14.345Z
 state: linked
-synced_at: 2026-08-16T00:11:14.544Z
+synced_at: 2026-08-16T01:13:40.845Z
 type: lk

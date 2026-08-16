@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:f61d92e7d2e0739edd26bbcff1b74339e08a7a952a7e338a378be24a11115fff
+  description_hash: sha256v7:f61d92e7d2e0739edd26bbcff1b74339e08a7a952a7e338a378be24a11115fff
   labels:
     - traceability
     - phase-3
@@ -13,5 +13,5 @@ external_key: OS-232
 external_url: https://linear.app/finterm-ai/issue/OS-232/capture-the-pr-ref-automatically-when-a-pr-is-created-or-updated
 remote_updated_at: 2026-08-16T00:14:01.647Z
 state: linked
-synced_at: 2026-08-16T00:14:01.921Z
+synced_at: 2026-08-16T01:14:17.978Z
 type: lk

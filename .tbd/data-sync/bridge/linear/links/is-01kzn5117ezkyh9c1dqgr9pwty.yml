@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:b3b3ab2db70f0650944982802d589318c693997493bbd2969db8b0df25c90c31
+  description_hash: sha256v7:b3b3ab2db70f0650944982802d589318c693997493bbd2969db8b0df25c90c31
   labels: []
   priority: 1
   status: closed
@@ -11,5 +11,5 @@ external_key: OS-62
 external_url: https://linear.app/finterm-ai/issue/OS-62/testsfixtureslinear-mockts-phase-1-golden-tryscripts
 remote_updated_at: 2026-08-16T00:12:40.356Z
 state: linked
-synced_at: 2026-08-16T00:12:40.595Z
+synced_at: 2026-08-16T01:13:59.020Z
 type: lk

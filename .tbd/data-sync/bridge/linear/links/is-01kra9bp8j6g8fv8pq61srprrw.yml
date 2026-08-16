@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:895cf1051e205729c584b0693d421c9d4787ebd208dc081441af989ddadfa55a
+  description_hash: sha256v7:895cf1051e205729c584b0693d421c9d4787ebd208dc081441af989ddadfa55a
   labels:
     - pause
   priority: 3
@@ -12,5 +12,5 @@ external_key: OS-114
 external_url: https://linear.app/finterm-ai/issue/OS-114/tag-v100-of-githubjlevytbd-docs
 remote_updated_at: 2026-08-16T00:11:48.384Z
 state: linked
-synced_at: 2026-08-16T00:11:48.561Z
+synced_at: 2026-08-16T01:13:50.141Z
 type: lk

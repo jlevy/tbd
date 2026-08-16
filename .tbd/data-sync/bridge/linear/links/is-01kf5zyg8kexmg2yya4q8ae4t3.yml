@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:f493452a1e98aebf0abcb035e5e09c587b74e5f1f07efecf8a025fc154453763
+  description_hash: sha256v7:f493452a1e98aebf0abcb035e5e09c587b74e5f1f07efecf8a025fc154453763
   labels:
     - coverage
     - phase-13
@@ -14,5 +14,5 @@ external_key: OS-73
 external_url: https://linear.app/finterm-ai/issue/OS-73/phase-13-tryscript-coverage-migration
 remote_updated_at: 2026-08-16T00:10:52.536Z
 state: linked
-synced_at: 2026-08-16T00:10:52.721Z
+synced_at: 2026-08-16T01:13:37.475Z
 type: lk

@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:cb0003e4e1789b4466291c1c92089e07f25070877d6f8b049e36474fc7ab4270
+  description_hash: sha256v7:cb0003e4e1789b4466291c1c92089e07f25070877d6f8b049e36474fc7ab4270
   labels:
     - pause
   priority: 3
@@ -13,5 +13,5 @@ external_key: OS-108
 external_url: https://linear.app/finterm-ai/issue/OS-108/tbd-source-upstream-key-github-branchcommitpushopen-pr-via-gh-others
 remote_updated_at: 2026-08-16T00:11:43.820Z
 state: linked
-synced_at: 2026-08-16T00:11:44.031Z
+synced_at: 2026-08-16T01:13:49.265Z
 type: lk

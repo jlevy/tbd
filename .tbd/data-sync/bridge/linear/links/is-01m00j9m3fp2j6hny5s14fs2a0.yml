@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:2eb7b4fdaac242cbc029dc3d91123ffcb71beffb71a53343d41cbafec6cfe7f5
+  description_hash: sha256v7:2f3c20a27d1db9525891c7ce42da335a5b23bd735375f478f5450c871d755759
   labels:
     - sync-efficiency
     - phase-1
@@ -13,5 +13,5 @@ external_key: OS-226
 external_url: https://linear.app/finterm-ai/issue/OS-226/fetch-linear-comments-only-for-pairs-the-delta-moved-cost-is-2n
 remote_updated_at: 2026-08-16T00:13:52.992Z
 state: linked
-synced_at: 2026-08-16T00:13:53.187Z
+synced_at: 2026-08-16T01:14:17.089Z
 type: lk

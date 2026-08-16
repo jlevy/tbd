@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:c76843d39f5d8b60d3604fa14f76434c78eb25ce0d9f2bc3686496eccab379c7
+  description_hash: sha256v7:c76843d39f5d8b60d3604fa14f76434c78eb25ce0d9f2bc3686496eccab379c7
   labels:
     - pause
   priority: 1
@@ -12,5 +12,5 @@ external_key: OS-39
 external_url: https://linear.app/finterm-ai/issue/OS-39/spec-docs-config-redesign-f06-framework
 remote_updated_at: 2026-08-16T00:11:26.084Z
 state: linked
-synced_at: 2026-08-16T00:11:26.295Z
+synced_at: 2026-08-16T01:13:43.800Z
 type: lk

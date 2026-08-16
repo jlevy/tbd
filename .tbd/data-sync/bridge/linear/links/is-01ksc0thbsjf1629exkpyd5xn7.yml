@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:e7b9f02c141d2e282502c4e54c78541f9ec81484a385ec8360d87e08ad9429d5
+  description_hash: sha256v7:e7b9f02c141d2e282502c4e54c78541f9ec81484a385ec8360d87e08ad9429d5
   labels:
     - dogfood
     - setup
@@ -13,5 +13,5 @@ external_key: OS-23
 external_url: https://linear.app/finterm-ai/issue/OS-23/self-apply-tbd-setup-to-this-repository
 remote_updated_at: 2026-08-16T00:12:04.442Z
 state: linked
-synced_at: 2026-08-16T00:12:04.935Z
+synced_at: 2026-08-16T01:13:52.194Z
 type: lk

@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:23d0112031f29e5ba5b888c987662bc575a0104e6fe3d1160d30a07a1a2ffaf2
+  description_hash: sha256v7:23d0112031f29e5ba5b888c987662bc575a0104e6fe3d1160d30a07a1a2ffaf2
   labels:
     - cli-layer
     - import
@@ -14,5 +14,5 @@ external_key: OS-72
 external_url: https://linear.app/finterm-ai/issue/OS-72/phase-11-import-command
 remote_updated_at: 2026-08-16T00:10:53.018Z
 state: linked
-synced_at: 2026-08-16T00:10:53.243Z
+synced_at: 2026-08-16T01:13:37.599Z
 type: lk

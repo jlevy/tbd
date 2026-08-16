@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:dd9f904a97773848848fb1a9a05fb6eb7c06c55704852295ef314a78f4d86bc0
+  description_hash: sha256v7:dd9f904a97773848848fb1a9a05fb6eb7c06c55704852295ef314a78f4d86bc0
   labels: []
   priority: 2
   status: closed
@@ -11,5 +11,5 @@ external_key: OS-51
 external_url: https://linear.app/finterm-ai/issue/OS-51/phase-2-update-sync-command-with-issues-docs-flags
 remote_updated_at: 2026-08-16T00:11:12.242Z
 state: linked
-synced_at: 2026-08-16T00:11:12.476Z
+synced_at: 2026-08-16T01:13:40.517Z
 type: lk

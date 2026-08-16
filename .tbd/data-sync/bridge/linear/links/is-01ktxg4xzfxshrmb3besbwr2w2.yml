@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  description_hash: sha256v7:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   labels:
     - pause
   priority: 2
@@ -13,5 +13,5 @@ external_key: OS-82
 external_url: https://linear.app/finterm-ai/issue/OS-82/phase-5-self-docs-migration-reference-kind-register-tbd-docstbd-design
 remote_updated_at: 2026-08-16T00:12:13.947Z
 state: linked
-synced_at: 2026-08-16T00:12:14.177Z
+synced_at: 2026-08-16T01:13:54.807Z
 type: lk

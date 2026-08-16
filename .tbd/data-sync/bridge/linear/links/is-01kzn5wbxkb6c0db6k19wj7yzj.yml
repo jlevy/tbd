@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:14dd18c4f8ecd6fb42c070a40642460a4b36022bd8555180546eac06a3351f8b
+  description_hash: sha256v7:14dd18c4f8ecd6fb42c070a40642460a4b36022bd8555180546eac06a3351f8b
   labels:
     - viewer
   priority: 1
@@ -12,5 +12,5 @@ external_key: OS-78
 external_url: https://linear.app/finterm-ai/issue/OS-78/spec-tbd-web-production-ready-live-bead-view
 remote_updated_at: 2026-08-16T00:12:50.713Z
 state: linked
-synced_at: 2026-08-16T00:12:51.062Z
+synced_at: 2026-08-16T01:14:00.882Z
 type: lk

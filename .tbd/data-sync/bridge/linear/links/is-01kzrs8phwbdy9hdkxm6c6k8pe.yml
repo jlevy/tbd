@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:9799683e2685775af60376e2176f6fdb83111ca972115e837556f509947af7ec
+  description_hash: sha256v7:9799683e2685775af60376e2176f6fdb83111ca972115e837556f509947af7ec
   labels:
     - cli
     - lifecycle
@@ -14,5 +14,5 @@ external_key: OS-143
 external_url: https://linear.app/finterm-ai/issue/OS-143/phase-35-register-webhandler-cli-surface-and-process-lifecycle
 remote_updated_at: 2026-08-16T00:13:00.837Z
 state: linked
-synced_at: 2026-08-16T00:13:01.036Z
+synced_at: 2026-08-16T01:14:03.391Z
 type: lk

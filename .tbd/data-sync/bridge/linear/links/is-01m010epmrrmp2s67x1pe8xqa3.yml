@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:aa6f68b8321262861e903c88ebb973be008afe477bfc8a378557224783ddedf2
+  description_hash: sha256v7:123caca8cc321c67833501c2da02060c7527c793326dbdc533bd19f2c870bb57
   labels:
     - phase-3
   priority: 2
@@ -12,5 +12,5 @@ external_key: OS-241
 external_url: https://linear.app/finterm-ai/issue/OS-241/inbound-selectors-label-or-assignee-triggers-kind-overrides-consume-on
 remote_updated_at: 2026-08-16T00:14:19.160Z
 state: linked
-synced_at: 2026-08-16T00:14:19.408Z
+synced_at: 2026-08-16T01:14:20.395Z
 type: lk

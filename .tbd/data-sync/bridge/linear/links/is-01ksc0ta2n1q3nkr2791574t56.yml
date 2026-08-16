@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:ed4d9b618908794c7ec262c2a73d87fb108a169b08ff5b49e3da51e03fed0258
+  description_hash: sha256v7:ed4d9b618908794c7ec262c2a73d87fb108a169b08ff5b49e3da51e03fed0258
   labels:
     - tests
     - agent-skills
@@ -14,5 +14,5 @@ external_key: OS-24
 external_url: https://linear.app/finterm-ai/issue/OS-24/add-tests-for-multi-agent-skills-and-hooks-setup
 remote_updated_at: 2026-08-16T00:12:03.459Z
 state: linked
-synced_at: 2026-08-16T00:12:03.754Z
+synced_at: 2026-08-16T01:13:52.022Z
 type: lk

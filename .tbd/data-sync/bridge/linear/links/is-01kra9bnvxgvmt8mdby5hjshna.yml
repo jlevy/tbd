@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:cc884334ebad352387749a3e3f01bf6644571b265f1d8e7f7e6455649a54cc18
+  description_hash: sha256v7:cc884334ebad352387749a3e3f01bf6644571b265f1d8e7f7e6455649a54cc18
   labels:
     - pause
   priority: 3
@@ -13,5 +13,5 @@ external_key: OS-113
 external_url: https://linear.app/finterm-ai/issue/OS-113/stand-up-githubjlevytbd-docs-initial-content-current-packagestbddocs
 remote_updated_at: 2026-08-16T00:11:47.913Z
 state: linked
-synced_at: 2026-08-16T00:11:48.106Z
+synced_at: 2026-08-16T01:13:49.980Z
 type: lk

@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:fe7e74e354fa3bbae62bee28aba99bfb1db984c21bdac6838ea189365dbae593
+  description_hash: sha256v7:fe7e74e354fa3bbae62bee28aba99bfb1db984c21bdac6838ea189365dbae593
   labels:
     - docs
     - web
@@ -14,5 +14,5 @@ external_key: OS-137
 external_url: https://linear.app/finterm-ai/issue/OS-137/phase-5-align-tbd-web-design-user-docs-and-release-notes
 remote_updated_at: 2026-08-16T00:12:57.355Z
 state: linked
-synced_at: 2026-08-16T00:12:57.530Z
+synced_at: 2026-08-16T01:14:02.250Z
 type: lk

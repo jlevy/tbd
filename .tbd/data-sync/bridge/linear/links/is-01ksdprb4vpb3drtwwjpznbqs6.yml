@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:2690fdabf8b43d0f73070455e041b00e9e2025b52666cfd927b30687ad72532e
+  description_hash: sha256v7:2690fdabf8b43d0f73070455e041b00e9e2025b52666cfd927b30687ad72532e
   labels:
     - agents-md
     - codex
@@ -14,5 +14,5 @@ external_key: OS-19
 external_url: https://linear.app/finterm-ai/issue/OS-19/define-agentsmd-scope-and-marker-policy
 remote_updated_at: 2026-08-16T00:12:08.656Z
 state: linked
-synced_at: 2026-08-16T00:12:08.951Z
+synced_at: 2026-08-16T01:13:53.349Z
 type: lk

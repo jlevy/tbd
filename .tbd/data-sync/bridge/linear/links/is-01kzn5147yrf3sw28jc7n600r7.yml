@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:e5789d41a9b3bdb02848a3b152d74360cd04e4c50b900db748befdf402983daa
+  description_hash: sha256v7:e5789d41a9b3bdb02848a3b152d74360cd04e4c50b900db748befdf402983daa
   labels: []
   priority: 2
   status: closed
@@ -11,5 +11,5 @@ external_key: OS-127
 external_url: https://linear.app/finterm-ai/issue/OS-127/phase-2-documentation-and-sync-golden-tests
 remote_updated_at: 2026-08-16T00:12:47.365Z
 state: linked
-synced_at: 2026-08-16T00:12:47.576Z
+synced_at: 2026-08-16T01:14:00.300Z
 type: lk

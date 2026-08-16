@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:37d5a3adb5a156d4c4c1202fcc4a6fd635eda34b24d77c7d16344aeae8dc4526
+  description_hash: sha256v7:37d5a3adb5a156d4c4c1202fcc4a6fd635eda34b24d77c7d16344aeae8dc4526
   labels:
     - pause
   priority: 2
@@ -13,5 +13,5 @@ external_key: OS-100
 external_url: https://linear.app/finterm-ai/issue/OS-100/scheme-specific-fetcher-github-sparse-git-clone-atomic-swap-port
 remote_updated_at: 2026-08-16T00:11:38.847Z
 state: linked
-synced_at: 2026-08-16T00:11:39.069Z
+synced_at: 2026-08-16T01:13:48.006Z
 type: lk

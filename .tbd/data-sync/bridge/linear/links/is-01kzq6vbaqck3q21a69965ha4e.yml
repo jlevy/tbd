@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:66bb24004f28f502cf82a22bb08fc7b56adce6c3956ead0fb28d20406245897a
+  description_hash: sha256v7:66bb24004f28f502cf82a22bb08fc7b56adce6c3956ead0fb28d20406245897a
   labels: []
   priority: 1
   status: closed
@@ -11,5 +11,5 @@ external_key: OS-131
 external_url: https://linear.app/finterm-ai/issue/OS-131/phase-2-core-foundations-for-tbd-web-issue-query-abortsignal-sync-run
 remote_updated_at: 2026-08-16T00:12:53.168Z
 state: linked
-synced_at: 2026-08-16T00:12:53.395Z
+synced_at: 2026-08-16T01:14:01.339Z
 type: lk

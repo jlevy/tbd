@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:0268d053ff07af180d3171af8508b5ba02781242c388300dcf419821e259989c
+  description_hash: sha256v7:0268d053ff07af180d3171af8508b5ba02781242c388300dcf419821e259989c
   labels: []
   priority: 2
   status: open
@@ -11,5 +11,5 @@ external_key: OS-204
 external_url: https://linear.app/finterm-ai/issue/OS-204/malformed-managed-markers-freeze-all-sync-for-a-pair-including
 remote_updated_at: 2026-08-16T00:13:21.828Z
 state: linked
-synced_at: 2026-08-16T00:13:22.050Z
+synced_at: 2026-08-16T01:14:08.226Z
 type: lk

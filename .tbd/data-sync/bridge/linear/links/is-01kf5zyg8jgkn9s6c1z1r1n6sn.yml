@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:1e39fcb1953fc366a7bae7c23316b1acaa32da7c0cc577d0adf56c55a0e2f92b
+  description_hash: sha256v7:1e39fcb1953fc366a7bae7c23316b1acaa32da7c0cc577d0adf56c55a0e2f92b
   labels:
     - implementation
     - tbd-v1
@@ -13,5 +13,5 @@ external_key: OS-76
 external_url: https://linear.app/finterm-ai/issue/OS-76/tbd-v1-complete-implementation
 remote_updated_at: 2026-08-16T00:10:49.865Z
 state: linked
-synced_at: 2026-08-16T00:10:50.822Z
+synced_at: 2026-08-16T01:13:36.971Z
 type: lk

@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:92906a42b3a8bd2491cb05dd1659fe86b7063be1e2860977ea2834faff13e583
+  description_hash: sha256v7:92906a42b3a8bd2491cb05dd1659fe86b7063be1e2860977ea2834faff13e583
   labels: []
   priority: 2
   status: closed
@@ -11,5 +11,5 @@ external_key: OS-85
 external_url: https://linear.app/finterm-ai/issue/OS-85/phase-2-linking-policy-policydefinitionschema-presets-select-folding
 remote_updated_at: 2026-08-16T00:12:51.722Z
 state: linked
-synced_at: 2026-08-16T00:12:51.948Z
+synced_at: 2026-08-16T01:14:01.039Z
 type: lk

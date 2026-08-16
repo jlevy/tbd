@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:e1ef60304156205af8960aad01914e78b2652f459780e94d2569d43c023149f0
+  description_hash: sha256v7:e1ef60304156205af8960aad01914e78b2652f459780e94d2569d43c023149f0
   labels: []
   priority: 2
   status: open
@@ -11,5 +11,5 @@ external_key: OS-208
 external_url: https://linear.app/finterm-ai/issue/OS-208/remove-the-pilot-sync-on-tbd-sync-false-override-once-f07-ships
 remote_updated_at: 2026-08-16T00:13:26.657Z
 state: linked
-synced_at: 2026-08-16T00:13:26.869Z
+synced_at: 2026-08-16T01:14:08.875Z
 type: lk

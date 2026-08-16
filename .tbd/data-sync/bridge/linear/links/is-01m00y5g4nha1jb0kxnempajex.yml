@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:5b36cae31ce00550b1ed5aefe529c0e01053628e2ec1091abc72bc643f3a4119
+  description_hash: sha256v7:832df2ff079c792b32b6ff201306e57577f6495a8fa1700285ee29aeb34831f0
   labels:
     - phase-2
     - multi-repo
@@ -13,5 +13,5 @@ external_key: OS-240
 external_url: https://linear.app/finterm-ai/issue/OS-240/f08-reshape-the-integration-config-into-targetpolicylabelsidentity
 remote_updated_at: 2026-08-16T00:14:15.019Z
 state: linked
-synced_at: 2026-08-16T00:14:15.222Z
+synced_at: 2026-08-16T01:14:20.236Z
 type: lk

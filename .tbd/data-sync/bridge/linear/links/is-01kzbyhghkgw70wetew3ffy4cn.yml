@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:7d8e7ee6b79a4a1fca1e69fa848ba402ac79c3aff9422099248c15168fd481ec
+  description_hash: sha256v7:7d8e7ee6b79a4a1fca1e69fa848ba402ac79c3aff9422099248c15168fd481ec
   labels:
     - linear-sync
   priority: 1
@@ -13,5 +13,5 @@ external_key: OS-5
 external_url: https://linear.app/finterm-ai/issue/OS-5/rework-linear-pilot-spec-under-the-integration-layering-extensions
 remote_updated_at: 2026-08-16T00:12:28.428Z
 state: linked
-synced_at: 2026-08-16T00:12:28.670Z
+synced_at: 2026-08-16T01:13:57.381Z
 type: lk

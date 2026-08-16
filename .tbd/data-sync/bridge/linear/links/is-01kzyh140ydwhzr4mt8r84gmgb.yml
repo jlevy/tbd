@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:11fac50d15943598f21950bd09a3c352879a9d44400a7c5ebffabf4a4af625a5
+  description_hash: sha256v7:11fac50d15943598f21950bd09a3c352879a9d44400a7c5ebffabf4a4af625a5
   labels: []
   priority: 1
   status: open
@@ -11,5 +11,5 @@ external_key: OS-203
 external_url: https://linear.app/finterm-ai/issue/OS-203/consolidate-push-onto-the-sync-engine-two-engines-behind-one-flag
 remote_updated_at: 2026-08-16T00:13:20.719Z
 state: linked
-synced_at: 2026-08-16T00:13:20.917Z
+synced_at: 2026-08-16T01:14:08.098Z
 type: lk

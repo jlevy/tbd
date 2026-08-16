@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:4ea1598950a76b6284310e5118aa649de3e0d128473e4dfd7f7258e8e7bbef7e
+  description_hash: sha256v7:e547cf2979f95bb373bda8e309c2a59d129cfd541118e8233f9ad2789afe97f6
   labels:
     - traceability
     - phase-2
@@ -13,5 +13,5 @@ external_key: OS-229
 external_url: https://linear.app/finterm-ai/issue/OS-229/add-a-refs-list-to-beads-for-prs-external-issues-and-docs
 remote_updated_at: 2026-08-16T00:13:57.652Z
 state: linked
-synced_at: 2026-08-16T00:13:57.857Z
+synced_at: 2026-08-16T01:14:17.508Z
 type: lk

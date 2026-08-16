@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:9efeb5750bc7ac0d667ea7c7560304c17fe1f24d182ae2347e4841499f98c542
+  description_hash: sha256v7:9efeb5750bc7ac0d667ea7c7560304c17fe1f24d182ae2347e4841499f98c542
   labels:
     - phase-3
   priority: 1
@@ -12,5 +12,5 @@ external_key: OS-215
 external_url: https://linear.app/finterm-ai/issue/OS-215/managed-block-roll-up-in-flight-children-actor-and-sync-time
 remote_updated_at: 2026-08-16T00:13:35.483Z
 state: linked
-synced_at: 2026-08-16T00:13:35.871Z
+synced_at: 2026-08-16T01:14:13.782Z
 type: lk

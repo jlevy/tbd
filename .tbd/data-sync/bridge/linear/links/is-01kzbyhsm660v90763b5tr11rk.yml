@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:97b3ce0b0c31de44f1259fd204b8138162307024b1bf5796d6d4831e0c57dc3a
+  description_hash: sha256v7:97b3ce0b0c31de44f1259fd204b8138162307024b1bf5796d6d4831e0c57dc3a
   labels:
     - linear-sync
   priority: 2
@@ -12,5 +12,5 @@ external_key: OS-4
 external_url: https://linear.app/finterm-ai/issue/OS-4/generic-extensions-readwritedisplay-on-the-cli
 remote_updated_at: 2026-08-16T00:12:29.475Z
 state: linked
-synced_at: 2026-08-16T00:12:29.681Z
+synced_at: 2026-08-16T01:13:57.520Z
 type: lk

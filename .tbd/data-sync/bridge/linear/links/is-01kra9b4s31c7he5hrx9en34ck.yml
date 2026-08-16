@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:ee52aea5636b5cbd3f893508e0257ae959cfd2d0fd0929317585ba3163f1d4bf
+  description_hash: sha256v7:ee52aea5636b5cbd3f893508e0257ae959cfd2d0fd0929317585ba3163f1d4bf
   labels:
     - pause
   priority: 2
@@ -12,5 +12,5 @@ external_key: OS-98
 external_url: https://linear.app/finterm-ai/issue/OS-98/url-docref-normalization-githubgitlab-url-githubgitlab-forms
 remote_updated_at: 2026-08-16T00:11:37.594Z
 state: linked
-synced_at: 2026-08-16T00:11:37.873Z
+synced_at: 2026-08-16T01:13:47.724Z
 type: lk

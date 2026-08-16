@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:7cb3b7da91760c53bcd17c8003852842d517f1e3d9de4ac5f65f81f19744c347
+  description_hash: sha256v7:7cb3b7da91760c53bcd17c8003852842d517f1e3d9de4ac5f65f81f19744c347
   labels:
     - phase-1
   priority: 1
@@ -12,5 +12,5 @@ external_key: OS-210
 external_url: https://linear.app/finterm-ai/issue/OS-210/fix-tbd-sessionsh-path-order-and-make-hook-failure-visible
 remote_updated_at: 2026-08-16T00:13:29.090Z
 state: linked
-synced_at: 2026-08-16T00:13:29.296Z
+synced_at: 2026-08-16T01:14:09.215Z
 type: lk

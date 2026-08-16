@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:5a48030a82aac47a6d53157a10d7f5944a9e803caaa1337c85138b9ad8f786f1
+  description_hash: sha256v7:5a48030a82aac47a6d53157a10d7f5944a9e803caaa1337c85138b9ad8f786f1
   labels:
     - pause
   priority: 2
@@ -13,5 +13,5 @@ external_key: OS-104
 external_url: https://linear.app/finterm-ai/issue/OS-104/tbd-sync-docs-and-tbd-source-update-bundle-scheme-specific-fetch
 remote_updated_at: 2026-08-16T00:11:40.863Z
 state: linked
-synced_at: 2026-08-16T00:11:41.080Z
+synced_at: 2026-08-16T01:13:48.590Z
 type: lk

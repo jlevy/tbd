@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:2eb145543a37c63043560e67097577e09f08d8e099fba6f3e1aec169c4c6d9cd
+  description_hash: sha256v7:2eb145543a37c63043560e67097577e09f08d8e099fba6f3e1aec169c4c6d9cd
   labels:
     - phase-4
   priority: 1
@@ -12,5 +12,5 @@ external_key: OS-214
 external_url: https://linear.app/finterm-ai/issue/OS-214/tbd-prime-reports-claimed-work-and-sync-freshness
 remote_updated_at: 2026-08-16T00:13:33.869Z
 state: linked
-synced_at: 2026-08-16T00:13:34.552Z
+synced_at: 2026-08-16T01:14:13.586Z
 type: lk

@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:e178043c398feb0c064838b44c228c2625dab51035e4e9a75a4da60f7a65c559
+  description_hash: sha256v7:e178043c398feb0c064838b44c228c2625dab51035e4e9a75a4da60f7a65c559
   labels:
     - web
     - pr-207
@@ -13,5 +13,5 @@ external_key: OS-136
 external_url: https://linear.app/finterm-ai/issue/OS-136/phase-4-productize-strict-typescript-web-client-and-packaged-artifact
 remote_updated_at: 2026-08-16T00:12:56.763Z
 state: linked
-synced_at: 2026-08-16T00:12:57.060Z
+synced_at: 2026-08-16T01:14:02.099Z
 type: lk

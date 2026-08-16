@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:70299dd9a18969775338b9f47907b2574ea122c242eb0a5e7b92a40e04881743
+  description_hash: sha256v7:70299dd9a18969775338b9f47907b2574ea122c242eb0a5e7b92a40e04881743
   labels:
     - web
     - pr-207
@@ -13,5 +13,5 @@ external_key: OS-135
 external_url: https://linear.app/finterm-ai/issue/OS-135/phase-3-productize-tbd-web-server-wake-pipeline-and-cli-lifecycle
 remote_updated_at: 2026-08-16T00:12:56.158Z
 state: linked
-synced_at: 2026-08-16T00:12:56.349Z
+synced_at: 2026-08-16T01:14:01.920Z
 type: lk

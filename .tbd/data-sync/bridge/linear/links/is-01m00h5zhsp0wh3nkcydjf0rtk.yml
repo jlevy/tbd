@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:3c93da2367d2d3f8ffa5011b5e4d52f6082ccef2f2174d10e5614ea3b7b0e888
+  description_hash: sha256v7:3c93da2367d2d3f8ffa5011b5e4d52f6082ccef2f2174d10e5614ea3b7b0e888
   labels:
     - phase-4
   priority: 2
@@ -12,5 +12,5 @@ external_key: OS-217
 external_url: https://linear.app/finterm-ai/issue/OS-217/tbd-closing-check-machine-checkable-completion-gate
 remote_updated_at: 2026-08-16T00:13:39.570Z
 state: linked
-synced_at: 2026-08-16T00:13:39.779Z
+synced_at: 2026-08-16T01:14:15.514Z
 type: lk

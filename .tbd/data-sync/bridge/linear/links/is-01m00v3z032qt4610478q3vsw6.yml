@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:687f65116bc6c3c973d381b4ec098c43a9ee0350445f77e804199d5b81f8ab77
+  description_hash: sha256v7:687f65116bc6c3c973d381b4ec098c43a9ee0350445f77e804199d5b81f8ab77
   labels:
     - phase-3
     - multi-repo
@@ -14,5 +14,5 @@ external_key: OS-239
 external_url: https://linear.app/finterm-ai/issue/OS-239/remap-safety-detect-team-mismatch-never-push-state-ids-across-teams
 remote_updated_at: 2026-08-16T00:14:13.069Z
 state: linked
-synced_at: 2026-08-16T00:14:14.026Z
+synced_at: 2026-08-16T01:14:20.088Z
 type: lk

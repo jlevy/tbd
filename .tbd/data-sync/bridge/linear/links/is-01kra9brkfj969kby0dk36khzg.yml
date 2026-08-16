@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:c46bb79924fc040a1808976110231948a6557f4663b177ba03a9fd4c46a16af4
+  description_hash: sha256v7:c46bb79924fc040a1808976110231948a6557f4663b177ba03a9fd4c46a16af4
   labels:
     - pause
   priority: 3
@@ -13,5 +13,5 @@ external_key: OS-120
 external_url: https://linear.app/finterm-ai/issue/OS-120/phase-3-tests-tryscripts-that-depend-on-bundled-doc-content-point-at
 remote_updated_at: 2026-08-16T00:11:55.540Z
 state: linked
-synced_at: 2026-08-16T00:11:55.731Z
+synced_at: 2026-08-16T01:13:51.165Z
 type: lk

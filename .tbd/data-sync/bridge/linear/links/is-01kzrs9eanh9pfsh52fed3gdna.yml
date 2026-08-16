@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:aad3e5f42c7627879a697473ddcab012bf48917fc3e5f1b9fccb6c1380993ab6
+  description_hash: sha256v7:aad3e5f42c7627879a697473ddcab012bf48917fc3e5f1b9fccb6c1380993ab6
   labels:
     - build
     - packaging
@@ -14,5 +14,5 @@ external_key: OS-146
 external_url: https://linear.app/finterm-ai/issue/OS-146/phase-43-add-browser-typecheck-iife-build-and-deterministic-html
 remote_updated_at: 2026-08-16T00:13:02.421Z
 state: linked
-synced_at: 2026-08-16T00:13:02.606Z
+synced_at: 2026-08-16T01:14:03.814Z
 type: lk

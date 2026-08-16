@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:24cef8ceae22fff08c13f252ffd26faaa733da2a37d6d95bf37bccc2832a66e0
+  description_hash: sha256v7:24cef8ceae22fff08c13f252ffd26faaa733da2a37d6d95bf37bccc2832a66e0
   labels:
     - web
     - integration
@@ -13,5 +13,5 @@ external_key: OS-159
 external_url: https://linear.app/finterm-ai/issue/OS-159/project-allow-listed-external-links-into-web-board-and-bead-detail
 remote_updated_at: 2026-08-16T00:13:10.115Z
 state: linked
-synced_at: 2026-08-16T00:13:10.349Z
+synced_at: 2026-08-16T01:14:06.094Z
 type: lk

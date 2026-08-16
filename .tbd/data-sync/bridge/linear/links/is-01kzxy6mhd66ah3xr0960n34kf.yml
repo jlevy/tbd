@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:8d7f244bf54f51a828cc5bf73bf790b3b7fed9b1c3090324ac676d6ef52af68c
+  description_hash: sha256v7:8d7f244bf54f51a828cc5bf73bf790b3b7fed9b1c3090324ac676d6ef52af68c
   labels:
     - linear
     - integration
@@ -15,5 +15,5 @@ external_key: OS-164
 external_url: https://linear.app/finterm-ai/issue/OS-164/linear-sync-pilot-outbound-round-1
 remote_updated_at: 2026-08-16T00:13:15.774Z
 state: linked
-synced_at: 2026-08-16T00:13:16.012Z
+synced_at: 2026-08-16T01:14:06.780Z
 type: lk

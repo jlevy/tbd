@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:b286ec112371e334942290392b0cec58dddce552cfe957b1f6bc4d77c87938c5
+  description_hash: sha256v7:b286ec112371e334942290392b0cec58dddce552cfe957b1f6bc4d77c87938c5
   labels: []
   priority: 2
   status: closed
@@ -11,5 +11,5 @@ external_key: OS-2
 external_url: https://linear.app/finterm-ai/issue/OS-2/phase-2-tbd-integration-sync-the-full-synchronization-command
 remote_updated_at: 2026-08-16T00:12:35.672Z
 state: linked
-synced_at: 2026-08-16T00:12:35.877Z
+synced_at: 2026-08-16T01:13:58.547Z
 type: lk

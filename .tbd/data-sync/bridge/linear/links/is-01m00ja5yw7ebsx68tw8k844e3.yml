@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:0d67f221ba31f9965139f01985be968a110072b047bd616bf94c63412067495d
+  description_hash: sha256v7:0d67f221ba31f9965139f01985be968a110072b047bd616bf94c63412067495d
   labels:
     - phase-1
   priority: 1
@@ -12,5 +12,5 @@ external_key: OS-227
 external_url: https://linear.app/finterm-ai/issue/OS-227/tbd-sync-push-silently-performs-the-outbound-only-mirror-the-docs-warn
 remote_updated_at: 2026-08-16T00:13:55.133Z
 state: linked
-synced_at: 2026-08-16T00:13:55.344Z
+synced_at: 2026-08-16T01:14:17.228Z
 type: lk

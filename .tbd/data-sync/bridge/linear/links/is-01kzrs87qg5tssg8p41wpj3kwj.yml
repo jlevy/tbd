@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:875292b152c3da294ba954b1e003f6ca6fb5167d6ac7530bad59234b8cb81aa5
+  description_hash: sha256v7:875292b152c3da294ba954b1e003f6ca6fb5167d6ac7530bad59234b8cb81aa5
   labels:
     - server
     - watch
@@ -14,5 +14,5 @@ external_key: OS-141
 external_url: https://linear.app/finterm-ai/issue/OS-141/phase-33-implement-in-process-remotelocal-wake-coordinator
 remote_updated_at: 2026-08-16T00:12:59.793Z
 state: linked
-synced_at: 2026-08-16T00:12:59.991Z
+synced_at: 2026-08-16T01:14:03.095Z
 type: lk

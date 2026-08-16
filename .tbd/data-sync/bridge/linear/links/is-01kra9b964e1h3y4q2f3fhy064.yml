@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:1399722ca62be80d99886bb85b87857339038e618ac18a691ca013581ef58f2d
+  description_hash: sha256v7:1399722ca62be80d99886bb85b87857339038e618ac18a691ca013581ef58f2d
   labels:
     - pause
   priority: 3
@@ -12,5 +12,5 @@ external_key: OS-109
 external_url: https://linear.app/finterm-ai/issue/OS-109/tbd-source-unfork-key-git-rm-local-override-source-update-bundle
 remote_updated_at: 2026-08-16T00:11:44.338Z
 state: linked
-synced_at: 2026-08-16T00:11:44.536Z
+synced_at: 2026-08-16T01:13:49.411Z
 type: lk

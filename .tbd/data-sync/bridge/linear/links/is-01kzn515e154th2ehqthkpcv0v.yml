@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:bc478a01b62a904d53770d9f434ebd8d380d1d3b51230e9fa193dd882c6ab0ed
+  description_hash: sha256v7:bc478a01b62a904d53770d9f434ebd8d380d1d3b51230e9fa193dd882c6ab0ed
   labels:
     - github
     - integration
@@ -13,5 +13,5 @@ external_key: OS-130
 external_url: https://linear.app/finterm-ai/issue/OS-130/phase-3-documentation
 remote_updated_at: 2026-08-16T00:12:50.095Z
 state: linked
-synced_at: 2026-08-16T00:12:50.380Z
+synced_at: 2026-08-16T01:14:00.749Z
 type: lk

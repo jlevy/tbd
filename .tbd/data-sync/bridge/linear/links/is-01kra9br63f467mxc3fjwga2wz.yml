@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:1fa93706d0e7670d5c0a0a0b7b65d9cc9944db33d3154b6cfe62092478fde75c
+  description_hash: sha256v7:1fa93706d0e7670d5c0a0a0b7b65d9cc9944db33d3154b6cfe62092478fde75c
   labels:
     - pause
   priority: 4
@@ -12,5 +12,5 @@ external_key: OS-119
 external_url: https://linear.app/finterm-ai/issue/OS-119/update-tbd-docs-release-notes-and-link-from-tbds-docs
 remote_updated_at: 2026-08-16T00:11:53.093Z
 state: linked
-synced_at: 2026-08-16T00:11:53.267Z
+synced_at: 2026-08-16T01:13:51.013Z
 type: lk

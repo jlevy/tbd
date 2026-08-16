@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:02a66fc19043b00f6bece64644372c556e61349d93bf834cba7f0089efc17534
+  description_hash: sha256v7:02a66fc19043b00f6bece64644372c556e61349d93bf834cba7f0089efc17534
   labels:
     - phase-4
   priority: 3
@@ -12,5 +12,5 @@ external_key: OS-225
 external_url: https://linear.app/finterm-ai/issue/OS-225/document-pulled-linear-comments-as-untrusted-input
 remote_updated_at: 2026-08-16T00:13:50.965Z
 state: linked
-synced_at: 2026-08-16T00:13:51.176Z
+synced_at: 2026-08-16T01:14:16.947Z
 type: lk

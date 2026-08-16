@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:9c4cc8128b8f574a45673e531765767ea2bcb6f26020e20c69e7932c933dd991
+  description_hash: sha256v7:9c4cc8128b8f574a45673e531765767ea2bcb6f26020e20c69e7932c933dd991
   labels:
     - linear-sync
   priority: 1
@@ -12,5 +12,5 @@ external_key: OS-8
 external_url: https://linear.app/finterm-ai/issue/OS-8/fix-extensions-merge-lww-deep-merge-by-key-per-design-35
 remote_updated_at: 2026-08-16T00:12:25.424Z
 state: linked
-synced_at: 2026-08-16T00:12:25.632Z
+synced_at: 2026-08-16T01:13:56.844Z
 type: lk

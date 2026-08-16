@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:f0b2aa4b953c97f808fef566778589a45c59bb762e6ba9948b31ea823c7d8770
+  description_hash: sha256v7:f0b2aa4b953c97f808fef566778589a45c59bb762e6ba9948b31ea823c7d8770
   labels:
     - pause
   priority: 1
@@ -13,5 +13,5 @@ external_key: OS-96
 external_url: https://linear.app/finterm-ai/issue/OS-96/existing-doc-commands-work-via-new-resolution-path-tbd
 remote_updated_at: 2026-08-16T00:11:36.560Z
 state: linked
-synced_at: 2026-08-16T00:11:36.773Z
+synced_at: 2026-08-16T01:13:47.348Z
 type: lk

@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:71e0b175d22300017aeaba9b653055017d6e3482137a1cdd2d2aabecd9a669df
+  description_hash: sha256v7:71e0b175d22300017aeaba9b653055017d6e3482137a1cdd2d2aabecd9a669df
   labels:
     - file-layer
     - phase-1
@@ -13,5 +13,5 @@ external_key: OS-77
 external_url: https://linear.app/finterm-ai/issue/OS-77/phase-1-core-schemas-and-serialization
 remote_updated_at: 2026-08-16T00:10:49.131Z
 state: linked
-synced_at: 2026-08-16T00:10:49.424Z
+synced_at: 2026-08-16T01:13:36.820Z
 type: lk

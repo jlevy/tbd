@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:c49feb715a10b7745511a6eca9c84657e4f1eaaa835a61b75bc238dd6d14e885
+  description_hash: sha256v7:c49feb715a10b7745511a6eca9c84657e4f1eaaa835a61b75bc238dd6d14e885
   labels:
     - setup
     - diagnostics
@@ -13,5 +13,5 @@ external_key: OS-26
 external_url: https://linear.app/finterm-ai/issue/OS-26/update-setup-check-remove-status-and-doctor
 remote_updated_at: 2026-08-16T00:12:01.408Z
 state: linked
-synced_at: 2026-08-16T00:12:01.622Z
+synced_at: 2026-08-16T01:13:51.750Z
 type: lk

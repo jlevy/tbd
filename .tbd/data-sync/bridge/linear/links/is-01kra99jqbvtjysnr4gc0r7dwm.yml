@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:00565d3f44adeb1d3d0562ad23931c06d8febd89697ebbe156ba0b078b0f67cf
+  description_hash: sha256v7:00565d3f44adeb1d3d0562ad23931c06d8febd89697ebbe156ba0b078b0f67cf
   labels:
     - pause
   priority: 1
@@ -12,5 +12,5 @@ external_key: OS-33
 external_url: https://linear.app/finterm-ai/issue/OS-33/q17-decide-lockfile-identity-docref-only-vs-source-id-vs-full-config
 remote_updated_at: 2026-08-16T00:11:30.241Z
 state: linked
-synced_at: 2026-08-16T00:11:30.454Z
+synced_at: 2026-08-16T01:13:45.518Z
 type: lk

@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:424bcc0ab4ec04932a7273b55afd7ebaa836b08de45d7018c723c4745e5f9926
+  description_hash: sha256v7:424bcc0ab4ec04932a7273b55afd7ebaa836b08de45d7018c723c4745e5f9926
   labels:
     - pause
   priority: 2
@@ -13,5 +13,5 @@ external_key: OS-107
 external_url: https://linear.app/finterm-ai/issue/OS-107/tbd-source-diff-key-two-way-diff-local-override-vs-cached-current
 remote_updated_at: 2026-08-16T00:11:42.461Z
 state: linked
-synced_at: 2026-08-16T00:11:42.649Z
+synced_at: 2026-08-16T01:13:49.112Z
 type: lk

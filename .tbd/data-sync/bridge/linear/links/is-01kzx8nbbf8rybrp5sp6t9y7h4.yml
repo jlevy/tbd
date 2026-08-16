@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:431e44df612ff72d9efd7cb30d26421e7dbefe34740583fa962b4e9cd9d84302
+  description_hash: sha256v7:431e44df612ff72d9efd7cb30d26421e7dbefe34740583fa962b4e9cd9d84302
   labels:
     - web
     - integration
@@ -13,5 +13,5 @@ external_key: OS-158
 external_url: https://linear.app/finterm-ai/issue/OS-158/add-shared-external-link-query-and-conditional-facet-semantics
 remote_updated_at: 2026-08-16T00:13:09.079Z
 state: linked
-synced_at: 2026-08-16T00:13:09.304Z
+synced_at: 2026-08-16T01:14:05.855Z
 type: lk

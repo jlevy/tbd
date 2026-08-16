@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:9e5588af1e64a5348eacf8e7fe9648d34f36ad5a1064af267471dadf25f6bcae
+  description_hash: sha256v7:9e5588af1e64a5348eacf8e7fe9648d34f36ad5a1064af267471dadf25f6bcae
   labels:
     - integration
     - testing
@@ -14,5 +14,5 @@ external_key: OS-147
 external_url: https://linear.app/finterm-ai/issue/OS-147/phase-44-prove-clientserver-behavior-parity-and-retire-stale-inline
 remote_updated_at: 2026-08-16T00:13:02.925Z
 state: linked
-synced_at: 2026-08-16T00:13:03.133Z
+synced_at: 2026-08-16T01:14:04.277Z
 type: lk

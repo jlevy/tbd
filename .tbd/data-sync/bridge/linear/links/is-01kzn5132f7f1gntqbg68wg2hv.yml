@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:5db286a26a7ede2d9c92ecd5fc2457647935bcab5ed68dca7a75ffc080ebbeec
+  description_hash: sha256v7:5db286a26a7ede2d9c92ecd5fc2457647935bcab5ed68dca7a75ffc080ebbeec
   labels: []
   priority: 2
   status: closed
@@ -11,5 +11,5 @@ external_key: OS-124
 external_url: https://linear.app/finterm-ai/issue/OS-124/conflict-handling-attic-entry-plus-external-comment-with-resolve
 remote_updated_at: 2026-08-16T00:12:44.349Z
 state: linked
-synced_at: 2026-08-16T00:12:44.587Z
+synced_at: 2026-08-16T01:13:59.740Z
 type: lk

@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:af15ad8cafcea3f615267c4582e243322913cac5d245c7213d020149b9e8297f
+  description_hash: sha256v7:af15ad8cafcea3f615267c4582e243322913cac5d245c7213d020149b9e8297f
   labels:
     - pause
   priority: 2
@@ -12,5 +12,5 @@ external_key: OS-95
 external_url: https://linear.app/finterm-ai/issue/OS-95/update-tbd-setup-to-seed-default-sources-single-internal-bundle-for
 remote_updated_at: 2026-08-16T00:11:36.077Z
 state: linked
-synced_at: 2026-08-16T00:11:36.269Z
+synced_at: 2026-08-16T01:13:47.202Z
 type: lk

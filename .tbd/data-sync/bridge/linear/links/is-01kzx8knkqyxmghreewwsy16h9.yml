@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:fa9910885fb9029ec380d149b88a712a0746fd59e041104c8282ba1f2240d328
+  description_hash: sha256v7:fa9910885fb9029ec380d149b88a712a0746fd59e041104c8282ba1f2240d328
   labels:
     - github
     - integration
@@ -14,5 +14,5 @@ external_key: OS-156
 external_url: https://linear.app/finterm-ai/issue/OS-156/validate-github-integration-through-the-built-cli-and-a-live-pilot
 remote_updated_at: 2026-08-16T00:13:07.334Z
 state: linked
-synced_at: 2026-08-16T00:13:07.580Z
+synced_at: 2026-08-16T01:14:05.538Z
 type: lk

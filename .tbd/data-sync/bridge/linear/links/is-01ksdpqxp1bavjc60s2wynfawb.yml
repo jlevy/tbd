@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:6796e7a3c40a7def522a584433319f854b554c69705c6a348891970235b490a1
+  description_hash: sha256v7:6796e7a3c40a7def522a584433319f854b554c69705c6a348891970235b490a1
   labels:
     - guidelines
     - security
@@ -14,5 +14,5 @@ external_key: OS-21
 external_url: https://linear.app/finterm-ai/issue/OS-21/document-pinned-cli-runner-fallback-patterns
 remote_updated_at: 2026-08-16T00:12:06.817Z
 state: linked
-synced_at: 2026-08-16T00:12:07.054Z
+synced_at: 2026-08-16T01:13:53.072Z
 type: lk

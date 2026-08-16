@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:e1789964a491cf062b39b124e6e495dee603a3e1ab225e67e098909c3acb0784
+  description_hash: sha256v7:e1789964a491cf062b39b124e6e495dee603a3e1ab225e67e098909c3acb0784
   labels:
     - qa
     - packaging
@@ -15,5 +15,5 @@ external_key: OS-151
 external_url: https://linear.app/finterm-ai/issue/OS-151/phase-62-prove-packaged-install-lifecycle-wake-and-git-isolation
 remote_updated_at: 2026-08-16T00:13:04.889Z
 state: linked
-synced_at: 2026-08-16T00:13:05.070Z
+synced_at: 2026-08-16T01:14:05.114Z
 type: lk

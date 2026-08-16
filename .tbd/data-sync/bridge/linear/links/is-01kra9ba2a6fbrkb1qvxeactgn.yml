@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:7f298faa51166bbe12eb330e3ad475761497b65e5f9c8f7bfaf94e6014920943
+  description_hash: sha256v7:7f298faa51166bbe12eb330e3ad475761497b65e5f9c8f7bfaf94e6014920943
   labels:
     - pause
   priority: 3
@@ -12,5 +12,5 @@ external_key: OS-111
 external_url: https://linear.app/finterm-ai/issue/OS-111/tbd-doctor-checks-for-source-health-clones-refs-lockfile-hashes
 remote_updated_at: 2026-08-16T00:11:46.770Z
 state: linked
-synced_at: 2026-08-16T00:11:47.110Z
+synced_at: 2026-08-16T01:13:49.695Z
 type: lk

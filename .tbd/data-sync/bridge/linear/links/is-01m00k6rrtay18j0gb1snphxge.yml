@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:da92bdf0a9f17751c5a85e8c8397322901b025d12d088d305884547130aac20f
+  description_hash: sha256v7:da92bdf0a9f17751c5a85e8c8397322901b025d12d088d305884547130aac20f
   labels:
     - traceability
     - phase-3
@@ -13,5 +13,5 @@ external_key: OS-231
 external_url: https://linear.app/finterm-ai/issue/OS-231/give-tbd-web-an-addressable-bead-so-linear-can-link-into-it
 remote_updated_at: 2026-08-16T00:13:59.984Z
 state: linked
-synced_at: 2026-08-16T00:14:00.772Z
+synced_at: 2026-08-16T01:14:17.820Z
 type: lk

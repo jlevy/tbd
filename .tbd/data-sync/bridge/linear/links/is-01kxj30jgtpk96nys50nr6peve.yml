@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:38beaca1db1d89c2b236a0c7ba47bc703f69edb40b1a7899443d30098ce73ef2
+  description_hash: sha256v7:38beaca1db1d89c2b236a0c7ba47bc703f69edb40b1a7899443d30098ce73ef2
   labels:
     - github-190
     - agent-skills
@@ -14,5 +14,5 @@ external_key: OS-81
 external_url: https://linear.app/finterm-ai/issue/OS-81/github-190-refresh-skill-creation-guidance-and-setup-dry-run-safety
 remote_updated_at: 2026-08-16T00:12:23.665Z
 state: linked
-synced_at: 2026-08-16T00:12:23.911Z
+synced_at: 2026-08-16T01:13:56.557Z
 type: lk

@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:61d7bc0c0bc036eaadff18a8005c9afdc6f4dfd266d3697c6d6829e3151b2838
+  description_hash: sha256v7:61d7bc0c0bc036eaadff18a8005c9afdc6f4dfd266d3697c6d6829e3151b2838
   labels:
     - pause
   priority: 3
@@ -12,5 +12,5 @@ external_key: OS-115
 external_url: https://linear.app/finterm-ai/issue/OS-115/update-tbd-setup-auto-to-add-githubjlevytbd-docsv100-as-default-source
 remote_updated_at: 2026-08-16T00:11:49.682Z
 state: linked
-synced_at: 2026-08-16T00:11:49.886Z
+synced_at: 2026-08-16T01:13:50.312Z
 type: lk

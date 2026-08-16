@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:ad63262893b4adf4911c1c91903576e221e91aa94dcb0de0eb697d756025ec49
+  description_hash: sha256v7:ad63262893b4adf4911c1c91903576e221e91aa94dcb0de0eb697d756025ec49
   labels:
     - setup
     - agent-skills
@@ -13,5 +13,5 @@ external_key: OS-20
 external_url: https://linear.app/finterm-ai/issue/OS-20/add-surfaceslist-setup-selector-replaces-per-agent-flags
 remote_updated_at: 2026-08-16T00:12:07.756Z
 state: linked
-synced_at: 2026-08-16T00:12:07.981Z
+synced_at: 2026-08-16T01:13:53.208Z
 type: lk

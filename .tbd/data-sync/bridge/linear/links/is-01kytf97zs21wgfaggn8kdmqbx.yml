@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:6f7987addeb930aca39b87f7fffee777394649e8e5de72d0adda11822277348d
+  description_hash: sha256v7:6f7987addeb930aca39b87f7fffee777394649e8e5de72d0adda11822277348d
   labels: []
   priority: 1
   status: closed
@@ -11,5 +11,5 @@ external_key: OS-6
 external_url: https://linear.app/finterm-ai/issue/OS-6/ship-gh-decision-rule-guidance-so-it-reaches-agents-gh-issue-195
 remote_updated_at: 2026-08-16T00:12:27.446Z
 state: linked
-synced_at: 2026-08-16T00:12:27.688Z
+synced_at: 2026-08-16T01:13:57.119Z
 type: lk

@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:82ce97cec9db2018ce41eeb91d5cc6a504dc440da4310b3049871f1667ec6d86
+  description_hash: sha256v7:82ce97cec9db2018ce41eeb91d5cc6a504dc440da4310b3049871f1667ec6d86
   labels: []
   priority: 2
   status: closed
@@ -11,5 +11,5 @@ external_key: OS-122
 external_url: https://linear.app/finterm-ai/issue/OS-122/integrationscorethree-wayts-diffagainstbase-and-fieldwise-merge
 remote_updated_at: 2026-08-16T00:12:42.184Z
 state: linked
-synced_at: 2026-08-16T00:12:42.413Z
+synced_at: 2026-08-16T01:13:59.314Z
 type: lk

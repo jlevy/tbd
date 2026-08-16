@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:4f9096cc8e4d9b6836baa9b70e50f45c530a9cc0c89985e06f98dd6f9ecf4672
+  description_hash: sha256v7:4f9096cc8e4d9b6836baa9b70e50f45c530a9cc0c89985e06f98dd6f9ecf4672
   labels:
     - review
     - ci
@@ -14,5 +14,5 @@ external_key: OS-152
 external_url: https://linear.app/finterm-ai/issue/OS-152/phase-63-final-senior-review-upstream-integration-pr-disposition-and
 remote_updated_at: 2026-08-16T00:13:05.374Z
 state: linked
-synced_at: 2026-08-16T00:13:05.786Z
+synced_at: 2026-08-16T01:14:05.247Z
 type: lk

@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:810c31aece57872c8a6fde1403738f6dbe9df0f92a71afbeb706b3e0de1d8e64
+  description_hash: sha256v7:810c31aece57872c8a6fde1403738f6dbe9df0f92a71afbeb706b3e0de1d8e64
   labels:
     - phase-4
   priority: 2
@@ -12,5 +12,5 @@ external_key: OS-218
 external_url: https://linear.app/finterm-ai/issue/OS-218/stop-event-completion-gate-for-claude-code-and-codex
 remote_updated_at: 2026-08-16T00:13:40.676Z
 state: linked
-synced_at: 2026-08-16T00:13:40.879Z
+synced_at: 2026-08-16T01:14:15.656Z
 type: lk

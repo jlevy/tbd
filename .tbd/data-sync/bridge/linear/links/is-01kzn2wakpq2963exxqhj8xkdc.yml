@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  description_hash: sha256v7:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   labels: []
   priority: 2
   status: open
@@ -11,5 +11,5 @@ external_key: OS-1
 external_url: https://linear.app/finterm-ai/issue/OS-1/phase-3-github-adapter-for-issues-and-pr-links
 remote_updated_at: 2026-08-16T00:12:38.285Z
 state: linked
-synced_at: 2026-08-16T00:12:38.508Z
+synced_at: 2026-08-16T01:13:58.685Z
 type: lk

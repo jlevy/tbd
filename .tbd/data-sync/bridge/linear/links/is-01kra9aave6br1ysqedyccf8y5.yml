@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:31a73ae20c04317ac54d6ac084379f4614284df53fcab8a55f195f80a42dddb9
+  description_hash: sha256v7:31a73ae20c04317ac54d6ac084379f4614284df53fcab8a55f195f80a42dddb9
   labels:
     - pause
   priority: 1
@@ -12,5 +12,5 @@ external_key: OS-97
 external_url: https://linear.app/finterm-ai/issue/OS-97/phase-1-tests-migration-golden-f03f05-f04f05-source-resolution-doc-map
 remote_updated_at: 2026-08-16T00:11:37.086Z
 state: linked
-synced_at: 2026-08-16T00:11:37.267Z
+synced_at: 2026-08-16T01:13:47.578Z
 type: lk

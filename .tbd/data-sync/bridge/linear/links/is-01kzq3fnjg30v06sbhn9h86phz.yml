@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:6e4b4e4c51caa24fb2ca91e699e5d35d41b8f26bf6468a7d55994cee9cec11a4
+  description_hash: sha256v7:6e4b4e4c51caa24fb2ca91e699e5d35d41b8f26bf6468a7d55994cee9cec11a4
   labels: []
   priority: 2
   status: closed
@@ -11,5 +11,5 @@ external_key: OS-86
 external_url: https://linear.app/finterm-ai/issue/OS-86/phase-2-status-driftimportableconflict-reporting-and-sync-on-tbd-sync
 remote_updated_at: 2026-08-16T00:12:52.660Z
 state: linked
-synced_at: 2026-08-16T00:12:52.868Z
+synced_at: 2026-08-16T01:14:01.190Z
 type: lk

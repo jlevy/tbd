@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:64e562e69b4f5ab1784fd61257225b92e463582f3e217d322b9f240c91adcebc
+  description_hash: sha256v7:64e562e69b4f5ab1784fd61257225b92e463582f3e217d322b9f240c91adcebc
   labels:
     - agent-skills
   priority: 3
@@ -12,5 +12,5 @@ external_key: OS-202
 external_url: https://linear.app/finterm-ai/issue/OS-202/packagestbdclaudeskillstbdskillmd-is-stale-vs-current-skill-surfaces
 remote_updated_at: 2026-08-16T00:13:19.159Z
 state: linked
-synced_at: 2026-08-16T00:13:19.376Z
+synced_at: 2026-08-16T01:13:57.240Z
 type: lk

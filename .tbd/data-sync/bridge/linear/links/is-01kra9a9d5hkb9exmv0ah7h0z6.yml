@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:ec866105bd775673e91eae5dae69125fcd1ab44559b5be0cda7543d83fe83cf4
+  description_hash: sha256v7:ec866105bd775673e91eae5dae69125fcd1ab44559b5be0cda7543d83fe83cf4
   labels:
     - pause
   priority: 1
@@ -12,5 +12,5 @@ external_key: OS-93
 external_url: https://linear.app/finterm-ai/issue/OS-93/lockfile-writeread-tbddocslockyml-per-format-spec-3-workflow-w1
 remote_updated_at: 2026-08-16T00:11:34.977Z
 state: linked
-synced_at: 2026-08-16T00:11:35.219Z
+synced_at: 2026-08-16T01:13:46.929Z
 type: lk

@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:8f5f0eb40fa25a336dcf28fcb9f0cf158b8d36830742d160142b69766c3f9206
+  description_hash: sha256v7:8f5f0eb40fa25a336dcf28fcb9f0cf158b8d36830742d160142b69766c3f9206
   labels: []
   priority: 3
   status: open
@@ -11,5 +11,5 @@ external_key: OS-205
 external_url: https://linear.app/finterm-ai/issue/OS-205/retire-the-legacy-html-comment-managed-block-reader
 remote_updated_at: 2026-08-16T00:13:23.167Z
 state: linked
-synced_at: 2026-08-16T00:13:23.371Z
+synced_at: 2026-08-16T01:14:08.364Z
 type: lk

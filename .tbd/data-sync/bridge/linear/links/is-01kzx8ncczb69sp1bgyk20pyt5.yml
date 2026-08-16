@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:82d2cdf84ee9517587ec58b915958513fa9617a7fb9c58ecf00a33146ec10c1a
+  description_hash: sha256v7:82d2cdf84ee9517587ec58b915958513fa9617a7fb9c58ecf00a33146ec10c1a
   labels:
     - web
     - integration
@@ -13,5 +13,5 @@ external_key: OS-161
 external_url: https://linear.app/finterm-ai/issue/OS-161/document-and-package-the-web-external-link-design-contract
 remote_updated_at: 2026-08-16T00:13:12.336Z
 state: linked
-synced_at: 2026-08-16T00:13:12.596Z
+synced_at: 2026-08-16T01:14:06.356Z
 type: lk

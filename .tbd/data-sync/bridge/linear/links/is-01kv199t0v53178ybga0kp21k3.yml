@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:f0569621f38f220ae1987ba0308c10ca27bedd8831882737e0253a4ef7ba28e7
+  description_hash: sha256v7:f0569621f38f220ae1987ba0308c10ca27bedd8831882737e0253a4ef7ba28e7
   labels:
     - pause
   priority: 3
@@ -12,5 +12,5 @@ external_key: OS-11
 external_url: https://linear.app/finterm-ai/issue/OS-11/tbd-apply-transaction-file-generalize-import
 remote_updated_at: 2026-08-16T00:12:18.841Z
 state: linked
-synced_at: 2026-08-16T00:12:19.067Z
+synced_at: 2026-08-16T01:13:55.555Z
 type: lk

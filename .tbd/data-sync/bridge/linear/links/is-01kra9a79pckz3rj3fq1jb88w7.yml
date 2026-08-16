@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:7bb0c7d7deac7a661f8441c979838279c45a19ee372608e1e22e0000ca92e043
+  description_hash: sha256v7:7bb0c7d7deac7a661f8441c979838279c45a19ee372608e1e22e0000ca92e043
   labels:
     - pause
   priority: 1
@@ -12,5 +12,5 @@ external_key: OS-88
 external_url: https://linear.app/finterm-ai/issue/OS-88/wire-docmap-block-in-tbdconfigyml-workflow-w1
 remote_updated_at: 2026-08-16T00:11:32.346Z
 state: linked
-synced_at: 2026-08-16T00:11:32.565Z
+synced_at: 2026-08-16T01:13:46.204Z
 type: lk

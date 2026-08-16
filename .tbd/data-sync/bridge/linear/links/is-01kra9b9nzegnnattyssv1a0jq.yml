@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:7e490357e2053921bf4bbaa2e9099b74ed082d564a53b7cd8e3b0b4ec6259acc
+  description_hash: sha256v7:7e490357e2053921bf4bbaa2e9099b74ed082d564a53b7cd8e3b0b4ec6259acc
   labels:
     - pause
   priority: 3
@@ -12,5 +12,5 @@ external_key: OS-110
 external_url: https://linear.app/finterm-ai/issue/OS-110/tbd-doc-new-type-name-bundle-name-scaffold-with-template-frontmatter
 remote_updated_at: 2026-08-16T00:11:45.639Z
 state: linked
-synced_at: 2026-08-16T00:11:45.886Z
+synced_at: 2026-08-16T01:13:49.546Z
 type: lk

@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:7946216b19d77e06a6f7070b242281f7fb34660d4bd407a516e6595b373009a2
+  description_hash: sha256v7:7946216b19d77e06a6f7070b242281f7fb34660d4bd407a516e6595b373009a2
   labels:
     - phase-2
   priority: 0
@@ -12,5 +12,5 @@ external_key: OS-235
 external_url: https://linear.app/finterm-ai/issue/OS-235/f08-make-issueschema-preserve-unknown-keys-and-carry-them-through
 remote_updated_at: 2026-08-16T00:14:07.422Z
 state: linked
-synced_at: 2026-08-16T00:14:07.671Z
+synced_at: 2026-08-16T01:14:18.500Z
 type: lk

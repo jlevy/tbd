@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:1700677ef3e68b24d175b4fc4b6d872d0ba45bba9c80054b8be24209b148048b
+  description_hash: sha256v7:1700677ef3e68b24d175b4fc4b6d872d0ba45bba9c80054b8be24209b148048b
   labels:
     - phase-4
   priority: 3
@@ -12,5 +12,5 @@ external_key: OS-221
 external_url: https://linear.app/finterm-ai/issue/OS-221/add-a-gemini-cli-setup-surface-settingsjson-hooks
 remote_updated_at: 2026-08-16T00:13:45.408Z
 state: linked
-synced_at: 2026-08-16T00:13:45.644Z
+synced_at: 2026-08-16T01:14:16.326Z
 type: lk

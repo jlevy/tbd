@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:9a5b86c38120f51955e2a157717099469c44f6e979b48d73ab7848fe6ac50125
+  description_hash: sha256v7:9a5b86c38120f51955e2a157717099469c44f6e979b48d73ab7848fe6ac50125
   labels: []
   priority: 3
   status: closed
@@ -11,5 +11,5 @@ external_key: OS-47
 external_url: https://linear.app/finterm-ai/issue/OS-47/phase-6-update-documentation-for-unified-sync
 remote_updated_at: 2026-08-16T00:11:16.565Z
 state: linked
-synced_at: 2026-08-16T00:11:17.021Z
+synced_at: 2026-08-16T01:13:42.545Z
 type: lk

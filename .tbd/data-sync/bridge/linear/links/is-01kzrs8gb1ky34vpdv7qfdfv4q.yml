@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:7fee2d70fa9a246d1d2239614d5663700b3c18d6ee041a9b6093506616cf141d
+  description_hash: sha256v7:7fee2d70fa9a246d1d2239614d5663700b3c18d6ee041a9b6093506616cf141d
   labels:
     - server
     - lifecycle
@@ -14,5 +14,5 @@ external_key: OS-142
 external_url: https://linear.app/finterm-ai/issue/OS-142/phase-34-implement-loopback-server-lifecycle-ports-readiness-and
 remote_updated_at: 2026-08-16T00:13:00.302Z
 state: linked
-synced_at: 2026-08-16T00:13:00.488Z
+synced_at: 2026-08-16T01:14:03.220Z
 type: lk

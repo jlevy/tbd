@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:2dca01e9e8ac09ff4c44a5e894e08ea9d40f1edb207ffc6f5ffabcfc6c7f9da6
+  description_hash: sha256v7:2dca01e9e8ac09ff4c44a5e894e08ea9d40f1edb207ffc6f5ffabcfc6c7f9da6
   labels:
     - pause
   priority: 2
@@ -13,5 +13,5 @@ external_key: OS-105
 external_url: https://linear.app/finterm-ai/issue/OS-105/tbd-doc-status-query-bundle-grouped-output-per-doc-state-abc-staleness
 remote_updated_at: 2026-08-16T00:11:41.371Z
 state: linked
-synced_at: 2026-08-16T00:11:41.580Z
+synced_at: 2026-08-16T01:13:48.727Z
 type: lk

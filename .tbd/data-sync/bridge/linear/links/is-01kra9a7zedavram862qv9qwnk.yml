@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:37c5f620b830e612752ef1a601e4f1f21510a025b550035eb08fb764f240798f
+  description_hash: sha256v7:37c5f620b830e612752ef1a601e4f1f21510a025b550035eb08fb764f240798f
   labels:
     - pause
   priority: 1
@@ -12,5 +12,5 @@ external_key: OS-89
 external_url: https://linear.app/finterm-ai/issue/OS-89/filesystem-only-fetcher-for-and-docrefs-workflow-w3
 remote_updated_at: 2026-08-16T00:11:32.869Z
 state: linked
-synced_at: 2026-08-16T00:11:33.073Z
+synced_at: 2026-08-16T01:13:46.344Z
 type: lk

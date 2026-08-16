@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:c4d07d4b9973995249038b86e1b1f7929f94447437f1853f1b8f66bd5c2b1f35
+  description_hash: sha256v7:c4d07d4b9973995249038b86e1b1f7929f94447437f1853f1b8f66bd5c2b1f35
   labels: []
   priority: 3
   status: closed
@@ -11,5 +11,5 @@ external_key: OS-126
 external_url: https://linear.app/finterm-ai/issue/OS-126/fold-into-tbd-sync-behind-sync-on-tbd-sync-default-off
 remote_updated_at: 2026-08-16T00:12:46.464Z
 state: linked
-synced_at: 2026-08-16T00:12:46.684Z
+synced_at: 2026-08-16T01:14:00.168Z
 type: lk

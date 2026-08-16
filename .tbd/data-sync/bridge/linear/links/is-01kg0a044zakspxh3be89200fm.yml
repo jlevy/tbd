@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  description_hash: sha256v7:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   labels: []
   priority: 2
   status: closed
@@ -11,5 +11,5 @@ external_key: OS-56
 external_url: https://linear.app/finterm-ai/issue/OS-56/spec-welcome-message-improvements
 remote_updated_at: 2026-08-16T00:11:02.094Z
 state: linked
-synced_at: 2026-08-16T00:11:03.655Z
+synced_at: 2026-08-16T01:13:39.669Z
 type: lk

@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:fe939ab02e6864eeddac0e70f0ed12c9da737a0335e4a277d12eebe91f152b1e
+  description_hash: sha256v7:fe939ab02e6864eeddac0e70f0ed12c9da737a0335e4a277d12eebe91f152b1e
   labels:
     - pause
   priority: 3
@@ -12,5 +12,5 @@ external_key: OS-116
 external_url: https://linear.app/finterm-ai/issue/OS-116/validation-period-one-tbd-release-with-both-internal-external-sources
 remote_updated_at: 2026-08-16T00:11:50.301Z
 state: linked
-synced_at: 2026-08-16T00:11:50.506Z
+synced_at: 2026-08-16T01:13:50.456Z
 type: lk

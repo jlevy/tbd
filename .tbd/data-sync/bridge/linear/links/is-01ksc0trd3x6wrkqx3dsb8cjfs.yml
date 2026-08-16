@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:50d8f0cd7c2b952771380584fb63dd194fd04ab23675dfed590eed89e56cf727
+  description_hash: sha256v7:50d8f0cd7c2b952771380584fb63dd194fd04ab23675dfed590eed89e56cf727
   labels:
     - validation
     - release
@@ -13,5 +13,5 @@ external_key: OS-22
 external_url: https://linear.app/finterm-ai/issue/OS-22/validate-ecosystem-compatibility-and-release-metadata
 remote_updated_at: 2026-08-16T00:12:05.670Z
 state: linked
-synced_at: 2026-08-16T00:12:05.874Z
+synced_at: 2026-08-16T01:13:52.434Z
 type: lk

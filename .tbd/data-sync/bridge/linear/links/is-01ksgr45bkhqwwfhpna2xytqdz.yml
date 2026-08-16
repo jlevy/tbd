@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:550a23abe47e9f6138267c6c83cd1850fe8ef05043c4b784143d4fe3320bc035
+  description_hash: sha256v7:550a23abe47e9f6138267c6c83cd1850fe8ef05043c4b784143d4fe3320bc035
   labels: []
   priority: 1
   status: closed
@@ -11,5 +11,5 @@ external_key: OS-17
 external_url: https://linear.app/finterm-ai/issue/OS-17/implement-existing-install-upgrade-migration-and-format-guard
 remote_updated_at: 2026-08-16T00:12:10.386Z
 state: linked
-synced_at: 2026-08-16T00:12:10.593Z
+synced_at: 2026-08-16T01:13:53.637Z
 type: lk

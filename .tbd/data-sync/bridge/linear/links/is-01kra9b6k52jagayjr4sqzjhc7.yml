@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v6:89a813b275aee4716577c1935ff5f18f4324cfa6b9b98e8dd18b519bc5e63916
+  description_hash: sha256v7:89a813b275aee4716577c1935ff5f18f4324cfa6b9b98e8dd18b519bc5e63916
   labels:
     - pause
   priority: 2
@@ -12,5 +12,5 @@ external_key: OS-103
 external_url: https://linear.app/finterm-ai/issue/OS-103/tbd-source-addlistremoveshow-with-bundle-name-auto-suggestion-preview
 remote_updated_at: 2026-08-16T00:11:40.379Z
 state: linked
-synced_at: 2026-08-16T00:11:40.567Z
+synced_at: 2026-08-16T01:13:48.427Z
 type: lk
