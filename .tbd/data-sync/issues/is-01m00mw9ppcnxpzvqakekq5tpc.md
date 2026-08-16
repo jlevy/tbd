@@ -3,9 +3,9 @@ type: is
 id: is-01m00mw9ppcnxpzvqakekq5tpc
 title: Add a docs list to beads for supporting context documents
 kind: feature
-status: open
+status: closed
 priority: 1
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-2
@@ -14,7 +14,9 @@ dependencies:
     target: is-01m00k64qt61hy5vnwb66nr3zx
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T17:24:54.101Z
-updated_at: 2026-08-16T00:14:08.019Z
+updated_at: 2026-08-16T02:00:41.146Z
+closed_at: 2026-08-15T08:03:01.453Z
+close_reason: "docs field shipped with tbd doc add|rm. Optional rather than default([]) so ~1,740 beads do not each gain a 'docs: []' line."
 extensions:
   linear:
     id: ccea668b-196d-43a7-89bb-d7cdbb0a9297

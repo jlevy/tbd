@@ -3,9 +3,9 @@ type: is
 id: is-01m00h57nkvtvkbqn992w5fm2e
 title: "Add tbd start: the claim primitive"
 kind: feature
-status: open
+status: closed
 priority: 1
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-1
@@ -18,7 +18,9 @@ dependencies:
     target: is-01m010epmrrmp2s67x1pe8xqa3
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:19:52.626Z
-updated_at: 2026-08-16T00:13:32.176Z
+updated_at: 2026-08-16T02:00:40.336Z
+closed_at: 2026-08-15T08:03:06.190Z
+close_reason: tbd start shipped, symmetric with tbd close. Refuses to steal a live claim and skips closed beads toward tbd reopen.
 extensions:
   linear:
     id: 4fd428a0-cc81-4317-b53f-78118f9b0b9b

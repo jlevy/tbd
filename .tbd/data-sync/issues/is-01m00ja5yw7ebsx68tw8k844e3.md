@@ -3,16 +3,18 @@ type: is
 id: is-01m00ja5yw7ebsx68tw8k844e3
 title: tbd sync --push silently performs the outbound-only mirror the docs warn against
 kind: bug
-status: open
+status: closed
 priority: 1
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-1
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:40:03.292Z
-updated_at: 2026-08-16T00:13:54.533Z
+updated_at: 2026-08-16T02:00:40.688Z
+closed_at: 2026-08-15T08:16:57.363Z
+close_reason: tbd sync --push now narrows away from the tracker like any other surface flag, with the honesty notice pointing at 'tbd integration sync --push'. --push --integrations remains the deliberate two-flag form. The e2e test that asserted the old behavior by name was rewritten to pin the new contract.
 extensions:
   linear:
     id: 2a74d5e3-c260-4db1-b6df-1b3cb5403ce6

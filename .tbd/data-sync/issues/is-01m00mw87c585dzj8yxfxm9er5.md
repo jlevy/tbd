@@ -3,9 +3,9 @@ type: is
 id: is-01m00mw87c585dzj8yxfxm9er5
 title: "f08: make IssueSchema preserve unknown keys and carry them through merge"
 kind: feature
-status: open
+status: closed
 priority: 0
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-2
@@ -20,7 +20,9 @@ dependencies:
     target: is-01m00h62dhwa0tgqbrxz4sb0sc
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T17:24:52.588Z
-updated_at: 2026-08-16T00:14:05.583Z
+updated_at: 2026-08-16T02:00:40.959Z
+closed_at: 2026-08-15T08:02:59.889Z
+close_reason: "f08 shipped: IssueSchema passthrough, mergeIssues carries keys outside FIELD_STRATEGIES via an LWW default, issuesSubstantivelyEqual compares them (without which a change to only an unknown key never persists), nested integration clauses passthrough, CURRENT_FORMAT f08 with migration and describeMigration. 15 contract tests in f08-unknown-key-preservation.test.ts."
 extensions:
   linear:
     id: 69378054-10f5-49b7-967d-591996d3832c

@@ -3,9 +3,9 @@ type: is
 id: is-01m00k639pqyx9p30eszfh06k0
 title: Add a refs list to beads for PRs, external issues, and docs
 kind: feature
-status: open
+status: closed
 priority: 1
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - traceability
@@ -19,7 +19,9 @@ dependencies:
     target: is-01m00h5bwwh3cnhd087t7yc7dx
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:55:18.070Z
-updated_at: 2026-08-16T00:13:56.973Z
+updated_at: 2026-08-16T02:00:40.781Z
+closed_at: 2026-08-15T08:03:03.067Z
+close_reason: "refs field shipped with tbd ref add|rm, kind inferred from GitHub URLs. Needed union_by_key, not plain union: whole-item dedup would keep the same PR twice when two clones titled it differently."
 extensions:
   linear:
     id: ea60aadb-6294-4650-b30d-2b5a4a755993

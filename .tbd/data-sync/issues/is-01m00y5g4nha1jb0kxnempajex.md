@@ -3,9 +3,9 @@ type: is
 id: is-01m00y5g4nha1jb0kxnempajex
 title: "f08: reshape the integration config into target/policy/labels/identity groups"
 kind: feature
-status: open
+status: closed
 priority: 1
-version: 7
+version: 8
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-2
@@ -17,7 +17,9 @@ dependencies:
     target: is-01m010epmrrmp2s67x1pe8xqa3
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T20:07:12.789Z
-updated_at: 2026-08-16T00:14:14.340Z
+updated_at: 2026-08-16T02:00:41.302Z
+closed_at: 2026-08-15T08:03:04.635Z
+close_reason: "Config regrouped into target/policy/labels/identity with a lossless idempotent migration. The hard part was not the move: every legacy flat key had a schema default, so Zod re-materialized it and writeConfig put it straight back beside the new group. Flat keys and select are now optional, defaults moved to resolveProviderSettings, which also lets a teammate's branch keep the old shape."
 extensions:
   linear:
     id: 27b67c86-7101-4b98-8b4f-be12231fc560

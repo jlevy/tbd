@@ -5,13 +5,21 @@ title: "Research: agent and session identity across coding agents"
 kind: task
 status: closed
 priority: 2
-version: 2
+version: 4
 spec_path: docs/project/research/current/research-2026-08-14-agent-and-session-identity.md
+docs:
+  - path: docs/project/research/current/research-2026-08-14-agent-and-session-identity.md
+    role: research
+refs:
+  - kind: pr
+    url: https://github.com/jlevy/tbd/pull/232
+    title: ids.yml duplicate short-ID fix
+    at: 2026-08-15T07:13:26.566Z
 labels: []
 dependencies: []
 parent_id: is-01m00h5y6q413edk3j82zry3d9
 created_at: 2026-08-14T23:28:14.116Z
-updated_at: 2026-08-14T23:28:25.500Z
+updated_at: 2026-08-15T07:13:28.128Z
 closed_at: 2026-08-14T23:28:25.500Z
 close_reason: "Research doc landed: docs/project/research/current/research-2026-08-14-agent-and-session-identity.md"
 ---
