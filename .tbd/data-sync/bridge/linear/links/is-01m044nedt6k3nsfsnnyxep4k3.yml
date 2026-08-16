@@ -4,13 +4,13 @@ base:
   labels:
     - phase-3
   priority: 1
-  status: in_progress
+  status: closed
   title: Managed block embeds the current git branch, so spec links break after merge
 bead_id: is-01m044nedt6k3nsfsnnyxep4k3
 external_id: d998d291-f161-4713-9d55-e1ae03e17c4f
 external_key: OS-244
 external_url: https://linear.app/finterm-ai/issue/OS-244/managed-block-embeds-the-current-git-branch-so-spec-links-break-after
-remote_updated_at: 2026-08-16T02:11:47.949Z
+remote_updated_at: 2026-08-16T02:31:58.151Z
 state: linked
-synced_at: 2026-08-16T02:11:48.167Z
+synced_at: 2026-08-16T02:31:58.313Z
 type: lk

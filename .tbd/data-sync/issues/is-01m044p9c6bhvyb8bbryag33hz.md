@@ -5,18 +5,23 @@ title: Prove whether Linear bumps updatedAt when a comment is created
 kind: task
 status: open
 priority: 2
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-3
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-16T01:58:57.662Z
-updated_at: 2026-08-16T02:11:52.720Z
+updated_at: 2026-08-16T02:31:58.784Z
 extensions:
   linear:
     id: 19fa31e8-49b0-47be-891d-93f9c181b11c
     linked_at: 2026-08-16T02:11:52.720Z
+    comments:
+      - id: bf92ad2c-39ea-414e-948a-6ee19a4d851b
+        at: 2026-08-16T02:30:58.550Z
+        author: josh
+        body: "Probe: does creating a comment advance the issue updatedAt? Written by the tbd live-sync verification."
 ---
 Carried over from the original runbook and still unproven. The delta-gated comment fetch assumes creating a comment advances the issue's updatedAt; if it does not, the watermark prefilter will miss inbound comments.
 
