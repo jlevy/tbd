@@ -163,6 +163,9 @@ type-only import is syntactically marked.
 Checked-JavaScript projects add `allowJs: true`, `checkJs: true`, and `noEmit: true`,
 scope `include` to the JavaScript they own (excluding vendored assets), and take types
 from JSDoc annotations and `.d.ts` files.
+The kpress and metabrowser repositories are probably the quickest worked examples to
+copy from; metabrowser also keeps a second `tsconfig.legacy.json`, which is a concrete
+instance of the ratchet described next.
 
 Existing projects adopt new flags through the legacy ratchet (floor rule 8): enable what
 passes today, and give each flag that still fails a tracked issue rather than leaving it
