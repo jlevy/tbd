@@ -71,7 +71,7 @@ import {
   type IntentOp,
   type IntentPatch,
 } from './intents.js';
-import { CONFLICT_COMMENT_MARKER } from './types.js';
+import { CONFLICT_COMMENT_MARKER, isWorkspaceLimitError } from './types.js';
 import type { ConflictReport, ExternalIssue, TrackerAdapter } from './types.js';
 
 /** Re-fetch this far behind the watermark; over-fetching costs nothing. */
@@ -1294,8 +1294,45 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   }
 
   // 7a. Outbound-new creates.
+  //
+  // Two batch-level failure modes are handled above the per-item try/catch.
+  // A parent whose create failed leaves its children pointing at a client id
+  // that never came to exist, so attempting them is a guaranteed provider
+  // rejection ("parentId … could not be found" — observed live); they are
+  // reported without an API call and their intents stay journaled. And a
+  // workspace plan limit dooms every remaining create for the same reason it
+  // failed the first, so the batch halts at the first such error rather than
+  // paying a request per doomed item.
+  const failedCreateClientIds = new Set<string>();
+  let workspaceLimitHalt: string | undefined;
   for (const issue of outboundNew) {
     const displayId = options.displayId(issue.id);
+    const haltClientId = outboundClientIds.get(issue.id);
+    const haltParentId = outboundParentIds.get(issue.id);
+    if (workspaceLimitHalt !== undefined) {
+      journalDirty = true;
+      if (haltClientId) {
+        failedCreateClientIds.add(haltClientId);
+      }
+      report.failures.push({
+        beadId: displayId,
+        error: `not attempted: ${workspaceLimitHalt}`,
+      });
+      continue;
+    }
+    if (haltParentId && failedCreateClientIds.has(haltParentId)) {
+      journalDirty = true;
+      if (haltClientId) {
+        failedCreateClientIds.add(haltClientId);
+      }
+      report.failures.push({
+        beadId: displayId,
+        error:
+          'not attempted: its parent failed to create in this run. ' +
+          'Both stay journaled and converge on a later sync.',
+      });
+      continue;
+    }
     try {
       const clientId = outboundClientIds.get(issue.id);
       const parentExternalId = outboundParentIds.get(issue.id);
@@ -1365,6 +1402,12 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       report.createdOutbound.push(displayId);
     } catch (error) {
       journalDirty = true;
+      if (haltClientId) {
+        failedCreateClientIds.add(haltClientId);
+      }
+      if (isWorkspaceLimitError(error)) {
+        workspaceLimitHalt = error.message;
+      }
       report.failures.push({
         beadId: displayId,
         error: error instanceof Error ? error.message : String(error),

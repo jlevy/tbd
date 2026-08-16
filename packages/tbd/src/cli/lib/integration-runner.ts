@@ -487,6 +487,13 @@ export async function runEnabledIntegrations(
       specUrl: (issue) => (issue.spec_path ? specLinks.get(issue.spec_path) : undefined),
       mirrorLabels: resolveProviderSettings(config.integrations?.linear ?? {}).mirrorLabels,
       originLabels: await resolveOriginLabels(tbdRoot, config),
+      // Resolved from config like everything else here. This was the one option
+      // the full sync did not forward, so the engine's fallback default (2)
+      // silently overrode any configured `max_nesting` — while the mirror-only
+      // `--push` path forwarded it correctly, making the two modes disagree
+      // about which beads even qualify. Found live: a repo set to 3 kept
+      // reporting `past max_nesting 2`.
+      maxNesting: entry.maxNesting,
       // Linear cannot represent P4 (its 4 covers P3 and P4); without this
       // equivalence every P4 bead would oscillate as a phantom pull.
       equivalences: {

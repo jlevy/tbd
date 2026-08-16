@@ -193,7 +193,6 @@ export interface TrackerAdapter {
   /** Create an external item and return its ref. */
   createIssue(patch: CanonicalPatch, clientId?: string): Promise<ExternalRef>;
 
-  /** Apply a patch, returning the provider's new updatedAt for echo suppression. */
   /**
    * Apply a patch. Returns the post-write timestamp, which is what suppresses
    * the echo on the next pull, plus the item's human identifier and URL when the
@@ -262,10 +261,24 @@ export interface ProvisionOptions {
   apply: boolean;
 }
 
+/**
+ * Whether an error means the WORKSPACE is refusing writes — a billing or plan
+ * limit — rather than one item failing.
+ *
+ * A duck-typed marker (`workspaceLimit: true` on the error) instead of an
+ * `instanceof`, because the class lives with the provider that threw it and
+ * this core layer must not import provider modules. Batch loops use this to
+ * stop after the first such failure: every later create is doomed for the same
+ * reason, and attempting them anyway burns a request per item on every sync.
+ */
+export function isWorkspaceLimitError(error: unknown): error is Error {
+  return error instanceof Error && (error as { workspaceLimit?: unknown }).workspaceLimit === true;
+}
+
 /** One piece of tracker-side scaffolding and its state. */
 export interface ProvisionItem {
-  /** What the thing is, for the operator: `label` or `label group`. */
-  kind: 'label' | 'label group';
+  /** What the thing is, for the operator: `label`, `label group`, or `project`. */
+  kind: 'label' | 'label group' | 'project';
   /** The name tbd refers to it by. */
   name: string;
   /** `present` needed nothing; `created` was made now; `missing` is an unapplied gap. */

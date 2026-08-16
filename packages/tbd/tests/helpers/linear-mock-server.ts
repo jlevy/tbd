@@ -70,10 +70,14 @@ export class LinearMockServer {
     { id: 'user-1', name: 'Josh', displayName: 'Josh', email: 'josh@example.com' },
     { id: 'user-2', name: 'Test User', displayName: 'Test User', email: 'test@example.com' },
   ];
-  readonly projects: { id: string; name: string; slugId: string }[] = [];
+  readonly projects: { id: string; name: string; slugId: string; url?: string }[] = [];
 
   /** Number of requests to fail with RATELIMITED before succeeding. */
   rateLimitFailures = 0;
+  /** Refuse issue creates once `issues.size` reaches this, like the free tier. */
+  freeIssueLimit?: number;
+  /** Hard-fail creates with these titles: a per-item rejection, unlike the limit. */
+  readonly failCreateTitles = new Set<string>();
   /** Number of requests to fail with a 500 before succeeding. */
   serverFailures = 0;
   /** Number of attachment upserts to reject without retry. */
@@ -264,6 +268,31 @@ export class LinearMockServer {
       };
     }
 
+    if (query.includes('mutation ProjectCreate')) {
+      const input = variables.input as { name: string; teamIds: string[] };
+      // Linear rejects a project create naming an unknown team; without this the
+      // mock would accept a provisioning bug the real API refuses.
+      if (!input.teamIds?.length || input.teamIds.some((id) => id !== 'team-1')) {
+        return {
+          status: 200,
+          payload: {
+            errors: [{ message: `Unknown team in teamIds: ${input.teamIds?.join(',')}` }],
+          },
+        };
+      }
+      const project = {
+        id: this.nextId('project'),
+        name: input.name,
+        slugId: `${input.name.toLowerCase().replace(/[^a-z0-9]+/g, '')}${this.projects.length}`,
+        url: `https://linear.app/acme/project/${input.name.toLowerCase()}`,
+      };
+      this.projects.push(project);
+      return {
+        status: 200,
+        payload: { data: { projectCreate: { success: true, project } } },
+      };
+    }
+
     if (query.includes('query Projects')) {
       const first = variables.first as number;
       const offset = Number(variables.after ?? 0);
@@ -371,7 +400,42 @@ export class LinearMockServer {
 
     if (query.includes('mutation IssueCreate')) {
       const input = variables.input as Record<string, unknown>;
+      if (this.failCreateTitles.has(input.title as string)) {
+        return {
+          status: 200,
+          payload: {
+            errors: [{ message: `create rejected by test for title: ${input.title as string}` }],
+          },
+        };
+      }
       const clientId = input.id as string | undefined;
+      // Order matters, and is taken from live behavior: a replayed create whose
+      // client id already exists gets the DUPLICATE error even when the
+      // workspace is over its issue limit — observed as a full backlog of
+      // already-created issues recovering while new creates were being
+      // refused. Duplicate detection first, then the limit.
+      if (this.freeIssueLimit !== undefined && this.issues.size >= this.freeIssueLimit) {
+        if (!(clientId && this.issues.has(clientId))) {
+          return {
+            status: 200,
+            payload: {
+              errors: [
+                {
+                  message: 'issue limit exceeded',
+                  extensions: {
+                    type: 'invalid input',
+                    code: 'INPUT_ERROR',
+                    statusCode: 400,
+                    userError: true,
+                    userPresentableMessage:
+                      "You've exceeded the free issue limit for this workspace. Please upgrade or contact sales@linear.app for a free trial.",
+                  },
+                },
+              ],
+            },
+          };
+        }
+      }
       if (clientId && this.issues.has(clientId)) {
         // Matches the real API: a duplicate client id is a hard error, so a
         // retried create must treat this as success rather than failure.
@@ -392,6 +456,18 @@ export class LinearMockServer {
         };
       }
       const id = clientId ?? this.nextId('issue');
+      // Linear rejects a create naming a parent that does not exist; silently
+      // storing `parent: null` instead let the suite bless orphan creates that
+      // the real API refuses — observed live when a parent's create failed and
+      // its children were attempted against the never-created client id.
+      if (typeof input.parentId === 'string' && !this.issues.has(input.parentId)) {
+        return {
+          status: 200,
+          payload: {
+            errors: [{ message: 'parentId contained an entry that could not be found.' }],
+          },
+        };
+      }
       const identifier = `FIN-${this.issues.size + 1}`;
       const issue = this.addIssue({
         id,

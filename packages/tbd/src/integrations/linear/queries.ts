@@ -19,6 +19,19 @@ export const PROJECT_QUERY = `query Projects($first: Int!, $after: String) {
   }
 }`;
 
+/**
+ * Create the configured project during `tbd integration setup`.
+ *
+ * Verified against Linear's published schema: `name` and `teamIds` are the two
+ * required fields of `ProjectCreateInput`.
+ */
+export const PROJECT_CREATE_MUTATION = `mutation ProjectCreate($input: ProjectCreateInput!) {
+  projectCreate(input: $input) {
+    success
+    project { id name slugId url }
+  }
+}`;
+
 /** Resolve a team key (e.g. `FIN`) to its UUID plus states and labels. */
 export const TEAM_META_QUERY = `query TeamMeta($key: String!) {
   teams(filter: { key: { eq: $key } }, first: 1) {
