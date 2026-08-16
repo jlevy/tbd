@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v7:c956bb0fd24ecc190f05b24cb5fb20077169752ee85242e3602e0fb039136eba
+  description_hash: sha256v7:5fca5a9238ff60af9a7dd9afaae605d21fb60a4f38e2554f3cb64f5420bad919
   labels:
     - phase-3
   priority: 3
@@ -10,7 +10,7 @@ bead_id: is-01m044pq2zntk84fyb610dprmn
 external_id: b7926236-f57b-426f-9918-4bba91529aca
 external_key: OS-249
 external_url: https://linear.app/finterm-ai/issue/OS-249/research-and-plan-docs-still-describe-the-pre-f08-tbd-origin-label
-remote_updated_at: 2026-08-16T07:50:58.580Z
+remote_updated_at: 2026-08-16T19:41:29.044Z
 state: linked
-synced_at: 2026-08-16T07:50:58.756Z
+synced_at: 2026-08-16T19:41:29.278Z
 type: lk
