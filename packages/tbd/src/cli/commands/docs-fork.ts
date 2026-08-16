@@ -53,6 +53,7 @@ import {
 } from '../../file/doc-fork.js';
 import { updateOne, diffContents, type UpdateStrategy } from '../../file/fork-update.js';
 import { createDocMap, type DocMapEntry } from '../../docmap/index.js';
+import { DOC_CATEGORIES } from '../../lib/doc-categories.js';
 import { servedEntryFor, loadServeContext, effectiveServePaths } from '../lib/doc-serve.js';
 import { docCategory, parseCategoryOption } from '../../lib/doc-categories.js';
 
@@ -790,7 +791,7 @@ export function registerForkSubcommands(docs: Command): void {
     .option('--all', 'fork all available docs')
     .option(
       '--category <name>',
-      'fork all docs in a category (repeatable: general|typescript|python|convex|electron)',
+      `fork all docs in a category (repeatable: ${DOC_CATEGORIES.join('|')})`,
       (value: string, previous: string[] | undefined) => [...(previous ?? []), value],
     )
     .option('--force', 'overwrite an existing non-fork file')

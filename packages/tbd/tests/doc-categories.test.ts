@@ -13,7 +13,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { docCategory } from '../src/lib/doc-categories.js';
+import { docCategory, parseCategoryOption } from '../src/lib/doc-categories.js';
 import { parseMarkdownMatter } from '../src/utils/gray-matter.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -30,7 +30,7 @@ export const GUIDELINE_CATEGORIES = [
   'typescript',
   'python',
   'convex',
-  'electron',
+  'desktop',
 ] as const;
 
 describe('guideline doc categories', () => {
@@ -93,5 +93,21 @@ describe('docCategory()', () => {
     expect(docCategory({ category: 'meta' })).toBeUndefined();
     expect(docCategory({})).toBeUndefined();
     expect(docCategory(undefined)).toBeUndefined();
+  });
+});
+
+describe('parseCategoryOption', () => {
+  it('accepts each valid category', () => {
+    expect(parseCategoryOption('desktop')).toBe('desktop');
+    expect(parseCategoryOption('general')).toBe('general');
+  });
+
+  it('fails fast on an unknown category, listing the valid ones', () => {
+    // The desktop rename retired 'electron' with no alias, per
+    // backward-compatibility-rules: the actionable error IS the compatibility
+    // surface, so pin its content.
+    expect(() => parseCategoryOption('electron')).toThrowError(
+      /Unknown category "electron"\. Valid categories: general, typescript, python, convex, desktop\./,
+    );
   });
 });

@@ -4,7 +4,7 @@
  * the old name-based inference is retired in favor of the declared field.
  */
 
-export const DOC_CATEGORIES = ['general', 'typescript', 'python', 'convex', 'electron'] as const;
+export const DOC_CATEGORIES = ['general', 'typescript', 'python', 'convex', 'desktop'] as const;
 
 export type DocCategory = (typeof DOC_CATEGORIES)[number];
 
