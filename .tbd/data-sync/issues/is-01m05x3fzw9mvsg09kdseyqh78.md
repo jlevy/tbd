@@ -3,16 +3,18 @@ type: is
 id: is-01m05x3fzw9mvsg09kdseyqh78
 title: Reopening a bead whose Linear issue was archived should unarchive it
 kind: bug
-status: open
+status: closed
 priority: 2
-version: 1
+version: 3
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-3
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-16T18:24:50.683Z
-updated_at: 2026-08-16T18:24:50.683Z
+updated_at: 2026-08-16T18:35:28.035Z
+closed_at: 2026-08-16T18:35:28.034Z
+close_reason: "Resolved as part of the archive-ownership policy rather than as unconditional behavior. policy.archive: manual (the default) means tbd never archives or unarchives — an archived item orphans and goes quiet, and a reopened bead under one is reported with the remedy instead of silently not syncing. policy.archive: on_close hands tbd the lifecycle: closing archives (after the pair's edits, since Linear rejects edits to archived issues), reopening unarchives and reconciles in the same run. Trashed items are never revived, since the provider purges them on its own schedule."
 ---
 When a remote is archived the pair is marked orphaned and skipped (sync-engine ~line 609) — correct quiescence for closed work, and the bead keeps its link so no duplicate is created.
 
