@@ -5,7 +5,7 @@ title: "[epic] Deep engineering reviews: Electrobun and Tauri desktop guidelines
 kind: epic
 status: closed
 priority: 1
-version: 16
+version: 17
 labels: []
 dependencies: []
 child_order_hints:
@@ -23,8 +23,9 @@ child_order_hints:
   - is-01m045zbvt4hrnr20fereas3fa
   - is-01m045zdsxka8ty06fzp1sn84v
   - is-01m045zfqascxq7t0sprw9rdxa
+  - is-01m04qpn1pat0h1jr2ph2y0wby
 created_at: 2026-08-16T02:20:26.024Z
-updated_at: 2026-08-16T04:49:25.792Z
+updated_at: 2026-08-16T07:31:12.565Z
 closed_at: 2026-08-16T04:49:25.792Z
 close_reason: Epic complete. Electrobun and Tauri guidelines written to the same structure as the Electron doc, both grounded in primary sources (repo clones, crates.io/npm registries, and the real config files of surveyed open-source apps). Category renamed electron to desktop. Cross-doc compliance and consistency passes done. All 14 children closed; branch pushed at 4e2840f with the full suite green.
 ---
