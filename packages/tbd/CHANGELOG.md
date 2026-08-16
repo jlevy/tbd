@@ -1,5 +1,108 @@
 # get-tbd
 
+## 0.7.0
+
+**Every machine working in a tbd repository must upgrade.** This release stamps
+repositories at format `f08`, and a pre-0.7.0 client refuses a repository it cannot read
+rather than risk corrupting it.
+After upgrading, run `tbd setup --auto` in each repository — it applies the migration
+and refreshes the launcher’s fallback pin.
+Skipping it leaves agent sessions installing a version that cannot open the repository.
+
+The migration is mechanical, lossless, and idempotent.
+It rewrites `.tbd/config.yml` only; no issue file is touched.
+Commit the resulting diff.
+
+### Beads keep what they do not understand
+
+Bead files parsed in strip mode, so a client that did not know about a field silently
+deleted it when it rewrote a bead.
+Any tool writing its own keys lost them to the next `tbd` that touched the file.
+Unknown keys now survive parse, merge, and change detection, which is the reason for the
+format gate: older clients still strip, so they are locked out rather than allowed to
+quietly discard data.
+
+Two fields build on it, both list-valued and both merged by key so concurrent adds from
+different machines survive:
+
+- `tbd doc add|rm` — supporting documents for a bead, as repo-relative paths
+- `tbd ref add|rm` — external references (PRs, issues, dashboards) as URLs
+
+### Claiming work
+
+`tbd start <ids...>` claims issues: sets them in progress and records who is working, so
+a second agent joining a repository can see what is already taken.
+`tbd whoami` reports the identity tbd will record.
+
+### Linear integration
+
+The integration shipped in 0.6.5 and is substantially reworked here.
+
+**New: `tbd integration setup`** provisions what a sync needs — the configured project
+and the origin labels — and reports what is missing before creating anything.
+Re-running it is a no-op.
+A conflict it cannot resolve (a label name already taken by someone else) is reported
+with the remedy rather than half-applied.
+
+**New: origin labels.** Every mirrored issue now carries a `tbd` marker and a
+`repo:<name>` label.
+`label is not tbd` gives a human their own board back in a workspace agents also write
+to, and the repository label answers “where did this come from” once more than one
+repository reports into a team.
+Additive: existing links gain the labels on the next sync, and labels a person applied
+are never removed.
+
+**New: `policy.archive`.** Defaults to `manual`, meaning tbd never archives or
+unarchives anything — the tracker’s archive belongs to the people using it, and the
+tracker’s own retention rules keep working underneath.
+Set `on_close` to hand tbd the lifecycle, where closing a bead archives its issue and
+reopening restores it.
+
+### Fixed
+
+- **A settled mirror rewrote itself on every sync.** tbd renders a managed block into
+  each issue’s description; Linear stores markdown with link destinations wrapped in
+  angle brackets, and the comparison ran on raw strings.
+  Any issue whose block contained a link therefore looked changed forever — on a
+  200-issue mirror, most of them, on every run.
+  Comparison is now normalized against the rewrites the tracker actually performs.
+- **Beads carried tracker identifiers that go stale.** A bead stored the issue’s human
+  key and URL beside its UUID. Both are derived from mutable state — renaming a Linear
+  team rewrites every identifier in it — so a rename left every bead holding a wrong
+  value in a file committed to git.
+  Beads now store only the immutable id; the display identifier lives on the bridge
+  record, which each sync refreshes.
+- **`max_nesting` was ignored by the full synchronization.** The mirror honored it and
+  the full sync did not, so the two modes disagreed about which beads qualified and any
+  configured value above the default was silently discarded.
+- **Mirrored issues were stamped with the time of the sync**, not the bead’s own dates.
+  Backfilling an existing repository therefore created issues that all looked new, which
+  also defeats the tracker’s own auto-archive.
+  Creates now carry the bead’s `created_at` and `closed_at`.
+- **A failed batch got more expensive every run.** When a tracker refused a write for a
+  whole-workspace reason, tbd attempted every remaining item anyway, then replayed the
+  entire journal — including already-succeeded operations — on each later sync.
+  Failures now halt the batch, dependent operations are skipped without a request, and a
+  partially-failed journal is compacted so completed work is never re-attempted.
+- **Spec links pointed at the branch that ran the sync**, so they broke once that branch
+  was deleted. They now resolve against the default branch, falling back to the working
+  branch only for a spec that exists nowhere else.
+
+### Guidelines and content
+
+- New desktop guidelines for Electron, Electrobun, and Tauri, and the `electron`
+  category renamed to `desktop`
+- New reference: the Linear integration design, documenting each rule alongside the
+  tracker behavior that forces it
+- `release-notes-guidelines` gained a concrete test for whether a change belongs in a
+  “Fixed” section: was it broken for someone running the previous release?
+
+### Security
+
+Lockfile byte-identical to v0.6.5; the resolved dependency tree is unchanged.
+No runtime advisories (`pnpm audit --prod` clean); outstanding advisories are
+dev-tooling only. All 31 pins satisfy the 14-day age rule.
+
 ## 0.6.5
 
 ### Fixed

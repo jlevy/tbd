@@ -55,6 +55,32 @@ compared to before.
 bug fix separately.
 Describe the feature as it now works (the complete, working version).
 
+### The test to apply to every “Fixed” entry
+
+Ask: **was this broken for someone running the previous release?**
+
+If no — the defect only ever existed on a development branch, or in code that ships for
+the first time in this release — it is **not a fix**. It is part of building the
+feature, and it belongs in the feature’s description or nowhere at all.
+
+This is the single most common error in these notes, because the development history is
+right there in the commit log and every one of those commits honestly says `fix:`. A
+commit message describes a change to the *branch*; a release note describes a change to
+the *published product*. They are different subjects, and only the second one has users.
+
+Two concrete cases:
+
+- A feature shipping for the first time this release had six bugs found and fixed while
+  building it. Users experienced none of them.
+  Describe the feature; mention none of the six.
+- A behavior was introduced, refined twice, and renamed before release.
+  Users see one new behavior under its final name.
+  Describe that, not the path taken to it.
+
+A useful cross-check: run `git log $PREV..HEAD` and, for each `fix:` commit, find the
+published version that carried the bug.
+If you cannot name one, cut the entry.
+
 ## Writing Principles
 
 ### 1. Consolidate Related Changes
