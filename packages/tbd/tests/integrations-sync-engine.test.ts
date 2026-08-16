@@ -390,6 +390,127 @@ describe('the sync engine', () => {
     expect(store.get(id)!.extensions?.linear).not.toHaveProperty('key');
   });
 
+  describe('batch failure containment on outbound creates', () => {
+    const createAttempts = () =>
+      server.requests.filter((request) => request.query.includes('mutation IssueCreate'));
+
+    it('halts remaining creates at the first workspace-limit rejection', async () => {
+      // The limit is a property of the workspace, so once one create hits it,
+      // every later one in the batch is doomed for the same reason. Observed
+      // live: a 77-create sync burned a request per doomed item, then its
+      // replay backlog did it again on every subsequent sync.
+      const ids = [
+        'is-01hx5zzkbkactav9wevgemmc01',
+        'is-01hx5zzkbkactav9wevgemmc02',
+        'is-01hx5zzkbkactav9wevgemmc03',
+        'is-01hx5zzkbkactav9wevgemmc04',
+      ];
+      for (const id of ids) {
+        store.set(id, bead(id, { title: `Epic ${id.slice(-3)}` }));
+      }
+      server.freeIssueLimit = 1;
+
+      const result = await run([...store.values()]);
+
+      expect(result.createdOutbound).toHaveLength(1);
+      expect(result.failures).toHaveLength(3);
+      // One success, one limit rejection — the two remaining were never sent.
+      expect(createAttempts()).toHaveLength(2);
+      const notAttempted = result.failures.filter((failure) =>
+        failure.error.startsWith('not attempted:'),
+      );
+      expect(notAttempted).toHaveLength(2);
+    });
+
+    it('does not attempt a child whose parent failed to create in this run', async () => {
+      // The child's parentId is the parent's pre-assigned client id, which
+      // never came to exist — Linear rejects it with "parentId contained an
+      // entry that could not be found" (observed live). Skipping locally keeps
+      // both journaled, and a later replay creates parent then child in order.
+      const parentId = 'is-01hx5zzkbkactav9wevgemmd01';
+      const childId = 'is-01hx5zzkbkactav9wevgemmd02';
+      store.set(parentId, bead(parentId, { title: 'Doomed parent' }));
+      store.set(childId, bead(childId, { title: 'Orphan child', parent_id: parentId }));
+      server.failCreateTitles.add('Doomed parent');
+
+      const result = await run([...store.values()]);
+
+      expect(result.createdOutbound).toHaveLength(0);
+      expect(result.failures).toHaveLength(2);
+      const childFailure = result.failures.find((failure) => failure.beadId === 'md02');
+      expect(childFailure?.error).toContain('parent failed to create');
+      // Only the parent's create reached the provider.
+      expect(createAttempts()).toHaveLength(1);
+    });
+
+    it('replays a halted backlog without re-paying a request per doomed item', async () => {
+      const ids = [
+        'is-01hx5zzkbkactav9wevgemme01',
+        'is-01hx5zzkbkactav9wevgemme02',
+        'is-01hx5zzkbkactav9wevgemme03',
+      ];
+      for (const id of ids) {
+        store.set(id, bead(id, { title: `Epic ${id.slice(-3)}` }));
+      }
+      server.freeIssueLimit = 0;
+      await run([...store.values()]); // journals 3 creates, halts after the first rejection
+
+      const before = createAttempts().length;
+      const second = await run([...store.values()]);
+
+      // One probe rediscovers the limit; the rest of the backlog stays parked.
+      expect(createAttempts().length - before).toBe(1);
+      expect(second.createdOutbound).toHaveLength(0);
+
+      // And the backlog is a backlog, not a graveyard: lift the limit and the
+      // next sync converges everything.
+      server.freeIssueLimit = undefined;
+      const recovered = await run([...store.values()]);
+      expect(recovered.failures).toEqual([]);
+      expect(server.issues.size).toBe(3);
+    });
+
+    it('compacts a partially-failed journal so replay pays only for pending ops', async () => {
+      // File-granular retention meant a 200-op journal replayed its succeeded
+      // ops on every sync until the last one cleared — observed live as ~90
+      // redundant requests per run. After a partial pass, the journal keeps
+      // only what is still pending.
+      const ids = [
+        'is-01hx5zzkbkactav9wevgemmf01',
+        'is-01hx5zzkbkactav9wevgemmf02',
+        'is-01hx5zzkbkactav9wevgemmf03',
+      ];
+      for (const id of ids) {
+        store.set(id, bead(id, { title: `Epic ${id.slice(-3)}` }));
+      }
+      server.freeIssueLimit = 2; // two fit, the third trips the limit
+      await run([...store.values()]); // journals everything, applies partially
+
+      // The first sync keeps its own journal whole — the engine does not track
+      // per-op completion. The NEXT sync's replay pass recovers the succeeded
+      // ops (idempotently) and it is that pass which compacts.
+      const [before] = await listIntentFiles(dir, 'linear');
+      expect(before!.ops.filter((op) => op.kind === 'create_issue')).toHaveLength(3);
+
+      await run([...store.values()]); // replay recovers 2, re-fails 1, compacts
+
+      const [journal] = await listIntentFiles(dir, 'linear');
+      expect(journal).toBeDefined();
+      // Only the doomed create's ops remain; every recovered op is gone, so a
+      // third sync pays one probe rather than one request per completed op.
+      expect(
+        journal!.ops.filter((op) => op.kind === 'create_issue').map((op) => op.bead_id),
+      ).toEqual(['is-01hx5zzkbkactav9wevgemmf03']);
+
+      // The compacted journal converges once the limit lifts.
+      server.freeIssueLimit = undefined;
+      const recovered = await run([...store.values()]);
+      expect(recovered.failures).toEqual([]);
+      expect(await listIntentFiles(dir, 'linear')).toEqual([]);
+      expect(server.issues.size).toBe(3);
+    });
+  });
+
   it('backfills and preserves the managed block on a pre-existing linked item', async () => {
     server.addIssue({
       id: 'linked-item',

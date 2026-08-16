@@ -24,6 +24,7 @@ import { z } from 'zod';
 import type { ProviderNameType } from '../../lib/types.js';
 import { parseYamlWithConflictDetection, stringifyYaml } from '../../utils/yaml-utils.js';
 import { bridgeIntentsDir } from './bridge-state.js';
+import { isWorkspaceLimitError } from './types.js';
 import type { AttachmentSpec, CanonicalPatch, ConflictReport, TrackerAdapter } from './types.js';
 
 const CanonicalPatchSchema = z
@@ -268,13 +269,55 @@ export async function replayIntents(
     failures: [],
   };
 
+  // A workspace plan limit fails every issue create for the same reason, so the
+  // first such error stops further create attempts across ALL journaled runs —
+  // otherwise a large halted batch re-pays one doomed request per item on every
+  // sync until the limit is lifted (observed live: ~141 failing calls per run).
+  // Other op kinds keep replaying: comments and updates are not what the limit
+  // is counting, and holding them hostage would delay unrelated convergence.
+  let createHalt: string | undefined;
+  // External ids that provably do not exist: the client ids of creates that
+  // failed or were parked. An op journaled against one — the attachments or
+  // managed block of a never-created issue — is a guaranteed "Could not find
+  // referenced Issue" from the provider, so it parks locally instead. Observed
+  // live: 32 halted creates left 64 dependent ops burning a request each on
+  // every sync.
+  const deadExternalIds = new Set<string>();
+
   for (const file of await listIntentFiles(dataSyncDir, provider)) {
     report.replayedRuns += 1;
     let failed = false;
     const recoveredCreates: ReplayReport['recoveredCreates'] = [];
     const recoveredComments: ReplayReport['recoveredComments'] = [];
+    // Ops that must survive into the next replay. Everything else — succeeded,
+    // consumed by the safety filter, or discarded by the integrity guard — has
+    // no reason to run again: replaying a 200-op journal for its 3 failures
+    // costs a request per already-done op on every sync (observed live as ~90
+    // redundant requests per run against a halted batch).
+    const pendingOps: typeof file.ops = [];
 
     for (const op of file.ops) {
+      if (op.kind === 'create_issue' && createHalt !== undefined) {
+        failed = true;
+        pendingOps.push(op);
+        deadExternalIds.add(op.client_id);
+        report.failures.push({
+          runId: file.run_id,
+          op,
+          error: `not attempted: ${createHalt}`,
+        });
+        continue;
+      }
+      if (op.kind !== 'create_issue' && deadExternalIds.has(op.external_id)) {
+        failed = true;
+        pendingOps.push(op);
+        report.failures.push({
+          runId: file.run_id,
+          op,
+          error: 'not attempted: its issue was never created; retries with the create.',
+        });
+        continue;
+      }
       const blockedTarget = blockedReplayTarget(op, safety);
       if (blockedTarget) {
         // The durable bead remains the source for re-planning once the link
@@ -335,6 +378,13 @@ export async function replayIntents(
         report.replayedOps += 1;
       } catch (error) {
         failed = true;
+        pendingOps.push(op);
+        if (op.kind === 'create_issue') {
+          deadExternalIds.add(op.client_id);
+          if (isWorkspaceLimitError(error)) {
+            createHalt = error.message;
+          }
+        }
         report.failures.push({
           runId: file.run_id,
           op,
@@ -351,6 +401,12 @@ export async function replayIntents(
     }
     if (!failed) {
       await deleteIntentFile(dataSyncDir, provider, file.run_id);
+    } else if (pendingOps.length < file.ops.length) {
+      // Compact rather than keep verbatim: the next replay should pay only for
+      // what is actually pending. Written only after recordRecovery above, so
+      // a crash between the two leaves the fuller journal, which replays
+      // idempotently — the safe direction to fail in.
+      await writeIntentFile(dataSyncDir, { ...file, ops: pendingOps });
     }
   }
 

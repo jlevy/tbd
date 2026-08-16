@@ -45,6 +45,26 @@ export class LinearDuplicateIdError extends LinearApiError {
   }
 }
 
+/**
+ * Raised when the workspace refuses a write for plan/billing reasons — e.g.
+ * "You've exceeded the free issue limit for this workspace."
+ *
+ * Distinct from a per-item failure because it is a property of the WORKSPACE:
+ * once one create hits it, every later create in the run will too. Callers use
+ * that to halt a batch instead of burning a request per doomed item — observed
+ * live as a 77-create sync that kept re-attempting its whole backlog on every
+ * run, ~141 failing API calls each time, against a 2,500/hr budget.
+ */
+export class LinearWorkspaceLimitError extends LinearApiError {
+  /** Duck-typed marker consumed by `isWorkspaceLimitError` in the core layer. */
+  readonly workspaceLimit = true;
+
+  constructor(message: string) {
+    super(message, 'INPUT_ERROR', false);
+    this.name = 'LinearWorkspaceLimitError';
+  }
+}
+
 export interface LinearClientOptions {
   apiKey: string;
   /** Overridable so tests can point at a local mock server. */
@@ -209,6 +229,12 @@ export class LinearClient {
       const haystack = `${firstError.message} ${presentable ?? ''}`;
       if (/already exists/i.test(haystack) || /conflict on insert/i.test(haystack)) {
         throw new LinearDuplicateIdError(detail);
+      }
+      // Matched on "exceeded … limit for this workspace" rather than any
+      // mention of upgrading, so an unrelated message that happens to suggest a
+      // plan change does not halt a batch.
+      if (/exceeded .* limit for this workspace/i.test(haystack)) {
+        throw new LinearWorkspaceLimitError(detail);
       }
       throw new LinearApiError(detail, code, false, response.status);
     }

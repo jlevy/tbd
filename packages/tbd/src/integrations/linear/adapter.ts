@@ -41,6 +41,7 @@ import {
   ISSUE_LABELS_QUERY,
   ISSUE_UPDATE_MUTATION,
   LABEL_CREATE_MUTATION,
+  PROJECT_CREATE_MUTATION,
   PROJECT_QUERY,
   TEAM_META_QUERY,
   TEAM_LABELS_QUERY,
@@ -162,6 +163,29 @@ export class LinearAdapter implements TrackerAdapter {
       return this.projectId ?? undefined;
     }
 
+    const { match, available } = await this.findProject();
+    if (!match) {
+      throw new Error(
+        `Linear project not found: ${this.project}. Available: ${available || 'none'}. ` +
+          `Run \`tbd integration setup\` to create it.`,
+      );
+    }
+    this.projectId = match.id;
+    return match.id;
+  }
+
+  /**
+   * Look the configured project up without deciding what absence means.
+   *
+   * Split from {@link resolveProjectId} because the two callers disagree about
+   * a missing project: the sync path treats it as an error (filing issues into
+   * "no project" because of a typo is the failure the throw prevents), while
+   * `provision` treats it as work to do.
+   */
+  private async findProject(): Promise<{
+    match?: { id: string; name: string; slugId: string };
+    available: string;
+  }> {
     const projects: { id: string; name: string; slugId: string }[] = [];
     let after: string | undefined;
     do {
@@ -177,18 +201,13 @@ export class LinearAdapter implements TrackerAdapter {
         : undefined;
     } while (after);
 
-    const wanted = this.project.toLowerCase();
-    const match = projects.find(
-      (node) => node.slugId.toLowerCase() === wanted || node.name.toLowerCase() === wanted,
-    );
-    if (!match) {
-      const available = projects.map((node) => `${node.name} (${node.slugId})`).join(', ');
-      throw new Error(
-        `Linear project not found: ${this.project}. Available: ${available || 'none'}`,
-      );
-    }
-    this.projectId = match.id;
-    return match.id;
+    const wanted = (this.project ?? '').toLowerCase();
+    return {
+      match: projects.find(
+        (node) => node.slugId.toLowerCase() === wanted || node.name.toLowerCase() === wanted,
+      ),
+      available: projects.map((node) => `${node.name} (${node.slugId})`).join(', '),
+    };
   }
 
   /**
@@ -827,17 +846,63 @@ export class LinearAdapter implements TrackerAdapter {
   }
 
   /**
-   * Inspect, and optionally create, the label scaffolding this mirror needs.
+   * Inspect, and optionally create, the tracker scaffolding this mirror needs.
    *
    * Idempotent by construction: everything is find-or-create against the qualified-name
    * index, so running it twice creates nothing the second time. The group is reported as
    * its own item because it is a distinct object in Linear with its own failure mode —
    * a plain label already sitting on the group's name blocks the child, and an operator
    * needs to be told that rather than watching the label quietly not appear.
+   *
+   * The configured project is scaffolding too: `resolveProjectId` fails a sync outright
+   * when `target.project` names nothing, so a setup that provisioned only labels walked
+   * the operator into a guaranteed first-sync error. Found live wiring the second
+   * repository of a multi-repo team, where per-repo projects are the intended shape.
    */
   async provision(options: ProvisionOptions): Promise<ProvisionReport> {
     const index = await this.ensureLabelIndex();
     const items: ProvisionItem[] = [];
+
+    if (this.project) {
+      const { match } = await this.findProject();
+      if (match) {
+        items.push({ kind: 'project', name: this.project, state: 'present' });
+      } else if (!options.apply) {
+        items.push({ kind: 'project', name: this.project, state: 'missing' });
+      } else {
+        try {
+          const data = await this.client.request<{
+            projectCreate: {
+              success: boolean;
+              project: { id: string; name: string; slugId: string } | null;
+            };
+          }>(PROJECT_CREATE_MUTATION, {
+            input: { name: this.project, teamIds: [await this.resolveTeamId()] },
+          });
+          const created = data.projectCreate.project;
+          if (!data.projectCreate.success || !created) {
+            items.push({
+              kind: 'project',
+              name: this.project,
+              state: 'blocked',
+              reason: 'Linear declined to create the project',
+            });
+          } else {
+            // Cache the id so the sync that typically follows setup does not
+            // re-list every project just to find the one this run created.
+            this.projectId = created.id;
+            items.push({ kind: 'project', name: this.project, state: 'created' });
+          }
+        } catch (error) {
+          items.push({
+            kind: 'project',
+            name: this.project,
+            state: 'blocked',
+            reason: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    }
 
     /**
      * Where each leaf name is already taken, keyed by the bare leaf.
