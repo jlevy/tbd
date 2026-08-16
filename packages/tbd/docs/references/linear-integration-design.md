@@ -86,12 +86,13 @@ The scheme:
 | Label | Purpose |
 | --- | --- |
 | `tbd` | Every mirrored item. `label is not tbd` gives a human their board back |
-| `repo/<name>` | Which repository. A Linear group allows one label per issue, which is one-repo-per-bead enforced structurally |
-| `tbd:*` | tbd’s own carriers (`tbd:blocked`, and mirrored labels under `mirror: prefixed`) |
+| `repo:<name>` | Which repository, for a team several report into |
+| `tbd:*` | tbd’s occasional purposeful carriers (`tbd:blocked`, `tbd:deferred`, and mirrored labels under `mirror: prefixed`) — deliberately uncommon, unlike the marker |
 
-tbd sets a color when it *creates* one of its own labels—indigo for the marker, slate
-for repository labels, red and amber for the blocked and deferred carriers—and never on
-update. Colour is presentation, and once a label exists it belongs to the workspace.
+tbd sets a color when it *creates* one of its own labels—dark olive green for the
+marker, slate for repository labels, red and amber for the blocked and deferred
+carriers—and never on update.
+Colour is presentation, and once a label exists it belongs to the workspace.
 
 **Rule:** the marker is bare; everything else tbd creates is prefixed, `tbd:` for its
 own carriers and `repo:` for repository identity.
