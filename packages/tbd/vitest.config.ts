@@ -16,6 +16,13 @@ export default defineConfig({
     // See tests/scrub-git-env.ts and the tbd-a1lc incident.
     setupFiles: ['tests/scrub-git-env.ts'],
     hookTimeout: isWindows ? 30000 : 10000,
+    // The same reasoning, for the test body rather than the hook. Several tests
+    // drive a dozen real git subprocesses (branch, commit, a conflicting merge,
+    // then the resolver), which fits the 5s default comfortably on Linux and
+    // macOS and lands right at the edge on Windows — `bridge-merge` failed CI at
+    // 5472ms. Raising it only on Windows keeps the tight budget everywhere it is
+    // meaningful, and a genuine hang still fails rather than running forever.
+    testTimeout: isWindows ? 20000 : 5000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'json-summary', 'lcov', 'html'],
