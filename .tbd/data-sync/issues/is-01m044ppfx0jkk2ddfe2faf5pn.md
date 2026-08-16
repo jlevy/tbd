@@ -5,14 +5,18 @@ title: Populate identity.user_map so assignee sync stops being skipped
 kind: task
 status: open
 priority: 3
-version: 1
+version: 2
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-3
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-16T01:59:11.100Z
-updated_at: 2026-08-16T01:59:11.100Z
+updated_at: 2026-08-16T02:10:12.647Z
+extensions:
+  linear:
+    id: 8884680f-5cbe-418b-bfed-9262f24db5da
+    linked_at: 2026-08-16T02:10:12.647Z
 ---
 Every live sync of this repository ends with two warnings:
 

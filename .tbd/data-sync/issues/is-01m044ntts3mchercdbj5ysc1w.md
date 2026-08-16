@@ -5,14 +5,18 @@ title: Mirror-only push maintains no bridge record, so identifiers never refresh
 kind: bug
 status: open
 priority: 2
-version: 1
+version: 2
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-3
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-16T01:58:42.775Z
-updated_at: 2026-08-16T01:58:42.775Z
+updated_at: 2026-08-16T02:10:12.627Z
+extensions:
+  linear:
+    id: 46a50021-938f-404f-83ee-bde1d36dd1f8
+    linked_at: 2026-08-16T02:10:12.627Z
 ---
 `tbd integration sync --push` runs the one-way mirror (applyMirror), which writes bead links but no bridge records. Since the tracker identifier moved to the bridge record, a push-only workflow now stores it nowhere.
 

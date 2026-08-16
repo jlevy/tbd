@@ -1,0 +1,1516 @@
+created_at: 2026-08-16T02:10:12.600Z
+ops:
+  - bead_id: is-01m044nedt6k3nsfsnnyxep4k3
+    client_id: d998d291-f161-4713-9d55-e1ae03e17c4f
+    kind: create_issue
+    patch:
+      description: >-
+        The managed block renders the spec permalink against whichever branch the sync
+        ran from: `blob/claude/linear-sync-agent-hooks-vqatny/docs/...`. Two
+        consequences, both real as of 2026-08-15:
+
+
+        1. Syncing the same beads from a different branch rewrites every managed block,
+        because the rendered link differs. A full-mirror write triggered purely by which
+        branch an agent happened to be on.
+
+        2. Once the branch is deleted after the PR merges, every one of those links
+        404s. This repository has 205 mirrored issues carrying them right now.
+
+
+        The permalink should resolve against a stable ref (the default branch, or the
+        merge commit) rather than the working branch. See resolveSpecLinks in
+        src/cli/lib/integration-runner.ts and renderManagedBlock in
+        src/integrations/core/managed-block.ts.
+
+
+        Largest remaining source of avoidable Linear writes.
+      parentId: 1ef43a0c-0cf8-4944-a374-327de127108c
+      priority: 1
+      status: in_progress
+      title: Managed block embeds the current git branch, so spec links break after merge
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-cuwr
+          children: 0
+          created_at: 2026-08-16T01:58:30.073Z
+          dependencies: []
+          internal_id: is-01m044nedt6k3nsfsnnyxep4k3
+          kind: bug
+          labels:
+            - phase-3
+          parent_id: is-01m00h43nvt17wxyhxqm88wh3c
+          priority: 1
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+          status: in_progress
+          updated_at: 2026-08-16T02:05:50.038Z
+        subtitle: in_progress · P1
+        title: tbd-cuwr · bug
+        url: tbd://bead/tbd-cuwr
+      - subtitle: plan spec
+        title: plan-2026-08-14-external-sync-and-traceability.md
+        url: https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+    bead_id: is-01m044nedt6k3nsfsnnyxep4k3
+    external_id: d998d291-f161-4713-9d55-e1ae03e17c4f
+    kind: upsert_attachments
+  - bead_id: is-01m044nedt6k3nsfsnnyxep4k3
+    block: |-
+      ⟦tbd⟧
+      `tbd-cuwr` · bug · in_progress · P1
+      Spec: [plan-2026-08-14-external-sync-and-traceability.md](https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-cuwr`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: d998d291-f161-4713-9d55-e1ae03e17c4f
+    kind: splice_description
+  - bead_id: is-01m044ntts3mchercdbj5ysc1w
+    client_id: 46a50021-938f-404f-83ee-bde1d36dd1f8
+    kind: create_issue
+    patch:
+      description: >-
+        `tbd integration sync --push` runs the one-way mirror (applyMirror), which
+        writes bead links but no bridge records. Since the tracker identifier moved to
+        the bridge record, a push-only workflow now stores it nowhere.
+
+
+        Self-healing: the next full sync repairs it, and `tbd sync` folds a full
+        integration sync in, so this is transient rather than permanent. It is still a
+        mode inconsistency of the kind we are trying to avoid.
+
+
+        Cheap to fix: ISSUE_UPDATE_MUTATION already selects `issue { id identifier url
+        updatedAt }` (src/integrations/linear/queries.ts:127), but applyChanges narrows
+        the return to `{updatedAt}` and discards the rest. Widen it and let the mirror's
+        caller persist the identifier — no extra request.
+      parentId: 1ef43a0c-0cf8-4944-a374-327de127108c
+      priority: 2
+      status: open
+      title: Mirror-only push maintains no bridge record, so identifiers never refresh
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-ktji
+          children: 0
+          created_at: 2026-08-16T01:58:42.775Z
+          dependencies: []
+          internal_id: is-01m044ntts3mchercdbj5ysc1w
+          kind: bug
+          labels:
+            - phase-3
+          parent_id: is-01m00h43nvt17wxyhxqm88wh3c
+          priority: 2
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+          status: open
+          updated_at: 2026-08-16T01:58:42.775Z
+        subtitle: open · P2
+        title: tbd-ktji · bug
+        url: tbd://bead/tbd-ktji
+      - subtitle: plan spec
+        title: plan-2026-08-14-external-sync-and-traceability.md
+        url: https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+    bead_id: is-01m044ntts3mchercdbj5ysc1w
+    external_id: 46a50021-938f-404f-83ee-bde1d36dd1f8
+    kind: upsert_attachments
+  - bead_id: is-01m044ntts3mchercdbj5ysc1w
+    block: |-
+      ⟦tbd⟧
+      `tbd-ktji` · bug · open · P2
+      Spec: [plan-2026-08-14-external-sync-and-traceability.md](https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-ktji`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 46a50021-938f-404f-83ee-bde1d36dd1f8
+    kind: splice_description
+  - bead_id: is-01m044nvks5kv7t4cs9gn8b6sw
+    client_id: 702670bb-f632-4c23-a430-52d23df997c5
+    kind: create_issue
+    patch:
+      description: >-
+        duplicateExternalLinks now takes an optional keyByExternalId map so the report
+        can name OS-77 instead of a bare UUID. Doctor passes it
+        (src/cli/commands/doctor.ts); the sync engine does not, because its duplicate
+        check runs at sync-engine.ts:391 while link records are not loaded until line
+        567.
+
+
+        Either move the record load earlier or pass the map through. Cosmetic only: the
+        message already names the holding beads and the remedy command, which is what
+        the operator acts on.
+      parentId: 1ef43a0c-0cf8-4944-a374-327de127108c
+      priority: 3
+      status: open
+      title: Sync's duplicate-link failure names a UUID where doctor names the issue key
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-1emr
+          children: 0
+          created_at: 2026-08-16T01:58:43.574Z
+          dependencies: []
+          internal_id: is-01m044nvks5kv7t4cs9gn8b6sw
+          kind: task
+          labels:
+            - phase-3
+          parent_id: is-01m00h43nvt17wxyhxqm88wh3c
+          priority: 3
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+          status: open
+          updated_at: 2026-08-16T01:58:43.574Z
+        subtitle: open · P3
+        title: tbd-1emr · task
+        url: tbd://bead/tbd-1emr
+      - subtitle: plan spec
+        title: plan-2026-08-14-external-sync-and-traceability.md
+        url: https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+    bead_id: is-01m044nvks5kv7t4cs9gn8b6sw
+    external_id: 702670bb-f632-4c23-a430-52d23df997c5
+    kind: upsert_attachments
+  - bead_id: is-01m044nvks5kv7t4cs9gn8b6sw
+    block: |-
+      ⟦tbd⟧
+      `tbd-1emr` · task · open · P3
+      Spec: [plan-2026-08-14-external-sync-and-traceability.md](https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-1emr`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 702670bb-f632-4c23-a430-52d23df997c5
+    kind: splice_description
+  - bead_id: is-01m044p9c6bhvyb8bbryag33hz
+    client_id: 19fa31e8-49b0-47be-891d-93f9c181b11c
+    kind: create_issue
+    patch:
+      description: >-
+        Carried over from the original runbook and still unproven. The delta-gated
+        comment fetch assumes creating a comment advances the issue's updatedAt; if it
+        does not, the watermark prefilter will miss inbound comments.
+
+
+        The 2026-08-15 live cycle ran with comments=two_way but exercised no comment
+        traffic (commentsPushed and commentsPulled were both 0 throughout), so this
+        remains open. Post a comment in Linear by hand, then check whether the issue's
+        updatedAt moved.
+      parentId: 1ef43a0c-0cf8-4944-a374-327de127108c
+      priority: 2
+      status: open
+      title: Prove whether Linear bumps updatedAt when a comment is created
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-majw
+          children: 0
+          created_at: 2026-08-16T01:58:57.662Z
+          dependencies: []
+          internal_id: is-01m044p9c6bhvyb8bbryag33hz
+          kind: task
+          labels:
+            - phase-3
+          parent_id: is-01m00h43nvt17wxyhxqm88wh3c
+          priority: 2
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+          status: open
+          updated_at: 2026-08-16T01:58:57.662Z
+        subtitle: open · P2
+        title: tbd-majw · task
+        url: tbd://bead/tbd-majw
+      - subtitle: plan spec
+        title: plan-2026-08-14-external-sync-and-traceability.md
+        url: https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+    bead_id: is-01m044p9c6bhvyb8bbryag33hz
+    external_id: 19fa31e8-49b0-47be-891d-93f9c181b11c
+    kind: upsert_attachments
+  - bead_id: is-01m044p9c6bhvyb8bbryag33hz
+    block: |-
+      ⟦tbd⟧
+      `tbd-majw` · task · open · P2
+      Spec: [plan-2026-08-14-external-sync-and-traceability.md](https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-majw`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 19fa31e8-49b0-47be-891d-93f9c181b11c
+    kind: splice_description
+  - bead_id: is-01m044ppfx0jkk2ddfe2faf5pn
+    client_id: 8884680f-5cbe-418b-bfed-9262f24db5da
+    kind: create_issue
+    patch:
+      description: >-
+        Every live sync of this repository ends with two warnings:
+
+          ! OS-166: Linear assignee is not present in user_map; assignee synchronization skipped.
+          ! OS-162: Linear assignee is not present in user_map; assignee synchronization skipped.
+
+        integrations.linear.identity.user_map is {} in .tbd/config.yml, so any
+        Linear-side assignee has no canonical alias to map to and assignee sync is
+        skipped for that pair. Not a code defect — the guard is working — but it means
+        the assignee field is inert for those issues, and the warnings are permanent
+        noise on an otherwise clean sync.
+
+
+        Map the Linear users to their tbd aliases, or decide assignee stays local-only
+        and downgrade the message.
+      parentId: 1ef43a0c-0cf8-4944-a374-327de127108c
+      priority: 3
+      status: open
+      title: Populate identity.user_map so assignee sync stops being skipped
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-klgh
+          children: 0
+          created_at: 2026-08-16T01:59:11.100Z
+          dependencies: []
+          internal_id: is-01m044ppfx0jkk2ddfe2faf5pn
+          kind: task
+          labels:
+            - phase-3
+          parent_id: is-01m00h43nvt17wxyhxqm88wh3c
+          priority: 3
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+          status: open
+          updated_at: 2026-08-16T01:59:11.100Z
+        subtitle: open · P3
+        title: tbd-klgh · task
+        url: tbd://bead/tbd-klgh
+      - subtitle: plan spec
+        title: plan-2026-08-14-external-sync-and-traceability.md
+        url: https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+    bead_id: is-01m044ppfx0jkk2ddfe2faf5pn
+    external_id: 8884680f-5cbe-418b-bfed-9262f24db5da
+    kind: upsert_attachments
+  - bead_id: is-01m044ppfx0jkk2ddfe2faf5pn
+    block: |-
+      ⟦tbd⟧
+      `tbd-klgh` · task · open · P3
+      Spec: [plan-2026-08-14-external-sync-and-traceability.md](https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-klgh`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 8884680f-5cbe-418b-bfed-9262f24db5da
+    kind: splice_description
+  - bead_id: is-01m044pq2zntk84fyb610dprmn
+    client_id: b7926236-f57b-426f-9918-4bba91529aca
+    kind: create_issue
+    patch:
+      description: |-
+        The origin marker is now tbd:sync (ORIGIN_LABEL in src/integrations/core/origin-labels.ts), because Linear enforces label-name uniqueness team-wide and a bare 'tbd' collides with repo/tbd.
+
+        In-code references were corrected. These still say 'label is not tbd':
+        - docs/project/research/current/research-2026-08-14-agent-sync-protocol-and-hooks.md:902 and :1677
+        - docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md:430
+
+        The research brief is a dated record of what was proposed and can arguably stand, but the active plan should describe what shipped. Decide per document.
+      parentId: 1ef43a0c-0cf8-4944-a374-327de127108c
+      priority: 3
+      status: open
+      title: Research and plan docs still describe the pre-f08 'tbd' origin label
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-t9hi
+          children: 0
+          created_at: 2026-08-16T01:59:11.710Z
+          dependencies: []
+          internal_id: is-01m044pq2zntk84fyb610dprmn
+          kind: chore
+          labels:
+            - phase-3
+          parent_id: is-01m00h43nvt17wxyhxqm88wh3c
+          priority: 3
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+          status: open
+          updated_at: 2026-08-16T01:59:11.710Z
+        subtitle: open · P3
+        title: tbd-t9hi · chore
+        url: tbd://bead/tbd-t9hi
+      - subtitle: plan spec
+        title: plan-2026-08-14-external-sync-and-traceability.md
+        url: https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+    bead_id: is-01m044pq2zntk84fyb610dprmn
+    external_id: b7926236-f57b-426f-9918-4bba91529aca
+    kind: upsert_attachments
+  - bead_id: is-01m044pq2zntk84fyb610dprmn
+    block: |-
+      ⟦tbd⟧
+      `tbd-t9hi` · chore · open · P3
+      Spec: [plan-2026-08-14-external-sync-and-traceability.md](https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-t9hi`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: b7926236-f57b-426f-9918-4bba91529aca
+    kind: splice_description
+  - bead_id: is-01m044qg77sr6cpwasm0qkhcbq
+    client_id: e4fe7e8d-63cc-4b9b-8485-a712bc5175dc
+    kind: create_issue
+    patch:
+      description: >-
+        Both are correct today and become wrong the moment a published release can read
+        f08:
+
+
+        1. `tbd doctor` emits a 'Launcher fallback' warning because tbd_fallback_version
+        (0.6.5) cannot read f08. The warning disappears once the tagged version can, and
+        its golden must drop the line.
+
+        2. scripts/validate-upgrade-package.mjs has no same-format baseline —
+        deliberately, since no published version produces f08. Add 0.7.0 as the
+        expectOldClientToWork: true scenario once it exists.
+
+
+        Recorded so these read as scheduled work rather than a surprise regression
+        during the release.
+      parentId: 1ef43a0c-0cf8-4944-a374-327de127108c
+      priority: 2
+      status: open
+      title: Two goldens invert when 0.7.0 ships, and will 'break' on success
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-62a5
+          children: 0
+          created_at: 2026-08-16T01:59:37.390Z
+          dependencies: []
+          internal_id: is-01m044qg77sr6cpwasm0qkhcbq
+          kind: task
+          labels:
+            - phase-4
+          parent_id: is-01m00h43nvt17wxyhxqm88wh3c
+          priority: 2
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+          status: open
+          updated_at: 2026-08-16T01:59:37.390Z
+        subtitle: open · P2
+        title: tbd-62a5 · task
+        url: tbd://bead/tbd-62a5
+      - subtitle: plan spec
+        title: plan-2026-08-14-external-sync-and-traceability.md
+        url: https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+    bead_id: is-01m044qg77sr6cpwasm0qkhcbq
+    external_id: e4fe7e8d-63cc-4b9b-8485-a712bc5175dc
+    kind: upsert_attachments
+  - bead_id: is-01m044qg77sr6cpwasm0qkhcbq
+    block: |-
+      ⟦tbd⟧
+      `tbd-62a5` · task · open · P2
+      Spec: [plan-2026-08-14-external-sync-and-traceability.md](https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-62a5`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: e4fe7e8d-63cc-4b9b-8485-a712bc5175dc
+    kind: splice_description
+  - bead_id: is-01m044qhmd5be33jt0rj5e710g
+    client_id: 4b6d44e1-e8a3-4ee6-a16f-c9253b272088
+    kind: create_issue
+    patch:
+      description: >-
+        Two things the sync deliberately does not do, both now more relevant because
+        more repositories are planned for the opensource team:
+
+
+        1. customViewCreate for the 'label is not tbd:sync' filter view. API-creatable
+        and small, but creating shared views in someone's workspace is more invasive
+        than labels and wanted a human decision.
+
+        2. Labels are created team-scoped, matching prior behaviour. Cross-team
+        consolidation would want workspace scope (omit teamId). A config decision, not a
+        code gap.
+
+
+        Worth settling together, since both are about how a shared workspace is meant to
+        be organised once several repos report into it.
+      parentId: 1ef43a0c-0cf8-4944-a374-327de127108c
+      priority: 3
+      status: open
+      title: Decide on customViewCreate and workspace-scoped labels for multi-repo
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-b7cy
+          children: 0
+          created_at: 2026-08-16T01:59:38.892Z
+          dependencies: []
+          internal_id: is-01m044qhmd5be33jt0rj5e710g
+          kind: task
+          labels:
+            - phase-4
+          parent_id: is-01m00h43nvt17wxyhxqm88wh3c
+          priority: 3
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+          status: open
+          updated_at: 2026-08-16T01:59:38.892Z
+        subtitle: open · P3
+        title: tbd-b7cy · task
+        url: tbd://bead/tbd-b7cy
+      - subtitle: plan spec
+        title: plan-2026-08-14-external-sync-and-traceability.md
+        url: https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+    bead_id: is-01m044qhmd5be33jt0rj5e710g
+    external_id: 4b6d44e1-e8a3-4ee6-a16f-c9253b272088
+    kind: upsert_attachments
+  - bead_id: is-01m044qhmd5be33jt0rj5e710g
+    block: |-
+      ⟦tbd⟧
+      `tbd-b7cy` · task · open · P3
+      Spec: [plan-2026-08-14-external-sync-and-traceability.md](https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-b7cy`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 4b6d44e1-e8a3-4ee6-a16f-c9253b272088
+    kind: splice_description
+  - bead_id: is-01kfv69cass521h3av6a5n6q55
+    block: |-
+      ⟦tbd⟧
+      `tbd-df33` · epic · open · P2
+      Spec: [plan-2026-01-19-transactional-mode-and-agent-registration.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-01-19-transactional-mode-and-agent-registration.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-df33`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: a44940fb-deaf-4294-8a2b-27cfa801aabe
+    kind: splice_description
+  - bead_id: is-01khjmbr522nd3fw0nebgcfsxn
+    block: |-
+      ⟦tbd⟧
+      `tbd-hch7` · feature · open · P2
+      Spec: [plan-2026-02-16-kdex-knowledge-index-cli.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-02-16-kdex-knowledge-index-cli.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-hch7`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 941739c1-da00-4197-91ed-1a8a11bef1cd
+    kind: splice_description
+  - bead_id: is-01khjmbw2yx3pbgd1edn23ekws
+    block: |-
+      ⟦tbd⟧
+      `tbd-yk3p` · feature · open · P2
+      Spec: [plan-2026-02-16-kdex-knowledge-index-cli.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-02-16-kdex-knowledge-index-cli.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-yk3p`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 600e28bf-217d-416b-bc27-8932e9333d95
+    kind: splice_description
+  - bead_id: is-01khjmbxbgm5tvpg8j1r2svn7k
+    block: |-
+      ⟦tbd⟧
+      `tbd-5hv2` · feature · open · P2
+      Spec: [plan-2026-02-16-kdex-knowledge-index-cli.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-02-16-kdex-knowledge-index-cli.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-5hv2`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 9d43b1cf-47c7-4774-9bd6-aea5333a0e5f
+    kind: splice_description
+  - bead_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
+    block: |-
+      ⟦tbd⟧
+      `tbd-g9x7` · epic · open · P1
+      Spec: [plan-2026-05-24-multi-agent-skills-hooks-setup.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
+      Children: 19 (3 ready)
+      Bead: `tbd show tbd-g9x7`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 666ffd07-a190-48fe-9ce5-657967438c81
+    kind: splice_description
+  - bead_id: is-01ksc0s4vq2w1yyp10fybqpq8t
+    block: |-
+      ⟦tbd⟧
+      `tbd-qgpl` · task · closed · P1
+      Spec: [plan-2026-05-24-multi-agent-skills-hooks-setup.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-qgpl`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 29b89ec1-6792-4835-bc9f-f851eaf0fe36
+    kind: splice_description
+  - bead_id: is-01ksc0scbn4h9eybnfgmvr6mw3
+    block: |-
+      ⟦tbd⟧
+      `tbd-orup` · task · closed · P1
+      Spec: [plan-2026-05-24-multi-agent-skills-hooks-setup.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-orup`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 3cf6fe4a-7e19-4b26-acbf-a83a96bf68ca
+    kind: splice_description
+  - bead_id: is-01ksc0skpmwe30svw66fjsztwg
+    block: |-
+      ⟦tbd⟧
+      `tbd-l2ym` · task · open · P1
+      Spec: [plan-2026-05-24-multi-agent-skills-hooks-setup.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-l2ym`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 0d69bd5c-f051-45cb-a8e3-ebb53025e04b
+    kind: splice_description
+  - bead_id: is-01ksc0t1njfwsxfv86vvgdb4y2
+    block: |-
+      ⟦tbd⟧
+      `tbd-0q8h` · task · closed · P1
+      Spec: [plan-2026-05-24-multi-agent-skills-hooks-setup.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-0q8h`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: d270f03b-6302-474f-936f-5456dc566200
+    kind: splice_description
+  - bead_id: is-01ksc0ta2n1q3nkr2791574t56
+    block: |-
+      ⟦tbd⟧
+      `tbd-bz0h` · task · closed · P1
+      Spec: [plan-2026-05-24-multi-agent-skills-hooks-setup.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-bz0h`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 42995cb8-9d22-4736-ae71-ae6caad71327
+    kind: splice_description
+  - bead_id: is-01ksc0thbsjf1629exkpyd5xn7
+    block: |-
+      ⟦tbd⟧
+      `tbd-m6f3` · task · closed · P1
+      Spec: [plan-2026-05-24-multi-agent-skills-hooks-setup.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-m6f3`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: dcaca6c7-6b64-45aa-8dd7-095d5698f3de
+    kind: splice_description
+  - bead_id: is-01ksc0trd3x6wrkqx3dsb8cjfs
+    block: |-
+      ⟦tbd⟧
+      `tbd-wha7` · task · closed · P2
+      Spec: [plan-2026-05-24-multi-agent-skills-hooks-setup.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-wha7`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: bc3afdf8-1733-4996-a58b-ad81f30480f5
+    kind: splice_description
+  - bead_id: is-01ksdpqxp1bavjc60s2wynfawb
+    block: |-
+      ⟦tbd⟧
+      `tbd-shsb` · task · closed · P1
+      Spec: [plan-2026-05-24-multi-agent-skills-hooks-setup.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-shsb`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 7c004b91-a49f-458a-9c54-5297c0910aff
+    kind: splice_description
+  - bead_id: is-01ksdpr4q999zpz14nqmv3ycpz
+    block: |-
+      ⟦tbd⟧
+      `tbd-zd4h` · task · closed · P2
+      Spec: [plan-2026-05-24-multi-agent-skills-hooks-setup.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-zd4h`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: f7872fb4-7472-46cb-8633-9577779a690c
+    kind: splice_description
+  - bead_id: is-01ksdprb4vpb3drtwwjpznbqs6
+    block: |-
+      ⟦tbd⟧
+      `tbd-mjxt` · task · closed · P1
+      Spec: [plan-2026-05-24-multi-agent-skills-hooks-setup.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-mjxt`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: e29e5082-3cd5-4427-b6b9-a70c925508a3
+    kind: splice_description
+  - bead_id: is-01ksdq6jr5nrtjtc194fz17kry
+    block: |-
+      ⟦tbd⟧
+      `tbd-jrir` · task · closed · P1
+      Spec: [plan-2026-05-24-multi-agent-skills-hooks-setup.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-jrir`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: c290f2a1-9b34-44d5-b151-e983ad3fabcb
+    kind: splice_description
+  - bead_id: is-01ksgr45bkhqwwfhpna2xytqdz
+    block: |-
+      ⟦tbd⟧
+      `tbd-fcam` · task · closed · P1
+      Spec: [plan-2026-05-24-multi-agent-skills-hooks-setup.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-fcam`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: db482f8e-9167-4f53-8a73-863694f262ef
+    kind: splice_description
+  - bead_id: is-01ksrpb7b8cfwrzzd34ya9874q
+    block: |-
+      ⟦tbd⟧
+      `tbd-cedu` · epic · closed · P0
+      Spec: [release-v0.2.0-upgrade.qa.md](https://github.com/jlevy/tbd/blob/main/tests/qa/release-v0.2.0-upgrade.qa.md)
+      Children: 13 (0 ready)
+      Bead: `tbd show tbd-cedu`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 67351357-3767-492e-bde1-c8d0d986b8dd
+    kind: splice_description
+  - bead_id: is-01ktxg4rgaz91wm7577qdfpqzx
+    block: |-
+      ⟦tbd⟧
+      `tbd-i49m` · task · open · P2
+      Spec: [plan-2026-06-11-forkable-docs.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/done/plan-2026-06-11-forkable-docs.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-i49m`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 73b556d4-430f-44ca-8c21-295431eba66d
+    kind: splice_description
+  - bead_id: is-01ktxg4s1ng4wz60bnh3frcsc0
+    block: |-
+      ⟦tbd⟧
+      `tbd-wzqp` · task · open · P2
+      Spec: [plan-2026-06-11-forkable-docs.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/done/plan-2026-06-11-forkable-docs.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-wzqp`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: c5797f48-4ee8-49b0-8da9-19c3f0b0f345
+    kind: splice_description
+  - bead_id: is-01ktxg4xzfxshrmb3besbwr2w2
+    block: |-
+      ⟦tbd⟧
+      `tbd-f233` · task · open · P2
+      Spec: [plan-2026-06-11-forkable-docs.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/done/plan-2026-06-11-forkable-docs.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-f233`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 921619b6-8e78-46c0-9a0f-d17bd5fba362
+    kind: splice_description
+  - bead_id: is-01ktybykhe3b5ampe085nc87ha
+    block: |-
+      ⟦tbd⟧
+      `tbd-5m4k` · bug · open · P1
+      Spec: [plan-2026-05-24-multi-agent-skills-hooks-setup.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-5m4k`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 588e3b83-f5cd-4eb4-a2f2-89bce1d2747f
+    kind: splice_description
+  - bead_id: is-01ktybyydyjx5gavcach1c0jn9
+    block: |-
+      ⟦tbd⟧
+      `tbd-q0kh` · bug · closed · P2
+      Spec: [plan-2026-05-24-multi-agent-skills-hooks-setup.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-q0kh`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 35ca8a8f-a997-482b-b287-d2bf254b54f0
+    kind: splice_description
+  - bead_id: is-01kv197ns6jwkg2q82w7awjn15
+    block: |-
+      ⟦tbd⟧
+      `tbd-6h1r` · epic · open · P1
+      Spec: [plan-2026-06-13-agent-cli-ergonomics.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-06-13-agent-cli-ergonomics.md)
+      Children: 9 (2 ready)
+      Bead: `tbd show tbd-6h1r`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: c5c71c47-da62-4511-b39c-99f52cbc52f9
+    kind: splice_description
+  - bead_id: is-01kv199rkcm7z63tmp6hs2dbr1
+    block: |-
+      ⟦tbd⟧
+      `tbd-ja4e` · task · open · P3
+      Spec: [plan-2026-06-13-agent-cli-ergonomics.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-06-13-agent-cli-ergonomics.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-ja4e`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 1f760527-47c0-47a2-8e1a-01b086c6eb05
+    kind: splice_description
+  - bead_id: is-01kv199t0v53178ybga0kp21k3
+    block: |-
+      ⟦tbd⟧
+      `tbd-t9em` · task · open · P3
+      Spec: [plan-2026-06-13-agent-cli-ergonomics.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-06-13-agent-cli-ergonomics.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-t9em`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 13de4a76-7c6f-43bb-97c2-e00d706b56b8
+    kind: splice_description
+  - bead_id: is-01kv199vg79cyyjde19bxgrvdg
+    block: |-
+      ⟦tbd⟧
+      `tbd-71oi` · task · open · P4
+      Spec: [plan-2026-06-13-agent-cli-ergonomics.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-06-13-agent-cli-ergonomics.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-71oi`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 7736131a-ed1b-4a83-bdea-6e5f7bf3c304
+    kind: splice_description
+  - bead_id: is-01kx6ssctsapjkqwrt9vs32h0d
+    block: |-
+      ⟦tbd⟧
+      `tbd-1asx` · task · open · P3
+      Spec: [plan-2026-06-13-agent-cli-ergonomics.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-06-13-agent-cli-ergonomics.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-1asx`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 17e7162f-5364-47ed-ae68-78a1c7167ef5
+    kind: splice_description
+  - bead_id: is-01kxz3kfz7n7y23n9rzmy28f98
+    block: |-
+      ⟦tbd⟧
+      `tbd-g305` · epic · closed · P1
+      Spec: [plan-2026-07-19-bead-watch-and-external-sync.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-07-19-bead-watch-and-external-sync.md)
+      Children: 9 (0 ready)
+      Bead: `tbd show tbd-g305`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 3a214faa-8f6e-45a6-b511-dfd271c5af42
+    kind: splice_description
+  - bead_id: is-01kxz3kwxeqkvm82y0k4xxs8br
+    block: |-
+      ⟦tbd⟧
+      `tbd-le2l` · bug · closed · P1
+      Spec: [plan-2026-07-19-bead-watch-and-external-sync.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-07-19-bead-watch-and-external-sync.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-le2l`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 6fb042cf-05ec-4bb9-b06b-ffb10b7d2dc0
+    kind: splice_description
+  - bead_id: is-01kytfhhschg0zt8btv7m0paaq
+    block: |-
+      ⟦tbd⟧
+      `tbd-3inp` · task · open · P3
+      Spec: [plan-2026-05-24-multi-agent-skills-hooks-setup.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-3inp`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: bc86b6e4-2bf8-4ed9-a026-6971c7529fa0
+    kind: splice_description
+  - bead_id: is-01kzbyhghkgw70wetew3ffy4cn
+    block: |-
+      ⟦tbd⟧
+      `tbd-vm5s` · task · closed · P1
+      Spec: [plan-2026-07-19-bead-watch-and-external-sync.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-07-19-bead-watch-and-external-sync.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-vm5s`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 1820450c-c0ab-461f-8df7-0a1c755a59cc
+    kind: splice_description
+  - bead_id: is-01kzbyhsm660v90763b5tr11rk
+    block: |-
+      ⟦tbd⟧
+      `tbd-z95g` · feature · open · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-z95g`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 267d0a07-a3e7-408a-b5ac-feb3711368d3
+    kind: splice_description
+  - bead_id: is-01kzmm8zqnf8q210etncddjn6h
+    block: |-
+      ⟦tbd⟧
+      `tbd-tp6n` · epic · closed · P1
+      Spec: [plan-2026-07-19-bead-watch-and-external-sync.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-07-19-bead-watch-and-external-sync.md)
+      Children: 4 (0 ready)
+      Bead: `tbd show tbd-tp6n`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 0c7780af-e280-430f-9356-2c1d096d9928
+    kind: splice_description
+  - bead_id: is-01kzn2w85qxpbp8cqtn7mkbvkg
+    block: |-
+      ⟦tbd⟧
+      `tbd-gvju` · epic · open · P1
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 23 (7 ready)
+      Bead: `tbd show tbd-gvju`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 7202337e-d1ee-4192-bb6c-c6ae42b97469
+    kind: splice_description
+  - bead_id: is-01kzn2w8hvc83qrgk9h70rf73y
+    block: |-
+      ⟦tbd⟧
+      `tbd-hqk1` · task · closed · P1
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 5 (0 ready)
+      Bead: `tbd show tbd-hqk1`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 69b0a9e2-ba98-4dce-87f4-bae7f68bae59
+    kind: splice_description
+  - bead_id: is-01kzn2w8x0c038fhk1c859248r
+    block: |-
+      ⟦tbd⟧
+      `tbd-vqov` · task · closed · P1
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 5 (0 ready)
+      Bead: `tbd show tbd-vqov`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 313b9c7d-fb3d-4a19-b674-1a9f6d481a21
+    kind: splice_description
+  - bead_id: is-01kzn2w9gdhb0xt2hztn7v0aha
+    block: |-
+      ⟦tbd⟧
+      `tbd-gsko` · task · closed · P1
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 5 (0 ready)
+      Bead: `tbd show tbd-gsko`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 2e8bc9de-adb5-4abf-97a6-4cb0036495d5
+    kind: splice_description
+  - bead_id: is-01kzn2w9w9gx9j6h3b250jnyzf
+    block: |-
+      ⟦tbd⟧
+      `tbd-9qrd` · task · closed · P1
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 9 (0 ready)
+      Bead: `tbd show tbd-9qrd`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 308fc84e-38f5-4092-9faf-d911739c20da
+    kind: splice_description
+  - bead_id: is-01kzn2wa8b53y8wjh1gegbzhhx
+    block: |-
+      ⟦tbd⟧
+      `tbd-mmkd` · task · closed · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 7 (0 ready)
+      Bead: `tbd show tbd-mmkd`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 8675d876-1c1a-4672-a073-5980ff8568dc
+    kind: splice_description
+  - bead_id: is-01kzn2wakpq2963exxqhj8xkdc
+    block: |-
+      ⟦tbd⟧
+      `tbd-1ae2` · task · open · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 5 (1 ready)
+      Bead: `tbd show tbd-1ae2`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: ba27c535-ee1e-4f31-b613-cd1caec5fa18
+    kind: splice_description
+  - bead_id: is-01kzn510qqbk3ax3pbw447xw8y
+    block: |-
+      ⟦tbd⟧
+      `tbd-az29` · task · closed · P1
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-az29`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 40dd2cf9-0efc-4a66-bed8-5cb77d3376cd
+    kind: splice_description
+  - bead_id: is-01kzn5117ezkyh9c1dqgr9pwty
+    block: |-
+      ⟦tbd⟧
+      `tbd-uu08` · task · closed · P1
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-uu08`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 66764af6-1f30-47c1-ac47-074f658618ad
+    kind: splice_description
+  - bead_id: is-01kzn5121n6gc6xk9w710631cf
+    block: |-
+      ⟦tbd⟧
+      `tbd-47j5` · task · closed · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-47j5`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 4a8e905a-4ca4-4752-8b44-c9429f93bde0
+    kind: splice_description
+  - bead_id: is-01kzn512cr6x4z2bb5yns27mn0
+    block: |-
+      ⟦tbd⟧
+      `tbd-75kn` · task · closed · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-75kn`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 3c59726b-a627-44e5-add4-787d72fb078b
+    kind: splice_description
+  - bead_id: is-01kzn512qgfk7bt4grjfwcsab9
+    block: |-
+      ⟦tbd⟧
+      `tbd-ohev` · task · closed · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-ohev`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 1bc76460-8812-4ce8-b3bf-5844dee9ef8b
+    kind: splice_description
+  - bead_id: is-01kzn5132f7f1gntqbg68wg2hv
+    block: |-
+      ⟦tbd⟧
+      `tbd-4iyz` · task · closed · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-4iyz`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 5454db30-4257-4fac-a0d5-5e1daffadbd7
+    kind: splice_description
+  - bead_id: is-01kzn513dx5caz86bq89cm502s
+    block: |-
+      ⟦tbd⟧
+      `tbd-203u` · task · closed · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-203u`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 08910b15-b6fe-47d0-9668-fc74bde4b973
+    kind: splice_description
+  - bead_id: is-01kzn513t5rt6bak750hcvzeta
+    block: |-
+      ⟦tbd⟧
+      `tbd-1qgi` · task · closed · P3
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-1qgi`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 490f9047-fbe4-4065-92bf-9cf61aad7c3f
+    kind: splice_description
+  - bead_id: is-01kzn5147yrf3sw28jc7n600r7
+    block: |-
+      ⟦tbd⟧
+      `tbd-xl0t` · task · closed · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-xl0t`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: cb7fc720-11d6-48bf-88ad-5860f2160a4f
+    kind: splice_description
+  - bead_id: is-01kzn514mxmazhwq9fn1qpcpvt
+    block: |-
+      ⟦tbd⟧
+      `tbd-lmo9` · task · open · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-lmo9`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: d4d7b290-87b0-4fba-9978-af3809155d1d
+    kind: splice_description
+  - bead_id: is-01kzn5152hkvnx553tj4gwgc28
+    block: |-
+      ⟦tbd⟧
+      `tbd-v75l` · task · open · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-v75l`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: e4a2e265-ed0d-439d-9db3-51186d517dcf
+    kind: splice_description
+  - bead_id: is-01kzn515e154th2ehqthkpcv0v
+    block: |-
+      ⟦tbd⟧
+      `tbd-xbkm` · task · open · P3
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-xbkm`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 82fd6e26-c98b-4c92-a2c2-f0b7a23d94d8
+    kind: splice_description
+  - bead_id: is-01kzq3fn6v122vfa0nqxca6x4b
+    block: |-
+      ⟦tbd⟧
+      `tbd-h09r` · task · closed · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-h09r`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 775dcc1d-676d-4cc1-8036-59b6ff31cc9e
+    kind: splice_description
+  - bead_id: is-01kzq3fnjg30v06sbhn9h86phz
+    block: |-
+      ⟦tbd⟧
+      `tbd-h3j3` · task · closed · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-h3j3`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: a56d3f3a-e2c8-4522-9cf3-e17f5352935a
+    kind: splice_description
+  - bead_id: is-01kzqs9ax4x2jc12zca4j441px
+    block: |-
+      ⟦tbd⟧
+      `tbd-3qfj` · bug · closed · P1
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-3qfj`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: d81f3bf1-4d78-41a5-81ae-f5254dcd6d89
+    kind: splice_description
+  - bead_id: is-01kzx8kn4vtndb0t84345snpy5
+    block: |-
+      ⟦tbd⟧
+      `tbd-tnks` · feature · open · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-tnks`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 0e08d8c7-a478-49f2-aedf-db9934fc6f5a
+    kind: splice_description
+  - bead_id: is-01kzx8knkqyxmghreewwsy16h9
+    block: |-
+      ⟦tbd⟧
+      `tbd-v1u1` · task · open · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-v1u1`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 4fb64dc7-d929-4ac3-81d2-f9040582f16c
+    kind: splice_description
+  - bead_id: is-01kzx8mkeyergsd0hmq8zj1zd7
+    block: |-
+      ⟦tbd⟧
+      `tbd-b4qm` · feature · open · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 4 (2 ready)
+      Bead: `tbd show tbd-b4qm`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 0cb014de-860c-4ac4-9fa1-ca66d0b1e65e
+    kind: splice_description
+  - bead_id: is-01kzx8nbbf8rybrp5sp6t9y7h4
+    block: |-
+      ⟦tbd⟧
+      `tbd-qsda` · task · open · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-qsda`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 114dc6cf-4e88-45b1-9ec1-193123311384
+    kind: splice_description
+  - bead_id: is-01kzx8nbpvpfdv6vme31s7qyq2
+    block: |-
+      ⟦tbd⟧
+      `tbd-6yxi` · task · open · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-6yxi`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 40f5fc06-fa0e-4aa4-a8cf-297cd9216a59
+    kind: splice_description
+  - bead_id: is-01kzx8nc1vetjsc86by8085sg1
+    block: |-
+      ⟦tbd⟧
+      `tbd-6k5g` · feature · open · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-6k5g`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: d3e91620-a20f-4d0f-aec7-ce509ea7082f
+    kind: splice_description
+  - bead_id: is-01kzx8ncczb69sp1bgyk20pyt5
+    block: |-
+      ⟦tbd⟧
+      `tbd-35mn` · task · open · P3
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-35mn`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 691dcef9-0896-4e6b-8168-8c93a6372a93
+    kind: splice_description
+  - bead_id: is-01kzxxj27abvbje3nesecgsk3z
+    block: |-
+      ⟦tbd⟧
+      `tbd-3xng` · task · closed · P1
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 6 (0 ready)
+      Bead: `tbd show tbd-3xng`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 583ad9a1-b8fa-4261-bfd6-a5c43fdec4a8
+    kind: splice_description
+  - bead_id: is-01kzxy6ks7pd36nnzrppfdspq6
+    block: |-
+      ⟦tbd⟧
+      `tbd-b6mv` · task · closed · P1
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 4 (0 ready)
+      Bead: `tbd show tbd-b6mv`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 39aeb027-34ef-42d1-89bd-98f45318844e
+    kind: splice_description
+  - bead_id: is-01kzxy6mhd66ah3xr0960n34kf
+    block: |-
+      ⟦tbd⟧
+      `tbd-xuo9` · task · closed · P3
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 1 (0 ready)
+      Bead: `tbd show tbd-xuo9`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 66bec061-2896-4c20-a8c8-2938ca8781dd
+    kind: splice_description
+  - bead_id: is-01kzxyaajyhadgprx4ws1gz7mk
+    block: |-
+      ⟦tbd⟧
+      `tbd-ridy` · bug · closed · P1
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-ridy`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 530ad79d-73ce-485b-9700-b2f14295ce87
+    kind: splice_description
+  - bead_id: is-01kzxzx6e1dekec0pdbtxqqcpk
+    block: |-
+      ⟦tbd⟧
+      `tbd-78k2` · task · closed · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-78k2`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 10610293-33d6-4e35-844f-d6c32d066752
+    kind: splice_description
+  - bead_id: is-01kzyh140ydwhzr4mt8r84gmgb
+    block: |-
+      ⟦tbd⟧
+      `tbd-dqiq` · task · open · P1
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-dqiq`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 6258fc73-21ec-44cd-89c0-89ec690ae6b2
+    kind: splice_description
+  - bead_id: is-01kzyh14se51kt9hhs2ar1ehtr
+    block: |-
+      ⟦tbd⟧
+      `tbd-bexc` · bug · open · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-bexc`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: dcdabf81-26a9-4832-862e-2136f785208c
+    kind: splice_description
+  - bead_id: is-01kzyh1j2z4hcmcyfdw9z6p8n7
+    block: |-
+      ⟦tbd⟧
+      `tbd-dhfm` · task · open · P3
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-dhfm`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 9b6f2d66-dcbc-4def-a269-22c60836869b
+    kind: splice_description
+  - bead_id: is-01kzyh2066kdr5yymjef2k6nsx
+    block: |-
+      ⟦tbd⟧
+      `tbd-dj3t` · task · open · P4
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-dj3t`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: b16a6190-5337-462b-8bb0-afbfad7651ea
+    kind: splice_description
+  - bead_id: is-01kzz36z7kstw5nxa1me86ek86
+    block: |-
+      ⟦tbd⟧
+      `tbd-zo62` · task · open · P1
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-zo62`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 4ea92f00-17d9-43f5-a4dd-898d1d71175a
+    kind: splice_description
+  - bead_id: is-01kzz3769yd8krf2xafhgbvjrg
+    block: |-
+      ⟦tbd⟧
+      `tbd-zuos` · task · open · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-zuos`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 12da9525-185c-4339-8959-a4f71fd0334b
+    kind: splice_description
+  - bead_id: is-01m00h43nvt17wxyhxqm88wh3c
+    block: |-
+      ⟦tbd⟧
+      `tbd-dzme` · epic · open · P1
+      Spec: [plan-2026-08-14-external-sync-and-traceability.md](https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md)
+      Children: 49 (31 ready)
+      Bead: `tbd show tbd-dzme`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 1ef43a0c-0cf8-4944-a374-327de127108c
+    kind: splice_description
+  - bead_id: is-01m00h57nkvtvkbqn992w5fm2e
+    external_id: 4fd428a0-cc81-4317-b53f-78118f9b0b9b
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01m00h57nkvtvkbqn992w5fm2e
+    block: |-
+      ⟦tbd⟧
+      `tbd-mnci` · feature · closed · P1
+      Spec: [plan-2026-08-14-external-sync-and-traceability.md](https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-mnci`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 4fd428a0-cc81-4317-b53f-78118f9b0b9b
+    kind: splice_description
+  - bead_id: is-01m00h5y6q413edk3j82zry3d9
+    external_id: 83ebe9ac-2eff-46ef-b638-56a66091922a
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01m00h5y6q413edk3j82zry3d9
+    block: |-
+      ⟦tbd⟧
+      `tbd-f39i` · feature · closed · P2
+      Spec: [plan-2026-08-14-external-sync-and-traceability.md](https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md)
+      Children: 1 (0 ready)
+      Bead: `tbd show tbd-f39i`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 83ebe9ac-2eff-46ef-b638-56a66091922a
+    kind: splice_description
+  - bead_id: is-01m00ja5yw7ebsx68tw8k844e3
+    external_id: 2a74d5e3-c260-4db1-b6df-1b3cb5403ce6
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01m00ja5yw7ebsx68tw8k844e3
+    block: |-
+      ⟦tbd⟧
+      `tbd-71am` · bug · closed · P1
+      Spec: [plan-2026-08-14-external-sync-and-traceability.md](https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-71am`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 2a74d5e3-c260-4db1-b6df-1b3cb5403ce6
+    kind: splice_description
+  - bead_id: is-01m00k639pqyx9p30eszfh06k0
+    external_id: ea60aadb-6294-4650-b30d-2b5a4a755993
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01m00k639pqyx9p30eszfh06k0
+    block: |-
+      ⟦tbd⟧
+      `tbd-vo8b` · feature · closed · P1
+      Spec: [plan-2026-08-14-external-sync-and-traceability.md](https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-vo8b`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: ea60aadb-6294-4650-b30d-2b5a4a755993
+    kind: splice_description
+  - bead_id: is-01m00mw87c585dzj8yxfxm9er5
+    external_id: 69378054-10f5-49b7-967d-591996d3832c
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01m00mw87c585dzj8yxfxm9er5
+    block: |-
+      ⟦tbd⟧
+      `tbd-8ksq` · feature · closed · P0
+      Spec: [plan-2026-08-14-external-sync-and-traceability.md](https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-8ksq`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 69378054-10f5-49b7-967d-591996d3832c
+    kind: splice_description
+  - bead_id: is-01m00mw9ppcnxpzvqakekq5tpc
+    external_id: ccea668b-196d-43a7-89bb-d7cdbb0a9297
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01m00mw9ppcnxpzvqakekq5tpc
+    block: |-
+      ⟦tbd⟧
+      `tbd-cak1` · feature · closed · P1
+      Spec: [plan-2026-08-14-external-sync-and-traceability.md](https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-cak1`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: ccea668b-196d-43a7-89bb-d7cdbb0a9297
+    kind: splice_description
+  - bead_id: is-01m00sk6jwdpjzznz61cqx6bgc
+    block: |-
+      ⟦tbd⟧
+      `tbd-mslv` · feature · open · P2
+      Spec: [plan-2026-08-14-github-cli-session-readiness.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-14-github-cli-session-readiness.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-mslv`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: ba9c0016-a9d4-435f-b547-b7c7a04103f1
+    kind: splice_description
+  - bead_id: is-01m00y5g4nha1jb0kxnempajex
+    external_id: 27b67c86-7101-4b98-8b4f-be12231fc560
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01m00y5g4nha1jb0kxnempajex
+    block: |-
+      ⟦tbd⟧
+      `tbd-3gr8` · feature · closed · P1
+      Spec: [plan-2026-08-14-external-sync-and-traceability.md](https://github.com/jlevy/tbd/blob/claude/linear-sync-agent-hooks-vqatny/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-3gr8`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 27b67c86-7101-4b98-8b4f-be12231fc560
+    kind: splice_description
+provider: linear
+run_id: 01m045awfpp9zxyvzxe6w07x7p
+type: in
