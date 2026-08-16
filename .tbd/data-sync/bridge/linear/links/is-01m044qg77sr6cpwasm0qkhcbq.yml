@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v7:8a2b61e30e17f0a83706bebe41fd8353f85a249504182be706c895352f83c0c4
+  description_hash: sha256v7:27984c2f72b74daad58e7b4079ce1d0a3547a32f6751f25812d3c5cbc647e4a5
   labels:
     - phase-4
   priority: 2
@@ -10,7 +10,7 @@ bead_id: is-01m044qg77sr6cpwasm0qkhcbq
 external_id: e4fe7e8d-63cc-4b9b-8485-a712bc5175dc
 external_key: OS-250
 external_url: https://linear.app/finterm-ai/issue/OS-250/two-goldens-invert-when-070-ships-and-will-break-on-success
-remote_updated_at: 2026-08-16T07:50:59.128Z
+remote_updated_at: 2026-08-16T22:47:22.446Z
 state: linked
-synced_at: 2026-08-16T07:50:59.869Z
+synced_at: 2026-08-16T22:47:22.608Z
 type: lk
