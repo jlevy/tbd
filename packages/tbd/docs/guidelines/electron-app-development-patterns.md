@@ -2,7 +2,7 @@
 title: Electron App Development Patterns
 description: Building a clean, minimal, standalone Electron app—process model, modern Vite-based build system, attaching a Node/Bun/Python backend, security baseline, packaging, code signing, and auto-update
 author: Joshua Levy (github.com/jlevy) with LLM assistance
-category: electron
+category: desktop
 ---
 # Electron App Development Patterns
 

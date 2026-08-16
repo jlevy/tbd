@@ -30,7 +30,7 @@ export const GUIDELINE_CATEGORIES = [
   'typescript',
   'python',
   'convex',
-  'electron',
+  'desktop',
 ] as const;
 
 describe('guideline doc categories', () => {
