@@ -13,7 +13,12 @@ import {
   spliceManagedBlock,
   stripManagedBlock,
 } from '../src/integrations/core/managed-block.js';
-import { mirrorSet, isLinkedTo } from '../src/integrations/core/selection.js';
+import {
+  mirrorSet,
+  isLinkedTo,
+  selectionReason,
+  selectionBreakdown,
+} from '../src/integrations/core/selection.js';
 import { blobUrl, parseRepoSlug } from '../src/integrations/core/permalink.js';
 import {
   BLOCKED_LABEL,
@@ -497,9 +502,13 @@ describe('parent hierarchy guards', () => {
 });
 
 describe('sync fold mode (f08)', () => {
-  it('defaults to auto when nothing is configured', () => {
-    expect(resolveSyncFoldMode(undefined)).toBe('auto');
-    expect(resolveSyncFoldMode({})).toBe('auto');
+  it('defaults to guarded when nothing is configured', () => {
+    // Enabling an integration opts into folding it into `tbd sync`; it does not opt
+    // into a write of unbounded size. `guarded` differs from `auto` only above the
+    // bulk thresholds, so routine syncs are unaffected and a first sync that would
+    // create hundreds of issues stops instead.
+    expect(resolveSyncFoldMode(undefined)).toBe('guarded');
+    expect(resolveSyncFoldMode({})).toBe('guarded');
   });
 
   it('maps the legacy boolean gate onto the modes that preserve its behavior', () => {
@@ -521,9 +530,17 @@ describe('sync fold mode (f08)', () => {
     expect(syncFoldPosture(resolveSyncFoldMode(parsed)).runs).toBe(false);
   });
 
-  it('still defaults to auto through the schema when nothing is set', () => {
+  it('still defaults to guarded through the schema when nothing is set', () => {
+    // Same trap as the legacy-boolean case above: a `.default()` on the schema key
+    // would materialize it on every read and pin the default in the wrong layer.
     const parsed = IntegrationsConfigSchema.parse({ linear: { enabled: true } });
-    expect(resolveSyncFoldMode(parsed)).toBe('auto');
+    expect(resolveSyncFoldMode(parsed)).toBe('guarded');
+    // The guard is the whole point of the default, so assert the posture too.
+    expect(syncFoldPosture(resolveSyncFoldMode(parsed))).toEqual({
+      runs: true,
+      dryRun: false,
+      assumeYes: false,
+    });
   });
 
   it('prefers the new spelling when a config carries both', () => {
@@ -546,5 +563,83 @@ describe('sync fold mode (f08)', () => {
 
   it('makes off skip the fold entirely', () => {
     expect(syncFoldPosture('off').runs).toBe(false);
+  });
+});
+
+describe('selection breakdown', () => {
+  it('splits a set into the reasons that chose it', () => {
+    // The shape that made a 799-bead mirror look reasonable as a single total:
+    // one epic qualifies on kind, and its descendants inherit its spec_path and
+    // qualify on the spec clause. The split is what makes that legible.
+    const select: IntegrationSelect = { ...DEFAULT_SELECT, specs: 'active' };
+    const spec = 'docs/project/specs/active/plan-2026-08-10-x.md';
+    const beads = [
+      issue({ id: 'is-epic', kind: 'epic', status: 'open', spec_path: spec }),
+      issue({ id: 'is-kid-1', kind: 'task', status: 'open', spec_path: spec }),
+      issue({ id: 'is-kid-2', kind: 'task', status: 'open', spec_path: spec }),
+      issue({ id: 'is-kid-3', kind: 'task', status: 'open', spec_path: spec }),
+      issue({ id: 'is-unrelated', kind: 'task', status: 'open' }),
+    ];
+
+    const selected = mirrorSet(beads, select, 'linear');
+    expect(selected).toHaveLength(4);
+    expect(selectionBreakdown(selected, select, 'linear')).toEqual({
+      linked: 0,
+      kind: 1,
+      spec: 3,
+      gates: 0,
+    });
+  });
+
+  it('attributes a bead that matches both rules to its kind', () => {
+    // Otherwise an epic carrying a live spec inflates the spec count, which is
+    // the number the operator is trying to judge.
+    const select: IntegrationSelect = { ...DEFAULT_SELECT, specs: 'active' };
+    const both = issue({
+      kind: 'epic',
+      status: 'open',
+      spec_path: 'docs/project/specs/active/plan-2026-08-10-x.md',
+    });
+    expect(selectionReason(both, select, 'linear')).toBe('kind');
+  });
+
+  it('reports no reason for a bead the rules exclude', () => {
+    expect(selectionReason(issue({ kind: 'task', status: 'open' }), DEFAULT_SELECT, 'linear')).toBe(
+      undefined,
+    );
+    expect(
+      selectionReason(issue({ kind: 'epic', status: 'closed' }), DEFAULT_SELECT, 'linear'),
+    ).toBe(undefined);
+  });
+
+  it('counts a linked bead as linked even when it no longer matches', () => {
+    const linked = issue({
+      kind: 'task',
+      status: 'closed',
+      extensions: { linear: { id: 'uuid-1', linked_at: '2026-08-10T00:00:00.000Z' } },
+    });
+    expect(selectionReason(linked, DEFAULT_SELECT, 'linear')).toBe('linked');
+  });
+
+  it('agrees with mirrorSet on which beads qualify', () => {
+    // The breakdown is only trustworthy if it explains the same decision the
+    // mirror actually made, so tie the two together rather than asserting counts
+    // that could drift apart.
+    const select: IntegrationSelect = { ...DEFAULT_SELECT, specs: 'active' };
+    const beads = [
+      issue({ id: 'is-1', kind: 'epic', status: 'open' }),
+      issue({ id: 'is-2', kind: 'task', status: 'open' }),
+      issue({ id: 'is-3', kind: 'epic', status: 'closed' }),
+      issue({
+        id: 'is-4',
+        kind: 'task',
+        status: 'open',
+        spec_path: 'docs/project/specs/active/plan.md',
+      }),
+    ];
+    const withReason = beads.filter((b) => selectionReason(b, select, 'linear') !== undefined);
+    expect(withReason.map((b) => b.id)).toEqual(
+      mirrorSet(beads, select, 'linear').map((b) => b.id),
+    );
   });
 });

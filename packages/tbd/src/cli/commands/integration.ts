@@ -265,6 +265,46 @@ function printProvisionReport(report: ProvisionReport, dryRun: boolean): void {
   }
 }
 
+/**
+ * Explain a selection's shape, and warn when inheritance dominates it.
+ *
+ * A total is not reviewable. `spec_path` propagates from a parent to every
+ * descendant, so a clause meaning "the plans we are running" can select their
+ * entire subtrees; the split is what makes that legible while it is still a
+ * preview. The warning fires on the ratio rather than an absolute count,
+ * because what counts as too many depends on the repository.
+ */
+function describeSelection(selection: MirrorReport['selection']): string[] {
+  if (!selection) {
+    return [];
+  }
+  const total = selection.linked + selection.kind + selection.spec + selection.gates;
+  if (total === 0) {
+    return [];
+  }
+  const parts: string[] = [];
+  if (selection.kind > 0) {
+    parts.push(`${selection.kind} by kind`);
+  }
+  if (selection.spec > 0) {
+    parts.push(`${selection.spec} by spec_path`);
+  }
+  if (selection.linked > 0) {
+    parts.push(`${selection.linked} already linked`);
+  }
+  if (selection.gates > 0) {
+    parts.push(`${selection.gates} by status/label alone`);
+  }
+  const lines = [`  selected ${total}: ${parts.join(', ')}`];
+  if (selection.spec > selection.kind && selection.spec > 0) {
+    lines.push(
+      '  note: spec_path is inherited, so descendants of a bead with a live spec',
+      '  are selected too. Narrow with `specs: none` to mirror by kind alone.',
+    );
+  }
+  return lines;
+}
+
 interface PushOptions {
   provider?: string;
   /** Direction flags, shaped exactly like `tbd sync`'s. */
@@ -329,6 +369,9 @@ class PushHandler extends BaseCommand {
           console.log(
             `${report.provider}: ${verb} ${report.created.length}, ${verb2} ${report.updated.length}, skipped ${report.skipped.length}, failed ${report.failures.length}`,
           );
+          for (const line of describeSelection(report.selection)) {
+            console.log(line);
+          }
           // Dry runs print the ids so the set can be reviewed, narrowed with
           // --bead, and mirrored in stages.
           if (dryRun) {

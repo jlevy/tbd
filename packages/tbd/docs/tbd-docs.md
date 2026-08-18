@@ -1691,6 +1691,20 @@ tbd --dry-run integration sync --push   # Preview: prints every bead id it would
 tbd integration sync --push             # Project the policy's outbound set
 ```
 
+A preview also reports why the set was selected, because a bare total cannot be checked
+against intent:
+
+```
+linear: would create 799, would update 0, skipped 74, failed 0
+  selected 799: 109 by kind, 690 by spec_path
+  note: spec_path is inherited, so descendants of a bead with a live spec
+  are selected too. Narrow with `specs: none` to mirror by kind alone.
+```
+
+That split is the number to check.
+`109 by kind, 690 by spec_path` in a repository with 109 epics is recognizably wrong in
+a way that `799` is not.
+
 Every `list` selector works here too, and **overrides** the configured policy, so a
 staged rollout needs no config edits:
 
@@ -1877,10 +1891,25 @@ If the git phase fails before reaching it, the tracker run still happens afterwa
 records to the sync branch; the next successful push carries it.
 A git problem delays tracker work rather than losing it.
 
-Set `integrations.sync_on_tbd_sync: false` to keep an integration configured but out of
-`tbd sync`, running `tbd integration sync` by hand instead.
-It defaults to true: enabling an integration is already the opt-in, and a second switch
-only creates a state where a configured tracker silently drifts.
+`integrations.on_tbd_sync` decides how an enabled integration takes part in plain
+`tbd sync`:
+
+| Mode | Runs in `tbd sync` | Above the bulk thresholds |
+| --- | --- | --- |
+| `guarded` (default) | yes | refuses, and says how to proceed |
+| `auto` | yes | proceeds |
+| `report` | yes, as a dry run | nothing is written |
+| `off` | no | run `tbd integration sync` by hand |
+
+Enabling an integration is the opt-in to folding it in, so there is no second off-switch
+that would let a configured tracker silently drift.
+The default is `guarded` rather than `auto` because opting into a mirror is not the same
+as opting into a write of unbounded size.
+The two differ only above the bulk thresholds, so an ordinary session-end sync of a few
+changed beads behaves identically; a first sync that would create hundreds of issues
+stops and tells you how to look at it.
+`integrations.sync_on_tbd_sync` is the retired pre-f08 boolean, still read: `true` maps
+to `auto`, `false` to `off`.
 
 ### Linking, unlinking, and comments
 

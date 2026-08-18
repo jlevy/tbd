@@ -7,7 +7,7 @@
  */
 
 import { Command } from 'commander';
-import { access, mkdir, readdir, readFile, unlink } from 'node:fs/promises';
+import { access, mkdir, readdir, readFile, rm, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
@@ -43,7 +43,7 @@ import {
 } from '../../lib/integration-paths.js';
 import { validateIssueId, extractUlidFromInternalId, formatDisplayId } from '../../lib/ids.js';
 import { findHierarchyProblems } from '../../lib/issue-hierarchy.js';
-import { duplicateExternalLinks } from '../../integrations/core/link-store.js';
+import { duplicateExternalLinks, readLink } from '../../integrations/core/link-store.js';
 import { integrationsInert } from '../../integrations/core/registry.js';
 import { integrationStatus } from '../../integrations/core/status.js';
 import { git } from '../../file/git.js';
@@ -89,7 +89,12 @@ import {
   getCodexTbdSection,
   inspectCodexHooksSurface,
 } from './setup.js';
-import { withLockfile } from '../../utils/lockfile.js';
+import {
+  listLockSidecars,
+  lockOwnerIsDefinitelyDead,
+  type LockSidecar,
+  withLockfile,
+} from '../../utils/lockfile.js';
 
 /**
  * Diagnose the one dropped top-level key that proves integration config loss.
@@ -231,6 +236,25 @@ export function divergenceFinding(
     message: `diverged (${ahead} ahead, ${behind} behind)`,
     suggestion: 'Run: tbd sync to reconcile',
   };
+}
+
+/**
+ * Which lock sidecars this host may safely delete.
+ *
+ * The cleanup policy, kept here rather than in the lock module: the lock code
+ * reports what is on disk, and what counts as safe to remove depends on why you
+ * are asking. Two cases qualify. A record whose process this host can prove has
+ * exited protects nothing. A sidecar with no readable record cannot name a live
+ * process at all, so keeping it guards nothing either.
+ *
+ * Everything else is left alone, which is the important half: a record from
+ * another host, or one naming a pid this user cannot signal, may describe a
+ * legitimately running holder.
+ */
+export function clearableLockSidecars(sidecars: readonly LockSidecar[]): LockSidecar[] {
+  return sidecars.filter(
+    (sidecar) => sidecar.owner === null || lockOwnerIsDefinitelyDead(sidecar.owner),
+  );
 }
 
 /**
@@ -433,6 +457,11 @@ class DoctorHandler extends BaseCommand {
     // Check 9c: Shared data-sync lock is writable by this process
     healthChecks.push(
       await this.safeCheck('Shared lock writability', () => this.checkSharedLockWritability()),
+    );
+    healthChecks.push(
+      await this.safeCheck('Abandoned lock records', () =>
+        this.checkAbandonedLockRecords(options.fix),
+      ),
     );
 
     // Check 10: Data location (issues in wrong path, with fix support)
@@ -897,14 +926,35 @@ class DoctorHandler extends BaseCommand {
     const mapping = await loadIdMapping(this.dataSyncDir);
     const displayPrefix = this.config.display.id_prefix;
     for (const provider of ['linear', 'github'] as const) {
+      const linkRecords = await listLinkRecords(this.dataSyncDir, provider);
       // The human identifier lives on the bridge record now; without it the
       // report would name a bare UUID.
       const keyByExternalId = new Map(
-        (await listLinkRecords(this.dataSyncDir, provider)).map((record) => [
-          record.external_id,
-          record.external_key ?? null,
-        ]),
+        linkRecords.map((record) => [record.external_id, record.external_key ?? null]),
       );
+
+      // A bead claiming a link the bridge has no record of is the dangerous
+      // half-write: the bead reads as mirrored, so nothing ever creates its item
+      // again, while reconciliation cannot see the pair at all. Left alone the
+      // tracker item is orphaned for good, and no later sync converges it.
+      const recordedBeads = new Set(linkRecords.map((record) => record.bead_id));
+      const unrecorded = this.issues
+        .filter((issue) => readLink(issue, provider) !== undefined)
+        .filter((issue) => !recordedBeads.has(issue.id));
+      if (unrecorded.length > 0) {
+        const named = unrecorded
+          .slice(0, 5)
+          .map((issue) => formatDisplayId(issue.id, mapping, displayPrefix))
+          .join(', ');
+        const more = unrecorded.length > 5 ? `, and ${unrecorded.length - 5} more` : '';
+        problems.push(
+          `${unrecorded.length} bead(s) carry a ${provider} link with no bridge record ` +
+            `(${named}${more}). This is normal only until the next full \`tbd sync\`, which ` +
+            `writes the tracker surface that \`--issues\` skips. If it survives one, the ` +
+            `pair is half-written: re-link with \`tbd integration link\`, or clear it with ` +
+            `\`tbd integration unlink\`.`,
+        );
+      }
       for (const duplicate of duplicateExternalLinks(this.issues, provider, keyByExternalId)) {
         const holders = duplicate.beadIds
           .map((id) => formatDisplayId(id, mapping, displayPrefix))
@@ -1671,6 +1721,79 @@ class DoctorHandler extends BaseCommand {
       gitCommonDir: paths.gitCommonDir,
       projectRoot: this.cwd,
     });
+  }
+
+  /**
+   * Report sidecar lock directories left behind by interrupted acquisitions.
+   *
+   * These block nothing by themselves, which is why they accumulate unnoticed.
+   * They matter because they hold the only durable record of who held the lock:
+   * when a command appears to hang, the answer is a pid inside one of these, and
+   * reading them by hand is the difference between a two-minute diagnosis and an
+   * hour of guessing.
+   */
+  private async checkAbandonedLockRecords(fix?: boolean): Promise<DiagnosticResult> {
+    const name = 'Abandoned lock records';
+    let paths;
+    try {
+      paths = await resolveSharedTbdPaths(this.cwd);
+    } catch {
+      // Path resolution problems are already reported by the writability check;
+      // repeating them here would be noise.
+      return { name, status: 'ok' };
+    }
+
+    const sidecars = await listLockSidecars(paths.sharedLockPath);
+    if (sidecars.length === 0) {
+      return { name, status: 'ok', path: paths.sharedLocksDir };
+    }
+
+    const clearable = clearableLockSidecars(sidecars);
+    const retained = sidecars.filter((sidecar) => !clearable.includes(sidecar));
+
+    if (fix && clearable.length > 0 && !this.checkDryRun('Clear abandoned lock records')) {
+      // Re-list under the fix so a holder that started since the diagnostic is
+      // re-evaluated rather than removed on a stale verdict.
+      let removed = 0;
+      for (const sidecar of clearableLockSidecars(await listLockSidecars(paths.sharedLockPath))) {
+        try {
+          await rm(sidecar.path, { recursive: true, force: true });
+          removed += 1;
+        } catch {
+          // Leave it for the next sweep; clutter is not worth failing doctor over.
+        }
+      }
+      return {
+        name,
+        status: 'ok',
+        message: `cleared ${removed} abandoned lock record(s)`,
+        path: paths.sharedLocksDir,
+      };
+    }
+
+    if (clearable.length === 0) {
+      const holders = retained
+        .map((sidecar) =>
+          sidecar.owner ? `pid ${sidecar.owner.pid} on ${sidecar.owner.host}` : 'unreadable',
+        )
+        .join(', ');
+      return {
+        name,
+        status: 'warn',
+        message: `${retained.length} lock record(s) this host cannot verify (${holders})`,
+        suggestion: 'Leave these alone unless you know the process is gone',
+        path: paths.sharedLocksDir,
+      };
+    }
+
+    return {
+      name,
+      status: 'warn',
+      message: `${clearable.length} abandoned lock record(s) from processes that have exited`,
+      suggestion: 'Run: tbd doctor --fix to clear them',
+      fixable: true,
+      path: paths.sharedLocksDir,
+    };
   }
 
   /**

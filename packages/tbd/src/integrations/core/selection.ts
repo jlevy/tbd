@@ -95,3 +95,69 @@ export function mirrorSet(
     return matchesKindRule(issue, select) || matchesSpecRule(issue, select.specs);
   });
 }
+
+/**
+ * Why a bead ended up in the mirror set.
+ *
+ * The total alone cannot be sanity-checked. `spec_path` propagates from a parent
+ * to every descendant, so a spec clause that reads like "the handful of plans we
+ * are running" selects the whole subtree beneath each of them. Naming the reason
+ * turns a number someone has to trust into one they can check: "109 by kind, 690
+ * by inherited spec" is recognizably wrong in a way that "799" is not.
+ */
+export type SelectionReasonType = 'linked' | 'kind' | 'spec' | 'gates';
+
+/**
+ * The reason a bead qualifies, or `undefined` when it does not.
+ *
+ * Evaluated in the same order as `mirrorSet` so the answer always explains that
+ * function's actual decision. `kind` wins over `spec` when both apply: kind is
+ * the deliberate, bounded clause, and attributing an epic to its spec would
+ * inflate the count that matters.
+ */
+export function selectionReason(
+  issue: Issue,
+  select: IntegrationSelect,
+  provider: ProviderNameType,
+): SelectionReasonType | undefined {
+  if (select.linked && isLinkedTo(issue, provider)) {
+    return 'linked';
+  }
+  if (!statusAllowed(issue, select) || !labelsAllowed(issue, select)) {
+    return undefined;
+  }
+  if (select.kinds.length === 0 && select.specs === 'none') {
+    return 'gates';
+  }
+  if (matchesKindRule(issue, select)) {
+    return 'kind';
+  }
+  if (matchesSpecRule(issue, select.specs)) {
+    return 'spec';
+  }
+  return undefined;
+}
+
+/** Count of selected beads per reason, for reporting a selection's shape. */
+export type SelectionBreakdown = Record<SelectionReasonType, number>;
+
+/**
+ * Tally why each bead in `issues` was selected.
+ *
+ * Counts the same population `mirrorSet` returns, so the totals agree by
+ * construction rather than by two call sites staying in step.
+ */
+export function selectionBreakdown(
+  issues: readonly Issue[],
+  select: IntegrationSelect,
+  provider: ProviderNameType,
+): SelectionBreakdown {
+  const counts: SelectionBreakdown = { linked: 0, kind: 0, spec: 0, gates: 0 };
+  for (const issue of issues) {
+    const reason = selectionReason(issue, select, provider);
+    if (reason) {
+      counts[reason] += 1;
+    }
+  }
+  return counts;
+}
