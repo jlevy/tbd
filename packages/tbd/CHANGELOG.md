@@ -1,5 +1,79 @@
 # get-tbd
 
+## 0.7.1
+
+A patch release about one thing: the first time you point tbd at a tracker, it should be
+hard to do something you did not mean at a scale you did not expect.
+No format change and no migration; upgrade whenever suits you.
+
+### A first mirror you can check before it happens
+
+`policy: default` reads as “open epics, or anything whose `spec_path` points into
+`specs/active/`”, which sounds like two small sets.
+It is not: `spec_path` propagates from a parent to every descendant, so the spec clause
+selects the whole subtree under every epic carrying a live plan.
+In one spec-driven repository that meant 799 beads against 109 real epics.
+
+A preview now reports why beads were selected, not just how many:
+
+```
+linear: would create 799, would update 0, skipped 74, failed 0
+  selected 799: 109 by kind, 690 by spec_path
+  note: spec_path is inherited, so descendants of a bead with a live spec
+  are selected too. Narrow with `specs: none` to mirror by kind alone.
+```
+
+`109 by kind, 690 by spec_path` in a repository with 109 epics is recognizably wrong in
+a way that `799` is not.
+
+**`integrations.on_tbd_sync` now defaults to `guarded` rather than `auto`.** Enabling an
+integration opts into mirroring; it does not opt into a write of unbounded size, and
+`auto` waived the bulk guard on every plain `tbd sync`. The modes differ only above the
+bulk thresholds, so an ordinary session-end sync of a few changed beads behaves exactly
+as before; a first sync that would create hundreds of issues now stops and says how to
+look at it. An explicit `on_tbd_sync` or the legacy `sync_on_tbd_sync` is unchanged.
+
+### Links that survive an interrupted sync
+
+The outbound create path persisted a bead’s tracker link and then made three more
+network calls before recording the pair in the bridge.
+An interruption in that window left a bead claiming a link the bridge had no record of,
+and because the bead reads as linked nothing creates its item again: the tracker item is
+orphaned with no path back and no later sync converges it.
+The bridge record is now written before those calls.
+
+`tbd doctor` reports the condition as well, phrased to separate a genuine half-write
+from the benign lag after `tbd sync --issues`, which skips the tracker surface by
+design.
+
+### Recovering from a stuck lock
+
+A sync that hangs holds the data-sync lock, and every later command queues behind it
+with nothing said about why.
+Killed processes leave owner and stale sidecar directories behind, each naming the host
+and pid that wrote it, and `tbd doctor` reported the repository healthy regardless.
+
+Doctor now reports those records and `--fix` clears them.
+It fails closed exactly like stale recovery: a record from another host, or one naming a
+pid this user cannot signal, is left alone, because it may describe a running holder.
+
+### Guidelines and content
+
+`tbd shortcut update-specs-status` gained a mechanical triage step.
+Reconciling specs and beads by reading them in order does not survive a large
+repository; the shortcut now computes three signals per epic first (where its spec
+lives, how many open children it has, how many unchecked boxes its spec carries) and
+sorts the combinations into dispositions.
+Applied to 121 open epics that produced 18 verified closes and 26 flagged for follow-up.
+
+It also names two drifts the process previously missed: an epic whose beads are all
+closed while its spec still lists real work (closing on bead state alone buries work
+that never appears in `tbd ready`), and specs filed to `done/` while their beads stay
+open, which turns out to be the commoner direction.
+
+**Full commit history**:
+[https://github.com/jlevy/tbd/compare/v0.7.0 … v0.7.1](https://github.com/jlevy/tbd/compare/v0.7.0...v0.7.1)
+
 ## 0.7.0
 
 **Every machine working in a tbd repository must upgrade.** This release stamps
