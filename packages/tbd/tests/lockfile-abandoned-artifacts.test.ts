@@ -12,7 +12,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, mkdir, rm, writeFile, readdir } from 'node:fs/promises';
 import { hostname, tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 import { findAbandonedLockArtifacts, removeAbandonedLockArtifacts } from '../src/utils/lockfile.js';
 
@@ -124,8 +124,9 @@ describe('removeAbandonedLockArtifacts', () => {
 
     expect(removed).toBe(1);
     const remaining = await readdir(dir);
-    expect(remaining).not.toContain(deadPath.split('/').pop());
-    expect(remaining).toContain(livePath.split('/').pop());
+    // basename, not a '/' split: Windows paths use backslashes.
+    expect(remaining).not.toContain(basename(deadPath));
+    expect(remaining).toContain(basename(livePath));
   });
 
   it('is a no-op when nothing is provably dead', async () => {
