@@ -162,6 +162,29 @@ Sizing this first also tells you whether the pass is an afternoon or a week.
   Use a multi-file rewrite tool with a dry run rather than editing by hand, and
   afterwards grep for the old path to prove none survived.
 
+  **Repointing the beads is the half that gets skipped, and it is not cosmetic.** A bead
+  whose `spec_path` still names the old location makes the spec look like it has no
+  beads at all, which the triage in step 2 then reads as *never decomposed* — so a
+  finished or stalled workstream gets refiled as a draft.
+  The move corrupts the next reconciliation rather than the current one, which is why it
+  goes unnoticed.
+
+- **Sweep the dangling `spec_path` references that earlier moves already left behind.**
+  This is a repository-wide check, not a per-move one: every spec ever moved without the
+  step above is still carrying orphaned beads.
+  Bucket them by cause, because only one bucket is mechanical:
+
+  - the same filename exists in a different lifecycle folder — the spec moved, so
+    repoint the bead; safe to script when exactly one candidate matches
+  - the spec file is gone entirely — needs judgment, not a script
+  - the path names a non-spec doc (handoff, research, review) that was deleted — decide
+    whether the bead still has a governing document at all
+
+  Measured once on a real repository: 1323 dangling references, of which 982 were the
+  mechanical case and repaired in one pass, leaving 341 for judgment.
+  If that ratio looks surprising, it is the accumulated cost of every past move that
+  stopped at `git mv`.
+
 - Never silently shrink scope.
   If reality changed the goal, state the scope change in the spec and track any
   remaining work as beads.
@@ -181,6 +204,8 @@ Sizing this first also tells you whether the pass is an afternoon or a week.
    - No spec sits in `active/` with no beads at all; those are drafts, not active work.
    - No epic is left without a `spec_path` unless it genuinely has no governing spec.
    - After any spec move, no reference to the old `specs/<folder>/<file>` path survives.
+   - No bead points at a `spec_path` whose filename now lives in a different lifecycle
+     folder; those are the mechanically repairable orphans.
    - No done spec remains in `active/`; no future-only work remains in active launch
      groups.
    - Search for stale names, old paths, obsolete dependencies, and closed beads still
