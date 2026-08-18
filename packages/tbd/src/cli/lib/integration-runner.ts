@@ -23,7 +23,7 @@ import {
 } from '../../integrations/core/permalink.js';
 import { readLinkRecord, writeLinkRecordIfChanged } from '../../integrations/core/bridge-state.js';
 import { enabledProviders } from '../../integrations/core/registry.js';
-import { mirrorSet } from '../../integrations/core/selection.js';
+import { mirrorSet, selectionBreakdown } from '../../integrations/core/selection.js';
 import { runSync, type SyncRunReport } from '../../integrations/core/sync-engine.js';
 import type { MirrorReport, TrackerAdapter } from '../../integrations/core/types.js';
 import { writeLink } from '../../integrations/core/link-store.js';
@@ -249,12 +249,23 @@ export interface IntegrationPushRunOptions {
   dryRun: boolean;
 }
 
+/**
+ * The beads to mirror, plus the rule that chose them.
+ *
+ * `select` is absent for an explicit `--bead` run: those beads were named, not
+ * selected, so there is no rule to explain and nothing to break down.
+ */
+interface PushSelection {
+  selected: Issue[];
+  select?: IntegrationSelect;
+}
+
 function resolvePushSelection(
   options: IntegrationPushRunOptions,
   allIssues: Issue[],
   entry: ReturnType<typeof enabledProviders>[number],
   resolveBead: (ref: string) => string | undefined,
-): Issue[] {
+): PushSelection {
   if (options.bead?.length) {
     const wanted = new Map<string, string>();
     for (const ref of options.bead) {
@@ -270,7 +281,7 @@ function resolvePushSelection(
       const missing = [...wanted].filter(([id]) => !foundIds.has(id)).map(([, ref]) => ref);
       throw new CLIError(`Bead not found in the store: ${missing.join(', ')}`);
     }
-    return found;
+    return { selected: found };
   }
 
   const usesFlags =
@@ -293,7 +304,7 @@ function resolvePushSelection(
       (issue) => issue.spec_path != null && matchesSpecPath(issue.spec_path, options.spec!),
     );
   }
-  return selected;
+  return { selected, select };
 }
 
 /** Run the outbound-only projection shared by `integration sync --push` and `sync --push`. */
@@ -328,13 +339,14 @@ export async function runEnabledIntegrationPushes(
       );
     }
     const adapter = buildAdapter(entry.provider, credential.value, entry.target, config);
-    let selected = resolvePushSelection(options, allIssues, entry, (ref) => {
+    const pushSelection = resolvePushSelection(options, allIssues, entry, (ref) => {
       try {
         return resolveToInternalId(ref, mapping);
       } catch {
         return undefined;
       }
     });
+    let selected = pushSelection.selected;
     if (options.limit !== undefined) {
       const limit = Number.parseInt(options.limit, 10);
       if (!Number.isInteger(limit) || limit < 1) {
@@ -382,6 +394,11 @@ export async function runEnabledIntegrationPushes(
           reason: action.skipReason ?? 'skipped',
         })),
         failures: [],
+        // Explain the shape of a policy-driven set before anything is written.
+        // `--bead` runs name their beads, so there is nothing to explain.
+        selection: pushSelection.select
+          ? selectionBreakdown(selected, pushSelection.select, entry.provider)
+          : undefined,
       });
       continue;
     }

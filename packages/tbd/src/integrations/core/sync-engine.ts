@@ -1445,6 +1445,34 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       stored.updated_at = options.now();
       await callbacks.writeBead(stored);
 
+      // Record the pair NOW, before any further remote work. The item already
+      // exists in the tracker and the bead already claims it, so from here on an
+      // interruption must not be able to leave a bead whose link the bridge has
+      // no record of. That pair is invisible to reconciliation and, because the
+      // bead reads as linked, it is never created again either: the tracker item
+      // is orphaned permanently and no later sync converges it. The attachment,
+      // description, and read-back calls below are each a network round trip,
+      // which makes this window wide enough to lose a whole interrupted run in.
+      const linkRecord = {
+        type: 'lk' as const,
+        bead_id: issue.id,
+        external_id: ref.id,
+        external_key: ref.key ?? null,
+        external_url: ref.url ?? null,
+        base: {
+          title: issue.title,
+          status: issue.status,
+          priority: issue.priority,
+          labels: issue.labels ?? [],
+          assignee: null,
+          description_hash: descriptionHash(issue.description ?? null),
+        },
+        remote_updated_at: options.now(),
+        synced_at: options.now(),
+        state: 'linked' as const,
+      };
+      await writeLinkRecord(dataSyncDir, provider, linkRecord);
+
       const extras = outboundExtras.get(issue.id);
       if (extras) {
         await adapter.upsertAttachments(ref.id, extras.attachments);
@@ -1454,26 +1482,17 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       }
 
       const [current] = await adapter.fetchIssues([ref.id]);
+      // Refine the record that already exists rather than establishing it here.
+      // `current` is the post-create read; `ref` is what the create returned.
+      // Prefer the read, but fall back rather than storing null for a brand
+      // new link whose identifier the create already told us.
       await writeLinkRecord(dataSyncDir, provider, {
-        type: 'lk',
-        bead_id: issue.id,
-        external_id: ref.id,
-        // `current` is the post-create read; `ref` is what the create returned.
-        // Prefer the read, but fall back rather than storing null for a brand
-        // new link whose identifier the create already told us.
+        ...linkRecord,
         external_key: current?.key ?? ref.key ?? null,
         external_url: current?.url ?? ref.url ?? null,
-        base: {
-          title: issue.title,
-          status: issue.status,
-          priority: issue.priority,
-          labels: issue.labels ?? [],
-          assignee: current?.assignee ?? null,
-          description_hash: descriptionHash(issue.description ?? null),
-        },
+        base: { ...linkRecord.base, assignee: current?.assignee ?? null },
         remote_updated_at: current?.updatedAt ?? options.now(),
         synced_at: options.now(),
-        state: 'linked',
       });
       report.createdOutbound.push(displayId);
     } catch (error) {

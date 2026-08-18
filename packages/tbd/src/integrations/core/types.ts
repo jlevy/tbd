@@ -11,6 +11,7 @@
  */
 
 import type { Issue, IssueStatusType, PriorityType, ProviderNameType } from '../../lib/types.js';
+import type { SelectionBreakdown } from './selection.js';
 
 /**
  * A resolved pointer to an item in an external tracker.
@@ -195,6 +196,15 @@ export interface MirrorReport {
   skipped: { beadId: string; reason: string }[];
   /** Non-fatal failures: the run is degraded but git state is untouched. */
   failures: { beadId: string; error: string }[];
+  /**
+   * Why the selected beads qualified, when the run computed a selection.
+   *
+   * A bare total cannot be checked against intent. Because `spec_path` is
+   * inherited, a spec clause can quietly select an entire subtree, and the
+   * split between `kind` and `spec` is what makes that visible before the
+   * writes happen.
+   */
+  selection?: SelectionBreakdown;
 }
 
 /**

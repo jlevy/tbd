@@ -67,10 +67,10 @@
  * liveness cannot be proved.
  */
 
-import { mkdir, open, rename, rmdir, stat, unlink, utimes } from 'node:fs/promises';
+import { mkdir, open, readdir, rename, rm, rmdir, stat, unlink, utimes } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { hostname } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 
 /** Options for `withLockfile`. */
 export interface LockfileOptions {
@@ -779,4 +779,99 @@ async function runWithPreparedLockGeneration<T>(
     throw ownershipError;
   }
   return result as T;
+}
+
+/**
+ * A leftover sidecar directory from an acquisition that never completed.
+ *
+ * Two kinds accumulate beside a lock. `.owner-<token>` is the provisional
+ * generation directory built before the atomic rename; a process killed in that
+ * window leaves it behind. `.stale-<token>` is where a broken stale lock is
+ * moved. Neither participates in mutual exclusion once orphaned, so both are
+ * inert clutter, but they are also the only durable record of *who* was holding
+ * the lock, which is what makes a deadlock diagnosable at all.
+ */
+export interface AbandonedLockArtifact {
+  path: string;
+  kind: 'owner' | 'stale';
+  /** Parsed owner record, or null when the sidecar has no readable one. */
+  owner: LockOwnerRecord | null;
+  /**
+   * True only when this host can prove the recorded process has exited.
+   *
+   * Fails closed exactly like stale recovery: a record from another host, or a
+   * pid this user cannot signal, is never called dead. Only a provably dead
+   * record is safe to remove without risking a live holder's lock.
+   */
+  deadOnThisHost: boolean;
+}
+
+/** Sidecar directory names, e.g. `data-sync.lock.owner-<uuid>`. */
+const LOCK_SIDECAR_PATTERN = /^(.+)\.(owner|stale)-([0-9a-fA-F-]{36})$/;
+
+/**
+ * Find sidecar directories left beside `lockPath` by interrupted acquisitions.
+ *
+ * Scans the lock's parent directory rather than guessing tokens, so it finds
+ * generations from processes this one never saw. The live lock directory itself
+ * is never returned: it is not an artifact, and removing it is stale recovery's
+ * job, under its own age and liveness rules.
+ */
+export async function findAbandonedLockArtifacts(
+  lockPath: string,
+): Promise<AbandonedLockArtifact[]> {
+  const parent = dirname(lockPath);
+  const prefix = basename(lockPath);
+  let entries: string[];
+  try {
+    entries = await readdir(parent);
+  } catch {
+    return [];
+  }
+
+  const found: AbandonedLockArtifact[] = [];
+  for (const entry of entries) {
+    const match = LOCK_SIDECAR_PATTERN.exec(entry);
+    if (match?.[1] !== prefix) {
+      continue;
+    }
+    const path = join(parent, entry);
+    const raw = await readBoundedOwnerRecord(join(path, LOCK_OWNER_RECORD_FILE));
+    const owner = raw === null ? null : parseLockOwner(raw);
+    found.push({
+      path,
+      kind: match[2] as 'owner' | 'stale',
+      owner,
+      // A sidecar with no readable owner cannot name a live process, so nothing
+      // is protected by keeping it.
+      deadOnThisHost: owner === null ? true : ownerIsDefinitelyDead(owner),
+    });
+  }
+  return found.sort((a, b) => a.path.localeCompare(b.path));
+}
+
+/**
+ * Remove the artifacts that are provably safe to remove, and report the count.
+ *
+ * Only `deadOnThisHost` entries are touched. Best-effort per entry: a sidecar
+ * removed concurrently, or one this process cannot delete, is skipped rather
+ * than failing the sweep, since the goal is to reduce clutter, never to block
+ * on it.
+ */
+export async function removeAbandonedLockArtifacts(
+  artifacts: readonly AbandonedLockArtifact[],
+): Promise<number> {
+  let removed = 0;
+  for (const artifact of artifacts) {
+    if (!artifact.deadOnThisHost) {
+      continue;
+    }
+    try {
+      await rm(artifact.path, { recursive: true, force: true });
+      removed += 1;
+    } catch {
+      // Leave it for the next sweep.
+    }
+  }
+  return removed;
 }

@@ -43,7 +43,7 @@ import {
 } from '../../lib/integration-paths.js';
 import { validateIssueId, extractUlidFromInternalId, formatDisplayId } from '../../lib/ids.js';
 import { findHierarchyProblems } from '../../lib/issue-hierarchy.js';
-import { duplicateExternalLinks } from '../../integrations/core/link-store.js';
+import { duplicateExternalLinks, readLink } from '../../integrations/core/link-store.js';
 import { integrationsInert } from '../../integrations/core/registry.js';
 import { integrationStatus } from '../../integrations/core/status.js';
 import { git } from '../../file/git.js';
@@ -89,7 +89,11 @@ import {
   getCodexTbdSection,
   inspectCodexHooksSurface,
 } from './setup.js';
-import { withLockfile } from '../../utils/lockfile.js';
+import {
+  findAbandonedLockArtifacts,
+  removeAbandonedLockArtifacts,
+  withLockfile,
+} from '../../utils/lockfile.js';
 
 /**
  * Diagnose the one dropped top-level key that proves integration config loss.
@@ -433,6 +437,11 @@ class DoctorHandler extends BaseCommand {
     // Check 9c: Shared data-sync lock is writable by this process
     healthChecks.push(
       await this.safeCheck('Shared lock writability', () => this.checkSharedLockWritability()),
+    );
+    healthChecks.push(
+      await this.safeCheck('Abandoned lock records', () =>
+        this.checkAbandonedLockRecords(options.fix),
+      ),
     );
 
     // Check 10: Data location (issues in wrong path, with fix support)
@@ -897,14 +906,35 @@ class DoctorHandler extends BaseCommand {
     const mapping = await loadIdMapping(this.dataSyncDir);
     const displayPrefix = this.config.display.id_prefix;
     for (const provider of ['linear', 'github'] as const) {
+      const linkRecords = await listLinkRecords(this.dataSyncDir, provider);
       // The human identifier lives on the bridge record now; without it the
       // report would name a bare UUID.
       const keyByExternalId = new Map(
-        (await listLinkRecords(this.dataSyncDir, provider)).map((record) => [
-          record.external_id,
-          record.external_key ?? null,
-        ]),
+        linkRecords.map((record) => [record.external_id, record.external_key ?? null]),
       );
+
+      // A bead claiming a link the bridge has no record of is the dangerous
+      // half-write: the bead reads as mirrored, so nothing ever creates its item
+      // again, while reconciliation cannot see the pair at all. Left alone the
+      // tracker item is orphaned for good, and no later sync converges it.
+      const recordedBeads = new Set(linkRecords.map((record) => record.bead_id));
+      const unrecorded = this.issues
+        .filter((issue) => readLink(issue, provider) !== undefined)
+        .filter((issue) => !recordedBeads.has(issue.id));
+      if (unrecorded.length > 0) {
+        const named = unrecorded
+          .slice(0, 5)
+          .map((issue) => formatDisplayId(issue.id, mapping, displayPrefix))
+          .join(', ');
+        const more = unrecorded.length > 5 ? `, and ${unrecorded.length - 5} more` : '';
+        problems.push(
+          `${unrecorded.length} bead(s) carry a ${provider} link with no bridge record ` +
+            `(${named}${more}). This is normal only until the next full \`tbd sync\`, which ` +
+            `writes the tracker surface that \`--issues\` skips. If it survives one, the ` +
+            `pair is half-written: re-link with \`tbd integration link\`, or clear it with ` +
+            `\`tbd integration unlink\`.`,
+        );
+      }
       for (const duplicate of duplicateExternalLinks(this.issues, provider, keyByExternalId)) {
         const holders = duplicate.beadIds
           .map((id) => formatDisplayId(id, mapping, displayPrefix))
@@ -1671,6 +1701,76 @@ class DoctorHandler extends BaseCommand {
       gitCommonDir: paths.gitCommonDir,
       projectRoot: this.cwd,
     });
+  }
+
+  /**
+   * Report sidecar lock directories left behind by interrupted acquisitions.
+   *
+   * These do not block anything by themselves, which is why they accumulated
+   * unnoticed. They matter because they are the only durable record of who held
+   * the lock: when a command appears to hang, the answer is a pid inside one of
+   * these, and reading them by hand is the difference between a two-minute
+   * diagnosis and an hour of guessing.
+   *
+   * Only records this host can prove dead are counted as clearable. One naming a
+   * live pid, or belonging to another host, is reported as context and left
+   * alone, since it may describe a legitimately running holder.
+   */
+  private async checkAbandonedLockRecords(fix?: boolean): Promise<DiagnosticResult> {
+    const name = 'Abandoned lock records';
+    let paths;
+    try {
+      paths = await resolveSharedTbdPaths(this.cwd);
+    } catch {
+      // Path resolution problems are already reported by the writability check;
+      // repeating them here would be noise.
+      return { name, status: 'ok' };
+    }
+
+    const artifacts = await findAbandonedLockArtifacts(paths.sharedLockPath);
+    if (artifacts.length === 0) {
+      return { name, status: 'ok', path: paths.sharedLocksDir };
+    }
+
+    const clearable = artifacts.filter((a) => a.deadOnThisHost);
+    const live = artifacts.filter((a) => !a.deadOnThisHost);
+
+    if (fix && clearable.length > 0 && !this.checkDryRun('Clear abandoned lock records')) {
+      // Re-scan under the fix so a holder that started since the diagnostic is
+      // re-evaluated rather than removed on a stale verdict.
+      const removed = await removeAbandonedLockArtifacts(
+        await findAbandonedLockArtifacts(paths.sharedLockPath),
+      );
+      return {
+        name,
+        status: 'ok',
+        message: `cleared ${removed} abandoned lock record(s)`,
+        path: paths.sharedLocksDir,
+      };
+    }
+
+    const describe = (count: number) => `${count} abandoned lock record(s)`;
+    if (clearable.length === 0) {
+      const pids = live
+        .map((a) => (a.owner ? `pid ${a.owner.pid} on ${a.owner.host}` : 'unreadable'))
+        .join(', ');
+      return {
+        name,
+        status: 'warn',
+        message: `${describe(live.length)} held by a process this host cannot verify (${pids})`,
+        suggestion: 'Leave these alone unless you know the process is gone',
+        path: paths.sharedLocksDir,
+      };
+    }
+
+    return {
+      name,
+      status: 'warn',
+      message: `${describe(clearable.length)} from processes that have exited`,
+      suggestion: 'Run: tbd doctor --fix to clear them',
+      fixable: true,
+      path: paths.sharedLocksDir,
+    };
   }
 
   /**

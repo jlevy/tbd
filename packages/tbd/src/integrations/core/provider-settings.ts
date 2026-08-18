@@ -157,12 +157,19 @@ export interface SyncFoldPosture {
  * `true` folded in with the bulk thresholds affirmed (`auto`), `false` kept providers
  * out of `tbd sync` entirely (`off`). The two new modes were unreachable before, so no
  * legacy value can produce them.
+ *
+ * The unset default is `guarded`, not `auto`. Enabling an integration is the opt-in to
+ * folding it into `tbd sync`, but it is not an opt-in to a write of unbounded size, and
+ * those are different consents. `guarded` differs from `auto` only above the bulk
+ * thresholds, so an ordinary session-end sync of a few changed beads is unaffected; a
+ * first sync that would create hundreds of issues stops and says so instead. That case
+ * is exactly where the operator has the least idea what the policy selected.
  */
 export function resolveSyncFoldMode(
   integrations: { on_tbd_sync?: SyncFoldModeType; sync_on_tbd_sync?: boolean } | undefined,
 ): SyncFoldModeType {
   if (!integrations) {
-    return 'auto';
+    return 'guarded';
   }
   if (integrations.on_tbd_sync !== undefined) {
     return integrations.on_tbd_sync;
@@ -170,7 +177,7 @@ export function resolveSyncFoldMode(
   if (integrations.sync_on_tbd_sync !== undefined) {
     return integrations.sync_on_tbd_sync ? 'auto' : 'off';
   }
-  return 'auto';
+  return 'guarded';
 }
 
 /**
