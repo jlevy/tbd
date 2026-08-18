@@ -7,7 +7,7 @@
  */
 
 import { Command } from 'commander';
-import { access, mkdir, readdir, readFile, unlink } from 'node:fs/promises';
+import { access, mkdir, readdir, readFile, rm, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
@@ -90,8 +90,9 @@ import {
   inspectCodexHooksSurface,
 } from './setup.js';
 import {
-  findAbandonedLockArtifacts,
-  removeAbandonedLockArtifacts,
+  listLockSidecars,
+  lockOwnerIsDefinitelyDead,
+  type LockSidecar,
   withLockfile,
 } from '../../utils/lockfile.js';
 
@@ -235,6 +236,25 @@ export function divergenceFinding(
     message: `diverged (${ahead} ahead, ${behind} behind)`,
     suggestion: 'Run: tbd sync to reconcile',
   };
+}
+
+/**
+ * Which lock sidecars this host may safely delete.
+ *
+ * The cleanup policy, kept here rather than in the lock module: the lock code
+ * reports what is on disk, and what counts as safe to remove depends on why you
+ * are asking. Two cases qualify. A record whose process this host can prove has
+ * exited protects nothing. A sidecar with no readable record cannot name a live
+ * process at all, so keeping it guards nothing either.
+ *
+ * Everything else is left alone, which is the important half: a record from
+ * another host, or one naming a pid this user cannot signal, may describe a
+ * legitimately running holder.
+ */
+export function clearableLockSidecars(sidecars: readonly LockSidecar[]): LockSidecar[] {
+  return sidecars.filter(
+    (sidecar) => sidecar.owner === null || lockOwnerIsDefinitelyDead(sidecar.owner),
+  );
 }
 
 /**
@@ -1706,15 +1726,11 @@ class DoctorHandler extends BaseCommand {
   /**
    * Report sidecar lock directories left behind by interrupted acquisitions.
    *
-   * These do not block anything by themselves, which is why they accumulated
-   * unnoticed. They matter because they are the only durable record of who held
-   * the lock: when a command appears to hang, the answer is a pid inside one of
-   * these, and reading them by hand is the difference between a two-minute
-   * diagnosis and an hour of guessing.
-   *
-   * Only records this host can prove dead are counted as clearable. One naming a
-   * live pid, or belonging to another host, is reported as context and left
-   * alone, since it may describe a legitimately running holder.
+   * These block nothing by themselves, which is why they accumulate unnoticed.
+   * They matter because they hold the only durable record of who held the lock:
+   * when a command appears to hang, the answer is a pid inside one of these, and
+   * reading them by hand is the difference between a two-minute diagnosis and an
+   * hour of guessing.
    */
   private async checkAbandonedLockRecords(fix?: boolean): Promise<DiagnosticResult> {
     const name = 'Abandoned lock records';
@@ -1727,20 +1743,26 @@ class DoctorHandler extends BaseCommand {
       return { name, status: 'ok' };
     }
 
-    const artifacts = await findAbandonedLockArtifacts(paths.sharedLockPath);
-    if (artifacts.length === 0) {
+    const sidecars = await listLockSidecars(paths.sharedLockPath);
+    if (sidecars.length === 0) {
       return { name, status: 'ok', path: paths.sharedLocksDir };
     }
 
-    const clearable = artifacts.filter((a) => a.deadOnThisHost);
-    const live = artifacts.filter((a) => !a.deadOnThisHost);
+    const clearable = clearableLockSidecars(sidecars);
+    const retained = sidecars.filter((sidecar) => !clearable.includes(sidecar));
 
     if (fix && clearable.length > 0 && !this.checkDryRun('Clear abandoned lock records')) {
-      // Re-scan under the fix so a holder that started since the diagnostic is
+      // Re-list under the fix so a holder that started since the diagnostic is
       // re-evaluated rather than removed on a stale verdict.
-      const removed = await removeAbandonedLockArtifacts(
-        await findAbandonedLockArtifacts(paths.sharedLockPath),
-      );
+      let removed = 0;
+      for (const sidecar of clearableLockSidecars(await listLockSidecars(paths.sharedLockPath))) {
+        try {
+          await rm(sidecar.path, { recursive: true, force: true });
+          removed += 1;
+        } catch {
+          // Leave it for the next sweep; clutter is not worth failing doctor over.
+        }
+      }
       return {
         name,
         status: 'ok',
@@ -1749,15 +1771,16 @@ class DoctorHandler extends BaseCommand {
       };
     }
 
-    const describe = (count: number) => `${count} abandoned lock record(s)`;
     if (clearable.length === 0) {
-      const pids = live
-        .map((a) => (a.owner ? `pid ${a.owner.pid} on ${a.owner.host}` : 'unreadable'))
+      const holders = retained
+        .map((sidecar) =>
+          sidecar.owner ? `pid ${sidecar.owner.pid} on ${sidecar.owner.host}` : 'unreadable',
+        )
         .join(', ');
       return {
         name,
         status: 'warn',
-        message: `${describe(live.length)} held by a process this host cannot verify (${pids})`,
+        message: `${retained.length} lock record(s) this host cannot verify (${holders})`,
         suggestion: 'Leave these alone unless you know the process is gone',
         path: paths.sharedLocksDir,
       };
@@ -1766,7 +1789,7 @@ class DoctorHandler extends BaseCommand {
     return {
       name,
       status: 'warn',
-      message: `${describe(clearable.length)} from processes that have exited`,
+      message: `${clearable.length} abandoned lock record(s) from processes that have exited`,
       suggestion: 'Run: tbd doctor --fix to clear them',
       fixable: true,
       path: paths.sharedLocksDir,
