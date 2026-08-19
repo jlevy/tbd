@@ -5,8 +5,8 @@ title: Resolve the main worktree via git --git-common-dir
 kind: task
 status: open
 priority: 0
-version: 5
-spec_path: docs/project/specs/active/plan-2026-08-19-worktree-env-credential-resolution.md
+version: 6
+spec_path: null
 assignee: josh
 labels: []
 dependencies:
@@ -14,7 +14,7 @@ dependencies:
     target: is-01m0ddfj2qkwxhej9p8q30qs9y
 parent_id: is-01m0ddenmjsxeqm98ytfpcfc11
 created_at: 2026-08-19T16:25:43.911Z
-updated_at: 2026-08-19T17:59:15.237Z
+updated_at: 2026-08-19T18:08:14.595Z
 ---
 Add a helper that returns the main worktree path for the current directory, built on `resolveGitCommonDir` in `lib/paths.ts`. That function already asks git for the common directory, with the `--path-format=absolute` fallback and realpath normalization handled, so this is a wrapper rather than a second `rev-parse`.
 

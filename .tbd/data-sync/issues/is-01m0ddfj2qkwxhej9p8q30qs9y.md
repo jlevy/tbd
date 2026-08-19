@@ -5,8 +5,8 @@ title: Fall back to the main worktree .env in credential resolution
 kind: task
 status: open
 priority: 0
-version: 4
-spec_path: docs/project/specs/active/plan-2026-08-19-worktree-env-credential-resolution.md
+version: 5
+spec_path: null
 assignee: josh
 labels: []
 dependencies:
@@ -14,7 +14,7 @@ dependencies:
     target: is-01m0ddfjd4q6zawvdwh008w9h2
 parent_id: is-01m0ddenmjsxeqm98ytfpcfc11
 created_at: 2026-08-19T16:25:44.278Z
-updated_at: 2026-08-19T17:59:15.997Z
+updated_at: 2026-08-19T18:08:15.277Z
 ---
 Wire the main-worktree helper into integration credential loading as layer 3 of the resolution order:
 

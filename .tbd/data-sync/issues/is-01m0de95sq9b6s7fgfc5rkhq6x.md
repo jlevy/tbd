@@ -3,14 +3,18 @@ type: is
 id: is-01m0de95sq9b6s7fgfc5rkhq6x
 title: "Sync clears Linear assignees: a null local assignee is pushed as an explicit unassign"
 kind: bug
-status: open
+status: closed
 priority: 0
-version: 3
+version: 4
 assignee: josh
 labels: []
 dependencies: []
 created_at: 2026-08-19T16:39:43.669Z
-updated_at: 2026-08-19T16:54:27.939Z
+updated_at: 2026-08-19T19:17:02.026Z
+closed_at: 2026-08-19T19:17:02.025Z
+close_reason: Fixed in 53b84ba3. canPushAssignee(null) is false, so an absent assignee is never a pushable value; field_sync.fields.assignee is now consulted outbound on both the reconcile and mirror paths, so 'local' means the field does not leave the repo. Also reverts the widening my Actor Phase 2 work introduced, where directory-resolved handles enabled the null-clear with no user_map at all. Regression tests cover both flow modes; verified by reverting each guard (local fails only with both reverted; each guard alone suffices).
+resolution: null
+duplicate_of: null
 extensions:
   linear:
     id: 8a51f977-f9e5-411d-8c72-4e8e67be7837
