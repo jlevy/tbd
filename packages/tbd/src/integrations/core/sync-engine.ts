@@ -727,6 +727,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     // position goes.
     if (result.externalPatch.status !== undefined) {
       result.externalPatch.resolution = bead.resolution ?? null;
+      result.externalPatch.hold = bead.hold ?? null;
     }
     if (result.beadPatch.status !== undefined) {
       // A Linear duplicate carries its target as a relation tbd does not read yet, and
@@ -745,6 +746,9 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       } else {
         result.beadPatch.resolution = inbound;
       }
+      // A hold only means anything on non-terminal work; pulling one onto a bead the
+      // same patch is closing would be rejected at the write boundary.
+      result.beadPatch.hold = result.beadPatch.status === 'closed' ? null : (remote.hold ?? null);
     }
 
     // Assert the origin labels only when the remote is actually missing one.
@@ -1312,6 +1316,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
           ...(patch.labels !== undefined ? { labels: patch.labels } : {}),
           ...(patch.assignee !== undefined ? { assignee: patch.assignee } : {}),
           ...(patch.resolution !== undefined ? { resolution: patch.resolution } : {}),
+          ...(patch.hold !== undefined ? { hold: patch.hold } : {}),
         };
         dirty = true;
         report.pulled.push(displayId);

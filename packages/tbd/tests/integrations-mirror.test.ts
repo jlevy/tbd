@@ -231,7 +231,9 @@ describe('planMirror', () => {
       kind: 'task',
       parent_id: 'is-epic',
       status: 'open',
-      assignee: 'someone',
+      // Claimed means someone is *acting* on it, which is `delegate`. `assignee`
+      // records accountability and does not take work out of the ready pool.
+      delegate: 'someone',
     });
 
     const plan = planMirror({

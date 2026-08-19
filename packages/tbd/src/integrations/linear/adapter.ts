@@ -26,6 +26,7 @@ import {
   priorityToLinear,
   statusFromLinear,
   resolutionFromLinear,
+  holdFromLinear,
   resolveStateId,
   statusToLinear,
 } from './mapping.js';
@@ -744,6 +745,7 @@ export class LinearAdapter implements TrackerAdapter {
       description: raw.description,
       status: statusFromLinear(stateType, labels),
       resolution: resolutionFromLinear(stateType),
+      hold: holdFromLinear(raw.state?.name, labels),
       priority: priorityFromLinear(raw.priority),
       labels,
       assignee: mappedAssignee ?? null,
@@ -819,12 +821,23 @@ export class LinearAdapter implements TrackerAdapter {
 
     let statusLabels: string[] = [];
     if (patch.status !== undefined) {
-      const target = statusToLinear(patch.status, patch.resolution);
-      const stateId = meta.stateIdsByType[target.stateType];
+      const target = statusToLinear(patch.status, patch.resolution, patch.hold);
+      // A named state is preferred when the team actually has one, because a real
+      // column is visible to a person planning the week while a label is not. When it
+      // is absent the carrier label rides the type's default instead, which is the
+      // degradation `blocked` and `deferred` already rely on.
+      const named = target.stateName
+        ? (meta.states ?? []).find(
+            (state) =>
+              state.type === target.stateType &&
+              state.name.toLowerCase() === target.stateName!.toLowerCase(),
+          )
+        : undefined;
+      const stateId = named?.id ?? meta.stateIdsByType[target.stateType];
       if (stateId) {
         input.stateId = stateId;
       }
-      statusLabels = target.labels;
+      statusLabels = named ? [] : target.labels;
     }
 
     // `ensureLabels` is additive: it joins whatever label set is already being written

@@ -5,12 +5,18 @@
  * writes its own table and changes nothing else.
  */
 
-import type { IssueStatusType, IssueResolutionType, PriorityType } from '../../lib/types.js';
+import type {
+  IssueStatusType,
+  IssueResolutionType,
+  IssueHoldType,
+  PriorityType,
+} from '../../lib/types.js';
 
 /** Labels tbd owns are prefixed so they cannot collide with a team's own. */
 export const TBD_LABEL_PREFIX = 'tbd:';
 export const BLOCKED_LABEL = `${TBD_LABEL_PREFIX}blocked`;
 export const DEFERRED_LABEL = `${TBD_LABEL_PREFIX}deferred`;
+export const PAUSED_LABEL = `${TBD_LABEL_PREFIX}paused`;
 
 /**
  * Linear's `WorkflowState.type` values seen in practice.
@@ -31,6 +37,16 @@ export const KNOWN_STATE_TYPES = [
 
 export interface LinearStatusTarget {
   stateType: string;
+  /**
+   * A state NAME to prefer over the type's default, when the type cannot express the
+   * distinction on its own.
+   *
+   * `paused` and `blocked` are both type `started` — they describe work that has begun
+   * — so a type alone cannot tell them apart from active work. A team that has the
+   * named state gets a real column; one that does not falls back to the type plus the
+   * carrier label below, which is the mechanism `blocked` and `deferred` already use.
+   */
+  stateName?: string;
   /** tbd-owned labels that carry status detail Linear has no state for. */
   labels: string[];
 }
@@ -63,11 +79,23 @@ const STATE_TYPE_BY_RESOLUTION: Record<IssueResolutionType, string> = {
 export function statusToLinear(
   status: IssueStatusType,
   resolution?: IssueResolutionType | null,
+  hold?: IssueHoldType | null,
 ): LinearStatusTarget {
   switch (status) {
     case 'open':
-      return { stateType: 'unstarted', labels: [] };
+      // Held-but-unstarted work is not scheduled, so it belongs in the backlog rather
+      // than in Todo. The carrier label is what makes it round-trip: a backlog state
+      // alone cannot say whether the work was deliberately set down.
+      return hold
+        ? { stateType: 'backlog', labels: [hold === 'paused' ? PAUSED_LABEL : BLOCKED_LABEL] }
+        : { stateType: 'unstarted', labels: [] };
     case 'in_progress':
+      if (hold === 'paused') {
+        return { stateType: 'started', stateName: 'Paused', labels: [PAUSED_LABEL] };
+      }
+      if (hold === 'blocked') {
+        return { stateType: 'started', stateName: 'Blocked', labels: [BLOCKED_LABEL] };
+      }
       return { stateType: 'started', labels: [] };
     case 'blocked':
       return { stateType: 'started', labels: [BLOCKED_LABEL] };
@@ -269,4 +297,33 @@ export function resolveStateId(
     return { state: byName, via: 'conventional' };
   }
   return { ambiguous: candidates };
+}
+
+/**
+ * Recover the hold from a Linear state name plus carrier labels.
+ *
+ * Read alongside {@link statusFromLinear}, which answers only *where* the work sits.
+ * The carrier label is checked first because it is what tbd itself writes and is
+ * therefore unambiguous; a state name is a team's own wording and only consulted when
+ * no carrier says otherwise.
+ *
+ * `tbd:blocked` deliberately does NOT produce a hold: it is the carrier for the legacy
+ * `blocked` *status*, which {@link statusFromLinear} still owns, and reading it twice
+ * would set both a position and a modifier from one signal.
+ */
+export function holdFromLinear(
+  stateName: string | undefined,
+  labels: readonly string[],
+): IssueHoldType | null {
+  if (labels.includes(PAUSED_LABEL)) {
+    return 'paused';
+  }
+  const name = stateName?.trim().toLowerCase();
+  if (name === 'paused') {
+    return 'paused';
+  }
+  if (name === 'blocked') {
+    return 'blocked';
+  }
+  return null;
 }

@@ -144,6 +144,13 @@ class StartHandler extends BaseCommand {
             }
 
             issue.status = 'in_progress';
+            // First start only. This is the record that later distinguishes "paused"
+            // from "never started", so a re-claim must not move it.
+            issue.started_at ??= now();
+            // Claiming work is the opposite of holding it; leaving a stale hold would
+            // keep the bead out of `tbd ready` while an agent was actively on it.
+            issue.hold = null;
+            issue.hold_until = null;
             // The claim lands on the acting axis. `assignee` is who is accountable —
             // usually a human, often the same on every bead — and an agent writing
             // itself there answers a question nobody asked while destroying the answer

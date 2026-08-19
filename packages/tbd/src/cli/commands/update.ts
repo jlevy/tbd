@@ -12,9 +12,14 @@ import { requireInit, NotFoundError, ValidationError, CLIError } from '../lib/er
 import { readIssue, writeIssue, listIssues } from '../../file/storage.js';
 import { parseMarkdownWithFrontmatter } from '../../file/parser.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
-import { IssueStatus, IssueKind } from '../../lib/schemas.js';
+import { IssueStatus, IssueKind, IssueHold } from '../../lib/schemas.js';
 import { parsePriority } from '../../lib/priority.js';
-import type { IssueStatusType, IssueKindType, PriorityType } from '../../lib/types.js';
+import type {
+  IssueStatusType,
+  IssueKindType,
+  PriorityType,
+  IssueHoldType,
+} from '../../lib/types.js';
 import { now } from '../../utils/time-utils.js';
 import { resolveToInternalId, type IdMapping } from '../../file/id-mapping.js';
 import { resolveSpecArg, getPathErrorMessage } from '../../lib/project-paths.js';
@@ -40,6 +45,7 @@ interface UpdateOptions {
   priority?: string;
   assignee?: string;
   delegate?: string;
+  hold?: string;
   description?: string;
   notes?: string;
   notesFile?: string;
@@ -148,6 +154,12 @@ class UpdateHandler extends BaseCommand {
           }
           if (updates.delegate !== undefined) {
             issue.delegate = updates.delegate;
+          }
+          if (updates.hold !== undefined) {
+            issue.hold = updates.hold;
+            if (updates.hold !== 'paused') {
+              issue.hold_until = null;
+            }
           }
           if (updates.description !== undefined) {
             issue.description = updates.description;
@@ -331,7 +343,7 @@ class UpdateHandler extends BaseCommand {
       throw new ValidationError(
         `Cannot use ${perIdOnly.join(', ')} when updating multiple issues. ` +
           `These apply to a single issue; use \`tbd close\`/\`tbd reopen\` for status changes. ` +
-          `Bulk update supports shared fields: --priority, --assignee, --delegate, --type, ` +
+          `Bulk update supports shared fields: --priority, --assignee, --delegate, --hold, --type, ` +
           `--add-label, --remove-label, --due, --defer.`,
       );
     }
@@ -400,6 +412,12 @@ class UpdateHandler extends BaseCommand {
             }
             if (updates.delegate !== undefined) {
               issue.delegate = updates.delegate;
+            }
+            if (updates.hold !== undefined) {
+              issue.hold = updates.hold;
+              if (updates.hold !== 'paused') {
+                issue.hold_until = null;
+              }
             }
             if (updates.due_date !== undefined) {
               issue.due_date = updates.due_date;
@@ -512,6 +530,7 @@ class UpdateHandler extends BaseCommand {
     priority?: PriorityType;
     assignee?: string | null;
     delegate?: string | null;
+    hold?: IssueHoldType | null;
     description?: string | null;
     notes?: string | null;
     due_date?: string | null;
@@ -530,6 +549,7 @@ class UpdateHandler extends BaseCommand {
       priority?: PriorityType;
       assignee?: string | null;
       delegate?: string | null;
+      hold?: IssueHoldType | null;
       description?: string | null;
       notes?: string | null;
       due_date?: string | null;
@@ -663,6 +683,21 @@ class UpdateHandler extends BaseCommand {
     if (options.delegate !== undefined) {
       updates.delegate = options.delegate || null;
     }
+    if (options.hold !== undefined) {
+      // `--hold ''` and `--hold none` both lift it, matching the empty-clears
+      // convention the other modifier flags use.
+      if (!options.hold || options.hold === 'none') {
+        updates.hold = null;
+      } else {
+        const parsed = IssueHold.safeParse(options.hold);
+        if (!parsed.success) {
+          throw new ValidationError(
+            `Invalid hold: ${options.hold}. Expected blocked, paused, or none.`,
+          );
+        }
+        updates.hold = parsed.data;
+      }
+    }
 
     // Body fields are pre-resolved (inline/file/stdin) by resolveBodyOptions
     // before the data context, so here they are already plain strings.
@@ -755,6 +790,7 @@ export const updateCommand = new Command('update')
   .option('--priority <0-4>', 'Set priority')
   .option('--assignee <name>', 'Set assignee: who is accountable')
   .option('--delegate <name>', 'Set delegate: who is acting')
+  .option('--hold <state>', 'Set hold: blocked, paused, or none')
   .option('--description <text>', 'Set description ("-" reads stdin)')
   .option('--notes <text>', 'Set working notes ("-" reads stdin)')
   .option('--notes-file <path>', 'Set notes from file ("-" reads stdin)')

@@ -413,7 +413,14 @@ export async function commitToSyncBranch(
 /**
  * Field-level merge strategy types.
  */
-type MergeStrategy = 'lww' | 'union' | 'union_by_key' | 'max' | 'immutable' | 'namespace_merge';
+type MergeStrategy =
+  | 'lww'
+  | 'union'
+  | 'union_by_key'
+  | 'max'
+  | 'min_timestamp'
+  | 'immutable'
+  | 'namespace_merge';
 
 /**
  * Identity field for `union_by_key` fields (f08+).
@@ -467,6 +474,11 @@ const FIELD_STRATEGIES: Record<keyof Issue, MergeStrategy> = {
   duplicate_of: 'lww',
   due_date: 'lww',
   deferred_until: 'lww',
+  hold: 'lww',
+  hold_until: 'lww',
+  // Earliest wins, never cleared: two clones that both started the work should keep
+  // the first start, and LWW would let a later touch erase the fact entirely.
+  started_at: 'min_timestamp',
   spec_path: 'lww',
 
   // Union - combine arrays, deduplicate
@@ -999,6 +1011,21 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
           remoteVal as number,
         );
         break;
+
+      case 'min_timestamp': {
+        // Earliest wins, and a present value always beats an absent one.
+        //
+        // For a first-occurrence timestamp, LWW is wrong in both directions: a later
+        // write would move the recorded start forward, and a side that never saw the
+        // start would erase it. ISO 8601 strings sort correctly, so a plain comparison
+        // is the whole rule.
+        const candidates = [localVal, remoteVal].filter(
+          (value): value is string => typeof value === 'string' && value.length > 0,
+        );
+        (merged as Record<string, unknown>)[key] =
+          candidates.length > 0 ? candidates.sort()[0] : null;
+        break;
+      }
 
       case 'namespace_merge': {
         // Per-namespace merge; only a namespace both sides changed conflicts.

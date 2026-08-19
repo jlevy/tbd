@@ -101,3 +101,35 @@ describe('delegate is settable directly', () => {
     expect(show(id).delegate ?? null).toBeNull();
   });
 });
+
+describe('readiness follows the acting axis', () => {
+  it('keeps accountable-but-unclaimed work in the ready pool', () => {
+    const id = create('Owned but unclaimed');
+    tbd(['update', id, '--assignee', 'josh']);
+    // Recording who is accountable must not empty the ready list. In an agent-driven
+    // repository one human is accountable for nearly everything, so treating
+    // `assignee` as "taken" would leave `tbd ready` permanently empty.
+    expect(tbd(['ready', '--json'])).toContain(id);
+  });
+
+  it('drops work once an agent is actually acting on it', () => {
+    const id = create('Claimed');
+    tbd(['update', id, '--delegate', 'claude-code']);
+    expect(tbd(['ready', '--json'])).not.toContain(id);
+  });
+
+  it('drops held work regardless of its dependencies', () => {
+    const paused = create('Set down');
+    const blocked = create('Waiting');
+    tbd(['pause', paused]);
+    tbd(['update', blocked, '--hold', 'blocked']);
+
+    const ready = tbd(['ready', '--json']);
+    expect(ready).not.toContain(paused);
+    expect(ready).not.toContain(blocked);
+
+    // And returns once the hold lifts.
+    tbd(['resume', paused]);
+    expect(tbd(['ready', '--json'])).toContain(paused);
+  });
+});

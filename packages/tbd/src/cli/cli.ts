@@ -26,6 +26,7 @@ import { staleCommand } from './commands/stale.js';
 import { labelCommand } from './commands/label.js';
 import { refCommand, docRefCommand } from './commands/ref.js';
 import { startCommand, whoamiCommand } from './commands/start.js';
+import { pauseCommand, resumeCommand } from './commands/pause.js';
 import { depCommand } from './commands/dep.js';
 import { syncCommand } from './commands/sync.js';
 import { changesCommand } from './commands/changes.js';
@@ -104,6 +105,8 @@ function createProgram(): Command {
   program.addCommand(showCommand);
   program.addCommand(updateCommand);
   program.addCommand(startCommand);
+  program.addCommand(pauseCommand);
+  program.addCommand(resumeCommand);
   program.addCommand(closeCommand);
   program.addCommand(reopenCommand);
   program.addCommand(searchCommand);

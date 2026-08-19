@@ -104,6 +104,19 @@ export const IssueStatus = z.enum(['open', 'in_progress', 'blocked', 'deferred',
 export const IssueResolution = z.enum(['completed', 'canceled', 'duplicate']);
 
 /**
+ * Why open work is not moving, on the axis beside {@link IssueStatus}.
+ *
+ * The mirror image of {@link IssueResolution} at the other end of the lifecycle. A hold
+ * is a *modifier* on a position, not a position itself: `deferred` had to overwrite
+ * `in_progress` to say "paused", which destroyed the one fact that made it interesting
+ * — that the work had started. Position and modifier are independent here, so
+ * `in_progress` + `paused` says "begun, then set down" without losing either half.
+ *
+ * Only valid while the work is not terminal.
+ */
+export const IssueHold = z.enum(['blocked', 'paused']);
+
+/**
  * Issue kind/type values matching Beads.
  * Note: CLI uses --type flag, which maps to this `kind` field.
  */
@@ -284,9 +297,21 @@ export const IssueSchema = BaseEntity.extend({
   // Scheduling
   due_date: Timestamp.nullable().optional(),
   deferred_until: Timestamp.nullable().optional(),
+  /** Why open work is not moving. Only while non-terminal. */
+  hold: IssueHold.nullable().optional(),
+  /** When a `paused` hold is expected to lift. tbd-native; never a tracker snooze. */
+  hold_until: Timestamp.nullable().optional(),
 
   // Provenance and lifecycle
   created_by: z.string().nullable().optional(),
+  /**
+   * When the work first entered `in_progress`. Never cleared once set.
+   *
+   * The record that makes "paused" distinguishable from "never started": both are
+   * inactive, and without this they are the same bead. Pausing, resuming, and closing
+   * all leave it alone, because it is a fact about history rather than current state.
+   */
+  started_at: Timestamp.nullable().optional(),
   closed_at: Timestamp.nullable().optional(),
   close_reason: z.string().nullable().optional(),
   /** Why the work ended. Only on `closed`; absent reads as `completed`. */
@@ -330,6 +355,20 @@ export const IssueSchema = BaseEntity.extend({
         code: z.ZodIssueCode.custom,
         path: ['duplicate_of'],
         message: 'duplicate_of is required when resolution is duplicate',
+      });
+    }
+    if (issue.hold != null && issue.status === 'closed') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['hold'],
+        message: 'hold is only valid on work that is not closed',
+      });
+    }
+    if (issue.hold_until != null && issue.hold !== 'paused') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['hold_until'],
+        message: 'hold_until is only valid with hold: paused',
       });
     }
     if (issue.duplicate_of != null && issue.resolution !== 'duplicate') {
@@ -1147,6 +1186,8 @@ export const ISSUE_FIELD_ORDER = [
   // Scheduling
   'due_date',
   'deferred_until',
+  'hold',
+  'hold_until',
 
   // Provenance
   'created_by',
@@ -1154,6 +1195,7 @@ export const ISSUE_FIELD_ORDER = [
   // Timestamps
   'created_at',
   'updated_at',
+  'started_at',
 
   // Lifecycle (closure)
   'closed_at',

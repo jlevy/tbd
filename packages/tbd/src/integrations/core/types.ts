@@ -14,6 +14,7 @@ import type {
   Issue,
   IssueStatusType,
   IssueResolutionType,
+  IssueHoldType,
   PriorityType,
   ProviderNameType,
 } from '../../lib/types.js';
@@ -40,6 +41,8 @@ export interface ExternalIssue extends ExternalRef {
   status: IssueStatusType;
   /** Why terminal work ended, or null while it is still open. */
   resolution: IssueResolutionType | null;
+  /** Why open work is not moving, or null when it is unheld. */
+  hold: IssueHoldType | null;
   priority: PriorityType;
   labels: string[];
   assignee: string | null;
@@ -83,6 +86,8 @@ export interface CanonicalPatch {
    * terminal end: a provider needs both to pick a state, and only the pair is lossless.
    */
   resolution?: IssueResolutionType | null;
+  /** Why open work is not moving. Carried with `status`, like `resolution`. */
+  hold?: IssueHoldType | null;
   priority?: PriorityType;
   /**
    * REPLACES the item's labels. Absent leaves them alone, which is the default:

@@ -25,6 +25,7 @@ import type {
   BridgeBase,
   IssueStatusType,
   IssueResolutionType,
+  IssueHoldType,
   PriorityType,
 } from '../../lib/types.js';
 import type { FieldSyncClause } from '../../lib/types.js';
@@ -99,6 +100,8 @@ export interface BeadPatch {
    * would describe a bead that is canceled and open at once.
    */
   resolution?: IssueResolutionType | null;
+  /** Set alongside `status` for the same reason `resolution` is. */
+  hold?: IssueHoldType | null;
   priority?: PriorityType;
   labels?: string[];
   assignee?: string | null;

@@ -12,6 +12,7 @@ import type {
   IssueRef,
   IssueStatus,
   IssueResolution,
+  IssueHold,
   IssueKind,
   Priority,
   Dependency,
@@ -62,6 +63,11 @@ export type IssueStatusType = z.infer<typeof IssueStatus>;
  * Terminal resolution values: why closed work ended.
  */
 export type IssueResolutionType = z.infer<typeof IssueResolution>;
+
+/**
+ * Hold values: why open work is not moving.
+ */
+export type IssueHoldType = z.infer<typeof IssueHold>;
 
 /**
  * Issue kind enum values.

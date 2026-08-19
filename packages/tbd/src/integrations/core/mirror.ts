@@ -251,6 +251,7 @@ export function planMirror(context: MirrorContext): MirrorPlan {
       title: issue.title,
       status: issue.status,
       resolution: issue.resolution ?? null,
+      hold: issue.hold ?? null,
       priority: issue.priority,
       // Carried on every action, consumed only by the create path: the adapter's
       // update surface ignores these, and the provider does not accept them there
