@@ -406,8 +406,14 @@ export async function runEnabledIntegrationPushes(
       mirrorLabels: resolveProviderSettings(config.integrations?.linear ?? {}).mirrorLabels,
       originLabels: await resolveOriginLabels(tbdRoot, config),
       maxNesting: entry.maxNesting,
-      canPushAssignee: (assignee) => adapter.canPushAssignee(assignee),
-      assigneeSkipReason: (assignee) => adapter.assigneeSkipReason?.(assignee),
+      // Same guard as the reconcile path: the mirror projects a bead outward, so an
+      // assignee held `local` must not leave the repository from here either (OS-351).
+      canPushAssignee: (assignee) =>
+        entry.policy.field_sync.fields.assignee === 'merge' && adapter.canPushAssignee(assignee),
+      assigneeSkipReason: (assignee) =>
+        entry.policy.field_sync.fields.assignee === 'merge'
+          ? adapter.assigneeSkipReason?.(assignee)
+          : 'field_sync.fields.assignee is "local"; set it to "merge" to publish assignees',
       specUrl: (issue) => (issue.spec_path ? specLinks.get(issue.spec_path) : undefined),
     });
     if (!options.dryRun) {

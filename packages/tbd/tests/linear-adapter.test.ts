@@ -353,6 +353,38 @@ describe('Linear client and adapter', () => {
     });
   });
 
+  describe('assignee push gating (OS-351)', () => {
+    it('never treats an absent assignee as a pushable value', () => {
+      // The data-loss bug: `assignee === null` was a *value* meaning "unassign", so a
+      // bead that simply never recorded an assignee cleared whoever a human had
+      // assigned in Linear. An empty field is no opinion, not an instruction.
+      const mapped = new LinearAdapter({
+        client,
+        teamKey: 'FIN',
+        userMap: { josh: 'josh@example.com' },
+      });
+      expect(mapped.canPushAssignee(null)).toBe(false);
+    });
+
+    it('still pushes a mapped identity', () => {
+      const mapped = new LinearAdapter({
+        client,
+        teamKey: 'FIN',
+        userMap: { josh: 'josh@example.com' },
+      });
+      expect(mapped.canPushAssignee('josh')).toBe(true);
+      expect(mapped.canPushAssignee('stranger')).toBe(false);
+    });
+
+    it('does not let directory resolution reopen the null path', async () => {
+      // Actor Phase 2 widened the original blast radius: once handles resolved from
+      // the workspace directory, a null could publish with no user_map at all.
+      const directory = new LinearAdapter({ client, teamKey: 'FIN' });
+      await directory.primeActors(['Alice Example'], []);
+      expect(directory.canPushAssignee(null)).toBe(false);
+    });
+  });
+
   describe('applyChanges', () => {
     beforeEach(() => {
       server.addIssue({ id: 'uuid-5', identifier: 'FIN-5', title: 'Before' });

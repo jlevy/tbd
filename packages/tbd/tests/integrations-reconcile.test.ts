@@ -206,6 +206,39 @@ describe('assignee capability gating', () => {
     expect(result.beadPatch.assignee).toBe('PM');
   });
 
+  it('leaves a Linear assignee alone when the bead never had one (OS-351)', () => {
+    // The reported data loss: bead `assignee: null`, issue assigned to a person in
+    // Linear. With the capability granted, the null flowed outbound as an explicit
+    // unassign and cleared them — every sync, for as long as the pair stayed linked.
+    const result = reconcile(
+      base({ assignee: 'someone' }),
+      local({ assignee: null }),
+      remote({ assignee: 'someone' }),
+      RULES,
+      {},
+      { assignee: false },
+    );
+    expect(result.externalPatch).not.toHaveProperty('assignee');
+  });
+
+  it('would push the clear if the capability were granted, which is why it is not', () => {
+    // Stated as a property rather than hidden: the engine trusts `capabilities`
+    // completely, so with the capability granted a null local value DOES flow outbound
+    // as a clear. Nothing downstream re-checks it. That is precisely why the gate has
+    // to live in the adapter — `canPushAssignee(null)` is false — and why this test
+    // asserts the hazard instead of implying the engine defends against it.
+    const result = reconcile(
+      base({ assignee: 'someone' }),
+      local({ assignee: null }),
+      remote({ assignee: 'someone' }),
+      RULES,
+      {},
+      { assignee: true },
+    );
+    expect(result.externalPatch).toHaveProperty('assignee');
+    expect(result.externalPatch.assignee).toBeNull();
+  });
+
   it('pushes an assignee when the provider confirms a configured identity mapping', () => {
     const result = reconcile(
       base(),

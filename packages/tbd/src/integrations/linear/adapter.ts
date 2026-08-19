@@ -280,9 +280,24 @@ export class LinearAdapter implements TrackerAdapter {
     return fresh;
   }
 
+  /**
+   * Whether this actor can be published — never true for an absent one.
+   *
+   * A null local assignee is *no opinion*, not an instruction to unassign. Treating it
+   * as a value meant a bead that had simply never recorded an assignee would clear
+   * whoever a human had assigned in the tracker, on every sync, for as long as the two
+   * stayed linked (OS-351). The blast radius was every bead predating assignee
+   * tracking, which is most of them in any repository that adopted the integration
+   * later.
+   *
+   * The tracker is where a person assigned the work. Publishing an assignee therefore
+   * requires an identity to publish; deliberate unassignment, if it is ever wanted,
+   * needs to be its own explicit action rather than the default reading of an empty
+   * field.
+   */
   canPushAssignee(assignee: string | null): boolean {
     if (assignee === null) {
-      return this.userMap.size > 0 || this.resolvedActors.size > 0;
+      return false;
     }
     return this.userMap.has(assignee) || this.resolvedActors.has(assignee);
   }

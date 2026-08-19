@@ -871,6 +871,57 @@ describe('the sync engine', () => {
     expect(store.get(epic.id)?.assignee).toBe('josh');
   });
 
+  // The reported data loss, end to end, under both flow modes because OS-351 asks for
+  // every mode explicitly.
+  //
+  // Only `local` actually exercises the clear: with `merge` the engine sees a one-sided
+  // remote change and pulls, so the outbound path is never reached. Verified by
+  // reverting both guards, where `local` fails and `merge` still passes. The `merge`
+  // case is coverage of the contract, not a regression guard for this defect — worth
+  // stating so nobody later reads its green as protection it does not provide.
+  //
+  // Each guard is independently sufficient for `local`: reverting either one alone
+  // still passes, and only reverting both reproduces the loss.
+  for (const mode of ['local', 'merge'] as const) {
+    it(`never clears a Linear assignee for a bead that has none — assignee: ${mode} (OS-351)`, async () => {
+      const policy = PolicyDefinitionSchema.parse({
+        field_sync: { fields: { assignee: mode } },
+      });
+      adapter = new LinearAdapter({
+        client: new LinearClient({
+          apiKey: 'lin_api_test',
+          endpoint: server.endpoint,
+          sleep: () => Promise.resolve(),
+        }),
+        teamKey: 'FIN',
+        // Populating user_map is the documented prerequisite for assignee sync, and
+        // was by itself enough to start erasing people.
+        userMap: { josh: 'josh@example.com' },
+      });
+
+      const orphan = bead('is-01hx5zzkbkactav9wevgemmvrz', { assignee: null });
+      store.set(orphan.id, orphan);
+      await run([orphan], policy);
+
+      // A person assigns it in Linear, after the link exists.
+      const externalId = readLink(store.get(orphan.id)!, 'linear')!.id;
+      server.issues.get(externalId)!.assignee = {
+        id: 'user-1',
+        name: 'Josh',
+        displayName: 'Josh',
+        email: 'josh@example.com',
+      };
+
+      await run([store.get(orphan.id)!], policy);
+      expect(server.issues.get(externalId)?.assignee?.email).toBe('josh@example.com');
+
+      // Survives repeated syncs, which is what made the original steady-state rather
+      // than a one-off race.
+      await run([store.get(orphan.id)!], policy);
+      expect(server.issues.get(externalId)?.assignee?.email).toBe('josh@example.com');
+    });
+  }
+
   it('leaves linked assignee state untouched when the Linear identity is unmapped', async () => {
     adapter = new LinearAdapter({
       client: new LinearClient({

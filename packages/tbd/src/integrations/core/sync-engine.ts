@@ -713,7 +713,15 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       policy.field_sync,
       options.equivalences,
       {
-        assignee: adapter.canPushAssignee(bead.assignee ?? null),
+        // The flow rule gates the push, not just the pull. `FieldSyncClauseSchema`
+        // promises nothing person-identifying moves without an explicit `user_map`
+        // AND an explicit `assignee: merge`, but that guard only ever covered the
+        // inbound direction — so the conservative default was not conservative in the
+        // direction that destroys data (OS-351). `merge` is now required before any
+        // outbound assignee write.
+        assignee:
+          policy.field_sync.fields.assignee === 'merge' &&
+          adapter.canPushAssignee(bead.assignee ?? null),
         assigneePull: remote.assigneeSyncable !== false,
       },
     );
