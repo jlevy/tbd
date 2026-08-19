@@ -11,12 +11,18 @@
  * the observable end state of the bead file — which field moved, and which did not.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+// Every case here spawns the built CLI several times, which costs seconds rather than
+// milliseconds and is sensitive to whatever else the suite is running in parallel. The
+// 5s default is a load measurement, not a correctness signal; this matches the timeout
+// the other binary-driving suites use.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 120_000 });
 
 const BIN = fileURLToPath(new URL('../dist/bin.mjs', import.meta.url));
 
