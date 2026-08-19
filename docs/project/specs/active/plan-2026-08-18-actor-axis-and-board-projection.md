@@ -259,17 +259,78 @@ different ways — the spec-lifecycle folders from
 This table is that observation finished: one lifecycle vocabulary, three surfaces,
 currently expressible on only one of them.
 
-### Provisioning and customization
+### The slot vocabulary and `state_map`
 
-Same posture as the sibling, for the same reasons: Draft and Paused do not exist on a
-stock Linear team, so the map is validated against the team’s real states before any
-mutation and fails closed naming what is missing, rather than guessing a neighbour.
-Setup offers to create them and never requires them; a team that declines keeps working,
-with the missing column collapsing to its type’s default and the collapse reported once.
+The projection needs a name for each position it can put work in.
+That vocabulary is the thing to map from — not `status`, which is only one of the three
+inputs.
 
-Customization extends the sibling’s `state_map` rather than adding a second mechanism,
-and binding is to state **id** after first resolution by name, so renaming Draft to
-Planning does not break the projection.
+```
+backlog | draft | todo | in_progress | paused | blocked | in_review | done | canceled | duplicate
+```
+
+A **slot** is the tbd-side lifecycle concept; a Linear state name is one provider’s
+rendering of it. Keying the map by slot rather than by status matters because half these
+slots are not status values at all: `paused` and `blocked` come from `hold`, `todo`
+versus `backlog` comes from readiness, and `canceled` and `duplicate` come from
+`resolution`. The sibling’s example already mixes the two spaces —
+`state_map: { in_progress: In Progress, paused: Paused }` keys one entry by a status and
+the next by a hold — which is the sign that the key space wants naming properly.
+
+The same vocabulary already appears twice elsewhere: as #245’s spec-lifecycle folders,
+and as the board columns.
+Naming it once makes those three surfaces projections of one thing rather than three
+parallel lists that drift.
+
+### `state_map` is optional, and omitting it changes nothing
+
+```yaml
+integrations:
+  linear:
+    state_map:            # optional; absent = exactly today's behavior
+      backlog: Backlog
+      draft: Draft
+      todo: Todo
+      in_progress: In Progress
+      paused: Paused
+      blocked: Blocked
+      in_review: In Review
+      done: Done
+      canceled: Canceled
+      duplicate: Duplicate
+```
+
+Absent, tbd behaves as it does now: the stock states, no extra columns, nothing
+provisioned, no prompt.
+Present, it is an explicit statement of the board a repository wants, and tbd provisions
+**only** the states named there and only on confirmation.
+
+This settles the provisioning-footprint question the sibling raises.
+That spec argues against creating states freely — a workflow state is team-wide and
+changes the board for people who never run tbd, which is why `mirror_labels` already
+defaults off — and concludes that Paused should be the sole offered candidate.
+An optional map is a better answer than either that restriction or a default that
+creates three columns: the richer board is opt-in by writing it down, the config *is*
+the confirmation, and a repository that wants none of it never sees a prompt.
+
+It also avoids a config-format bump.
+An optional key is additive, older tbd ignores what it does not know, and `f08`
+preserves unknown keys — so the config half of the sibling’s open format question
+answers itself. The bead-field half (`resolution`, `hold`, `delegate`) is separate and
+still needs one answer covering both specs.
+
+Resolution order is the sibling’s, with the map consulted first: configured name, then
+conventional name, then the only state of that type, then ask.
+Binding is to state **id** after first resolution, so renaming Draft to Planning does
+not break the projection.
+Validation runs against the team’s real states before any mutation and fails closed
+naming what is missing, rather than guessing a neighbour; a named state that does not
+exist and is not created collapses to its type’s default, reported once.
+
+One wrinkle the map cannot express: `backlog` and `draft` are the same band, and which
+one an issue sits in is the owned refinement above.
+The map says where tbd *puts* work that it places; it does not license tbd to move an
+issue a person put in Draft.
 
 ## Backward Compatibility
 
@@ -310,8 +371,11 @@ Phase 1 here is useful without Phase 2.
 ### Phase 2: The board projection
 
 - [ ] Draft/Todo split driven by existing readiness
-- [ ] Extend `state_map` to cover Draft and Paused; validate against real team states
-  before mutating and fail closed naming what is missing
+- [ ] Name the slot vocabulary; key `state_map` by slot, not by status
+- [ ] `state_map` optional — absent reproduces today’s behavior with no extra states and
+  no prompt; present, provision only the states it names, on confirmation
+- [ ] Validate against real team states before mutating; fail closed naming what is
+  missing
 - [ ] Offer Draft alongside the sibling’s Paused in `tbd integration setup`; create only
   on confirmation, idempotent by name, explicit trailing `position`
 - [ ] `tbd doctor` reports the resolved column for each (status, hold, readiness)
