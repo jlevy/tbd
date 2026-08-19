@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:5612b3f0fe6bcab6a36f7c4df10f7ada6e817bbf6d7f9633ee6d5ecfb2aa99d1
+  labels: []
+  priority: 2
+  status: open
+  title: "Phase 1: delegate field and the claim verb"
+bead_id: is-01m0c5rbazv8b7mdemyaqqh995
+external_id: 273e109a-3300-454d-8444-d1fe166ae62a
+external_key: OS-344
+external_url: https://linear.app/finterm-ai/issue/OS-344/phase-1-delegate-field-and-the-claim-verb
+remote_updated_at: 2026-08-19T16:27:20.276Z
+state: linked
+synced_at: 2026-08-19T16:27:20.617Z
+type: lk

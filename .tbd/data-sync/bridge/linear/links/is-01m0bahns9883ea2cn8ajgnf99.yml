@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:060f242eea2ecc6f073101dd24d25b7b61e7d82f62ca28e2a01ec73f49d67beb
+  labels: []
+  priority: 0
+  status: in_progress
+  title: "tracker: state model (resolution, hold, name-based Linear mapping)"
+bead_id: is-01m0bahns9883ea2cn8ajgnf99
+external_id: a6f4de12-f0b2-4eeb-a444-01666ac9d52c
+external_key: OS-337
+external_url: https://linear.app/finterm-ai/issue/OS-337/tracker-state-model-resolution-hold-name-based-linear-mapping
+remote_updated_at: 2026-08-19T16:27:04.568Z
+state: linked
+synced_at: 2026-08-19T16:27:04.835Z
+type: lk

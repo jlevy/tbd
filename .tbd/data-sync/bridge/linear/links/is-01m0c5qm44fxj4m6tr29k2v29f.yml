@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:5958ab4672734c3411c0fe81dc6e7e8b63f94725455067178f20a429727a2af1
+  labels: []
+  priority: 3
+  status: open
+  title: "Phase 3: slots in the reconcile engine"
+bead_id: is-01m0c5qm44fxj4m6tr29k2v29f
+external_id: d005ac9a-ad75-4650-8b5b-24e64457e609
+external_key: OS-342
+external_url: https://linear.app/finterm-ai/issue/OS-342/phase-3-slots-in-the-reconcile-engine
+remote_updated_at: 2026-08-19T16:27:16.875Z
+state: linked
+synced_at: 2026-08-19T16:27:17.433Z
+type: lk

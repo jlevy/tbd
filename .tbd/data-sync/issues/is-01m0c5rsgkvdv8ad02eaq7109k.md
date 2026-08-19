@@ -5,7 +5,7 @@ title: "Phase 3: publishing delegates to Linear"
 kind: task
 status: open
 priority: 3
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-08-18-actor-axis-and-identity.md
 labels: []
 dependencies:
@@ -13,11 +13,11 @@ dependencies:
     target: is-01m0c8v94j74sqaj35ts5xrjjf
 parent_id: is-01m0c5r461zmx3ctgsxq94s0bq
 created_at: 2026-08-19T04:51:43.762Z
-updated_at: 2026-08-19T16:25:59.279Z
+updated_at: 2026-08-19T16:27:22.939Z
 extensions:
   linear:
     id: 175d3536-7308-4798-9871-5553ccc54d6f
-    linked_at: 2026-08-19T16:25:59.279Z
+    linked_at: 2026-08-19T16:27:22.938Z
 ---
 agent_map in config; outbound delegate to delegateId only for agents named there, which is what keeps ephemeral session identities out of a shared workspace by construction. Inbound delegate maps through agent_map in reverse; an unknown app user warns and leaves the bead unchanged.
 

@@ -5,17 +5,17 @@ title: "Phase 2: human identity binding, per provider"
 kind: task
 status: open
 priority: 3
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-08-18-actor-axis-and-identity.md
 labels: []
 dependencies: []
 parent_id: is-01m0c5r461zmx3ctgsxq94s0bq
 created_at: 2026-08-19T04:51:37.406Z
-updated_at: 2026-08-19T16:25:59.271Z
+updated_at: 2026-08-19T16:27:20.952Z
 extensions:
   linear:
     id: c71cce95-d99b-4e49-8123-199bceeb8b6d
-    linked_at: 2026-08-19T16:25:59.271Z
+    linked_at: 2026-08-19T16:27:20.951Z
 ---
 Add listMembers() to the adapter interface and implement it for Linear. Write the resolution ladder (recorded binding, email, login or display name, ask) once against the adapter interface rather than inside the Linear adapter, since identity is per provider.
 

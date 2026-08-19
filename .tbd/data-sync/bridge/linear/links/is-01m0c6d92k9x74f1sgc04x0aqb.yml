@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:374b8744a1dfbb1349e4786c2df364a4593473bdb87e54538cd829e83f6c625d
+  labels: []
+  priority: 0
+  status: open
+  title: "sync: fetch writes FETCH_HEAD only, so ahead/behind and push-retry compare a
+    stale remote-tracking ref"
+bead_id: is-01m0c6d92k9x74f1sgc04x0aqb
+external_id: b5a35ee8-341e-4988-aac6-fa5202af4d4a
+external_key: OS-347
+external_url: https://linear.app/finterm-ai/issue/OS-347/sync-fetch-writes-fetch-head-only-so-aheadbehind-and-push-retry
+remote_updated_at: 2026-08-19T16:27:25.415Z
+state: linked
+synced_at: 2026-08-19T16:27:25.792Z
+type: lk

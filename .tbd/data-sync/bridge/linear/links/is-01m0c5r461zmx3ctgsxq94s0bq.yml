@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:ed628398a38b38d59f59a752faaf3d6e65bd1ce16b725bff41602d3950b3cb0e
+  labels: []
+  priority: 2
+  status: open
+  title: "Actor axis: delegate field and identity that resolves itself"
+bead_id: is-01m0c5r461zmx3ctgsxq94s0bq
+external_id: a5613359-e8f4-4a5a-aecc-b27c64c5870e
+external_key: OS-339
+external_url: https://linear.app/finterm-ai/issue/OS-339/actor-axis-delegate-field-and-identity-that-resolves-itself
+remote_updated_at: 2026-08-19T16:27:06.355Z
+state: linked
+synced_at: 2026-08-19T16:27:09.295Z
+type: lk

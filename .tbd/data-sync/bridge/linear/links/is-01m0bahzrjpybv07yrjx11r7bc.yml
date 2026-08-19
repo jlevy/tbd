@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:503aff087b1fa29363fc328f0ba8d9cba862eaecfc8ece16f3d2356a38f6b7ec
+  labels: []
+  priority: 2
+  status: in_progress
+  title: "Phase 1: terminal resolution and name-based state resolution"
+bead_id: is-01m0bahzrjpybv07yrjx11r7bc
+external_id: 0f3d0ff6-004a-411a-86bc-baf8eaf9b236
+external_key: OS-340
+external_url: https://linear.app/finterm-ai/issue/OS-340/phase-1-terminal-resolution-and-name-based-state-resolution
+remote_updated_at: 2026-08-19T16:27:11.115Z
+state: linked
+synced_at: 2026-08-19T16:27:11.416Z
+type: lk

@@ -5,7 +5,7 @@ title: "Phase 3: slots in the reconcile engine"
 kind: task
 status: open
 priority: 3
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md
 labels: []
 dependencies:
@@ -13,11 +13,11 @@ dependencies:
     target: is-01m0c5qw38xxxfgr8grwwnyz7x
 parent_id: is-01m0bahns9883ea2cn8ajgnf99
 created_at: 2026-08-19T04:51:05.475Z
-updated_at: 2026-08-19T16:25:59.253Z
+updated_at: 2026-08-19T16:27:16.091Z
 extensions:
   linear:
     id: d005ac9a-ad75-4650-8b5b-24e64457e609
-    linked_at: 2026-08-19T16:25:59.253Z
+    linked_at: 2026-08-19T16:27:16.091Z
 ---
 Widen the reconcile canonical status field from the five-value enum to the slot vocabulary (backlog|draft|todo|in_progress|paused|blocked|in_review|done|canceled|duplicate). Legacy path with no state_map keeps statusToLinear/statusFromLinear byte-for-byte.
 

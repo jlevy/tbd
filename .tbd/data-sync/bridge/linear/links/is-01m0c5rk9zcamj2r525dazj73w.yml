@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:edebc81ad3c6bc1d04ad74b2d0ab3942b37d1c825e55deacf016d530b0eee76c
+  labels: []
+  priority: 3
+  status: open
+  title: "Phase 2: human identity binding, per provider"
+bead_id: is-01m0c5rk9zcamj2r525dazj73w
+external_id: c71cce95-d99b-4e49-8123-199bceeb8b6d
+external_key: OS-345
+external_url: https://linear.app/finterm-ai/issue/OS-345/phase-2-human-identity-binding-per-provider
+remote_updated_at: 2026-08-19T16:27:21.546Z
+state: linked
+synced_at: 2026-08-19T16:27:21.965Z
+type: lk

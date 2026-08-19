@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:1da2ed7d51173a47300b4f8b805ef0b94213e1938c230293368d42aa2b910f12
+  labels: []
+  priority: 2
+  status: open
+  title: "Phase 4: dogfood the actor axis (shares the state Phase 5 gate)"
+bead_id: is-01m0c8v94j74sqaj35ts5xrjjf
+external_id: 0112d9da-1ea5-4cc2-9317-6a0ecd59cf78
+external_key: OS-349
+external_url: https://linear.app/finterm-ai/issue/OS-349/phase-4-dogfood-the-actor-axis-shares-the-state-phase-5-gate
+remote_updated_at: 2026-08-19T16:27:28.779Z
+state: linked
+synced_at: 2026-08-19T16:27:29.102Z
+type: lk

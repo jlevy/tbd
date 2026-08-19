@@ -5,7 +5,7 @@ title: "Phase 4: board setup, provisioning, and re-config"
 kind: task
 status: open
 priority: 3
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md
 labels: []
 dependencies:
@@ -13,11 +13,11 @@ dependencies:
     target: is-01m0c8v8fp3sagm3eh5bmm2n0k
 parent_id: is-01m0bahns9883ea2cn8ajgnf99
 created_at: 2026-08-19T04:51:13.639Z
-updated_at: 2026-08-19T16:25:59.258Z
+updated_at: 2026-08-19T16:27:17.878Z
 extensions:
   linear:
     id: b6189c18-9329-4e70-88a3-8cadd8d907d6
-    linked_at: 2026-08-19T16:25:59.258Z
+    linked_at: 2026-08-19T16:27:17.878Z
 ---
 state_map optional: absent reproduces today's behavior with no extra states and no prompt, and the written config is the consent so no sync ever prompts.
 
