@@ -5,7 +5,7 @@ title: "tracker: state model (resolution, hold, name-based Linear mapping)"
 kind: epic
 status: in_progress
 priority: 0
-version: 8
+version: 10
 spec_path: docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md
 assignee: josh
 labels: []
@@ -17,8 +17,9 @@ child_order_hints:
   - is-01m0baj02g8vwdd94fd2cgck33
   - is-01m0c5qm44fxj4m6tr29k2v29f
   - is-01m0c5qw38xxxfgr8grwwnyz7x
+  - is-01m0c8v8fp3sagm3eh5bmm2n0k
 created_at: 2026-08-18T20:55:59.008Z
-updated_at: 2026-08-19T04:55:43.011Z
+updated_at: 2026-08-19T05:56:03.933Z
 extensions:
   linear:
     id: a6f4de12-f0b2-4eeb-a444-01666ac9d52c

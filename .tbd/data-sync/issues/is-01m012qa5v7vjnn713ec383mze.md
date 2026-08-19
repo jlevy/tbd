@@ -3,9 +3,9 @@ type: is
 id: is-01m012qa5v7vjnn713ec383mze
 title: Support Linear delegate as the agent gesture (not assignee)
 kind: feature
-status: open
+status: closed
 priority: 2
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-3
@@ -14,7 +14,11 @@ dependencies:
     target: is-01m010epmrrmp2s67x1pe8xqa3
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T21:26:50.810Z
-updated_at: 2026-08-19T04:52:40.529Z
+updated_at: 2026-08-19T05:56:04.288Z
+closed_at: 2026-08-19T05:56:04.287Z
+close_reason: Superseded for implementation by epic tbd-ncux (actor axis), specced in plan-2026-08-18-actor-axis-and-identity.md. The delegate-not-assignee survey recorded here is now the design.
+resolution: canceled
+duplicate_of: null
 extensions:
   linear:
     id: c8f8e501-c470-41bb-b12c-cd0116a11b3c
