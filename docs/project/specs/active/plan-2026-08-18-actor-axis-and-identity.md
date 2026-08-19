@@ -378,11 +378,11 @@ resolver-and-ask machinery; each phase is useful without the ones after it.
 
 ### Phase 3: Publishing delegates
 
-- [ ] `agent_map` in config; outbound `delegate` → `delegateId` only for mapped agents
-- [ ] Inbound delegate maps through `agent_map` in reverse; unknown app users warn and
+- [x] `agent_map` in config; outbound `delegate` → `delegateId` only for mapped agents
+- [x] Inbound delegate maps through `agent_map` in reverse; unknown app users warn and
   leave the bead unchanged
-- [ ] An unmapped agent delegate produces a **reported** skip, never a silent one
-- [ ] Tests: each mapping row round-trips; the unpublishable-agent case emits a skip; a
+- [x] An unmapped agent delegate produces a **reported** skip, never a silent one
+- [x] Tests: each mapping row round-trips; the unpublishable-agent case emits a skip; a
   human delegate is never sent to Linear
 
 ### Phase 4: Dogfood the actor axis on this repository

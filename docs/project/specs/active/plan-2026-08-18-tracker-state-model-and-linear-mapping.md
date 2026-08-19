@@ -482,7 +482,7 @@ this repository’s own data and board.
 - [x] Replace `stateIdsByType` with the four-step resolver; add `state_map` to config,
   keyed by slot.
 - [ ] Prompt on ambiguity and persist the answer; refuse non-interactively.
-- [ ] `tbd doctor` reports the resolved state per slot, and flags ambiguity.
+- [x] `tbd doctor` reports the resolved state per slot, and flags ambiguity.
 - [x] Tests: terminal round trip for each resolution; resolver precedence including the
   multi-`started` case; no `completedAt` on a canceled bead; `ready` and the blocked
   computation unchanged by a `duplicate_of` value; an `f08` client round-trips a bead
@@ -527,15 +527,15 @@ this repository’s own data and board.
 
 - [ ] `state_map` optional — absent reproduces today’s behavior with no extra states and
   no prompt; the written config is the consent.
-- [ ] Fresh setup proposes the default map: bind by name, create Draft/Paused/Blocked on
+- [x] Fresh setup proposes the default map: bind by name, create Draft/Paused/Blocked on
   confirmation, explicit positions in slot order.
 - [ ] Re-run reconciles map vs live team: missing states (offer create), order
   contradictions (offer reposition), renames (id bindings hold; doctor reports drift).
-- [ ] Validate against real team states before mutating; fail closed naming what is
+- [x] Validate against real team states before mutating; fail closed naming what is
   missing; never rename, delete, or touch states outside the map.
 - [ ] Two-slots-one-state allowed; inbound disambiguates by carrier label, else the
   plainer slot.
-- [ ] `tbd doctor` prints the resolved slot table (slot, name, id, bound-or-missing)
+- [x] `tbd doctor` prints the resolved slot table (slot, name, id, bound-or-missing)
   offline.
 - [ ] Tests: every projection row round-trips on a provisioned team and degrades
   correctly on a stock one; the no-fight property (same-type column moves produce no
