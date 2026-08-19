@@ -5,15 +5,17 @@ title: Give tbd web an addressable bead so Linear can link into it
 kind: feature
 status: open
 priority: 2
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - traceability
   - phase-3
-dependencies: []
+dependencies:
+  - type: blocks
+    target: is-01m0dsa9djn6h3k1fg60nqfgs4
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:55:40.058Z
-updated_at: 2026-08-16T00:13:59.364Z
+updated_at: 2026-08-19T19:52:57.157Z
 extensions:
   linear:
     id: 61b9801f-a7e5-4b43-b0bf-f9df8dac4a5d

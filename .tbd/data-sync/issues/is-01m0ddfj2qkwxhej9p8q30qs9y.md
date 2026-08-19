@@ -3,9 +3,9 @@ type: is
 id: is-01m0ddfj2qkwxhej9p8q30qs9y
 title: Fall back to the main worktree .env in credential resolution
 kind: task
-status: open
+status: closed
 priority: 0
-version: 5
+version: 6
 spec_path: null
 assignee: josh
 labels: []
@@ -14,7 +14,9 @@ dependencies:
     target: is-01m0ddfjd4q6zawvdwh008w9h2
 parent_id: is-01m0ddenmjsxeqm98ytfpcfc11
 created_at: 2026-08-19T16:25:44.278Z
-updated_at: 2026-08-19T18:08:15.277Z
+updated_at: 2026-08-19T19:51:05.952Z
+closed_at: 2026-08-19T19:51:05.950Z
+close_reason: null
 ---
 Wire the main-worktree helper into integration credential loading as layer 3 of the resolution order:
 

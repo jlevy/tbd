@@ -3,9 +3,9 @@ type: is
 id: is-01m0ddfjd4q6zawvdwh008w9h2
 title: Name the .env source in integration status output
 kind: task
-status: open
+status: closed
 priority: 0
-version: 6
+version: 7
 spec_path: null
 assignee: josh
 labels: []
@@ -14,7 +14,9 @@ dependencies:
     target: is-01m0ddfjqnxkmpcqn4defgqe40
 parent_id: is-01m0ddenmjsxeqm98ytfpcfc11
 created_at: 2026-08-19T16:25:44.612Z
-updated_at: 2026-08-19T18:08:15.890Z
+updated_at: 2026-08-19T19:51:06.531Z
+closed_at: 2026-08-19T19:51:06.529Z
+close_reason: null
 ---
 `tbd integration status` prints a masked credential and its origin as `********abcd from .env`, which does not say which `.env`. Once resolution can reach outside the current directory, that ambiguity hides where a credential came from and makes a layer-2 override undiscoverable.
 

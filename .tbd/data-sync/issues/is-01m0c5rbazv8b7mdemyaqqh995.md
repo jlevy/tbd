@@ -3,9 +3,9 @@ type: is
 id: is-01m0c5rbazv8b7mdemyaqqh995
 title: "Phase 1: delegate field and the claim verb"
 kind: task
-status: open
+status: closed
 priority: 2
-version: 8
+version: 9
 spec_path: docs/project/specs/active/plan-2026-08-18-actor-axis-and-identity.md
 labels: []
 dependencies:
@@ -15,7 +15,11 @@ dependencies:
     target: is-01m0c5rsgkvdv8ad02eaq7109k
 parent_id: is-01m0c5r461zmx3ctgsxq94s0bq
 created_at: 2026-08-19T04:51:29.245Z
-updated_at: 2026-08-19T17:43:30.870Z
+updated_at: 2026-08-19T20:01:59.045Z
+closed_at: 2026-08-19T20:01:59.044Z
+close_reason: "Actor Phase 1 complete across 66fcbc58, 1a39d717, f8719390: delegate field, --delegate on create/update incl bulk and --from-file, tbd start writes delegate and stamps started_at, field-level skip reporting with provider-supplied reasons, tbd doctor 'Actor axis' check for agent-shaped assignees. Residual (tracked separately if wanted): write-time warning for an actor that can never publish; reconcile-path skipPush is still assignee-hardcoded and sync-engine nothingToDo omits skippedPushes, so a skip-only FULL sync can still read as 'nothing to do' — the mirror path is fixed."
+resolution: null
+duplicate_of: null
 extensions:
   linear:
     id: 273e109a-3300-454d-8444-d1fe166ae62a

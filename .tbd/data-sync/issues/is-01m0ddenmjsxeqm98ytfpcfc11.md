@@ -3,9 +3,9 @@ type: is
 id: is-01m0ddenmjsxeqm98ytfpcfc11
 title: Resolve .env from the main worktree so credentials work in linked worktrees
 kind: epic
-status: open
+status: closed
 priority: 0
-version: 11
+version: 12
 spec_path: docs/project/specs/active/plan-2026-08-19-worktree-env-credential-resolution.md
 assignee: josh
 labels: []
@@ -16,7 +16,9 @@ child_order_hints:
   - is-01m0ddfjd4q6zawvdwh008w9h2
   - is-01m0ddfjqnxkmpcqn4defgqe40
 created_at: 2026-08-19T16:25:15.153Z
-updated_at: 2026-08-19T18:00:01.877Z
+updated_at: 2026-08-19T19:51:07.398Z
+closed_at: 2026-08-19T19:51:07.397Z
+close_reason: null
 extensions:
   linear:
     id: d1a8282c-7a55-4ec3-ad74-5d329037c4b1
