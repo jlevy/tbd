@@ -5,7 +5,8 @@ title: Resolve .env from the main worktree so credentials work in linked worktre
 kind: epic
 status: open
 priority: 0
-version: 9
+version: 11
+spec_path: docs/project/specs/active/plan-2026-08-19-worktree-env-credential-resolution.md
 assignee: josh
 labels: []
 dependencies: []
@@ -15,7 +16,7 @@ child_order_hints:
   - is-01m0ddfjd4q6zawvdwh008w9h2
   - is-01m0ddfjqnxkmpcqn4defgqe40
 created_at: 2026-08-19T16:25:15.153Z
-updated_at: 2026-08-19T16:37:06.263Z
+updated_at: 2026-08-19T18:00:01.877Z
 extensions:
   linear:
     id: d1a8282c-7a55-4ec3-ad74-5d329037c4b1
@@ -63,9 +64,16 @@ Ask git which repository this is, rather than inferring it from the filesystem:
 dirname "$(git rev-parse --path-format=absolute --git-common-dir)"
 ```
 
-From any linked worktree this resolves to the main checkout exactly, wherever that
-worktree lives. It is not a heuristic; it is git's own answer to the question. In the main
-checkout it resolves to that checkout, so one code path covers both cases.
+For the ordinary repository shape this resolves to the main checkout exactly, wherever
+that worktree lives, and in the main checkout it resolves to that checkout, so one code
+path covers both cases.
+
+It produces a candidate rather than an answer. Under `git init --separate-git-dir` the
+common dir sits outside the checkout, so the dirname lands on an unrelated sibling
+directory. The candidate is therefore verified before use: asked from inside it, git must
+agree both that it is a worktree root and that its common dir is the one we started from.
+Measured across four repository shapes, the bare dirname is correct for two and wrong for
+two; with the checks it is correct for two and returns nothing for two.
 
 The precedent is git's own design. Config, hooks, and refs live in the common dir because
 they are repository-scoped rather than branch-scoped. A gitignored `.env` holding
@@ -91,8 +99,9 @@ Requirements beyond the lookup itself:
   that writes a key writes it to the current worktree or instructs on the environment.
 * **Degrade quietly.** Outside a git repository, or when `git` is unavailable, skip layer
   3 rather than raising.
-* **Do not cross repository boundaries.** `--git-common-dir` cannot leave the current
-  repository, which is the property that makes this safe where directory-walking is not.
+* **Do not cross repository boundaries.** This is the property that makes the approach
+  safe where directory-walking is not, and it comes from validating the candidate, not
+  from `--git-common-dir` alone.
 
 ## Acceptance
 
