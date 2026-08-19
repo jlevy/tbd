@@ -149,14 +149,45 @@ planning board earns its keep:
 
 | Column | Linear type | tbd condition | Reads as |
 | --- | --- | --- | --- |
-| **Backlog** | `backlog` | `open`, not ready, no spec | someday; not being planned |
-| **Draft** | `backlog` | `open`, not ready, spec in flight | being planned; spec unfinished |
+| **Backlog** | `backlog` | `open`, not ready — default | not started, not being planned |
+| **Draft** | `backlog` | `open`, not ready — human-owned | being planned; not yet clear enough to execute |
 | **Todo** | `unstarted` | `open`, ready | ready to begin |
 | **In Progress** | `started` | `in_progress`, no hold | active now |
 | **Paused** | `started` | `in_progress` + `hold: paused` | begun, set down, not abandoned |
 | **Blocked** | `started` | `in_progress` + `hold: blocked` | begun, waiting on something |
 | **Done** | `completed` | `closed` + `completed` | finished |
 | **Canceled** | `canceled` | `closed` + `canceled` | abandoned |
+
+### Derived position, owned refinement
+
+The projection is not uniformly computable, and the design depends on admitting that
+rather than forcing it.
+
+**`open` versus `in_progress` versus terminal is derived** from bead fields, as is Todo
+versus the unready band — readiness is what `tbd ready` already computes.
+So is every `hold` distinction, and every terminal resolution.
+
+**Backlog versus Draft is not derivable at all.** The distinction is whether planning is
+actively happening, and no bead field holds that.
+A spec that exists but needs rewriting belongs in Backlog; a spec being actively worked
+belongs in Draft; `spec_path` cannot tell them apart, and neither can bead count, age,
+or label. The honest reading is that Draft means *not yet clear enough to execute on*,
+which is a judgment rather than a predicate.
+
+So the unready band has a derived default and an owned refinement: tbd places unready
+work in Backlog, and a person moving it to Draft **owns that choice**. tbd must preserve
+it — never recompute the column out from under a human on the next sync — while still
+moving the issue out of the band entirely when the bead genuinely becomes ready or
+started.
+
+This is the `field_sync` ownership question in a new place, and it should reuse that
+vocabulary rather than invent one: the coarse band is `merge`, the within-band
+refinement is effectively `remote`. The alternative — giving tbd a way to *set* Draft —
+would need a new field expressing “being planned”, and it is not clear that fact belongs
+in a bead at all when the spec document itself is the artifact under revision.
+
+The same asymmetry likely applies to In Review, which a human or a PR integration sets
+and tbd should not fight.
 
 This is provisioned and running on a real team (`FIN`, 96 issues), which settles three
 things the design can now assert rather than predict.
@@ -323,8 +354,10 @@ A team that provisions nothing sees exactly what it sees today.
   to `in_progress`, or always be set explicitly?
   Automatic is convenient and is also how a field quietly becomes presence tracking.
 - Precedence between the sibling’s `open + paused` → Backlog rule and this spec’s
-  `open, not ready` → Draft.
-  Same column, two routes; one of them should be primary.
+  unready band. Same column, two routes; one of them should be primary.
+- Should tbd be able to *set* Draft at all, or only preserve it?
+  Setting it needs a field meaning “being planned”, and that fact may belong to the spec
+  document rather than to a bead.
 - Should `kind: agent` aliases be allowed as `assignee` at all, or rejected at write
   time? Rejecting is stricter and matches the governing rule; allowing keeps tbd usable
   for repositories that do not mirror to a tracker.
