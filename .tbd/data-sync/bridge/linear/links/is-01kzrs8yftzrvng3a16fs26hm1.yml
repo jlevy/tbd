@@ -1,0 +1,18 @@
+base:
+  assignee: null
+  description_hash: sha256v7:f582ba479749c932e4204664c51742f7565113606de2175b46ffc9428174d4e7
+  labels:
+    - client
+    - testing
+    - web
+  priority: 1
+  status: closed
+  title: "Phase 4.1: implement transport-injected web client store and race tests"
+bead_id: is-01kzrs8yftzrvng3a16fs26hm1
+external_id: 36a1280d-99c2-4389-84d3-17967abd13e4
+external_key: OS-144
+external_url: https://linear.app/finterm-ai/issue/OS-144/phase-41-implement-transport-injected-web-client-store-and-race-tests
+remote_updated_at: 2026-08-16T00:13:01.384Z
+state: linked
+synced_at: 2026-08-16T01:14:03.531Z
+type: lk

@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:a7dd2f65e605629b3667be0ec9a75ebbaf26b8d5a4e79d778978131c86aaa311
+  labels:
+    - pause
+  priority: 1
+  status: open
+  title: doc_types config block + generic tbd doc <type> <name> dispatcher
+bead_id: is-01kra9a91xm3ktgs9bykv1n0qb
+external_id: cc842637-700a-4037-9aa9-5da4e269e129
+external_key: OS-92
+external_url: https://linear.app/finterm-ai/issue/OS-92/doc-types-config-block-generic-tbd-doc-type-name-dispatcher
+remote_updated_at: 2026-08-16T00:11:34.457Z
+state: linked
+synced_at: 2026-08-16T01:13:46.782Z
+type: lk

@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:401d59c749e6c6fa89e757aa2469a251f318f4fab52d22d1c99ce8c783f2b4c4
+  labels: []
+  priority: 1
+  status: closed
+  title: "Guidelines: raise and align the ESLint/autoformatting floor across TypeScript
+    project guidelines"
+bead_id: is-01kyt0apw3p31j7nbqt9p5fnfn
+external_id: d5e549de-137a-401d-a810-f237c675658b
+external_key: OS-7
+external_url: https://linear.app/finterm-ai/issue/OS-7/guidelines-raise-and-align-the-eslintautoformatting-floor-across
+remote_updated_at: 2026-08-16T00:12:26.335Z
+state: linked
+synced_at: 2026-08-16T01:13:56.990Z
+type: lk

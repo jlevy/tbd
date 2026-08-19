@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:29f4acd119bf99da139c48451080d88a5c3e8911e2f21061aaed1914b2714386
+  labels:
+    - pr-207
+    - review
+  priority: 1
+  status: closed
+  title: "Address review: PR #207 — final Bugbot body-fetch finding"
+bead_id: is-01kzrs2jrjg3pzase83ebxdjyg
+external_id: d207b5f2-dcc4-4e68-9b30-eb80a250b892
+external_key: OS-133
+external_url: https://linear.app/finterm-ai/issue/OS-133/address-review-pr-207-final-bugbot-body-fetch-finding
+remote_updated_at: 2026-08-16T00:12:54.929Z
+state: linked
+synced_at: 2026-08-16T01:14:01.634Z
+type: lk

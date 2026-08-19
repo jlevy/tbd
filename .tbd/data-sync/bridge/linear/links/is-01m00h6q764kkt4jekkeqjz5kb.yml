@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:b38f55d82c6871fde626d79e3fafdcce5610204a776aeb4a91ff6d665e42f67e
+  labels:
+    - sync-efficiency
+    - phase-1
+  priority: 3
+  status: open
+  title: Cache Linear provider meta on disk with a TTL
+bead_id: is-01m00h6q764kkt4jekkeqjz5kb
+external_id: 8333e756-3ca6-4d5b-8124-18c385622ebd
+external_key: OS-222
+external_url: https://linear.app/finterm-ai/issue/OS-222/cache-linear-provider-meta-on-disk-with-a-ttl
+remote_updated_at: 2026-08-16T07:50:38.427Z
+state: linked
+synced_at: 2026-08-16T07:50:38.631Z
+type: lk

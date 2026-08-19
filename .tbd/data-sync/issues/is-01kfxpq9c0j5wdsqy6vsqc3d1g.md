@@ -5,11 +5,19 @@ title: "CLI output consistency: stats formatting and status icons"
 kind: epic
 status: open
 priority: 2
-version: 6
-labels: []
+version: 17
+labels:
+  - pause
 dependencies: []
 created_at: 2026-01-26T17:48:14.591Z
-updated_at: 2026-03-09T16:12:33.001Z
+updated_at: 2026-08-15T05:43:10.858Z
+extensions:
+  linear:
+    id: 301e57f4-deb2-4606-8b08-8a93b9f9ff02
+    key: TBD-57
+    url: https://linear.app/finterm-ai/issue/TBD-57/cli-output-consistency-stats-formatting-and-status-icons
+    linked_at: 2026-08-10T19:36:16.196Z
+    comments: null
 ---
 Improve CLI output consistency for stats command and status icon usage across all commands.
 

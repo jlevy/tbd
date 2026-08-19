@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:46faea9f7d18470e881d7411a463fb98010621732847eb49319464486af5e67f
+  labels:
+    - pause
+  priority: 2
+  status: open
+  title: tbd source eject <key> [--to <local-bundle>] (copy cached doc into local bundle +
+    git add)
+bead_id: is-01kra9b7q4zewzz4vgdw17vvav
+external_id: 672ff69f-07fb-458f-ba4b-9ea1368a6e85
+external_key: OS-106
+external_url: https://linear.app/finterm-ai/issue/OS-106/tbd-source-eject-key-to-local-bundle-copy-cached-doc-into-local-bundle
+remote_updated_at: 2026-08-16T00:11:41.931Z
+state: linked
+synced_at: 2026-08-16T01:13:48.948Z
+type: lk

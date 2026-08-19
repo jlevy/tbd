@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:f861e39dfd6684eeb948f3c8dbf0a76429694d64475f8a883576838c24d2154f
+  labels:
+    - pause
+  priority: 2
+  status: open
+  title: "Phase 2: External bundles and override roundtrip"
+bead_id: is-01kra98tffpc00qar6ee3zk8tv
+external_id: 12bc0128-ab1c-407a-80be-ab0789bc537d
+external_key: OS-37
+external_url: https://linear.app/finterm-ai/issue/OS-37/phase-2-external-bundles-and-override-roundtrip
+remote_updated_at: 2026-08-16T00:11:27.722Z
+state: linked
+synced_at: 2026-08-16T01:13:44.066Z
+type: lk

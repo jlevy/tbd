@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:6f7987addeb930aca39b87f7fffee777394649e8e5de72d0adda11822277348d
+  labels: []
+  priority: 1
+  status: closed
+  title: "Ship gh decision-rule guidance so it reaches agents (GH issue #195)"
+bead_id: is-01kytf97zs21wgfaggn8kdmqbx
+external_id: a47b5f87-b07d-42e8-8cd2-cf9d71a0f44c
+external_key: OS-6
+external_url: https://linear.app/finterm-ai/issue/OS-6/ship-gh-decision-rule-guidance-so-it-reaches-agents-gh-issue-195
+remote_updated_at: 2026-08-16T00:12:27.446Z
+state: linked
+synced_at: 2026-08-16T01:13:57.119Z
+type: lk

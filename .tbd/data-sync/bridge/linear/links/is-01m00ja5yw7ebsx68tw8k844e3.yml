@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:0d67f221ba31f9965139f01985be968a110072b047bd616bf94c63412067495d
+  labels:
+    - phase-1
+  priority: 1
+  status: closed
+  title: tbd sync --push silently performs the outbound-only mirror the docs warn against
+bead_id: is-01m00ja5yw7ebsx68tw8k844e3
+external_id: 2a74d5e3-c260-4db1-b6df-1b3cb5403ce6
+external_key: OS-227
+external_url: https://linear.app/finterm-ai/issue/OS-227/tbd-sync-push-silently-performs-the-outbound-only-mirror-the-docs-warn
+remote_updated_at: 2026-08-16T07:50:41.887Z
+state: linked
+synced_at: 2026-08-16T07:50:42.068Z
+type: lk

@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:550a23abe47e9f6138267c6c83cd1850fe8ef05043c4b784143d4fe3320bc035
+  labels: []
+  priority: 1
+  status: closed
+  title: Implement existing-install upgrade, migration and format guard
+bead_id: is-01ksgr45bkhqwwfhpna2xytqdz
+external_id: db482f8e-9167-4f53-8a73-863694f262ef
+external_key: OS-17
+external_url: https://linear.app/finterm-ai/issue/OS-17/implement-existing-install-upgrade-migration-and-format-guard
+remote_updated_at: 2026-08-16T02:10:45.278Z
+state: linked
+synced_at: 2026-08-16T02:10:45.493Z
+type: lk

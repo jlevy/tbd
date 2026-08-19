@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:2cb1a8ec8b956ba56fddb077d65eaf5891fc7e4d92d4daaefa05d81c61a955cc
+  labels: []
+  priority: 2
+  status: closed
+  title: "Phase 4: Remove docs --refresh command"
+bead_id: is-01kg5jhdhcp6k12e48vxvpcvtz
+external_id: 9e24a12c-4882-4672-a917-7f0f8bfef9cb
+external_key: OS-49
+external_url: https://linear.app/finterm-ai/issue/OS-49/phase-4-remove-docs-refresh-command
+remote_updated_at: 2026-08-16T00:11:14.345Z
+state: linked
+synced_at: 2026-08-16T01:13:40.845Z
+type: lk

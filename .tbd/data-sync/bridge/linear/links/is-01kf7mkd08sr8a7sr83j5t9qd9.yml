@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:e93c44830631674ef3deccbf67ad839b7ba65039573b32ce2cea9b36b2673270
+  labels: []
+  priority: 2
+  status: closed
+  title: "Spec: CLI Output Design System"
+bead_id: is-01kf7mkd08sr8a7sr83j5t9qd9
+external_id: 337fd396-bb4e-45fe-8af1-97335d619e77
+external_key: OS-60
+external_url: https://linear.app/finterm-ai/issue/OS-60/spec-cli-output-design-system
+remote_updated_at: 2026-08-16T00:10:57.814Z
+state: linked
+synced_at: 2026-08-16T01:13:39.107Z
+type: lk

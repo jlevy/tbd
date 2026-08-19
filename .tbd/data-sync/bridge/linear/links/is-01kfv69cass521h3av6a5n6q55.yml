@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:3cb99502a71948e76465f5bd6eda8d951082d83dcafd6c513bbdb37583f04f0e
+  labels:
+    - pause
+  priority: 2
+  status: open
+  title: "Spec: Transactional Mode and Agent Registration"
+bead_id: is-01kfv69cass521h3av6a5n6q55
+external_id: a44940fb-deaf-4294-8a2b-27cfa801aabe
+external_key: OS-58
+external_url: https://linear.app/finterm-ai/issue/OS-58/spec-transactional-mode-and-agent-registration
+remote_updated_at: 2026-08-16T02:10:17.145Z
+state: linked
+synced_at: 2026-08-16T02:10:17.357Z
+type: lk

@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:f452cabf4317547ea3a81bc4e5125cf169b01be086b5cbd63f3bbfce67daa418
+  labels: []
+  priority: 2
+  status: closed
+  title: Agent documentation consolidation and cleanup
+bead_id: is-01kf7j53z1gahrqswh8x4v4b6t
+external_id: b946be8f-1f25-4942-b7ad-d52bd9496fb3
+external_key: OS-61
+external_url: https://linear.app/finterm-ai/issue/OS-61/agent-documentation-consolidation-and-cleanup
+remote_updated_at: 2026-08-16T00:10:56.984Z
+state: linked
+synced_at: 2026-08-16T01:13:38.946Z
+type: lk

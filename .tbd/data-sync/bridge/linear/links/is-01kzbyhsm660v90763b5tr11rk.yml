@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:97b3ce0b0c31de44f1259fd204b8138162307024b1bf5796d6d4831e0c57dc3a
+  labels:
+    - linear-sync
+  priority: 2
+  status: open
+  title: Generic extensions read/write/display on the CLI
+bead_id: is-01kzbyhsm660v90763b5tr11rk
+external_id: 267d0a07-a3e7-408a-b5ac-feb3711368d3
+external_key: OS-4
+external_url: https://linear.app/finterm-ai/issue/OS-4/generic-extensions-readwritedisplay-on-the-cli
+remote_updated_at: 2026-08-16T02:10:58.506Z
+state: linked
+synced_at: 2026-08-16T02:10:58.775Z
+type: lk

@@ -1,0 +1,18 @@
+base:
+  assignee: null
+  description_hash: sha256v7:4f9096cc8e4d9b6836baa9b70e50f45c530a9cc0c89985e06f98dd6f9ecf4672
+  labels:
+    - review
+    - ci
+    - pr-207
+  priority: 1
+  status: closed
+  title: "Phase 6.3: final senior review, upstream integration, PR disposition, and CI"
+bead_id: is-01kzrsarka5sq9h3x8v5yp7vpm
+external_id: 46b57237-ce1e-4e32-8bef-24946dd12ea7
+external_key: OS-152
+external_url: https://linear.app/finterm-ai/issue/OS-152/phase-63-final-senior-review-upstream-integration-pr-disposition-and
+remote_updated_at: 2026-08-16T00:13:05.374Z
+state: linked
+synced_at: 2026-08-16T01:14:05.247Z
+type: lk

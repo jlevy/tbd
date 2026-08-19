@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:8f5f0eb40fa25a336dcf28fcb9f0cf158b8d36830742d160142b69766c3f9206
+  labels: []
+  priority: 3
+  status: open
+  title: Retire the legacy HTML-comment managed-block reader
+bead_id: is-01kzyh1j2z4hcmcyfdw9z6p8n7
+external_id: 9b6f2d66-dcbc-4def-a269-22c60836869b
+external_key: OS-205
+external_url: https://linear.app/finterm-ai/issue/OS-205/retire-the-legacy-html-comment-managed-block-reader
+remote_updated_at: 2026-08-16T02:11:27.168Z
+state: linked
+synced_at: 2026-08-16T02:11:27.392Z
+type: lk

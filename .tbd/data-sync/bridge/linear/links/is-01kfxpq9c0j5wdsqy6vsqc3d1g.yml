@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:eb82193ea5819ea6c5dca8ad71ee7f2e6b9fc77d404871d4b8bf569363b81fa9
+  labels:
+    - pause
+  priority: 2
+  status: open
+  title: "CLI output consistency: stats formatting and status icons"
+bead_id: is-01kfxpq9c0j5wdsqy6vsqc3d1g
+external_id: 301e57f4-deb2-4606-8b08-8a93b9f9ff02
+external_key: OS-57
+external_url: https://linear.app/finterm-ai/issue/OS-57/cli-output-consistency-stats-formatting-and-status-icons
+remote_updated_at: 2026-08-16T00:11:00.616Z
+state: linked
+synced_at: 2026-08-16T01:13:39.532Z
+type: lk

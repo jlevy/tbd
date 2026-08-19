@@ -5,15 +5,22 @@ title: "Q17: Decide lockfile identity (docref-only vs source_id vs full config_h
 kind: task
 status: open
 priority: 1
-version: 2
+version: 9
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
-labels: []
+labels:
+  - pause
 dependencies:
   - type: blocks
     target: is-01kra98tffpc00qar6ee3zk8tv
 parent_id: is-01kra98fgac70pjft7jnarmave
 created_at: 2026-05-11T01:09:16.139Z
-updated_at: 2026-05-11T01:11:10.527Z
+updated_at: 2026-08-15T05:43:42.616Z
+extensions:
+  linear:
+    id: 767bd6ce-192e-418a-a2ca-3b7954ff1f7d
+    key: TBD-33
+    url: https://linear.app/finterm-ai/issue/TBD-33/q17-decide-lockfile-identity-docref-only-vs-source-id-vs-full-config
+    linked_at: 2026-08-10T19:36:37.576Z
 ---
 Decision required before Phase 2 lockfile work. Depends on Q16.
 

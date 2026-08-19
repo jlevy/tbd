@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:6e4b4e4c51caa24fb2ca91e699e5d35d41b8f26bf6468a7d55994cee9cec11a4
+  labels: []
+  priority: 2
+  status: closed
+  title: "Phase 2: status drift/importable/conflict reporting and sync_on_tbd_sync fold"
+bead_id: is-01kzq3fnjg30v06sbhn9h86phz
+external_id: a56d3f3a-e2c8-4522-9cf3-e17f5352935a
+external_key: OS-86
+external_url: https://linear.app/finterm-ai/issue/OS-86/phase-2-status-driftimportableconflict-reporting-and-sync-on-tbd-sync
+remote_updated_at: 2026-08-16T02:11:11.939Z
+state: linked
+synced_at: 2026-08-16T02:11:12.150Z
+type: lk

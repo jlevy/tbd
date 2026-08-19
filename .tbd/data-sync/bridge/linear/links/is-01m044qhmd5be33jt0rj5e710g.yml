@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:8962545bf838cf67cfae57754170564099d0848296c3617e62448d746ca66f64
+  labels:
+    - phase-4
+  priority: 3
+  status: open
+  title: Decide on customViewCreate and workspace-scoped labels for multi-repo
+bead_id: is-01m044qhmd5be33jt0rj5e710g
+external_id: 4b6d44e1-e8a3-4ee6-a16f-c9253b272088
+external_key: OS-251
+external_url: https://linear.app/finterm-ai/issue/OS-251/decide-on-customviewcreate-and-workspace-scoped-labels-for-multi-repo
+remote_updated_at: 2026-08-16T07:51:00.200Z
+state: linked
+synced_at: 2026-08-16T07:51:00.429Z
+type: lk

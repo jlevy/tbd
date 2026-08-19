@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  labels: []
+  priority: 2
+  status: closed
+  title: "Spec: Design Docs Review"
+bead_id: is-01kg0a04mtkkeq543ket1bevxy
+external_id: 4ff97087-d7be-42d6-8ee9-55702e3bc938
+external_key: OS-54
+external_url: https://linear.app/finterm-ai/issue/OS-54/spec-design-docs-review
+remote_updated_at: 2026-08-16T00:11:07.506Z
+state: linked
+synced_at: 2026-08-16T01:13:39.964Z
+type: lk

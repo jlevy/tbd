@@ -1,0 +1,28 @@
+---
+type: is
+id: is-01kzn50vycvws052ggvkpfqv2p
+title: "lib/schemas.ts: LinkedEntrySchema, linked and last_actor fields, format gate"
+kind: task
+status: closed
+priority: 1
+version: 6
+spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
+labels: []
+dependencies:
+  - type: blocks
+    target: is-01kzn50wa5k1s8m5xy4mr5tvtb
+  - type: blocks
+    target: is-01kzn50xevpfmk7wqkag9f8bfx
+  - type: blocks
+    target: is-01kzn5121n6gc6xk9w710631cf
+parent_id: is-01kzn2w9gdhb0xt2hztn7v0aha
+created_at: 2026-08-10T06:16:07.883Z
+updated_at: 2026-08-10T19:54:57.180Z
+closed_at: 2026-08-10T19:54:57.179Z
+close_reason: "Phase 1 complete in claude/linear-integration (5300cf30). Validated live against Linear: 82 issues mirrored into the tbd project, idempotent on re-run, bulk guard enforced."
+---
+LinkedEntrySchema { provider, id (provider UUID, canonical), key (display), url, linked_at }. linked: optional array on IssueSchema; last_actor: optional string set from TBD_ACTOR by mutating commands. UUID is canonical because Linear identifiers move between teams. Zod strip mode discards unknown frontmatter on write, so an older CLI would silently drop these: bump tbd_format to gate. Spec Component 3.
+
+## Notes
+
+Fields, merge rules, and tbd show display are done. NOT done: the tbd_format compatibility gate. Zod strip mode means an older CLI silently drops linked/last_actor on rewrite, so the gate is required before any repo relies on these fields.

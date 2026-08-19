@@ -3,9 +3,9 @@ type: is
 id: is-01ksc0s4vq2w1yyp10fybqpq8t
 title: Add skills/tbd distribution source
 kind: task
-status: open
+status: closed
 priority: 1
-version: 5
+version: 16
 spec_path: docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md
 labels:
   - agent-skills
@@ -13,6 +13,15 @@ labels:
 dependencies: []
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-05-24T03:34:39.734Z
-updated_at: 2026-05-25T23:39:36.730Z
+updated_at: 2026-08-15T05:34:12.634Z
+closed_at: 2026-08-15T05:34:12.633Z
+close_reason: "Shipped in the current setup system: generated agent surfaces, Codex integration, gitignore policy, format migrations, fallback pinning, surface selection, and end-to-end tests are present on main."
+extensions:
+  linear:
+    id: 29b89ec1-6792-4835-bc9f-f851eaf0fe36
+    key: TBD-28
+    url: https://linear.app/finterm-ai/issue/TBD-28/add-skillstbd-distribution-source
+    linked_at: 2026-08-10T19:36:44.113Z
+    comments: null
 ---
 Generate committed repo-root skills/tbd/SKILL.md from the same payload (extend scripts/copy-docs.mjs lines 95-104). Resolved default: commit it AND add a drift test in tests/integration-files.test.ts that regenerates and compares. Enables npx skills add / skills.sh discovery.

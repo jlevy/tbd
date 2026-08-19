@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  labels: []
+  priority: 1
+  status: closed
+  title: "Phase 1: integration framework, .env credentials, status and doctor checks"
+bead_id: is-01kzn2w8hvc83qrgk9h70rf73y
+external_id: 69b0a9e2-ba98-4dce-87f4-bae7f68bae59
+external_key: OS-65
+external_url: https://linear.app/finterm-ai/issue/OS-65/phase-1-integration-framework-env-credentials-status-and-doctor-checks
+remote_updated_at: 2026-08-16T02:11:00.168Z
+state: linked
+synced_at: 2026-08-16T02:11:00.386Z
+type: lk

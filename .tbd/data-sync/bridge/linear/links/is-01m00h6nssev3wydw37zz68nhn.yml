@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:1700677ef3e68b24d175b4fc4b6d872d0ba45bba9c80054b8be24209b148048b
+  labels:
+    - phase-4
+  priority: 3
+  status: open
+  title: Add a Gemini CLI setup surface (settings.json hooks)
+bead_id: is-01m00h6nssev3wydw37zz68nhn
+external_id: 8373dd0d-bed3-44ec-b452-66ca02971ced
+external_key: OS-221
+external_url: https://linear.app/finterm-ai/issue/OS-221/add-a-gemini-cli-setup-surface-settingsjson-hooks
+remote_updated_at: 2026-08-16T07:50:37.240Z
+state: linked
+synced_at: 2026-08-16T07:50:37.422Z
+type: lk

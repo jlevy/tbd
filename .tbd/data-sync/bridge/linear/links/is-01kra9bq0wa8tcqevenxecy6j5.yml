@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:fe939ab02e6864eeddac0e70f0ed12c9da737a0335e4a277d12eebe91f152b1e
+  labels:
+    - pause
+  priority: 3
+  status: open
+  title: "Validation period: one tbd release with both internal + external sources active"
+bead_id: is-01kra9bq0wa8tcqevenxecy6j5
+external_id: 0e1fa3a5-f469-4084-b8c7-5768f0f1c075
+external_key: OS-116
+external_url: https://linear.app/finterm-ai/issue/OS-116/validation-period-one-tbd-release-with-both-internal-external-sources
+remote_updated_at: 2026-08-16T00:11:50.301Z
+state: linked
+synced_at: 2026-08-16T01:13:50.456Z
+type: lk

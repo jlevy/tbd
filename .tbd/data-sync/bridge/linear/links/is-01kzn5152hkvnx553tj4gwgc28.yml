@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:1911b4e5eab97d24412dc12e7ed627c1c6c4507f9d22108b1dc34231324f1a98
+  labels:
+    - github
+    - integration
+  priority: 2
+  status: open
+  title: "PR links: extensions.github.prs to attachmentLinkGitHubPR"
+bead_id: is-01kzn5152hkvnx553tj4gwgc28
+external_id: e4a2e265-ed0d-439d-9db3-51186d517dcf
+external_key: OS-129
+external_url: https://linear.app/finterm-ai/issue/OS-129/pr-links-extensionsgithubprs-to-attachmentlinkgithubpr
+remote_updated_at: 2026-08-16T02:11:10.231Z
+state: linked
+synced_at: 2026-08-16T02:11:10.473Z
+type: lk

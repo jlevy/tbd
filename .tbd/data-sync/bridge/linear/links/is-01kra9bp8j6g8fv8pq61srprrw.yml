@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:895cf1051e205729c584b0693d421c9d4787ebd208dc081441af989ddadfa55a
+  labels:
+    - pause
+  priority: 3
+  status: open
+  title: Tag v1.0.0 of github:jlevy/tbd-docs
+bead_id: is-01kra9bp8j6g8fv8pq61srprrw
+external_id: 56262cab-082c-4507-bd4f-3a74ee005707
+external_key: OS-114
+external_url: https://linear.app/finterm-ai/issue/OS-114/tag-v100-of-githubjlevytbd-docs
+remote_updated_at: 2026-08-16T00:11:48.384Z
+state: linked
+synced_at: 2026-08-16T01:13:50.141Z
+type: lk

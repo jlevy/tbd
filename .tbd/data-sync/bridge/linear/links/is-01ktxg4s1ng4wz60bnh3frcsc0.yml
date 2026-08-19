@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  labels:
+    - pause
+  priority: 2
+  status: open
+  title: "Phase 2: shared docmap renderer + tbd docs list/show; migrate per-kind --list
+    --json to docmap"
+bead_id: is-01ktxg4s1ng4wz60bnh3frcsc0
+external_id: c5797f48-4ee8-49b0-8da9-19c3f0b0f345
+external_key: OS-83
+external_url: https://linear.app/finterm-ai/issue/OS-83/phase-2-shared-docmap-renderer-tbd-docs-listshow-migrate-per-kind-list
+remote_updated_at: 2026-08-16T02:10:47.330Z
+state: linked
+synced_at: 2026-08-16T02:10:49.045Z
+type: lk

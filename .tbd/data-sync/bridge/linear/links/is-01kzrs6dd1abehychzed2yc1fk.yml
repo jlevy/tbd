@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:e178043c398feb0c064838b44c228c2625dab51035e4e9a75a4da60f7a65c559
+  labels:
+    - web
+    - pr-207
+  priority: 1
+  status: closed
+  title: "Phase 4: productize strict TypeScript web client and packaged artifact"
+bead_id: is-01kzrs6dd1abehychzed2yc1fk
+external_id: 0062001b-4c7f-4489-bd91-f0aef80a0d27
+external_key: OS-136
+external_url: https://linear.app/finterm-ai/issue/OS-136/phase-4-productize-strict-typescript-web-client-and-packaged-artifact
+remote_updated_at: 2026-08-16T00:12:56.763Z
+state: linked
+synced_at: 2026-08-16T01:14:02.099Z
+type: lk

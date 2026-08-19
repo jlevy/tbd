@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:99594808b777289ec644398ee6c1d26314220428e88ef0f0965cc592aeafef07
+  labels:
+    - agent-skills
+    - setup
+  priority: 1
+  status: closed
+  title: Add skills/tbd distribution source
+bead_id: is-01ksc0s4vq2w1yyp10fybqpq8t
+external_id: 29b89ec1-6792-4835-bc9f-f851eaf0fe36
+external_key: OS-28
+external_url: https://linear.app/finterm-ai/issue/OS-28/add-skillstbd-distribution-source
+remote_updated_at: 2026-08-16T02:10:34.237Z
+state: linked
+synced_at: 2026-08-16T02:10:34.486Z
+type: lk

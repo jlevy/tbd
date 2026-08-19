@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:b4e466179b25764ec1d2f738b4eaa95485f35496ebb348bd01cd94e1a941ddb0
+  labels:
+    - phase-3
+  priority: 3
+  status: open
+  title: Verify orphaned pairs cost zero requests per sync
+bead_id: is-01m05x3x47jz7nk999rmb7bbex
+external_id: b7156dc3-9e35-4ac8-b657-0891b031d57f
+external_key: OS-303
+external_url: https://linear.app/finterm-ai/issue/OS-303/verify-orphaned-pairs-cost-zero-requests-per-sync
+remote_updated_at: 2026-08-16T19:41:30.646Z
+state: linked
+synced_at: 2026-08-16T19:41:30.872Z
+type: lk

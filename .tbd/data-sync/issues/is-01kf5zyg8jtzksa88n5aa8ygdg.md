@@ -5,7 +5,7 @@ title: "Phase 10: Attic Commands"
 kind: epic
 status: closed
 priority: 1
-version: 6
+version: 8
 labels:
   - attic
   - cli-layer
@@ -15,10 +15,15 @@ parent_id: null
 due_date: null
 deferred_until: null
 created_at: 2026-01-15T10:09:00.000Z
-updated_at: 2026-03-09T16:12:29.606Z
+updated_at: 2026-08-10T21:53:30.719Z
 closed_at: 2026-01-16T21:55:30.837Z
 close_reason: null
 extensions:
+  linear:
+    id: b0a3112b-18a8-497c-9206-465a7de3ad94
+    key: TBD-75
+    url: https://linear.app/finterm-ai/issue/TBD-75/phase-10-attic-commands
+    linked_at: 2026-08-10T19:35:31.136Z
   beads:
     imported_at: 2026-01-17T12:47:41.866Z
     original_id: tbd-1000

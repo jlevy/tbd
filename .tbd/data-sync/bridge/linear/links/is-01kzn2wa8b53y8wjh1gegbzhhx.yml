@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:b286ec112371e334942290392b0cec58dddce552cfe957b1f6bc4d77c87938c5
+  labels: []
+  priority: 2
+  status: closed
+  title: "Phase 2: tbd integration sync — the full synchronization command"
+bead_id: is-01kzn2wa8b53y8wjh1gegbzhhx
+external_id: 8675d876-1c1a-4672-a073-5980ff8568dc
+external_key: OS-2
+external_url: https://linear.app/finterm-ai/issue/OS-2/phase-2-tbd-integration-sync-the-full-synchronization-command
+remote_updated_at: 2026-08-16T02:11:02.798Z
+state: linked
+synced_at: 2026-08-16T02:11:03.009Z
+type: lk

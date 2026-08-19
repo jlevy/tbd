@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:49d8139bf0586a02f242545cc006ee49f1fda2e1f9595d02d0011874782f535d
+  labels:
+    - web
+    - integration
+  priority: 2
+  status: open
+  title: Render accessible Linear and GitHub link marks in bead rows and details
+bead_id: is-01kzx8nc1vetjsc86by8085sg1
+external_id: d3e91620-a20f-4d0f-aec7-ce509ea7082f
+external_key: OS-160
+external_url: https://linear.app/finterm-ai/issue/OS-160/render-accessible-linear-and-github-link-marks-in-bead-rows-and
+remote_updated_at: 2026-08-16T02:11:20.374Z
+state: linked
+synced_at: 2026-08-16T02:11:20.581Z
+type: lk

@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  labels: []
+  priority: 1
+  status: closed
+  title: "Phase 1: Linear client, meta cache, and field mapping tables"
+bead_id: is-01kzn2w8x0c038fhk1c859248r
+external_id: 313b9c7d-fb3d-4a19-b674-1a9f6d481a21
+external_key: OS-64
+external_url: https://linear.app/finterm-ai/issue/OS-64/phase-1-linear-client-meta-cache-and-field-mapping-tables
+remote_updated_at: 2026-08-16T02:11:00.707Z
+state: linked
+synced_at: 2026-08-16T02:11:00.917Z
+type: lk

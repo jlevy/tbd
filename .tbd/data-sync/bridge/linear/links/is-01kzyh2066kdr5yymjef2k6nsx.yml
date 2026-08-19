@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:08b96dea8a6724d0832c52d10c83c20638ea050b7b0a004a4f1a33f7625bfe2e
+  labels: []
+  priority: 4
+  status: open
+  title: repoUrl is threaded through the mirror but never supplied
+bead_id: is-01kzyh2066kdr5yymjef2k6nsx
+external_id: b16a6190-5337-462b-8bb0-afbfad7651ea
+external_key: OS-206
+external_url: https://linear.app/finterm-ai/issue/OS-206/repourl-is-threaded-through-the-mirror-but-never-supplied
+remote_updated_at: 2026-08-16T02:11:27.797Z
+state: linked
+synced_at: 2026-08-16T02:11:28.027Z
+type: lk

@@ -1,0 +1,18 @@
+base:
+  assignee: null
+  description_hash: sha256v7:875292b152c3da294ba954b1e003f6ca6fb5167d6ac7530bad59234b8cb81aa5
+  labels:
+    - server
+    - watch
+    - web
+  priority: 1
+  status: closed
+  title: "Phase 3.3: implement in-process remote/local wake coordinator"
+bead_id: is-01kzrs87qg5tssg8p41wpj3kwj
+external_id: b5dfad0e-d667-4fe6-8b53-3d4cb58955d5
+external_key: OS-141
+external_url: https://linear.app/finterm-ai/issue/OS-141/phase-33-implement-in-process-remotelocal-wake-coordinator
+remote_updated_at: 2026-08-16T00:12:59.793Z
+state: linked
+synced_at: 2026-08-16T01:14:03.095Z
+type: lk

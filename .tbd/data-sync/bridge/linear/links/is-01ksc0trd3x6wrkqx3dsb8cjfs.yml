@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:50d8f0cd7c2b952771380584fb63dd194fd04ab23675dfed590eed89e56cf727
+  labels:
+    - validation
+    - release
+  priority: 2
+  status: closed
+  title: Validate ecosystem compatibility and release metadata
+bead_id: is-01ksc0trd3x6wrkqx3dsb8cjfs
+external_id: bc3afdf8-1733-4996-a58b-ad81f30480f5
+external_key: OS-22
+external_url: https://linear.app/finterm-ai/issue/OS-22/validate-ecosystem-compatibility-and-release-metadata
+remote_updated_at: 2026-08-16T02:10:41.230Z
+state: linked
+synced_at: 2026-08-16T02:10:41.640Z
+type: lk

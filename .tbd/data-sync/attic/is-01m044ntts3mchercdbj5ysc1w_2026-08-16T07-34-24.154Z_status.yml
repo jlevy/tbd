@@ -1,0 +1,11 @@
+entity_id: is-01m044ntts3mchercdbj5ysc1w
+timestamp: 2026-08-16T07:34:24.154Z
+field: status
+lost_value: '"in_progress"'
+winner_source: local
+loser_source: remote
+context:
+  local_version: 5
+  remote_version: 0
+  local_updated_at: 2026-08-16T02:44:45.933Z
+  remote_updated_at: 2026-08-16T02:36:45.165Z

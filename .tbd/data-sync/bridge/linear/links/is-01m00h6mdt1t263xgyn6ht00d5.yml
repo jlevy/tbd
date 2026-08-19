@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:4fe7ce9597115e562d7eb6e4e72861bbd6c461d88b0a45822e144e8a46243b7e
+  labels:
+    - phase-4
+  priority: 3
+  status: open
+  title: Add a Cursor setup surface (.cursor/hooks.json)
+bead_id: is-01m00h6mdt1t263xgyn6ht00d5
+external_id: d36968b7-cdaf-406f-bbf9-26fbdeb78ea6
+external_key: OS-220
+external_url: https://linear.app/finterm-ai/issue/OS-220/add-a-cursor-setup-surface-cursorhooksjson
+remote_updated_at: 2026-08-16T07:50:36.761Z
+state: linked
+synced_at: 2026-08-16T07:50:36.878Z
+type: lk

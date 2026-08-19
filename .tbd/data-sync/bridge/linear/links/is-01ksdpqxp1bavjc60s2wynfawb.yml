@@ -1,0 +1,18 @@
+base:
+  assignee: null
+  description_hash: sha256v7:6796e7a3c40a7def522a584433319f854b554c69705c6a348891970235b490a1
+  labels:
+    - guidelines
+    - security
+    - setup
+  priority: 1
+  status: closed
+  title: Document pinned CLI runner fallback patterns
+bead_id: is-01ksdpqxp1bavjc60s2wynfawb
+external_id: 7c004b91-a49f-458a-9c54-5297c0910aff
+external_key: OS-21
+external_url: https://linear.app/finterm-ai/issue/OS-21/document-pinned-cli-runner-fallback-patterns
+remote_updated_at: 2026-08-16T02:10:42.712Z
+state: linked
+synced_at: 2026-08-16T02:10:42.998Z
+type: lk

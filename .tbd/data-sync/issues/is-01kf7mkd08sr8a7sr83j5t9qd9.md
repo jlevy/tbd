@@ -3,14 +3,23 @@ type: is
 id: is-01kf7mkd08sr8a7sr83j5t9qd9
 title: "Spec: CLI Output Design System"
 kind: epic
-status: open
+status: closed
 priority: 2
-version: 9
+version: 20
 spec_path: docs/project/specs/active/plan-2026-01-17-cli-output-design-system.md
 labels: []
 dependencies: []
 created_at: 2026-01-18T04:07:52.583Z
-updated_at: 2026-03-09T16:12:31.540Z
+updated_at: 2026-08-15T05:33:39.657Z
+closed_at: 2026-08-15T05:33:39.656Z
+close_reason: Completed specs are in docs/project/specs/done and their implementations, documentation, and tests ship on main.
+extensions:
+  linear:
+    id: 337fd396-bb4e-45fe-8af1-97335d619e77
+    key: TBD-60
+    url: https://linear.app/finterm-ai/issue/TBD-60/spec-cli-output-design-system
+    linked_at: 2026-08-10T19:36:13.703Z
+    comments: null
 ---
 Systematically review and standardize all CLI output across tbd. Establish a universal CLI design system that ensures consistent output structure, formatting, colors, and conventions across all commands and output modes.
 

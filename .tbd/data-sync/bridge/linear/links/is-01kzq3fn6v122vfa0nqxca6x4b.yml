@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:92906a42b3a8bd2491cb05dd1659fe86b7063be1e2860977ea2834faff13e583
+  labels: []
+  priority: 2
+  status: closed
+  title: "Phase 2: linking policy — PolicyDefinitionSchema, presets, select folding"
+bead_id: is-01kzq3fn6v122vfa0nqxca6x4b
+external_id: 775dcc1d-676d-4cc1-8036-59b6ff31cc9e
+external_key: OS-85
+external_url: https://linear.app/finterm-ai/issue/OS-85/phase-2-linking-policy-policydefinitionschema-presets-select-folding
+remote_updated_at: 2026-08-16T02:11:11.384Z
+state: linked
+synced_at: 2026-08-16T02:11:11.603Z
+type: lk

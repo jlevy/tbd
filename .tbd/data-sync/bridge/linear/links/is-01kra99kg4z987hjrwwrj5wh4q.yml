@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:ffd95f20a64f1259c7273160a3713ccb37c20920ca8fab8990c537fb38d4a52c
+  labels:
+    - pause
+  priority: 2
+  status: open
+  title: "Q19: Decide as: field disambiguation (keep vs mode: discriminator vs KDEX-aligned)"
+bead_id: is-01kra99kg4z987hjrwwrj5wh4q
+external_id: 0c0d0100-26fa-4991-bee8-ce9e225de7c6
+external_key: OS-31
+external_url: https://linear.app/finterm-ai/issue/OS-31/q19-decide-as-field-disambiguation-keep-vs-mode-discriminator-vs-kdex
+remote_updated_at: 2026-08-16T00:11:31.274Z
+state: linked
+synced_at: 2026-08-16T01:13:45.811Z
+type: lk

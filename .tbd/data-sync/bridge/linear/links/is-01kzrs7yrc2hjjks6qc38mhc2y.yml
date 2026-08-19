@@ -1,0 +1,18 @@
+base:
+  assignee: null
+  description_hash: sha256v7:a733a9413e6627d39d02c00ae4d69e59445fd457760e5483cb6d702459f09d8f
+  labels:
+    - server
+    - security
+    - web
+  priority: 1
+  status: closed
+  title: "Phase 3.2: implement read-only HTTP router and resumable SSE hub"
+bead_id: is-01kzrs7yrc2hjjks6qc38mhc2y
+external_id: a3abf765-1007-4147-9f68-b11f8fa6b651
+external_key: OS-140
+external_url: https://linear.app/finterm-ai/issue/OS-140/phase-32-implement-read-only-http-router-and-resumable-sse-hub
+remote_updated_at: 2026-08-16T00:12:58.983Z
+state: linked
+synced_at: 2026-08-16T01:14:02.954Z
+type: lk

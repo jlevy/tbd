@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:c4d07d4b9973995249038b86e1b1f7929f94447437f1853f1b8f66bd5c2b1f35
+  labels: []
+  priority: 3
+  status: closed
+  title: Fold into tbd sync behind sync_on_tbd_sync (default off)
+bead_id: is-01kzn513t5rt6bak750hcvzeta
+external_id: 490f9047-fbe4-4065-92bf-9cf61aad7c3f
+external_key: OS-126
+external_url: https://linear.app/finterm-ai/issue/OS-126/fold-into-tbd-sync-behind-sync-on-tbd-sync-default-off
+remote_updated_at: 2026-08-16T02:11:07.978Z
+state: linked
+synced_at: 2026-08-16T02:11:08.185Z
+type: lk

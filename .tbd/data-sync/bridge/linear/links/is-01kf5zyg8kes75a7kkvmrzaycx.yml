@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:4292a11a69a4274d060fd0d07317a6ac14e6476582c585c8f7b3ca82b51814a3
+  labels:
+    - validation
+  priority: 1
+  status: closed
+  title: "Stage 5: Validation"
+bead_id: is-01kf5zyg8kes75a7kkvmrzaycx
+external_id: 45bd6d51-3612-49a0-8674-26e1318e8703
+external_key: OS-74
+external_url: https://linear.app/finterm-ai/issue/OS-74/stage-5-validation
+remote_updated_at: 2026-08-16T00:10:51.700Z
+state: linked
+synced_at: 2026-08-16T01:13:37.260Z
+type: lk

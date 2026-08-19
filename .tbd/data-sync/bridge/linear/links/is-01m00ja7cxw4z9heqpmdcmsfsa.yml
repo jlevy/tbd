@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:3ecb890309cdb4932ff5c919cea5a550ec501d9a748c89327050ebffb72a100a
+  labels:
+    - phase-1
+  priority: 2
+  status: open
+  title: tbd sync --dry-run and --status never cover the tracker
+bead_id: is-01m00ja7cxw4z9heqpmdcmsfsa
+external_id: 06dcff61-bba3-4a97-9c7e-71d3ef8a40e4
+external_key: OS-228
+external_url: https://linear.app/finterm-ai/issue/OS-228/tbd-sync-dry-run-and-status-never-cover-the-tracker
+remote_updated_at: 2026-08-16T07:50:43.211Z
+state: linked
+synced_at: 2026-08-16T07:50:43.353Z
+type: lk

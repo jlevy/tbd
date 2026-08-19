@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:b806ac5ff00287f10b2818a6a3c7618095ff6dc3758f3f8359420bf9cb6b69eb
+  labels:
+    - supply-chain
+    - agent-skills
+  priority: 2
+  status: closed
+  title: Pin repren skill fallback instead of uvx repren@latest
+bead_id: is-01ktybyydyjx5gavcach1c0jn9
+external_id: 35ca8a8f-a997-482b-b287-d2bf254b54f0
+external_key: OS-14
+external_url: https://linear.app/finterm-ai/issue/OS-14/pin-repren-skill-fallback-instead-of-uvx-reprenlatest
+remote_updated_at: 2026-08-16T02:10:51.608Z
+state: linked
+synced_at: 2026-08-16T02:10:51.906Z
+type: lk

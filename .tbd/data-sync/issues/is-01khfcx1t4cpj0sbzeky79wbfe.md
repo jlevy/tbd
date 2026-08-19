@@ -5,9 +5,10 @@ title: "Update research-running-claude-code.md third-party projects list: Missin
 kind: task
 status: open
 priority: 3
-version: 2
-labels: []
+version: 3
+labels:
+  - pause
 dependencies: []
 created_at: 2026-02-15T00:58:39.299Z
-updated_at: 2026-03-09T16:12:34.352Z
+updated_at: 2026-08-15T05:43:10.561Z
 ---

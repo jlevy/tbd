@@ -1,0 +1,18 @@
+base:
+  assignee: null
+  description_hash: sha256v7:aad3e5f42c7627879a697473ddcab012bf48917fc3e5f1b9fccb6c1380993ab6
+  labels:
+    - build
+    - packaging
+    - web
+  priority: 1
+  status: closed
+  title: "Phase 4.3: add browser typecheck, IIFE build, and deterministic HTML stitch"
+bead_id: is-01kzrs9eanh9pfsh52fed3gdna
+external_id: 90cb1f73-b89d-4930-9721-0407747b0680
+external_key: OS-146
+external_url: https://linear.app/finterm-ai/issue/OS-146/phase-43-add-browser-typecheck-iife-build-and-deterministic-html
+remote_updated_at: 2026-08-16T00:13:02.421Z
+state: linked
+synced_at: 2026-08-16T01:14:03.814Z
+type: lk

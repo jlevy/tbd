@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:18c9999f8dc742fac99f3e093fc48dab2a6c062a16a7aa4ecdc60b2d28d58e3c
+  labels: []
+  priority: 1
+  status: open
+  title: "[epic] External sync and traceability: prime, claim, checkpoint, Linear visibility"
+bead_id: is-01m00h43nvt17wxyhxqm88wh3c
+external_id: 1ef43a0c-0cf8-4944-a374-327de127108c
+external_key: OS-209
+external_url: https://linear.app/finterm-ai/issue/OS-209/epic-external-sync-and-traceability-prime-claim-checkpoint-linear
+remote_updated_at: 2026-08-16T22:47:11.936Z
+state: linked
+synced_at: 2026-08-16T22:47:12.296Z
+type: lk

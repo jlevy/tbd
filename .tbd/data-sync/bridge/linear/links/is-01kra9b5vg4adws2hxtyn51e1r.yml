@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:fc89d134a65f7872124b9e0fe83150544601776c50d1cec6f4bb340313cabea5
+  labels:
+    - pause
+  priority: 2
+  status: open
+  title: "Scheme-specific fetcher: git: and gitlab: (same machinery as github:)"
+bead_id: is-01kra9b5vg4adws2hxtyn51e1r
+external_id: 92dd4238-d24f-4180-b52b-a69d5bd8938b
+external_key: OS-101
+external_url: https://linear.app/finterm-ai/issue/OS-101/scheme-specific-fetcher-git-and-gitlab-same-machinery-as-github
+remote_updated_at: 2026-08-16T00:11:39.366Z
+state: linked
+synced_at: 2026-08-16T01:13:48.150Z
+type: lk

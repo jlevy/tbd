@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:37c5f620b830e612752ef1a601e4f1f21510a025b550035eb08fb764f240798f
+  labels:
+    - pause
+  priority: 1
+  status: open
+  title: Filesystem-only fetcher for ./ and / docrefs (workflow W3)
+bead_id: is-01kra9a7zedavram862qv9qwnk
+external_id: a7827e94-366c-4e18-b58e-7b5016791fa5
+external_key: OS-89
+external_url: https://linear.app/finterm-ai/issue/OS-89/filesystem-only-fetcher-for-and-docrefs-workflow-w3
+remote_updated_at: 2026-08-16T00:11:32.869Z
+state: linked
+synced_at: 2026-08-16T01:13:46.344Z
+type: lk

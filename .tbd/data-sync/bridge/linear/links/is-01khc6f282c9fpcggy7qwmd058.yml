@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:d39e446636cd580d093947563996e35625e9bf33a52fd5f5184e379deb50b4c2
+  labels:
+    - pause
+  priority: 2
+  status: open
+  title: "Review & research pass: Claude Code Sub-Agents research doc"
+bead_id: is-01khc6f282c9fpcggy7qwmd058
+external_id: bdb9a312-0ae7-41d1-adfb-4f229a1d62d5
+external_key: OS-44
+external_url: https://linear.app/finterm-ai/issue/OS-44/review-and-research-pass-claude-code-sub-agents-research-doc
+remote_updated_at: 2026-08-16T00:11:20.782Z
+state: linked
+synced_at: 2026-08-16T01:13:42.962Z
+type: lk

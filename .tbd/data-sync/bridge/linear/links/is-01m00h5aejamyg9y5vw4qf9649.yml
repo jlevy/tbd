@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:2eb145543a37c63043560e67097577e09f08d8e099fba6f3e1aec169c4c6d9cd
+  labels:
+    - phase-4
+  priority: 1
+  status: open
+  title: tbd prime reports claimed work and sync freshness
+bead_id: is-01m00h5aejamyg9y5vw4qf9649
+external_id: a6d862c7-f15a-4728-8cba-044190d989f8
+external_key: OS-214
+external_url: https://linear.app/finterm-ai/issue/OS-214/tbd-prime-reports-claimed-work-and-sync-freshness
+remote_updated_at: 2026-08-16T07:50:32.578Z
+state: linked
+synced_at: 2026-08-16T07:50:32.763Z
+type: lk

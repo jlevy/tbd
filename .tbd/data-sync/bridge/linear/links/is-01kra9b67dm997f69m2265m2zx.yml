@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:d8d517da1d820a0ec1564a908ab7c58114a930ac1a2ea6c70d460afdc89b1d91
+  labels:
+    - pause
+  priority: 2
+  status: open
+  title: Explicit contents mapping fully wired and tested ({path, type, as?})
+bead_id: is-01kra9b67dm997f69m2265m2zx
+external_id: a541a4ff-7b25-44c6-a755-1f8df9c7b4bf
+external_key: OS-102
+external_url: https://linear.app/finterm-ai/issue/OS-102/explicit-contents-mapping-fully-wired-and-tested-path-type-as
+remote_updated_at: 2026-08-16T00:11:39.878Z
+state: linked
+synced_at: 2026-08-16T01:13:48.285Z
+type: lk

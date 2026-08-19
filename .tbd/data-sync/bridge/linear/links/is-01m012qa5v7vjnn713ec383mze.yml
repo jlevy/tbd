@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:ff83723b1aa3690119b5149092869144013772e1d434260778b48f6ed3fe71c8
+  labels:
+    - phase-3
+  priority: 2
+  status: open
+  title: Support Linear delegate as the agent gesture (not assignee)
+bead_id: is-01m012qa5v7vjnn713ec383mze
+external_id: c8f8e501-c470-41bb-b12c-cd0116a11b3c
+external_key: OS-242
+external_url: https://linear.app/finterm-ai/issue/OS-242/support-linear-delegate-as-the-agent-gesture-not-assignee
+remote_updated_at: 2026-08-16T07:50:52.479Z
+state: linked
+synced_at: 2026-08-16T07:50:53.900Z
+type: lk

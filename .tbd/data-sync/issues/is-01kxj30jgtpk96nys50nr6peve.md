@@ -3,9 +3,9 @@ type: is
 id: is-01kxj30jgtpk96nys50nr6peve
 title: "GitHub #190: Refresh skill-creation guidance and setup dry-run safety"
 kind: epic
-status: in_progress
+status: closed
 priority: 1
-version: 20
+version: 31
 labels:
   - github-190
   - agent-skills
@@ -25,7 +25,16 @@ child_order_hints:
   - is-01kxj32wgrjfa51wytr33z286r
   - is-01kxj32xtn7978fy1cw6f61qca
 created_at: 2026-07-15T05:11:54.136Z
-updated_at: 2026-07-15T06:39:49.235Z
+updated_at: 2026-08-15T05:36:50.656Z
+closed_at: 2026-08-15T05:36:50.654Z
+close_reason: "Completed in merged PR #191; GitHub issues #161 and #190 were closed on merge and the full cross-platform validation passed."
+extensions:
+  linear:
+    id: 004dac38-9687-40be-ad90-11e6ba5fcef4
+    key: TBD-81
+    url: https://linear.app/finterm-ai/issue/TBD-81/github-190-refresh-skill-creation-guidance-and-setup-dry-run-safety
+    linked_at: 2026-08-10T19:37:26.580Z
+    comments: null
 ---
 Source: https://github.com/jlevy/tbd/issues/190
 

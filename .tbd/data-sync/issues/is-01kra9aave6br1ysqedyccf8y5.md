@@ -5,13 +5,20 @@ title: "Phase 1 tests: migration golden (f03→f05, f04→f05), source resolutio
 kind: task
 status: open
 priority: 1
-version: 2
+version: 8
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
-labels: []
+labels:
+  - pause
 dependencies: []
 parent_id: is-01kra98szn2ah4f59kmbnfbery
 created_at: 2026-05-11T01:09:40.846Z
-updated_at: 2026-06-12T15:46:23.592Z
+updated_at: 2026-08-15T05:43:42.525Z
+extensions:
+  linear:
+    id: 86750d7d-601f-49f3-9cae-7a06a9dae633
+    linked_at: 2026-08-11T06:50:13.107Z
+    key: TBD-97
+    url: https://linear.app/finterm-ai/issue/TBD-97/phase-1-tests-migration-golden-f03f05-f04f05-source-resolution-doc-map
 ---
 - Migration golden tests for f03→f05 and f04→f05.
 - Source resolution unit tests.

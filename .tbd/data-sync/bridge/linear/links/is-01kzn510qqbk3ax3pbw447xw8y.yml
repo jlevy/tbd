@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:c1cb81cf5f21bd92ee6e16a5ed519bcdba7e652b8d479dbe5253a35c4e0d431c
+  labels: []
+  priority: 1
+  status: closed
+  title: tbd integration link / unlink / import with one-source guard
+bead_id: is-01kzn510qqbk3ax3pbw447xw8y
+external_id: 40dd2cf9-0efc-4a66-bed8-5cb77d3376cd
+external_key: OS-63
+external_url: https://linear.app/finterm-ai/issue/OS-63/tbd-integration-link-unlink-import-with-one-source-guard
+remote_updated_at: 2026-08-16T02:11:04.091Z
+state: linked
+synced_at: 2026-08-16T02:11:04.294Z
+type: lk

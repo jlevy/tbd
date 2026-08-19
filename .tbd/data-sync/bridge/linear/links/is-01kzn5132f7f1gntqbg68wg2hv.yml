@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:5db286a26a7ede2d9c92ecd5fc2457647935bcab5ed68dca7a75ffc080ebbeec
+  labels: []
+  priority: 2
+  status: closed
+  title: "Conflict handling: attic entry plus external comment with resolve lifecycle"
+bead_id: is-01kzn5132f7f1gntqbg68wg2hv
+external_id: 5454db30-4257-4fac-a0d5-5e1daffadbd7
+external_key: OS-124
+external_url: https://linear.app/finterm-ai/issue/OS-124/conflict-handling-attic-entry-plus-external-comment-with-resolve
+remote_updated_at: 2026-08-16T02:11:06.965Z
+state: linked
+synced_at: 2026-08-16T02:11:07.197Z
+type: lk

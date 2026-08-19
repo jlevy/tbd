@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:aaab003536878626fc454fea7e45aa284d65442ec356da59929ac82fcb3b12d8
+  labels:
+    - pause
+  priority: 3
+  status: open
+  title: Consolidate close/reopen/update bulk orchestration into a shared runBulkMutation
+    driver
+bead_id: is-01kx6ssctsapjkqwrt9vs32h0d
+external_id: 17e7162f-5364-47ed-ae68-78a1c7167ef5
+external_key: OS-9
+external_url: https://linear.app/finterm-ai/issue/OS-9/consolidate-closereopenupdate-bulk-orchestration-into-a-shared
+remote_updated_at: 2026-08-16T02:10:55.132Z
+state: linked
+synced_at: 2026-08-16T02:10:55.332Z
+type: lk

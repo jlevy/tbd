@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:28206fa6b479e207a6d585b751c7e682cea6f27aeaf570be47abfb69d5d487d6
+  labels:
+    - phase-3
+  priority: 3
+  status: open
+  title: Populate identity.user_map so assignee sync stops being skipped
+bead_id: is-01m044ppfx0jkk2ddfe2faf5pn
+external_id: 8884680f-5cbe-418b-bfed-9262f24db5da
+external_key: OS-248
+external_url: https://linear.app/finterm-ai/issue/OS-248/populate-identityuser-map-so-assignee-sync-stops-being-skipped
+remote_updated_at: 2026-08-16T07:50:58.057Z
+state: linked
+synced_at: 2026-08-16T07:50:58.255Z
+type: lk

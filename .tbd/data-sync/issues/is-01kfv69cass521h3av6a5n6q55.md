@@ -5,11 +5,18 @@ title: "Spec: Transactional Mode and Agent Registration"
 kind: epic
 status: open
 priority: 2
-version: 7
+version: 10
 spec_path: docs/project/specs/active/plan-2026-01-19-transactional-mode-and-agent-registration.md
-labels: []
+labels:
+  - pause
 dependencies: []
 created_at: 2026-01-25T18:22:32.792Z
-updated_at: 2026-03-09T16:12:32.906Z
+updated_at: 2026-08-15T05:43:10.879Z
+extensions:
+  linear:
+    id: a44940fb-deaf-4294-8a2b-27cfa801aabe
+    key: TBD-58
+    url: https://linear.app/finterm-ai/issue/TBD-58/spec-transactional-mode-and-agent-registration
+    linked_at: 2026-08-10T19:36:15.338Z
 ---
 Plan spec for adding transactional workflow support and agent registration. Enables agents to batch changes atomically. Spec: docs/project/specs/active/plan-2026-01-19-transactional-mode-and-agent-registration.md

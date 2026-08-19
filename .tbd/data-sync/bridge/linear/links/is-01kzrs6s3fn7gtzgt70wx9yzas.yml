@@ -1,0 +1,18 @@
+base:
+  assignee: null
+  description_hash: sha256v7:fe7e74e354fa3bbae62bee28aba99bfb1db984c21bdac6838ea189365dbae593
+  labels:
+    - docs
+    - web
+    - pr-207
+  priority: 1
+  status: closed
+  title: "Phase 5: align tbd web design, user docs, and release notes"
+bead_id: is-01kzrs6s3fn7gtzgt70wx9yzas
+external_id: b5656b13-1372-4754-9956-b26f2050c638
+external_key: OS-137
+external_url: https://linear.app/finterm-ai/issue/OS-137/phase-5-align-tbd-web-design-user-docs-and-release-notes
+remote_updated_at: 2026-08-16T00:12:57.355Z
+state: linked
+synced_at: 2026-08-16T01:14:02.250Z
+type: lk

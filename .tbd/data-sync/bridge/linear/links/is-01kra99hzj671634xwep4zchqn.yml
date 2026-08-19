@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:71b070ba8a3227ead100e2649cabab312de49e91291afd13a80ef647405fa030
+  labels:
+    - pause
+  priority: 1
+  status: open
+  title: "Q15: Decide resolver semantics (priority-only vs DocGraph+DocMap policy view)"
+bead_id: is-01kra99hzj671634xwep4zchqn
+external_id: 700317af-f24f-4611-b1d2-8b914257fabd
+external_key: OS-35
+external_url: https://linear.app/finterm-ai/issue/OS-35/q15-decide-resolver-semantics-priority-only-vs-docgraphdocmap-policy
+remote_updated_at: 2026-08-16T00:11:28.688Z
+state: linked
+synced_at: 2026-08-16T01:13:45.256Z
+type: lk

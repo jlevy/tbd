@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  labels: []
+  priority: 1
+  status: closed
+  title: "Phase 1: linked + last_actor fields, extensions per-namespace merge, parent_id
+    cycle guard"
+bead_id: is-01kzn2w9gdhb0xt2hztn7v0aha
+external_id: 2e8bc9de-adb5-4abf-97a6-4cb0036495d5
+external_key: OS-67
+external_url: https://linear.app/finterm-ai/issue/OS-67/phase-1-linked-last-actor-fields-extensions-per-namespace-merge-parent
+remote_updated_at: 2026-08-16T02:11:01.215Z
+state: linked
+synced_at: 2026-08-16T02:11:01.431Z
+type: lk

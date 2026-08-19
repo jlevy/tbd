@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  labels: []
+  priority: 2
+  status: closed
+  title: "Spec: Welcome Message Improvements"
+bead_id: is-01kg0a044zakspxh3be89200fm
+external_id: 14f167be-c694-46d6-a9b1-0edc43dd3253
+external_key: OS-56
+external_url: https://linear.app/finterm-ai/issue/OS-56/spec-welcome-message-improvements
+remote_updated_at: 2026-08-16T00:11:02.094Z
+state: linked
+synced_at: 2026-08-16T01:13:39.669Z
+type: lk

@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:64e562e69b4f5ab1784fd61257225b92e463582f3e217d322b9f240c91adcebc
+  labels:
+    - agent-skills
+  priority: 3
+  status: open
+  title: packages/tbd/.claude/skills/tbd/SKILL.md is stale vs current skill surfaces
+bead_id: is-01kytfhhschg0zt8btv7m0paaq
+external_id: bc86b6e4-2bf8-4ed9-a026-6971c7529fa0
+external_key: OS-202
+external_url: https://linear.app/finterm-ai/issue/OS-202/packagestbdclaudeskillstbdskillmd-is-stale-vs-current-skill-surfaces
+remote_updated_at: 2026-08-16T02:10:57.349Z
+state: linked
+synced_at: 2026-08-16T02:10:57.582Z
+type: lk

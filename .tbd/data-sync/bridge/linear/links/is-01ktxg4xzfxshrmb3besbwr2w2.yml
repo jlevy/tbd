@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  labels:
+    - pause
+  priority: 2
+  status: open
+  title: "Phase 5: self-docs migration (reference kind, register tbd-docs/tbd-design,
+    retire bare-docs manual viewer)"
+bead_id: is-01ktxg4xzfxshrmb3besbwr2w2
+external_id: 921619b6-8e78-46c0-9a0f-d17bd5fba362
+external_key: OS-82
+external_url: https://linear.app/finterm-ai/issue/OS-82/phase-5-self-docs-migration-reference-kind-register-tbd-docstbd-design
+remote_updated_at: 2026-08-16T02:10:49.939Z
+state: linked
+synced_at: 2026-08-16T02:10:50.166Z
+type: lk

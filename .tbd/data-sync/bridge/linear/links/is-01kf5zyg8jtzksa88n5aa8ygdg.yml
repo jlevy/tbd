@@ -1,0 +1,18 @@
+base:
+  assignee: null
+  description_hash: sha256v7:1219c856ae2bb2868b79316b3d0d23410b03daffb09427556909c574b8405798
+  labels:
+    - attic
+    - cli-layer
+    - phase-10
+  priority: 1
+  status: closed
+  title: "Phase 10: Attic Commands"
+bead_id: is-01kf5zyg8jtzksa88n5aa8ygdg
+external_id: b0a3112b-18a8-497c-9206-465a7de3ad94
+external_key: OS-75
+external_url: https://linear.app/finterm-ai/issue/OS-75/phase-10-attic-commands
+remote_updated_at: 2026-08-16T00:10:51.232Z
+state: linked
+synced_at: 2026-08-16T01:13:37.134Z
+type: lk

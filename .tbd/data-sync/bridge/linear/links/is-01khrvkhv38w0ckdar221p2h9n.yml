@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  labels: []
+  priority: 2
+  status: open
+  title: "Post-merge ID mapping resilience: polish and cleanup"
+bead_id: is-01khrvkhv38w0ckdar221p2h9n
+external_id: 92572d6f-5a95-40a2-9f42-f5863d6a36af
+external_key: OS-40
+external_url: https://linear.app/finterm-ai/issue/OS-40/post-merge-id-mapping-resilience-polish-and-cleanup
+remote_updated_at: 2026-08-16T00:11:24.543Z
+state: linked
+synced_at: 2026-08-16T01:13:43.655Z
+type: lk

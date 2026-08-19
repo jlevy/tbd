@@ -1,0 +1,18 @@
+base:
+  assignee: null
+  description_hash: sha256v7:46a31c37fcb95e9df893ee0ff72a5307be977387db88fd86f08c634bcf90ca3c
+  labels:
+    - validation
+    - web
+    - pr-207
+  priority: 1
+  status: closed
+  title: "Phase 6: validate and land production tbd web end to end"
+bead_id: is-01kzrs779s8d2t4qmvpx310p22
+external_id: 9437aa72-43f0-46bf-87b9-cc8a023e198e
+external_key: OS-138
+external_url: https://linear.app/finterm-ai/issue/OS-138/phase-6-validate-and-land-production-tbd-web-end-to-end
+remote_updated_at: 2026-08-16T00:12:57.837Z
+state: linked
+synced_at: 2026-08-16T01:14:02.383Z
+type: lk

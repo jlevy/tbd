@@ -1,0 +1,18 @@
+base:
+  assignee: null
+  description_hash: sha256v7:ea71300fe03beb54a61e3abee58777666b7cf56e10f4d5bb6ca0be95a820f254
+  labels:
+    - phase-16
+    - testing
+    - tryscript
+  priority: 1
+  status: closed
+  title: "Phase 16: Comprehensive Tryscript Coverage"
+bead_id: is-01kf5zyg8m455fs0pdt4gs4hgm
+external_id: e1fca9cb-87e7-4ee4-a3d7-7f25c7a5312b
+external_key: OS-70
+external_url: https://linear.app/finterm-ai/issue/OS-70/phase-16-comprehensive-tryscript-coverage
+remote_updated_at: 2026-08-16T00:10:54.374Z
+state: linked
+synced_at: 2026-08-16T01:13:38.527Z
+type: lk

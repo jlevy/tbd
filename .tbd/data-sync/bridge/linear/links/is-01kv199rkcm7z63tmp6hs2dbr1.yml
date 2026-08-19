@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:fed14a50074aef03d646b1b13cc348fcaf40c9821498b34e6624e9872ba36975
+  labels:
+    - pause
+  priority: 3
+  status: open
+  title: "Query-driven mutation: close/update --where (reuse list grammar)"
+bead_id: is-01kv199rkcm7z63tmp6hs2dbr1
+external_id: 1f760527-47c0-47a2-8e1a-01b086c6eb05
+external_key: OS-12
+external_url: https://linear.app/finterm-ai/issue/OS-12/query-driven-mutation-closeupdate-where-reuse-list-grammar
+remote_updated_at: 2026-08-16T02:10:53.143Z
+state: linked
+synced_at: 2026-08-16T02:10:53.363Z
+type: lk

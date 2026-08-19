@@ -3,16 +3,18 @@ type: is
 id: is-01kss0t446hjek1vq150eaxk89
 title: "[bug] tbd setup --auto pins dogfood scripts at dev-version strings that aren't on npm"
 kind: bug
-status: open
+status: closed
 priority: 2
-version: 2
+version: 3
 spec_path: tests/qa/release-v0.2.0-upgrade.qa.md
 labels:
   - v0.2.0
 dependencies: []
 parent_id: is-01ksrpb7b8cfwrzzd34ya9874q
 created_at: 2026-05-29T04:45:19.365Z
-updated_at: 2026-05-29T05:16:34.502Z
+updated_at: 2026-08-15T05:33:53.146Z
+closed_at: 2026-08-15T05:33:53.145Z
+close_reason: Fixed by the current format-aware configured fallback version used by generated launchers and upgrade validation.
 ---
 Observed during the v0.2.0 release: `tbd setup --auto` run from a dev checkout writes `npx --yes get-tbd@0.1.31-dev.34.cffb142-dirty` (or similar) into `.claude/scripts/tbd-session.sh`, `.codex/tbd-session.sh`, etc. Those versions are not published to npm, so anyone who relies on the npx fallback breaks. We worked around this manually for v0.2.0 by setting `TBD_VERSION_OVERRIDE=0.2.0` and regenerating before commit, but the next dev cycle will hit the same trap.
 

@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:e4950be6cf25495243abf192372ab359a6a1760fea525e8dcfe926c212056730
+  labels:
+    - bead-watch
+    - validation
+  priority: 1
+  status: closed
+  title: Release-validate bead watch infrastructure
+bead_id: is-01kzmm8zqnf8q210etncddjn6h
+external_id: 0c7780af-e280-430f-9356-2c1d096d9928
+external_key: OS-79
+external_url: https://linear.app/finterm-ai/issue/OS-79/release-validate-bead-watch-infrastructure
+remote_updated_at: 2026-08-16T02:10:59.087Z
+state: linked
+synced_at: 2026-08-16T02:10:59.309Z
+type: lk

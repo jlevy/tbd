@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:a6613b0ad7a03957f6a1218dd36df78455e620cc8f15a11e773e81036b1b0117
+  labels:
+    - pause
+  priority: 2
+  status: open
+  title: "Scheme-specific fetcher: https: (single-file with gh/HTTP fallback, ETag-aware)"
+bead_id: is-01kra9b54jew541f117q2h8pvs
+external_id: f4e4138f-c8f7-4f45-a74e-bde69c68ab44
+external_key: OS-99
+external_url: https://linear.app/finterm-ai/issue/OS-99/scheme-specific-fetcher-https-single-file-with-ghhttp-fallback-etag
+remote_updated_at: 2026-08-16T00:11:38.360Z
+state: linked
+synced_at: 2026-08-16T01:13:47.862Z
+type: lk

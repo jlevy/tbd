@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:f0569621f38f220ae1987ba0308c10ca27bedd8831882737e0253a4ef7ba28e7
+  labels:
+    - pause
+  priority: 3
+  status: open
+  title: tbd apply transaction file (generalize import)
+bead_id: is-01kv199t0v53178ybga0kp21k3
+external_id: 13de4a76-7c6f-43bb-97c2-e00d706b56b8
+external_key: OS-11
+external_url: https://linear.app/finterm-ai/issue/OS-11/tbd-apply-transaction-file-generalize-import
+remote_updated_at: 2026-08-16T02:10:53.762Z
+state: linked
+synced_at: 2026-08-16T02:10:54.038Z
+type: lk
