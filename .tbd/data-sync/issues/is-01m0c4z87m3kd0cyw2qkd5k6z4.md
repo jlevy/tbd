@@ -5,13 +5,17 @@ title: "tracker: actor axis, state model, and default board projection"
 kind: epic
 status: in_progress
 priority: 0
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-08-18-actor-axis-and-board-projection.md
 assignee: josh
 labels: []
 dependencies: []
 created_at: 2026-08-19T04:37:46.867Z
-updated_at: 2026-08-19T04:37:52.881Z
+updated_at: 2026-08-19T04:38:20.880Z
+extensions:
+  linear:
+    id: 4a516464-c913-4c5d-8ef4-63a7f36101be
+    linked_at: 2026-08-19T04:38:20.878Z
 ---
 Two orthogonal axes tbd collapses into single fields, plus the board projection they make expressible. Filed as two issues because they were found separately; one design — same file format, same schema module, same adapter, same field-flow machinery.
 
