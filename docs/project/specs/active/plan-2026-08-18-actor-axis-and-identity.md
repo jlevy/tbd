@@ -1,9 +1,9 @@
 ---
 title: Plan Spec
-description: Separate who is accountable from who is executing, so an agent can hold a bead without displacing the human who owns it, and project the resulting lifecycle onto a default Linear board that distinguishes planned from ready and paused from never-started
+description: Separate who is accountable from who is executing, so an agent can hold a bead without displacing the human who owns it, and resolve actors without hand-maintained identity tables — humans bind per provider to ids discovered from the tracker's own directory, agents carry the identity tbd already mints
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
-# Feature: Actor Axis and Board Projection
+# Feature: Actor Axis and Identity Mapping
 
 **Date:** 2026-08-18
 
@@ -13,13 +13,17 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Design discussion:** [#246](https://github.com/jlevy/tbd/issues/246) — the provider
 comparison and the measured evidence are argued there and are not re-argued here.
+One part of its recommendation is superseded: the kind-bearing `user_map` table it
+proposed is replaced by the two-namespace model below, which needs no identity table at
+all.
 
 **Sibling:**
 [plan-2026-08-18-tracker-state-model-and-linear-mapping.md](./plan-2026-08-18-tracker-state-model-and-linear-mapping.md)
 (epic `tbd-og20`, [#244](https://github.com/jlevy/tbd/issues/244)) adds `resolution`,
-`hold`, and `started_at`, and replaces position-based Linear state resolution with
-name-based. This spec is the second axis of the same model and depends on that resolver;
-it does not restate the state design.
+`hold`, and `started_at`, resolves Linear states by name, and owns the slot vocabulary
+and board projection.
+This spec is the second axis of the same model and depends on that resolver; it does not
+restate the state design.
 
 ## Overview
 
@@ -28,13 +32,19 @@ tbd has one actor field, `assignee: z.string()`. Linear has two — `assignee`
 second. The collapse is silent, and in an agent-driven repository it makes the field
 unusable in either direction.
 
-This adds `delegate` beside `assignee`, gives the identity table an actor **kind** so
-publishability is a property of the actor rather than of its presence in a map, and
-defines the default board projection that the two axes together make expressible.
+This adds `delegate` beside `assignee` and replaces identity *configuration* with
+identity *resolution*:
 
-The state sibling separates *where work sits* from *why it is there*. This one separates
-*who owns it* from *who is doing it*. Same defect, same shape, same file format, same
-adapter — which is why they are planned as a pair.
+- **Humans** resolve against the tracker’s own member directory and bind by provider
+  user id, one binding per provider since a Linear UUID and a GitHub login are different
+  identifiers. Adding a person to the team requires no tbd config change.
+- **Agents** carry the identity tbd already mints (`agid-{ulid}` plus a friendly name,
+  from `tbd start` / `tbd whoami`). Agents come and go per session; nothing about them
+  is registered anywhere, and they reach a shared tracker only through one explicit,
+  narrow binding for installed Linear agents.
+
+Nobody maintains an alias table, and identities that must stay local stay local by
+construction.
 
 ## Goals
 
@@ -42,10 +52,13 @@ adapter — which is why they are planned as a pair.
   in an agent-driven repository and is currently inexpressible.
 - Keep agent identities out of a shared tracker **by construction**, not by remembering
   to omit them from a config table.
-- Push a delegate to Linear when — and only when — the alias names a real Linear app
-  user.
-- Ship a default board that distinguishes *planned* from *ready* and *paused* from
-  *never started*, customizable per repository.
+- Add a person without touching config: resolve against the workspace directory, bind by
+  provider user id, survive renames.
+- Keep identity per provider, since a person’s Linear UUID and GitHub login are
+  different identifiers, without making the bead field provider-specific.
+- Push a delegate to Linear when — and only when — it names an installed Linear agent
+  (an app user).
+- Land `tbd start` claims on the acting axis instead of overwriting the accountable one.
 - Report a field that a flow rule excluded, instead of reporting success for a write
   that went nowhere.
 
@@ -59,48 +72,69 @@ adapter — which is why they are planned as a pair.
   Setting `delegateId` is a plain field write that happens to create an AgentSession on
   Linear’s side; nothing here requires tbd to become an agent.
 - **GitHub adapter work.** The model is chosen to fit it; nothing here implements it.
-- Re-specifying `resolution`, `hold`, or state resolution.
+- Re-specifying `resolution`, `hold`, slots, or the board projection.
   That is the sibling spec.
 
 ## Background
 
 Found during the same first-time Linear rollout that produced #244 and #245: ~900 open
-beads, ~105 mirrored epics, nearly all execution done by coding agents.
-
-`assignee` was in use on **zero** beads there.
+beads, ~105 mirrored epics, nearly all execution done by coding agents, and `assignee`
+in use on **zero** beads.
 Not neglect — there was nothing useful to write.
-The human is the same on every bead, so the field carries no information; the agent is
+The human is the same on every bead, so the field carries no information; the agent was
 not expressible at all.
-One config gate holds the field shut, and it is subtler than it looks.
-The reconcile engine (`core/reconcile.ts`) marks assignee
-`canPush: capabilities.assignee ?? false`, and the Linear adapter grants that capability
-only when `user_map` is non-empty and holds the alias (`linear/adapter.ts:198`). An
-unpushable assignee lands in the report’s `skippedPushes` — collected, but absent from
-the summary line, which still prints `skipped 0` because that counter counts pairs, not
-fields.
-The default output therefore reads as success while the field went nowhere, which
-is the observability gap this spec fixes.
 
-The `field_sync.fields.assignee: local` default is **not** a second gate, and an earlier
-draft of #246 was wrong to describe it as one: in the engine, `local` is an ownership
-short-circuit — the local value still pushes, and an opposite-side edit is overwritten
-and reported (`reconcile.ts:324`). What `local` does cost is the inbound direction: a
-reassignment made in Linear is overwritten on the next sync instead of flowing back,
-which is why `merge` is still the right setting for a board humans manage.
+### What tbd already has
 
-tbd’s own config-doc comment states the assumption that no longer holds:
+tbd already mints agent identity, and the design below reuses it rather than inventing a
+parallel one:
 
-```js
-assignee: FieldFlowRule.default("local")   // "`assignee` stays local because tracker assignees are people"
-```
+- `tbd whoami --ensure-id` mints `agid-{ulid}` once per working directory at session
+  start and stores it in machine-local state (`.tbd/state.yml`, gitignored — a committed
+  value would be wrong for every other checkout).
+- A friendly name is joined onto the id, never concatenated into it; renaming an agent
+  does not change who it is.
+- Resolution is total and layered: `--as` beats `$TBD_AGENT` beats session state beats
+  the derived `<harness>@<host>` fallback (`lib/agent-identity.ts`).
+- The identity research
+  ([research-2026-08-14-agent-and-session-identity.md](../../research/current/research-2026-08-14-agent-and-session-identity.md))
+  recommends durable per-agent records at `agents/agid-{ulid}.yml` on the sync branch,
+  one file per identity — not a flat union-merged map, whose duplicate-key hazard §5.4
+  of that document records.
 
-That was right when it was written.
-Linear’s 2025 agent platform is what changed: agents are OAuth apps installed with
-`actor=app`, they appear in assignment menus under `app:assignable`, and Linear’s stated
-taxonomy is **delegation, not assignment** — the issue keeps a human assignee while the
-agent is the delegate.
-`delegateId`, `agentSession`, `app:assignable`, and `actor=app` appear in **zero** files
-in the tbd dist today, so this is new surface rather than a modification.
+One piece of that work is interim wiring this spec replaces: `tbd start` currently
+claims a bead by writing the agent name into `assignee` (`start.ts:142`), because
+`assignee` was the only actor field there was.
+That is precisely the overload this axis removes — the claim belongs on the acting axis.
+
+### The gates, and the observability gap
+
+One config gate holds `assignee` shut today, and it is subtler than it looks.
+The reconcile engine marks assignee `canPush: capabilities.assignee ?? false`, and the
+Linear adapter grants that capability only when `user_map` is non-empty and holds the
+alias (`linear/adapter.ts:198`). An unpushable assignee lands in the report’s
+`skippedPushes` — collected, but absent from the summary line, which still prints
+`skipped 0` because that counter counts pairs, not fields.
+The default output therefore reads as success while the field went nowhere, which is the
+observability gap this spec fixes.
+
+The `field_sync.fields.assignee: local` default is **not** a second gate: in the engine,
+`local` is an ownership short-circuit — the local value still pushes, and an
+opposite-side edit is overwritten and reported (`reconcile.ts:324`). What `local` does
+cost is the inbound direction: a reassignment made in Linear is overwritten on the next
+sync instead of flowing back, which is why `merge` is still the right setting for a
+board humans manage.
+
+### What Linear’s model requires
+
+Linear’s 2025 agent platform changed the ground truth the old config comment (“tracker
+assignees are people”) was written on: agents are OAuth apps installed with `actor=app`,
+they appear in assignment menus under `app:assignable`, and Linear’s stated taxonomy is
+**delegation, not assignment**. Per Linear’s own docs, issues are **assigned to humans
+only and delegated to agents only**: the issue keeps a human assignee — someone
+accountable — while the agent acts as delegate.
+Two consequences fall straight out: an agent identity in `assignee` can never publish,
+and a human in `delegate` has no Linear rendering.
 
 The governing rule, from the repository this came from: **issues in Linear are managed
 per human, not per agent.** Linear is where a person decides what is on their plate.
@@ -111,341 +145,181 @@ answer to the one they do.
 
 ### Approach
 
-One field beside the existing one, and a value-shape change to the identity table:
+One field beside the existing one:
 
 ```
-assignee:  <alias>     # accountable. Unchanged field, unchanged meaning.
-delegate:  <alias>     # acting. Absent reads as "same as assignee".
+assignee:  <handle>    # accountable. Unchanged field, unchanged meaning: a human.
+delegate:  <name>      # acting. Absent reads as "same as assignee".
 ```
+
+And no identity table.
+Each field resolves in its own namespace, and publishability is structural rather than
+configured.
+
+### Humans are directory entries
+
+A human actor is whoever the tracker says is on the team, so tbd resolves handles
+against the provider’s own member directory instead of asking a config file.
+This needs one new adapter capability, `listMembers()`, returning each member’s provider
+id, display name, and login or email where the provider exposes them.
+Resolution then runs the same ladder for every provider, first match wins:
+
+1. **Recorded binding** for the handle in this provider.
+2. **Exact email match** against the directory, case-insensitively, where the provider
+   exposes emails.
+3. **Exact login or display-name match**, case-insensitively.
+4. **Ambiguous or unknown — ask.** Interactively, show the candidates, let the user
+   choose, and persist the answer as a binding so it is asked once.
+   Non-interactively, skip the field, report it, and never guess — the same posture as
+   the sibling’s state resolver and the bulk guard.
+
+Bindings are recorded by **provider user id**, so a display-name change, a login change,
+or an email change does not orphan the handle; `tbd doctor` reports drift between a
+binding and the live directory.
+This is the same resolve-by-name, bind-by-id pattern the sibling uses for workflow
+states.
+
+**Binding records are managed data, not config.** One file per identity under the
+provider’s bridge state, `bridge/<provider>/users/<provider-user-id>.yml`, holding the
+provider user id, the tbd handle, and the display name at bind time — and no email by
+default. Bridge state already travels on the sync branch per provider, and
+one-file-per-identity sidesteps the union-merge duplicate-key hazard the identity
+research documents. Bindings are written only at an interactive confirmation or during
+setup, never silently during sync.
+
+**Inbound**, an assignee arrives as a provider user id.
+A known id maps through its binding; an unknown one is offered as a new binding
+interactively, and otherwise reported and left unsynced — today’s behavior, now with the
+report naming the user rather than skipping silently.
+
+**`user_map` stays as an override.** The existing `alias: email-or-uuid` form keeps
+parsing unchanged and wins over directory resolution where present, so no existing
+config breaks. `tbd integration setup` offers to convert entries into binding records,
+after which the map can be deleted.
+It stops being the mechanism; adding a person to the workspace needs no tbd change at
+all.
+
+### Identity is per provider, and the handle is the join key
+
+A person has no universal id, and tbd should not invent one.
+A Linear user is a workspace UUID; a GitHub user is a login; the next tracker will have
+something else again.
+So the bead field holds a **tbd handle** — `assignee: josh` means “the person tbd knows
+as `josh`” — and each provider resolves that handle in its own namespace.
+
+The bridge layout already makes this structural rather than a special case: bindings
+live under `bridge/<provider>/users/`, so a person with accounts in two trackers has two
+binding records, one per provider directory, both naming the same handle.
+The handle is the join key; nothing else is shared between them.
+
+What falls out, without any additional mechanism:
+
+- **Partial coverage is normal, not an error.** A handle bound in Linear and not in
+  GitHub pushes to Linear and produces a reported skip on GitHub.
+  People genuinely do lack accounts on one side, and that reads as a skip with a reason
+  rather than a failure.
+- **One bead mirrored to two providers** pushes the same handle to two different ids,
+  each resolved independently by its own adapter.
+- **Inbound from either provider converges** on the same handle when both bindings
+  exist. When only one does, the other provider’s inbound offers a new binding for a
+  handle that already exists, which is the ordinary bind prompt rather than a conflict.
+- **Unbinding or rebinding in one provider leaves the other untouched**, because no
+  record spans providers.
+
+The handle namespace is flat, tbd-local, and unregistered — the same posture as agent
+names.
+Its integrity check is diagnostic rather than structural: a handle that appears on
+a bead but has no binding in any configured provider is either a typo or a person nobody
+has bound yet, and `tbd doctor` reports it alongside the resolved actor table.
+
+A central person record (`people/<handle>.yml` holding every provider id at once) was
+considered and set aside.
+It would be one file written by every provider’s setup path, so two providers binding
+the same person collide on a single file, while per-provider records merge file-by-file
+like the rest of bridge state.
+The join costs nothing either way, since the handle is the key.
+The point to revisit is if a person ever needs provider-independent attributes — a
+canonical display name, a timezone — which nothing here requires.
+
+The agent side is already per provider for the same reason: `agent_map` sits under
+`integrations.linear`, and a GitHub agent binding would get its own key under its own
+provider. Same shape, same reasoning.
+
+### Agents are tbd identities
+
+An agent actor is whatever tbd minted for the session doing the work: the friendly name
+(`claude-code@host`, or whatever `--as` / `$TBD_AGENT` said) backed by the `agid-{ulid}`
+identity, with durable per-agent records on the sync branch as the identity research
+recommends.
+
+This is the answer to “agents come and go”: they are **supposed to**. An agent identity
+is minted at session start, not registered in advance, so there is nothing to maintain
+when harnesses appear, models change, or sessions multiply.
+The roster is observed data, not configuration.
+
+An agent identity never publishes to a shared tracker.
+The one exception is an agent that is genuinely long-lived and workspace-visible: an
+**installed Linear agent** (a seat-free OAuth app user, e.g. Cyrus).
+Publishing to one is a deliberate, reviewable act, so it is the only identity that
+belongs in config:
 
 ```yaml
 integrations:
   linear:
-    user_map:
-      josh: { email: josh@example.com, kind: human }
-      claude: { kind: agent }                              # no address: never pushed
-      cyrus: { kind: agent, linear_app_user_id: <uuid> }   # pushable as a delegate
+    agent_map:
+      cyrus: <linear-app-user-id>   # the only identity config that remains
 ```
 
-The bare `alias: email` form keeps parsing as `kind: human`, so every existing config is
-valid with no rewrite.
+`kind` from the original #246 proposal disappears: the namespace carries it.
+Humans are publishable because the directory knows them; agents are unpublishable
+because only tbd knows them; `agent_map` is the explicit bridge for the rare identity
+that is both.
 
-`kind` is what makes the closure a design rather than an omission.
-Today the only way to keep an agent out of a shared workspace is to leave it out of
-`user_map`, which turns a deliberate policy into an unreported skip and gives the agent
-no name in tbd either.
-With a kind, an agent alias is a first-class local value that is *known* to be
-unpublishable, and the reason is legible at the config.
+### `tbd start` claims the acting axis
 
-A Linear agent is an **app user**, not a person with an email, so `user_map`’s current
-value domain cannot name one even where you want to — and `delegateId` is a separate
-mutation field from `assigneeId` regardless.
+The claim verb is where the two axes meet, and rewiring it settles a question the first
+draft left open: a claim **is** a delegation, so `tbd start`:
+
+- sets `delegate` to the resolved agent name (today it sets `assignee`, `start.ts:142`);
+- leaves `assignee` alone — the accountable human, or empty;
+- moves the collision checks to `delegate` (“already claimed by X” compares the acting
+  axis);
+- sets `started_at` once the sibling’s Phase 2 lands.
+
+`tbd whoami` and `--as` are unchanged.
+Anything more frequent than the claim verb — heartbeats, session tracking — is presence
+and stays out of beads entirely.
+
+**Migration:** beads claimed under the interim wiring hold agent names in `assignee`.
+The shapes are recognizable (roster names, `agid-` ids, the derived `<harness>@<host>`
+form), the feature is days old, and the population is small: `tbd doctor` reports them,
+and setup offers to move each to `delegate`.
 
 ### Mapping
 
-| tbd | Linear | GitHub |
+| tbd | Linear | GitHub (when built) |
 | --- | --- | --- |
-| `assignee` (`kind: human`) | `assigneeId` | assignee |
-| `delegate` (`kind: agent`, no app id) | not pushed; reported as a skip | not pushed |
-| `delegate` (`kind: agent`, with app id) | `delegateId` → creates an AgentSession | agent assignment |
-| `delegate` (`kind: human`) | `delegateId` | assignee (second) |
+| `assignee` = bound human | `assigneeId` | assignee |
+| `assignee` = agent identity | never pushed; warned once | never pushed |
+| `delegate` = agent in `agent_map` | `delegateId` → Linear creates an AgentSession | agent assignment |
+| `delegate` = agent, unmapped | local only; reported skip | local only |
+| `delegate` = human | local only; reported skip — Linear delegates are agents only | second assignee |
 
-Inbound, a Linear delegate that maps to a known alias sets `delegate`; an unknown one
-leaves the bead unchanged and warns, matching how unmapped assignees already behave.
+Inbound, a Linear delegate is always an app user: a known one maps through `agent_map`
+in reverse; an unknown one warns and leaves the bead unchanged, matching how unmapped
+assignees behave.
 
-### The default board projection
+### Reporting
 
-The sibling spec resolves Linear states by name and settles the terminal end.
-What the two axes together make newly expressible is the **open** end, which is where a
-planning board earns its keep:
+Two defects from a real debugging session, where a push reported success for a field
+that was never eligible:
 
-| Column | Linear type | tbd condition | Reads as |
-| --- | --- | --- | --- |
-| **Backlog** | `backlog` | `open`, not ready — default | not started, not being planned |
-| **Draft** | `backlog` | `open`, not ready — human-owned | being planned; not yet clear enough to execute |
-| **Todo** | `unstarted` | `open`, ready | ready to begin |
-| **In Progress** | `started` | `in_progress`, no hold | active now |
-| **Paused** | `started` | `in_progress` + `hold: paused` | begun, set down, not abandoned |
-| **Blocked** | `started` | `in_progress` + `hold: blocked` | begun, waiting on something |
-| **Done** | `completed` | `closed` + `completed` | finished |
-| **Canceled** | `canceled` | `closed` + `canceled` | abandoned |
-
-### Derived position, owned refinement
-
-The projection is not uniformly computable, and the design depends on admitting that
-rather than forcing it.
-
-**`open` versus `in_progress` versus terminal is derived** from bead fields, as is Todo
-versus the unready band — readiness is what `tbd ready` already computes.
-So is every `hold` distinction, and every terminal resolution.
-
-**Backlog versus Draft is not derivable at all.** The distinction is whether planning is
-actively happening, and no bead field holds that.
-A spec that exists but needs rewriting belongs in Backlog; a spec being actively worked
-belongs in Draft; `spec_path` cannot tell them apart, and neither can bead count, age,
-or label. The honest reading is that Draft means *not yet clear enough to execute on*,
-which is a judgment rather than a predicate.
-
-So the unready band has a derived default and an owned refinement: tbd places unready
-work in Backlog, and a person moving it to Draft **owns that choice**. tbd must preserve
-it — never recompute the column out from under a human on the next sync — while still
-moving the issue out of the band entirely when the bead genuinely becomes ready or
-started.
-
-This is the `field_sync` ownership question in a new place, and it should reuse that
-vocabulary rather than invent one: the coarse band is `merge`, the within-band
-refinement is effectively `remote`. The alternative — giving tbd a way to *set* Draft —
-would need a new field expressing “being planned”, and it is not clear that fact belongs
-in a bead at all when the spec document itself is the artifact under revision.
-
-The same asymmetry likely applies to In Review, which a human or a PR integration sets
-and tbd should not fight.
-
-This is provisioned and running on a real team (`FIN`, 96 issues), which settles three
-things the design can now assert rather than predict.
-
-**Type-based state resolution is not merely fragile, it is unusable here.** That board
-has four `started` states (In Progress, Paused, Blocked, In Review) and two `backlog`
-states (Backlog, Draft).
-A resolver that picks by type has no defensible answer for either group, which is the
-sibling spec’s name-based resolver earning its place before anything else can be built
-on it. Custom **statuses** are the mechanism; Linear has no custom *fields* on an issue
-(`customFields`, `properties`, and `customField` are all absent from the `Issue` type),
-so the workflow state is the only place a lifecycle distinction can live.
-
-**A column reveals; a snooze hides.** `in_progress + paused` has two candidate homes and
-they are not equivalent: a named `started` state keeps the work on the board where a
-person planning the week can see it, while `snoozedUntilAt` removes it from view until
-the date arrives. Observed on a real paused issue: `state.name = Paused`, `startedAt`
-set, `snoozedUntilAt` null.
-This *confirms* the sibling spec’s choice (it already maps paused to the named state,
-with a carrier-label fallback) and settles #244’s open question 3 in the same direction:
-the column is canonical.
-Snooze stays a Linear-side layer a human may apply on top — tbd never writes or reads
-`snoozedUntilAt`, and `hold_until` remains a tbd-native fact.
-An issue a person snoozes is still in its column when it returns; nothing in the
-projection depends on visibility.
-
-**Explicit trailing `position` is not a nicety.** Before provisioning, that team’s board
-ordered Done, Canceled, and Duplicate *before* In Review and Paused, because the two
-`started` states had been created later and landed at positions 1002 and 2018.44 while
-the defaults sat at 3, 4, and 5. Terminal columns appeared mid-board.
-Provisioning must place a created state explicitly and should offer to repair an
-existing board whose order contradicts its own lifecycle.
-
-Three further observations, each of which is a reason the axes have to land first.
-
-**Draft versus Todo is readiness, which tbd already computes.** `tbd ready` is
-first-class — it is how agents pick up work — so the split needs no new field and no
-human bookkeeping. A bead whose dependencies are unmet, or whose spec is still being
-written, sits in Draft; the moment it unblocks it moves to Todo.
-That is the distinction a planning board most wants and the one a flat `open` cannot
-draw.
-
-This is an amendment to the sibling’s open-end table, which maps `open` → Todo
-unconditionally and `open + paused` → Backlog.
-Under this projection, Backlog/Draft is reached by *unreadiness* rather than by an
-explicit pause, which is both automatic and closer to what the column means.
-The two rules can coexist — an explicitly paused un-started bead is also not ready — but
-the precedence should be settled in one place.
-
-**Paused versus Draft is `started_at`.** Both are “not active”, and without a record of
-having started they are indistinguishable — exactly the information tbd loses today,
-since `deferred` overwrites `in_progress`. Paused is the column that only exists if
-`started_at` does, which is the strongest practical argument for `started_at` even ahead
-of the rest of the state axis.
-
-**Paused and Blocked are the same Linear type.** Both are `started`, because both
-describe work that has begun; they differ by `hold`. Under a flat enum they would have
-to be separate positions and would therefore destroy the `in_progress` they modify.
-
-The projection also lines up the three surfaces that currently say the same thing three
-different ways — the spec-lifecycle folders from
-[#245](https://github.com/jlevy/tbd/pull/245), the bead fields, and the board:
-
-| Spec folder | Bead state | Column |
-| --- | --- | --- |
-| `draft/` | `open`, not ready | Draft |
-| `active/` | `open` ready, or `in_progress` | Todo, In Progress |
-| `paused/` | `in_progress` + `hold: paused` | Paused |
-| `done/` | `closed` + `completed` | Done |
-| `archive/` | `closed` + `canceled` | Canceled |
-
-#245 observed that its `paused/` folder is the spec-level instance of #244’s gap.
-This table is that observation finished: one lifecycle vocabulary, three surfaces,
-currently expressible on only one of them.
-
-### The slot vocabulary and `state_map`
-
-The projection needs a name for each position it can put work in.
-That vocabulary is the thing to map from — not `status`, which is only one of the three
-inputs.
-
-```
-backlog | draft | todo | in_progress | paused | blocked | in_review | done | canceled | duplicate
-```
-
-A **slot** is the tbd-side lifecycle concept; a Linear state name is one provider’s
-rendering of it. Keying the map by slot rather than by status matters because half these
-slots are not status values at all: `paused` and `blocked` come from `hold`, `todo`
-versus `backlog` comes from readiness, and `canceled` and `duplicate` come from
-`resolution`. The sibling’s example already mixes the two spaces —
-`state_map: { in_progress: In Progress, paused: Paused }` keys one entry by a status and
-the next by a hold — which is the sign that the key space wants naming properly.
-
-The same vocabulary already appears twice elsewhere: as #245’s spec-lifecycle folders,
-and as the board columns.
-Naming it once makes those three surfaces projections of one thing rather than three
-parallel lists that drift.
-
-### `state_map` is optional, and omitting it changes nothing
-
-```yaml
-integrations:
-  linear:
-    state_map:            # optional; absent = exactly today's behavior
-      backlog: Backlog
-      draft: Draft
-      todo: Todo
-      in_progress: In Progress
-      paused: Paused
-      blocked: Blocked
-      in_review: In Review
-      done: Done
-      canceled: Canceled
-      duplicate: Duplicate
-```
-
-Absent, tbd behaves as it does now: the stock states, no extra columns, nothing
-provisioned, no prompt.
-Present, it is an explicit statement of the board a repository wants, and tbd provisions
-**only** the states named there and only on confirmation.
-
-This settles the provisioning-footprint question the sibling raises.
-That spec argues against creating states freely — a workflow state is team-wide and
-changes the board for people who never run tbd, which is why `mirror_labels` already
-defaults off — and concludes that Paused should be the sole offered candidate.
-An optional map is a better answer than either that restriction or a default that
-creates three columns: the richer board is opt-in by writing it down, the config *is*
-the confirmation, and a repository that wants none of it never sees a prompt.
-
-It also avoids a config-format bump.
-An optional key is additive, older tbd ignores what it does not know, and `f08`
-preserves unknown keys — so the config half of the sibling’s open format question
-answers itself. The bead-field half (`resolution`, `hold`, `delegate`) is separate and
-still needs one answer covering both specs.
-
-Resolution order is the sibling’s, with the map consulted first: configured name, then
-conventional name, then the only state of that type, then ask.
-Binding is to state **id** after first resolution, so renaming Draft to Planning does
-not break the projection.
-Validation runs against the team’s real states before any mutation and fails closed
-naming what is missing, rather than guessing a neighbour; a named state that does not
-exist and is not created collapses to its type’s default, reported once.
-
-One wrinkle the map cannot express: `backlog` and `draft` are the same band, and which
-one an issue sits in is the owned refinement above.
-The map says where tbd *puts* work that it places; it does not license tbd to move an
-issue a person put in Draft.
-
-### The sync algorithm
-
-Everything above rides the engine tbd already has, and the design stands or falls on
-that claim, so this section states it against the real code.
-
-The reconcile engine (`core/reconcile.ts`) is a pure per-field three-way matrix over
-**canonical values** with a stored base: unchanged/unchanged does nothing, one-side
-change flows, both-changed conflicts resolve by `tie_break`, and `local`/`remote`
-ownership short-circuits the matrix with the overwrite reported.
-The Linear adapter reduces a workflow state to a canonical status by **type only**
-(`mapping.ts: statusFromLinear`), and sends a state id outbound only when the status
-field is in the patch (`adapter.ts:794`).
-
-That last fact is why the board works by hand today: a human dragging an issue between
-two states of the same type (In Progress → Paused) changes nothing canonical, so the
-matrix sees unchanged/unchanged and the placement survives.
-The design keeps that property and makes it deliberate.
-
-**The change is the canonical vocabulary, not the engine.** The status field the matrix
-compares widens from the five-value status enum to the slot vocabulary:
-
-- **Local slot** is computed, never stored: a pure function of `status`, `hold`,
-  `resolution`, readiness, and the recorded refinement (below), by a fixed precedence —
-  terminal resolution, then hold, then refinement, then the readiness split, then the
-  band default. First match wins, so a bead that is simultaneously unready and held still
-  lands in exactly one slot.
-- **Remote slot** is resolved from the state **name** through `state_map` (configured
-  name, then conventional name, then sole-state-of-type, then ask — the sibling’s
-  resolver order). A state whose name resolves to no slot is an **owned refinement**: for
-  the matrix it reads as its type’s band slot, and its exact state id is recorded so
-  outbound writes send it back verbatim.
-  In Review and Draft are just the named cases of this rule; a team’s own “In QA” gets
-  the same treatment for free.
-- **Applying a pull** decomposes the winning slot back onto the bead: `done`/`canceled`/
-  `duplicate` set `status: closed` plus `resolution`; `paused`/`blocked` set
-  `in_progress` plus `hold`; `todo`/`backlog` set `open`; `draft` and `in_review` set
-  the band’s status plus the refinement record, never a status of their own.
-- **Applying a push** composes the slot’s mapped state id, falling down the ladder when
-  the team lacks the state: mapped state, else carrier label beside the band default
-  (`tbd:paused`, `tbd:blocked` — the mechanism `blocked`/`deferred` already use), else
-  the band default alone, reported once.
-
-The refinement record needs a durable home, and there are two candidates with a real
-trade-off: `extensions.<provider>` on the bead (travels with the bead through the sync
-branch, but bead sync merges `extensions` whole-object last-writer-wins), or the pair’s
-bridge base (already per-provider and per-pair, but local to the clone that synced).
-This is an open question below rather than a decision here.
-
-Conflicts need no new machinery: a slot is one value, so a human moving an issue to
-Paused while an agent closes the bead is both-changed on one field, resolved by
-`tie_break` exactly as status conflicts are today.
-Echo needs none either: the matrix converges pushes on the next run because the merged
-base takes the pushed value.
-
-**Migration of the base.** The stored base for every linked pair holds a five-value
-status. On first run with slots, the base statuses are mechanically rewritten to their
-slot equivalents (`open`→`todo`-or-`backlog` cannot be recovered, so `open` rewrites to
-the band and the first reconcile treats a readiness-split difference as remote-unchanged
-rather than a conflict).
-Without this, every linked pair would read as locally changed on upgrade and the first
-sync would mass-push state writes — the bulk guard would catch the volume, but the
-correct number of writes is zero.
-
-**Fields the flow rule excludes are named.** The report already collects field-level
-`skippedPushes`; the summary line prints pair-level counts only, which is how a no-op
-push reads as success.
-The summary gains the field-level line, and `--verbose` names each excluded field with
-its reason (`assignee: no user_map entry for <alias>`).
-
-### Default integration and re-config
-
-`tbd integration setup` becomes the one place the board is established, for a fresh
-integration or an existing one — sync itself never provisions, never renames, and never
-touches a state outside the map.
-
-Fresh setup proposes the full default map and shows its plan before doing anything:
-which slots bind to existing states by name (on a stock team: Backlog, Todo, In
-Progress, In Review, Done, Canceled, Duplicate), which states would be created (Draft,
-Paused, Blocked), and the explicit position each created state gets — inserted after the
-bound state of the preceding slot, so the board reads in lifecycle order.
-Confirming writes the `state_map` into config and creates the confirmed states;
-declining writes nothing and leaves legacy behavior.
-The written config is the consent, so no later sync ever prompts.
-
-Re-running setup on an existing integration is the re-config path, and it reconciles
-three things against the live team: slots in the map with no matching state (offer to
-create), states whose positions contradict the slot order (offer to reposition — the
-provisioned team below had Done, Canceled, and Duplicate sitting *before* two `started`
-states until exactly this repair), and map names that no longer resolve (bindings are by
-id after first resolution, so a rename keeps working; doctor reports the drift so the
-config can be updated to match).
-
-Custom mappings are the same mechanism with different content: any subset of slots, any
-names. Omitted slots fall down the outbound ladder (carrier label, then band default).
-Two slots may name one state; inbound then disambiguates by carrier label and otherwise
-reads the plainer slot.
-`tbd doctor` prints the full resolved table — slot, state name, state id,
-bound-or-missing — offline, so the projection is inspectable without a sync.
+- The summary gains a field-level line for `skippedPushes`, and `--verbose` names each
+  excluded field with its reason (`assignee: no binding for <handle>`,
+  `assignee: not eligible (flow=local)`).
+- Writing a value that can never publish under current config — an agent identity in
+  `assignee` on a mirrored repository, a `delegate` with no `agent_map` entry — warns at
+  write time instead of failing silently at sync time.
 
 ## Backward Compatibility
 
@@ -456,138 +330,147 @@ bound-or-missing — offline, so the projection is inspectable without a sync.
 - **Library APIs**: KEEP DEPRECATED. New field is optional on every create/update path.
 - **Server APIs**: N/A.
 - **File formats**: SUPPORT BOTH. `delegate` is optional; absent reads as “same as
-  assignee”. `f08` preserves unknown keys, so a bead written by a newer tbd survives an
-  older one — the same question the sibling raises about a format bump applies here and
-  should get one answer for both.
-- **Database schemas**: MIGRATE, trivially.
-  `user_map` entries in the `alias: email` form are read as `kind: human` with no
-  rewrite. No bead needs backfilling.
+  assignee”. `f08` preserves unknown keys; whether the new bead fields need a format bump
+  is one decision shared with the sibling.
+- **Config**: NO CHANGE to `user_map` — the existing string form keeps parsing and keeps
+  winning. `agent_map` is additive.
+- **Data**: binding records and agent records are additive files under existing bridge
+  and sync-branch layouts, and are per provider, so adding a second integration adds
+  records rather than reshaping existing ones.
+  The only migration is moving agent-shaped `assignee` values to `delegate`, reported by
+  doctor and applied on confirmation.
 
 ## Implementation Plan
 
-Depends on the sibling’s Phase 1 resolver.
-Phase 1 here is useful without Phase 2.
+Depends on nothing in the sibling for Phase 1; Phase 2 reuses the sibling’s
+resolver-and-ask machinery; each phase is useful without the ones after it.
 
-### Phase 1: The actor axis
+### Phase 1: The delegate field and the claim verb
 
-- [ ] Add `delegate` to the bead schema; `user_map` values accept the object form with
-  `kind`, with the bare-email form parsed as `kind: human`
+- [ ] Add `delegate` to the bead schema; absent reads as “same as assignee”
 - [ ] `--delegate` on `tbd create` / `tbd update`, including the bulk path
-- [ ] Outbound: `assignee` → `assigneeId`; `delegate` → `delegateId` only when the alias
-  carries `linear_app_user_id` or is `kind: human`
-- [ ] An agent alias with no app id produces a **reported** skip, never a silent one
-- [ ] Inbound: a mapped delegate sets `delegate`; an unknown one warns and leaves the
-  bead unchanged
-- [ ] Report fields excluded by flow rule under `--verbose`
-  (`assignee: not eligible (flow=local)`), and warn when a write can never publish
+- [ ] `tbd start` sets `delegate` instead of `assignee`; collision checks move with it
+- [ ] Doctor reports agent-shaped `assignee` values; setup offers the move to `delegate`
+- [ ] Field-level skip line in the sync summary; `--verbose` names each excluded field
+  with its reason; write-time warning for values that can never publish
+- [ ] Tests: claim sets delegate and preserves assignee; collision on delegate; the
+  red-proof observability cases (a push whose `--verbose` output omits an excluded field
+  fails; an unpublishable write that emits no warning fails); an `f08` client
+  round-trips a bead carrying `delegate` without stripping it (the format-bump test,
+  shared with the sibling)
+
+### Phase 2: Human identity binding
+
+- [ ] Add `listMembers()` to the adapter interface; implement it for Linear
+- [ ] Directory resolution ladder (binding, email, login or display name, ask), written
+  once against the adapter interface rather than inside the Linear adapter
+- [ ] Persist bindings by provider user id under `bridge/<provider>/users/`; never guess
+  non-interactively
+- [ ] Inbound unknown assignee offers a binding interactively; reports otherwise
+- [ ] `user_map` honored as an override; setup migrates entries to binding records
+- [ ] `tbd doctor` prints the resolved actor table (handle, provider, user id, display
+  name, bound-or-stale) offline, flags directory drift, and flags handles with no
+  binding in any configured provider
+- [ ] Tests: each ladder step; rename survival via id binding; ambiguity refuses
+  non-interactively; migration from `user_map`; a handle bound in one provider and not
+  another pushes to the first and reports a skip on the second
+
+### Phase 3: Publishing delegates
+
+- [ ] `agent_map` in config; outbound `delegate` → `delegateId` only for mapped agents
+- [ ] Inbound delegate maps through `agent_map` in reverse; unknown app users warn and
+  leave the bead unchanged
+- [ ] An unmapped agent delegate produces a **reported** skip, never a silent one
 - [ ] Tests: each mapping row round-trips; the unpublishable-agent case emits a skip; a
-  bare-email `user_map` still parses
-
-### Phase 2: Slots in the engine
-
-- [ ] Name the slot vocabulary; widen the reconcile status field from the five-value
-  enum to slots. Legacy path (no `state_map`) keeps `statusToLinear` / `statusFromLinear`
-  byte-for-byte
-- [ ] Local slot computation with the fixed precedence (resolution, hold, refinement,
-  readiness, band default); pull decomposition back onto bead fields
-- [ ] Remote slot resolution by name through `state_map`; unmapped names become owned
-  refinements (band slot for the matrix, exact state id preserved outbound)
-- [ ] Settle and implement the refinement record’s home (`extensions.<provider>` vs
-  bridge base) with its cross-clone behavior tested
-- [ ] Base migration on first slot run: statuses rewrite mechanically, zero writes on an
-  unchanged repository — pinned by test
-- [ ] Outbound ladder: mapped state, else carrier label + band default, else band
-  default; reported once per slot
-- [ ] Field-level skip reporting in the summary; `--verbose` names each excluded field
-  with the reason
-
-### Phase 3: Setup, provisioning, and re-config
-
-- [ ] `state_map` optional — absent reproduces today’s behavior with no extra states and
-  no prompt; the written config is the consent
-- [ ] Fresh setup proposes the default map: bind by name, create Draft/Paused/Blocked on
-  confirmation, explicit positions in slot order
-- [ ] Re-run reconciles map vs live team: missing states (offer create), order
-  contradictions (offer reposition), renames (id bindings hold; doctor reports drift)
-- [ ] Validate against real team states before mutating; fail closed naming what is
-  missing; never rename, delete, or touch states outside the map
-- [ ] Two-slots-one-state allowed; inbound disambiguates by carrier label, else the
-  plainer slot
-- [ ] `tbd doctor` prints the resolved slot table (slot, name, id, bound-or-missing)
-  offline
-- [ ] Tests: every projection row round-trips on a provisioned team and degrades
-  correctly on a stock one; the no-fight property (same-type column moves produce no
-  patch); an unmapped custom state survives a full sync cycle; setup idempotence and
-  position placement
+  human delegate is never sent to Linear
 
 ## Testing Strategy
 
-Unit tests for the actor mapping table, including the three delegate cases, which differ
-only by what `user_map` says about the alias.
-Round-trip tests through the existing Linear adapter fixtures for assignee,
-delegate-as-app-user, and delegate-as-human.
+Unit tests for the resolution ladders in both namespaces and for the mapping table,
+including the three delegate cases, which differ only by what `agent_map` says about the
+name. Round-trip tests through the existing Linear adapter fixtures for assignee and
+delegate-as-app-user.
+The two silent-gate defects get red-proof tests as listed in Phase 1. A migration test
+covers a bead claimed under the interim wiring: after the move, the agent name is in
+`delegate`, `assignee` is untouched, and a re-run is a no-op.
 
-The two silent-gate defects get red-proof tests: a push whose `--verbose` output omits
-an excluded field fails, and a write of an unpublishable actor that emits no warning
-fails. Both reproduce a real debugging session where a push reported success for a field
-that was never eligible.
-
-Board projection is table-driven: each row set locally, pushed, read back, asserted
-unchanged, on both a provisioned team and a stock one.
+The per-provider claim is tested against a second provider rather than argued: with a
+stub adapter standing in for a non-Linear tracker, one handle bound in both resolves to
+two different ids, a handle bound in only one pushes there and reports a skip on the
+other, and rebinding in one leaves the other’s record untouched.
+This is what keeps the design honest before a real second adapter exists.
 
 ## Rollout Plan
 
-Phase 1 is inert until a repository writes a `delegate`: absent means “same as
-assignee”, which is today’s behavior.
-Opening the field to Linear still requires the two existing gates, so no workspace
-starts receiving assignees because of an upgrade.
-
-Phase 2 changes what a board looks like and is therefore opt-in per repository through
-`state_map` plus confirmed provisioning.
-A team that provisions nothing sees exactly what it sees today.
+Phase 1 is inert until a repository writes a `delegate`, and `tbd start`’s change lands
+the claim on a field no sync path publishes by default.
+Opening `assignee` to Linear still requires the existing flow-rule gate, so no workspace
+starts receiving actor writes because of an upgrade.
+Phase 2 writes bindings only at interactive confirmation or setup.
+Phase 3 publishes only names listed in `agent_map`.
 
 ## Open Questions
 
-- Field name: `delegate` follows Linear.
-  Is a provider-neutral name (`acting`, `worker`) better for a tool that also targets
-  GitHub, where the concept has a different shape?
-- Should `delegate` default to the acting agent automatically when an agent moves a bead
-  to `in_progress`, or always be set explicitly?
-  Automatic is convenient and is also how a field quietly becomes presence tracking.
-- Where does the refinement record live — `extensions.<provider>` on the bead (travels
-  with the bead; whole-object last-writer-wins on merge) or the pair’s bridge base
-  (per-provider already; local to the syncing clone)?
-  The cross-clone behavior differs and the choice should be tested, not argued.
-- Precedence between the sibling’s `open + paused` → Backlog rule and this spec’s
-  unready band: the slot precedence ladder resolves the mechanics (hold outranks the
-  readiness split), but whether an un-started paused bead reads better as Backlog or as
-  Draft is a taste call to confirm with use.
-- Should `kind: agent` aliases be allowed as `assignee` at all, or rejected at write
-  time? Rejecting is stricter and matches the governing rule; allowing keeps tbd usable
-  for repositories that do not mirror to a tracker.
-- Does this need a format bump?
-  Same question as the sibling, and it should get one answer covering both sets of
-  fields.
+Nothing here blocks Phase 1. Each question names the phase that has to answer it, so
+implementation can start without resolving them all first.
 
-Settled since the first draft: snooze — the named column is canonical and
-`snoozedUntilAt` stays a Linear-side layer tbd never writes (confirming the sibling’s
-choice); and whether tbd can set Draft — it cannot, preserve-only via the refinement
-record, since “being planned” is a judgment about the spec document rather than a fact a
-bead holds.
+- **Handle shape** (Phase 2). At bind time, is the handle the display-name slug, the
+  email local-part, or free text at the prompt?
+  The prompt’s default matters more than the rule, since bindings are made once.
+- **Privacy hardening** (Phase 2). Binding records deliberately store provider ids,
+  handles, and display names, not emails.
+  Should that be schema-enforced so it cannot regress?
+- **Session precision** (after Phase 1, from use).
+  `delegate` carries the friendly name.
+  Should the precise session (`agid-{ulid}`) also land on the bead as a `delegate_id`
+  companion, or is per-session provenance the roster records’ job?
+  Two concurrent sessions of the same harness on one host share a name, so the name
+  alone cannot distinguish them; whether a bead needs to is the question.
+- **Agent as assignee** (after Phase 1, from use).
+  Reject at write time on tracker-mirrored repositories, or allow and never publish?
+  Phase 1 implements the permissive default — allow, warn, never publish — because it
+  keeps tbd usable for repositories that do not mirror.
+  Tightening later is a one-line change; loosening after people have relied on rejection
+  is not.
+- **Central person record** (revisit only if needed).
+  Per-provider bindings join on the handle and need no shared record.
+  If a person ever needs provider-independent attributes, `people/<handle>.yml` is the
+  shape to reconsider, along with the concurrent-write problem that set it aside.
+
+Settled:
+
+- **Field name is `delegate`.** It matches Linear exactly, and GitHub’s agent assignment
+  is delegation-shaped as well, so a provider-neutral coinage (`acting`, `worker`) would
+  buy distance from both vocabularies for no gain.
+  Naming it is a Phase 1 precondition, so it is decided here rather than deferred.
+- **Format bump: assume none, prove it.** `f08` preserves unknown keys, so a pre-change
+  client should round-trip a bead carrying `delegate` without stripping it.
+  Phase 1 pins that with a test rather than assuming it; a bump is cut only if the test
+  fails, and then jointly with the sibling’s fields rather than for one field alone.
+- **`delegate` is set automatically by the claim verb**, because a claim is a
+  delegation. Nothing more frequent than the claim verb touches beads.
+- **No identity table.** #246’s kind-bearing `user_map` is unnecessary once humans and
+  agents resolve in separate namespaces.
 
 ## References
 
 - [#246](https://github.com/jlevy/tbd/issues/246) — design discussion and provider
   comparison
 - [#244](https://github.com/jlevy/tbd/issues/244) — the state axis
-- [#245](https://github.com/jlevy/tbd/pull/245) — spec-lifecycle folders; the third
-  surface of the same vocabulary
+- [#245](https://github.com/jlevy/tbd/pull/245) — spec-lifecycle folders
 - [plan-2026-08-18-tracker-state-model-and-linear-mapping.md](./plan-2026-08-18-tracker-state-model-and-linear-mapping.md)
-  — the sibling spec and its resolver
-- Linear: `IssueUpdateInput.assigneeId` / `delegateId`, `actor=app`, `app:assignable`,
-  AgentSession lifecycle
-- `packages/tbd/src/integrations/linear/mapping.ts`,
-  `packages/tbd/src/integrations/linear/adapter.ts`
+  — the sibling spec, its resolver, and the board projection
+- [research-2026-08-14-agent-and-session-identity.md](../../research/current/research-2026-08-14-agent-and-session-identity.md)
+  — agent id format, roster records, and the flat-map hazard
+- `packages/tbd/src/lib/agent-identity.ts`, `packages/tbd/src/cli/commands/start.ts` —
+  the shipped identity machinery and the interim claim wiring
+- `packages/tbd/src/integrations/linear/adapter.ts`,
+  `packages/tbd/src/integrations/core/reconcile.ts` — the gates and the skip reporting
+- Linear docs: [Assign and delegate issues](https://linear.app/docs/assigning-issues),
+  [AI Agents](https://linear.app/docs/agents-in-linear),
+  [Agents API](https://linear.app/developers/agents) — humans are assigned, agents are
+  delegated; `IssueUpdateInput.assigneeId` / `delegateId`; `actor=app`;
+  `app:assignable`; AgentSession lifecycle
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
