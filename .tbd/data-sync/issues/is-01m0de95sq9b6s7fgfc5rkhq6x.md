@@ -5,11 +5,16 @@ title: "Sync clears Linear assignees: a null local assignee is pushed as an expl
 kind: bug
 status: open
 priority: 0
-version: 1
+version: 3
+assignee: josh
 labels: []
 dependencies: []
 created_at: 2026-08-19T16:39:43.669Z
-updated_at: 2026-08-19T16:39:43.669Z
+updated_at: 2026-08-19T16:54:27.939Z
+extensions:
+  linear:
+    id: 8a51f977-f9e5-411d-8c72-4e8e67be7837
+    linked_at: 2026-08-19T16:54:20.080Z
 ---
 ## Summary
 
