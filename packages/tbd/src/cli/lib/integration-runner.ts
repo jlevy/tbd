@@ -394,6 +394,12 @@ export async function runEnabledIntegrationPushes(
           beadId: displayId(action.bead.id),
           reason: action.skipReason ?? 'skipped',
         })),
+        skippedFields: [...plan.creates, ...plan.updates].flatMap((action) =>
+          (action.skippedFields ?? []).map((entry) => ({
+            beadId: displayId(action.bead.id),
+            ...entry,
+          })),
+        ),
         failures: [],
         // Explain the shape of a policy-driven set before anything is written.
         // `--bead` runs name their beads, so there is nothing to explain.

@@ -366,9 +366,27 @@ class PushHandler extends BaseCommand {
         for (const report of reports) {
           const verb = dryRun ? 'would create' : 'created';
           const verb2 = dryRun ? 'would update' : 'updated';
+          const fieldSkips = report.skippedFields ?? [];
           console.log(
-            `${report.provider}: ${verb} ${report.created.length}, ${verb2} ${report.updated.length}, skipped ${report.skipped.length}, failed ${report.failures.length}`,
+            `${report.provider}: ${verb} ${report.created.length}, ${verb2} ${report.updated.length}, skipped ${report.skipped.length}` +
+              // Counted apart from bead skips: these writes DID happen, minus a field.
+              // Folding them into `skipped` would misreport what was written; omitting
+              // them is what let a push read as success over a field that went nowhere.
+              (fieldSkips.length > 0 ? `, fields not pushed ${fieldSkips.length}` : '') +
+              `, failed ${report.failures.length}`,
           );
+          if (fieldSkips.length > 0) {
+            // Grouped by cause: one missing config entry usually explains every skip
+            // in the run, and a line per bead would bury that.
+            const reasons = new Map<string, number>();
+            for (const skip of fieldSkips) {
+              const key = `${skip.field}: ${skip.reason}`;
+              reasons.set(key, (reasons.get(key) ?? 0) + 1);
+            }
+            for (const [reason, count] of reasons) {
+              console.log(`  - ${reason}${count > 1 ? ` (${count} beads)` : ''}`);
+            }
+          }
           for (const line of describeSelection(report.selection)) {
             console.log(line);
           }

@@ -191,6 +191,8 @@ export interface ConflictReport {
  * One planned mirror operation for a single bead.
  */
 export interface MirrorAction {
+  /** Fields excluded from `patch`, carried so the report can name them. */
+  skippedFields?: { field: string; reason: string }[];
   bead: Issue;
   /** Selected local parent whose provider identity must exist before this action. */
   parentBeadId?: string;
@@ -223,6 +225,15 @@ export interface MirrorReport {
   created: string[];
   updated: string[];
   skipped: { beadId: string; reason: string }[];
+  /**
+   * Fields that were dropped from an otherwise successful write, and why.
+   *
+   * Distinct from `skipped`, which is a whole bead that never went. A push that
+   * silently omits one field reports `skipped 0` and reads as complete success —
+   * observed live against a real workspace, where every `assignee` was dropped for
+   * want of a `user_map` entry and the summary said nothing at all.
+   */
+  skippedFields: { beadId: string; field: string; reason: string }[];
   /** Non-fatal failures: the run is degraded but git state is untouched. */
   failures: { beadId: string; error: string }[];
   /**

@@ -277,8 +277,20 @@ export function planMirror(context: MirrorContext): MirrorPlan {
         : {}),
     };
 
+    // An actor the tracker cannot name is a policy outcome, not an error — but it is
+    // one the operator has to be able to see. Silently dropping it is how a push
+    // reports success for a field that never left the machine.
+    const skippedFields: { field: string; reason: string }[] = [];
+    if (issue.assignee && context.canPushAssignee && !context.canPushAssignee(issue.assignee)) {
+      skippedFields.push({
+        field: 'assignee',
+        reason: `no user_map entry for ${issue.assignee}`,
+      });
+    }
+
     const action: MirrorAction = {
       bead: issue,
+      ...(skippedFields.length > 0 ? { skippedFields } : {}),
       ...(parentBeadId ? { parentBeadId } : {}),
       externalId: existingLink?.id,
       patch,
@@ -336,6 +348,14 @@ export async function applyMirror(options: ApplyOptions): Promise<MirrorReport> 
       beadId: options.displayId(action.bead.id),
       reason: action.skipReason ?? 'skipped',
     })),
+    // Collected from every bead that will actually be written, since a field-level
+    // skip belongs to a successful write rather than to a skipped bead.
+    skippedFields: [...plan.creates, ...plan.updates].flatMap((action) =>
+      (action.skippedFields ?? []).map((entry) => ({
+        beadId: options.displayId(action.bead.id),
+        ...entry,
+      })),
+    ),
     failures: [],
   };
   const createdExternalIds = new Map<string, string>();
