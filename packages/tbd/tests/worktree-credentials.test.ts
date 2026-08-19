@@ -30,9 +30,9 @@ async function realish(dir: string): Promise<string> {
   return realpath(dir).catch(() => dir);
 }
 
-const MAIN_SECRET = 'lin_api_test_main';
-const LOCAL_SECRET = 'lin_api_test_local';
-const EXPORTED_SECRET = 'lin_api_test_exported';
+const MAIN_VALUE = 'main-worktree-placeholder';
+const LOCAL_VALUE = 'worktree-local-placeholder';
+const EXPORTED_VALUE = 'exported-placeholder';
 
 function config(): Config {
   return {
@@ -157,33 +157,33 @@ describe('credential resolution across worktrees', () => {
   });
 
   it('reads the main checkout .env from a linked worktree that has none', async () => {
-    await writeFile(join(main, '.env'), `LINEAR_API_KEY=${MAIN_SECRET}\n`);
+    await writeFile(join(main, '.env'), `LINEAR_API_KEY=${MAIN_VALUE}\n`);
 
     const credential = await resolveCredential('linear', linked);
 
-    expect(credential?.value).toBe(MAIN_SECRET);
+    expect(credential?.value).toBe(MAIN_VALUE);
     expect(credential?.source).toBe('dotenv');
     expect(credential?.path).toBe(join(await realish(main), '.env'));
   });
 
   it('prefers a worktree-local .env over the main one', async () => {
-    await writeFile(join(main, '.env'), `LINEAR_API_KEY=${MAIN_SECRET}\n`);
-    await writeFile(join(linked, '.env'), `LINEAR_API_KEY=${LOCAL_SECRET}\n`);
+    await writeFile(join(main, '.env'), `LINEAR_API_KEY=${MAIN_VALUE}\n`);
+    await writeFile(join(linked, '.env'), `LINEAR_API_KEY=${LOCAL_VALUE}\n`);
 
     const credential = await resolveCredential('linear', linked);
 
-    expect(credential?.value).toBe(LOCAL_SECRET);
+    expect(credential?.value).toBe(LOCAL_VALUE);
     expect(credential?.path).toBe(join(linked, '.env'));
   });
 
   it('prefers an exported variable over both files', async () => {
-    await writeFile(join(main, '.env'), `LINEAR_API_KEY=${MAIN_SECRET}\n`);
-    await writeFile(join(linked, '.env'), `LINEAR_API_KEY=${LOCAL_SECRET}\n`);
-    process.env.LINEAR_API_KEY = EXPORTED_SECRET;
+    await writeFile(join(main, '.env'), `LINEAR_API_KEY=${MAIN_VALUE}\n`);
+    await writeFile(join(linked, '.env'), `LINEAR_API_KEY=${LOCAL_VALUE}\n`);
+    process.env.LINEAR_API_KEY = EXPORTED_VALUE;
 
     const credential = await resolveCredential('linear', linked);
 
-    expect(credential?.value).toBe(EXPORTED_SECRET);
+    expect(credential?.value).toBe(EXPORTED_VALUE);
     expect(credential?.source).toBe('env');
     expect(credential?.path).toBeUndefined();
   });
@@ -199,7 +199,7 @@ describe('credential resolution across worktrees', () => {
     try {
       await initSeparateGitDirRepo(sepMain, sepGitDir);
       // Sitting where a bare dirname would land. Nothing may read it.
-      await writeFile(join(sepRoot, '.env'), `LINEAR_API_KEY=${MAIN_SECRET}\n`);
+      await writeFile(join(sepRoot, '.env'), `LINEAR_API_KEY=${MAIN_VALUE}\n`);
 
       await expect(resolveCredential('linear', sepMain)).resolves.toBeUndefined();
     } finally {
@@ -212,9 +212,9 @@ describe('credential resolution across worktrees', () => {
     try {
       await expect(resolveCredential('linear', outside)).resolves.toBeUndefined();
 
-      await writeFile(join(outside, '.env'), `LINEAR_API_KEY=${LOCAL_SECRET}\n`);
+      await writeFile(join(outside, '.env'), `LINEAR_API_KEY=${LOCAL_VALUE}\n`);
       const credential = await resolveCredential('linear', outside);
-      expect(credential?.value).toBe(LOCAL_SECRET);
+      expect(credential?.value).toBe(LOCAL_VALUE);
     } finally {
       await rm(outside, { recursive: true, force: true });
     }
@@ -242,20 +242,20 @@ describe('status reporting of the credential source', () => {
 
   it('names the main checkout file it loaded, and never prints the key', async () => {
     await writeFile(join(main, '.gitignore'), '.env\n');
-    await writeFile(join(main, '.env'), `LINEAR_API_KEY=${MAIN_SECRET}\n`);
+    await writeFile(join(main, '.env'), `LINEAR_API_KEY=${MAIN_VALUE}\n`);
 
     const status = await integrationStatus({ config: config(), repoRoot: linked });
     const credential = status.providers[0]?.findings.find((f) => f.label === 'credential');
 
     expect(credential?.state).toBe('ok');
     expect(credential?.detail).toContain(join(await realish(main), '.env'));
-    expect(credential?.detail).not.toContain(MAIN_SECRET);
+    expect(credential?.detail).not.toContain(MAIN_VALUE);
   });
 
   it('reports .env safety for the file actually read, not the empty local one', async () => {
     // No .gitignore anywhere, so the file in use is exposed. Reporting on the
     // worktree's absent `.env` would call that safe.
-    await writeFile(join(main, '.env'), `LINEAR_API_KEY=${MAIN_SECRET}\n`);
+    await writeFile(join(main, '.env'), `LINEAR_API_KEY=${MAIN_VALUE}\n`);
 
     const status = await integrationStatus({ config: config(), repoRoot: linked });
 
@@ -266,7 +266,7 @@ describe('status reporting of the credential source', () => {
 
   it('says nothing about another file when the local .env answered', async () => {
     await writeFile(join(linked, '.gitignore'), '.env\n');
-    await writeFile(join(linked, '.env'), `LINEAR_API_KEY=${LOCAL_SECRET}\n`);
+    await writeFile(join(linked, '.env'), `LINEAR_API_KEY=${LOCAL_VALUE}\n`);
 
     const status = await integrationStatus({ config: config(), repoRoot: linked });
 
