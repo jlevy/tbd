@@ -779,6 +779,15 @@ export const IntegrationIdentitySchema = z
   .object({
     /** Maps a tbd assignee string to a tracker user email or UUID. */
     user_map: z.record(z.string(), z.string()).default({}),
+    /**
+     * Workflow state name to use for a Linear state type, e.g. `started: Doing`.
+     *
+     * Only needed when a team has several states of one type and none carries the
+     * conventional name. Deliberately not `.default({})`: a defaulted key is
+     * re-materialized on every parse and written straight back by `writeConfig`, which
+     * is how a migration stops sticking.
+     */
+    state_map: z.record(z.string(), z.string()).optional(),
   })
   .passthrough();
 

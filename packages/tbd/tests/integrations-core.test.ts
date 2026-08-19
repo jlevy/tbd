@@ -27,6 +27,7 @@ import {
   priorityFromLinear,
   priorityToLinear,
   statusFromLinear,
+  resolutionFromLinear,
   statusToLinear,
 } from '../src/integrations/linear/mapping.js';
 import {
@@ -126,6 +127,45 @@ describe('Linear status mapping', () => {
 
   it('fails soft on an unknown state type rather than aborting a sync', () => {
     expect(statusFromLinear('someFutureState', [])).toBe('open');
+  });
+});
+
+describe('Linear terminal resolution mapping', () => {
+  it('sends each resolution to its own Linear state type', () => {
+    expect(statusToLinear('closed', 'completed').stateType).toBe('completed');
+    expect(statusToLinear('closed', 'canceled').stateType).toBe('canceled');
+    expect(statusToLinear('closed', 'duplicate').stateType).toBe('duplicate');
+  });
+
+  it('treats an absent resolution as completed, so old beads keep their meaning', () => {
+    expect(statusToLinear('closed').stateType).toBe('completed');
+    expect(statusToLinear('closed', null).stateType).toBe('completed');
+  });
+
+  it('ignores a resolution on non-terminal work rather than misfiling it', () => {
+    // The schema forbids this pairing, but the mapping is pure and is reached from
+    // paths that have not validated; position must win over a stray reason.
+    expect(statusToLinear('open', 'canceled').stateType).toBe('unstarted');
+  });
+
+  it('recovers the resolution inbound instead of collapsing all three', () => {
+    expect(resolutionFromLinear('completed')).toBe('completed');
+    expect(resolutionFromLinear('canceled')).toBe('canceled');
+    expect(resolutionFromLinear('duplicate')).toBe('duplicate');
+  });
+
+  it('reports no resolution for a non-terminal state', () => {
+    for (const stateType of ['backlog', 'unstarted', 'started', 'triage', 'whatever']) {
+      expect(resolutionFromLinear(stateType)).toBeNull();
+    }
+  });
+
+  it('round-trips every terminal resolution losslessly', () => {
+    for (const resolution of ['completed', 'canceled', 'duplicate'] as const) {
+      const target = statusToLinear('closed', resolution);
+      expect(statusFromLinear(target.stateType, target.labels)).toBe('closed');
+      expect(resolutionFromLinear(target.stateType)).toBe(resolution);
+    }
   });
 });
 

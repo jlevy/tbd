@@ -25,6 +25,8 @@ import {
   priorityFromLinear,
   priorityToLinear,
   statusFromLinear,
+  resolutionFromLinear,
+  resolveStateId,
   statusToLinear,
 } from './mapping.js';
 import {
@@ -90,6 +92,13 @@ export interface LinearAdapterOptions {
   project?: string;
   /** Maps canonical tbd assignee aliases to a Linear user UUID or email. */
   userMap?: Record<string, string>;
+  /**
+   * Workflow state name to use for a state type, overriding the conventional name.
+   *
+   * Only consulted when a team has several states of one type; a team whose board
+   * matches Linear's stock names never needs it.
+   */
+  stateMap?: Record<string, string>;
 }
 
 /** Recognizes a Linear issue URL and extracts the identifier. */
@@ -129,9 +138,13 @@ export function importTimestamps(patch: CanonicalPatch): {
     out.createdAt = new Date(created).toISOString();
   }
 
-  // Only `closed` reaches a completed state; sending completedAt with any other is a
-  // hard rejection, not a silently ignored field.
-  if (patch.status !== 'closed' || !patch.sourceCompletedAt) {
+  // Only a `completed` resolution reaches a completed-type state; Linear rejects
+  // completedAt against Canceled or Duplicate outright, and stamping one on abandoned
+  // work was wrong data rather than a wrong label — Linear reports on completedAt and
+  // canceledAt separately. Absent resolution reads as completed, as everywhere else.
+  const terminallyCompleted =
+    patch.status === 'closed' && (patch.resolution ?? 'completed') === 'completed';
+  if (!terminallyCompleted || !patch.sourceCompletedAt) {
     return out;
   }
   const completed = Date.parse(patch.sourceCompletedAt);
@@ -164,12 +177,14 @@ export class LinearAdapter implements TrackerAdapter {
   private labelIndex?: Map<string, QualifiedLabel>;
   private readonly project?: string;
   private projectId?: string | null;
+  private readonly stateMap?: Record<string, string>;
 
   constructor(options: LinearAdapterOptions) {
     this.client = options.client;
     this.teamKey = options.teamKey;
     this.createLabels = options.createLabels ?? 'tbd';
     this.project = options.project;
+    this.stateMap = options.stateMap;
     const configuredUsers = Object.entries(options.userMap ?? {});
     const reverse = new Map<string, string>();
     for (const [assignee, identity] of configuredUsers) {
@@ -628,14 +643,25 @@ export class LinearAdapter implements TrackerAdapter {
     }
     this.teamId = team.id;
 
-    // Map by `type`, never by `name`: names are user-editable, types are not.
-    // Where a team has several states of one type, the lowest position wins so
-    // the choice is stable rather than dependent on response order.
-    const byType = new Map<string, { id: string; position: number }>();
-    for (const state of team.states.nodes) {
-      const existing = byType.get(state.type);
-      if (!existing || state.position < existing.position) {
-        byType.set(state.type, { id: state.id, position: state.position });
+    // Resolve by name, never by board position. The previous rule kept the
+    // lowest-position state of each type, which is stable only in the sense that it is
+    // reproducible: dragging a row in the workflow editor is invisible and silently
+    // moved where work landed. A type whose candidates cannot be told apart is left
+    // unresolved and reported, rather than guessed at.
+    const states = team.states.nodes.map((s) => ({
+      id: s.id,
+      name: s.name,
+      type: s.type,
+      position: s.position,
+    }));
+    const stateIdsByType: Record<string, string> = {};
+    const ambiguousStateTypes: Record<string, string[]> = {};
+    for (const stateType of new Set(states.map((s) => s.type))) {
+      const resolved = resolveStateId(states, stateType, this.stateMap?.[stateType]);
+      if (resolved.state) {
+        stateIdsByType[stateType] = resolved.state.id;
+      } else if (resolved.ambiguous) {
+        ambiguousStateTypes[stateType] = resolved.ambiguous.map((s) => s.name);
       }
     }
 
@@ -667,7 +693,9 @@ export class LinearAdapter implements TrackerAdapter {
     const index = indexLabels(labels);
     this.labelIndex = index;
     this.meta = {
-      stateIdsByType: Object.fromEntries([...byType].map(([type, v]) => [type, v.id])),
+      stateIdsByType,
+      states,
+      ...(Object.keys(ambiguousStateTypes).length > 0 ? { ambiguousStateTypes } : {}),
       labelIdsByName: Object.fromEntries(
         [...index.values()]
           .filter((label) => !label.isGroup)
@@ -715,6 +743,7 @@ export class LinearAdapter implements TrackerAdapter {
       title: raw.title,
       description: raw.description,
       status: statusFromLinear(stateType, labels),
+      resolution: resolutionFromLinear(stateType),
       priority: priorityFromLinear(raw.priority),
       labels,
       assignee: mappedAssignee ?? null,
@@ -790,7 +819,7 @@ export class LinearAdapter implements TrackerAdapter {
 
     let statusLabels: string[] = [];
     if (patch.status !== undefined) {
-      const target = statusToLinear(patch.status);
+      const target = statusToLinear(patch.status, patch.resolution);
       const stateId = meta.stateIdsByType[target.stateType];
       if (stateId) {
         input.stateId = stateId;

@@ -105,17 +105,58 @@ describe('Linear client and adapter', () => {
   });
 
   describe('ensureMeta', () => {
-    it('maps state ids by type, not by name', async () => {
+    it('resolves a state id for every type the team has', async () => {
       const meta = await adapter.ensureMeta();
       expect(meta.stateIdsByType.started).toBeDefined();
       expect(meta.stateIdsByType.completed).toBe('state-completed');
       expect(meta.stateIdsByType.duplicate).toBe('state-duplicate');
     });
 
-    it('picks the lowest-position state when a type appears twice', async () => {
+    it('breaks a same-type tie by name rather than by board position', async () => {
       const meta = await adapter.ensureMeta();
-      // Both "In Progress" (2) and "In Review" (1002) are `started`.
+      // Both "In Progress" (2) and "In Review" (1002) are `started`. The conventional
+      // name decides; position is not consulted, so reordering the board in Linear
+      // cannot silently move where in-progress work lands.
       expect(meta.stateIdsByType.started).toBe('state-started');
+    });
+
+    it('is unmoved when the board is reordered', async () => {
+      // The old rule kept the lowest position, so this reordering alone changed where
+      // every in-progress bead was filed — invisibly, since dragging a row leaves no
+      // trace a sync could see.
+      const inProgress = server.states.find((s) => s.name === 'In Progress')!;
+      const inReview = server.states.find((s) => s.name === 'In Review')!;
+      inProgress.position = 5000;
+      inReview.position = 1;
+
+      const meta = await adapter.ensureMeta(true);
+      expect(meta.stateIdsByType.started).toBe('state-started');
+    });
+
+    it('leaves an unrecognizable same-type pair unresolved instead of guessing', async () => {
+      for (const state of server.states) {
+        if (state.type === 'started') {
+          state.name = state.id === 'state-started' ? 'Doing' : 'Reviewing';
+        }
+      }
+      const meta = await adapter.ensureMeta(true);
+      expect(meta.stateIdsByType.started).toBeUndefined();
+      expect(meta.ambiguousStateTypes?.started).toEqual(['Doing', 'Reviewing']);
+    });
+
+    it('honours a configured name for an otherwise ambiguous type', async () => {
+      for (const state of server.states) {
+        if (state.type === 'started') {
+          state.name = state.id === 'state-started' ? 'Doing' : 'Reviewing';
+        }
+      }
+      const mapped = new LinearAdapter({
+        client,
+        teamKey: 'FIN',
+        stateMap: { started: 'Reviewing' },
+      });
+      const meta = await mapped.ensureMeta();
+      expect(meta.stateIdsByType.started).toBe('state-review');
     });
 
     it('caches, so repeated pushes do not refetch metadata', async () => {
@@ -326,6 +367,26 @@ describe('Linear client and adapter', () => {
     it('translates status into a state id', async () => {
       await adapter.applyChanges('uuid-5', { status: 'closed' });
       expect(server.issues.get('uuid-5')?.state.type).toBe('completed');
+    });
+
+    it('files each terminal resolution in its own Linear state', async () => {
+      await adapter.applyChanges('uuid-5', { status: 'closed', resolution: 'canceled' });
+      expect(server.issues.get('uuid-5')?.state.type).toBe('canceled');
+
+      await adapter.applyChanges('uuid-5', { status: 'closed', resolution: 'duplicate' });
+      expect(server.issues.get('uuid-5')?.state.type).toBe('duplicate');
+
+      await adapter.applyChanges('uuid-5', { status: 'closed', resolution: 'completed' });
+      expect(server.issues.get('uuid-5')?.state.type).toBe('completed');
+    });
+
+    it('reads a canceled Linear state back as closed plus its reason', async () => {
+      // Before this, all three terminal types collapsed to `closed` on the way in and
+      // the distinction was gone for good.
+      await adapter.applyChanges('uuid-5', { status: 'closed', resolution: 'canceled' });
+      const [issue] = await adapter.fetchIssues(['uuid-5']);
+      expect(issue?.status).toBe('closed');
+      expect(issue?.resolution).toBe('canceled');
     });
 
     it('carries blocked as a tbd-owned label alongside the started state', async () => {

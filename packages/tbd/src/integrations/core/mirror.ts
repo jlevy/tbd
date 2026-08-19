@@ -250,6 +250,7 @@ export function planMirror(context: MirrorContext): MirrorPlan {
     const patch: CanonicalPatch = {
       title: issue.title,
       status: issue.status,
+      resolution: issue.resolution ?? null,
       priority: issue.priority,
       // Carried on every action, consumed only by the create path: the adapter's
       // update surface ignores these, and the provider does not accept them there

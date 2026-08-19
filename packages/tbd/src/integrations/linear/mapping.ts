@@ -5,7 +5,7 @@
  * writes its own table and changes nothing else.
  */
 
-import type { IssueStatusType, PriorityType } from '../../lib/types.js';
+import type { IssueStatusType, IssueResolutionType, PriorityType } from '../../lib/types.js';
 
 /** Labels tbd owns are prefixed so they cannot collide with a team's own. */
 export const TBD_LABEL_PREFIX = 'tbd:';
@@ -36,13 +36,34 @@ export interface LinearStatusTarget {
 }
 
 /**
+ * Linear's state type for each terminal resolution.
+ *
+ * Every Linear team ships all three by default, so this half of the mapping needs no
+ * provisioning anywhere. Verified across two teams in one workspace.
+ */
+const STATE_TYPE_BY_RESOLUTION: Record<IssueResolutionType, string> = {
+  completed: 'completed',
+  canceled: 'canceled',
+  duplicate: 'duplicate',
+};
+
+/**
  * Map a tbd status to a Linear state type plus any carrier labels.
  *
  * `blocked` and `deferred` have no Linear equivalent, so they ride on a tbd-owned
  * label alongside the nearest state type. Round-tripping is lossy only if someone
  * strips the label in Linear.
+ *
+ * `resolution` refines the terminal end only. Absent reads as `completed`, which is
+ * what keeps every bead closed before the axis existed mapping exactly as it did.
+ * Position wins over reason everywhere else: a resolution on non-terminal work is a
+ * contradiction the schema rejects, and this pure function is reached from paths that
+ * have not validated, so it ignores it rather than misfiling the issue.
  */
-export function statusToLinear(status: IssueStatusType): LinearStatusTarget {
+export function statusToLinear(
+  status: IssueStatusType,
+  resolution?: IssueResolutionType | null,
+): LinearStatusTarget {
   switch (status) {
     case 'open':
       return { stateType: 'unstarted', labels: [] };
@@ -53,9 +74,36 @@ export function statusToLinear(status: IssueStatusType): LinearStatusTarget {
     case 'deferred':
       return { stateType: 'backlog', labels: [DEFERRED_LABEL] };
     case 'closed':
-      return { stateType: 'completed', labels: [] };
+      return {
+        stateType: STATE_TYPE_BY_RESOLUTION[resolution ?? 'completed'] ?? 'completed',
+        labels: [],
+      };
     default:
       return { stateType: 'unstarted', labels: [] };
+  }
+}
+
+/**
+ * Recover the terminal resolution from a Linear state type.
+ *
+ * The counterpart to {@link statusFromLinear}, which answers only *where* the work
+ * sits. Reading both is what makes the terminal end lossless in the inbound direction:
+ * before this, a human setting Canceled in Linear produced a bead that said `closed`
+ * and had erased the distinction permanently.
+ *
+ * Null for any non-terminal state, so a caller can write it straight onto a bead
+ * without re-deriving whether the issue is finished.
+ */
+export function resolutionFromLinear(stateType: string): IssueResolutionType | null {
+  switch (stateType) {
+    case 'completed':
+      return 'completed';
+    case 'canceled':
+      return 'canceled';
+    case 'duplicate':
+      return 'duplicate';
+    default:
+      return null;
   }
 }
 
@@ -141,4 +189,84 @@ export function priorityFromLinear(value: number): PriorityType {
     default:
       return 2;
   }
+}
+
+/** One workflow state as Linear reports it. */
+export interface WorkflowStateInfo {
+  id: string;
+  name: string;
+  type: string;
+  position: number;
+}
+
+/**
+ * The state name Linear ships for each type in a stock team.
+ *
+ * Used only to break a tie between several states of one type. A team that renamed
+ * its states is not penalized: an unmatched conventional name simply falls through to
+ * the ambiguity report, which names the candidates instead of guessing among them.
+ */
+export const CONVENTIONAL_STATE_NAMES: Readonly<Record<string, string>> = {
+  backlog: 'Backlog',
+  unstarted: 'Todo',
+  started: 'In Progress',
+  completed: 'Done',
+  canceled: 'Canceled',
+  duplicate: 'Duplicate',
+};
+
+/** What {@link resolveStateId} concluded, and why. */
+export interface StateResolution {
+  /** The chosen state, when one could be chosen. */
+  state?: WorkflowStateInfo;
+  /** How it was chosen, for `tbd doctor` to explain itself offline. */
+  via?: 'configured' | 'conventional' | 'sole';
+  /** Set when several states of the type exist and none is conventional. */
+  ambiguous?: WorkflowStateInfo[];
+}
+
+/**
+ * Choose the workflow state for a type, by name and never by board position.
+ *
+ * Position is the least stable handle available: a rename is deliberate and visible,
+ * while dragging a row in the workflow editor is neither, and under the previous
+ * lowest-position rule that silently changed where work landed. Order, first match
+ * wins:
+ *
+ *   1. the name configured for this type
+ *   2. the conventional name Linear ships
+ *   3. the only state of that type, when there is only one
+ *   4. ambiguous — report the candidates rather than pick one
+ *
+ * Step 3 covers every type except `started` on a stock team, which is exactly the case
+ * step 2 settles.
+ */
+export function resolveStateId(
+  states: readonly WorkflowStateInfo[],
+  stateType: string,
+  configuredName?: string,
+): StateResolution {
+  const sameName = (a: string, b: string): boolean => a.toLowerCase() === b.toLowerCase();
+
+  if (configuredName) {
+    const configured = states.find((s) => sameName(s.name, configuredName));
+    if (configured) {
+      return { state: configured, via: 'configured' };
+    }
+  }
+
+  const candidates = states.filter((s) => s.type === stateType);
+  if (candidates.length === 1) {
+    return { state: candidates[0], via: 'sole' };
+  }
+  if (candidates.length === 0) {
+    return {};
+  }
+
+  const conventional = CONVENTIONAL_STATE_NAMES[stateType];
+  const byName = conventional && candidates.find((s) => sameName(s.name, conventional));
+  if (byName) {
+    return { state: byName, via: 'conventional' };
+  }
+  return { ambiguous: candidates };
 }

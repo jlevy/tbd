@@ -717,6 +717,36 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         assigneePull: remote.assigneeSyncable !== false,
       },
     );
+    // `resolution` rides with `status` rather than reconciling on its own.
+    //
+    // It is not an independent fact: it only refines a terminal position, and only the
+    // pair is meaningful to a provider. Giving it its own row in the three-way matrix
+    // would let a reason flow while the position it describes did not, which is how a
+    // bead ends up canceled and open at once. Widening the matrix properly is the slot
+    // work in a later phase; until then the rule is that the reason goes where the
+    // position goes.
+    if (result.externalPatch.status !== undefined) {
+      result.externalPatch.resolution = bead.resolution ?? null;
+    }
+    if (result.beadPatch.status !== undefined) {
+      // A Linear duplicate carries its target as a relation tbd does not read yet, and
+      // `duplicate` without a pointer is a bead the write boundary rejects outright.
+      // Recording it as canceled keeps the honest half — this work was abandoned, not
+      // delivered — and says so rather than dropping the distinction silently.
+      const inbound = remote.resolution;
+      if (inbound === 'duplicate') {
+        result.beadPatch.resolution = 'canceled';
+        report.warnings.push({
+          externalId: remote.id,
+          ...(remote.key ? { externalKey: remote.key } : {}),
+          message:
+            'Marked a duplicate in the tracker; recorded as canceled because the duplicate target is not mirrored locally.',
+        });
+      } else {
+        result.beadPatch.resolution = inbound;
+      }
+    }
+
     // Assert the origin labels only when the remote is actually missing one.
     //
     // Adding them unconditionally would put a key in every externalPatch, which is what
@@ -1281,6 +1311,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
           ...(patch.priority !== undefined ? { priority: patch.priority } : {}),
           ...(patch.labels !== undefined ? { labels: patch.labels } : {}),
           ...(patch.assignee !== undefined ? { assignee: patch.assignee } : {}),
+          ...(patch.resolution !== undefined ? { resolution: patch.resolution } : {}),
         };
         dirty = true;
         report.pulled.push(displayId);

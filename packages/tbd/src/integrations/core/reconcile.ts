@@ -21,7 +21,12 @@
  * No I/O, no network, no provider knowledge: values arrive tbd-canonical.
  */
 
-import type { BridgeBase, IssueStatusType, PriorityType } from '../../lib/types.js';
+import type {
+  BridgeBase,
+  IssueStatusType,
+  IssueResolutionType,
+  PriorityType,
+} from '../../lib/types.js';
 import type { FieldSyncClause } from '../../lib/types.js';
 import { DESCRIPTION_HASH_PREFIX, descriptionHash } from './bridge-state.js';
 import { stripManagedBlock } from './managed-block.js';
@@ -86,6 +91,14 @@ export interface BeadPatch {
   title?: string;
   description?: string | null;
   status?: IssueStatusType;
+  /**
+   * Set by the caller alongside `status`, not by the matrix.
+   *
+   * `resolution` refines a terminal position and is meaningless apart from it, so it
+   * is carried rather than reconciled: a reason that flowed while its position did not
+   * would describe a bead that is canceled and open at once.
+   */
+  resolution?: IssueResolutionType | null;
   priority?: PriorityType;
   labels?: string[];
   assignee?: string | null;

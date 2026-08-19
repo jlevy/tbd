@@ -10,7 +10,13 @@
  * each provider owns exactly one mapping table.
  */
 
-import type { Issue, IssueStatusType, PriorityType, ProviderNameType } from '../../lib/types.js';
+import type {
+  Issue,
+  IssueStatusType,
+  IssueResolutionType,
+  PriorityType,
+  ProviderNameType,
+} from '../../lib/types.js';
 import type { SelectionBreakdown } from './selection.js';
 
 /**
@@ -32,6 +38,8 @@ export interface ExternalIssue extends ExternalRef {
   title: string;
   description: string | null;
   status: IssueStatusType;
+  /** Why terminal work ended, or null while it is still open. */
+  resolution: IssueResolutionType | null;
   priority: PriorityType;
   labels: string[];
   assignee: string | null;
@@ -68,6 +76,13 @@ export interface CanonicalPatch {
   title?: string;
   description?: string | null;
   status?: IssueStatusType;
+  /**
+   * Why the work ended, refining a terminal `status`. Absent reads as `completed`.
+   *
+   * Carried beside `status` rather than folded into it because it only narrows the
+   * terminal end: a provider needs both to pick a state, and only the pair is lossless.
+   */
+  resolution?: IssueResolutionType | null;
   priority?: PriorityType;
   /**
    * REPLACES the item's labels. Absent leaves them alone, which is the default:
@@ -131,8 +146,22 @@ export interface AttachmentSpec {
  * the label name-to-id map.
  */
 export interface ProviderMeta {
-  /** Workflow state id by state `type`, e.g. `started` -> uuid. */
+  /**
+   * Workflow state id by state `type`, e.g. `started` -> uuid.
+   *
+   * Resolved by name (see `resolveStateId`), never by board position. A type with
+   * several states and no recognizable name is absent rather than guessed at.
+   */
   stateIdsByType: Record<string, string>;
+  /**
+   * Every workflow state the team has, in the provider's own words.
+   *
+   * Kept so a diagnostic can explain a resolution offline, and so a later phase can
+   * bind slots to states the type vocabulary cannot name.
+   */
+  states?: { id: string; name: string; type: string; position: number }[];
+  /** State types with several candidates and no conventional name among them. */
+  ambiguousStateTypes?: Record<string, string[]>;
   /** Label id by exact label name. */
   labelIdsByName: Record<string, string>;
   /** When this metadata was fetched (ISO 8601). */

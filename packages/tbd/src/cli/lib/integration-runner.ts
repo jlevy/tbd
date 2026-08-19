@@ -82,6 +82,7 @@ export function buildAdapter(
     createLabels: settings.createLabels,
     project: settings.project,
     userMap: settings.userMap,
+    ...(settings.stateMap ? { stateMap: settings.stateMap } : {}),
   });
 }
 
