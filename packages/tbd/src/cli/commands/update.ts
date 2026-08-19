@@ -39,6 +39,7 @@ interface UpdateOptions {
   type?: string;
   priority?: string;
   assignee?: string;
+  delegate?: string;
   description?: string;
   notes?: string;
   notesFile?: string;
@@ -144,6 +145,9 @@ class UpdateHandler extends BaseCommand {
           }
           if (updates.assignee !== undefined) {
             issue.assignee = updates.assignee;
+          }
+          if (updates.delegate !== undefined) {
+            issue.delegate = updates.delegate;
           }
           if (updates.description !== undefined) {
             issue.description = updates.description;
@@ -327,7 +331,7 @@ class UpdateHandler extends BaseCommand {
       throw new ValidationError(
         `Cannot use ${perIdOnly.join(', ')} when updating multiple issues. ` +
           `These apply to a single issue; use \`tbd close\`/\`tbd reopen\` for status changes. ` +
-          `Bulk update supports shared fields: --priority, --assignee, --type, ` +
+          `Bulk update supports shared fields: --priority, --assignee, --delegate, --type, ` +
           `--add-label, --remove-label, --due, --defer.`,
       );
     }
@@ -393,6 +397,9 @@ class UpdateHandler extends BaseCommand {
             }
             if (updates.assignee !== undefined) {
               issue.assignee = updates.assignee;
+            }
+            if (updates.delegate !== undefined) {
+              issue.delegate = updates.delegate;
             }
             if (updates.due_date !== undefined) {
               issue.due_date = updates.due_date;
@@ -504,6 +511,7 @@ class UpdateHandler extends BaseCommand {
     kind?: IssueKindType;
     priority?: PriorityType;
     assignee?: string | null;
+    delegate?: string | null;
     description?: string | null;
     notes?: string | null;
     due_date?: string | null;
@@ -521,6 +529,7 @@ class UpdateHandler extends BaseCommand {
       kind?: IssueKindType;
       priority?: PriorityType;
       assignee?: string | null;
+      delegate?: string | null;
       description?: string | null;
       notes?: string | null;
       due_date?: string | null;
@@ -572,6 +581,9 @@ class UpdateHandler extends BaseCommand {
         }
         if (frontmatter.assignee !== undefined) {
           updates.assignee = typeof frontmatter.assignee === 'string' ? frontmatter.assignee : null;
+        }
+        if (frontmatter.delegate !== undefined) {
+          updates.delegate = typeof frontmatter.delegate === 'string' ? frontmatter.delegate : null;
         }
         if (frontmatter.due_date !== undefined) {
           updates.due_date = typeof frontmatter.due_date === 'string' ? frontmatter.due_date : null;
@@ -647,6 +659,9 @@ class UpdateHandler extends BaseCommand {
 
     if (options.assignee !== undefined) {
       updates.assignee = options.assignee || null;
+    }
+    if (options.delegate !== undefined) {
+      updates.delegate = options.delegate || null;
     }
 
     // Body fields are pre-resolved (inline/file/stdin) by resolveBodyOptions
@@ -738,7 +753,8 @@ export const updateCommand = new Command('update')
   .option('--status <status>', 'Set status')
   .option('--type <type>', 'Set type')
   .option('--priority <0-4>', 'Set priority')
-  .option('--assignee <name>', 'Set assignee')
+  .option('--assignee <name>', 'Set assignee: who is accountable')
+  .option('--delegate <name>', 'Set delegate: who is acting')
   .option('--description <text>', 'Set description ("-" reads stdin)')
   .option('--notes <text>', 'Set working notes ("-" reads stdin)')
   .option('--notes-file <path>', 'Set notes from file ("-" reads stdin)')
