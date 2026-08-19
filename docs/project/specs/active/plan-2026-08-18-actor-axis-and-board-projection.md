@@ -71,12 +71,24 @@ beads, ~105 mirrored epics, nearly all execution done by coding agents.
 Not neglect — there was nothing useful to write.
 The human is the same on every bead, so the field carries no information; the agent is
 not expressible at all.
-Two independent config gates (`field_sync.fields.assignee`, defaulting to `local`, and a
-closed `user_map`) also mean the field cannot reach Linear without deliberately opening
-both, and neither gate says so when it excludes a field: a push reports
-`updated N, skipped 0, failed 0` while the assignee was never a candidate.
+One config gate holds the field shut, and it is subtler than it looks.
+The reconcile engine (`core/reconcile.ts`) marks assignee
+`canPush: capabilities.assignee ?? false`, and the Linear adapter grants that capability
+only when `user_map` is non-empty and holds the alias (`linear/adapter.ts:198`). An
+unpushable assignee lands in the report’s `skippedPushes` — collected, but absent from
+the summary line, which still prints `skipped 0` because that counter counts pairs, not
+fields.
+The default output therefore reads as success while the field went nowhere, which
+is the observability gap this spec fixes.
 
-tbd’s own source states the assumption that no longer holds:
+The `field_sync.fields.assignee: local` default is **not** a second gate, and an earlier
+draft of #246 was wrong to describe it as one: in the engine, `local` is an ownership
+short-circuit — the local value still pushes, and an opposite-side edit is overwritten
+and reported (`reconcile.ts:324`). What `local` does cost is the inbound direction: a
+reassignment made in Linear is overwritten on the next sync instead of flowing back,
+which is why `merge` is still the right setting for a board humans manage.
+
+tbd’s own config-doc comment states the assumption that no longer holds:
 
 ```js
 assignee: FieldFlowRule.default("local")   // "`assignee` stays local because tracker assignees are people"
@@ -206,9 +218,13 @@ they are not equivalent: a named `started` state keeps the work on the board whe
 person planning the week can see it, while `snoozedUntilAt` removes it from view until
 the date arrives. Observed on a real paused issue: `state.name = Paused`, `startedAt`
 set, `snoozedUntilAt` null.
-The named state should be the default and snooze reserved for genuine wake-me-later,
-which is the opposite of the sibling spec’s current lean and is worth settling between
-them.
+This *confirms* the sibling spec’s choice (it already maps paused to the named state,
+with a carrier-label fallback) and settles #244’s open question 3 in the same direction:
+the column is canonical.
+Snooze stays a Linear-side layer a human may apply on top — tbd never writes or reads
+`snoozedUntilAt`, and `hold_until` remains a tbd-native fact.
+An issue a person snoozes is still in its column when it returns; nothing in the
+projection depends on visibility.
 
 **Explicit trailing `position` is not a nicety.** Before provisioning, that team’s board
 ordered Done, Canceled, and Duplicate *before* In Review and Paused, because the two
@@ -332,6 +348,105 @@ one an issue sits in is the owned refinement above.
 The map says where tbd *puts* work that it places; it does not license tbd to move an
 issue a person put in Draft.
 
+### The sync algorithm
+
+Everything above rides the engine tbd already has, and the design stands or falls on
+that claim, so this section states it against the real code.
+
+The reconcile engine (`core/reconcile.ts`) is a pure per-field three-way matrix over
+**canonical values** with a stored base: unchanged/unchanged does nothing, one-side
+change flows, both-changed conflicts resolve by `tie_break`, and `local`/`remote`
+ownership short-circuits the matrix with the overwrite reported.
+The Linear adapter reduces a workflow state to a canonical status by **type only**
+(`mapping.ts: statusFromLinear`), and sends a state id outbound only when the status
+field is in the patch (`adapter.ts:794`).
+
+That last fact is why the board works by hand today: a human dragging an issue between
+two states of the same type (In Progress → Paused) changes nothing canonical, so the
+matrix sees unchanged/unchanged and the placement survives.
+The design keeps that property and makes it deliberate.
+
+**The change is the canonical vocabulary, not the engine.** The status field the matrix
+compares widens from the five-value status enum to the slot vocabulary:
+
+- **Local slot** is computed, never stored: a pure function of `status`, `hold`,
+  `resolution`, readiness, and the recorded refinement (below), by a fixed precedence —
+  terminal resolution, then hold, then refinement, then the readiness split, then the
+  band default. First match wins, so a bead that is simultaneously unready and held still
+  lands in exactly one slot.
+- **Remote slot** is resolved from the state **name** through `state_map` (configured
+  name, then conventional name, then sole-state-of-type, then ask — the sibling’s
+  resolver order). A state whose name resolves to no slot is an **owned refinement**: for
+  the matrix it reads as its type’s band slot, and its exact state id is recorded so
+  outbound writes send it back verbatim.
+  In Review and Draft are just the named cases of this rule; a team’s own “In QA” gets
+  the same treatment for free.
+- **Applying a pull** decomposes the winning slot back onto the bead: `done`/`canceled`/
+  `duplicate` set `status: closed` plus `resolution`; `paused`/`blocked` set
+  `in_progress` plus `hold`; `todo`/`backlog` set `open`; `draft` and `in_review` set
+  the band’s status plus the refinement record, never a status of their own.
+- **Applying a push** composes the slot’s mapped state id, falling down the ladder when
+  the team lacks the state: mapped state, else carrier label beside the band default
+  (`tbd:paused`, `tbd:blocked` — the mechanism `blocked`/`deferred` already use), else
+  the band default alone, reported once.
+
+The refinement record needs a durable home, and there are two candidates with a real
+trade-off: `extensions.<provider>` on the bead (travels with the bead through the sync
+branch, but bead sync merges `extensions` whole-object last-writer-wins), or the pair’s
+bridge base (already per-provider and per-pair, but local to the clone that synced).
+This is an open question below rather than a decision here.
+
+Conflicts need no new machinery: a slot is one value, so a human moving an issue to
+Paused while an agent closes the bead is both-changed on one field, resolved by
+`tie_break` exactly as status conflicts are today.
+Echo needs none either: the matrix converges pushes on the next run because the merged
+base takes the pushed value.
+
+**Migration of the base.** The stored base for every linked pair holds a five-value
+status. On first run with slots, the base statuses are mechanically rewritten to their
+slot equivalents (`open`→`todo`-or-`backlog` cannot be recovered, so `open` rewrites to
+the band and the first reconcile treats a readiness-split difference as remote-unchanged
+rather than a conflict).
+Without this, every linked pair would read as locally changed on upgrade and the first
+sync would mass-push state writes — the bulk guard would catch the volume, but the
+correct number of writes is zero.
+
+**Fields the flow rule excludes are named.** The report already collects field-level
+`skippedPushes`; the summary line prints pair-level counts only, which is how a no-op
+push reads as success.
+The summary gains the field-level line, and `--verbose` names each excluded field with
+its reason (`assignee: no user_map entry for <alias>`).
+
+### Default integration and re-config
+
+`tbd integration setup` becomes the one place the board is established, for a fresh
+integration or an existing one — sync itself never provisions, never renames, and never
+touches a state outside the map.
+
+Fresh setup proposes the full default map and shows its plan before doing anything:
+which slots bind to existing states by name (on a stock team: Backlog, Todo, In
+Progress, In Review, Done, Canceled, Duplicate), which states would be created (Draft,
+Paused, Blocked), and the explicit position each created state gets — inserted after the
+bound state of the preceding slot, so the board reads in lifecycle order.
+Confirming writes the `state_map` into config and creates the confirmed states;
+declining writes nothing and leaves legacy behavior.
+The written config is the consent, so no later sync ever prompts.
+
+Re-running setup on an existing integration is the re-config path, and it reconciles
+three things against the live team: slots in the map with no matching state (offer to
+create), states whose positions contradict the slot order (offer to reposition — the
+provisioned team below had Done, Canceled, and Duplicate sitting *before* two `started`
+states until exactly this repair), and map names that no longer resolve (bindings are by
+id after first resolution, so a rename keeps working; doctor reports the drift so the
+config can be updated to match).
+
+Custom mappings are the same mechanism with different content: any subset of slots, any
+names. Omitted slots fall down the outbound ladder (carrier label, then band default).
+Two slots may name one state; inbound then disambiguates by carrier label and otherwise
+reads the plainer slot.
+`tbd doctor` prints the full resolved table — slot, state name, state id,
+bound-or-missing — offline, so the projection is inspectable without a sync.
+
 ## Backward Compatibility
 
 **BACKWARD COMPATIBILITY REQUIREMENTS:**
@@ -368,20 +483,42 @@ Phase 1 here is useful without Phase 2.
 - [ ] Tests: each mapping row round-trips; the unpublishable-agent case emits a skip; a
   bare-email `user_map` still parses
 
-### Phase 2: The board projection
+### Phase 2: Slots in the engine
 
-- [ ] Draft/Todo split driven by existing readiness
-- [ ] Name the slot vocabulary; key `state_map` by slot, not by status
+- [ ] Name the slot vocabulary; widen the reconcile status field from the five-value
+  enum to slots. Legacy path (no `state_map`) keeps `statusToLinear` / `statusFromLinear`
+  byte-for-byte
+- [ ] Local slot computation with the fixed precedence (resolution, hold, refinement,
+  readiness, band default); pull decomposition back onto bead fields
+- [ ] Remote slot resolution by name through `state_map`; unmapped names become owned
+  refinements (band slot for the matrix, exact state id preserved outbound)
+- [ ] Settle and implement the refinement record’s home (`extensions.<provider>` vs
+  bridge base) with its cross-clone behavior tested
+- [ ] Base migration on first slot run: statuses rewrite mechanically, zero writes on an
+  unchanged repository — pinned by test
+- [ ] Outbound ladder: mapped state, else carrier label + band default, else band
+  default; reported once per slot
+- [ ] Field-level skip reporting in the summary; `--verbose` names each excluded field
+  with the reason
+
+### Phase 3: Setup, provisioning, and re-config
+
 - [ ] `state_map` optional — absent reproduces today’s behavior with no extra states and
-  no prompt; present, provision only the states it names, on confirmation
+  no prompt; the written config is the consent
+- [ ] Fresh setup proposes the default map: bind by name, create Draft/Paused/Blocked on
+  confirmation, explicit positions in slot order
+- [ ] Re-run reconciles map vs live team: missing states (offer create), order
+  contradictions (offer reposition), renames (id bindings hold; doctor reports drift)
 - [ ] Validate against real team states before mutating; fail closed naming what is
-  missing
-- [ ] Offer Draft alongside the sibling’s Paused in `tbd integration setup`; create only
-  on confirmation, idempotent by name, explicit trailing `position`
-- [ ] `tbd doctor` reports the resolved column for each (status, hold, readiness)
-  combination
-- [ ] Tests: every row of the projection table; a stock team with neither Draft nor
-  Paused degrades correctly and reports once
+  missing; never rename, delete, or touch states outside the map
+- [ ] Two-slots-one-state allowed; inbound disambiguates by carrier label, else the
+  plainer slot
+- [ ] `tbd doctor` prints the resolved slot table (slot, name, id, bound-or-missing)
+  offline
+- [ ] Tests: every projection row round-trips on a provisioned team and degrades
+  correctly on a stock one; the no-fight property (same-type column moves produce no
+  patch); an unmapped custom state survives a full sync cycle; setup idempotence and
+  position placement
 
 ## Testing Strategy
 
@@ -417,17 +554,26 @@ A team that provisions nothing sees exactly what it sees today.
 - Should `delegate` default to the acting agent automatically when an agent moves a bead
   to `in_progress`, or always be set explicitly?
   Automatic is convenient and is also how a field quietly becomes presence tracking.
+- Where does the refinement record live — `extensions.<provider>` on the bead (travels
+  with the bead; whole-object last-writer-wins on merge) or the pair’s bridge base
+  (per-provider already; local to the syncing clone)?
+  The cross-clone behavior differs and the choice should be tested, not argued.
 - Precedence between the sibling’s `open + paused` → Backlog rule and this spec’s
-  unready band. Same column, two routes; one of them should be primary.
-- Should tbd be able to *set* Draft at all, or only preserve it?
-  Setting it needs a field meaning “being planned”, and that fact may belong to the spec
-  document rather than to a bead.
+  unready band: the slot precedence ladder resolves the mechanics (hold outranks the
+  readiness split), but whether an un-started paused bead reads better as Backlog or as
+  Draft is a taste call to confirm with use.
 - Should `kind: agent` aliases be allowed as `assignee` at all, or rejected at write
   time? Rejecting is stricter and matches the governing rule; allowing keeps tbd usable
   for repositories that do not mirror to a tracker.
 - Does this need a format bump?
   Same question as the sibling, and it should get one answer covering both sets of
   fields.
+
+Settled since the first draft: snooze — the named column is canonical and
+`snoozedUntilAt` stays a Linear-side layer tbd never writes (confirming the sibling’s
+choice); and whether tbd can set Draft — it cannot, preserve-only via the refinement
+record, since “being planned” is a judgment about the spec document rather than a fact a
+bead holds.
 
 ## References
 
