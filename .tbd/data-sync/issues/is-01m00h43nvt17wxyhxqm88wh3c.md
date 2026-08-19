@@ -5,8 +5,9 @@ title: "[epic] External sync and traceability: prime, claim, checkpoint, Linear 
 kind: epic
 status: open
 priority: 1
-version: 64
+version: 65
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+assignee: josh
 labels: []
 dependencies: []
 child_order_hints:
@@ -68,7 +69,7 @@ child_order_hints:
   - is-01m0623wddbwjvv9kwzekgg0e1
   - is-01m067b9z5bag3j86b3j7cjv5r
 created_at: 2026-08-14T16:19:15.771Z
-updated_at: 2026-08-16T21:23:52.420Z
+updated_at: 2026-08-19T04:55:15.515Z
 extensions:
   linear:
     id: 1ef43a0c-0cf8-4944-a374-327de127108c

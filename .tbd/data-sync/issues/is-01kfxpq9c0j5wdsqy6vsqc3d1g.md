@@ -5,12 +5,13 @@ title: "CLI output consistency: stats formatting and status icons"
 kind: epic
 status: open
 priority: 2
-version: 17
+version: 18
+assignee: josh
 labels:
   - pause
 dependencies: []
 created_at: 2026-01-26T17:48:14.591Z
-updated_at: 2026-08-15T05:43:10.858Z
+updated_at: 2026-08-19T04:55:15.528Z
 extensions:
   linear:
     id: 301e57f4-deb2-4606-8b08-8a93b9f9ff02

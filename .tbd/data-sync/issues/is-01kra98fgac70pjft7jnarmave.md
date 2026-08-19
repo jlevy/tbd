@@ -5,8 +5,9 @@ title: "Spec: Docs config redesign (f06+ framework)"
 kind: epic
 status: open
 priority: 1
-version: 22
+version: 23
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
+assignee: josh
 labels:
   - pause
 dependencies: []
@@ -21,7 +22,7 @@ child_order_hints:
   - is-01kra99kg4z987hjrwwrj5wh4q
   - is-01kra99kvf2ys81vcakyb8vbzz
 created_at: 2026-05-11T01:08:40.073Z
-updated_at: 2026-08-15T05:43:42.650Z
+updated_at: 2026-08-19T04:55:15.475Z
 extensions:
   linear:
     id: 469c60b7-7a9d-4724-82a1-cd0d24d76321
