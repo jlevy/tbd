@@ -162,6 +162,19 @@ export const USERS_BY_EMAIL_QUERY = `query UsersByEmail($email: String!) {
   }
 }`;
 
+/**
+ * Everyone the workspace knows, for directory-based actor resolution.
+ *
+ * `active` is selected so a deactivated member cannot win a fresh match while an
+ * existing binding to them keeps resolving.
+ */
+export const WORKSPACE_USERS_QUERY = `query WorkspaceUsers($first: Int!, $after: String) {
+  users(first: $first, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    nodes { id name displayName email active }
+  }
+}`;
+
 /** Remaining labels for one issue when its nested first page is full. */
 export const ISSUE_LABELS_QUERY = `query IssueLabels($id: String!, $first: Int!, $after: String) {
   issue(id: $id) {

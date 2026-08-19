@@ -49,6 +49,7 @@ import {
   PROJECT_CREATE_MUTATION,
   PROJECT_QUERY,
   TEAM_META_QUERY,
+  WORKSPACE_USERS_QUERY,
   TEAM_LABELS_QUERY,
   USERS_BY_EMAIL_QUERY,
 } from './queries.js';
@@ -62,6 +63,8 @@ import {
   type RawLabelNode,
 } from './label-groups.js';
 import type { LabelCreateModeType } from '../core/provider-settings.js';
+import { resolveActor, bindingFor } from '../core/actor-binding.js';
+import type { ProviderMember, ActorBinding } from '../core/actor-binding.js';
 import { CONFLICT_COMMENT_MARKER } from '../core/types.js';
 import type { ProvisionItem, ProvisionOptions, ProvisionReport } from '../core/types.js';
 
@@ -179,6 +182,12 @@ export class LinearAdapter implements TrackerAdapter {
   private readonly project?: string;
   private projectId?: string | null;
   private readonly stateMap?: Record<string, string>;
+  private members?: ProviderMember[];
+  private actorBindings: ActorBinding[] = [];
+  /** handle -> provider user id, filled by {@link primeActors}. */
+  private readonly resolvedActors = new Map<string, string>();
+  /** Handles the directory could not answer, reported rather than guessed at. */
+  private readonly unresolvedActors = new Map<string, string>();
 
   constructor(options: LinearAdapterOptions) {
     this.client = options.client;
@@ -210,8 +219,72 @@ export class LinearAdapter implements TrackerAdapter {
     this.assigneeByExternalIdentity = reverse;
   }
 
+  /**
+   * Resolve the handles this run will need, once, against the workspace directory.
+   *
+   * Called before reconciliation so {@link canPushAssignee} can stay synchronous — it
+   * is consulted per bead, and a directory round trip per bead would be absurd.
+   *
+   * The directory is fetched only when `user_map` cannot already answer, so a
+   * repository that configured its people explicitly pays nothing, and a workspace
+   * whose token cannot list users degrades to exactly today's behavior instead of
+   * failing the sync.
+   */
+  async primeActors(handles: readonly string[], bindings: readonly ActorBinding[]): Promise<void> {
+    this.actorBindings = [...bindings];
+    const needed = [...new Set(handles.filter((handle) => handle && !this.userMap.has(handle)))];
+    if (needed.length === 0) {
+      return;
+    }
+    let members: ProviderMember[];
+    try {
+      members = await this.listMembers();
+    } catch {
+      return;
+    }
+    for (const handle of needed) {
+      const resolution = resolveActor(handle, members, this.actorBindings);
+      if (resolution.member) {
+        this.resolvedActors.set(handle, resolution.member.id);
+      } else if (resolution.ambiguous) {
+        this.unresolvedActors.set(
+          handle,
+          `matches ${resolution.ambiguous.length} workspace members (${resolution.ambiguous
+            .map((member) => member.displayName)
+            .join(', ')})`,
+        );
+      } else {
+        this.unresolvedActors.set(handle, 'no workspace member matches this handle');
+      }
+    }
+  }
+
+  /** Why a handle could not be published, for the field-level skip report. */
+  assigneeSkipReason(assignee: string): string | undefined {
+    return this.unresolvedActors.get(assignee);
+  }
+
+  /** Bindings worth persisting after a run: handles resolved from the directory. */
+  newActorBindings(now: string): ActorBinding[] {
+    const known = new Set(this.actorBindings.map((binding) => binding.handle.toLowerCase()));
+    const fresh: ActorBinding[] = [];
+    for (const [handle, id] of this.resolvedActors) {
+      if (known.has(handle.toLowerCase())) {
+        continue;
+      }
+      const member = this.members?.find((candidate) => candidate.id === id);
+      if (member) {
+        fresh.push(bindingFor(handle, member, now));
+      }
+    }
+    return fresh;
+  }
+
   canPushAssignee(assignee: string | null): boolean {
-    return this.userMap.size > 0 && (assignee === null || this.userMap.has(assignee));
+    if (assignee === null) {
+      return this.userMap.size > 0 || this.resolvedActors.size > 0;
+    }
+    return this.userMap.has(assignee) || this.resolvedActors.has(assignee);
   }
 
   /**
@@ -705,6 +778,48 @@ export class LinearAdapter implements TrackerAdapter {
       fetchedAt: new Date().toISOString(),
     };
     return this.meta;
+  }
+
+  /**
+   * Everyone in the workspace, paged.
+   *
+   * Cached for the life of the adapter: a directory changes on the order of people
+   * joining a company, and re-fetching it per bead would add a round trip to every
+   * actor resolution in a sync.
+   */
+  async listMembers(): Promise<ProviderMember[]> {
+    if (this.members) {
+      return this.members;
+    }
+    const collected: ProviderMember[] = [];
+    let after: string | undefined;
+    do {
+      const page = await this.client.request<{
+        users: {
+          pageInfo: { hasNextPage: boolean; endCursor: string | null };
+          nodes: {
+            id: string;
+            name: string | null;
+            displayName: string | null;
+            email: string | null;
+            active: boolean;
+          }[];
+        };
+      }>(WORKSPACE_USERS_QUERY, { first: MAX_PAGE_SIZE, after });
+      for (const node of page.users.nodes) {
+        collected.push({
+          id: node.id,
+          displayName: node.displayName ?? node.name ?? node.id,
+          ...(node.email ? { email: node.email } : {}),
+          active: node.active,
+        });
+      }
+      after = page.users.pageInfo.hasNextPage
+        ? (page.users.pageInfo.endCursor ?? undefined)
+        : undefined;
+    } while (after);
+    this.members = collected;
+    return collected;
   }
 
   private async resolveTeamId(): Promise<string> {
@@ -1204,7 +1319,9 @@ export class LinearAdapter implements TrackerAdapter {
   }
 
   private async resolveUserId(assignee: string): Promise<string> {
-    const identity = this.userMap.get(assignee);
+    // A directory resolution wins nothing over an explicit override: `user_map` is
+    // consulted first so a repository that pinned an identity keeps it.
+    const identity = this.userMap.get(assignee) ?? this.resolvedActors.get(assignee);
     if (!identity) {
       throw new Error(`No Linear user mapping is configured for tbd assignee ${assignee}.`);
     }

@@ -70,6 +70,8 @@ export interface MirrorContext {
   originLabels?: readonly string[];
   /** Provider/config capability for projecting a canonical assignee. */
   canPushAssignee?: (assignee: string | null) => boolean;
+  /** Why a handle could not be published, when the provider can say. */
+  assigneeSkipReason?: (assignee: string) => string | undefined;
 }
 
 /**
@@ -285,7 +287,11 @@ export function planMirror(context: MirrorContext): MirrorPlan {
     if (issue.assignee && context.canPushAssignee && !context.canPushAssignee(issue.assignee)) {
       skippedFields.push({
         field: 'assignee',
-        reason: `no user_map entry for ${issue.assignee}`,
+        // The provider knows why it could not resolve the handle — no directory match,
+        // or several — and that is far more actionable than naming a config key the
+        // repository may deliberately not be using.
+        reason:
+          context.assigneeSkipReason?.(issue.assignee) ?? `no user_map entry for ${issue.assignee}`,
       });
     }
 

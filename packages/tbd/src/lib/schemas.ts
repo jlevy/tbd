@@ -380,6 +380,20 @@ export const IssueSchema = BaseEntity.extend({
     }
   });
 
+/**
+ * A recorded answer to "which provider user is this tbd handle?".
+ *
+ * Keyed on disk by `provider_user_id`, because that is the identity; `display_name` is
+ * a label kept only so `tbd doctor` can report when the directory has drifted from it.
+ * No email is stored: the sync branch should not become a contact directory.
+ */
+export const ActorBindingSchema = z.object({
+  handle: z.string().min(1),
+  provider_user_id: z.string().min(1),
+  display_name: z.string(),
+  bound_at: Timestamp,
+});
+
 // =============================================================================
 // Config Schema (§2.6.4)
 // =============================================================================

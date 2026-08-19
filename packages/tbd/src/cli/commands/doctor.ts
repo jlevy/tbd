@@ -42,6 +42,7 @@ import {
   AGENT_INTEGRATION_FORMAT,
 } from '../../lib/integration-paths.js';
 import { validateIssueId, extractUlidFromInternalId, formatDisplayId } from '../../lib/ids.js';
+import { isAgentId } from '../../lib/agent-identity.js';
 import { findHierarchyProblems } from '../../lib/issue-hierarchy.js';
 import { duplicateExternalLinks, readLink } from '../../integrations/core/link-store.js';
 import { integrationsInert } from '../../integrations/core/registry.js';
@@ -404,6 +405,7 @@ class DoctorHandler extends BaseCommand {
     // Check 4: Orphaned dependencies
     healthChecks.push(
       await this.safeCheck('Dependencies', async () => this.checkOrphanedDependencies(this.issues)),
+      await this.safeCheck('Actor axis', async () => this.checkAgentShapedAssignees(this.issues)),
     );
 
     // Check 5: Duplicate IDs
@@ -830,6 +832,48 @@ class DoctorHandler extends BaseCommand {
         path: issuesPath,
       };
     }
+  }
+
+  /**
+   * Beads whose `assignee` looks like an agent rather than a person.
+   *
+   * `tbd start` used to claim by writing the agent name into `assignee`, which is the
+   * slot reserved for whoever is accountable. Those beads are still out there, and left
+   * alone they publish an agent identity into a shared tracker as the responsible human
+   * — the outcome the actor axis exists to prevent. Reported rather than rewritten,
+   * because a name that merely looks agent-shaped might be a person's handle.
+   */
+  private async checkAgentShapedAssignees(issues: Issue[]): Promise<DiagnosticResult> {
+    const { loadIdMapping } = await import('../../file/id-mapping.js');
+    const mapping = await loadIdMapping(this.dataSyncDir);
+    const prefix = this.config?.display.id_prefix ?? '';
+    const suspects: string[] = [];
+    for (const issue of issues) {
+      const assignee = issue.assignee?.trim();
+      if (!assignee || issue.delegate) {
+        continue;
+      }
+      // Two shapes tbd itself produces: a minted agent id, and the derived
+      // `<harness>@<host>` fallback an agent claims under when it cannot name itself.
+      const looksLikeAgent = isAgentId(assignee) || assignee.includes('@');
+      if (looksLikeAgent) {
+        suspects.push(`${formatDisplayId(issue.id, mapping, prefix)}: ${assignee}`);
+      }
+    }
+
+    if (suspects.length === 0) {
+      return { name: 'Actor axis', status: 'ok' };
+    }
+    return {
+      name: 'Actor axis',
+      status: 'warn',
+      message: `${suspects.length} bead(s) name an agent as assignee`,
+      details: suspects
+        .slice(0, 5)
+        .concat(suspects.length > 5 ? [`, and ${suspects.length - 5} more`] : []),
+      suggestion:
+        'assignee is who is accountable; an acting agent belongs in delegate. Move with: tbd update <id> --delegate <agent> --assignee ""',
+    };
   }
 
   private checkOrphanedDependencies(issues: Issue[]): DiagnosticResult {

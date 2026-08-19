@@ -110,6 +110,7 @@ HEALTH CHECKS
 ✓ Launcher fallback
 ✓ Issues directory (.tbd/issues)
 ✓ Dependencies
+✓ Actor axis
 ✓ Unique IDs
 ✓ Issue hierarchy
 ✓ ID mapping conflicts

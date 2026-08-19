@@ -150,6 +150,8 @@ export interface AttachmentSpec {
  * `stateId`, and state names are user-editable so they cannot be the key) and
  * the label name-to-id map.
  */
+import type { ProviderMember, ActorBinding } from './actor-binding.js';
+
 export interface ProviderMeta {
   /**
    * Workflow state id by state `type`, e.g. `started` -> uuid.
@@ -339,6 +341,20 @@ export interface TrackerAdapter {
 
   /** Resolve, and cache, the provider metadata needed to push. */
   ensureMeta(force?: boolean): Promise<ProviderMeta>;
+  /**
+   * Everyone the provider knows, for resolving a tbd handle to a real person.
+   *
+   * Optional on the interface: a provider with no directory (or an adapter that has
+   * not grown one yet) simply cannot resolve actors that way, and the caller falls
+   * back to the configured override instead of failing.
+   */
+  listMembers?(): Promise<ProviderMember[]>;
+  /** Resolve the handles a run will need, once, before per-bead checks. */
+  primeActors?(handles: readonly string[], bindings: readonly ActorBinding[]): Promise<void>;
+  /** Bindings discovered during {@link primeActors}, for the caller to persist. */
+  newActorBindings?(now: string): ActorBinding[];
+  /** Why a handle could not be published, for the field-level skip report. */
+  assigneeSkipReason?(assignee: string): string | undefined;
 
   /**
    * Inspect, and optionally create, the tracker-side scaffolding a sync depends on.

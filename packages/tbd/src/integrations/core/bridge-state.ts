@@ -20,8 +20,9 @@ import { isDeepStrictEqual } from 'node:util';
 
 import { writeFile } from 'atomically';
 
-import { LinkRecordSchema } from '../../lib/schemas.js';
+import { LinkRecordSchema, ActorBindingSchema } from '../../lib/schemas.js';
 import type { LinkRecord, ProviderNameType } from '../../lib/types.js';
+import type { ActorBinding } from './actor-binding.js';
 import { parseYamlWithConflictDetection, stringifyYaml } from '../../utils/yaml-utils.js';
 import { stripManagedBlock } from './managed-block.js';
 
@@ -33,6 +34,57 @@ export function bridgeLinksDir(dataSyncDir: string, provider: ProviderNameType):
 /** Directory holding write-ahead intent files for a provider. */
 export function bridgeIntentsDir(dataSyncDir: string, provider: ProviderNameType): string {
   return join(dataSyncDir, 'bridge', provider, 'intents');
+}
+
+/**
+ * Directory holding one record per bound identity for a provider.
+ *
+ * Per-provider by construction: the same person is a UUID on Linear and a login on
+ * GitHub, and a shared directory would have to invent a key that means neither.
+ */
+export function bridgeUsersDir(dataSyncDir: string, provider: ProviderNameType): string {
+  return join(dataSyncDir, 'bridge', provider, 'users');
+}
+
+/** Read every binding recorded for a provider. Absent directory means none yet. */
+export async function readActorBindings(
+  dataSyncDir: string,
+  provider: ProviderNameType,
+): Promise<ActorBinding[]> {
+  const dir = bridgeUsersDir(dataSyncDir, provider);
+  let files: string[];
+  try {
+    files = await readdir(dir);
+  } catch {
+    return [];
+  }
+  const bindings: ActorBinding[] = [];
+  for (const file of files.filter((name) => name.endsWith('.yml')).sort()) {
+    try {
+      const parsed = parseYamlWithConflictDetection(await readFile(join(dir, file), 'utf-8'), file);
+      const binding = ActorBindingSchema.safeParse(parsed);
+      if (binding.success) {
+        bindings.push(binding.data);
+      }
+    } catch {
+      // A single unreadable binding must not take down a sync: the actor for that
+      // handle simply stays unresolved and is reported like any other.
+      continue;
+    }
+  }
+  return bindings;
+}
+
+/** Write one binding, keyed by provider user id so a rename cannot orphan it. */
+export async function writeActorBinding(
+  dataSyncDir: string,
+  provider: ProviderNameType,
+  binding: ActorBinding,
+): Promise<void> {
+  const dir = bridgeUsersDir(dataSyncDir, provider);
+  await mkdir(dir, { recursive: true });
+  const safeName = binding.provider_user_id.replace(/[^A-Za-z0-9._-]/g, '_');
+  await writeFile(join(dir, `${safeName}.yml`), stringifyYaml(binding), 'utf-8');
 }
 
 function recordPath(dataSyncDir: string, provider: ProviderNameType, beadId: string): string {

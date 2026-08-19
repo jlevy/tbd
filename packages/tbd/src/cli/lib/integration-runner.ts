@@ -21,7 +21,12 @@ import {
   specPermalink,
   type BranchCandidate,
 } from '../../integrations/core/permalink.js';
-import { readLinkRecord, writeLinkRecordIfChanged } from '../../integrations/core/bridge-state.js';
+import {
+  readLinkRecord,
+  writeLinkRecordIfChanged,
+  readActorBindings,
+  writeActorBinding,
+} from '../../integrations/core/bridge-state.js';
 import { enabledProviders } from '../../integrations/core/registry.js';
 import { mirrorSet, selectionBreakdown } from '../../integrations/core/selection.js';
 import { runSync, type SyncRunReport } from '../../integrations/core/sync-engine.js';
@@ -84,6 +89,39 @@ export function buildAdapter(
     userMap: settings.userMap,
     ...(settings.stateMap ? { stateMap: settings.stateMap } : {}),
   });
+}
+
+/**
+ * Resolve every assignee this run might publish, and record what the directory said.
+ *
+ * Bindings are written back so the next run resolves from disk rather than re-asking,
+ * and so a later rename cannot orphan the handle — the binding holds the provider's id,
+ * not the name it happened to have.
+ */
+async function primeAdapterActors(
+  adapter: TrackerAdapter,
+  dataSyncDir: string,
+  provider: ProviderNameType,
+  issues: readonly Issue[],
+): Promise<void> {
+  if (!adapter.primeActors) {
+    return;
+  }
+  const handles = [
+    ...new Set(
+      issues
+        .map((issue) => issue.assignee?.trim())
+        .filter((handle): handle is string => Boolean(handle)),
+    ),
+  ];
+  if (handles.length === 0) {
+    return;
+  }
+  const bindings = await readActorBindings(dataSyncDir, provider);
+  await adapter.primeActors(handles, bindings);
+  for (const binding of adapter.newActorBindings?.(new Date().toISOString()) ?? []) {
+    await writeActorBinding(dataSyncDir, provider, binding);
+  }
 }
 
 /**
@@ -340,6 +378,10 @@ export async function runEnabledIntegrationPushes(
       );
     }
     const adapter = buildAdapter(entry.provider, credential.value, entry.target, config);
+    // Resolve the actors this run will need before anything consults them per bead.
+    // Handles that `user_map` already covers are skipped, so a repository with an
+    // explicit table never pays for a directory it does not use.
+    await primeAdapterActors(adapter, dataSyncDir, entry.provider, allIssues);
     const pushSelection = resolvePushSelection(options, allIssues, entry, (ref) => {
       try {
         return resolveToInternalId(ref, mapping);
@@ -365,6 +407,7 @@ export async function runEnabledIntegrationPushes(
       originLabels: await resolveOriginLabels(tbdRoot, config),
       maxNesting: entry.maxNesting,
       canPushAssignee: (assignee) => adapter.canPushAssignee(assignee),
+      assigneeSkipReason: (assignee) => adapter.assigneeSkipReason?.(assignee),
       specUrl: (issue) => (issue.spec_path ? specLinks.get(issue.spec_path) : undefined),
     });
     if (!options.dryRun) {
