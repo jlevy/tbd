@@ -1,0 +1,979 @@
+created_at: 2026-08-19T16:25:59.220Z
+ops:
+  - bead_id: is-01m0bahzrjpybv07yrjx11r7bc
+    client_id: 0f3d0ff6-004a-411a-86bc-baf8eaf9b236
+    kind: create_issue
+    patch:
+      description: >-
+        Add `resolution` and `duplicate_of` (scalar, not a dependency edge); `tbd close
+        --as`; map all three terminal cases in both directions, creating the
+        provider-side duplicate relation from the scalar; send completedAt only for
+        completed; replace stateIdsByType with the four-step name-first resolver plus
+        `state_map` keyed by slot; prompt on ambiguity and refuse non-interactively;
+        doctor reports the resolved state per slot.
+
+
+        Useful alone and unblocks every later phase. Also carries the f08 passthrough
+        test that decides the format-bump question for both specs. Checklist is in the
+        spec; decompose into per-item beads when work starts.
+      parentId: a6f4de12-f0b2-4eeb-a444-01666ac9d52c
+      priority: 2
+      status: in_progress
+      title: "Phase 1: terminal resolution and name-based state resolution"
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-pha0
+          children: 0
+          created_at: 2026-08-18T20:56:09.234Z
+          dependencies:
+            - target: is-01m0baj02g8vwdd94fd2cgck33
+              type: blocks
+            - target: is-01m0c5rk9zcamj2r525dazj73w
+              type: blocks
+          internal_id: is-01m0bahzrjpybv07yrjx11r7bc
+          kind: task
+          labels: []
+          parent_id: is-01m0bahns9883ea2cn8ajgnf99
+          priority: 2
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md
+          status: in_progress
+          updated_at: 2026-08-19T16:06:56.898Z
+        subtitle: in_progress · P2
+        title: tbd-pha0 · task
+        url: tbd://bead/tbd-pha0
+      - subtitle: plan spec
+        title: plan-2026-08-18-tracker-state-model-and-linear-mapping.md
+        url: https://github.com/jlevy/tbd/blob/docs/specs-status-lifecycle-triage/docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md
+    bead_id: is-01m0bahzrjpybv07yrjx11r7bc
+    external_id: 0f3d0ff6-004a-411a-86bc-baf8eaf9b236
+    kind: upsert_attachments
+  - bead_id: is-01m0bahzrjpybv07yrjx11r7bc
+    block: |-
+      ⟦tbd⟧
+      `tbd-pha0` · task · in_progress · P2
+      Spec: [plan-2026-08-18-tracker-state-model-and-linear-mapping.md](https://github.com/jlevy/tbd/blob/docs/specs-status-lifecycle-triage/docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-pha0`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 0f3d0ff6-004a-411a-86bc-baf8eaf9b236
+    kind: splice_description
+  - bead_id: is-01m0baj02g8vwdd94fd2cgck33
+    client_id: 99295cf7-ed8d-4fe9-a1c1-cdfd2fb09829
+    kind: create_issue
+    patch:
+      description: >-
+        Add `hold`, `hold_until`, `started_at`; `tbd pause`/`resume` and bulk --hold;
+        map open+paused to Backlog and in_progress+paused to the Paused state with
+        carrier-label fallback; inbound from a Paused-named started state.
+
+
+        Depends on Phase 1's resolver. Provisioning moved to Phase 4: the Paused state
+        is created as part of the whole state_map, not on its own.
+      parentId: a6f4de12-f0b2-4eeb-a444-01666ac9d52c
+      priority: 3
+      status: open
+      title: "Phase 2: hold, paused, and started_at"
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-vp54
+          children: 0
+          created_at: 2026-08-18T20:56:09.551Z
+          dependencies:
+            - target: is-01m0c5qm44fxj4m6tr29k2v29f
+              type: blocks
+          internal_id: is-01m0baj02g8vwdd94fd2cgck33
+          kind: task
+          labels: []
+          parent_id: is-01m0bahns9883ea2cn8ajgnf99
+          priority: 3
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md
+          status: open
+          updated_at: 2026-08-19T04:51:05.475Z
+        subtitle: open · P3
+        title: tbd-vp54 · task
+        url: tbd://bead/tbd-vp54
+      - subtitle: plan spec
+        title: plan-2026-08-18-tracker-state-model-and-linear-mapping.md
+        url: https://github.com/jlevy/tbd/blob/docs/specs-status-lifecycle-triage/docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md
+    bead_id: is-01m0baj02g8vwdd94fd2cgck33
+    external_id: 99295cf7-ed8d-4fe9-a1c1-cdfd2fb09829
+    kind: upsert_attachments
+  - bead_id: is-01m0baj02g8vwdd94fd2cgck33
+    block: |-
+      ⟦tbd⟧
+      `tbd-vp54` · task · open · P3
+      Spec: [plan-2026-08-18-tracker-state-model-and-linear-mapping.md](https://github.com/jlevy/tbd/blob/docs/specs-status-lifecycle-triage/docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-vp54`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 99295cf7-ed8d-4fe9-a1c1-cdfd2fb09829
+    kind: splice_description
+  - bead_id: is-01m0c5qm44fxj4m6tr29k2v29f
+    client_id: d005ac9a-ad75-4650-8b5b-24e64457e609
+    kind: create_issue
+    patch:
+      description: |-
+        Widen the reconcile canonical status field from the five-value enum to the slot vocabulary (backlog|draft|todo|in_progress|paused|blocked|in_review|done|canceled|duplicate). Legacy path with no state_map keeps statusToLinear/statusFromLinear byte-for-byte.
+
+        Local slot computation by the fixed precedence ladder; pull decomposition back onto bead fields; remote slot resolution by name, with unmapped names becoming owned refinements (band slot for the matrix, exact state id preserved outbound). Settle the refinement record's home (extensions.<provider> vs the pair's link record) by testing two clones against one team. Base migration on first slot run: zero writes on an unchanged repository, pinned by test. Outbound ladder: mapped state, else carrier label plus band default, else band default.
+
+        Depends on Phase 1's resolver and Phase 2's hold fields.
+      parentId: a6f4de12-f0b2-4eeb-a444-01666ac9d52c
+      priority: 3
+      status: open
+      title: "Phase 3: slots in the reconcile engine"
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-7a0t
+          children: 0
+          created_at: 2026-08-19T04:51:05.475Z
+          dependencies:
+            - target: is-01m0c5qw38xxxfgr8grwwnyz7x
+              type: blocks
+          internal_id: is-01m0c5qm44fxj4m6tr29k2v29f
+          kind: task
+          labels: []
+          parent_id: is-01m0bahns9883ea2cn8ajgnf99
+          priority: 3
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md
+          status: open
+          updated_at: 2026-08-19T04:51:13.639Z
+        subtitle: open · P3
+        title: tbd-7a0t · task
+        url: tbd://bead/tbd-7a0t
+      - subtitle: plan spec
+        title: plan-2026-08-18-tracker-state-model-and-linear-mapping.md
+        url: https://github.com/jlevy/tbd/blob/docs/specs-status-lifecycle-triage/docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md
+    bead_id: is-01m0c5qm44fxj4m6tr29k2v29f
+    external_id: d005ac9a-ad75-4650-8b5b-24e64457e609
+    kind: upsert_attachments
+  - bead_id: is-01m0c5qm44fxj4m6tr29k2v29f
+    block: |-
+      ⟦tbd⟧
+      `tbd-7a0t` · task · open · P3
+      Spec: [plan-2026-08-18-tracker-state-model-and-linear-mapping.md](https://github.com/jlevy/tbd/blob/docs/specs-status-lifecycle-triage/docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-7a0t`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: d005ac9a-ad75-4650-8b5b-24e64457e609
+    kind: splice_description
+  - bead_id: is-01m0c5qw38xxxfgr8grwwnyz7x
+    client_id: b6189c18-9329-4e70-88a3-8cadd8d907d6
+    kind: create_issue
+    patch:
+      description: >-
+        state_map optional: absent reproduces today's behavior with no extra states and
+        no prompt, and the written config is the consent so no sync ever prompts.
+
+
+        Fresh setup proposes the default map, binds by name, and creates
+        Draft/Paused/Blocked on confirmation with explicit positions in slot order.
+        Re-run reconciles the map against the live team: missing states (offer create),
+        positions contradicting slot order (offer reposition), renames (id bindings
+        hold, doctor reports drift). Validate against real team states before mutating
+        and fail closed naming what is missing; never rename, delete, or touch a state
+        outside the map. Two slots may name one state, disambiguated inbound by carrier
+        label. tbd doctor prints the resolved slot table offline.
+
+
+        Changes what a board looks like, so it is opt-in per repository. Depends on
+        Phase 3.
+      parentId: a6f4de12-f0b2-4eeb-a444-01666ac9d52c
+      priority: 3
+      status: open
+      title: "Phase 4: board setup, provisioning, and re-config"
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-qdj4
+          children: 0
+          created_at: 2026-08-19T04:51:13.639Z
+          dependencies:
+            - target: is-01m0c8v8fp3sagm3eh5bmm2n0k
+              type: blocks
+          internal_id: is-01m0c5qw38xxxfgr8grwwnyz7x
+          kind: task
+          labels: []
+          parent_id: is-01m0bahns9883ea2cn8ajgnf99
+          priority: 3
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md
+          status: open
+          updated_at: 2026-08-19T05:45:30.357Z
+        subtitle: open · P3
+        title: tbd-qdj4 · task
+        url: tbd://bead/tbd-qdj4
+      - subtitle: plan spec
+        title: plan-2026-08-18-tracker-state-model-and-linear-mapping.md
+        url: https://github.com/jlevy/tbd/blob/docs/specs-status-lifecycle-triage/docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md
+    bead_id: is-01m0c5qw38xxxfgr8grwwnyz7x
+    external_id: b6189c18-9329-4e70-88a3-8cadd8d907d6
+    kind: upsert_attachments
+  - bead_id: is-01m0c5qw38xxxfgr8grwwnyz7x
+    block: |-
+      ⟦tbd⟧
+      `tbd-qdj4` · task · open · P3
+      Spec: [plan-2026-08-18-tracker-state-model-and-linear-mapping.md](https://github.com/jlevy/tbd/blob/docs/specs-status-lifecycle-triage/docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-qdj4`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: b6189c18-9329-4e70-88a3-8cadd8d907d6
+    kind: splice_description
+  - bead_id: is-01m0c5rbazv8b7mdemyaqqh995
+    client_id: 273e109a-3300-454d-8444-d1fe166ae62a
+    kind: create_issue
+    patch:
+      description: >-
+        Add `delegate` to the bead schema (absent reads as same as assignee); --delegate
+        on create/update including the bulk path.
+
+
+        Rewire `tbd start` to set delegate instead of assignee (start.ts:142), moving
+        the collision checks with it, so a claim stops overwriting the accountable
+        human. Doctor reports agent-shaped assignee values left by the interim wiring
+        and setup offers the move.
+
+
+        Fixes the two observability defects: field-level skip line in the sync summary,
+        --verbose naming each excluded field with its reason, and a write-time warning
+        for values that can never publish. Both get red-proof tests.
+
+
+        Depends on nothing in the sibling. Field name and format-bump approach are
+        settled in the spec, so this is ready to start.
+      parentId: a5613359-e8f4-4a5a-aecc-b27c64c5870e
+      priority: 2
+      status: open
+      title: "Phase 1: delegate field and the claim verb"
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-3wlk
+          children: 0
+          created_at: 2026-08-19T04:51:29.245Z
+          dependencies:
+            - target: is-01m0c5rk9zcamj2r525dazj73w
+              type: blocks
+            - target: is-01m0c5rsgkvdv8ad02eaq7109k
+              type: blocks
+          internal_id: is-01m0c5rbazv8b7mdemyaqqh995
+          kind: task
+          labels: []
+          parent_id: is-01m0c5r461zmx3ctgsxq94s0bq
+          priority: 2
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-18-actor-axis-and-identity.md
+          status: open
+          updated_at: 2026-08-19T16:06:57.399Z
+        subtitle: open · P2
+        title: tbd-3wlk · task
+        url: tbd://bead/tbd-3wlk
+    bead_id: is-01m0c5rbazv8b7mdemyaqqh995
+    external_id: 273e109a-3300-454d-8444-d1fe166ae62a
+    kind: upsert_attachments
+  - bead_id: is-01m0c5rbazv8b7mdemyaqqh995
+    block: |-
+      ⟦tbd⟧
+      `tbd-3wlk` · task · open · P2
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-3wlk`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 273e109a-3300-454d-8444-d1fe166ae62a
+    kind: splice_description
+  - bead_id: is-01m0c5rk9zcamj2r525dazj73w
+    client_id: c71cce95-d99b-4e49-8123-199bceeb8b6d
+    kind: create_issue
+    patch:
+      description: >-
+        Add listMembers() to the adapter interface and implement it for Linear. Write
+        the resolution ladder (recorded binding, email, login or display name, ask) once
+        against the adapter interface rather than inside the Linear adapter, since
+        identity is per provider.
+
+
+        Persist bindings by provider user id under bridge/<provider>/users/, never
+        guessing non-interactively. Inbound unknown assignee offers a binding
+        interactively and reports otherwise. user_map stays an override; setup migrates
+        its entries into binding records. Doctor prints the resolved actor table
+        offline, flags directory drift, and flags handles with no binding in any
+        configured provider.
+
+
+        Reuses the sibling Phase 1 resolver-and-ask machinery. The per-provider property
+        is tested against a stub second adapter: one handle binding to two ids, partial
+        coverage reporting a skip, rebinding one provider leaving the other untouched.
+
+
+        Open before starting: handle shape at the bind prompt, and whether the no-email
+        rule for binding records is schema-enforced.
+      parentId: a5613359-e8f4-4a5a-aecc-b27c64c5870e
+      priority: 3
+      status: open
+      title: "Phase 2: human identity binding, per provider"
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-l529
+          children: 0
+          created_at: 2026-08-19T04:51:37.406Z
+          dependencies: []
+          internal_id: is-01m0c5rk9zcamj2r525dazj73w
+          kind: task
+          labels: []
+          parent_id: is-01m0c5r461zmx3ctgsxq94s0bq
+          priority: 3
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-18-actor-axis-and-identity.md
+          status: open
+          updated_at: 2026-08-19T04:51:37.406Z
+        subtitle: open · P3
+        title: tbd-l529 · task
+        url: tbd://bead/tbd-l529
+    bead_id: is-01m0c5rk9zcamj2r525dazj73w
+    external_id: c71cce95-d99b-4e49-8123-199bceeb8b6d
+    kind: upsert_attachments
+  - bead_id: is-01m0c5rk9zcamj2r525dazj73w
+    block: |-
+      ⟦tbd⟧
+      `tbd-l529` · task · open · P3
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-l529`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: c71cce95-d99b-4e49-8123-199bceeb8b6d
+    kind: splice_description
+  - bead_id: is-01m0c5rsgkvdv8ad02eaq7109k
+    client_id: 175d3536-7308-4798-9871-5553ccc54d6f
+    kind: create_issue
+    patch:
+      description: >-
+        agent_map in config; outbound delegate to delegateId only for agents named
+        there, which is what keeps ephemeral session identities out of a shared
+        workspace by construction. Inbound delegate maps through agent_map in reverse;
+        an unknown app user warns and leaves the bead unchanged.
+
+
+        An unmapped agent delegate produces a reported skip, never a silent one. A human
+        delegate is never sent to Linear, since Linear delegates are agents only.
+
+
+        Depends on Phase 1's field. Independent of Phase 2.
+      parentId: a5613359-e8f4-4a5a-aecc-b27c64c5870e
+      priority: 3
+      status: open
+      title: "Phase 3: publishing delegates to Linear"
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-mbip
+          children: 0
+          created_at: 2026-08-19T04:51:43.762Z
+          dependencies:
+            - target: is-01m0c8v94j74sqaj35ts5xrjjf
+              type: blocks
+          internal_id: is-01m0c5rsgkvdv8ad02eaq7109k
+          kind: task
+          labels: []
+          parent_id: is-01m0c5r461zmx3ctgsxq94s0bq
+          priority: 3
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-18-actor-axis-and-identity.md
+          status: open
+          updated_at: 2026-08-19T05:45:31.024Z
+        subtitle: open · P3
+        title: tbd-mbip · task
+        url: tbd://bead/tbd-mbip
+    bead_id: is-01m0c5rsgkvdv8ad02eaq7109k
+    external_id: 175d3536-7308-4798-9871-5553ccc54d6f
+    kind: upsert_attachments
+  - bead_id: is-01m0c5rsgkvdv8ad02eaq7109k
+    block: |-
+      ⟦tbd⟧
+      `tbd-mbip` · task · open · P3
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-mbip`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 175d3536-7308-4798-9871-5553ccc54d6f
+    kind: splice_description
+  - bead_id: is-01m0c6d92k9x74f1sgc04x0aqb
+    client_id: b5a35ee8-341e-4988-aac6-fa5202af4d4a
+    kind: create_issue
+    patch:
+      description: >-
+        Sync reports "Already in sync" while the remote is hundreds of commits ahead,
+        and a failing push blames "Remote has conflicting changes" when git actually
+        says non-fast-forward. Both come from one line.
+
+
+        ROOT CAUSE
+
+        tbd fetches with a destination-less refspec:
+
+          packages/tbd/src/cli/commands/sync.ts:593   await git('fetch', remote, syncBranch)
+          packages/tbd/src/file/git.ts:1181           await git(...dirArgs, 'fetch', remote, syncBranch)
+
+        `git fetch origin tbd-sync` writes FETCH_HEAD and does NOT update
+        refs/remotes/origin/tbd-sync. But the very next statement compares against the
+        remote-tracking ref:
+
+          sync.ts:596-600   rev-list --count ${remote}/${syncBranch}..${syncBranch}
+
+        So the ahead/behind counts are computed against a ref the fetch never advanced.
+        Verified on git 2.50.1, so this is not an old-git quirk.
+
+
+        SYMPTOM 1 — silent stale read (the dangerous one)
+
+        `tbd sync --issues` printed "✓ Already in sync" while origin/tbd-sync was 283
+        commits ahead. After an explicit-destination fetch, the same command pulled 805
+        new beads and 192 updates. An agent trusting the first result operates on a
+        stale graph: in this case it concluded a bead (tbd-og20) did not exist, when it
+        existed upstream with a full spec.
+
+
+        SYMPTOM 2 — misattributed push failure
+
+        The retry loop at git.ts:1181 fetches, calls onMergeNeeded(), then retries the
+        push. Because the fetch never advances the ref the merge integrates from, the
+        merge cannot make progress, all three attempts fail, and the error surfaces as:
+
+          ✗ Push failed: Push failed after 3 attempts. Remote has conflicting changes.
+
+        The real git error is:
+
+          ! [rejected] tbd-sync -> tbd-sync (non-fast-forward)
+          hint: Updates were rejected because a pushed branch tip is behind its remote counterpart.
+
+        There were no conflicting changes — local was strictly behind. The message
+        points away from the fix.
+
+
+        REPRO
+          1. Let origin/tbd-sync advance (any other machine or session pushing beads).
+          2. git fetch origin tbd-sync
+          3. git rev-list --left-right --count tbd-sync...origin/tbd-sync   -> reports 'N 0'
+          4. git fetch origin 'refs/heads/tbd-sync:refs/remotes/origin/tbd-sync'
+          5. Same rev-list                                                  -> reports 'N 283'
+
+        FIX
+
+        Give every sync-path fetch an explicit destination, or drop the refspec and rely
+        on the remote's configured one:
+
+          git fetch ${remote} ${syncBranch}:refs/remotes/${remote}/${syncBranch}
+          # or: git fetch ${remote}
+
+        Audit the other sites using the same form: git.ts lines 1725, 1996, 2072, 2167,
+        2616, 2713; workspace.ts:294; bead-watch.ts:143. bead-watch matters most after
+        sync — a watcher comparing a stale tip misses wake signals.
+
+
+        Then make the push-failure message name the actual git rejection and the remedy,
+        rather than asserting conflicting changes.
+
+
+        WHY P0
+
+        This is a correctness bug in the primitive every agent trusts to know the
+        current graph, and it fails silently in the direction that looks like success.
+        Found during a finterm Linear rollout; the stale read caused a wrong factual
+        conclusion about upstream state before it was caught.
+      priority: 0
+      status: open
+      title: "sync: fetch writes FETCH_HEAD only, so ahead/behind and push-retry compare a
+        stale remote-tracking ref"
+  - attachments:
+      - metadata:
+          assignee: josh
+          bead_id: tbd-s4jk
+          children: 0
+          created_at: 2026-08-19T05:02:55.056Z
+          dependencies: []
+          internal_id: is-01m0c6d92k9x74f1sgc04x0aqb
+          kind: epic
+          labels: []
+          parent_id: null
+          priority: 0
+          ready_children: 0
+          spec_path: null
+          status: open
+          updated_at: 2026-08-19T05:02:55.056Z
+        subtitle: open · P0
+        title: tbd-s4jk · epic
+        url: tbd://bead/tbd-s4jk
+    bead_id: is-01m0c6d92k9x74f1sgc04x0aqb
+    external_id: b5a35ee8-341e-4988-aac6-fa5202af4d4a
+    kind: upsert_attachments
+  - bead_id: is-01m0c6d92k9x74f1sgc04x0aqb
+    block: |-
+      ⟦tbd⟧
+      `tbd-s4jk` · epic · open · P0
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-s4jk`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: b5a35ee8-341e-4988-aac6-fa5202af4d4a
+    kind: splice_description
+  - bead_id: is-01m0c8v8fp3sagm3eh5bmm2n0k
+    client_id: f4f25d6d-c5f6-413b-a1e6-b771e5a59253
+    kind: create_issue
+    patch:
+      description: Acceptance gate for all prior phases; ships nothing. Migration on ~900 real
+        beads with zero state writes on first sync; provision the tbd Linear board and
+        verify column order; mirror the tbd-og20 and tbd-ncux epics and assign them to
+        the accountable human (Josh) by directory-resolved binding, not user_map; walk
+        real beads through every column; pause genuinely stalled beads and verify Paused
+        holds, started_at survives, tbd ready excludes them, and same-type column drags
+        produce no patch; resume/cancel/duplicate round trips; two consecutive syncs
+        report nothing to do; reconcile spec folders against the board. Record as a QA
+        playbook beside valid-2026-08-16-linear-integration-live.md.
+      parentId: a6f4de12-f0b2-4eeb-a444-01666ac9d52c
+      priority: 2
+      status: open
+      title: "Phase 5: dogfood the state and actor model on this repository"
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-rsc4
+          children: 0
+          created_at: 2026-08-19T05:45:30.357Z
+          dependencies: []
+          internal_id: is-01m0c8v8fp3sagm3eh5bmm2n0k
+          kind: task
+          labels: []
+          parent_id: is-01m0bahns9883ea2cn8ajgnf99
+          priority: 2
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md
+          status: open
+          updated_at: 2026-08-19T16:06:57.914Z
+        subtitle: open · P2
+        title: tbd-rsc4 · task
+        url: tbd://bead/tbd-rsc4
+      - subtitle: plan spec
+        title: plan-2026-08-18-tracker-state-model-and-linear-mapping.md
+        url: https://github.com/jlevy/tbd/blob/docs/specs-status-lifecycle-triage/docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md
+    bead_id: is-01m0c8v8fp3sagm3eh5bmm2n0k
+    external_id: f4f25d6d-c5f6-413b-a1e6-b771e5a59253
+    kind: upsert_attachments
+  - bead_id: is-01m0c8v8fp3sagm3eh5bmm2n0k
+    block: |-
+      ⟦tbd⟧
+      `tbd-rsc4` · task · open · P2
+      Spec: [plan-2026-08-18-tracker-state-model-and-linear-mapping.md](https://github.com/jlevy/tbd/blob/docs/specs-status-lifecycle-triage/docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-rsc4`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: f4f25d6d-c5f6-413b-a1e6-b771e5a59253
+    kind: splice_description
+  - bead_id: is-01m0c8v94j74sqaj35ts5xrjjf
+    client_id: 0112d9da-1ea5-4cc2-9317-6a0ecd59cf78
+    kind: create_issue
+    patch:
+      description: Assign this work's epics to the accountable human by handle with no
+        user_map entry; confirm binding by provider user id survives a rename; claim
+        real beads with tbd start and confirm delegate holds the agent while assignee
+        stays the human on both sides; confirm no agent identity reaches Linear
+        (reported skip); migrate beads claimed under the interim wiring until doctor
+        reports zero agent-shaped assignees.
+      parentId: a5613359-e8f4-4a5a-aecc-b27c64c5870e
+      priority: 2
+      status: open
+      title: "Phase 4: dogfood the actor axis (shares the state Phase 5 gate)"
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-wvsp
+          children: 0
+          created_at: 2026-08-19T05:45:31.024Z
+          dependencies: []
+          internal_id: is-01m0c8v94j74sqaj35ts5xrjjf
+          kind: task
+          labels: []
+          parent_id: is-01m0c5r461zmx3ctgsxq94s0bq
+          priority: 2
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-18-actor-axis-and-identity.md
+          status: open
+          updated_at: 2026-08-19T05:45:31.024Z
+        subtitle: open · P2
+        title: tbd-wvsp · task
+        url: tbd://bead/tbd-wvsp
+    bead_id: is-01m0c8v94j74sqaj35ts5xrjjf
+    external_id: 0112d9da-1ea5-4cc2-9317-6a0ecd59cf78
+    kind: upsert_attachments
+  - bead_id: is-01m0c8v94j74sqaj35ts5xrjjf
+    block: |-
+      ⟦tbd⟧
+      `tbd-wvsp` · task · open · P2
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-wvsp`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 0112d9da-1ea5-4cc2-9317-6a0ecd59cf78
+    kind: splice_description
+  - bead_id: is-01m0ddenmjsxeqm98ytfpcfc11
+    client_id: d1a8282c-7a55-4ec3-ad74-5d329037c4b1
+    kind: create_issue
+    patch:
+      description: >-
+        ## The Problem
+
+
+        In a linked git worktree, tbd reports `LINEAR_API_KEY not found` even when the
+        key is
+
+        present in the repository's `.env`. `.env` is gitignored, and gitignored files
+        do not
+
+        propagate to worktrees, so a fully configured repository looks unconfigured from
+        any
+
+        worktree of it.
+
+
+        The failure mode is worse than a missing feature, because the diagnosis is
+        misleading.
+
+        `tbd integration status` prints what reads as "Linear is not set up here", when
+        the truth
+
+        is "the key exists, in the main checkout, and this process did not look there".
+        That sent
+
+        an operator into the guided first-time-setup path for a repository whose Linear
+
+        integration was already configured and working.
+
+
+        This is now common rather than exotic. Agent tooling creates worktrees
+        automatically, and
+
+        a single machine can carry many per repository, created by different tools in
+        different
+
+        locations.
+
+
+        ## Why the Obvious Fix Does Not Work
+
+
+        Walking up the directory tree looking for `.env`, which is what
+        `python-dotenv`'s
+
+        `find_dotenv()` and `direnv` do, only works when the worktree happens to be
+        nested inside
+
+        the main checkout. Measured against one real machine's worktrees for a single
+        repository,
+
+        five of six lived outside it:
+
+
+        | Worktree location | Walk-up reaches the repo? |
+
+        | --- | --- |
+
+        | `~/wrk/{org}/{repo}/.claude/worktrees/{id}` | yes, nested |
+
+        | `~/.cache/{tool}/{id}` | no |
+
+        | `~/.codex/worktrees/{id}/{repo}` | no, three of these |
+
+        | `~/.codex/worktrees/{id}/{other-repo}` | no |
+
+
+        Directory-walking also has a security footgun: past the repository root it can
+        pick up an
+
+        unrelated project's secrets, and the deeper the walk the likelier that is.
+
+
+        ## The Mechanism
+
+
+        Ask git which repository this is, rather than inferring it from the filesystem:
+
+
+        ```bash
+
+        dirname "$(git rev-parse --path-format=absolute --git-common-dir)"
+
+        ```
+
+
+        From any linked worktree this resolves to the main checkout exactly, wherever
+        that
+
+        worktree lives. It is not a heuristic; it is git's own answer to the question.
+        In the main
+
+        checkout it resolves to that checkout, so one code path covers both cases.
+
+
+        The precedent is git's own design. Config, hooks, and refs live in the common
+        dir because
+
+        they are repository-scoped rather than branch-scoped. A gitignored `.env`
+        holding
+
+        machine-local credentials is exactly that class of state: it does not vary by
+        branch, so
+
+        sharing it across worktrees is correct rather than merely convenient.
+
+
+        ## Specified Behavior
+
+
+        Resolution order for `LINEAR_API_KEY` and any other integration secret:
+
+
+        1. The process environment. Always wins. Unchanged.
+
+        2. `./.env` in the current working tree. Present-but-different is a deliberate
+        override,
+           so a worktree can point at different credentials.
+        3. `<main-worktree>/.env`, resolved via `--git-common-dir`. This is the new
+        fallback.
+
+        4. Not found.
+
+
+        Requirements beyond the lookup itself:
+
+
+        - **Report the source.** `tbd integration status` already prints a masked
+        credential and
+          its origin, in the form `********abcd from .env`. It must name which `.env`, so loading
+          from another directory is never silent and a layer-2 override is discoverable.
+        - **Never write to the main worktree's `.env`.** The fallback is read-only.
+        Guided setup
+          that writes a key writes it to the current worktree or instructs on the environment.
+        - **Degrade quietly.** Outside a git repository, or when `git` is unavailable,
+        skip layer
+          3 rather than raising.
+        - **Do not cross repository boundaries.** `--git-common-dir` cannot leave the
+        current
+          repository, which is the property that makes this safe where directory-walking is not.
+
+        ## Acceptance
+
+
+        - From a worktree created outside the main checkout, with the key present only
+        in the main
+          checkout's `.env`, `tbd integration status` reports reachable and names the source path.
+        - A worktree-local `.env` still overrides the main one.
+
+        - An exported environment variable still overrides both.
+
+        - Outside a git repository, behavior is unchanged and no new error appears.
+
+        - The `setup-linear` shortcut's join-an-configured-repo guidance is updated:
+        joining from a
+          worktree needs no per-worktree key.
+
+        ## Scope Notes
+
+
+        CI is unaffected. GitHub Actions injects secrets as environment variables,
+        satisfying
+
+        layer 1, and does not use worktrees.
+
+
+        Until this lands, exporting the key from a shell profile or a secret-manager
+        wrapper
+
+        satisfies layer 1 and works in every worktree. Symlinking the main checkout's
+        `.env` into
+
+        each worktree also works, but is manual and must be repeated for every worktree
+        any tool
+
+        creates.
+      priority: 0
+      status: open
+      title: Resolve .env from the main worktree so credentials work in linked worktrees
+  - attachments:
+      - metadata:
+          assignee: josh
+          bead_id: tbd-30t7
+          children: 4
+          created_at: 2026-08-19T16:25:15.153Z
+          dependencies: []
+          internal_id: is-01m0ddenmjsxeqm98ytfpcfc11
+          kind: epic
+          labels: []
+          parent_id: null
+          priority: 0
+          ready_children: 0
+          spec_path: null
+          status: open
+          updated_at: 2026-08-19T16:25:44.948Z
+        subtitle: open · P0
+        title: tbd-30t7 · epic
+        url: tbd://bead/tbd-30t7
+    bead_id: is-01m0ddenmjsxeqm98ytfpcfc11
+    external_id: d1a8282c-7a55-4ec3-ad74-5d329037c4b1
+    kind: upsert_attachments
+  - bead_id: is-01m0ddenmjsxeqm98ytfpcfc11
+    block: |-
+      ⟦tbd⟧
+      `tbd-30t7` · epic · open · P0
+      Children: 4 (0 ready)
+      Bead: `tbd show tbd-30t7`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: d1a8282c-7a55-4ec3-ad74-5d329037c4b1
+    kind: splice_description
+  - bead_id: is-01m00h43nvt17wxyhxqm88wh3c
+    block: |-
+      ⟦tbd⟧
+      `tbd-dzme` · epic · open · P1
+      Spec: [plan-2026-08-14-external-sync-and-traceability.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md)
+      Children: 57 (29 ready)
+      Bead: `tbd show tbd-dzme`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 1ef43a0c-0cf8-4944-a374-327de127108c
+    kind: splice_description
+  - bead_id: is-01m012qa5v7vjnn713ec383mze
+    external_id: c8f8e501-c470-41bb-b12c-cd0116a11b3c
+    kind: update_issue
+    patch:
+      parentId: 1ef43a0c-0cf8-4944-a374-327de127108c
+  - bead_id: is-01m0bahns9883ea2cn8ajgnf99
+    external_id: a6f4de12-f0b2-4eeb-a444-01666ac9d52c
+    kind: update_issue
+    patch:
+      description: >-
+        tbd has one terminal status and no way to say work was abandoned rather than
+        delivered, nor that it began and stopped. Adds `resolution`
+        (completed|canceled|duplicate) and `hold` (blocked|paused) as axes beside
+        status, and replaces Linear state resolution by board position with resolution
+        by name.
+
+
+        Design discussion: https://github.com/jlevy/tbd/issues/244
+  - bead_id: is-01m0bahns9883ea2cn8ajgnf99
+    block: |-
+      ⟦tbd⟧
+      `tbd-og20` · epic · in_progress · P0
+      Spec: [plan-2026-08-18-tracker-state-model-and-linear-mapping.md](https://github.com/jlevy/tbd/blob/docs/specs-status-lifecycle-triage/docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md)
+      Children: 5 (0 ready)
+      Bead: `tbd show tbd-og20`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: a6f4de12-f0b2-4eeb-a444-01666ac9d52c
+    kind: splice_description
+  - bead_id: is-01m0c4z87m3kd0cyw2qkd5k6z4
+    external_id: 4a516464-c913-4c5d-8ef4-63a7f36101be
+    kind: update_issue
+    patch:
+      description: >-
+        The second of two axes tbd collapses into single fields. Sibling: tbd-og20
+        (state axis: resolution, hold, name-based Linear mapping). Same file format,
+        same schema module, same adapter — planned as a pair, tracked separately because
+        they were found separately.
+
+
+        ACTOR AXIS (#246, PR #247)
+
+        assignee: z.string() maps to Linear's assigneeId alone. Linear has two actor
+        fields — assignee (accountable) and delegate (acting) — and its agent platform
+        hangs off the second. Measured on a ~900-bead repo where agents do the work:
+        assignee used on ZERO beads, because the human is constant (carries no
+        information) and the agent is inexpressible. delegateId, agentSession,
+        app:assignable, actor=app appear in zero files in the dist.
+
+        Adds delegate beside assignee, plus an actor 'kind' on user_map so 'never
+        publish this actor' is a property of the actor rather than its absence from a
+        table. Governing rule: issues in Linear are managed per human, not per agent.
+
+
+        BOARD PROJECTION (PR #247)
+
+        Backlog / Draft / Todo / In Progress / Paused / Blocked / Done / Canceled, keyed
+        by an optional state_map over a named slot vocabulary. Omitting state_map
+        reproduces today's behavior exactly — no extra states, no prompt, no config
+        format bump. Draft-vs-Todo is readiness (already computed); Paused-vs-Draft is
+        started_at. Backlog-vs-Draft is NOT derivable and is a human-owned refinement
+        tbd must preserve. Provisioned and verified on a real 96-issue team.
+
+
+        STATUS: PR #247 stacks on PR #245; retarget to main once #245 merges. Depends on
+        tbd-og20's name-based state resolver. Downstream consumer: finterm-main's Linear
+        rollout (fin-8sdo / fin-6242).
+  - bead_id: is-01m0c4z87m3kd0cyw2qkd5k6z4
+    block: |-
+      ⟦tbd⟧
+      `tbd-f2kv` · epic · in_progress · P0
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-f2kv`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 4a516464-c913-4c5d-8ef4-63a7f36101be
+    kind: splice_description
+  - bead_id: is-01m0c5r461zmx3ctgsxq94s0bq
+    external_id: a5613359-e8f4-4a5a-aecc-b27c64c5870e
+    kind: update_issue
+    patch:
+      description: >-
+        tbd has one actor field, so an agent cannot hold a bead without displacing the
+        human accountable for it. Adds `delegate` beside `assignee` and replaces
+        identity configuration with identity resolution: humans resolve against each
+        tracker's own member directory and bind by provider user id, agents carry the
+        agid-{ulid} identity tbd already mints and never publish except through an
+        explicit agent_map.
+
+
+        Identity is per provider — a Linear UUID and a GitHub login are different
+        identifiers — with the tbd handle as the join key and bindings under
+        bridge/<provider>/users/.
+
+
+        Design discussion: https://github.com/jlevy/tbd/issues/246
+
+        Sibling: epic tbd-og20 (state axis, https://github.com/jlevy/tbd/issues/244)
+  - bead_id: is-01m0c5r461zmx3ctgsxq94s0bq
+    block: |-
+      ⟦tbd⟧
+      `tbd-ncux` · epic · open · P2
+      Children: 4 (1 ready)
+      Bead: `tbd show tbd-ncux`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: a5613359-e8f4-4a5a-aecc-b27c64c5870e
+    kind: splice_description
+provider: linear
+run_id: 01m0ddg0nkqpe3d7hn3wxntp3s
+type: in

@@ -5,12 +5,16 @@ title: "sync: fetch writes FETCH_HEAD only, so ahead/behind and push-retry compa
 kind: epic
 status: open
 priority: 0
-version: 1
+version: 2
 assignee: josh
 labels: []
 dependencies: []
 created_at: 2026-08-19T05:02:55.056Z
-updated_at: 2026-08-19T05:02:55.056Z
+updated_at: 2026-08-19T16:25:59.285Z
+extensions:
+  linear:
+    id: b5a35ee8-341e-4988-aac6-fa5202af4d4a
+    linked_at: 2026-08-19T16:25:59.285Z
 ---
 Sync reports "Already in sync" while the remote is hundreds of commits ahead, and a failing push blames "Remote has conflicting changes" when git actually says non-fast-forward. Both come from one line.
 

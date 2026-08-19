@@ -5,7 +5,7 @@ title: "Phase 1: delegate field and the claim verb"
 kind: task
 status: open
 priority: 2
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-08-18-actor-axis-and-identity.md
 labels: []
 dependencies:
@@ -15,7 +15,11 @@ dependencies:
     target: is-01m0c5rsgkvdv8ad02eaq7109k
 parent_id: is-01m0c5r461zmx3ctgsxq94s0bq
 created_at: 2026-08-19T04:51:29.245Z
-updated_at: 2026-08-19T16:06:57.399Z
+updated_at: 2026-08-19T16:25:59.264Z
+extensions:
+  linear:
+    id: 273e109a-3300-454d-8444-d1fe166ae62a
+    linked_at: 2026-08-19T16:25:59.264Z
 ---
 Add `delegate` to the bead schema (absent reads as same as assignee); --delegate on create/update including the bulk path.
 

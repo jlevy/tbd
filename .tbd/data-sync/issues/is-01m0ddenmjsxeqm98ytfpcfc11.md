@@ -5,7 +5,7 @@ title: Resolve .env from the main worktree so credentials work in linked worktre
 kind: epic
 status: open
 priority: 0
-version: 5
+version: 6
 assignee: josh
 labels: []
 dependencies: []
@@ -15,7 +15,11 @@ child_order_hints:
   - is-01m0ddfjd4q6zawvdwh008w9h2
   - is-01m0ddfjqnxkmpcqn4defgqe40
 created_at: 2026-08-19T16:25:15.153Z
-updated_at: 2026-08-19T16:25:44.948Z
+updated_at: 2026-08-19T16:25:59.305Z
+extensions:
+  linear:
+    id: d1a8282c-7a55-4ec3-ad74-5d329037c4b1
+    linked_at: 2026-08-19T16:25:59.305Z
 ---
 ## The Problem
 
