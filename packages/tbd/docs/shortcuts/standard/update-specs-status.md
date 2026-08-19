@@ -136,13 +136,11 @@ Sizing this first also tells you whether the pass is an afternoon or a week.
 | `done/` | finished | beads closed, nothing unchecked, status says so |
 | `archive/` | abandoned or superseded | status names what replaced it |
 
-```
- `paused/` is the one most repositories lack, and its absence is why stalled work
- accumulates in `active/`: `draft/` is wrong because the work began, `done/` is a
- lie, and `archive/` overstates abandonment.
- Without it, “active” stops meaning anything — measured once at 116 specs in
- `active/`, only 85 of which had any open bead.
-```
+`paused/` is the one most repositories lack, and its absence is why stalled work
+accumulates in `active/`: `draft/` is wrong because the work began, `done/` is a lie,
+and `archive/` overstates abandonment.
+Without it, “active” stops meaning anything — measured once at 116 specs in `active/`,
+only 85 of which had any open bead.
 
 - **Fix the inverse too: specs filed as done while their beads are still open.** This is
   the more common drift, because filing a spec to `done/` is a deliberate act and nobody
