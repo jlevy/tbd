@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:d781c7608b27a0e166437ce045f1e0b1c06e563fe008ed5114d5ed6290302943
+  labels: []
+  priority: 1
+  status: open
+  title: Managed block renders the session line with freshness
+bead_id: is-01m0dsa79sd5cwpf4jwftec762
+external_id: 30a583e2-c918-4c63-acf0-3fef93834da6
+external_key: OS-357
+external_url: https://linear.app/finterm-ai/issue/OS-357/managed-block-renders-the-session-line-with-freshness
+remote_updated_at: 2026-08-19T23:49:45.284Z
+state: linked
+synced_at: 2026-08-19T23:49:45.535Z
+type: lk

@@ -1,15 +1,15 @@
 base:
   assignee: josh
-  description_hash: sha256v7:7260da9c741628948f74a0ad080a10ce4b21ee15bb67218d16a860389736267d
+  description_hash: sha256v7:14c7aae2a9e4d658790159233d6c12b9468ab055edf71e70f84b66d650d421e1
   labels: []
   priority: 0
-  status: open
+  status: closed
   title: Resolve .env from the main worktree so credentials work in linked worktrees
 bead_id: is-01m0ddenmjsxeqm98ytfpcfc11
 external_id: d1a8282c-7a55-4ec3-ad74-5d329037c4b1
 external_key: OS-350
 external_url: https://linear.app/finterm-ai/issue/OS-350/resolve-env-from-the-main-worktree-so-credentials-work-in-linked
-remote_updated_at: 2026-08-19T17:53:50.052Z
+remote_updated_at: 2026-08-19T23:49:34.446Z
 state: linked
-synced_at: 2026-08-19T17:54:58.859Z
+synced_at: 2026-08-19T23:49:34.746Z
 type: lk

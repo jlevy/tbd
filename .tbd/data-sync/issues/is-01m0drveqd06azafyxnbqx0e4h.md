@@ -5,7 +5,7 @@ title: "Agent session refs: link live agent runs from beads, Linear, and tbd web
 kind: epic
 status: open
 priority: 1
-version: 15
+version: 16
 spec_path: docs/project/specs/active/plan-2026-08-19-agent-session-refs-and-runtimes.md
 labels: []
 dependencies: []
@@ -22,11 +22,11 @@ child_order_hints:
   - is-01m0dsa91nkb3j5b4j4ky8y65p
   - is-01m0dsa9djn6h3k1fg60nqfgs4
 created_at: 2026-08-19T19:44:28.395Z
-updated_at: 2026-08-19T23:48:38.027Z
+updated_at: 2026-08-19T23:49:36.108Z
 extensions:
   linear:
     id: 4bb21605-477a-431c-92f3-27ad3250870b
-    linked_at: 2026-08-19T23:48:38.026Z
+    linked_at: 2026-08-19T23:49:36.108Z
 ---
 Beads carry a reference to the live agent session working on them (provider, session id, URL, status), rendered in tbd web and the Linear managed block, populated by thin per-runtime adapters. Provider-neutral by construction so no single agent runtime or wrapper vendor is load-bearing.
 

@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:edd92012e65cb1827fb073bfbba4c37a5bed2b8c3392a9d904af8d8ccf5f50c3
+  labels: []
+  priority: 1
+  status: open
+  title: Add the session ref kind to the bead schema
+bead_id: is-01m0dsa5x0ptcwtn8rsf7x66q0
+external_id: b7b629d1-3e7d-4801-9d01-28a98b9ace6a
+external_key: OS-353
+external_url: https://linear.app/finterm-ai/issue/OS-353/add-the-session-ref-kind-to-the-bead-schema
+remote_updated_at: 2026-08-19T23:49:39.245Z
+state: linked
+synced_at: 2026-08-19T23:49:39.508Z
+type: lk

@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:82dcd45ebc9b1a2840d0a7a4635a0b798960f3210fa5d10eb6b109238807518b
+  labels: []
+  priority: 1
+  status: open
+  title: Session status map in local state, with the derived stale rule
+bead_id: is-01m0dsa6kqmmmt269gx5hfq53y
+external_id: c600ba31-b457-4a7f-b309-6096a816bb50
+external_key: OS-355
+external_url: https://linear.app/finterm-ai/issue/OS-355/session-status-map-in-local-state-with-the-derived-stale-rule
+remote_updated_at: 2026-08-19T23:49:43.129Z
+state: linked
+synced_at: 2026-08-19T23:49:43.384Z
+type: lk

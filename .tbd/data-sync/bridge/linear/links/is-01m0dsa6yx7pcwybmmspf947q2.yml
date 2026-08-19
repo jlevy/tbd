@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:237aa7f573a2535717c9403a875c438824eaa5e546de10c193026e60cd1d3ec5
+  labels: []
+  priority: 2
+  status: open
+  title: tbd sessions and tbd sessions refresh commands
+bead_id: is-01m0dsa6yx7pcwybmmspf947q2
+external_id: a39455e8-7f3d-4e1b-bc37-89136aa1f3de
+external_key: OS-356
+external_url: https://linear.app/finterm-ai/issue/OS-356/tbd-sessions-and-tbd-sessions-refresh-commands
+remote_updated_at: 2026-08-19T23:49:44.223Z
+state: linked
+synced_at: 2026-08-19T23:49:44.479Z
+type: lk

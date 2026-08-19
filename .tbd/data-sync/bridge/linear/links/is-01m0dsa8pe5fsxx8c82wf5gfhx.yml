@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:6d08e0adff51335d61b0f92884e053118a64b6c58fbeaca47f44565df9eba677
+  labels: []
+  priority: 3
+  status: open
+  title: Rivet Sandbox Agent session adapter
+bead_id: is-01m0dsa8pe5fsxx8c82wf5gfhx
+external_id: b43e0948-9ed6-4d81-a8cc-34dfe705f9e0
+external_key: OS-361
+external_url: https://linear.app/finterm-ai/issue/OS-361/rivet-sandbox-agent-session-adapter
+remote_updated_at: 2026-08-19T23:49:50.634Z
+state: linked
+synced_at: 2026-08-19T23:49:50.935Z
+type: lk

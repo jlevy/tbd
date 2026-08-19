@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:d664b799ab2441dd7c000da3aed48e15279a207659921e8a1c2837ea27792102
+  labels: []
+  priority: 2
+  status: open
+  title: tbd web renders a session row on the bead view
+bead_id: is-01m0dsa7n1nr69wfbgytp55f9j
+external_id: e9349482-5852-4884-b7dc-c1658a30500a
+external_key: OS-358
+external_url: https://linear.app/finterm-ai/issue/OS-358/tbd-web-renders-a-session-row-on-the-bead-view
+remote_updated_at: 2026-08-19T23:49:46.303Z
+state: linked
+synced_at: 2026-08-19T23:49:46.600Z
+type: lk

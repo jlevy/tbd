@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:c5a77b616fcb2efc82661c5efaed837553272c072d76dae2ea550da945305e99
+  labels: []
+  priority: 2
+  status: open
+  title: Session adapter registry
+bead_id: is-01m0dsa808f6p2yfvdrabw53qq
+external_id: 07a53ed7-2688-4059-b9a4-d31101a091a9
+external_key: OS-359
+external_url: https://linear.app/finterm-ai/issue/OS-359/session-adapter-registry
+remote_updated_at: 2026-08-19T23:49:47.568Z
+state: linked
+synced_at: 2026-08-19T23:49:47.832Z
+type: lk

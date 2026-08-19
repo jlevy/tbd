@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:cd8ae4823c63795ad7cb3f871bf30d9735ed8a24d175f773435db749bfbe61e7
+  labels: []
+  priority: 2
+  status: open
+  title: Codex Cloud session adapter
+bead_id: is-01m0dsa8bnkbes44tnda9tqtft
+external_id: 54582906-376f-486b-ad4b-87ba44c0a824
+external_key: OS-360
+external_url: https://linear.app/finterm-ai/issue/OS-360/codex-cloud-session-adapter
+remote_updated_at: 2026-08-19T23:49:48.676Z
+state: linked
+synced_at: 2026-08-19T23:49:49.863Z
+type: lk

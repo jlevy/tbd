@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:28e0ff480d3d11762429084689a2f1db0d51b276c0ab9532074ac2837bcfa52d
+  labels: []
+  priority: 3
+  status: open
+  title: Claude Managed Agents session adapter
+bead_id: is-01m0dsa91nkb3j5b4j4ky8y65p
+external_id: 13c3dc5e-f996-4792-bd39-9bcb4cecfc02
+external_key: OS-362
+external_url: https://linear.app/finterm-ai/issue/OS-362/claude-managed-agents-session-adapter
+remote_updated_at: 2026-08-19T23:49:51.711Z
+state: linked
+synced_at: 2026-08-19T23:49:51.962Z
+type: lk

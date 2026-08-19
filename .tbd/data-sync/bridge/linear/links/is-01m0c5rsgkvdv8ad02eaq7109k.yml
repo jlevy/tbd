@@ -3,13 +3,13 @@ base:
   description_hash: sha256v7:db8e2ca2062009fcde9de78f1e9ab26075aea75073e827feaba6c3a577f9e594
   labels: []
   priority: 3
-  status: open
+  status: closed
   title: "Phase 3: publishing delegates to Linear"
 bead_id: is-01m0c5rsgkvdv8ad02eaq7109k
 external_id: 175d3536-7308-4798-9871-5553ccc54d6f
 external_key: OS-346
 external_url: https://linear.app/finterm-ai/issue/OS-346/phase-3-publishing-delegates-to-linear
-remote_updated_at: 2026-08-19T16:27:23.703Z
+remote_updated_at: 2026-08-19T23:49:30.961Z
 state: linked
-synced_at: 2026-08-19T16:27:23.971Z
+synced_at: 2026-08-19T23:49:32.172Z
 type: lk

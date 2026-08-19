@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:dfb6cdab4776453eff41ea63d524dbb5062c1dcb4d9191a923a1f0cbfc422178
+  labels: []
+  priority: 3
+  status: open
+  title: Set externalUrl on the Linear agent session to point at the run
+bead_id: is-01m0dsa9djn6h3k1fg60nqfgs4
+external_id: 148020d9-cd9d-4aae-817f-5ae8a1411bb5
+external_key: OS-363
+external_url: https://linear.app/finterm-ai/issue/OS-363/set-externalurl-on-the-linear-agent-session-to-point-at-the-run
+remote_updated_at: 2026-08-19T23:49:53.387Z
+state: linked
+synced_at: 2026-08-19T23:49:53.616Z
+type: lk

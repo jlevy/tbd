@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:c0eeeb699a2e342f1f3434e6b8f6610fa844f88eb84011cdcd447ee9339715d4
+  labels: []
+  priority: 1
+  status: open
+  title: "Agent session refs: link live agent runs from beads, Linear, and tbd web"
+bead_id: is-01m0drveqd06azafyxnbqx0e4h
+external_id: 4bb21605-477a-431c-92f3-27ad3250870b
+external_key: OS-352
+external_url: https://linear.app/finterm-ai/issue/OS-352/agent-session-refs-link-live-agent-runs-from-beads-linear-and-tbd-web
+remote_updated_at: 2026-08-19T23:49:37.763Z
+state: linked
+synced_at: 2026-08-19T23:49:38.038Z
+type: lk
