@@ -22,8 +22,9 @@ all.
 (epic `tbd-og20`, [#244](https://github.com/jlevy/tbd/issues/244)) adds `resolution`,
 `hold`, and `started_at`, resolves Linear states by name, and owns the slot vocabulary
 and board projection.
-This spec is the second axis of the same model and depends on that resolver; it does not
-restate the state design.
+This spec is the second axis of the same model; its identity-binding phase reuses that
+resolver-and-ask machinery, while its first phase is independent.
+It does not restate the state design.
 
 ## Overview
 
@@ -148,7 +149,7 @@ answer to the one they do.
 One field beside the existing one:
 
 ```
-assignee:  <handle>    # accountable. Unchanged field, unchanged meaning: a human.
+assignee:  <handle>    # accountable: a human. Existing field, restored to that meaning.
 delegate:  <name>      # acting. Absent reads as "same as assignee".
 ```
 
@@ -267,7 +268,7 @@ belongs in config:
 integrations:
   linear:
     agent_map:
-      cyrus: <linear-app-user-id>   # the only identity config that remains
+      cyrus: <linear-app-user-id>   # the one identity mapping this design needs in config
 ```
 
 `kind` from the original #246 proposal disappears: the namespace carries it.

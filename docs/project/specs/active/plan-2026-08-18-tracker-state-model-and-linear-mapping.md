@@ -21,7 +21,8 @@ here. The board-projection evidence comes from the rollout described in
 **Sibling:**
 [plan-2026-08-18-actor-axis-and-identity.md](./plan-2026-08-18-actor-axis-and-identity.md)
 adds `delegate` beside `assignee` and replaces identity configuration with directory
-resolution. It depends on this spec’s resolver; neither restates the other.
+resolution. Its identity-binding phase reuses this spec’s resolver-and-ask machinery;
+neither restates the other.
 
 **Related:**
 [plan-2026-08-14-external-sync-and-traceability.md](./plan-2026-08-14-external-sync-and-traceability.md)
@@ -95,7 +96,9 @@ Two orthogonal axes beside the existing status, each valid only at one end of th
 lifecycle:
 
 ```
-status:      open | in_progress | closed        # position; unchanged
+status:      open | in_progress | closed        # position; unchanged. Legacy blocked and
+                                                # deferred remain valid (see Non-Goals)
+                                                # and get slots by the legacy rule below.
 resolution:  completed | canceled | duplicate   # only when closed; absent reads completed
 duplicate_of: <bead-ref>                        # required when resolution is duplicate
 hold:        blocked | paused                   # only when open or in_progress
@@ -140,13 +143,24 @@ fixed precedence, first match wins:
 3. `in_progress` with a recorded refinement → that refinement (`in_review`, or a team’s
    own named state).
 4. `in_progress` → `in_progress`.
-5. `open` + `hold: paused` → `backlog` (explicitly de-scheduled work is not “ready”).
+5. `open` + any `hold` → `backlog`: held work is by definition not ready to begin,
+   whether it is waiting (`blocked`) or set aside (`paused`), and un-started held work
+   has no `started`-type column to occupy.
 6. `open` and ready → `todo`.
 7. `open` → the `backlog` band; whether it shows as Backlog or Draft is the owned
    refinement below.
 
+A bead carrying any `hold` is never `ready` — that rule is what makes step 5 and the
+readiness split agree, and it belongs to `tbd ready` itself, not just to this ladder.
 First match wins, so a bead that is simultaneously unready and held still lands in
 exactly one slot.
+
+Legacy statuses compute a slot by the same rendering they have today: status `blocked`
+(a position in the current five-value enum) → slot `blocked`, and status `deferred` →
+slot `backlog`, matching `statusToLinear`’s `started`+`tbd:blocked` and
+`backlog`+`tbd:deferred` targets.
+This rule holds until the fold-in the Non-Goals defer, so a repository that adopts
+`state_map` while still holding legacy-status beads has defined behavior for every bead.
 
 ### Components
 
@@ -189,7 +203,7 @@ Open end, by slot:
 | Slot | tbd condition | Meaning | Linear |
 | --- | --- | --- | --- |
 | `todo` | `open`, ready | ready to begin | `unstarted` (Todo) |
-| `backlog` | `open`, not ready or `paused` | not started, not scheduled | `backlog` (Backlog) |
+| `backlog` | `open`, not ready or held | not started, not scheduled | `backlog` (Backlog) |
 | `draft` | `open`, not ready — human-owned refinement | being planned; not yet clear enough to execute | the `backlog` state named Draft, preserved rather than set |
 | `in_progress` | `in_progress`, no hold | actively worked | `started` (In Progress) |
 | `blocked` | `in_progress` + `blocked` | begun, waiting | the `started` state named Blocked, else `started` + `tbd:blocked` |
@@ -222,9 +236,9 @@ That is sound for unambiguous types and wrong as a contract: `paused` has no Lin
 *type* — it is a named state of type `started` — and position is the least stable handle
 available. A rename is deliberate and visible; dragging a row in the workflow editor is
 neither, and today it silently changes where work lands.
-One real team already has four `started` states (In Progress, In Review, Paused,
-Blocked) and two `backlog` states (Backlog, Draft); a resolver that picks by type has no
-defensible answer for either group.
+One real team already had three `started` states (In Progress, In Review, Paused) before
+tbd provisioned anything; a resolver that picks by type has no defensible answer among
+them, and the provisioned board below widens the group further.
 
 Resolution order, first match wins:
 
@@ -477,6 +491,8 @@ without the ones after it.
 
 - [ ] Add `hold`, `hold_until`, and `started_at`, with validation tying `hold` to
   non-terminal status.
+- [ ] `tbd ready` excludes beads carrying any `hold`; pinned by test, since the
+  todo/backlog split and the slot ladder both depend on it.
 - [ ] Set `started_at` on first entry to `in_progress`; never clear it.
 - [ ] `tbd pause` / `tbd resume`, and bulk `--hold` on `tbd update` (bulk `--status` is
   refused today, which made deferring a subtree a per-bead loop).
@@ -500,6 +516,8 @@ without the ones after it.
   pair’s link record) with its concurrent-sync behavior tested.
 - [ ] Base migration on first slot run: statuses rewrite mechanically, zero writes on an
   unchanged repository — pinned by test.
+- [ ] Legacy-status beads compute slots by the legacy rule (`blocked` → `blocked`,
+  `deferred` → `backlog`) in a `state_map` repository; pinned by test.
 - [ ] Outbound ladder: mapped state, else carrier label + band default, else band
   default; reported once per slot.
 
