@@ -5,7 +5,7 @@ title: Support Linear delegate as the agent gesture (not assignee)
 kind: feature
 status: open
 priority: 2
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-3
@@ -14,7 +14,7 @@ dependencies:
     target: is-01m010epmrrmp2s67x1pe8xqa3
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T21:26:50.810Z
-updated_at: 2026-08-16T00:14:19.706Z
+updated_at: 2026-08-19T04:52:40.529Z
 extensions:
   linear:
     id: c8f8e501-c470-41bb-b12c-cd0116a11b3c
@@ -39,3 +39,9 @@ Being a real Linear agent (actor=app + AgentSession) remains a separate, larger 
 
 Research: research-2026-08-09-linear-task-surfaces.md §6.4a; research-2026-08-14-agent-sync-protocol-and-hooks.md §4.4, §4.8
 Spec: plan-2026-08-14-external-sync-and-traceability.md Phase 3
+
+## Notes
+
+SUPERSEDED FOR IMPLEMENTATION (2026-08-18) by epic tbd-ncux, specced in docs/project/specs/active/plan-2026-08-18-actor-axis-and-identity.md.
+
+The delegate-not-assignee finding recorded here is correct and is now the design: tbd-3wlk adds the `delegate` field and moves `tbd start` onto it, tbd-mbip publishes delegates to Linear through agent_map. This bead is kept for the ecosystem survey above; close it as superseded once the user confirms, since it is mirrored to Linear.
