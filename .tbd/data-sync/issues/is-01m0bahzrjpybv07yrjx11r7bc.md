@@ -5,7 +5,7 @@ title: "Phase 1: terminal resolution and name-based state resolution"
 kind: task
 status: in_progress
 priority: 2
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md
 delegate: claude-code@spud10
 labels: []
@@ -16,7 +16,7 @@ dependencies:
     target: is-01m0c5rk9zcamj2r525dazj73w
 parent_id: is-01m0bahns9883ea2cn8ajgnf99
 created_at: 2026-08-18T20:56:09.234Z
-updated_at: 2026-08-19T05:57:20.704Z
+updated_at: 2026-08-19T16:06:56.898Z
 ---
 Add `resolution` and `duplicate_of` (scalar, not a dependency edge); `tbd close --as`; map all three terminal cases in both directions, creating the provider-side duplicate relation from the scalar; send completedAt only for completed; replace stateIdsByType with the four-step name-first resolver plus `state_map` keyed by slot; prompt on ambiguity and refuse non-interactively; doctor reports the resolved state per slot.
 
@@ -24,6 +24,6 @@ Useful alone and unblocks every later phase. Also carries the f08 passthrough te
 
 ## Notes
 
-PARTIAL (aa49219e). DONE: resolution + duplicate_of schema with write-boundary invariants; tbd close --as completed|canceled|duplicate with --duplicate-of; reopen clears the axis; ISSUE_FIELD_ORDER, FIELD_STRATEGIES, ISSUE_CHANGE_FIELD_ORDER registered; schema + storage tests.
-NOT DONE: Linear terminal mapping outbound/inbound (statusToLinear/statusFromLinear still collapse all three terminal types to closed); completedAt gated on resolution==completed (adapter.ts:134, mirror.ts:258); stateIdsByType -> name-based resolver; state_map config; doctor slot table; f08 passthrough test.
-Note: mapping.ts change will break integrations-core.test.ts:104-110 and :123-125, and the resolver will break linear-adapter.test.ts:108 and :115 — those tests encode the old contract deliberately.
+DONE (aa49219e, 2c0e66f4). resolution + duplicate_of schema with write-boundary invariants; tbd close --as with --duplicate-of; reopen clears the axis; terminal mapping lossless both directions; completedAt sent only for resolution=completed; state resolution by name (configured -> conventional -> sole -> ambiguous-and-reported), never by board position; state_map wired config->settings->adapter; registries updated.
+LIVE VERIFIED against team OS: tbd-f8y4 landed as Linear OS-242 in Canceled/canceled with completedAt=null and canceledAt set. Under the old code that bead would have gone to Done with a completion stamp.
+NOT DONE: doctor slot table (tbd doctor printing slot/name/id/bound-or-missing offline); f08 passthrough test for the new fields; interactive prompt-on-ambiguity persisting to state_map (resolver reports ambiguity, does not yet ask).

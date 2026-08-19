@@ -5,7 +5,7 @@ title: "Actor axis: delegate field and identity that resolves itself"
 kind: epic
 status: open
 priority: 2
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-08-18-actor-axis-and-identity.md
 assignee: josh
 labels: []
@@ -16,7 +16,11 @@ child_order_hints:
   - is-01m0c5rsgkvdv8ad02eaq7109k
   - is-01m0c8v94j74sqaj35ts5xrjjf
 created_at: 2026-08-19T04:51:21.920Z
-updated_at: 2026-08-19T05:56:03.947Z
+updated_at: 2026-08-19T15:46:07.944Z
+extensions:
+  linear:
+    id: a5613359-e8f4-4a5a-aecc-b27c64c5870e
+    linked_at: 2026-08-19T15:46:07.943Z
 ---
 tbd has one actor field, so an agent cannot hold a bead without displacing the human accountable for it. Adds `delegate` beside `assignee` and replaces identity configuration with identity resolution: humans resolve against each tracker's own member directory and bind by provider user id, agents carry the agid-{ulid} identity tbd already mints and never publish except through an explicit agent_map.
 

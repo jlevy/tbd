@@ -5,7 +5,7 @@ title: "Phase 1: delegate field and the claim verb"
 kind: task
 status: open
 priority: 2
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-08-18-actor-axis-and-identity.md
 labels: []
 dependencies:
@@ -15,7 +15,7 @@ dependencies:
     target: is-01m0c5rsgkvdv8ad02eaq7109k
 parent_id: is-01m0c5r461zmx3ctgsxq94s0bq
 created_at: 2026-08-19T04:51:29.245Z
-updated_at: 2026-08-19T05:57:21.031Z
+updated_at: 2026-08-19T16:06:57.399Z
 ---
 Add `delegate` to the bead schema (absent reads as same as assignee); --delegate on create/update including the bulk path.
 
@@ -27,5 +27,6 @@ Depends on nothing in the sibling. Field name and format-bump approach are settl
 
 ## Notes
 
-PARTIAL (66fcbc58). DONE: delegate field on schema; --delegate on create/update incl. bulk and --from-file; tbd start writes delegate and leaves assignee alone, contention checks moved to delegate; 5 tests (tbd start previously had none).
-NOT DONE: field-level skip reporting in the sync summary and --verbose reasons (reconcile.ts skipPush is hardcoded to assignee; sync-engine nothingToDo omits skippedPushes at :966 and :1560, so a skip-only run prints 'nothing to do'); write-time warning for unpublishable actors; doctor check for agent-shaped assignees.
+DONE (66fcbc58, 1a39d717). delegate field; --delegate on create/update incl. bulk and --from-file; tbd start writes delegate and leaves assignee alone with contention checks moved; field-level skip reporting in the push summary with causes grouped; 7 new tests (tbd start previously had none).
+LIVE VERIFIED against team OS: push of beads carrying assignee=josh with empty user_map now reports 'fields not pushed 2' and '- assignee: no user_map entry for josh (2 beads)'; previously printed 'skipped 0' and nothing else.
+NOT DONE: write-time warning when setting an actor that can never publish; doctor check for agent-shaped assignees; the reconcile-path skipPush generalization (still assignee-hardcoded at reconcile.ts:303, and sync-engine nothingToDo still omits skippedPushes at :966/:1560, so a skip-only full sync can still read as 'nothing to do').
