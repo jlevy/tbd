@@ -149,7 +149,8 @@ planning board earns its keep:
 
 | Column | Linear type | tbd condition | Reads as |
 | --- | --- | --- | --- |
-| **Draft** | `backlog` | `open`, not ready | being planned; spec unfinished |
+| **Backlog** | `backlog` | `open`, not ready, no spec | someday; not being planned |
+| **Draft** | `backlog` | `open`, not ready, spec in flight | being planned; spec unfinished |
 | **Todo** | `unstarted` | `open`, ready | ready to begin |
 | **In Progress** | `started` | `in_progress`, no hold | active now |
 | **Paused** | `started` | `in_progress` + `hold: paused` | begun, set down, not abandoned |
@@ -157,7 +158,35 @@ planning board earns its keep:
 | **Done** | `completed` | `closed` + `completed` | finished |
 | **Canceled** | `canceled` | `closed` + `canceled` | abandoned |
 
-Three observations, each of which is a reason the axes have to land first.
+This is provisioned and running on a real team (`FIN`, 96 issues), which settles three
+things the design can now assert rather than predict.
+
+**Type-based state resolution is not merely fragile, it is unusable here.** That board
+has four `started` states (In Progress, Paused, Blocked, In Review) and two `backlog`
+states (Backlog, Draft).
+A resolver that picks by type has no defensible answer for either group, which is the
+sibling spec’s name-based resolver earning its place before anything else can be built
+on it. Custom **statuses** are the mechanism; Linear has no custom *fields* on an issue
+(`customFields`, `properties`, and `customField` are all absent from the `Issue` type),
+so the workflow state is the only place a lifecycle distinction can live.
+
+**A column reveals; a snooze hides.** `in_progress + paused` has two candidate homes and
+they are not equivalent: a named `started` state keeps the work on the board where a
+person planning the week can see it, while `snoozedUntilAt` removes it from view until
+the date arrives. Observed on a real paused issue: `state.name = Paused`, `startedAt`
+set, `snoozedUntilAt` null.
+The named state should be the default and snooze reserved for genuine wake-me-later,
+which is the opposite of the sibling spec’s current lean and is worth settling between
+them.
+
+**Explicit trailing `position` is not a nicety.** Before provisioning, that team’s board
+ordered Done, Canceled, and Duplicate *before* In Review and Paused, because the two
+`started` states had been created later and landed at positions 1002 and 2018.44 while
+the defaults sat at 3, 4, and 5. Terminal columns appeared mid-board.
+Provisioning must place a created state explicitly and should offer to repair an
+existing board whose order contradicts its own lifecycle.
+
+Three further observations, each of which is a reason the axes have to land first.
 
 **Draft versus Todo is readiness, which tbd already computes.** `tbd ready` is
 first-class — it is how agents pick up work — so the split needs no new field and no
