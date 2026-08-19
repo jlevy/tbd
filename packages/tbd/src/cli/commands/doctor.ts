@@ -43,6 +43,7 @@ import {
 } from '../../lib/integration-paths.js';
 import { validateIssueId, extractUlidFromInternalId, formatDisplayId } from '../../lib/ids.js';
 import { isAgentId } from '../../lib/agent-identity.js';
+import { KNOWN_STATE_TYPES, CONVENTIONAL_STATE_NAMES } from '../../integrations/linear/mapping.js';
 import { findHierarchyProblems } from '../../lib/issue-hierarchy.js';
 import { duplicateExternalLinks, readLink } from '../../integrations/core/link-store.js';
 import { integrationsInert } from '../../integrations/core/registry.js';
@@ -406,6 +407,7 @@ class DoctorHandler extends BaseCommand {
     healthChecks.push(
       await this.safeCheck('Dependencies', async () => this.checkOrphanedDependencies(this.issues)),
       await this.safeCheck('Actor axis', async () => this.checkAgentShapedAssignees(this.issues)),
+      await this.safeCheck('State resolution', () => Promise.resolve(this.checkStateResolution())),
     );
 
     // Check 5: Duplicate IDs
@@ -843,6 +845,46 @@ class DoctorHandler extends BaseCommand {
    * — the outcome the actor axis exists to prevent. Reported rather than rewritten,
    * because a name that merely looks agent-shaped might be a person's handle.
    */
+  /**
+   * How each Linear state type will resolve, without touching the network.
+   *
+   * Offline on purpose: `tbd doctor` is what you run when a sync is misbehaving, and a
+   * diagnostic that needs the API cannot help when the API is the problem. What is
+   * knowable offline is the *plan* — which types have a configured name, which will
+   * fall back to Linear's conventional one, and which will be decided by the team
+   * having exactly one state of that type. Whether each actually binds is a fact about
+   * the team and is reported by `tbd integration status`.
+   */
+  private checkStateResolution(): DiagnosticResult {
+    const linear = this.config?.integrations?.linear;
+    const stateMap = (linear?.identity?.state_map ?? linear?.state_map) as
+      | Record<string, string>
+      | undefined;
+    if (!linear?.enabled) {
+      return { name: 'State resolution', status: 'ok', message: 'no tracker enabled' };
+    }
+
+    const details = KNOWN_STATE_TYPES.filter((stateType) => stateType !== 'triage').map(
+      (stateType) => {
+        const configured = stateMap?.[stateType];
+        if (configured) {
+          return `${stateType}: "${configured}" (configured)`;
+        }
+        const conventional = CONVENTIONAL_STATE_NAMES[stateType];
+        return conventional
+          ? `${stateType}: "${conventional}" (conventional), else the only state of that type`
+          : `${stateType}: the only state of that type`;
+      },
+    );
+
+    return {
+      name: 'State resolution',
+      status: 'ok',
+      message: stateMap ? `${Object.keys(stateMap).length} configured` : 'conventional names',
+      details,
+    };
+  }
+
   private async checkAgentShapedAssignees(issues: Issue[]): Promise<DiagnosticResult> {
     const { loadIdMapping } = await import('../../file/id-mapping.js');
     const mapping = await loadIdMapping(this.dataSyncDir);
