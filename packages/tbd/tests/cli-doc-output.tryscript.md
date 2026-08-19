@@ -41,8 +41,8 @@ Note: Output includes size/token info like “(2.99 kB, ~847 tok)”
 
 ```console
 $ tbd --color=never guidelines --list | head -3
-backward-compatibility-rules [..]
-   Backward Compatibility[..] Guidelines for maintaining backward
+agent-session-bootstrap [..]
+   Agent Session Bootstrap: When and how to make a repository[..]
 [..]
 ? 0
 ```
@@ -55,7 +55,7 @@ $ tbd guidelines --list --json | head -6
   "docmap": "docmap/0.1",
   "documents": [
     {
-      "name": "backward-compatibility-rules",
+      "name": "agent-session-bootstrap",
 [..]
 ? 0
 ```

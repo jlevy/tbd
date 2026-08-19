@@ -433,8 +433,14 @@ class DoctorHandler extends BaseCommand {
     healthChecks.push(await this.safeCheck('Git version', () => this.checkGitVersion()));
 
     // npm's global bin directory is reachable, so the install and upgrade
-    // instruction tbd gives elsewhere can actually take effect.
-    healthChecks.push(await this.safeCheck('npm global bin', () => this.checkNpmGlobalBin()));
+    // instruction tbd gives elsewhere can actually take effect. This is an
+    // advisory about the surrounding environment rather than repository health,
+    // so it is reported only when actionable: a healthy machine adds no line,
+    // which also keeps doctor's output stable across environments.
+    const npmGlobalBin = await this.safeCheck('npm global bin', () => this.checkNpmGlobalBin());
+    if (npmGlobalBin.status !== 'ok') {
+      healthChecks.push(npmGlobalBin);
+    }
 
     // Check 2: Config directory and file
     healthChecks.push(await this.safeCheck('Config file', () => this.checkConfig()));
