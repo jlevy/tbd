@@ -32,6 +32,20 @@ export const PROJECT_CREATE_MUTATION = `mutation ProjectCreate($input: ProjectCr
   }
 }`;
 
+/**
+ * Create one workflow state.
+ *
+ * `position` is always sent explicitly. Linear otherwise places a new state
+ * arbitrarily, and a board whose Paused column sits above In Progress is exactly the
+ * accident this design removes.
+ */
+export const WORKFLOW_STATE_CREATE_MUTATION = `mutation WorkflowStateCreate($input: WorkflowStateCreateInput!) {
+  workflowStateCreate(input: $input) {
+    success
+    workflowState { id name type position }
+  }
+}`;
+
 /** Resolve a team key (e.g. `FIN`) to its UUID plus states and labels. */
 export const TEAM_META_QUERY = `query TeamMeta($key: String!) {
   teams(filter: { key: { eq: $key } }, first: 1) {

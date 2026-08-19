@@ -50,6 +50,7 @@ import {
   PROJECT_QUERY,
   TEAM_META_QUERY,
   WORKSPACE_USERS_QUERY,
+  WORKFLOW_STATE_CREATE_MUTATION,
   TEAM_LABELS_QUERY,
   USERS_BY_EMAIL_QUERY,
 } from './queries.js';
@@ -1207,6 +1208,66 @@ export class LinearAdapter implements TrackerAdapter {
           });
         }
       }
+    }
+
+    // Workflow states named in `state_map`, and only those.
+    //
+    // A workflow state is team-wide: it changes the board for people who never run
+    // tbd, which is a larger footprint than anything else tbd provisions. So the map
+    // IS the consent — a repository that writes nothing here is never offered
+    // anything, and a state outside the map is never created, renamed, or touched.
+    if (this.stateMap && Object.keys(this.stateMap).length > 0) {
+      const meta = await this.ensureMeta(true);
+      const existing = meta.states ?? [];
+      const byLowerName = new Map(existing.map((state) => [state.name.toLowerCase(), state]));
+
+      for (const [stateType, name] of Object.entries(this.stateMap)) {
+        if (byLowerName.has(name.toLowerCase())) {
+          items.push({ kind: 'workflow state', name, state: 'present' });
+          continue;
+        }
+        if (!options.apply) {
+          items.push({ kind: 'workflow state', name, state: 'missing' });
+          continue;
+        }
+        // Place it after the last state of its own type, so the board keeps reading in
+        // lifecycle order instead of gaining a column in an arbitrary place.
+        const sameType = existing.filter((state) => state.type === stateType);
+        const position =
+          sameType.length > 0 ? Math.max(...sameType.map((state) => state.position)) + 1 : 0;
+        try {
+          const data = await this.client.request<{
+            workflowStateCreate: {
+              success: boolean;
+              workflowState: { id: string; name: string; type: string; position: number } | null;
+            };
+          }>(WORKFLOW_STATE_CREATE_MUTATION, {
+            input: { name, type: stateType, position, teamId: await this.resolveTeamId() },
+          });
+          const created = data.workflowStateCreate.workflowState;
+          if (!data.workflowStateCreate.success || !created) {
+            items.push({
+              kind: 'workflow state',
+              name,
+              state: 'blocked',
+              reason: 'Linear declined to create the workflow state',
+            });
+            continue;
+          }
+          existing.push(created);
+          byLowerName.set(created.name.toLowerCase(), created);
+          items.push({ kind: 'workflow state', name, state: 'created' });
+        } catch (error) {
+          items.push({
+            kind: 'workflow state',
+            name,
+            state: 'blocked',
+            reason: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+      // The next sync must see what was just created rather than the cached board.
+      this.meta = undefined;
     }
 
     /**

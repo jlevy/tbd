@@ -400,7 +400,7 @@ export function isWorkspaceLimitError(error: unknown): error is Error {
 /** One piece of tracker-side scaffolding and its state. */
 export interface ProvisionItem {
   /** What the thing is, for the operator: `label`, `label group`, or `project`. */
-  kind: 'label' | 'label group' | 'project';
+  kind: 'label' | 'label group' | 'project' | 'workflow state';
   /** The name tbd refers to it by. */
   name: string;
   /** `present` needed nothing; `created` was made now; `missing` is an unapplied gap. */

@@ -385,6 +385,97 @@ describe('Linear client and adapter', () => {
     });
   });
 
+  describe('workflow state provisioning (state Phase 4)', () => {
+    it('offers nothing when no state_map is configured', async () => {
+      // The map IS the consent. A repository that writes none is never prompted, and a
+      // workflow state is team-wide — it changes the board for people who never run tbd.
+      const bare = new LinearAdapter({ client, teamKey: 'FIN' });
+      const report = await bare.provision({ apply: false, originLabels: [] });
+      expect(report.items.filter((item) => item.kind === 'workflow state')).toEqual([]);
+    });
+
+    it('reports a missing state without creating it until applied', async () => {
+      const mapped = new LinearAdapter({
+        client,
+        teamKey: 'FIN',
+        stateMap: { started: 'Paused' },
+      });
+      const before = server.states.length;
+      const report = await mapped.provision({ apply: false, originLabels: [] });
+      expect(report.items).toContainEqual({
+        kind: 'workflow state',
+        name: 'Paused',
+        state: 'missing',
+      });
+      expect(server.states.length).toBe(before);
+    });
+
+    it('creates a mapped state after the last of its own type', async () => {
+      const mapped = new LinearAdapter({
+        client,
+        teamKey: 'FIN',
+        stateMap: { started: 'Paused' },
+      });
+      await mapped.provision({ apply: true, originLabels: [] });
+
+      const created = server.states.find((state) => state.name === 'Paused')!;
+      expect(created.type).toBe('started');
+      // After In Review (1002), not wherever Linear felt like putting it — a Paused
+      // column above In Progress is the accident this removes.
+      const otherStarted = server.states.filter(
+        (state) => state.type === 'started' && state.name !== 'Paused',
+      );
+      expect(created.position).toBeGreaterThan(Math.max(...otherStarted.map((s) => s.position)));
+    });
+
+    it('is idempotent: a second run reports present and creates nothing', async () => {
+      const mapped = new LinearAdapter({
+        client,
+        teamKey: 'FIN',
+        stateMap: { started: 'Paused' },
+      });
+      await mapped.provision({ apply: true, originLabels: [] });
+      const afterFirst = server.states.length;
+
+      const second = await mapped.provision({ apply: true, originLabels: [] });
+      expect(second.items).toContainEqual({
+        kind: 'workflow state',
+        name: 'Paused',
+        state: 'present',
+      });
+      expect(server.states.length).toBe(afterFirst);
+    });
+
+    it('binds an existing state by name rather than duplicating it', async () => {
+      const mapped = new LinearAdapter({
+        client,
+        teamKey: 'FIN',
+        stateMap: { started: 'In Review' },
+      });
+      const before = server.states.length;
+      const report = await mapped.provision({ apply: true, originLabels: [] });
+      expect(report.items).toContainEqual({
+        kind: 'workflow state',
+        name: 'In Review',
+        state: 'present',
+      });
+      expect(server.states.length).toBe(before);
+    });
+
+    it('never touches a state outside the map', async () => {
+      const mapped = new LinearAdapter({
+        client,
+        teamKey: 'FIN',
+        stateMap: { started: 'Paused' },
+      });
+      const snapshot = server.states.map((state) => ({ ...state }));
+      await mapped.provision({ apply: true, originLabels: [] });
+      for (const original of snapshot) {
+        expect(server.states.find((state) => state.id === original.id)).toEqual(original);
+      }
+    });
+  });
+
   describe('delegate publishing (actor Phase 3)', () => {
     const withAgent = () =>
       new LinearAdapter({

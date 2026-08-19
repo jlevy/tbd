@@ -91,7 +91,7 @@ export class LinearMockServer {
   /** Number of attachment upserts to reject without retry. */
   attachmentFailures = 0;
 
-  readonly states = [
+  states = [
     { id: 'state-backlog', name: 'Backlog', type: 'backlog', position: 0 },
     { id: 'state-unstarted', name: 'Todo', type: 'unstarted', position: 1 },
     { id: 'state-started', name: 'In Progress', type: 'started', position: 2 },
@@ -276,6 +276,40 @@ export class LinearMockServer {
             },
           },
         },
+      };
+    }
+
+    if (query.includes('mutation WorkflowStateCreate')) {
+      const input = variables.input as {
+        name: string;
+        type: string;
+        position: number;
+        teamId: string;
+      };
+      if (input.teamId !== 'team-1') {
+        return {
+          status: 200,
+          payload: { errors: [{ message: `Unknown team: ${input.teamId}` }] },
+        };
+      }
+      // Linear enforces state-name uniqueness within a team, so a mock that allowed
+      // duplicates would let a non-idempotent provisioner look correct.
+      if (this.states.some((state) => state.name.toLowerCase() === input.name.toLowerCase())) {
+        return {
+          status: 200,
+          payload: { errors: [{ message: `Workflow state already exists: ${input.name}` }] },
+        };
+      }
+      const created = {
+        id: this.nextId('state'),
+        name: input.name,
+        type: input.type,
+        position: input.position,
+      };
+      this.states.push(created);
+      return {
+        status: 200,
+        payload: { data: { workflowStateCreate: { success: true, workflowState: created } } },
       };
     }
 
