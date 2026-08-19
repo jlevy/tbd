@@ -51,7 +51,11 @@ export interface ProviderConfigSlice extends PolicyConfigSlice {
     mirror?: LabelMirrorModeType;
     create?: LabelCreateModeType;
   };
-  identity?: { user_map?: Record<string, string>; state_map?: Record<string, string> };
+  identity?: {
+    user_map?: Record<string, string>;
+    state_map?: Record<string, string>;
+    agent_map?: Record<string, string>;
+  };
 
   // Pre-f08 spellings. Retained for reading only; the f08 migration moves them.
   team_key?: string;
@@ -62,6 +66,7 @@ export interface ProviderConfigSlice extends PolicyConfigSlice {
   create_labels?: boolean;
   user_map?: Record<string, string>;
   state_map?: Record<string, string>;
+  agent_map?: Record<string, string>;
 }
 
 /** Everything a provider needs, with both config shapes already reconciled. */
@@ -82,6 +87,8 @@ export interface ProviderSettings {
   userMap: Record<string, string>;
   /** Absent when the team needs no override; the resolver falls back to names. */
   stateMap?: Record<string, string>;
+  /** Absent when no agent may publish; the common case. */
+  agentMap?: Record<string, string>;
 }
 
 /**

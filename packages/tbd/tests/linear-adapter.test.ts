@@ -385,6 +385,66 @@ describe('Linear client and adapter', () => {
     });
   });
 
+  describe('delegate publishing (actor Phase 3)', () => {
+    const withAgent = () =>
+      new LinearAdapter({
+        client,
+        teamKey: 'FIN',
+        agentMap: { cyrus: '00000000-0000-4000-8000-000000000a11' },
+      });
+
+    it('publishes only an agent the workspace has installed', () => {
+      const adapterWithAgent = withAgent();
+      expect(adapterWithAgent.canPushDelegate('cyrus')).toBe(true);
+      // An ordinary session agent has nothing to be published *as*: Linear delegates
+      // are app users, so this stays local by construction rather than by omission.
+      expect(adapterWithAgent.canPushDelegate('claude-code@spud10')).toBe(false);
+    });
+
+    it('treats an absent delegate as no opinion, never as a clear', () => {
+      // Same rule the assignee clearing bug (OS-351) established.
+      expect(withAgent().canPushDelegate(null)).toBe(false);
+    });
+
+    it('sets delegateId for a mapped agent and round-trips it back', async () => {
+      const adapterWithAgent = withAgent();
+      server.addIssue({ id: 'uuid-9', identifier: 'FIN-9', title: 'Delegated' });
+      await adapterWithAgent.applyChanges('uuid-9', { delegate: 'cyrus' });
+      expect(server.issues.get('uuid-9')?.delegate?.id).toBe(
+        '00000000-0000-4000-8000-000000000a11',
+      );
+
+      const [issue] = await adapterWithAgent.fetchIssues(['uuid-9']);
+      expect(issue?.delegate).toBe('cyrus');
+    });
+
+    it('leaves the delegate alone when the agent is unmapped', async () => {
+      const bare = new LinearAdapter({ client, teamKey: 'FIN' });
+      server.addIssue({ id: 'uuid-10', identifier: 'FIN-10', title: 'Not delegated' });
+      await bare.applyChanges('uuid-10', { delegate: 'claude-code@spud10' });
+      expect(server.issues.get('uuid-10')?.delegate ?? null).toBeNull();
+      expect(bare.delegateSkipReason('claude-code@spud10')).toContain('agent_map');
+    });
+
+    it('reads an unknown app user as no delegate rather than inventing a name', async () => {
+      const adapterWithAgent = withAgent();
+      server.addIssue({ id: 'uuid-11', identifier: 'FIN-11', title: 'Foreign agent' });
+      server.issues.get('uuid-11')!.delegate = {
+        id: '00000000-0000-4000-8000-00000000ffff',
+        name: 'Someone Else',
+        displayName: 'Someone Else',
+      };
+      const [issue] = await adapterWithAgent.fetchIssues(['uuid-11']);
+      expect(issue?.delegate).toBeNull();
+    });
+
+    it('rejects an agent id that is not a UUID at construction', () => {
+      expect(
+        () => new LinearAdapter({ client, teamKey: 'FIN', agentMap: { cyrus: 'nope' } }),
+      ).toThrow(/app user UUID/);
+    });
+  });
+
   describe('applyChanges', () => {
     beforeEach(() => {
       server.addIssue({ id: 'uuid-5', identifier: 'FIN-5', title: 'Before' });

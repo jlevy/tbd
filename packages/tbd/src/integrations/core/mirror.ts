@@ -70,6 +70,8 @@ export interface MirrorContext {
   originLabels?: readonly string[];
   /** Provider/config capability for projecting a canonical assignee. */
   canPushAssignee?: (assignee: string | null) => boolean;
+  canPushDelegate?: (delegate: string | null) => boolean;
+  delegateSkipReason?: (delegate: string) => string | undefined;
   /** Why a handle could not be published, when the provider can say. */
   assigneeSkipReason?: (assignee: string) => string | undefined;
 }
@@ -278,6 +280,9 @@ export function planMirror(context: MirrorContext): MirrorPlan {
       ...(context.canPushAssignee?.(issue.assignee ?? null)
         ? { assignee: issue.assignee ?? null }
         : {}),
+      ...(context.canPushDelegate?.(issue.delegate ?? null)
+        ? { delegate: issue.delegate ?? null }
+        : {}),
     };
 
     // An actor the tracker cannot name is a policy outcome, not an error — but it is
@@ -292,6 +297,15 @@ export function planMirror(context: MirrorContext): MirrorPlan {
         // repository may deliberately not be using.
         reason:
           context.assigneeSkipReason?.(issue.assignee) ?? `no user_map entry for ${issue.assignee}`,
+      });
+    }
+
+    if (issue.delegate && context.canPushDelegate && !context.canPushDelegate(issue.delegate)) {
+      skippedFields.push({
+        field: 'delegate',
+        reason:
+          context.delegateSkipReason?.(issue.delegate) ??
+          `no agent_map entry for ${issue.delegate}`,
       });
     }
 

@@ -46,6 +46,8 @@ export interface ExternalIssue extends ExternalRef {
   priority: PriorityType;
   labels: string[];
   assignee: string | null;
+  /** The acting agent, when the provider names one tbd recognizes. */
+  delegate: string | null;
   /** False when a provider assignee exists but has no safe canonical mapping. */
   assigneeSyncable?: boolean;
   /** Safe, provider-authored mapping diagnostics to surface in the sync report. */
@@ -105,6 +107,8 @@ export interface CanonicalPatch {
    */
   ensureLabels?: string[];
   assignee?: string | null;
+  /** The acting agent, published only when it names an installed provider agent. */
+  delegate?: string | null;
   parentId?: string | null;
   /**
    * The bead's own timestamps, for a provider that can backdate on create.
@@ -355,6 +359,10 @@ export interface TrackerAdapter {
   newActorBindings?(now: string): ActorBinding[];
   /** Why a handle could not be published, for the field-level skip report. */
   assigneeSkipReason?(assignee: string): string | undefined;
+  /** Whether this delegate names an installed provider agent. */
+  canPushDelegate?(delegate: string | null): boolean;
+  /** Why a delegate could not be published. */
+  delegateSkipReason?(delegate: string): string;
 
   /**
    * Inspect, and optionally create, the tracker-side scaffolding a sync depends on.

@@ -841,6 +841,14 @@ export const IntegrationIdentitySchema = z
      * is how a migration stops sticking.
      */
     state_map: z.record(z.string(), z.string()).optional(),
+    /**
+     * Agent name to Linear app-user id, for delegates that may be published.
+     *
+     * The only identity mapping this design still needs in config, and deliberately so:
+     * an agent reaching a shared workspace is a decision, not a discovery. Ordinary
+     * session agents are absent from here and therefore stay local by construction.
+     */
+    agent_map: z.record(z.string(), z.string()).optional(),
   })
   .passthrough();
 

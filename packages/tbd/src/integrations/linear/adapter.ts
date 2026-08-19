@@ -78,6 +78,7 @@ interface RawIssue {
   updatedAt: string;
   state: { id: string; name: string; type: string } | null;
   assignee: { id: string; name: string; displayName: string; email?: string } | null;
+  delegate?: { id: string; name?: string; displayName?: string } | null;
   labels: {
     pageInfo?: { hasNextPage: boolean; endCursor: string | null };
     nodes: RawLabelNode[];
@@ -103,6 +104,13 @@ export interface LinearAdapterOptions {
    * matches Linear's stock names never needs it.
    */
   stateMap?: Record<string, string>;
+  /**
+   * Agent name to Linear app-user id, for delegates that may be published.
+   *
+   * Absent for ordinary session agents, which is what keeps them local by
+   * construction rather than by remembering to leave them out of a table.
+   */
+  agentMap?: Record<string, string>;
 }
 
 /** Recognizes a Linear issue URL and extracts the identifier. */
@@ -182,6 +190,8 @@ export class LinearAdapter implements TrackerAdapter {
   private readonly project?: string;
   private projectId?: string | null;
   private readonly stateMap?: Record<string, string>;
+  private readonly agentMap: ReadonlyMap<string, string>;
+  private readonly delegateByAppUserId: ReadonlyMap<string, string>;
   private members?: ProviderMember[];
   private actorBindings: ActorBinding[] = [];
   /** handle -> provider user id, filled by {@link primeActors}. */
@@ -195,6 +205,19 @@ export class LinearAdapter implements TrackerAdapter {
     this.createLabels = options.createLabels ?? 'tbd';
     this.project = options.project;
     this.stateMap = options.stateMap;
+    const agents = Object.entries(options.agentMap ?? {});
+    const reverseAgents = new Map<string, string>();
+    for (const [name, appUserId] of agents) {
+      if (!name.trim()) {
+        throw new Error('integrations.linear.agent_map contains an empty agent name.');
+      }
+      if (!UUID_RE.test(appUserId)) {
+        throw new Error(`integrations.linear.agent_map.${name} must be a Linear app user UUID.`);
+      }
+      reverseAgents.set(appUserId.toLowerCase(), name);
+    }
+    this.agentMap = new Map(agents);
+    this.delegateByAppUserId = reverseAgents;
     const configuredUsers = Object.entries(options.userMap ?? {});
     const reverse = new Map<string, string>();
     for (const [assignee, identity] of configuredUsers) {
@@ -295,6 +318,27 @@ export class LinearAdapter implements TrackerAdapter {
    * needs to be its own explicit action rather than the default reading of an empty
    * field.
    */
+  /**
+   * Whether this delegate names an installed Linear agent.
+   *
+   * Publishing a delegate is deliberate: Linear delegates are app users, so an
+   * ordinary session agent has nothing to be published *as*, and a human has no
+   * delegate rendering at all. Both are local-only and reported, never guessed at.
+   */
+  canPushDelegate(delegate: string | null): boolean {
+    if (delegate === null) {
+      // Same rule as `assignee`: an absent actor is no opinion, not an instruction to
+      // clear whoever the tracker has (OS-351).
+      return false;
+    }
+    return this.agentMap.has(delegate);
+  }
+
+  /** Why a delegate could not be published, for the field-level skip report. */
+  delegateSkipReason(delegate: string): string {
+    return `no agent_map entry for ${delegate}; only installed Linear agents can be delegates`;
+  }
+
   canPushAssignee(assignee: string | null): boolean {
     if (assignee === null) {
       return false;
@@ -876,6 +920,9 @@ export class LinearAdapter implements TrackerAdapter {
       status: statusFromLinear(stateType, labels),
       resolution: resolutionFromLinear(stateType),
       hold: holdFromLinear(raw.state?.name, labels),
+      delegate: raw.delegate
+        ? (this.delegateByAppUserId.get(raw.delegate.id.toLowerCase()) ?? null)
+        : null,
       priority: priorityFromLinear(raw.priority),
       labels,
       assignee: mappedAssignee ?? null,
@@ -947,6 +994,14 @@ export class LinearAdapter implements TrackerAdapter {
     }
     if (patch.assignee !== undefined) {
       input.assigneeId = patch.assignee === null ? null : await this.resolveUserId(patch.assignee);
+    }
+    if (patch.delegate !== undefined && patch.delegate !== null) {
+      const appUserId = this.agentMap.get(patch.delegate);
+      if (appUserId) {
+        // A plain field write that Linear happens to turn into an AgentSession; tbd
+        // is not registering itself as an agent to do it.
+        input.delegateId = appUserId;
+      }
     }
 
     let statusLabels: string[] = [];

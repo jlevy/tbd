@@ -88,6 +88,7 @@ export function buildAdapter(
     project: settings.project,
     userMap: settings.userMap,
     ...(settings.stateMap ? { stateMap: settings.stateMap } : {}),
+    ...(settings.agentMap ? { agentMap: settings.agentMap } : {}),
   });
 }
 
@@ -410,6 +411,8 @@ export async function runEnabledIntegrationPushes(
       // assignee held `local` must not leave the repository from here either (OS-351).
       canPushAssignee: (assignee) =>
         entry.policy.field_sync.fields.assignee === 'merge' && adapter.canPushAssignee(assignee),
+      canPushDelegate: (delegate) => adapter.canPushDelegate?.(delegate) ?? false,
+      delegateSkipReason: (delegate) => adapter.delegateSkipReason?.(delegate),
       assigneeSkipReason: (assignee) =>
         entry.policy.field_sync.fields.assignee === 'merge'
           ? adapter.assigneeSkipReason?.(assignee)

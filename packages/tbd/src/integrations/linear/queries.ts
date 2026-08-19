@@ -59,6 +59,7 @@ const ISSUE_FIELDS = `
   updatedAt
   state { id name type }
   assignee { id name displayName email }
+  delegate { id name displayName }
   labels(first: 50) {
     pageInfo { hasNextPage endCursor }
     nodes { id name isGroup parent { id name } }
