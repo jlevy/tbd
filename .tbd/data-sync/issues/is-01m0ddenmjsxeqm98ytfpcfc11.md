@@ -5,7 +5,7 @@ title: Resolve .env from the main worktree so credentials work in linked worktre
 kind: epic
 status: open
 priority: 0
-version: 7
+version: 8
 assignee: josh
 labels: []
 dependencies: []
@@ -15,7 +15,7 @@ child_order_hints:
   - is-01m0ddfjd4q6zawvdwh008w9h2
   - is-01m0ddfjqnxkmpcqn4defgqe40
 created_at: 2026-08-19T16:25:15.153Z
-updated_at: 2026-08-19T16:27:29.457Z
+updated_at: 2026-08-19T16:29:41.143Z
 extensions:
   linear:
     id: d1a8282c-7a55-4ec3-ad74-5d329037c4b1
@@ -101,8 +101,8 @@ Requirements beyond the lookup itself:
 - A worktree-local `.env` still overrides the main one.
 - An exported environment variable still overrides both.
 - Outside a git repository, behavior is unchanged and no new error appears.
-- The `setup-linear` shortcut's join-an-configured-repo guidance is updated: joining from a
-  worktree needs no per-worktree key.
+- The `setup-linear` shortcut's guidance for joining an already-configured repo is
+  updated: joining from a worktree needs no per-worktree key.
 
 ## Scope Notes
 
