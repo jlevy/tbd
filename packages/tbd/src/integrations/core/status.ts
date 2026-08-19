@@ -7,13 +7,15 @@
  * a network call to report.
  */
 
+import { dirname, join } from 'node:path';
+
 import { checkEnvIgnored, ENV_FILE_NAME } from '../../lib/env-file.js';
 import type { Config, ProviderNameType } from '../../lib/types.js';
 import {
   CREDENTIAL_ENV_VARS,
   maskSecret,
   resolveCredential,
-  type CredentialSource,
+  type ResolvedCredential,
 } from './credentials.js';
 import { configuredProviders, type ProviderConfig } from './registry.js';
 
@@ -55,12 +57,19 @@ export interface StatusOptions {
   probe?: ReachabilityProbe;
 }
 
-function describeSource(source: CredentialSource): string {
-  switch (source) {
+/**
+ * Name where a credential came from.
+ *
+ * A `.env` is named by its full path, because resolution can reach the main
+ * worktree's file and the bare name would not say which one answered. A path is
+ * not a secret; the value beside it is already masked.
+ */
+function describeSource(credential: ResolvedCredential): string {
+  switch (credential.source) {
     case 'env':
       return 'process environment';
     case 'dotenv':
-      return ENV_FILE_NAME;
+      return credential.path ?? ENV_FILE_NAME;
     case 'gh-cli':
       return 'gh auth token';
   }
@@ -73,39 +82,51 @@ function describeSource(source: CredentialSource): string {
  * failure in this feature, so it is reported as an error even though nothing is
  * broken yet.
  */
-async function envFileFinding(repoRoot: string): Promise<StatusFinding> {
-  const status = await checkEnvIgnored(repoRoot);
+async function envFileFinding(repoRoot: string, loadedFrom?: string): Promise<StatusFinding> {
+  // Report on the file a credential actually came from. Once resolution can reach
+  // the main worktree, checking only the current directory would vouch for a file
+  // nobody read while the one in use went unexamined, which is how a committed key
+  // stays invisible.
+  const target = loadedFrom ? dirname(loadedFrom) : repoRoot;
+  const where = loadedFrom ? ` (${loadedFrom})` : '';
+  const status = await checkEnvIgnored(target);
   if (!status.exists) {
     if (!status.ignored) {
       return {
         label: ENV_FILE_NAME,
         state: 'warn',
-        detail: 'not present and not gitignored',
+        detail: `not present and not gitignored${where}`,
         remedy: `Add ${ENV_FILE_NAME} to .gitignore before creating it or putting any credential in it.`,
       };
     }
     return {
       label: ENV_FILE_NAME,
       state: 'ok',
-      detail: 'not present and gitignored',
+      detail: `not present and gitignored${where}`,
     };
   }
   if (!status.ignored) {
     return {
       label: ENV_FILE_NAME,
       state: 'error',
-      detail: 'present and NOT gitignored',
+      detail: `present and NOT gitignored${where}`,
       remedy: `Add ${ENV_FILE_NAME} to .gitignore before putting any credential in it. If a key was already committed, rotate it.`,
     };
   }
-  return { label: ENV_FILE_NAME, state: 'ok', detail: 'present and gitignored' };
+  return { label: ENV_FILE_NAME, state: 'ok', detail: `present and gitignored${where}` };
+}
+
+/** A provider's findings, plus the `.env` its credential came from, if any. */
+interface ProviderStatusResult {
+  status: ProviderStatus;
+  envPath?: string;
 }
 
 async function providerStatus(
   entry: ProviderConfig,
   repoRoot: string,
   probe?: ReachabilityProbe,
-): Promise<ProviderStatus> {
+): Promise<ProviderStatusResult> {
   const findings: StatusFinding[] = [];
   const varName = CREDENTIAL_ENV_VARS[entry.provider];
 
@@ -116,7 +137,7 @@ async function providerStatus(
       detail: 'configured but disabled',
       remedy: `Set integrations.${entry.provider}.enabled: true to use it.`,
     });
-    return { provider: entry.provider, enabled: false, findings };
+    return { status: { provider: entry.provider, enabled: false, findings } };
   }
 
   findings.push({ label: 'enabled', state: 'ok', detail: 'yes' });
@@ -144,15 +165,16 @@ async function providerStatus(
       detail: `${varName} not found`,
       remedy: `Set ${varName} in the environment or add it to ${ENV_FILE_NAME} (which must be gitignored).`,
     });
-    return { provider: entry.provider, enabled: true, findings };
+    return { status: { provider: entry.provider, enabled: true, findings } };
   }
 
   findings.push({
     label: 'credential',
     state: 'ok',
     // Enough to tell two keys apart, never enough to use.
-    detail: `${maskSecret(credential.value)} from ${describeSource(credential.source)}`,
+    detail: `${maskSecret(credential.value)} from ${describeSource(credential)}`,
   });
+  const envPath = credential.source === 'dotenv' ? credential.path : undefined;
 
   if (!probe) {
     findings.push({
@@ -160,7 +182,10 @@ async function providerStatus(
       state: 'skipped',
       detail: 'network check not run',
     });
-    return { provider: entry.provider, enabled: true, findings };
+    return {
+      status: { provider: entry.provider, enabled: true, findings },
+      ...(envPath ? { envPath } : {}),
+    };
   }
 
   const result = await probe(entry.provider, credential.value, entry.target);
@@ -175,7 +200,10 @@ async function providerStatus(
         },
   );
 
-  return { provider: entry.provider, enabled: true, findings };
+  return {
+    status: { provider: entry.provider, enabled: true, findings },
+    ...(envPath ? { envPath } : {}),
+  };
 }
 
 /**
@@ -183,12 +211,24 @@ async function providerStatus(
  */
 export async function integrationStatus(options: StatusOptions): Promise<IntegrationStatus> {
   const entries = configuredProviders(options.config);
-  const envFile = await envFileFinding(options.repoRoot);
 
   const providers: ProviderStatus[] = [];
+  const loadedFrom = new Set<string>();
   for (const entry of entries) {
-    providers.push(await providerStatus(entry, options.repoRoot, options.probe));
+    const result = await providerStatus(entry, options.repoRoot, options.probe);
+    providers.push(result.status);
+    if (result.envPath) {
+      loadedFrom.add(result.envPath);
+    }
   }
+
+  // Providers run first so the safety check knows which file to examine. Only a
+  // file outside this working tree needs naming; the local one is what the check
+  // has always meant, and every provider that reaches outside reaches the same
+  // main worktree, so at most one path qualifies.
+  const localEnv = join(options.repoRoot, ENV_FILE_NAME);
+  const external = [...loadedFrom].find((path) => path !== localEnv);
+  const envFile = await envFileFinding(options.repoRoot, external);
 
   return { inert: entries.length === 0, envFile, providers };
 }
