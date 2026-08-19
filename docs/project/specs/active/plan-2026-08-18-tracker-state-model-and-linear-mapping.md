@@ -471,19 +471,19 @@ this repository’s own data and board.
 
 ### Phase 1: Terminal resolution and name-based state resolution
 
-- [ ] Add `resolution` and `duplicate_of` to the bead schema, with validation tying both
+- [x] Add `resolution` and `duplicate_of` to the bead schema, with validation tying both
   to `closed`.
-- [ ] `tbd close --as completed|canceled|duplicate` (default `completed`), and
+- [x] `tbd close --as completed|canceled|duplicate` (default `completed`), and
   `--duplicate-of` required with `duplicate`. Keep `--reason` as free prose.
-- [ ] Map all three terminal cases outbound; send `completedAt` only for `completed`.
+- [x] Map all three terminal cases outbound; send `completedAt` only for `completed`.
   `duplicate` also creates the provider-side duplicate relation from the scalar.
-- [ ] Map `canceled` and `duplicate` inbound to `closed` + resolution instead of
+- [x] Map `canceled` and `duplicate` inbound to `closed` + resolution instead of
   collapsing them.
-- [ ] Replace `stateIdsByType` with the four-step resolver; add `state_map` to config,
+- [x] Replace `stateIdsByType` with the four-step resolver; add `state_map` to config,
   keyed by slot.
 - [ ] Prompt on ambiguity and persist the answer; refuse non-interactively.
 - [ ] `tbd doctor` reports the resolved state per slot, and flags ambiguity.
-- [ ] Tests: terminal round trip for each resolution; resolver precedence including the
+- [x] Tests: terminal round trip for each resolution; resolver precedence including the
   multi-`started` case; no `completedAt` on a canceled bead; `ready` and the blocked
   computation unchanged by a `duplicate_of` value; an `f08` client round-trips a bead
   carrying the new fields without stripping them (the test that decides the format-bump
@@ -491,18 +491,18 @@ this repository’s own data and board.
 
 ### Phase 2: Hold, paused, and `started_at`
 
-- [ ] Add `hold`, `hold_until`, and `started_at`, with validation tying `hold` to
+- [x] Add `hold`, `hold_until`, and `started_at`, with validation tying `hold` to
   non-terminal status.
-- [ ] `tbd ready` excludes beads carrying any `hold`; pinned by test, since the
+- [x] `tbd ready` excludes beads carrying any `hold`; pinned by test, since the
   todo/backlog split and the slot ladder both depend on it.
-- [ ] Set `started_at` on first entry to `in_progress`; never clear it.
-- [ ] `tbd pause` / `tbd resume`, and bulk `--hold` on `tbd update` (bulk `--status` is
+- [x] Set `started_at` on first entry to `in_progress`; never clear it.
+- [x] `tbd pause` / `tbd resume`, and bulk `--hold` on `tbd update` (bulk `--status` is
   refused today, which made deferring a subtree a per-bead loop).
-- [ ] Map `open + paused` → Backlog and `in_progress + paused` → the Paused state, with
+- [x] Map `open + paused` → Backlog and `in_progress + paused` → the Paused state, with
   the carrier-label fallback when none exists.
-- [ ] Map inbound from a Paused-named `started` state; unknown names keep degrading to
+- [x] Map inbound from a Paused-named `started` state; unknown names keep degrading to
   plain `in_progress`.
-- [ ] Tests: paused round trip with and without a Paused state; `started_at` survives a
+- [x] Tests: paused round trip with and without a Paused state; `started_at` survives a
   pause.
 
 ### Phase 3: Slots in the engine

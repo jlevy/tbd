@@ -348,13 +348,13 @@ resolver-and-ask machinery; each phase is useful without the ones after it.
 
 ### Phase 1: The delegate field and the claim verb
 
-- [ ] Add `delegate` to the bead schema; absent reads as “same as assignee”
-- [ ] `--delegate` on `tbd create` / `tbd update`, including the bulk path
-- [ ] `tbd start` sets `delegate` instead of `assignee`; collision checks move with it
-- [ ] Doctor reports agent-shaped `assignee` values; setup offers the move to `delegate`
-- [ ] Field-level skip line in the sync summary; `--verbose` names each excluded field
+- [x] Add `delegate` to the bead schema; absent reads as “same as assignee”
+- [x] `--delegate` on `tbd create` / `tbd update`, including the bulk path
+- [x] `tbd start` sets `delegate` instead of `assignee`; collision checks move with it
+- [x] Doctor reports agent-shaped `assignee` values; setup offers the move to `delegate`
+- [x] Field-level skip line in the sync summary; `--verbose` names each excluded field
   with its reason; write-time warning for values that can never publish
-- [ ] Tests: claim sets delegate and preserves assignee; collision on delegate; the
+- [x] Tests: claim sets delegate and preserves assignee; collision on delegate; the
   red-proof observability cases (a push whose `--verbose` output omits an excluded field
   fails; an unpublishable write that emits no warning fails); an `f08` client
   round-trips a bead carrying `delegate` without stripping it (the format-bump test,
@@ -362,17 +362,17 @@ resolver-and-ask machinery; each phase is useful without the ones after it.
 
 ### Phase 2: Human identity binding
 
-- [ ] Add `listMembers()` to the adapter interface; implement it for Linear
-- [ ] Directory resolution ladder (binding, email, login or display name, ask), written
+- [x] Add `listMembers()` to the adapter interface; implement it for Linear
+- [x] Directory resolution ladder (binding, email, login or display name, ask), written
   once against the adapter interface rather than inside the Linear adapter
-- [ ] Persist bindings by provider user id under `bridge/<provider>/users/`; never guess
+- [x] Persist bindings by provider user id under `bridge/<provider>/users/`; never guess
   non-interactively
 - [ ] Inbound unknown assignee offers a binding interactively; reports otherwise
-- [ ] `user_map` honored as an override; setup migrates entries to binding records
+- [x] `user_map` honored as an override; setup migrates entries to binding records
 - [ ] `tbd doctor` prints the resolved actor table (handle, provider, user id, display
   name, bound-or-stale) offline, flags directory drift, and flags handles with no
   binding in any configured provider
-- [ ] Tests: each ladder step; rename survival via id binding; ambiguity refuses
+- [x] Tests: each ladder step; rename survival via id binding; ambiguity refuses
   non-interactively; migration from `user_map`; a handle bound in one provider and not
   another pushes to the first and reports a skip on the second
 
