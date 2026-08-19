@@ -1,5 +1,5 @@
 base:
-  assignee: null
+  assignee: josh
   description_hash: sha256v7:1716e64ed51608b3b55dae7efd0c6eb5c93a5f792dcbecbb33da60f593d39bed
   labels: []
   priority: 0
@@ -11,5 +11,5 @@ external_key: OS-336
 external_url: https://linear.app/finterm-ai/issue/OS-336/tracker-actor-axis-assigneedelegate-and-board-projection
 remote_updated_at: 2026-08-19T16:27:05.500Z
 state: linked
-synced_at: 2026-08-19T16:27:05.790Z
+synced_at: 2026-08-19T16:30:46.618Z
 type: lk

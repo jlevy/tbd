@@ -1,5 +1,5 @@
 base:
-  assignee: null
+  assignee: josh
   description_hash: sha256v7:7cda4312f83914de4203de822c8ada59ce06f7e49856c544f573b011d8d679c1
   labels:
     - pause
@@ -12,5 +12,5 @@ external_key: OS-38
 external_url: https://linear.app/finterm-ai/issue/OS-38/phase-1-basic-capabilities-and-migration-f06-framework-backing-impl
 remote_updated_at: 2026-08-19T04:56:01.184Z
 state: linked
-synced_at: 2026-08-19T16:26:07.752Z
+synced_at: 2026-08-19T16:30:00.223Z
 type: lk

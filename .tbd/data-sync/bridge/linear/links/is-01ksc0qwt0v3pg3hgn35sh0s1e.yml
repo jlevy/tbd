@@ -1,5 +1,5 @@
 base:
-  assignee: null
+  assignee: josh
   description_hash: sha256v7:df16415c9b6edd7207e7e1a7da7f7d40fb53d75d8aeaa3ba8005d5d1880c9a18
   labels:
     - agent-skills
@@ -14,5 +14,5 @@ external_key: OS-29
 external_url: https://linear.app/finterm-ai/issue/OS-29/modernize-multi-agent-skills-and-hooks-setup
 remote_updated_at: 2026-08-19T04:56:06.283Z
 state: linked
-synced_at: 2026-08-19T16:26:17.934Z
+synced_at: 2026-08-19T16:30:09.562Z
 type: lk

@@ -1,5 +1,5 @@
 base:
-  assignee: null
+  assignee: josh
   description_hash: sha256v7:18c9999f8dc742fac99f3e093fc48dab2a6c062a16a7aa4ecdc60b2d28d58e3c
   labels: []
   priority: 1
@@ -11,5 +11,5 @@ external_key: OS-209
 external_url: https://linear.app/finterm-ai/issue/OS-209/epic-external-sync-and-traceability-prime-claim-checkpoint-linear
 remote_updated_at: 2026-08-19T16:26:51.936Z
 state: linked
-synced_at: 2026-08-19T16:26:52.252Z
+synced_at: 2026-08-19T16:30:33.145Z
 type: lk

@@ -1,5 +1,5 @@
 base:
-  assignee: null
+  assignee: josh
   description_hash: sha256v7:dffd6be564c93e8e492e5a7441540484fd9a2bedc12625b7d89151bcd4d99bb0
   labels:
     - pause
@@ -12,5 +12,5 @@ external_key: OS-30
 external_url: https://linear.app/finterm-ai/issue/OS-30/q20-decide-categoriestypesfolders-glob-first-matching-cli-aliases
 remote_updated_at: 2026-08-19T04:56:04.400Z
 state: linked
-synced_at: 2026-08-19T16:26:09.353Z
+synced_at: 2026-08-19T16:30:01.682Z
 type: lk

@@ -1,5 +1,5 @@
 base:
-  assignee: null
+  assignee: josh
   description_hash: sha256v7:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   labels: []
   priority: 1
@@ -11,5 +11,5 @@ external_key: OS-3
 external_url: https://linear.app/finterm-ai/issue/OS-3/epic-external-tracker-integrations-linear-first-github-next
 remote_updated_at: 2026-08-19T04:56:08.831Z
 state: linked
-synced_at: 2026-08-19T16:26:28.848Z
+synced_at: 2026-08-19T16:30:18.579Z
 type: lk

@@ -1,5 +1,5 @@
 base:
-  assignee: null
+  assignee: josh
   description_hash: sha256v7:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   labels: []
   priority: 2
@@ -11,5 +11,5 @@ external_key: OS-166
 external_url: https://linear.app/finterm-ai/issue/OS-166/new-sub-issue-for-dogfood
 remote_updated_at: 2026-08-16T02:11:23.659Z
 state: linked
-synced_at: 2026-08-16T02:11:23.948Z
+synced_at: 2026-08-19T16:30:32.046Z
 type: lk

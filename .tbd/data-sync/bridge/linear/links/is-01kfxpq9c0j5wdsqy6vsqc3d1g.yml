@@ -1,5 +1,5 @@
 base:
-  assignee: null
+  assignee: josh
   description_hash: sha256v7:eb82193ea5819ea6c5dca8ad71ee7f2e6b9fc77d404871d4b8bf569363b81fa9
   labels:
     - pause
@@ -12,5 +12,5 @@ external_key: OS-57
 external_url: https://linear.app/finterm-ai/issue/OS-57/cli-output-consistency-stats-formatting-and-status-icons
 remote_updated_at: 2026-08-19T04:55:57.381Z
 state: linked
-synced_at: 2026-08-19T16:26:04.453Z
+synced_at: 2026-08-19T16:29:57.087Z
 type: lk

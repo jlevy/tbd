@@ -1,5 +1,5 @@
 base:
-  assignee: null
+  assignee: josh
   description_hash: sha256v7:060f242eea2ecc6f073101dd24d25b7b61e7d82f62ca28e2a01ec73f49d67beb
   labels: []
   priority: 0
@@ -11,5 +11,5 @@ external_key: OS-337
 external_url: https://linear.app/finterm-ai/issue/OS-337/tracker-state-model-resolution-hold-name-based-linear-mapping
 remote_updated_at: 2026-08-19T16:27:04.568Z
 state: linked
-synced_at: 2026-08-19T16:27:04.835Z
+synced_at: 2026-08-19T16:30:46.172Z
 type: lk
