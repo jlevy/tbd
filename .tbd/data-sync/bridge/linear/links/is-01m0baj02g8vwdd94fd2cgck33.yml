@@ -3,13 +3,13 @@ base:
   description_hash: sha256v7:0b0094583e50c59ab9c399c202601518c37f6b0d020a524a1f1015848159f460
   labels: []
   priority: 3
-  status: open
+  status: closed
   title: "Phase 2: hold, paused, and started_at"
 bead_id: is-01m0baj02g8vwdd94fd2cgck33
 external_id: 99295cf7-ed8d-4fe9-a1c1-cdfd2fb09829
 external_key: OS-341
 external_url: https://linear.app/finterm-ai/issue/OS-341/phase-2-hold-paused-and-started-at
-remote_updated_at: 2026-08-19T16:27:15.335Z
+remote_updated_at: 2026-08-19T17:54:54.303Z
 state: linked
-synced_at: 2026-08-19T16:27:15.602Z
+synced_at: 2026-08-19T17:54:54.692Z
 type: lk
