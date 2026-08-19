@@ -42,6 +42,7 @@ import {
   AGENT_INTEGRATION_FORMAT,
 } from '../../lib/integration-paths.js';
 import { validateIssueId, extractUlidFromInternalId, formatDisplayId } from '../../lib/ids.js';
+import { isDirOnPath, npmGlobalBinDir, readNpmGlobalPrefix } from '../../lib/npm-global-bin.js';
 import { findHierarchyProblems } from '../../lib/issue-hierarchy.js';
 import { duplicateExternalLinks, readLink } from '../../integrations/core/link-store.js';
 import { integrationsInert } from '../../integrations/core/registry.js';
@@ -171,6 +172,45 @@ function managedArtifactFinding(
         suggestion: 'Upgrade tbd to manage this file: npm install -g get-tbd@latest',
       };
   }
+}
+
+/**
+ * Map npm's global prefix to an "npm global bin" diagnostic.
+ *
+ * tbd gives `npm install -g get-tbd@latest` as its install and upgrade instruction in
+ * the skill, in doctor suggestions, and in the incompatible-format error. When npm's
+ * global bin directory is not on PATH that command still exits 0 and the `tbd` binary
+ * still does not resolve, which reads to an agent as "tbd is broken" rather than
+ * "PATH is wrong". Warn rather than error: nothing about the repository is unhealthy,
+ * and a tbd installed by other means keeps working.
+ *
+ * A null prefix means npm is unavailable, so there is no global install location to
+ * misconfigure. The session launcher handles a missing package runner separately.
+ */
+export function classifyNpmGlobalBin(
+  prefix: string | null,
+  pathValue: string | undefined,
+  platform: NodeJS.Platform,
+): DiagnosticResult {
+  if (prefix === null) {
+    return { name: 'npm global bin', status: 'ok', message: 'npm not available' };
+  }
+
+  const binDir = npmGlobalBinDir(prefix, platform);
+  if (isDirOnPath(binDir, pathValue, platform)) {
+    return { name: 'npm global bin', status: 'ok', path: binDir };
+  }
+
+  return {
+    name: 'npm global bin',
+    status: 'warn',
+    message: 'not on PATH',
+    path: binDir,
+    suggestion:
+      '`npm install -g get-tbd@latest` will succeed but leave tbd unresolvable. ' +
+      `Add ${binDir} to PATH, or point npm at a directory already on it: ` +
+      'npm config set prefix <dir>',
+  };
 }
 
 /**
@@ -391,6 +431,10 @@ class DoctorHandler extends BaseCommand {
 
     // Check 1: Git version
     healthChecks.push(await this.safeCheck('Git version', () => this.checkGitVersion()));
+
+    // npm's global bin directory is reachable, so the install and upgrade
+    // instruction tbd gives elsewhere can actually take effect.
+    healthChecks.push(await this.safeCheck('npm global bin', () => this.checkNpmGlobalBin()));
 
     // Check 2: Config directory and file
     healthChecks.push(await this.safeCheck('Config file', () => this.checkConfig()));
@@ -737,6 +781,10 @@ class DoctorHandler extends BaseCommand {
         message: `Unable to check: ${msg}`,
       };
     }
+  }
+
+  private async checkNpmGlobalBin(): Promise<DiagnosticResult> {
+    return classifyNpmGlobalBin(await readNpmGlobalPrefix(), process.env.PATH, process.platform);
   }
 
   private async checkConfig(): Promise<DiagnosticResult> {
