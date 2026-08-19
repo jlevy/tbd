@@ -5,7 +5,7 @@ title: Resolve .env from the main worktree so credentials work in linked worktre
 kind: epic
 status: open
 priority: 0
-version: 8
+version: 9
 assignee: josh
 labels: []
 dependencies: []
@@ -15,7 +15,7 @@ child_order_hints:
   - is-01m0ddfjd4q6zawvdwh008w9h2
   - is-01m0ddfjqnxkmpcqn4defgqe40
 created_at: 2026-08-19T16:25:15.153Z
-updated_at: 2026-08-19T16:29:41.143Z
+updated_at: 2026-08-19T16:37:06.263Z
 extensions:
   linear:
     id: d1a8282c-7a55-4ec3-ad74-5d329037c4b1
@@ -46,7 +46,7 @@ the main checkout. Measured against one real machine's worktrees for a single re
 five of six lived outside it:
 
 | Worktree location | Walk-up reaches the repo? |
-| --- | --- |
+| -- | -- |
 | `~/wrk/{org}/{repo}/.claude/worktrees/{id}` | yes, nested |
 | `~/.cache/{tool}/{id}` | no |
 | `~/.codex/worktrees/{id}/{repo}` | no, three of these |
@@ -84,24 +84,24 @@ Resolution order for `LINEAR_API_KEY` and any other integration secret:
 
 Requirements beyond the lookup itself:
 
-- **Report the source.** `tbd integration status` already prints a masked credential and
+* **Report the source.** `tbd integration status` already prints a masked credential and
   its origin, in the form `********abcd from .env`. It must name which `.env`, so loading
   from another directory is never silent and a layer-2 override is discoverable.
-- **Never write to the main worktree's `.env`.** The fallback is read-only. Guided setup
+* **Never write to the main worktree's** `.env`**.** The fallback is read-only. Guided setup
   that writes a key writes it to the current worktree or instructs on the environment.
-- **Degrade quietly.** Outside a git repository, or when `git` is unavailable, skip layer
+* **Degrade quietly.** Outside a git repository, or when `git` is unavailable, skip layer
   3 rather than raising.
-- **Do not cross repository boundaries.** `--git-common-dir` cannot leave the current
+* **Do not cross repository boundaries.** `--git-common-dir` cannot leave the current
   repository, which is the property that makes this safe where directory-walking is not.
 
 ## Acceptance
 
-- From a worktree created outside the main checkout, with the key present only in the main
+* From a worktree created outside the main checkout, with the key present only in the main
   checkout's `.env`, `tbd integration status` reports reachable and names the source path.
-- A worktree-local `.env` still overrides the main one.
-- An exported environment variable still overrides both.
-- Outside a git repository, behavior is unchanged and no new error appears.
-- The `setup-linear` shortcut's guidance for joining an already-configured repo is
+* A worktree-local `.env` still overrides the main one.
+* An exported environment variable still overrides both.
+* Outside a git repository, behavior is unchanged and no new error appears.
+* The `setup-linear` shortcut's guidance for joining an already-configured repo is
   updated: joining from a worktree needs no per-worktree key.
 
 ## Scope Notes

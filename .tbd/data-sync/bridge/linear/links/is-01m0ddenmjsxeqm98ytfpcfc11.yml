@@ -1,6 +1,6 @@
 base:
   assignee: josh
-  description_hash: sha256v7:2f9c9bf7716a9e87b479650c6b668f3c9045cd45e71b7cd809fe51876e27cf68
+  description_hash: sha256v7:7260da9c741628948f74a0ad080a10ce4b21ee15bb67218d16a860389736267d
   labels: []
   priority: 0
   status: open
@@ -11,5 +11,5 @@ external_key: OS-350
 external_url: https://linear.app/finterm-ai/issue/OS-350/resolve-env-from-the-main-worktree-so-credentials-work-in-linked
 remote_updated_at: 2026-08-19T16:30:49.958Z
 state: linked
-synced_at: 2026-08-19T16:30:50.520Z
+synced_at: 2026-08-19T16:37:06.274Z
 type: lk
