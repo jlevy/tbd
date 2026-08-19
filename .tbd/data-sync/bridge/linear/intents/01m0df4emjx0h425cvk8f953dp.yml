@@ -1,0 +1,23 @@
+created_at: 2026-08-19T16:54:37.459Z
+ops:
+  - bead_id: is-01m0de95sq9b6s7fgfc5rkhq6x
+    external_id: 8a51f977-f9e5-411d-8c72-4e8e67be7837
+    kind: update_issue
+    patch:
+      ensureLabels:
+        - tbd
+        - repo:tbd
+  - bead_id: is-01m0de95sq9b6s7fgfc5rkhq6x
+    block: |-
+      ⟦tbd⟧
+      `tbd-k0rd` · bug · open · P0
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-k0rd`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 8a51f977-f9e5-411d-8c72-4e8e67be7837
+    kind: splice_description
+provider: linear
+run_id: 01m0df4emjx0h425cvk8f953dp
+type: in
