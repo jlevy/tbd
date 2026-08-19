@@ -452,6 +452,7 @@ const FIELD_STRATEGIES: Record<keyof Issue, MergeStrategy> = {
   status: 'lww',
   priority: 'lww',
   assignee: 'lww',
+  delegate: 'lww',
   parent_id: 'lww',
   // Append-only set of child IDs (parent->child wiring). Must never lose a
   // concurrently-added child, so union (dedupe), not LWW. See issue #155.
@@ -459,6 +460,11 @@ const FIELD_STRATEGIES: Record<keyof Issue, MergeStrategy> = {
   updated_at: 'max',
   closed_at: 'lww',
   close_reason: 'lww',
+  // Both travel with the closure they describe, so they follow `status` and
+  // `closed_at`. Splitting them from it would let a merge produce a closed bead
+  // whose resolution came from the side that did not close it.
+  resolution: 'lww',
+  duplicate_of: 'lww',
   due_date: 'lww',
   deferred_until: 'lww',
   spec_path: 'lww',

@@ -385,6 +385,22 @@ resolver-and-ask machinery; each phase is useful without the ones after it.
 - [ ] Tests: each mapping row round-trips; the unpublishable-agent case emits a skip; a
   human delegate is never sent to Linear
 
+### Phase 4: Dogfood the actor axis on this repository
+
+Shares the sibling’s Phase 5 gate rather than running a separate pass, because the two
+axes are only interesting together: a board that shows a human accountable and an agent
+acting is the thing being proven, and neither spec can show it alone.
+
+- [ ] Assign this work’s own epics to the accountable human by handle, resolved through
+  the workspace directory with **no `user_map` entry**, and confirm the binding is
+  written by provider user id and survives a display-name change.
+- [ ] Claim real beads with `tbd start` and confirm the agent lands in `delegate` while
+  `assignee` stays the human, on both sides of the sync.
+- [ ] Confirm an agent identity never reaches Linear: no binding, a reported skip, and
+  the workspace shows no agent as an assignee.
+- [ ] Migrate the beads this repository already claimed under the interim wiring, and
+  confirm doctor reports zero agent-shaped assignees afterward.
+
 ## Testing Strategy
 
 Unit tests for the resolution ladders in both namespaces and for the mapping table,

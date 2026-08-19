@@ -464,8 +464,10 @@ bound-or-missing — offline, so the projection is inspectable without a sync.
 
 ## Implementation Plan
 
-Four phases. Phase 1 is useful alone and unblocks everything; each later phase is useful
+Five phases. Phase 1 is useful alone and unblocks everything; each later phase is useful
 without the ones after it.
+Phase 5 is the dogfooding gate: it ships nothing and exists to prove the rest against
+this repository’s own data and board.
 
 ### Phase 1: Terminal resolution and name-based state resolution
 
@@ -539,6 +541,59 @@ without the ones after it.
   correctly on a stock one; the no-fight property (same-type column moves produce no
   patch); an unmapped custom state survives a full sync cycle; setup idempotence and
   position placement.
+
+### Phase 5: Dogfood the whole model on this repository
+
+Every phase above is provable against the mock server, and the recurring lesson of this
+integration is that **a mock is only as good as the constraints it models** — every
+defect found live came from the mock being kinder than Linear
+([valid-2026-08-16-linear-integration-live.md](./valid-2026-08-16-linear-integration-live.md)).
+So the model is not done when its tests pass; it is done when this repository runs on
+it. The two axes exist to describe agent-driven work, and this repository is the
+agent-driven work they were derived from, which makes it the honest test.
+
+This phase ships nothing new.
+It is the acceptance gate for Phases 1-4 plus the sibling’s, and anything it finds is a
+defect in those phases rather than work of its own.
+
+- [ ] **Migration on real data, forward and back.** `tbd setup --auto` on this
+  repository’s ~900 open beads: the format migration applies, `tbd doctor` is clean, and
+  the first `tbd sync` after upgrading writes **zero** state changes (the base-migration
+  property, on real data rather than a fixture).
+  Confirm an older tbd can still read a bead carrying `resolution`, `hold`, and
+  `delegate` without stripping them — the `f08` passthrough claim, verified against a
+  real checkout.
+- [ ] **Provision the board and see the columns.** Run `tbd integration setup` against
+  the tbd Linear project, accept the proposed `state_map`, and confirm the created
+  states land in lifecycle order with terminal columns last.
+  Then confirm the resolved slot table from `tbd doctor` matches what the board actually
+  shows.
+- [ ] **Map this work as an epic on that board.** The actor and state axes are tracked
+  as epics (`tbd-og20`, `tbd-ncux`) with their phase children; mirror them, assign the
+  epics to the accountable human rather than to an agent, and confirm the assignment
+  round-trips by Linear user id through a binding rather than a `user_map` entry.
+  This is the first real use of the actor axis, and it is deliberately the work itself.
+- [ ] **Exercise every column with real beads.** Walk this repository’s own phase beads
+  through the lifecycle and confirm each lands in the right column and survives a round
+  trip: ready work in Todo, unready in Backlog, claimed work in In Progress with the
+  agent as `delegate` and the human still `assignee`, and blocked work in Blocked.
+- [ ] **Pause real work and prove the column holds.** Move genuinely stalled beads to
+  `hold: paused` — this repository has them, which is what
+  [#245](https://github.com/jlevy/tbd/pull/245) measured — and confirm they land in
+  Paused, that `started_at` survives, that they are excluded from `tbd ready`, and that
+  a human dragging one between two `started` columns produces **no** patch on the next
+  sync (the no-fight property, live).
+- [ ] **Resume, cancel, and duplicate.** Resume a paused bead back to In Progress; close
+  one as `canceled` and confirm Linear shows Canceled with **no** completion date; close
+  one as `duplicate` and confirm the duplicate relation exists on the Linear side.
+- [ ] **Settle.** Two consecutive syncs report `nothing to do`, and the field-level skip
+  reporting names anything that did not publish instead of printing a clean summary over
+  a silent no-op.
+- [ ] **Reconcile the spec folders against the board.** Run `update-specs-status` and
+  confirm the three surfaces agree: a spec in `paused/`, its epic at `hold: paused`, and
+  its issue in the Paused column are the same fact said three ways.
+- [ ] Record the outcome as a QA playbook beside the live-integration one, so the run is
+  repeatable rather than a one-off.
 
 ## Testing Strategy
 

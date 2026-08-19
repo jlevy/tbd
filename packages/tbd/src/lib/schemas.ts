@@ -90,6 +90,20 @@ export const BaseEntity = z.object({
 export const IssueStatus = z.enum(['open', 'in_progress', 'blocked', 'deferred', 'closed']);
 
 /**
+ * Why closed work ended, on the axis beside {@link IssueStatus} rather than inside it.
+ *
+ * `status` is a lifecycle *position* and every consumer that asks "is this finished"
+ * tests `status === 'closed'`. The reason it finished is a different question, so it
+ * gets a different field: encoding `canceled` as a position would turn every terminal
+ * test into a set-membership check and buy nothing, since nothing in tbd wants canceled
+ * work to sit anywhere else.
+ *
+ * Absent reads as `completed`, which is what makes this additive: every bead closed
+ * before this field existed stays correct with no backfill.
+ */
+export const IssueResolution = z.enum(['completed', 'canceled', 'duplicate']);
+
+/**
  * Issue kind/type values matching Beads.
  * Note: CLI uses --type flag, which maps to this `kind` field.
  */
@@ -248,6 +262,14 @@ export const IssueSchema = BaseEntity.extend({
 
   // Assignment and categorization
   assignee: z.string().nullable().optional(),
+  /**
+   * Who is acting on the work, when that differs from who is accountable for it.
+   *
+   * `assignee` answers "whose plate is this on"; an agent in that slot destroys the
+   * answer. Absent reads as "same as assignee". Linear renders this as `delegate`,
+   * which is the field its agent platform hangs off.
+   */
+  delegate: z.string().nullable().optional(),
   labels: z.array(z.string()).default([]),
   dependencies: z.array(Dependency).default([]),
 
@@ -267,6 +289,17 @@ export const IssueSchema = BaseEntity.extend({
   created_by: z.string().nullable().optional(),
   closed_at: Timestamp.nullable().optional(),
   close_reason: z.string().nullable().optional(),
+  /** Why the work ended. Only on `closed`; absent reads as `completed`. */
+  resolution: IssueResolution.nullable().optional(),
+  /**
+   * The bead this one duplicates. Required with `resolution: duplicate`.
+   *
+   * A scalar rather than a dependency edge: edges mean *blocks* here, and `ready` and
+   * the blocked computation read them, so a duplicate relation in that graph would
+   * change what those queries see. Providers that model duplicate as a relation get
+   * it built from this value in their adapter.
+   */
+  duplicate_of: IssueId.nullable().optional(),
 })
   // Preserve unknown keys (f08+). This is the reason f08 exists.
   //
@@ -278,7 +311,35 @@ export const IssueSchema = BaseEntity.extend({
   //
   // Preserving here is only half the job. `mergeIssues` (file/git.ts) must also carry
   // keys outside FIELD_STRATEGIES, or a preserved key is dropped at the next merge.
-  .passthrough();
+  .passthrough()
+  // The terminal axis is only meaningful at the terminal end, and `duplicate` is only
+  // meaningful with a pointer. Both providers that model duplicate (Linear's relation,
+  // GitHub's `duplicateIssueId`) reached the same conclusion independently, so a bare
+  // `duplicate` cannot be rendered on either and is rejected here rather than at push
+  // time, where the write has already happened.
+  .superRefine((issue, ctx) => {
+    if (issue.resolution != null && issue.status !== 'closed') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['resolution'],
+        message: `resolution is only valid on a closed issue (status: ${issue.status})`,
+      });
+    }
+    if (issue.resolution === 'duplicate' && issue.duplicate_of == null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['duplicate_of'],
+        message: 'duplicate_of is required when resolution is duplicate',
+      });
+    }
+    if (issue.duplicate_of != null && issue.resolution !== 'duplicate') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['duplicate_of'],
+        message: 'duplicate_of is only valid with resolution: duplicate',
+      });
+    }
+  });
 
 // =============================================================================
 // Config Schema (§2.6.4)
@@ -1066,6 +1127,7 @@ export const ISSUE_FIELD_ORDER = [
 
   // Assignment and categorization
   'assignee',
+  'delegate',
   'labels',
   'dependencies',
 
@@ -1087,6 +1149,8 @@ export const ISSUE_FIELD_ORDER = [
   // Lifecycle (closure)
   'closed_at',
   'close_reason',
+  'resolution',
+  'duplicate_of',
 
   // Extensibility
   'extensions',

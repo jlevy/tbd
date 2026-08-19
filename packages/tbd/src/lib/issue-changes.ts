@@ -99,6 +99,7 @@ const ISSUE_CHANGE_FIELD_ORDER = {
   notes: true,
   spec_path: true,
   assignee: true,
+  delegate: true,
   labels: true,
   dependencies: true,
   parent_id: true,
@@ -109,6 +110,8 @@ const ISSUE_CHANGE_FIELD_ORDER = {
   created_at: true,
   closed_at: true,
   close_reason: true,
+  resolution: true,
+  duplicate_of: true,
   extensions: true,
 } as const satisfies Record<IssueChangeField, true>;
 

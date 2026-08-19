@@ -173,6 +173,100 @@ describe('IssueSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  describe('resolution and duplicate_of', () => {
+    const closed = (extra: Record<string, unknown>) => ({
+      type: 'is',
+      id: `is-${VALID_ULID}`,
+      version: 1,
+      title: 'Test',
+      status: 'closed',
+      created_at: '2025-01-01T00:00:00Z',
+      updated_at: '2025-01-01T00:00:00Z',
+      ...extra,
+    });
+
+    it('accepts each terminal resolution on a closed issue', () => {
+      for (const resolution of ['completed', 'canceled', 'duplicate']) {
+        const extra =
+          resolution === 'duplicate'
+            ? { resolution, duplicate_of: `is-${VALID_ULID_2}` }
+            : { resolution };
+        expect(IssueSchema.safeParse(closed(extra)).success).toBe(true);
+      }
+    });
+
+    it('reads an absent resolution as completed rather than requiring a backfill', () => {
+      // The whole no-migration argument rests on this: every existing closed bead
+      // stays correct because absent means completed.
+      const result = IssueSchema.safeParse(closed({}));
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.resolution).toBeUndefined();
+      }
+    });
+
+    it('rejects a resolution on work that is not closed', () => {
+      for (const status of ['open', 'in_progress']) {
+        const issue = { ...closed({ resolution: 'canceled' }), status };
+        expect(IssueSchema.safeParse(issue).success).toBe(false);
+      }
+    });
+
+    it('requires duplicate_of when the resolution is duplicate', () => {
+      // Both Linear and GitHub model duplicate as reason plus pointer; a bare
+      // `duplicate` cannot be rendered on either.
+      expect(IssueSchema.safeParse(closed({ resolution: 'duplicate' })).success).toBe(false);
+    });
+
+    it('rejects duplicate_of without the duplicate resolution', () => {
+      expect(
+        IssueSchema.safeParse(
+          closed({ resolution: 'canceled', duplicate_of: `is-${VALID_ULID_2}` }),
+        ).success,
+      ).toBe(false);
+    });
+
+    it('rejects an unknown resolution value', () => {
+      expect(IssueSchema.safeParse(closed({ resolution: 'superseded' })).success).toBe(false);
+    });
+  });
+
+  describe('delegate field', () => {
+    it('records an acting agent beside the accountable assignee', () => {
+      const result = IssueSchema.safeParse({
+        type: 'is',
+        id: `is-${VALID_ULID}`,
+        version: 1,
+        title: 'Test',
+        assignee: 'josh',
+        delegate: 'claude-code@spud10',
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.assignee).toBe('josh');
+        expect(result.data.delegate).toBe('claude-code@spud10');
+      }
+    });
+
+    it('treats an absent delegate as unset rather than defaulting it', () => {
+      const result = IssueSchema.safeParse({
+        type: 'is',
+        id: `is-${VALID_ULID}`,
+        version: 1,
+        title: 'Test',
+        assignee: 'josh',
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.delegate).toBeUndefined();
+      }
+    });
+  });
+
   describe('spec_path field', () => {
     it('accepts valid spec_path strings', () => {
       const issue = {

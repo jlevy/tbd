@@ -12,7 +12,9 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/base-command.js';
-import { requireInit, NotFoundError } from '../lib/errors.js';
+import { requireInit, NotFoundError, ValidationError } from '../lib/errors.js';
+import { IssueResolution } from '../../lib/schemas.js';
+import type { IssueResolutionType } from '../../lib/types.js';
 import { writeIssue } from '../../file/storage.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { now } from '../../utils/time-utils.js';
@@ -26,12 +28,41 @@ import {
   type BulkItemResult,
 } from '../lib/bulk.js';
 import { resolveBodyInput } from '../lib/body-input.js';
-import { issueNotFoundHint } from '../lib/id-suggestions.js';
+import { issueNotFoundHint, resolveIssueId } from '../lib/id-suggestions.js';
 
 interface CloseOptions {
   reason?: string;
   reasonFile?: string;
+  as?: string;
+  duplicateOf?: string;
   ignoreMissing?: boolean;
+}
+
+/**
+ * Read `--as` and `--duplicate-of` into the terminal axis.
+ *
+ * `--reason` stays free prose and is unaffected: it says *what happened*, while this
+ * says *how it ended*, and the tracker can only render the second.
+ */
+function parseResolution(options: CloseOptions): {
+  resolution: IssueResolutionType;
+  duplicateOfInput?: string;
+} {
+  const parsed = IssueResolution.safeParse(options.as ?? 'completed');
+  if (!parsed.success) {
+    throw new ValidationError(
+      `Invalid --as value: ${options.as}. Expected completed, canceled, or duplicate.`,
+    );
+  }
+  const resolution = parsed.data;
+
+  if (resolution === 'duplicate' && !options.duplicateOf) {
+    throw new ValidationError('--duplicate-of <id> is required with --as duplicate');
+  }
+  if (resolution !== 'duplicate' && options.duplicateOf) {
+    throw new ValidationError('--duplicate-of is only valid with --as duplicate');
+  }
+  return { resolution, duplicateOfInput: options.duplicateOf };
 }
 
 class CloseHandler extends BaseCommand {
@@ -51,10 +82,24 @@ class CloseHandler extends BaseCommand {
         },
         {},
       );
+      const { resolution, duplicateOfInput } = parseResolution(options);
       await withDataSyncContext(
         tbdRoot,
         { lock: true },
         async ({ dataSyncDir, mapping, config }) => {
+          // Resolve the duplicate target inside the context, where the id mapping
+          // exists, and fail before any write rather than per-issue mid-batch.
+          let duplicateOf: string | null = null;
+          if (duplicateOfInput) {
+            try {
+              duplicateOf = resolveIssueId(duplicateOfInput, mapping, config.display.id_prefix);
+            } catch {
+              throw new ValidationError(
+                `--duplicate-of names an unknown issue: ${duplicateOfInput}`,
+              );
+            }
+          }
+
           const { resolved, missing, orderedInputs } = resolveAllIds(ids, mapping);
 
           // Fail closed: any unknown ID aborts before writing anything, unless
@@ -127,6 +172,11 @@ class CloseHandler extends BaseCommand {
             issue.status = 'closed';
             issue.closed_at = now();
             issue.close_reason = reason ?? null;
+            // Absent reads as completed, so only a non-default resolution is written.
+            // That keeps an ordinary close byte-identical to what it produced before
+            // this axis existed.
+            issue.resolution = resolution === 'completed' ? null : resolution;
+            issue.duplicate_of = duplicateOf;
             issue.version += 1;
             issue.updated_at = now();
             try {
@@ -182,6 +232,8 @@ export const closeCommand = new Command('close')
   .argument('<ids...>', 'Issue ID(s)')
   .option('--reason <text>', 'Close reason ("-" reads stdin)')
   .option('--reason-file <path>', 'Read close reason from a file ("-" reads stdin)')
+  .option('--as <resolution>', 'How the work ended: completed, canceled, or duplicate')
+  .option('--duplicate-of <id>', 'The issue this duplicates (required with --as duplicate)')
   .option('--ignore-missing', 'Skip unknown IDs instead of failing')
   .action(async (ids, options, command) => {
     const handler = new CloseHandler(command);

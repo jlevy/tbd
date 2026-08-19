@@ -274,6 +274,75 @@ describe('reopen command logic', () => {
   });
 });
 
+describe('terminal resolution', () => {
+  let testDir: string;
+  let issuesDir: string;
+
+  beforeEach(async () => {
+    testDir = join(tmpdir(), `tbd-resolution-${randomBytes(8).toString('hex')}`);
+    issuesDir = join(testDir, DATA_SYNC_DIR);
+    await mkdir(join(issuesDir, 'issues'), { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(testDir, { recursive: true, force: true });
+  });
+
+  const closedIssue = (extra: Partial<Issue>): Issue => ({
+    type: 'is',
+    id: testId(TEST_ULIDS.CLOSE_1),
+    version: 2,
+    kind: 'task',
+    title: 'Terminal test',
+    status: 'closed',
+    priority: 2,
+    labels: [],
+    dependencies: [],
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-10T00:00:00Z',
+    closed_at: '2025-01-10T00:00:00Z',
+    ...extra,
+  });
+
+  it('round-trips a canceled resolution through storage', async () => {
+    await writeIssue(issuesDir, closedIssue({ resolution: 'canceled' }));
+    const loaded = await readIssue(issuesDir, testId(TEST_ULIDS.CLOSE_1));
+    expect(loaded.status).toBe('closed');
+    expect(loaded.resolution).toBe('canceled');
+  });
+
+  it('round-trips a duplicate with its pointer', async () => {
+    const target = testId(TEST_ULIDS.CLOSE_2);
+    await writeIssue(issuesDir, closedIssue({ resolution: 'duplicate', duplicate_of: target }));
+    const loaded = await readIssue(issuesDir, testId(TEST_ULIDS.CLOSE_1));
+    expect(loaded.resolution).toBe('duplicate');
+    expect(loaded.duplicate_of).toBe(target);
+  });
+
+  it('refuses to persist a resolution left behind by a reopen', async () => {
+    // The reopen path clears closed_at and close_reason; if it forgets the terminal
+    // axis, the bead claims a reason for ending while being open. The write boundary
+    // is where that has to fail, because everything downstream trusts the invariant.
+    const reopenedBadly = closedIssue({
+      resolution: 'canceled',
+      status: 'open',
+      closed_at: null,
+    });
+    await expect(writeIssue(issuesDir, reopenedBadly)).rejects.toThrow(/resolution/);
+  });
+
+  it('persists a fully cleared reopen', async () => {
+    const reopened = closedIssue({
+      status: 'open',
+      closed_at: null,
+      close_reason: null,
+      resolution: null,
+      duplicate_of: null,
+    });
+    await expect(writeIssue(issuesDir, reopened)).resolves.toBeUndefined();
+  });
+});
+
 describe('close/reopen file format', () => {
   let testDir: string;
   const issuesDir = DATA_SYNC_DIR;
