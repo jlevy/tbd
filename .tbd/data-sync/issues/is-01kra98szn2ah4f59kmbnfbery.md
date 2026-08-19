@@ -5,8 +5,9 @@ title: "Phase 1: Basic capabilities and migration (f06+ framework backing impl)"
 kind: epic
 status: open
 priority: 1
-version: 16
+version: 17
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
+assignee: josh
 labels:
   - pause
 dependencies: []
@@ -24,7 +25,7 @@ child_order_hints:
   - is-01kra9aag4p0ec6nmg1htaa128
   - is-01kra9aave6br1ysqedyccf8y5
 created_at: 2026-05-11T01:08:50.805Z
-updated_at: 2026-08-15T05:43:42.644Z
+updated_at: 2026-08-19T04:55:15.490Z
 extensions:
   linear:
     id: ba931b64-4c5b-49cc-9b3f-bcaf4d36dc0c

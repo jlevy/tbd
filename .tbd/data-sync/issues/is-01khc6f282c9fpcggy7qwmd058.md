@@ -5,7 +5,8 @@ title: "Review & research pass: Claude Code Sub-Agents research doc"
 kind: epic
 status: open
 priority: 2
-version: 22
+version: 23
+assignee: josh
 labels:
   - pause
 dependencies:
@@ -34,7 +35,7 @@ dependencies:
   - type: blocks
     target: is-01khc6fqd73ez5ymjjkw7fgpqc
 created_at: 2026-02-13T19:08:26.241Z
-updated_at: 2026-08-15T05:43:10.448Z
+updated_at: 2026-08-19T04:55:15.534Z
 extensions:
   linear:
     id: bdb9a312-0ae7-41d1-adfb-4f229a1d62d5

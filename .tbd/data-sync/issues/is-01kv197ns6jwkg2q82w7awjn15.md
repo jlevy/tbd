@@ -5,8 +5,9 @@ title: "Spec: Agent CLI ergonomics (bulk ops, output contract, sync clarity)"
 kind: epic
 status: open
 priority: 1
-version: 13
+version: 14
 spec_path: docs/project/specs/active/plan-2026-06-13-agent-cli-ergonomics.md
+assignee: josh
 labels: []
 dependencies: []
 child_order_hints:
@@ -21,7 +22,7 @@ child_order_hints:
   - is-01kv199vg79cyyjde19bxgrvdg
   - is-01kv1b1bbc8zjprnm79nqyaeh4
 created_at: 2026-06-13T20:02:09.317Z
-updated_at: 2026-08-10T21:54:32.366Z
+updated_at: 2026-08-19T04:55:15.503Z
 extensions:
   linear:
     id: c5c71c47-da62-4511-b39c-99f52cbc52f9

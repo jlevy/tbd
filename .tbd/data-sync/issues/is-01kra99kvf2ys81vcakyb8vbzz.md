@@ -5,8 +5,9 @@ title: "Q20: Decide categories/types/folders, glob-first matching, CLI aliases"
 kind: epic
 status: open
 priority: 2
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
+assignee: josh
 labels:
   - pause
 dependencies:
@@ -14,7 +15,7 @@ dependencies:
     target: is-01kra9a8ae405nqc2mh0jfd8zf
 parent_id: is-01kra98fgac70pjft7jnarmave
 created_at: 2026-05-11T01:09:17.295Z
-updated_at: 2026-08-15T05:43:42.588Z
+updated_at: 2026-08-19T04:55:15.556Z
 extensions:
   linear:
     id: e317500b-8de7-4581-b1fb-100d11cf3b9c
