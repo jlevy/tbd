@@ -30,9 +30,9 @@ async function realish(dir: string): Promise<string> {
   return realpath(dir).catch(() => dir);
 }
 
-const MAIN_SECRET = 'lin_api_mainworktree_0123456789';
-const LOCAL_SECRET = 'lin_api_worktreelocal_9876543210';
-const EXPORTED_SECRET = 'lin_api_exported_abcdefabcdef';
+const MAIN_SECRET = 'lin_api_test_main';
+const LOCAL_SECRET = 'lin_api_test_local';
+const EXPORTED_SECRET = 'lin_api_test_exported';
 
 function config(): Config {
   return {
