@@ -1,0 +1,68 @@
+entity_id: is-01m0ddenmjsxeqm98ytfpcfc11
+timestamp: 2026-08-19T16:29:53.160Z
+field: description
+lost_value: "\"## The Problem\\n\\nIn a linked git worktree, tbd reports `LINEAR_API_KEY
+  not found` even when the key is\\npresent in the repository's `.env`. `.env` is
+  gitignored, and gitignored files do not\\npropagate to worktrees, so a fully
+  configured repository looks unconfigured from any\\nworktree of it.\\n\\nThe failure
+  mode is worse than a missing feature, because the diagnosis is misleading.\\n`tbd
+  integration status` prints what reads as \\\"Linear is not set up here\\\", when the
+  truth\\nis \\\"the key exists, in the main checkout, and this process did not look
+  there\\\". That sent\\nan operator into the guided first-time-setup path for a
+  repository whose Linear\\nintegration was already configured and working.\\n\\nThis is
+  now common rather than exotic. Agent tooling creates worktrees automatically, and\\na
+  single machine can carry many per repository, created by different tools in
+  different\\nlocations.\\n\\n## Why the Obvious Fix Does Not Work\\n\\nWalking up the
+  directory tree looking for `.env`, which is what `python-dotenv`'s\\n`find_dotenv()`
+  and `direnv` do, only works when the worktree happens to be nested inside\\nthe main
+  checkout. Measured against one real machine's worktrees for a single
+  repository,\\nfive of six lived outside it:\\n\\n| Worktree location | Walk-up reaches
+  the repo? |\\n| -- | -- |\\n| `~/wrk/{org}/{repo}/.claude/worktrees/{id}` | yes,
+  nested |\\n| `~/.cache/{tool}/{id}` | no |\\n| `~/.codex/worktrees/{id}/{repo}` | no,
+  three of these |\\n| `~/.codex/worktrees/{id}/{other-repo}` | no
+  |\\n\\nDirectory-walking also has a security footgun: past the repository root it can
+  pick up an\\nunrelated project's secrets, and the deeper the walk the likelier that
+  is.\\n\\n## The Mechanism\\n\\nAsk git which repository this is, rather than inferring
+  it from the filesystem:\\n\\n```bash\\ndirname \\\"$(git rev-parse
+  --path-format=absolute --git-common-dir)\\\"\\n```\\n\\nFrom any linked worktree this
+  resolves to the main checkout exactly, wherever that\\nworktree lives. It is not a
+  heuristic; it is git's own answer to the question. In the main\\ncheckout it resolves
+  to that checkout, so one code path covers both cases.\\n\\nThe precedent is git's own
+  design. Config, hooks, and refs live in the common dir because\\nthey are
+  repository-scoped rather than branch-scoped. A gitignored `.env`
+  holding\\nmachine-local credentials is exactly that class of state: it does not vary
+  by branch, so\\nsharing it across worktrees is correct rather than merely
+  convenient.\\n\\n## Specified Behavior\\n\\nResolution order for `LINEAR_API_KEY` and
+  any other integration secret:\\n\\n1. The process environment. Always wins.
+  Unchanged.\\n2. `./.env` in the current working tree. Present-but-different is a
+  deliberate override,\\n   so a worktree can point at different credentials.\\n3.
+  `<main-worktree>/.env`, resolved via `--git-common-dir`. This is the new
+  fallback.\\n4. Not found.\\n\\nRequirements beyond the lookup itself:\\n\\n* **Report
+  the source.** `tbd integration status` already prints a masked credential and\\n  its
+  origin, in the form `********abcd from .env`. It must name which `.env`, so
+  loading\\n  from another directory is never silent and a layer-2 override is
+  discoverable.\\n* **Never write to the main worktree's** `.env`**.** The fallback is
+  read-only. Guided setup\\n  that writes a key writes it to the current worktree or
+  instructs on the environment.\\n* **Degrade quietly.** Outside a git repository, or
+  when `git` is unavailable, skip layer\\n  3 rather than raising.\\n* **Do not cross
+  repository boundaries.** `--git-common-dir` cannot leave the current\\n  repository,
+  which is the property that makes this safe where directory-walking is not.\\n\\n##
+  Acceptance\\n\\n* From a worktree created outside the main checkout, with the key
+  present only in the main\\n  checkout's `.env`, `tbd integration status` reports
+  reachable and names the source path.\\n* A worktree-local `.env` still overrides the
+  main one.\\n* An exported environment variable still overrides both.\\n* Outside a git
+  repository, behavior is unchanged and no new error appears.\\n* The `setup-linear`
+  shortcut's join-an-configured-repo guidance is updated: joining from a\\n  worktree
+  needs no per-worktree key.\\n\\n## Scope Notes\\n\\nCI is unaffected. GitHub Actions
+  injects secrets as environment variables, satisfying\\nlayer 1, and does not use
+  worktrees.\\n\\nUntil this lands, exporting the key from a shell profile or a
+  secret-manager wrapper\\nsatisfies layer 1 and works in every worktree. Symlinking the
+  main checkout's `.env` into\\neach worktree also works, but is manual and must be
+  repeated for every worktree any tool\\ncreates.\""
+winner_source: local
+loser_source: remote
+context:
+  local_version: 8
+  remote_version: 0
+  local_updated_at: 2026-08-19T16:29:41.143Z
+  remote_updated_at: 2026-08-19T16:27:30.400Z
