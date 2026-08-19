@@ -5,7 +5,7 @@ title: "Phase 1: delegate field and the claim verb"
 kind: task
 status: open
 priority: 2
-version: 7
+version: 8
 spec_path: docs/project/specs/active/plan-2026-08-18-actor-axis-and-identity.md
 labels: []
 dependencies:
@@ -15,7 +15,7 @@ dependencies:
     target: is-01m0c5rsgkvdv8ad02eaq7109k
 parent_id: is-01m0c5r461zmx3ctgsxq94s0bq
 created_at: 2026-08-19T04:51:29.245Z
-updated_at: 2026-08-19T16:27:19.492Z
+updated_at: 2026-08-19T17:43:30.870Z
 extensions:
   linear:
     id: 273e109a-3300-454d-8444-d1fe166ae62a
@@ -31,6 +31,5 @@ Depends on nothing in the sibling. Field name and format-bump approach are settl
 
 ## Notes
 
-DONE (66fcbc58, 1a39d717). delegate field; --delegate on create/update incl. bulk and --from-file; tbd start writes delegate and leaves assignee alone with contention checks moved; field-level skip reporting in the push summary with causes grouped; 7 new tests (tbd start previously had none).
-LIVE VERIFIED against team OS: push of beads carrying assignee=josh with empty user_map now reports 'fields not pushed 2' and '- assignee: no user_map entry for josh (2 beads)'; previously printed 'skipped 0' and nothing else.
-NOT DONE: write-time warning when setting an actor that can never publish; doctor check for agent-shaped assignees; the reconcile-path skipPush generalization (still assignee-hardcoded at reconcile.ts:303, and sync-engine nothingToDo still omits skippedPushes at :966/:1560, so a skip-only full sync can still read as 'nothing to do').
+DONE (66fcbc58, 1a39d717, f8719390). delegate field; --delegate on create/update incl bulk and --from-file; tbd start writes delegate and stamps started_at; field-level skip reporting with provider-supplied reasons; tbd doctor 'Actor axis' check reports agent-shaped assignees.
+NOT DONE: write-time warning when setting an actor that can never publish; reconcile-path skipPush is still assignee-hardcoded and sync-engine nothingToDo still omits skippedPushes (:966/:1560), so a skip-only FULL sync can still read as 'nothing to do' — the mirror/--push path is fixed, the reconcile path is not.
