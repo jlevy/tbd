@@ -14,7 +14,7 @@
  */
 
 import { execFile } from 'node:child_process';
-import { delimiter, resolve } from 'node:path';
+import { posix, win32, type PlatformPath } from 'node:path';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
@@ -23,12 +23,25 @@ const execFileAsync = promisify(execFile);
 const NPM_PREFIX_TIMEOUT_MS = 5000;
 
 /**
+ * Path semantics for the target platform, not the running one.
+ *
+ * The bare `node:path` exports follow the host, so `delimiter` would be `;` and
+ * `resolve` would apply drive letters when these functions run on Windows. Selecting
+ * the implementation from the caller's platform keeps them pure and testable from any
+ * host, which is what the cross-platform CI matrix exercises.
+ */
+function pathFor(platform: NodeJS.Platform): PlatformPath {
+  return platform === 'win32' ? win32 : posix;
+}
+
+/**
  * Resolve npm's global bin directory from its global prefix.
  *
  * On Windows the global bin is the prefix itself; elsewhere it is `<prefix>/bin`.
  */
 export function npmGlobalBinDir(prefix: string, platform: NodeJS.Platform): string {
-  return platform === 'win32' ? resolve(prefix) : resolve(prefix, 'bin');
+  const path = pathFor(platform);
+  return platform === 'win32' ? path.resolve(prefix) : path.resolve(prefix, 'bin');
 }
 
 /**
@@ -46,14 +59,15 @@ export function isDirOnPath(
     return false;
   }
 
+  const path = pathFor(platform);
   const normalize = (value: string): string => {
-    const resolved = resolve(value);
+    const resolved = path.resolve(value);
     return platform === 'win32' ? resolved.toLowerCase() : resolved;
   };
 
   const target = normalize(dir);
   return pathValue
-    .split(delimiter)
+    .split(path.delimiter)
     .filter((entry) => entry.length > 0)
     .some((entry) => normalize(entry) === target);
 }

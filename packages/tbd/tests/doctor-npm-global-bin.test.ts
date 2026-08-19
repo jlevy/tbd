@@ -19,7 +19,7 @@ describe('npmGlobalBinDir', () => {
   });
 
   it('uses the prefix itself on Windows, where npm puts shims at the top level', () => {
-    expect(npmGlobalBinDir('C:\\npm-global', 'win32')).toMatch(/npm-global$/);
+    expect(npmGlobalBinDir('C:\\npm-global', 'win32')).toBe('C:\\npm-global');
   });
 });
 
@@ -43,6 +43,22 @@ describe('isDirOnPath', () => {
 
   it('skips empty PATH entries rather than treating them as the working directory', () => {
     expect(isDirOnPath('/usr/local/bin', ':/bin:', 'linux')).toBe(false);
+  });
+
+  // These pin platform semantics to the argument rather than the host, so the
+  // cross-platform CI matrix gets the same answers from every runner.
+  it('splits a Windows PATH on ; and compares case-insensitively', () => {
+    expect(isDirOnPath('C:\\npm-global', 'C:\\Windows;C:\\npm-global', 'win32')).toBe(true);
+    expect(isDirOnPath('C:\\NPM-Global', 'C:\\npm-global', 'win32')).toBe(true);
+  });
+
+  it('splits a POSIX PATH on : even when the host separator differs', () => {
+    expect(isDirOnPath('/usr/local/bin', '/usr/bin:/usr/local/bin', 'linux')).toBe(true);
+    expect(isDirOnPath('/usr/local/bin', '/usr/bin;/usr/local/bin', 'linux')).toBe(false);
+  });
+
+  it('keeps POSIX comparisons case-sensitive', () => {
+    expect(isDirOnPath('/usr/local/BIN', '/usr/local/bin', 'linux')).toBe(false);
   });
 });
 
