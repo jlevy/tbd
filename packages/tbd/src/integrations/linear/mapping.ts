@@ -415,3 +415,29 @@ export function slotToLinear(slot: Slot): LinearStatusTarget {
       return { stateType: 'backlog', labels: [] };
   }
 }
+
+/**
+ * The colour to give a workflow state tbd creates.
+ *
+ * Linear requires one — `WorkflowStateCreateInput.color` is `String!` — and omitting it
+ * fails the mutation outright. These are Linear's own defaults for each type, so a
+ * provisioned column looks like one a person would have made rather than announcing
+ * itself.
+ */
+export function stateColorFor(stateType: string): string {
+  switch (stateType) {
+    case 'backlog':
+      return '#bec2c8';
+    case 'unstarted':
+      return '#e2e2e2';
+    case 'started':
+      return '#f2c94c';
+    case 'completed':
+      return '#5e6ad2';
+    case 'canceled':
+    case 'duplicate':
+      return '#95a2b3';
+    default:
+      return '#bec2c8';
+  }
+}

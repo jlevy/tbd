@@ -28,6 +28,7 @@ import {
   resolutionFromLinear,
   holdFromLinear,
   slotFromLinear,
+  stateColorFor,
   resolveStateId,
   statusToLinear,
 } from './mapping.js';
@@ -1248,7 +1249,13 @@ export class LinearAdapter implements TrackerAdapter {
               workflowState: { id: string; name: string; type: string; position: number } | null;
             };
           }>(WORKFLOW_STATE_CREATE_MUTATION, {
-            input: { name, type: stateType, position, teamId: await this.resolveTeamId() },
+            input: {
+              name,
+              type: stateType,
+              position,
+              color: stateColorFor(stateType),
+              teamId: await this.resolveTeamId(),
+            },
           });
           const created = data.workflowStateCreate.workflowState;
           if (!data.workflowStateCreate.success || !created) {

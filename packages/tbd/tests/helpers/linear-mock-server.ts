@@ -284,8 +284,20 @@ export class LinearMockServer {
         name: string;
         type: string;
         position: number;
+        color?: string;
         teamId: string;
       };
+      // Linear declares `color` as `String!`. Omitting it fails the mutation, and a
+      // mock that accepted it would let provisioning look correct while every live
+      // create was rejected — which is exactly what happened before this line existed.
+      if (!input.color) {
+        return {
+          status: 200,
+          payload: {
+            errors: [{ message: 'Field "color" of required type "String!" was not provided.' }],
+          },
+        };
+      }
       if (input.teamId !== 'team-1') {
         return {
           status: 200,
