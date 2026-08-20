@@ -46,6 +46,14 @@ export const WORKFLOW_STATE_CREATE_MUTATION = `mutation WorkflowStateCreate($inp
   }
 }`;
 
+/** Move an existing workflow state to a new board position. */
+export const WORKFLOW_STATE_UPDATE_MUTATION = `mutation WorkflowStateUpdate($id: String!, $input: WorkflowStateUpdateInput!) {
+  workflowStateUpdate(id: $id, input: $input) {
+    success
+    workflowState { id name type position }
+  }
+}`;
+
 /** Resolve a team key (e.g. `FIN`) to its UUID plus states and labels. */
 export const TEAM_META_QUERY = `query TeamMeta($key: String!) {
   teams(filter: { key: { eq: $key } }, first: 1) {

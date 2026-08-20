@@ -53,6 +53,7 @@ import {
   TEAM_META_QUERY,
   WORKSPACE_USERS_QUERY,
   WORKFLOW_STATE_CREATE_MUTATION,
+  WORKFLOW_STATE_UPDATE_MUTATION,
   TEAM_LABELS_QUERY,
   USERS_BY_EMAIL_QUERY,
 } from './queries.js';
@@ -1279,6 +1280,65 @@ export class LinearAdapter implements TrackerAdapter {
           });
         }
       }
+      // Terminal columns sitting mid-board is the accident explicit positioning was
+      // meant to prevent, and it predates tbd on any team that added states by hand.
+      // Reported always; repaired only on `apply`, and only by moving a state later —
+      // never by rearranging columns tbd was not asked about.
+      const bandRank: Record<string, number> = {
+        triage: 0,
+        backlog: 1,
+        unstarted: 2,
+        started: 3,
+        completed: 4,
+        canceled: 5,
+        duplicate: 6,
+      };
+      const ordered = [...existing].sort((a, b) => a.position - b.position);
+      // Only states this repository asked tbd to manage. Repairing order is still a
+      // write, and "never touch a state outside the map" outranks a tidier board — a
+      // column tbd was not asked about belongs to whoever put it there.
+      const mappedNames = new Set(
+        Object.values(this.stateMap ?? {}).map((name) => name.toLowerCase()),
+      );
+      for (let i = 0; i < ordered.length; i += 1) {
+        const state = ordered[i]!;
+        const rank = bandRank[state.type];
+        if (rank === undefined || !mappedNames.has(state.name.toLowerCase())) {
+          continue;
+        }
+        const laterButEarlierBand = ordered
+          .slice(i + 1)
+          .find((other) => (bandRank[other.type] ?? rank) < rank);
+        if (!laterButEarlierBand) {
+          continue;
+        }
+        if (!options.apply) {
+          items.push({
+            kind: 'workflow state',
+            name: state.name,
+            state: 'missing',
+            reason: `sits before ${laterButEarlierBand.name}, which belongs earlier in the lifecycle`,
+          });
+          continue;
+        }
+        try {
+          const target = Math.max(...ordered.map((other) => other.position)) + 1;
+          await this.client.request(WORKFLOW_STATE_UPDATE_MUTATION, {
+            id: state.id,
+            input: { position: target },
+          });
+          state.position = target;
+          items.push({ kind: 'workflow state', name: state.name, state: 'created' });
+        } catch (error) {
+          items.push({
+            kind: 'workflow state',
+            name: state.name,
+            state: 'blocked',
+            reason: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
       // The next sync must see what was just created rather than the cached board.
       this.meta = undefined;
     }

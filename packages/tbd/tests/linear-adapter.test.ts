@@ -462,7 +462,35 @@ describe('Linear client and adapter', () => {
       expect(server.states.length).toBe(before);
     });
 
-    it('never touches a state outside the map', async () => {
+    it('reports a terminal column sitting mid-board, and repairs it on apply', async () => {
+      // The accident explicit positioning prevents for states tbd creates, but which
+      // predates tbd on any team that added columns by hand: Done at position 3 while
+      // In Review sits at 1002 puts a terminal column in the middle of the lifecycle.
+      const mapped = new LinearAdapter({
+        client,
+        teamKey: 'FIN',
+        // Both mapped: tbd only reorders columns it was asked to manage.
+        stateMap: { started: 'In Review', completed: 'Done' },
+      });
+
+      const done = server.states.find((state) => state.name === 'Done')!;
+      const review = server.states.find((state) => state.name === 'In Review')!;
+      expect(done.position).toBeLessThan(review.position);
+
+      const planned = await mapped.provision({ apply: false, originLabels: [] });
+      expect(
+        planned.items.some(
+          (item) => item.name === 'Done' && item.reason?.includes('belongs earlier'),
+        ),
+      ).toBe(true);
+      // A dry run changes nothing.
+      expect(done.position).toBeLessThan(review.position);
+
+      await mapped.provision({ apply: true, originLabels: [] });
+      expect(done.position).toBeGreaterThan(review.position);
+    });
+
+    it('never touches a state outside the map, even to fix board order', async () => {
       const mapped = new LinearAdapter({
         client,
         teamKey: 'FIN',

@@ -279,6 +279,22 @@ export class LinearMockServer {
       };
     }
 
+    if (query.includes('mutation WorkflowStateUpdate')) {
+      const id = variables.id as string;
+      const input = variables.input as { position?: number };
+      const state = this.states.find((candidate) => candidate.id === id);
+      if (!state) {
+        return { status: 200, payload: { errors: [{ message: `Unknown state: ${id}` }] } };
+      }
+      if (typeof input.position === 'number') {
+        state.position = input.position;
+      }
+      return {
+        status: 200,
+        payload: { data: { workflowStateUpdate: { success: true, workflowState: state } } },
+      };
+    }
+
     if (query.includes('mutation WorkflowStateCreate')) {
       const input = variables.input as {
         name: string;

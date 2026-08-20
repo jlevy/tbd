@@ -331,6 +331,16 @@ describe('terminal resolution', () => {
     await expect(writeIssue(issuesDir, reopenedBadly)).rejects.toThrow(/resolution/);
   });
 
+  it('reports an invariant breach as a sentence, not a JSON dump', async () => {
+    // The write boundary enforces the cross-field rules, so it is where an ordinary
+    // CLI mistake lands. Zod renders that as its issue array; the message inside is
+    // already written for a person, so it should be what they see.
+    const held = closedIssue({ hold: 'blocked' } as Partial<Issue>);
+    await expect(writeIssue(issuesDir, held)).rejects.toThrow(
+      'hold: hold is only valid on work that is not closed',
+    );
+  });
+
   it('persists a fully cleared reopen', async () => {
     const reopened = closedIssue({
       status: 'open',

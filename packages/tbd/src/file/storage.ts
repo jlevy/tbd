@@ -14,7 +14,9 @@ import { writeFile } from 'atomically';
 
 import type { Issue } from '../lib/types.js';
 import { IssueSchema } from '../lib/schemas.js';
-import { formatUnknownError } from '../utils/zod-error-utils.js';
+import { ZodError } from 'zod';
+
+import { formatUnknownError, formatZodError } from '../utils/zod-error-utils.js';
 import { parseIssue, serializeIssue } from './parser.js';
 
 /**
@@ -63,7 +65,19 @@ export async function readIssue(baseDir: string, id: string): Promise<Issue> {
  * Uses atomic write to prevent corruption.
  */
 export async function writeIssue(baseDir: string, issue: Issue): Promise<void> {
-  const validIssue = IssueSchema.parse(issue);
+  // The write boundary is where cross-field invariants are enforced, so it is also
+  // where an ordinary CLI mistake lands — `--hold` on closed work, a duplicate with no
+  // pointer. Zod's own rendering of that is a JSON dump of its issue array, which
+  // buries a message that is already written for a person to read.
+  let validIssue;
+  try {
+    validIssue = IssueSchema.parse(issue);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      throw new Error(formatZodError(error));
+    }
+    throw error;
+  }
   const filePath = getIssuePath(baseDir, validIssue.id);
   const content = serializeIssue(validIssue);
   await writeFile(filePath, content);
