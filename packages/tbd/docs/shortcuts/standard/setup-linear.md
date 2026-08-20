@@ -160,8 +160,16 @@ Rules that are not negotiable:
 - If a key was ever committed, say so plainly and tell the user to rotate it in Linear.
   Removing the commit is not enough.
 
-tbd reads `LINEAR_API_KEY` from the process environment first, then from `.env`. An
-exported environment variable is equally fine and needs no file.
+tbd reads `LINEAR_API_KEY` from the process environment first, then from this working
+tree’s `.env`, then from the main worktree’s `.env`. An exported environment variable is
+equally fine and needs no file.
+
+**In a linked worktree, do not create a second key.** `.env` is gitignored, so it does
+not propagate to worktrees, but tbd resolves the main checkout through git and reads the
+key already there. `tbd integration status` names the exact file it loaded, so a
+`✓ credential` line pointing at the main checkout’s path is the expected result and not
+something to fix. Write a worktree-local `.env` only to point that one worktree at a
+*different* key, since it takes precedence over the main one.
 
 ## Step 4: Verify
 
