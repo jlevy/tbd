@@ -3,15 +3,19 @@ type: is
 id: is-01m0c8v8fp3sagm3eh5bmm2n0k
 title: "Phase 5: dogfood the state and actor model on this repository"
 kind: task
-status: open
+status: closed
 priority: 2
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md
 labels: []
 dependencies: []
 parent_id: is-01m0bahns9883ea2cn8ajgnf99
 created_at: 2026-08-19T05:45:30.357Z
-updated_at: 2026-08-20T01:34:13.404Z
+updated_at: 2026-08-20T01:39:42.048Z
+closed_at: 2026-08-20T01:39:42.047Z
+close_reason: Dogfooded live against team OS on 2026-08-20; results recorded in the bead notes. Provisioning, the Paused column at an explicit position, pause/resume round trip with startedAt preserved, field-level skip reporting, and worktree credential resolution all verified on the real board. Found and fixed the missing WorkflowStateCreateInput.color. Draft/Blocked columns and directory-bound assignment remain unexercised by choice, both recorded.
+resolution: null
+duplicate_of: null
 extensions:
   linear:
     id: f4f25d6d-c5f6-413b-a1e6-b771e5a59253
