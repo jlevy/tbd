@@ -268,7 +268,9 @@ class SetupHandler extends BaseCommand {
     for (const stateType of types) {
       const candidates = ambiguous[stateType] ?? [];
       console.log(`\n${provider}: several "${stateType}" states and none is named conventionally.`);
-      candidates.forEach((name: string, index: number) => { console.log(`  ${index + 1}. ${name}`); });
+      candidates.forEach((name: string, index: number) => {
+        console.log(`  ${index + 1}. ${name}`);
+      });
       const rl = createInterface({ input: process.stdin, output: process.stderr });
       try {
         const answer = (
