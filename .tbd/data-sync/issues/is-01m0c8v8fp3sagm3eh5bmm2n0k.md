@@ -5,13 +5,13 @@ title: "Phase 5: dogfood the state and actor model on this repository"
 kind: task
 status: open
 priority: 2
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md
 labels: []
 dependencies: []
 parent_id: is-01m0bahns9883ea2cn8ajgnf99
 created_at: 2026-08-19T05:45:30.357Z
-updated_at: 2026-08-19T16:27:26.746Z
+updated_at: 2026-08-20T01:34:13.404Z
 extensions:
   linear:
     id: f4f25d6d-c5f6-413b-a1e6-b771e5a59253
@@ -21,7 +21,7 @@ Acceptance gate for all prior phases; ships nothing. Migration on ~900 real bead
 
 ## Notes
 
-PARTIALLY EXERCISED 2026-08-19 against the real Linear workspace (team OS, project tbd).
-VERIFIED LIVE: terminal resolution round-trip (OS-242 Canceled/canceled, completedAt=null, canceledAt set); epics mirrored (OS-337 state model, OS-339 actor axis) and assigned to josh locally; name-based state resolution against a real board with two started states (In Progress at position 2, In Review at 1002); field-level skip reporting; new fields round-trip ~900 real beads with doctor 'Issue validity' clean.
-NOT VERIFIED: board provisioning and the Draft/Paused/Blocked columns (Phases 2-4 not implemented, so there is nothing to provision yet); the no-fight property; assignment by directory binding (needs actor Phase 2 — user_map is empty and assignee cannot publish today, which is exactly what the new reporting now says out loud).
-NOTE: 'tbd integration sync --push' reports 'updated N' on every run because the mirror path is a projection that never diffs the remote. Pre-existing, not introduced here; the settle property belongs to the full bidirectional sync.
+DOGFOODED LIVE 2026-08-20 against team OS.
+VERIFIED: provisioning bound all six existing columns and reported 'nothing to do' (idempotent, binds rather than duplicates); creating a Paused column placed it at position 1003, after In Review (1002) and the defaults — the explicit-position rule working on a real board; tbd pause set hold=paused with status=in_progress intact and OS-337 landed in Paused/started with Linear's startedAt preserved; tbd resume returned it to In Progress; field-level skip reporting named the OS-351 guard by reason ('field_sync.fields.assignee is "local"'); credential resolution from the main worktree (PR #249) works from a linked worktree with no copying.
+BUG FOUND AND FIXED BY DOGFOODING: Linear requires color on WorkflowStateCreateInput (String!). The mock did not model it, so provisioning passed every test and failed on the first live create. Fixed by sending a per-type color, and the mock now enforces the requirement so it cannot regress. This is the third time the mock being kinder than the API produced a defect.
+STILL NOT EXERCISED: Draft/Blocked columns (not provisioned here, to keep the team-wide footprint to one column); assignment by directory binding (needs field_sync.fields.assignee: merge, which the OS-351 fix deliberately requires).
