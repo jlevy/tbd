@@ -3,9 +3,9 @@ type: is
 id: is-01m0c5r461zmx3ctgsxq94s0bq
 title: "Actor axis: delegate field and identity that resolves itself"
 kind: epic
-status: open
+status: closed
 priority: 2
-version: 7
+version: 8
 spec_path: docs/project/specs/active/plan-2026-08-18-actor-axis-and-identity.md
 assignee: josh
 labels: []
@@ -16,7 +16,11 @@ child_order_hints:
   - is-01m0c5rsgkvdv8ad02eaq7109k
   - is-01m0c8v94j74sqaj35ts5xrjjf
 created_at: 2026-08-19T04:51:21.920Z
-updated_at: 2026-08-19T15:46:07.944Z
+updated_at: 2026-08-20T01:40:40.751Z
+closed_at: 2026-08-20T01:40:40.751Z
+close_reason: "All phases complete and dogfooded live against team OS. State: resolution/duplicate_of, hold/hold_until/started_at, slots in the reconcile engine with a zero-writes upgrade, name-based state resolution, board provisioning, offline doctor table. Actor: delegate field and claim verb, directory-resolved identity bound by provider user id, delegate publishing via agent_map. Plus OS-351, an assignee-clearing data-loss bug reported against the branch. Residuals recorded on tbd-qdj4."
+resolution: null
+duplicate_of: null
 extensions:
   linear:
     id: a5613359-e8f4-4a5a-aecc-b27c64c5870e
