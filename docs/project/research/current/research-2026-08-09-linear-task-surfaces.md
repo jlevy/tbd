@@ -12,7 +12,7 @@ Design options are mapped but deliberately not decided.
 
 - [How Coding Agents Listen On and Monitor Issues](research-2026-06-04-agent-issue-monitors.md)
   — trigger and dispatch mechanics; the pattern taxonomy this doc reuses
-- [Claude Code Orchestration Interfaces and UIs](research-claude-code-orchestration-and-uis.md)
+- [Claude Code Orchestration Interfaces and UIs](../archive/research-claude-code-orchestration-and-uis.md)
   — OpenAI Symphony, the reference Linear-polling orchestrator
 - [Agent Coordination Kernel](research-agent-coordination-kernel.md) — durable truth vs.
   live coordination

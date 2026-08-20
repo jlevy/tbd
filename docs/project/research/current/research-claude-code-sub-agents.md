@@ -8,9 +8,9 @@
 
 **Related:**
 
-- [Running Claude Code Across Environments](research-running-claude-code.md) —
-  Multi-agent orchestration ecosystem survey
-- [Claude Code Orchestration Interfaces and UIs](research-claude-code-orchestration-and-uis.md)
+- [Running Claude Code Across Environments](../archive/research-running-claude-code.md)
+  — Multi-agent orchestration ecosystem survey
+- [Claude Code Orchestration Interfaces and UIs](../archive/research-claude-code-orchestration-and-uis.md)
   — Control protocols, IDE surfaces, and external orchestration interfaces
 - [Agent Coordination Kernel](research-agent-coordination-kernel.md)
 
@@ -705,7 +705,7 @@ other**, agent teams provide:
 ### 7. Claude-Code-Invoking-Claude-Code ("Ralph Wiggum" Loops)
 
 > **See also:**
-> [Claude Code Orchestration Interfaces and UIs](research-claude-code-orchestration-and-uis.md)
+> [Claude Code Orchestration Interfaces and UIs](../archive/research-claude-code-orchestration-and-uis.md)
 > covers the protocol/interface perspective on instance-from-instance orchestration —
 > including the Agent SDK, `--sdk-url` WebSocket protocol, and ACP as alternative
 > control surfaces for outer-loop patterns.
@@ -1775,7 +1775,7 @@ claude --model opus
 
 ### Related Internal Research
 
-- [Running Claude Code Across Environments](research-running-claude-code.md) —
-  Multi-agent orchestration landscape survey
+- [Running Claude Code Across Environments](../archive/research-running-claude-code.md)
+  — Multi-agent orchestration landscape survey
 - [Agent Coordination Kernel](research-agent-coordination-kernel.md) — UNIX-like
   primitives for agent coordination

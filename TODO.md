@@ -73,10 +73,12 @@ Real, tracked, and not blocking the release.
 
 ## Open epics
 
-Thirteen open. The ones with active work:
+Sixteen open. The ones with active work:
 
 - **`tbd-dzme`** — External sync and traceability (prime, claim, checkpoint, Linear
   visibility). Phases 1–2 shipped; phase 3 is the current front
+- **`tbd-owa5`** — Agent session refs: link live agent runs from beads, Linear, and
+  `tbd web`. New, unstarted; phase 1 is offline and needs no runtime decision
 - **`tbd-gvju`** — External tracker integrations (Linear first, GitHub next)
 - **`tbd-g9x7`** — Modernize multi-agent skills and hooks setup
 - **`tbd-6h1r`** — Agent CLI ergonomics (bulk ops, output contract, sync clarity)
@@ -90,11 +92,13 @@ Thirteen open. The ones with active work:
 
 ## Active plan specs
 
-Eighteen under [docs/project/specs/active/](./docs/project/specs/active/). The ones
+Twenty under [docs/project/specs/active/](./docs/project/specs/active/). The ones
 governing current work:
 
 - `plan-2026-08-15-f08-release-rollout.md` — the release above
 - `plan-2026-08-14-external-sync-and-traceability.md` — the four-phase Linear plan
+- `plan-2026-08-19-agent-session-refs-and-runtimes.md` — session refs and the runtime
+  adapters, from the 2026-08-19 runtime survey
 - `plan-2026-08-10-external-tracker-integrations.md` — the integration design it feeds
 - `plan-2026-06-13-agent-cli-ergonomics.md` — bulk ops and the output contract
 

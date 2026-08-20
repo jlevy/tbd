@@ -1,3 +1,10 @@
+> **Superseded 2026-08-19.** This brief has been subsumed by
+> [Agent Runtimes, Session Identity, and Linkage](../current/research-2026-08-19-agent-runtimes-and-session-linkage.md),
+> which records what carried forward, which of its claims were corrected, and what was
+> deliberately dropped (§1). Several tools surveyed here have since shut down or changed
+> their entry point; do not rely on this file for the current landscape.
+> It is kept for the February–March 2026 snapshot it captures.
+
 # Research: Claude Code Orchestration Interfaces and UIs
 
 **Date:** 2026-02-15 (last updated 2026-03-09, expanded cmux/Symphony/Multiclaude)
