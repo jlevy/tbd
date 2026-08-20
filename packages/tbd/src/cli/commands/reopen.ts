@@ -137,6 +137,11 @@ class ReopenHandler extends BaseCommand {
             issue.status = 'open';
             issue.closed_at = null;
             issue.close_reason = null;
+            // The terminal axis only exists while the work is terminal. Leaving it
+            // behind would claim a reason for ending on a bead that is open again,
+            // which the write boundary rejects outright.
+            issue.resolution = null;
+            issue.duplicate_of = null;
             issue.version += 1;
             issue.updated_at = now();
 

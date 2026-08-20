@@ -21,11 +21,18 @@
  * No I/O, no network, no provider knowledge: values arrive tbd-canonical.
  */
 
-import type { BridgeBase, IssueStatusType, PriorityType } from '../../lib/types.js';
+import type {
+  BridgeBase,
+  IssueStatusType,
+  IssueResolutionType,
+  IssueHoldType,
+  PriorityType,
+} from '../../lib/types.js';
 import type { FieldSyncClause } from '../../lib/types.js';
 import { DESCRIPTION_HASH_PREFIX, descriptionHash } from './bridge-state.js';
 import { stripManagedBlock } from './managed-block.js';
 import type { CanonicalPatch } from './types.js';
+import { migrateBaseSlot, slotsAgree, isSlot, type Slot } from './slots.js';
 
 /** What a description with no prose of its own hashes to. */
 const EMPTY_DESCRIPTION_HASH = descriptionHash('');
@@ -46,6 +53,15 @@ export interface LocalView {
   title: string;
   description: string | null;
   status: IssueStatusType;
+  /**
+   * Where this bead sits on a board, when the caller can compute it.
+   *
+   * Present, it is what the matrix compares instead of `status`, which is what lets
+   * Paused, Blocked, In Review, Todo and Canceled survive a round trip instead of
+   * flattening into five values at the boundary. Absent, everything behaves exactly as
+   * it did before slots existed.
+   */
+  slot?: Slot;
   priority: PriorityType;
   labels: string[];
   assignee: string | null;
@@ -58,6 +74,8 @@ export interface RemoteView {
   /** Raw remote description; the managed block is stripped internally. */
   description: string | null;
   status: IssueStatusType;
+  /** The board column this item is in, when the provider can name one. */
+  slot?: Slot;
   priority: PriorityType;
   labels: string[];
   assignee: string | null;
@@ -86,6 +104,23 @@ export interface BeadPatch {
   title?: string;
   description?: string | null;
   status?: IssueStatusType;
+  /**
+   * Set by the caller alongside `status`, not by the matrix.
+   *
+   * `resolution` refines a terminal position and is meaningless apart from it, so it
+   * is carried rather than reconciled: a reason that flowed while its position did not
+   * would describe a bead that is canceled and open at once.
+   */
+  resolution?: IssueResolutionType | null;
+  /** Set alongside `status` for the same reason `resolution` is. */
+  hold?: IssueHoldType | null;
+  /**
+   * The winning board position when the run compares slots.
+   *
+   * The caller decomposes this onto `status`, `hold` and `resolution`, because those
+   * carry invariants the matrix knows nothing about.
+   */
+  slot?: Slot;
   priority?: PriorityType;
   labels?: string[];
   assignee?: string | null;
@@ -107,6 +142,8 @@ export interface ReconcileResult {
   merged: {
     title: string;
     status: IssueStatusType;
+    /** The agreed board position, when the run compared slots. */
+    slot?: Slot;
     priority: PriorityType;
     labels: string[];
     assignee: string | null;
@@ -144,6 +181,8 @@ interface FieldOps {
   applyRemote: (value: unknown) => void; // write into externalPatch
   /** False when the provider surface cannot apply an outbound value yet. */
   canPush: boolean;
+  /** Record the remote value into the merged base when a push is skipped. */
+  applyBase?: (value: unknown) => void;
 }
 
 /**
@@ -192,7 +231,15 @@ export function reconcile(
     (field: SyncedField, strict: (a: unknown, b: unknown) => boolean) =>
     (a: unknown, b: unknown): boolean =>
       strict(a, b) || (equivalences[field]?.(a, b) ?? false);
-  const merged = {
+  const merged: {
+    title: string;
+    status: IssueStatusType;
+    slot?: Slot;
+    priority: PriorityType;
+    labels: string[];
+    assignee: string | null;
+    description_hash: string;
+  } = {
     title: local.title,
     status: local.status,
     priority: local.priority,
@@ -200,6 +247,25 @@ export function reconcile(
     assignee: local.assignee,
     description_hash: descriptionHash(local.description),
   };
+
+  // Slots are used only when both sides can name one. A provider that cannot, or a
+  // caller that has not been taught to compute them, keeps the five-value comparison
+  // byte for byte — which is what makes this widening inert until it is wired up.
+  const useSlots = local.slot !== undefined && remote.slot !== undefined;
+  // A base written before slots existed holds only a status. Migrating it adopts the
+  // local slot wherever the old base could not have known the difference, so upgrading
+  // a repository does not read as a change on every pair. See `migrateBaseSlot`.
+  //
+  // While the base is coarse the comparison is band-level, so a within-band difference
+  // the old base could not have recorded reads as agreement rather than as a change to
+  // flow in either direction. Once a run stores a real slot it becomes exact.
+  const migrated = useSlots && base ? migrateBaseSlot(base.status) : undefined;
+  const storedSlot = base?.slot && isSlot(base.slot) ? base.slot : undefined;
+  const baseSlot = useSlots ? (storedSlot ?? migrated?.slot) : undefined;
+  const baseIsCoarse = storedSlot === undefined && migrated !== undefined;
+  if (useSlots) {
+    merged.slot = local.slot;
+  }
 
   const fields: Record<SyncedField, FieldOps> = {
     title: {
@@ -242,20 +308,38 @@ export function reconcile(
       },
       canPush: true,
     },
-    status: {
-      local: local.status,
-      remote: remote.status,
-      base: base?.status,
-      equal: scalarEqual,
-      applyLocal: (value) => {
-        beadPatch.status = value as IssueStatusType;
-        merged.status = value as IssueStatusType;
-      },
-      applyRemote: (value) => {
-        externalPatch.status = value as IssueStatusType;
-      },
-      canPush: true,
-    },
+    status: useSlots
+      ? {
+          // Slots widen what "the same position" means. The bead fields a pulled slot
+          // implies are decomposed by the caller, which owns the invariants; here the
+          // slot is simply the compared value.
+          local: local.slot,
+          remote: remote.slot,
+          base: baseSlot,
+          equal: (a, b) => slotsAgree(a as Slot, b as Slot, baseIsCoarse),
+          applyLocal: (value) => {
+            beadPatch.slot = value as Slot;
+            merged.slot = value as Slot;
+          },
+          applyRemote: (value) => {
+            externalPatch.slot = value as Slot;
+          },
+          canPush: true,
+        }
+      : {
+          local: local.status,
+          remote: remote.status,
+          base: base?.status,
+          equal: scalarEqual,
+          applyLocal: (value) => {
+            beadPatch.status = value as IssueStatusType;
+            merged.status = value as IssueStatusType;
+          },
+          applyRemote: (value) => {
+            externalPatch.status = value as IssueStatusType;
+          },
+          canPush: true,
+        },
     priority: {
       local: local.priority,
       remote: remote.priority,
@@ -297,16 +381,21 @@ export function reconcile(
         externalPatch.assignee = value as string | null;
       },
       canPush: capabilities.assignee ?? false,
+      applyBase: (value) => {
+        merged.assignee = value as string | null;
+      },
     },
   };
 
   const skipPush = (field: SyncedField, ops: FieldOps): void => {
     skippedPushes.push({ field, localValue: ops.local });
-    // The base must reflect external reality, so the divergence stays visible
-    // and re-reports on every run rather than being absorbed silently.
-    if (field === 'assignee') {
-      merged.assignee = ops.remote as string | null;
-    }
+    // The base must reflect external reality, so the divergence stays visible and
+    // re-reports on every run rather than being absorbed silently.
+    //
+    // Applied to whichever field was skipped rather than to `assignee` by name: the
+    // rule is a property of skipping, not of one field, and hardcoding it meant any
+    // second skippable field would quietly record agreement it did not have.
+    ops.applyBase?.(ops.remote);
   };
 
   for (const field of SYNCED_FIELDS) {

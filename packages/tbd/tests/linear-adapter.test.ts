@@ -105,17 +105,58 @@ describe('Linear client and adapter', () => {
   });
 
   describe('ensureMeta', () => {
-    it('maps state ids by type, not by name', async () => {
+    it('resolves a state id for every type the team has', async () => {
       const meta = await adapter.ensureMeta();
       expect(meta.stateIdsByType.started).toBeDefined();
       expect(meta.stateIdsByType.completed).toBe('state-completed');
       expect(meta.stateIdsByType.duplicate).toBe('state-duplicate');
     });
 
-    it('picks the lowest-position state when a type appears twice', async () => {
+    it('breaks a same-type tie by name rather than by board position', async () => {
       const meta = await adapter.ensureMeta();
-      // Both "In Progress" (2) and "In Review" (1002) are `started`.
+      // Both "In Progress" (2) and "In Review" (1002) are `started`. The conventional
+      // name decides; position is not consulted, so reordering the board in Linear
+      // cannot silently move where in-progress work lands.
       expect(meta.stateIdsByType.started).toBe('state-started');
+    });
+
+    it('is unmoved when the board is reordered', async () => {
+      // The old rule kept the lowest position, so this reordering alone changed where
+      // every in-progress bead was filed — invisibly, since dragging a row leaves no
+      // trace a sync could see.
+      const inProgress = server.states.find((s) => s.name === 'In Progress')!;
+      const inReview = server.states.find((s) => s.name === 'In Review')!;
+      inProgress.position = 5000;
+      inReview.position = 1;
+
+      const meta = await adapter.ensureMeta(true);
+      expect(meta.stateIdsByType.started).toBe('state-started');
+    });
+
+    it('leaves an unrecognizable same-type pair unresolved instead of guessing', async () => {
+      for (const state of server.states) {
+        if (state.type === 'started') {
+          state.name = state.id === 'state-started' ? 'Doing' : 'Reviewing';
+        }
+      }
+      const meta = await adapter.ensureMeta(true);
+      expect(meta.stateIdsByType.started).toBeUndefined();
+      expect(meta.ambiguousStateTypes?.started).toEqual(['Doing', 'Reviewing']);
+    });
+
+    it('honours a configured name for an otherwise ambiguous type', async () => {
+      for (const state of server.states) {
+        if (state.type === 'started') {
+          state.name = state.id === 'state-started' ? 'Doing' : 'Reviewing';
+        }
+      }
+      const mapped = new LinearAdapter({
+        client,
+        teamKey: 'FIN',
+        stateMap: { started: 'Reviewing' },
+      });
+      const meta = await mapped.ensureMeta();
+      expect(meta.stateIdsByType.started).toBe('state-review');
     });
 
     it('caches, so repeated pushes do not refetch metadata', async () => {
@@ -312,6 +353,217 @@ describe('Linear client and adapter', () => {
     });
   });
 
+  describe('assignee push gating (OS-351)', () => {
+    it('never treats an absent assignee as a pushable value', () => {
+      // The data-loss bug: `assignee === null` was a *value* meaning "unassign", so a
+      // bead that simply never recorded an assignee cleared whoever a human had
+      // assigned in Linear. An empty field is no opinion, not an instruction.
+      const mapped = new LinearAdapter({
+        client,
+        teamKey: 'FIN',
+        userMap: { josh: 'josh@example.com' },
+      });
+      expect(mapped.canPushAssignee(null)).toBe(false);
+    });
+
+    it('still pushes a mapped identity', () => {
+      const mapped = new LinearAdapter({
+        client,
+        teamKey: 'FIN',
+        userMap: { josh: 'josh@example.com' },
+      });
+      expect(mapped.canPushAssignee('josh')).toBe(true);
+      expect(mapped.canPushAssignee('stranger')).toBe(false);
+    });
+
+    it('does not let directory resolution reopen the null path', async () => {
+      // Actor Phase 2 widened the original blast radius: once handles resolved from
+      // the workspace directory, a null could publish with no user_map at all.
+      const directory = new LinearAdapter({ client, teamKey: 'FIN' });
+      await directory.primeActors(['Alice Example'], []);
+      expect(directory.canPushAssignee(null)).toBe(false);
+    });
+  });
+
+  describe('workflow state provisioning (state Phase 4)', () => {
+    it('offers nothing when no state_map is configured', async () => {
+      // The map IS the consent. A repository that writes none is never prompted, and a
+      // workflow state is team-wide — it changes the board for people who never run tbd.
+      const bare = new LinearAdapter({ client, teamKey: 'FIN' });
+      const report = await bare.provision({ apply: false, originLabels: [] });
+      expect(report.items.filter((item) => item.kind === 'workflow state')).toEqual([]);
+    });
+
+    it('reports a missing state without creating it until applied', async () => {
+      const mapped = new LinearAdapter({
+        client,
+        teamKey: 'FIN',
+        stateMap: { started: 'Paused' },
+      });
+      const before = server.states.length;
+      const report = await mapped.provision({ apply: false, originLabels: [] });
+      expect(report.items).toContainEqual({
+        kind: 'workflow state',
+        name: 'Paused',
+        state: 'missing',
+      });
+      expect(server.states.length).toBe(before);
+    });
+
+    it('creates a mapped state after the last of its own type', async () => {
+      const mapped = new LinearAdapter({
+        client,
+        teamKey: 'FIN',
+        stateMap: { started: 'Paused' },
+      });
+      await mapped.provision({ apply: true, originLabels: [] });
+
+      const created = server.states.find((state) => state.name === 'Paused')!;
+      expect(created.type).toBe('started');
+      // After In Review (1002), not wherever Linear felt like putting it — a Paused
+      // column above In Progress is the accident this removes.
+      const otherStarted = server.states.filter(
+        (state) => state.type === 'started' && state.name !== 'Paused',
+      );
+      expect(created.position).toBeGreaterThan(Math.max(...otherStarted.map((s) => s.position)));
+    });
+
+    it('is idempotent: a second run reports present and creates nothing', async () => {
+      const mapped = new LinearAdapter({
+        client,
+        teamKey: 'FIN',
+        stateMap: { started: 'Paused' },
+      });
+      await mapped.provision({ apply: true, originLabels: [] });
+      const afterFirst = server.states.length;
+
+      const second = await mapped.provision({ apply: true, originLabels: [] });
+      expect(second.items).toContainEqual({
+        kind: 'workflow state',
+        name: 'Paused',
+        state: 'present',
+      });
+      expect(server.states.length).toBe(afterFirst);
+    });
+
+    it('binds an existing state by name rather than duplicating it', async () => {
+      const mapped = new LinearAdapter({
+        client,
+        teamKey: 'FIN',
+        stateMap: { started: 'In Review' },
+      });
+      const before = server.states.length;
+      const report = await mapped.provision({ apply: true, originLabels: [] });
+      expect(report.items).toContainEqual({
+        kind: 'workflow state',
+        name: 'In Review',
+        state: 'present',
+      });
+      expect(server.states.length).toBe(before);
+    });
+
+    it('reports a terminal column sitting mid-board, and repairs it on apply', async () => {
+      // The accident explicit positioning prevents for states tbd creates, but which
+      // predates tbd on any team that added columns by hand: Done at position 3 while
+      // In Review sits at 1002 puts a terminal column in the middle of the lifecycle.
+      const mapped = new LinearAdapter({
+        client,
+        teamKey: 'FIN',
+        // Both mapped: tbd only reorders columns it was asked to manage.
+        stateMap: { started: 'In Review', completed: 'Done' },
+      });
+
+      const done = server.states.find((state) => state.name === 'Done')!;
+      const review = server.states.find((state) => state.name === 'In Review')!;
+      expect(done.position).toBeLessThan(review.position);
+
+      const planned = await mapped.provision({ apply: false, originLabels: [] });
+      expect(
+        planned.items.some(
+          (item) => item.name === 'Done' && item.reason?.includes('belongs earlier'),
+        ),
+      ).toBe(true);
+      // A dry run changes nothing.
+      expect(done.position).toBeLessThan(review.position);
+
+      await mapped.provision({ apply: true, originLabels: [] });
+      expect(done.position).toBeGreaterThan(review.position);
+    });
+
+    it('never touches a state outside the map, even to fix board order', async () => {
+      const mapped = new LinearAdapter({
+        client,
+        teamKey: 'FIN',
+        stateMap: { started: 'Paused' },
+      });
+      const snapshot = server.states.map((state) => ({ ...state }));
+      await mapped.provision({ apply: true, originLabels: [] });
+      for (const original of snapshot) {
+        expect(server.states.find((state) => state.id === original.id)).toEqual(original);
+      }
+    });
+  });
+
+  describe('delegate publishing (actor Phase 3)', () => {
+    const withAgent = () =>
+      new LinearAdapter({
+        client,
+        teamKey: 'FIN',
+        agentMap: { cyrus: '00000000-0000-4000-8000-000000000a11' },
+      });
+
+    it('publishes only an agent the workspace has installed', () => {
+      const adapterWithAgent = withAgent();
+      expect(adapterWithAgent.canPushDelegate('cyrus')).toBe(true);
+      // An ordinary session agent has nothing to be published *as*: Linear delegates
+      // are app users, so this stays local by construction rather than by omission.
+      expect(adapterWithAgent.canPushDelegate('claude-code@spud10')).toBe(false);
+    });
+
+    it('treats an absent delegate as no opinion, never as a clear', () => {
+      // Same rule the assignee clearing bug (OS-351) established.
+      expect(withAgent().canPushDelegate(null)).toBe(false);
+    });
+
+    it('sets delegateId for a mapped agent and round-trips it back', async () => {
+      const adapterWithAgent = withAgent();
+      server.addIssue({ id: 'uuid-9', identifier: 'FIN-9', title: 'Delegated' });
+      await adapterWithAgent.applyChanges('uuid-9', { delegate: 'cyrus' });
+      expect(server.issues.get('uuid-9')?.delegate?.id).toBe(
+        '00000000-0000-4000-8000-000000000a11',
+      );
+
+      const [issue] = await adapterWithAgent.fetchIssues(['uuid-9']);
+      expect(issue?.delegate).toBe('cyrus');
+    });
+
+    it('leaves the delegate alone when the agent is unmapped', async () => {
+      const bare = new LinearAdapter({ client, teamKey: 'FIN' });
+      server.addIssue({ id: 'uuid-10', identifier: 'FIN-10', title: 'Not delegated' });
+      await bare.applyChanges('uuid-10', { delegate: 'claude-code@spud10' });
+      expect(server.issues.get('uuid-10')?.delegate ?? null).toBeNull();
+      expect(bare.delegateSkipReason('claude-code@spud10')).toContain('agent_map');
+    });
+
+    it('reads an unknown app user as no delegate rather than inventing a name', async () => {
+      const adapterWithAgent = withAgent();
+      server.addIssue({ id: 'uuid-11', identifier: 'FIN-11', title: 'Foreign agent' });
+      server.issues.get('uuid-11')!.delegate = {
+        id: '00000000-0000-4000-8000-00000000ffff',
+        name: 'Someone Else',
+        displayName: 'Someone Else',
+      };
+      const [issue] = await adapterWithAgent.fetchIssues(['uuid-11']);
+      expect(issue?.delegate).toBeNull();
+    });
+
+    it('rejects an agent id that is not a UUID at construction', () => {
+      expect(
+        () => new LinearAdapter({ client, teamKey: 'FIN', agentMap: { cyrus: 'nope' } }),
+      ).toThrow(/app user UUID/);
+    });
+  });
+
   describe('applyChanges', () => {
     beforeEach(() => {
       server.addIssue({ id: 'uuid-5', identifier: 'FIN-5', title: 'Before' });
@@ -326,6 +578,26 @@ describe('Linear client and adapter', () => {
     it('translates status into a state id', async () => {
       await adapter.applyChanges('uuid-5', { status: 'closed' });
       expect(server.issues.get('uuid-5')?.state.type).toBe('completed');
+    });
+
+    it('files each terminal resolution in its own Linear state', async () => {
+      await adapter.applyChanges('uuid-5', { status: 'closed', resolution: 'canceled' });
+      expect(server.issues.get('uuid-5')?.state.type).toBe('canceled');
+
+      await adapter.applyChanges('uuid-5', { status: 'closed', resolution: 'duplicate' });
+      expect(server.issues.get('uuid-5')?.state.type).toBe('duplicate');
+
+      await adapter.applyChanges('uuid-5', { status: 'closed', resolution: 'completed' });
+      expect(server.issues.get('uuid-5')?.state.type).toBe('completed');
+    });
+
+    it('reads a canceled Linear state back as closed plus its reason', async () => {
+      // Before this, all three terminal types collapsed to `closed` on the way in and
+      // the distinction was gone for good.
+      await adapter.applyChanges('uuid-5', { status: 'closed', resolution: 'canceled' });
+      const [issue] = await adapter.fetchIssues(['uuid-5']);
+      expect(issue?.status).toBe('closed');
+      expect(issue?.resolution).toBe('canceled');
     });
 
     it('carries blocked as a tbd-owned label alongside the started state', async () => {

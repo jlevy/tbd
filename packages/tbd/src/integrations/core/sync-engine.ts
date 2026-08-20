@@ -36,6 +36,7 @@ import type {
   PolicyDefinition,
   ProviderNameType,
 } from '../../lib/types.js';
+import { computeSlot, decomposeSlot, isSlot, type Slot } from './slots.js';
 import { readyIssueIds } from '../../lib/issue-selection.js';
 import {
   descriptionHash,
@@ -205,11 +206,23 @@ interface PlannedPair {
   parentOverwrite: boolean;
 }
 
-function localViewOf(bead: Issue): LocalView {
+function localViewOf(bead: Issue, ready?: ReadonlySet<string>): LocalView {
   return {
     title: bead.title,
     description: bead.description ?? null,
     status: bead.status,
+    // Computed only when the caller supplied readiness. Without it the Todo/Backlog
+    // split cannot be decided, and guessing would be worse than staying on statuses.
+    ...(ready
+      ? {
+          slot: computeSlot({
+            status: bead.status,
+            hold: bead.hold,
+            resolution: bead.resolution,
+            ready: ready.has(bead.id),
+          }),
+        }
+      : {}),
     priority: bead.priority,
     labels: bead.labels ?? [],
     assignee: bead.assignee ?? null,
@@ -222,6 +235,8 @@ function remoteViewOf(remote: ExternalIssue): RemoteView {
     title: remote.title,
     description: remote.description,
     status: remote.status,
+    // The provider names the column; absent, the run stays on statuses.
+    ...(remote.slot && isSlot(remote.slot) ? { slot: remote.slot } : {}),
     priority: remote.priority,
     labels: remote.labels,
     assignee: remote.assignee,
@@ -708,15 +723,104 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       })();
     const result = reconcile(
       base,
-      localViewOf(bead),
+      localViewOf(bead, readyIds),
       remoteViewOf(remote),
       policy.field_sync,
       options.equivalences,
       {
-        assignee: adapter.canPushAssignee(bead.assignee ?? null),
+        // The flow rule gates the push, not just the pull. `FieldSyncClauseSchema`
+        // promises nothing person-identifying moves without an explicit `user_map`
+        // AND an explicit `assignee: merge`, but that guard only ever covered the
+        // inbound direction — so the conservative default was not conservative in the
+        // direction that destroys data (OS-351). `merge` is now required before any
+        // outbound assignee write.
+        assignee:
+          policy.field_sync.fields.assignee === 'merge' &&
+          adapter.canPushAssignee(bead.assignee ?? null),
         assigneePull: remote.assigneeSyncable !== false,
       },
     );
+    // A pulled slot decomposes here rather than in the matrix, because the bead fields
+    // it implies carry invariants the matrix knows nothing about — a resolution only on
+    // closed work, a hold only off it. Doing it in one place keeps those rules with the
+    // code that owns them.
+    if (result.beadPatch.slot) {
+      const fields = decomposeSlot(result.beadPatch.slot);
+      result.beadPatch.status = fields.status;
+      result.beadPatch.hold = fields.hold;
+      result.beadPatch.resolution = fields.resolution;
+      // The merged view is what the base is written from and what the managed block
+      // renders, so a decomposition that stopped at the patch would leave both
+      // describing the position the bead just moved away from.
+      result.merged.status = fields.status;
+      if (result.beadPatch.slot === 'duplicate') {
+        // The tracker carries the duplicate's target as a relation tbd does not read,
+        // and the write boundary rejects a duplicate without one. Canceled keeps the
+        // honest half; saying so beats narrowing it silently.
+        report.warnings.push({
+          externalId: remote.id,
+          ...(remote.key ? { externalKey: remote.key } : {}),
+          message:
+            'Marked a duplicate in the tracker; recorded as canceled because the duplicate target is not mirrored locally.',
+        });
+      }
+    }
+
+    // `resolution` rides with `status` rather than reconciling on its own.
+    //
+    // It is not an independent fact: it only refines a terminal position, and only the
+    // pair is meaningful to a provider. Giving it its own row in the three-way matrix
+    // would let a reason flow while the position it describes did not, which is how a
+    // bead ends up canceled and open at once. Widening the matrix properly is the slot
+    // work in a later phase; until then the rule is that the reason goes where the
+    // position goes.
+    // An outbound slot is decomposed into the fields the adapter already knows how to
+    // write. The adapter's job is provider vocabulary, not lifecycle arithmetic, so the
+    // slot is turned back into status/hold/resolution here rather than teaching every
+    // adapter to read slots.
+    if (result.externalPatch.slot !== undefined) {
+      const fields = decomposeSlot(result.externalPatch.slot as Slot);
+      result.externalPatch.status = fields.status;
+      result.externalPatch.hold = fields.hold;
+      result.externalPatch.resolution = fields.resolution;
+    } else if (result.externalPatch.status !== undefined) {
+      result.externalPatch.resolution = bead.resolution ?? null;
+      result.externalPatch.hold = bead.hold ?? null;
+    }
+    // Put the issue back in the column it came from when the position it is being
+    // written to is the same one that column represented. Without this, a bead that
+    // paused and resumed would come back to a generic In Progress rather than to the
+    // team's own column, which is the same "don't fight the human" rule applied across
+    // a round trip instead of within one run.
+    if (
+      result.externalPatch.slot !== undefined &&
+      record?.refinement_state_id &&
+      record.refinement_slot === result.externalPatch.slot
+    ) {
+      result.externalPatch.stateId = record.refinement_state_id;
+    }
+    if (result.beadPatch.status !== undefined) {
+      // A Linear duplicate carries its target as a relation tbd does not read yet, and
+      // `duplicate` without a pointer is a bead the write boundary rejects outright.
+      // Recording it as canceled keeps the honest half — this work was abandoned, not
+      // delivered — and says so rather than dropping the distinction silently.
+      const inbound = remote.resolution;
+      if (inbound === 'duplicate') {
+        result.beadPatch.resolution = 'canceled';
+        report.warnings.push({
+          externalId: remote.id,
+          ...(remote.key ? { externalKey: remote.key } : {}),
+          message:
+            'Marked a duplicate in the tracker; recorded as canceled because the duplicate target is not mirrored locally.',
+        });
+      } else {
+        result.beadPatch.resolution = inbound;
+      }
+      // A hold only means anything on non-terminal work; pulling one onto a bead the
+      // same patch is closing would be rejected at the write boundary.
+      result.beadPatch.hold = result.beadPatch.status === 'closed' ? null : (remote.hold ?? null);
+    }
+
     // Assert the origin labels only when the remote is actually missing one.
     //
     // Adding them unconditionally would put a key in every externalPatch, which is what
@@ -970,6 +1074,11 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       report.failures.length === 0 &&
       report.warnings.length === 0 &&
       report.skippedOutbound.length === 0 &&
+      // A field the run could not publish is something to do, not nothing. Omitting it
+      // here is the same defect as OS-351's `skipped 0`: the summary reads as success
+      // while a value never left the machine, and the detail lines that would have
+      // named it are behind this early return.
+      report.skippedPushes.length === 0 &&
       report.commentsPulled + report.commentsPushed === 0;
     return report;
   }
@@ -1281,6 +1390,8 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
           ...(patch.priority !== undefined ? { priority: patch.priority } : {}),
           ...(patch.labels !== undefined ? { labels: patch.labels } : {}),
           ...(patch.assignee !== undefined ? { assignee: patch.assignee } : {}),
+          ...(patch.resolution !== undefined ? { resolution: patch.resolution } : {}),
+          ...(patch.hold !== undefined ? { hold: patch.hold } : {}),
         };
         dirty = true;
         report.pulled.push(displayId);
@@ -1338,9 +1449,16 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
           // when the pair has nothing else to push.
           external_key: pair.remote.key ?? null,
           external_url: pair.remote.url ?? null,
+          // The exact column this issue was last seen in, remembered alongside the
+          // slot that column resolved to. Replayed only when a later write targets
+          // that same slot: if the work genuinely moves, the old state is no longer
+          // where it belongs and resolving afresh is correct.
+          refinement_state_id: pair.remote.stateId ?? null,
+          refinement_slot: pair.remote.slot && isSlot(pair.remote.slot) ? pair.remote.slot : null,
           base: {
             title: pair.result.merged.title,
             status: pair.result.merged.status,
+            slot: pair.result.merged.slot,
             priority: pair.result.merged.priority,
             labels: pair.result.merged.labels,
             assignee: pair.result.merged.assignee,
@@ -1569,6 +1687,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       report.importedInbound.length +
       report.importable.length +
       report.skippedOutbound.length +
+      report.skippedPushes.length +
       report.warnings.length +
       report.failures.length ===
       0;

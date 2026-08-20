@@ -3,7 +3,9 @@
 import { Command } from 'commander';
 import { ulid } from 'ulid';
 
-import { readConfig } from '../../file/config.js';
+import { createInterface } from 'node:readline/promises';
+
+import { readConfig, writeConfig } from '../../file/config.js';
 import { BaseCommand } from '../lib/base-command.js';
 import { CLIError, requireInit } from '../lib/errors.js';
 import { EXIT_OPERATIONAL_ERROR } from '../lib/exit-codes.js';
@@ -20,6 +22,7 @@ import { LinearClient } from '../../integrations/linear/client.js';
 import { LinearAdapter } from '../../integrations/linear/adapter.js';
 import { VIEWER_QUERY } from '../../integrations/linear/queries.js';
 import type {
+  ProviderMeta,
   MirrorReport,
   ProvisionItem,
   ProvisionReport,
@@ -221,6 +224,17 @@ class SetupHandler extends BaseCommand {
     }
 
     const adapter = buildAdapter(provider, credential.value, entry.target, config);
+
+    // Settle any ambiguous state resolution before provisioning reads the board.
+    //
+    // The resolver refuses rather than guesses when a type has several states and none
+    // carries a conventional name, which is the safe half. Asking is the other half:
+    // a person knows which column they mean, and writing the answer into `state_map`
+    // means the question is asked exactly once rather than on every run.
+    if (!dryRun) {
+      await this.resolveAmbiguousStates(adapter, provider, tbdRoot);
+    }
+
     const report = await adapter.provision({ originLabels: labels, apply: !dryRun });
 
     this.output.data(report, () => {
@@ -230,6 +244,62 @@ class SetupHandler extends BaseCommand {
     if (report.items.some((item) => item.state === 'blocked')) {
       process.exitCode = EXIT_OPERATIONAL_ERROR;
     }
+  }
+
+  /**
+   * Ask which state a type means when the board cannot say, and remember the answer.
+   *
+   * Silent unless there is genuine ambiguity and a human present. A non-interactive run
+   * leaves the report to say what is unresolved, which is the existing refusal.
+   */
+  private async resolveAmbiguousStates(
+    adapter: { ensureMeta: (force?: boolean) => Promise<ProviderMeta> },
+    provider: ProviderNameType,
+    tbdRoot: string,
+  ): Promise<void> {
+    const meta = await adapter.ensureMeta(true);
+    const ambiguous = meta.ambiguousStateTypes ?? {};
+    const types = Object.keys(ambiguous);
+    if (types.length === 0 || !process.stdin.isTTY) {
+      return;
+    }
+
+    const chosen: Record<string, string> = {};
+    for (const stateType of types) {
+      const candidates = ambiguous[stateType] ?? [];
+      console.log(`\n${provider}: several "${stateType}" states and none is named conventionally.`);
+      candidates.forEach((name: string, index: number) => {
+        console.log(`  ${index + 1}. ${name}`);
+      });
+      const rl = createInterface({ input: process.stdin, output: process.stderr });
+      try {
+        const answer = (
+          await rl.question(`Which one should tbd use? [1-${candidates.length}] `)
+        ).trim();
+        const picked = candidates[Number(answer) - 1];
+        if (picked) {
+          chosen[stateType] = picked;
+        }
+      } finally {
+        rl.close();
+      }
+    }
+
+    if (Object.keys(chosen).length === 0) {
+      return;
+    }
+    // Written into config so this is asked once, not once per run. The config is also
+    // the consent: a name recorded here is one tbd may bind and provision against.
+    const config = await readConfig(tbdRoot);
+    const linear = (config.integrations?.[provider] ?? {}) as Record<string, unknown>;
+    const identity = (linear.identity ?? {}) as Record<string, unknown>;
+    identity.state_map = { ...((identity.state_map ?? {}) as object), ...chosen };
+    linear.identity = identity;
+    await writeConfig(tbdRoot, {
+      ...config,
+      integrations: { ...config.integrations, [provider]: linear },
+    } as typeof config);
+    console.log(`Recorded in integrations.${provider}.identity.state_map.`);
   }
 }
 
@@ -366,9 +436,27 @@ class PushHandler extends BaseCommand {
         for (const report of reports) {
           const verb = dryRun ? 'would create' : 'created';
           const verb2 = dryRun ? 'would update' : 'updated';
+          const fieldSkips = report.skippedFields ?? [];
           console.log(
-            `${report.provider}: ${verb} ${report.created.length}, ${verb2} ${report.updated.length}, skipped ${report.skipped.length}, failed ${report.failures.length}`,
+            `${report.provider}: ${verb} ${report.created.length}, ${verb2} ${report.updated.length}, skipped ${report.skipped.length}` +
+              // Counted apart from bead skips: these writes DID happen, minus a field.
+              // Folding them into `skipped` would misreport what was written; omitting
+              // them is what let a push read as success over a field that went nowhere.
+              (fieldSkips.length > 0 ? `, fields not pushed ${fieldSkips.length}` : '') +
+              `, failed ${report.failures.length}`,
           );
+          if (fieldSkips.length > 0) {
+            // Grouped by cause: one missing config entry usually explains every skip
+            // in the run, and a line per bead would bury that.
+            const reasons = new Map<string, number>();
+            for (const skip of fieldSkips) {
+              const key = `${skip.field}: ${skip.reason}`;
+              reasons.set(key, (reasons.get(key) ?? 0) + 1);
+            }
+            for (const [reason, count] of reasons) {
+              console.log(`  - ${reason}${count > 1 ? ` (${count} beads)` : ''}`);
+            }
+          }
           for (const line of describeSelection(report.selection)) {
             console.log(line);
           }

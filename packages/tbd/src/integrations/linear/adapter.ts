@@ -25,6 +25,11 @@ import {
   priorityFromLinear,
   priorityToLinear,
   statusFromLinear,
+  resolutionFromLinear,
+  holdFromLinear,
+  slotFromLinear,
+  stateColorFor,
+  resolveStateId,
   statusToLinear,
 } from './mapping.js';
 import {
@@ -46,6 +51,9 @@ import {
   PROJECT_CREATE_MUTATION,
   PROJECT_QUERY,
   TEAM_META_QUERY,
+  WORKSPACE_USERS_QUERY,
+  WORKFLOW_STATE_CREATE_MUTATION,
+  WORKFLOW_STATE_UPDATE_MUTATION,
   TEAM_LABELS_QUERY,
   USERS_BY_EMAIL_QUERY,
 } from './queries.js';
@@ -59,6 +67,8 @@ import {
   type RawLabelNode,
 } from './label-groups.js';
 import type { LabelCreateModeType } from '../core/provider-settings.js';
+import { resolveActor, bindingFor } from '../core/actor-binding.js';
+import type { ProviderMember, ActorBinding } from '../core/actor-binding.js';
 import { CONFLICT_COMMENT_MARKER } from '../core/types.js';
 import type { ProvisionItem, ProvisionOptions, ProvisionReport } from '../core/types.js';
 
@@ -72,6 +82,7 @@ interface RawIssue {
   updatedAt: string;
   state: { id: string; name: string; type: string } | null;
   assignee: { id: string; name: string; displayName: string; email?: string } | null;
+  delegate?: { id: string; name?: string; displayName?: string } | null;
   labels: {
     pageInfo?: { hasNextPage: boolean; endCursor: string | null };
     nodes: RawLabelNode[];
@@ -90,6 +101,20 @@ export interface LinearAdapterOptions {
   project?: string;
   /** Maps canonical tbd assignee aliases to a Linear user UUID or email. */
   userMap?: Record<string, string>;
+  /**
+   * Workflow state name to use for a state type, overriding the conventional name.
+   *
+   * Only consulted when a team has several states of one type; a team whose board
+   * matches Linear's stock names never needs it.
+   */
+  stateMap?: Record<string, string>;
+  /**
+   * Agent name to Linear app-user id, for delegates that may be published.
+   *
+   * Absent for ordinary session agents, which is what keeps them local by
+   * construction rather than by remembering to leave them out of a table.
+   */
+  agentMap?: Record<string, string>;
 }
 
 /** Recognizes a Linear issue URL and extracts the identifier. */
@@ -129,9 +154,13 @@ export function importTimestamps(patch: CanonicalPatch): {
     out.createdAt = new Date(created).toISOString();
   }
 
-  // Only `closed` reaches a completed state; sending completedAt with any other is a
-  // hard rejection, not a silently ignored field.
-  if (patch.status !== 'closed' || !patch.sourceCompletedAt) {
+  // Only a `completed` resolution reaches a completed-type state; Linear rejects
+  // completedAt against Canceled or Duplicate outright, and stamping one on abandoned
+  // work was wrong data rather than a wrong label — Linear reports on completedAt and
+  // canceledAt separately. Absent resolution reads as completed, as everywhere else.
+  const terminallyCompleted =
+    patch.status === 'closed' && (patch.resolution ?? 'completed') === 'completed';
+  if (!terminallyCompleted || !patch.sourceCompletedAt) {
     return out;
   }
   const completed = Date.parse(patch.sourceCompletedAt);
@@ -164,12 +193,35 @@ export class LinearAdapter implements TrackerAdapter {
   private labelIndex?: Map<string, QualifiedLabel>;
   private readonly project?: string;
   private projectId?: string | null;
+  private readonly stateMap?: Record<string, string>;
+  private readonly agentMap: ReadonlyMap<string, string>;
+  private readonly delegateByAppUserId: ReadonlyMap<string, string>;
+  private members?: ProviderMember[];
+  private actorBindings: ActorBinding[] = [];
+  /** handle -> provider user id, filled by {@link primeActors}. */
+  private readonly resolvedActors = new Map<string, string>();
+  /** Handles the directory could not answer, reported rather than guessed at. */
+  private readonly unresolvedActors = new Map<string, string>();
 
   constructor(options: LinearAdapterOptions) {
     this.client = options.client;
     this.teamKey = options.teamKey;
     this.createLabels = options.createLabels ?? 'tbd';
     this.project = options.project;
+    this.stateMap = options.stateMap;
+    const agents = Object.entries(options.agentMap ?? {});
+    const reverseAgents = new Map<string, string>();
+    for (const [name, appUserId] of agents) {
+      if (!name.trim()) {
+        throw new Error('integrations.linear.agent_map contains an empty agent name.');
+      }
+      if (!UUID_RE.test(appUserId)) {
+        throw new Error(`integrations.linear.agent_map.${name} must be a Linear app user UUID.`);
+      }
+      reverseAgents.set(appUserId.toLowerCase(), name);
+    }
+    this.agentMap = new Map(agents);
+    this.delegateByAppUserId = reverseAgents;
     const configuredUsers = Object.entries(options.userMap ?? {});
     const reverse = new Map<string, string>();
     for (const [assignee, identity] of configuredUsers) {
@@ -194,8 +246,108 @@ export class LinearAdapter implements TrackerAdapter {
     this.assigneeByExternalIdentity = reverse;
   }
 
+  /**
+   * Resolve the handles this run will need, once, against the workspace directory.
+   *
+   * Called before reconciliation so {@link canPushAssignee} can stay synchronous — it
+   * is consulted per bead, and a directory round trip per bead would be absurd.
+   *
+   * The directory is fetched only when `user_map` cannot already answer, so a
+   * repository that configured its people explicitly pays nothing, and a workspace
+   * whose token cannot list users degrades to exactly today's behavior instead of
+   * failing the sync.
+   */
+  async primeActors(handles: readonly string[], bindings: readonly ActorBinding[]): Promise<void> {
+    this.actorBindings = [...bindings];
+    const needed = [...new Set(handles.filter((handle) => handle && !this.userMap.has(handle)))];
+    if (needed.length === 0) {
+      return;
+    }
+    let members: ProviderMember[];
+    try {
+      members = await this.listMembers();
+    } catch {
+      return;
+    }
+    for (const handle of needed) {
+      const resolution = resolveActor(handle, members, this.actorBindings);
+      if (resolution.member) {
+        this.resolvedActors.set(handle, resolution.member.id);
+      } else if (resolution.ambiguous) {
+        this.unresolvedActors.set(
+          handle,
+          `matches ${resolution.ambiguous.length} workspace members (${resolution.ambiguous
+            .map((member) => member.displayName)
+            .join(', ')})`,
+        );
+      } else {
+        this.unresolvedActors.set(handle, 'no workspace member matches this handle');
+      }
+    }
+  }
+
+  /** Why a handle could not be published, for the field-level skip report. */
+  assigneeSkipReason(assignee: string): string | undefined {
+    return this.unresolvedActors.get(assignee);
+  }
+
+  /** Bindings worth persisting after a run: handles resolved from the directory. */
+  newActorBindings(now: string): ActorBinding[] {
+    const known = new Set(this.actorBindings.map((binding) => binding.handle.toLowerCase()));
+    const fresh: ActorBinding[] = [];
+    for (const [handle, id] of this.resolvedActors) {
+      if (known.has(handle.toLowerCase())) {
+        continue;
+      }
+      const member = this.members?.find((candidate) => candidate.id === id);
+      if (member) {
+        fresh.push(bindingFor(handle, member, now));
+      }
+    }
+    return fresh;
+  }
+
+  /**
+   * Whether this actor can be published — never true for an absent one.
+   *
+   * A null local assignee is *no opinion*, not an instruction to unassign. Treating it
+   * as a value meant a bead that had simply never recorded an assignee would clear
+   * whoever a human had assigned in the tracker, on every sync, for as long as the two
+   * stayed linked (OS-351). The blast radius was every bead predating assignee
+   * tracking, which is most of them in any repository that adopted the integration
+   * later.
+   *
+   * The tracker is where a person assigned the work. Publishing an assignee therefore
+   * requires an identity to publish; deliberate unassignment, if it is ever wanted,
+   * needs to be its own explicit action rather than the default reading of an empty
+   * field.
+   */
+  /**
+   * Whether this delegate names an installed Linear agent.
+   *
+   * Publishing a delegate is deliberate: Linear delegates are app users, so an
+   * ordinary session agent has nothing to be published *as*, and a human has no
+   * delegate rendering at all. Both are local-only and reported, never guessed at.
+   */
+  canPushDelegate(delegate: string | null): boolean {
+    if (delegate === null) {
+      // Same rule as `assignee`: an absent actor is no opinion, not an instruction to
+      // clear whoever the tracker has (OS-351).
+      return false;
+    }
+    return this.agentMap.has(delegate);
+  }
+
+  /** Why a delegate could not be published, for the field-level skip report. */
+  delegateSkipReason(delegate: string): string {
+    return `no agent_map entry for ${delegate}; only installed Linear agents can be delegates`;
+  }
+
   canPushAssignee(assignee: string | null): boolean {
-    return this.userMap.size > 0 && (assignee === null || this.userMap.has(assignee));
+    if (assignee === null) {
+      return false;
+    }
+    return this.userMap.has(assignee) || this.resolvedActors.has(assignee);
   }
 
   /**
@@ -628,14 +780,25 @@ export class LinearAdapter implements TrackerAdapter {
     }
     this.teamId = team.id;
 
-    // Map by `type`, never by `name`: names are user-editable, types are not.
-    // Where a team has several states of one type, the lowest position wins so
-    // the choice is stable rather than dependent on response order.
-    const byType = new Map<string, { id: string; position: number }>();
-    for (const state of team.states.nodes) {
-      const existing = byType.get(state.type);
-      if (!existing || state.position < existing.position) {
-        byType.set(state.type, { id: state.id, position: state.position });
+    // Resolve by name, never by board position. The previous rule kept the
+    // lowest-position state of each type, which is stable only in the sense that it is
+    // reproducible: dragging a row in the workflow editor is invisible and silently
+    // moved where work landed. A type whose candidates cannot be told apart is left
+    // unresolved and reported, rather than guessed at.
+    const states = team.states.nodes.map((s) => ({
+      id: s.id,
+      name: s.name,
+      type: s.type,
+      position: s.position,
+    }));
+    const stateIdsByType: Record<string, string> = {};
+    const ambiguousStateTypes: Record<string, string[]> = {};
+    for (const stateType of new Set(states.map((s) => s.type))) {
+      const resolved = resolveStateId(states, stateType, this.stateMap?.[stateType]);
+      if (resolved.state) {
+        stateIdsByType[stateType] = resolved.state.id;
+      } else if (resolved.ambiguous) {
+        ambiguousStateTypes[stateType] = resolved.ambiguous.map((s) => s.name);
       }
     }
 
@@ -667,7 +830,9 @@ export class LinearAdapter implements TrackerAdapter {
     const index = indexLabels(labels);
     this.labelIndex = index;
     this.meta = {
-      stateIdsByType: Object.fromEntries([...byType].map(([type, v]) => [type, v.id])),
+      stateIdsByType,
+      states,
+      ...(Object.keys(ambiguousStateTypes).length > 0 ? { ambiguousStateTypes } : {}),
       labelIdsByName: Object.fromEntries(
         [...index.values()]
           .filter((label) => !label.isGroup)
@@ -676,6 +841,48 @@ export class LinearAdapter implements TrackerAdapter {
       fetchedAt: new Date().toISOString(),
     };
     return this.meta;
+  }
+
+  /**
+   * Everyone in the workspace, paged.
+   *
+   * Cached for the life of the adapter: a directory changes on the order of people
+   * joining a company, and re-fetching it per bead would add a round trip to every
+   * actor resolution in a sync.
+   */
+  async listMembers(): Promise<ProviderMember[]> {
+    if (this.members) {
+      return this.members;
+    }
+    const collected: ProviderMember[] = [];
+    let after: string | undefined;
+    do {
+      const page = await this.client.request<{
+        users: {
+          pageInfo: { hasNextPage: boolean; endCursor: string | null };
+          nodes: {
+            id: string;
+            name: string | null;
+            displayName: string | null;
+            email: string | null;
+            active: boolean;
+          }[];
+        };
+      }>(WORKSPACE_USERS_QUERY, { first: MAX_PAGE_SIZE, after });
+      for (const node of page.users.nodes) {
+        collected.push({
+          id: node.id,
+          displayName: node.displayName ?? node.name ?? node.id,
+          ...(node.email ? { email: node.email } : {}),
+          active: node.active,
+        });
+      }
+      after = page.users.pageInfo.hasNextPage
+        ? (page.users.pageInfo.endCursor ?? undefined)
+        : undefined;
+    } while (after);
+    this.members = collected;
+    return collected;
   }
 
   private async resolveTeamId(): Promise<string> {
@@ -715,6 +922,13 @@ export class LinearAdapter implements TrackerAdapter {
       title: raw.title,
       description: raw.description,
       status: statusFromLinear(stateType, labels),
+      resolution: resolutionFromLinear(stateType),
+      hold: holdFromLinear(raw.state?.name, labels),
+      slot: slotFromLinear(stateType, raw.state?.name, labels),
+      stateId: raw.state?.id ?? null,
+      delegate: raw.delegate
+        ? (this.delegateByAppUserId.get(raw.delegate.id.toLowerCase()) ?? null)
+        : null,
       priority: priorityFromLinear(raw.priority),
       labels,
       assignee: mappedAssignee ?? null,
@@ -787,15 +1001,37 @@ export class LinearAdapter implements TrackerAdapter {
     if (patch.assignee !== undefined) {
       input.assigneeId = patch.assignee === null ? null : await this.resolveUserId(patch.assignee);
     }
+    if (patch.delegate !== undefined && patch.delegate !== null) {
+      const appUserId = this.agentMap.get(patch.delegate);
+      if (appUserId) {
+        // A plain field write that Linear happens to turn into an AgentSession; tbd
+        // is not registering itself as an agent to do it.
+        input.delegateId = appUserId;
+      }
+    }
 
     let statusLabels: string[] = [];
     if (patch.status !== undefined) {
-      const target = statusToLinear(patch.status);
-      const stateId = meta.stateIdsByType[target.stateType];
+      const target = statusToLinear(patch.status, patch.resolution, patch.hold);
+      // A named state is preferred when the team actually has one, because a real
+      // column is visible to a person planning the week while a label is not. When it
+      // is absent the carrier label rides the type's default instead, which is the
+      // degradation `blocked` and `deferred` already rely on.
+      const named = target.stateName
+        ? (meta.states ?? []).find(
+            (state) =>
+              state.type === target.stateType &&
+              state.name.toLowerCase() === target.stateName!.toLowerCase(),
+          )
+        : undefined;
+      // An explicit state wins: it names the column this issue was actually in, which a
+      // slot cannot, and writing the band's default instead is what drags an issue out
+      // of a team's own column.
+      const stateId = patch.stateId ?? named?.id ?? meta.stateIdsByType[target.stateType];
       if (stateId) {
         input.stateId = stateId;
       }
-      statusLabels = target.labels;
+      statusLabels = named ? [] : target.labels;
     }
 
     // `ensureLabels` is additive: it joins whatever label set is already being written
@@ -982,6 +1218,131 @@ export class LinearAdapter implements TrackerAdapter {
       }
     }
 
+    // Workflow states named in `state_map`, and only those.
+    //
+    // A workflow state is team-wide: it changes the board for people who never run
+    // tbd, which is a larger footprint than anything else tbd provisions. So the map
+    // IS the consent — a repository that writes nothing here is never offered
+    // anything, and a state outside the map is never created, renamed, or touched.
+    if (this.stateMap && Object.keys(this.stateMap).length > 0) {
+      const meta = await this.ensureMeta(true);
+      const existing = meta.states ?? [];
+      const byLowerName = new Map(existing.map((state) => [state.name.toLowerCase(), state]));
+
+      for (const [stateType, name] of Object.entries(this.stateMap)) {
+        if (byLowerName.has(name.toLowerCase())) {
+          items.push({ kind: 'workflow state', name, state: 'present' });
+          continue;
+        }
+        if (!options.apply) {
+          items.push({ kind: 'workflow state', name, state: 'missing' });
+          continue;
+        }
+        // Place it after the last state of its own type, so the board keeps reading in
+        // lifecycle order instead of gaining a column in an arbitrary place.
+        const sameType = existing.filter((state) => state.type === stateType);
+        const position =
+          sameType.length > 0 ? Math.max(...sameType.map((state) => state.position)) + 1 : 0;
+        try {
+          const data = await this.client.request<{
+            workflowStateCreate: {
+              success: boolean;
+              workflowState: { id: string; name: string; type: string; position: number } | null;
+            };
+          }>(WORKFLOW_STATE_CREATE_MUTATION, {
+            input: {
+              name,
+              type: stateType,
+              position,
+              color: stateColorFor(stateType),
+              teamId: await this.resolveTeamId(),
+            },
+          });
+          const created = data.workflowStateCreate.workflowState;
+          if (!data.workflowStateCreate.success || !created) {
+            items.push({
+              kind: 'workflow state',
+              name,
+              state: 'blocked',
+              reason: 'Linear declined to create the workflow state',
+            });
+            continue;
+          }
+          existing.push(created);
+          byLowerName.set(created.name.toLowerCase(), created);
+          items.push({ kind: 'workflow state', name, state: 'created' });
+        } catch (error) {
+          items.push({
+            kind: 'workflow state',
+            name,
+            state: 'blocked',
+            reason: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+      // Terminal columns sitting mid-board is the accident explicit positioning was
+      // meant to prevent, and it predates tbd on any team that added states by hand.
+      // Reported always; repaired only on `apply`, and only by moving a state later —
+      // never by rearranging columns tbd was not asked about.
+      const bandRank: Record<string, number> = {
+        triage: 0,
+        backlog: 1,
+        unstarted: 2,
+        started: 3,
+        completed: 4,
+        canceled: 5,
+        duplicate: 6,
+      };
+      const ordered = [...existing].sort((a, b) => a.position - b.position);
+      // Only states this repository asked tbd to manage. Repairing order is still a
+      // write, and "never touch a state outside the map" outranks a tidier board — a
+      // column tbd was not asked about belongs to whoever put it there.
+      const mappedNames = new Set(
+        Object.values(this.stateMap ?? {}).map((name) => name.toLowerCase()),
+      );
+      for (let i = 0; i < ordered.length; i += 1) {
+        const state = ordered[i]!;
+        const rank = bandRank[state.type];
+        if (rank === undefined || !mappedNames.has(state.name.toLowerCase())) {
+          continue;
+        }
+        const laterButEarlierBand = ordered
+          .slice(i + 1)
+          .find((other) => (bandRank[other.type] ?? rank) < rank);
+        if (!laterButEarlierBand) {
+          continue;
+        }
+        if (!options.apply) {
+          items.push({
+            kind: 'workflow state',
+            name: state.name,
+            state: 'missing',
+            reason: `sits before ${laterButEarlierBand.name}, which belongs earlier in the lifecycle`,
+          });
+          continue;
+        }
+        try {
+          const target = Math.max(...ordered.map((other) => other.position)) + 1;
+          await this.client.request(WORKFLOW_STATE_UPDATE_MUTATION, {
+            id: state.id,
+            input: { position: target },
+          });
+          state.position = target;
+          items.push({ kind: 'workflow state', name: state.name, state: 'created' });
+        } catch (error) {
+          items.push({
+            kind: 'workflow state',
+            name: state.name,
+            state: 'blocked',
+            reason: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      // The next sync must see what was just created rather than the cached board.
+      this.meta = undefined;
+    }
+
     /**
      * Where each leaf name is already taken, keyed by the bare leaf.
      *
@@ -1162,7 +1523,9 @@ export class LinearAdapter implements TrackerAdapter {
   }
 
   private async resolveUserId(assignee: string): Promise<string> {
-    const identity = this.userMap.get(assignee);
+    // A directory resolution wins nothing over an explicit override: `user_map` is
+    // consulted first so a repository that pinned an identity keeps it.
+    const identity = this.userMap.get(assignee) ?? this.resolvedActors.get(assignee);
     if (!identity) {
       throw new Error(`No Linear user mapping is configured for tbd assignee ${assignee}.`);
     }

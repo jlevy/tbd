@@ -54,6 +54,41 @@ describe('planMirror', () => {
     expect(plan.creates[0]?.patch).toMatchObject({ title: 'Test', status: 'open', priority: 2 });
   });
 
+  it('names an assignee the tracker cannot accept instead of dropping it silently', () => {
+    // Observed against a real workspace: every bead carried `assignee: josh`, user_map
+    // was empty, and the push reported `skipped 0` while the field never left the
+    // machine. The skip is correct; the silence was the defect.
+    const bead = issue({ id: 'is-a', assignee: 'josh' });
+    const plan = planMirror({
+      provider: 'linear',
+      allIssues: [bead],
+      selected: [bead],
+      displayId,
+      maxNesting: 2,
+      canPushAssignee: () => false,
+    });
+
+    expect(plan.creates[0]?.patch.assignee).toBeUndefined();
+    expect(plan.creates[0]?.skippedFields).toEqual([
+      { field: 'assignee', reason: 'no user_map entry for josh' },
+    ]);
+  });
+
+  it('records no field skip when the assignee is pushable', () => {
+    const bead = issue({ id: 'is-a', assignee: 'josh' });
+    const plan = planMirror({
+      provider: 'linear',
+      allIssues: [bead],
+      selected: [bead],
+      displayId,
+      maxNesting: 2,
+      canPushAssignee: () => true,
+    });
+
+    expect(plan.creates[0]?.patch.assignee).toBe('josh');
+    expect(plan.creates[0]?.skippedFields).toBeUndefined();
+  });
+
   it('plans an update for an already-linked bead', () => {
     const bead = issue({
       id: 'is-a',
@@ -196,7 +231,9 @@ describe('planMirror', () => {
       kind: 'task',
       parent_id: 'is-epic',
       status: 'open',
-      assignee: 'someone',
+      // Claimed means someone is *acting* on it, which is `delegate`. `assignee`
+      // records accountability and does not take work out of the ready pool.
+      delegate: 'someone',
     });
 
     const plan = planMirror({
