@@ -36,6 +36,7 @@ import type {
   PolicyDefinition,
   ProviderNameType,
 } from '../../lib/types.js';
+import { computeSlot, decomposeSlot, isSlot } from './slots.js';
 import { readyIssueIds } from '../../lib/issue-selection.js';
 import {
   descriptionHash,
@@ -205,11 +206,23 @@ interface PlannedPair {
   parentOverwrite: boolean;
 }
 
-function localViewOf(bead: Issue): LocalView {
+function localViewOf(bead: Issue, ready?: ReadonlySet<string>): LocalView {
   return {
     title: bead.title,
     description: bead.description ?? null,
     status: bead.status,
+    // Computed only when the caller supplied readiness. Without it the Todo/Backlog
+    // split cannot be decided, and guessing would be worse than staying on statuses.
+    ...(ready
+      ? {
+          slot: computeSlot({
+            status: bead.status,
+            hold: bead.hold,
+            resolution: bead.resolution,
+            ready: ready.has(bead.id),
+          }),
+        }
+      : {}),
     priority: bead.priority,
     labels: bead.labels ?? [],
     assignee: bead.assignee ?? null,
@@ -222,6 +235,8 @@ function remoteViewOf(remote: ExternalIssue): RemoteView {
     title: remote.title,
     description: remote.description,
     status: remote.status,
+    // The provider names the column; absent, the run stays on statuses.
+    ...(remote.slot && isSlot(remote.slot) ? { slot: remote.slot } : {}),
     priority: remote.priority,
     labels: remote.labels,
     assignee: remote.assignee,
@@ -708,7 +723,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       })();
     const result = reconcile(
       base,
-      localViewOf(bead),
+      localViewOf(bead, readyIds),
       remoteViewOf(remote),
       policy.field_sync,
       options.equivalences,
@@ -725,6 +740,32 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         assigneePull: remote.assigneeSyncable !== false,
       },
     );
+    // A pulled slot decomposes here rather than in the matrix, because the bead fields
+    // it implies carry invariants the matrix knows nothing about — a resolution only on
+    // closed work, a hold only off it. Doing it in one place keeps those rules with the
+    // code that owns them.
+    if (result.beadPatch.slot) {
+      const fields = decomposeSlot(result.beadPatch.slot);
+      result.beadPatch.status = fields.status;
+      result.beadPatch.hold = fields.hold;
+      result.beadPatch.resolution = fields.resolution;
+      // The merged view is what the base is written from and what the managed block
+      // renders, so a decomposition that stopped at the patch would leave both
+      // describing the position the bead just moved away from.
+      result.merged.status = fields.status;
+      if (result.beadPatch.slot === 'duplicate') {
+        // The tracker carries the duplicate's target as a relation tbd does not read,
+        // and the write boundary rejects a duplicate without one. Canceled keeps the
+        // honest half; saying so beats narrowing it silently.
+        report.warnings.push({
+          externalId: remote.id,
+          ...(remote.key ? { externalKey: remote.key } : {}),
+          message:
+            'Marked a duplicate in the tracker; recorded as canceled because the duplicate target is not mirrored locally.',
+        });
+      }
+    }
+
     // `resolution` rides with `status` rather than reconciling on its own.
     //
     // It is not an independent fact: it only refines a terminal position, and only the

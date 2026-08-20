@@ -43,6 +43,13 @@ export interface ExternalIssue extends ExternalRef {
   resolution: IssueResolutionType | null;
   /** Why open work is not moving, or null when it is unheld. */
   hold: IssueHoldType | null;
+  /**
+   * The board column this item sits in, when the provider can name one.
+   *
+   * Optional so an adapter that has not been taught slots keeps the five-value
+   * comparison rather than silently degrading to a coarser one.
+   */
+  slot?: string;
   priority: PriorityType;
   labels: string[];
   assignee: string | null;

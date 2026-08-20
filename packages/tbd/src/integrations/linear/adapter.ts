@@ -27,6 +27,7 @@ import {
   statusFromLinear,
   resolutionFromLinear,
   holdFromLinear,
+  slotFromLinear,
   resolveStateId,
   statusToLinear,
 } from './mapping.js';
@@ -921,6 +922,7 @@ export class LinearAdapter implements TrackerAdapter {
       status: statusFromLinear(stateType, labels),
       resolution: resolutionFromLinear(stateType),
       hold: holdFromLinear(raw.state?.name, labels),
+      slot: slotFromLinear(stateType, raw.state?.name, labels),
       delegate: raw.delegate
         ? (this.delegateByAppUserId.get(raw.delegate.id.toLowerCase()) ?? null)
         : null,
