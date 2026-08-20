@@ -181,6 +181,8 @@ interface FieldOps {
   applyRemote: (value: unknown) => void; // write into externalPatch
   /** False when the provider surface cannot apply an outbound value yet. */
   canPush: boolean;
+  /** Record the remote value into the merged base when a push is skipped. */
+  applyBase?: (value: unknown) => void;
 }
 
 /**
@@ -379,16 +381,21 @@ export function reconcile(
         externalPatch.assignee = value as string | null;
       },
       canPush: capabilities.assignee ?? false,
+      applyBase: (value) => {
+        merged.assignee = value as string | null;
+      },
     },
   };
 
   const skipPush = (field: SyncedField, ops: FieldOps): void => {
     skippedPushes.push({ field, localValue: ops.local });
-    // The base must reflect external reality, so the divergence stays visible
-    // and re-reports on every run rather than being absorbed silently.
-    if (field === 'assignee') {
-      merged.assignee = ops.remote as string | null;
-    }
+    // The base must reflect external reality, so the divergence stays visible and
+    // re-reports on every run rather than being absorbed silently.
+    //
+    // Applied to whichever field was skipped rather than to `assignee` by name: the
+    // rule is a property of skipping, not of one field, and hardcoding it meant any
+    // second skippable field would quietly record agreement it did not have.
+    ops.applyBase?.(ops.remote);
   };
 
   for (const field of SYNCED_FIELDS) {

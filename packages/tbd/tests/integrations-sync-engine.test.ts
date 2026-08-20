@@ -905,6 +905,36 @@ describe('the sync engine', () => {
     expect(server.issues.get(externalId)?.state.name).toBe('In QA');
   });
 
+  it('does not call a run with a skipped field push "nothing to do"', async () => {
+    // Same defect as OS-351's `skipped 0`, one layer up: a run whose only outcome was a
+    // field it could not publish reported nothing to do, and the detail line naming
+    // that field sits behind the early return that reading gates.
+    adapter = new LinearAdapter({
+      client: new LinearClient({
+        apiKey: 'lin_api_test',
+        endpoint: server.endpoint,
+        sleep: () => Promise.resolve(),
+      }),
+      teamKey: 'FIN',
+      userMap: { josh: 'josh@example.com' },
+    });
+    const rules = PolicyDefinitionSchema.parse({
+      field_sync: { fields: { assignee: 'merge' } },
+    });
+
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz', { assignee: 'josh' });
+    store.set(epic.id, epic);
+    await run([epic], rules);
+
+    // A local assignee the provider cannot name: the push is correctly skipped.
+    const stranger = { ...store.get(epic.id)!, assignee: 'not-in-any-map', version: 2 };
+    store.set(epic.id, stranger);
+    const report = await run([stranger], rules);
+
+    expect(report.skippedPushes.length).toBeGreaterThan(0);
+    expect(report.nothingToDo).toBe(false);
+  });
+
   it('does not drag an issue back out of a column a person moved it to', async () => {
     // The no-fight property, pinned BEFORE slots widen what the matrix compares.
     //

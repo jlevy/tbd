@@ -1074,6 +1074,11 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       report.failures.length === 0 &&
       report.warnings.length === 0 &&
       report.skippedOutbound.length === 0 &&
+      // A field the run could not publish is something to do, not nothing. Omitting it
+      // here is the same defect as OS-351's `skipped 0`: the summary reads as success
+      // while a value never left the machine, and the detail lines that would have
+      // named it are behind this early return.
+      report.skippedPushes.length === 0 &&
       report.commentsPulled + report.commentsPushed === 0;
     return report;
   }
@@ -1682,6 +1687,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       report.importedInbound.length +
       report.importable.length +
       report.skippedOutbound.length +
+      report.skippedPushes.length +
       report.warnings.length +
       report.failures.length ===
       0;
