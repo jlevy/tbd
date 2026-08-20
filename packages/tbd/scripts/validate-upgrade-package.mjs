@@ -5,8 +5,8 @@
  * Prove a packed candidate upgrades real published repositories safely.
  *
  * Three baselines exercise the real-world path and distinct compatibility contracts:
- * - the latest published patch (0.7.1 / f08), the same-format case, whose client must
- *   keep working against a repository this candidate has touched;
+ * - the oldest published f08 release (0.7.0), the same-format case: the weakest client
+ *   that must still read a repository this candidate has written;
  * - the common pre-f07 release (0.4.2 / f06), whose client must fail closed after upgrade;
  * - the last pre-f07 release (0.5.0 / f06), the older boundary.
  *
@@ -17,6 +17,11 @@
  * Zod strip mode and would delete fields it does not know, which is the point of the
  * bump. f08 shipped in 0.7.0, so the slot is filled again, and the additive-field path
  * this release actually takes is covered rather than assumed.
+ *
+ * The *oldest* f08 release is the baseline rather than the newest, for two reasons. It
+ * is the weakest client that must still work, so it is the stronger test. And it stays
+ * strictly older than any candidate, including an unbumped working tree, so CI can run
+ * this gate on every branch instead of only at release time.
  */
 
 /**
@@ -50,7 +55,7 @@ const execFileAsync = promisify(execFile);
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageDir = join(scriptDir, '..');
 const sourceRepoDir = join(packageDir, '..', '..');
-const sameFormatBaseline = process.env.TBD_UPGRADE_SAME_FORMAT_FROM ?? '0.7.1';
+const sameFormatBaseline = process.env.TBD_UPGRADE_SAME_FORMAT_FROM ?? '0.7.0';
 const commonUpgradeBaseline = process.env.TBD_UPGRADE_COMMON_FROM ?? '0.4.2';
 const previousFormatBaseline = process.env.TBD_UPGRADE_PREVIOUS_FORMAT_FROM ?? '0.5.0';
 const managedUpgradePaths = new Set([
