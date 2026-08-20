@@ -871,6 +871,35 @@ describe('the sync engine', () => {
     expect(store.get(epic.id)?.assignee).toBe('josh');
   });
 
+  it('does not drag an issue back out of a column a person moved it to', async () => {
+    // The no-fight property, pinned BEFORE slots widen what the matrix compares.
+    //
+    // Today this holds for free: In Progress and In Review are both Linear type
+    // `started`, so a human dragging an issue between them changes nothing tbd
+    // considers canonical and the matrix sees no disagreement. Widening to slots makes
+    // that difference visible, which is the point — and is exactly why the property
+    // stops being free and has to become deliberate. If a later change starts undoing
+    // people's board moves, this is the test that says so.
+    const policy = PolicyDefinitionSchema.parse({
+      outbound: { kinds: ['epic'], statuses: ['open', 'in_progress'], specs: 'none', linked: true },
+    });
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz', { status: 'in_progress' });
+    store.set(epic.id, epic);
+    await run([epic], policy);
+
+    const externalId = readLink(store.get(epic.id)!, 'linear')!.id;
+    const inReview = server.states.find((state) => state.name === 'In Review')!;
+    server.issues.get(externalId)!.state = { ...inReview };
+
+    const settled = await run([store.get(epic.id)!], policy);
+
+    // The issue stays where the person put it, and the run is quiet about it.
+    expect(server.issues.get(externalId)?.state.name).toBe('In Review');
+    expect(settled.pushed).toEqual([]);
+    // And the bead still reads as started, not dragged to some other position.
+    expect(store.get(epic.id)?.status).toBe('in_progress');
+  });
+
   // The reported data loss, end to end, under both flow modes because OS-351 asks for
   // every mode explicitly.
   //
