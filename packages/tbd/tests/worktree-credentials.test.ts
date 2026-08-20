@@ -100,7 +100,7 @@ describe('main worktree resolution', () => {
   });
 
   afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
+    await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     delete process.env.LINEAR_API_KEY;
   });
 
@@ -117,7 +117,7 @@ describe('main worktree resolution', () => {
     try {
       await expect(resolveMainWorktree(outside)).resolves.toBeUndefined();
     } finally {
-      await rm(outside, { recursive: true, force: true });
+      await rm(outside, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -132,7 +132,7 @@ describe('main worktree resolution', () => {
       await initSeparateGitDirRepo(sepMain, sepGitDir);
       await expect(resolveMainWorktree(sepMain)).resolves.toBeUndefined();
     } finally {
-      await rm(sepRoot, { recursive: true, force: true });
+      await rm(sepRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 });
@@ -152,7 +152,7 @@ describe('credential resolution across worktrees', () => {
   });
 
   afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
+    await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     delete process.env.LINEAR_API_KEY;
   });
 
@@ -203,7 +203,7 @@ describe('credential resolution across worktrees', () => {
 
       await expect(resolveCredential('linear', sepMain)).resolves.toBeUndefined();
     } finally {
-      await rm(sepRoot, { recursive: true, force: true });
+      await rm(sepRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -216,7 +216,7 @@ describe('credential resolution across worktrees', () => {
       const credential = await resolveCredential('linear', outside);
       expect(credential?.value).toBe(LOCAL_VALUE);
     } finally {
-      await rm(outside, { recursive: true, force: true });
+      await rm(outside, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 });
@@ -236,7 +236,7 @@ describe('status reporting of the credential source', () => {
   });
 
   afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
+    await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     delete process.env.LINEAR_API_KEY;
   });
 
