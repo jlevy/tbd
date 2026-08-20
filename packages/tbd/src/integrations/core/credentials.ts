@@ -1,16 +1,20 @@
 /**
  * Credential resolution for external tracker integrations.
  *
- * Credentials are read from the process environment or the repository `.env`,
- * and travel only through the `ResolvedCredential` returned here. They are never
- * written into `process.env` (see lib/env-file.ts for why), never persisted to
- * bridge state, and never logged or included in JSON output.
+ * Credentials are read from the process environment, this working tree's `.env`,
+ * or the main worktree's `.env`, and travel only through the `ResolvedCredential`
+ * returned here. They are never written into `process.env` (see lib/env-file.ts
+ * for why), never persisted to bridge state, and never logged or included in JSON
+ * output.
  */
 
 import { execFile } from 'node:child_process';
+import { realpath } from 'node:fs/promises';
+import { join } from 'node:path';
 import { promisify } from 'node:util';
 
-import { readEnvFile } from '../../lib/env-file.js';
+import { ENV_FILE_NAME, readEnvFile } from '../../lib/env-file.js';
+import { resolveMainWorktree } from '../../lib/paths.js';
 import type { ProviderNameType } from '../../lib/types.js';
 
 const execFileAsync = promisify(execFile);
@@ -22,6 +26,14 @@ export interface ResolvedCredential {
   /** The secret. Never log, serialize, or include in command output. */
   value: string;
   source: CredentialSource;
+  /**
+   * Absolute path the value was read from, for `dotenv` only.
+   *
+   * A `.env` can now be loaded from outside the current directory, so the source
+   * alone no longer identifies the file. Safe to display: it is a path, not a
+   * secret, and naming it is what keeps a cross-directory read from being silent.
+   */
+  path?: string;
 }
 
 /** The environment variable each provider reads. */
@@ -59,11 +71,38 @@ async function ghCliToken(): Promise<string | undefined> {
 }
 
 /**
+ * The main checkout's root, when it is a different directory than `repoRoot`.
+ *
+ * Returns undefined in the main checkout itself, where the fallback would reread
+ * the file layer 2 already tried, and outside a repository, where there is no
+ * main checkout to find.
+ */
+async function otherWorktreeRoot(repoRoot: string): Promise<string | undefined> {
+  const mainWorktree = await resolveMainWorktree(repoRoot);
+  if (!mainWorktree) {
+    return undefined;
+  }
+  const here = await realpath(repoRoot).catch(() => repoRoot);
+  return mainWorktree === here ? undefined : mainWorktree;
+}
+
+/**
  * Resolve a provider credential.
  *
- * Order, first match wins: process environment, then repository `.env`, then
- * (GitHub only) the `gh` CLI. The process environment wins so a one-off override
- * does not require editing a file.
+ * Order, first match wins: process environment, this working tree's `.env`, the
+ * main worktree's `.env`, then (GitHub only) the `gh` CLI. The process
+ * environment wins so a one-off override does not require editing a file, and a
+ * worktree's own `.env` beats the main checkout's so pointing one worktree at
+ * different credentials stays possible.
+ *
+ * The main-worktree layer exists because `.env` is gitignored and gitignored
+ * files do not propagate to linked worktrees, which made a configured repository
+ * look unconfigured from any worktree of it. It is read-only: nothing here or in
+ * setup writes to the main checkout's `.env`.
+ *
+ * Every layer past the first costs a git subprocess, so the common cases pay
+ * nothing: an exported variable returns before any git call, and a worktree-local
+ * `.env` returns before the main-worktree lookup.
  */
 export async function resolveCredential(
   provider: ProviderNameType,
@@ -79,7 +118,20 @@ export async function resolveCredential(
   const dotenv = await readEnvFile(repoRoot);
   const fromDotenv = dotenv.get(varName);
   if (fromDotenv && fromDotenv.length > 0) {
-    return { value: fromDotenv, source: 'dotenv' };
+    return { value: fromDotenv, source: 'dotenv', path: join(repoRoot, ENV_FILE_NAME) };
+  }
+
+  const mainWorktree = await otherWorktreeRoot(repoRoot);
+  if (mainWorktree) {
+    const mainDotenv = await readEnvFile(mainWorktree);
+    const fromMainDotenv = mainDotenv.get(varName);
+    if (fromMainDotenv && fromMainDotenv.length > 0) {
+      return {
+        value: fromMainDotenv,
+        source: 'dotenv',
+        path: join(mainWorktree, ENV_FILE_NAME),
+      };
+    }
   }
 
   if (provider === 'github') {

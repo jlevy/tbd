@@ -871,6 +871,150 @@ describe('the sync engine', () => {
     expect(store.get(epic.id)?.assignee).toBe('josh');
   });
 
+  it("returns work to a team's own column after it leaves and comes back", async () => {
+    // The refinement record earning its keep. Within a single run the no-fight property
+    // already protects a custom column, because an unchanged slot produces no state
+    // write at all. This is the case it does not cover: the work genuinely moves out of
+    // the band and back, so a state IS written, and without a record of where it came
+    // from it lands in the band's generic column instead of the team's own.
+    const policy = PolicyDefinitionSchema.parse({
+      outbound: { kinds: ['epic'], statuses: ['open', 'in_progress'], specs: 'none', linked: true },
+    });
+    const inQa = { id: 'state-in-qa', name: 'In QA', type: 'started', position: 7 };
+    server.states.push(inQa);
+
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz', { status: 'in_progress' });
+    store.set(epic.id, epic);
+    await run([epic], policy);
+
+    // A person moves it into the team's own column.
+    const externalId = readLink(store.get(epic.id)!, 'linear')!.id;
+    server.issues.get(externalId)!.state = { ...inQa };
+    await run([store.get(epic.id)!], policy);
+    expect(server.issues.get(externalId)?.state.name).toBe('In QA');
+
+    // The work is paused, which is a genuine move out of the started band...
+    store.set(epic.id, { ...store.get(epic.id)!, hold: 'paused', version: 2 });
+    await run([store.get(epic.id)!], policy);
+    expect(server.issues.get(externalId)?.state.name).not.toBe('In QA');
+
+    // ...and then resumed, which should put it back where it was rather than in a
+    // generic In Progress.
+    store.set(epic.id, { ...store.get(epic.id)!, hold: null, version: 3 });
+    await run([store.get(epic.id)!], policy);
+    expect(server.issues.get(externalId)?.state.name).toBe('In QA');
+  });
+
+  it('does not call a run with a skipped field push "nothing to do"', async () => {
+    // Same defect as OS-351's `skipped 0`, one layer up: a run whose only outcome was a
+    // field it could not publish reported nothing to do, and the detail line naming
+    // that field sits behind the early return that reading gates.
+    adapter = new LinearAdapter({
+      client: new LinearClient({
+        apiKey: 'lin_api_test',
+        endpoint: server.endpoint,
+        sleep: () => Promise.resolve(),
+      }),
+      teamKey: 'FIN',
+      userMap: { josh: 'josh@example.com' },
+    });
+    const rules = PolicyDefinitionSchema.parse({
+      field_sync: { fields: { assignee: 'merge' } },
+    });
+
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz', { assignee: 'josh' });
+    store.set(epic.id, epic);
+    await run([epic], rules);
+
+    // A local assignee the provider cannot name: the push is correctly skipped.
+    const stranger = { ...store.get(epic.id)!, assignee: 'not-in-any-map', version: 2 };
+    store.set(epic.id, stranger);
+    const report = await run([stranger], rules);
+
+    expect(report.skippedPushes.length).toBeGreaterThan(0);
+    expect(report.nothingToDo).toBe(false);
+  });
+
+  it('does not drag an issue back out of a column a person moved it to', async () => {
+    // The no-fight property, pinned BEFORE slots widen what the matrix compares.
+    //
+    // Today this holds for free: In Progress and In Review are both Linear type
+    // `started`, so a human dragging an issue between them changes nothing tbd
+    // considers canonical and the matrix sees no disagreement. Widening to slots makes
+    // that difference visible, which is the point — and is exactly why the property
+    // stops being free and has to become deliberate. If a later change starts undoing
+    // people's board moves, this is the test that says so.
+    const policy = PolicyDefinitionSchema.parse({
+      outbound: { kinds: ['epic'], statuses: ['open', 'in_progress'], specs: 'none', linked: true },
+    });
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz', { status: 'in_progress' });
+    store.set(epic.id, epic);
+    await run([epic], policy);
+
+    const externalId = readLink(store.get(epic.id)!, 'linear')!.id;
+    const inReview = server.states.find((state) => state.name === 'In Review')!;
+    server.issues.get(externalId)!.state = { ...inReview };
+
+    const settled = await run([store.get(epic.id)!], policy);
+
+    // The issue stays where the person put it, and the run is quiet about it.
+    expect(server.issues.get(externalId)?.state.name).toBe('In Review');
+    expect(settled.pushed).toEqual([]);
+    // And the bead still reads as started, not dragged to some other position.
+    expect(store.get(epic.id)?.status).toBe('in_progress');
+  });
+
+  // The reported data loss, end to end, under both flow modes because OS-351 asks for
+  // every mode explicitly.
+  //
+  // Only `local` actually exercises the clear: with `merge` the engine sees a one-sided
+  // remote change and pulls, so the outbound path is never reached. Verified by
+  // reverting both guards, where `local` fails and `merge` still passes. The `merge`
+  // case is coverage of the contract, not a regression guard for this defect — worth
+  // stating so nobody later reads its green as protection it does not provide.
+  //
+  // Each guard is independently sufficient for `local`: reverting either one alone
+  // still passes, and only reverting both reproduces the loss.
+  for (const mode of ['local', 'merge'] as const) {
+    it(`never clears a Linear assignee for a bead that has none — assignee: ${mode} (OS-351)`, async () => {
+      const policy = PolicyDefinitionSchema.parse({
+        field_sync: { fields: { assignee: mode } },
+      });
+      adapter = new LinearAdapter({
+        client: new LinearClient({
+          apiKey: 'lin_api_test',
+          endpoint: server.endpoint,
+          sleep: () => Promise.resolve(),
+        }),
+        teamKey: 'FIN',
+        // Populating user_map is the documented prerequisite for assignee sync, and
+        // was by itself enough to start erasing people.
+        userMap: { josh: 'josh@example.com' },
+      });
+
+      const orphan = bead('is-01hx5zzkbkactav9wevgemmvrz', { assignee: null });
+      store.set(orphan.id, orphan);
+      await run([orphan], policy);
+
+      // A person assigns it in Linear, after the link exists.
+      const externalId = readLink(store.get(orphan.id)!, 'linear')!.id;
+      server.issues.get(externalId)!.assignee = {
+        id: 'user-1',
+        name: 'Josh',
+        displayName: 'Josh',
+        email: 'josh@example.com',
+      };
+
+      await run([store.get(orphan.id)!], policy);
+      expect(server.issues.get(externalId)?.assignee?.email).toBe('josh@example.com');
+
+      // Survives repeated syncs, which is what made the original steady-state rather
+      // than a one-off race.
+      await run([store.get(orphan.id)!], policy);
+      expect(server.issues.get(externalId)?.assignee?.email).toBe('josh@example.com');
+    });
+  }
+
   it('leaves linked assignee state untouched when the Linear identity is unmapped', async () => {
     adapter = new LinearAdapter({
       client: new LinearClient({

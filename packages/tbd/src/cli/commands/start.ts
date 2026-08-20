@@ -11,6 +11,11 @@
  * cannot name itself still claims under a derived `<harness>@<host>`, because a bead
  * claimed by an imprecisely-named agent is far better recorded than one claimed by
  * nobody.
+ *
+ * A claim is a *delegation*, so it writes `delegate` and leaves `assignee` alone. The
+ * two are different questions — who is accountable, and who is doing the work — and an
+ * earlier version of this command collapsed them because `assignee` was the only actor
+ * field there was.
  */
 
 import { Command } from 'commander';
@@ -122,24 +127,35 @@ class StartHandler extends BaseCommand {
             // claim is how it stays invisible.
             if (
               issue.status === 'in_progress' &&
-              issue.assignee &&
-              issue.assignee !== identity.name
+              issue.delegate &&
+              issue.delegate !== identity.name
             ) {
-              skipped.push({ id: displayId, reason: `already claimed by ${issue.assignee}` });
+              skipped.push({ id: displayId, reason: `already claimed by ${issue.delegate}` });
               continue;
             }
 
-            if (issue.status === 'in_progress' && issue.assignee === identity.name) {
+            if (issue.status === 'in_progress' && issue.delegate === identity.name) {
               skipped.push({ id: displayId, reason: 'already yours' });
               continue;
             }
 
-            if (this.checkDryRun('Would claim', { id: displayId, assignee: identity.name })) {
+            if (this.checkDryRun('Would claim', { id: displayId, delegate: identity.name })) {
               continue;
             }
 
             issue.status = 'in_progress';
-            issue.assignee = identity.name;
+            // First start only. This is the record that later distinguishes "paused"
+            // from "never started", so a re-claim must not move it.
+            issue.started_at ??= now();
+            // Claiming work is the opposite of holding it; leaving a stale hold would
+            // keep the bead out of `tbd ready` while an agent was actively on it.
+            issue.hold = null;
+            issue.hold_until = null;
+            // The claim lands on the acting axis. `assignee` is who is accountable —
+            // usually a human, often the same on every bead — and an agent writing
+            // itself there answers a question nobody asked while destroying the answer
+            // to the one they did.
+            issue.delegate = identity.name;
             issue.version += 1;
             issue.updated_at = now();
             await writeIssue(dataSyncDir, issue);
@@ -149,7 +165,7 @@ class StartHandler extends BaseCommand {
       );
     }, 'Failed to claim issue');
 
-    this.output.data({ claimed, skipped, assignee: identity.name }, () => {
+    this.output.data({ claimed, skipped, delegate: identity.name }, () => {
       if (claimed.length > 0) {
         this.output.success(`Claimed as ${identity.name}: ${claimed.join(', ')}`);
       }

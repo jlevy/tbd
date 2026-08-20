@@ -305,3 +305,70 @@ describe('f08: docs and refs union-merge on their identity field', () => {
     expect(merged.docs?.find((d) => d.path === path)?.role).toBe('research');
   });
 });
+
+describe('f08: the state and actor fields need no format bump', () => {
+  /**
+   * Both specs decided against a format bump on the strength of this property: a bead
+   * carrying `resolution`, `hold`, `started_at` or `delegate` must round-trip through a
+   * build that has never heard of them, rather than being silently stripped. The
+   * decision rested on the claim; this is the claim tested.
+   *
+   * Simulated the only honest way available from inside the newer build — by treating
+   * the fields as the unknown keys they would be to an older one.
+   */
+  const NEWER_FIELDS = {
+    resolution: 'canceled',
+    hold: null,
+    hold_until: null,
+    started_at: '2026-08-15T00:00:00.000Z',
+    delegate: 'claude-code@host',
+    duplicate_of: null,
+  };
+
+  it('survives a file round trip', () => {
+    const raw = beadWithFutureField({ status: 'closed', ...NEWER_FIELDS });
+    const parsed = asIssue(raw);
+    const reparsed = parseIssue(serializeIssue(parsed));
+
+    for (const [key, value] of Object.entries(NEWER_FIELDS)) {
+      expect((reparsed as unknown as Record<string, unknown>)[key]).toEqual(value);
+    }
+  });
+
+  it('survives a three-way merge that touches an unrelated field', () => {
+    // The dangerous path: an older client merging a bead it does not fully understand
+    // must not drop what it cannot read. `tbd sync` rewrites beads during ordinary
+    // merges, so a strip here would lose the field for everyone, not just locally.
+    const base = asIssue(beadWithFutureField({ status: 'closed', ...NEWER_FIELDS }));
+    const local = asIssue(
+      beadWithFutureField({
+        status: 'closed',
+        ...NEWER_FIELDS,
+        title: 'Retitled locally',
+        updated_at: '2026-08-16T00:00:00.000Z',
+      }),
+    );
+    const remote = asIssue(beadWithFutureField({ status: 'closed', ...NEWER_FIELDS }));
+
+    const { merged } = mergeIssues(base, local, remote);
+    expect(merged.title).toBe('Retitled locally');
+    for (const [key, value] of Object.entries(NEWER_FIELDS)) {
+      expect((merged as unknown as Record<string, unknown>)[key]).toEqual(value);
+    }
+  });
+
+  it('counts a change to one of them as substantive, not cosmetic', () => {
+    // Otherwise a settled mirror would stop rewriting the bead and the change would
+    // never propagate.
+    const before = asIssue(beadWithFutureField({ status: 'closed', ...NEWER_FIELDS }));
+    const after = asIssue(
+      beadWithFutureField({
+        status: 'closed',
+        ...NEWER_FIELDS,
+        resolution: 'duplicate',
+        duplicate_of: ULID_A,
+      }),
+    );
+    expect(issuesSubstantivelyEqual(before, after)).toBe(false);
+  });
+});

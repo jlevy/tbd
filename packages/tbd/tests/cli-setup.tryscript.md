@@ -75,6 +75,9 @@ Working With Issues:
   update [options] <ids...>          Update one or more issues
   start [options] <ids...>           Claim issues: set them in progress and
                                      record who is working on them
+  pause [options] <ids...>           Set work down without losing that it
+                                     started
+  resume [options] <ids...>          Lift a hold and make the work movable again
   close [options] <ids...>           Close one or more issues
   reopen [options] <ids...>          Reopen one or more closed issues
   search [options] <query>           Search issues by text

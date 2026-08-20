@@ -10,7 +10,14 @@
  * each provider owns exactly one mapping table.
  */
 
-import type { Issue, IssueStatusType, PriorityType, ProviderNameType } from '../../lib/types.js';
+import type {
+  Issue,
+  IssueStatusType,
+  IssueResolutionType,
+  IssueHoldType,
+  PriorityType,
+  ProviderNameType,
+} from '../../lib/types.js';
 import type { SelectionBreakdown } from './selection.js';
 
 /**
@@ -32,9 +39,27 @@ export interface ExternalIssue extends ExternalRef {
   title: string;
   description: string | null;
   status: IssueStatusType;
+  /** Why terminal work ended, or null while it is still open. */
+  resolution: IssueResolutionType | null;
+  /** Why open work is not moving, or null when it is unheld. */
+  hold: IssueHoldType | null;
+  /**
+   * The board column this item sits in, when the provider can name one.
+   *
+   * Optional so an adapter that has not been taught slots keeps the five-value
+   * comparison rather than silently degrading to a coarser one.
+   */
+  slot?: string;
+  /**
+   * The provider's exact state id, so a column tbd has no name for can be written
+   * back as itself rather than as its band's generic default.
+   */
+  stateId?: string | null;
   priority: PriorityType;
   labels: string[];
   assignee: string | null;
+  /** The acting agent, when the provider names one tbd recognizes. */
+  delegate: string | null;
   /** False when a provider assignee exists but has no safe canonical mapping. */
   assigneeSyncable?: boolean;
   /** Safe, provider-authored mapping diagnostics to surface in the sync report. */
@@ -68,6 +93,24 @@ export interface CanonicalPatch {
   title?: string;
   description?: string | null;
   status?: IssueStatusType;
+  /**
+   * Why the work ended, refining a terminal `status`. Absent reads as `completed`.
+   *
+   * Carried beside `status` rather than folded into it because it only narrows the
+   * terminal end: a provider needs both to pick a state, and only the pair is lossless.
+   */
+  resolution?: IssueResolutionType | null;
+  /** Why open work is not moving. Carried with `status`, like `resolution`. */
+  hold?: IssueHoldType | null;
+  /** The board position to write, when the run compares slots. */
+  slot?: string;
+  /**
+   * Write this exact state instead of resolving one from the slot.
+   *
+   * Set when the issue sits in a column tbd has no name for and nothing has moved it
+   * out of that column's band, so the write puts it back where it was.
+   */
+  stateId?: string | null;
   priority?: PriorityType;
   /**
    * REPLACES the item's labels. Absent leaves them alone, which is the default:
@@ -85,6 +128,8 @@ export interface CanonicalPatch {
    */
   ensureLabels?: string[];
   assignee?: string | null;
+  /** The acting agent, published only when it names an installed provider agent. */
+  delegate?: string | null;
   parentId?: string | null;
   /**
    * The bead's own timestamps, for a provider that can backdate on create.
@@ -130,9 +175,25 @@ export interface AttachmentSpec {
  * `stateId`, and state names are user-editable so they cannot be the key) and
  * the label name-to-id map.
  */
+import type { ProviderMember, ActorBinding } from './actor-binding.js';
+
 export interface ProviderMeta {
-  /** Workflow state id by state `type`, e.g. `started` -> uuid. */
+  /**
+   * Workflow state id by state `type`, e.g. `started` -> uuid.
+   *
+   * Resolved by name (see `resolveStateId`), never by board position. A type with
+   * several states and no recognizable name is absent rather than guessed at.
+   */
   stateIdsByType: Record<string, string>;
+  /**
+   * Every workflow state the team has, in the provider's own words.
+   *
+   * Kept so a diagnostic can explain a resolution offline, and so a later phase can
+   * bind slots to states the type vocabulary cannot name.
+   */
+  states?: { id: string; name: string; type: string; position: number }[];
+  /** State types with several candidates and no conventional name among them. */
+  ambiguousStateTypes?: Record<string, string[]>;
   /** Label id by exact label name. */
   labelIdsByName: Record<string, string>;
   /** When this metadata was fetched (ISO 8601). */
@@ -162,6 +223,8 @@ export interface ConflictReport {
  * One planned mirror operation for a single bead.
  */
 export interface MirrorAction {
+  /** Fields excluded from `patch`, carried so the report can name them. */
+  skippedFields?: { field: string; reason: string }[];
   bead: Issue;
   /** Selected local parent whose provider identity must exist before this action. */
   parentBeadId?: string;
@@ -194,6 +257,15 @@ export interface MirrorReport {
   created: string[];
   updated: string[];
   skipped: { beadId: string; reason: string }[];
+  /**
+   * Fields that were dropped from an otherwise successful write, and why.
+   *
+   * Distinct from `skipped`, which is a whole bead that never went. A push that
+   * silently omits one field reports `skipped 0` and reads as complete success —
+   * observed live against a real workspace, where every `assignee` was dropped for
+   * want of a `user_map` entry and the summary said nothing at all.
+   */
+  skippedFields: { beadId: string; field: string; reason: string }[];
   /** Non-fatal failures: the run is degraded but git state is untouched. */
   failures: { beadId: string; error: string }[];
   /**
@@ -294,6 +366,24 @@ export interface TrackerAdapter {
 
   /** Resolve, and cache, the provider metadata needed to push. */
   ensureMeta(force?: boolean): Promise<ProviderMeta>;
+  /**
+   * Everyone the provider knows, for resolving a tbd handle to a real person.
+   *
+   * Optional on the interface: a provider with no directory (or an adapter that has
+   * not grown one yet) simply cannot resolve actors that way, and the caller falls
+   * back to the configured override instead of failing.
+   */
+  listMembers?(): Promise<ProviderMember[]>;
+  /** Resolve the handles a run will need, once, before per-bead checks. */
+  primeActors?(handles: readonly string[], bindings: readonly ActorBinding[]): Promise<void>;
+  /** Bindings discovered during {@link primeActors}, for the caller to persist. */
+  newActorBindings?(now: string): ActorBinding[];
+  /** Why a handle could not be published, for the field-level skip report. */
+  assigneeSkipReason?(assignee: string): string | undefined;
+  /** Whether this delegate names an installed provider agent. */
+  canPushDelegate?(delegate: string | null): boolean;
+  /** Why a delegate could not be published. */
+  delegateSkipReason?(delegate: string): string;
 
   /**
    * Inspect, and optionally create, the tracker-side scaffolding a sync depends on.
@@ -331,7 +421,7 @@ export function isWorkspaceLimitError(error: unknown): error is Error {
 /** One piece of tracker-side scaffolding and its state. */
 export interface ProvisionItem {
   /** What the thing is, for the operator: `label`, `label group`, or `project`. */
-  kind: 'label' | 'label group' | 'project';
+  kind: 'label' | 'label group' | 'project' | 'workflow state';
   /** The name tbd refers to it by. */
   name: string;
   /** `present` needed nothing; `created` was made now; `missing` is an unapplied gap. */

@@ -32,6 +32,7 @@ export interface MockIssue {
   completedAt: string | null;
   state: { id: string; name: string; type: string };
   assignee: { id: string; name: string; displayName: string; email?: string } | null;
+  delegate: { id: string; name: string; displayName: string } | null;
   labels: { nodes: MockLabel[] };
   parent: { id: string; identifier: string } | null;
   archivedAt: string | null;
@@ -69,6 +70,10 @@ export class LinearMockServer {
   readonly attachments: MockAttachment[] = [];
   readonly comments: MockComment[] = [];
   readonly requests: { query: string; variables: Record<string, unknown> }[] = [];
+  /** Installed agents (app users). Linear delegates are these, never people. */
+  readonly appUsers = [
+    { id: '00000000-0000-4000-8000-000000000a11', name: 'Cyrus', displayName: 'Cyrus' },
+  ];
   readonly users = [
     { id: 'user-1', name: 'Josh', displayName: 'Josh', email: 'josh@example.com' },
     { id: 'user-2', name: 'Test User', displayName: 'Test User', email: 'test@example.com' },
@@ -86,7 +91,7 @@ export class LinearMockServer {
   /** Number of attachment upserts to reject without retry. */
   attachmentFailures = 0;
 
-  readonly states = [
+  states = [
     { id: 'state-backlog', name: 'Backlog', type: 'backlog', position: 0 },
     { id: 'state-unstarted', name: 'Todo', type: 'unstarted', position: 1 },
     { id: 'state-started', name: 'In Progress', type: 'started', position: 2 },
@@ -172,6 +177,7 @@ export class LinearMockServer {
       completedAt: null,
       state: this.states[1]!,
       assignee: null,
+      delegate: null,
       labels: { nodes: [] },
       parent: null,
       archivedAt: null,
@@ -270,6 +276,68 @@ export class LinearMockServer {
             },
           },
         },
+      };
+    }
+
+    if (query.includes('mutation WorkflowStateUpdate')) {
+      const id = variables.id as string;
+      const input = variables.input as { position?: number };
+      const state = this.states.find((candidate) => candidate.id === id);
+      if (!state) {
+        return { status: 200, payload: { errors: [{ message: `Unknown state: ${id}` }] } };
+      }
+      if (typeof input.position === 'number') {
+        state.position = input.position;
+      }
+      return {
+        status: 200,
+        payload: { data: { workflowStateUpdate: { success: true, workflowState: state } } },
+      };
+    }
+
+    if (query.includes('mutation WorkflowStateCreate')) {
+      const input = variables.input as {
+        name: string;
+        type: string;
+        position: number;
+        color?: string;
+        teamId: string;
+      };
+      // Linear declares `color` as `String!`. Omitting it fails the mutation, and a
+      // mock that accepted it would let provisioning look correct while every live
+      // create was rejected — which is exactly what happened before this line existed.
+      if (!input.color) {
+        return {
+          status: 200,
+          payload: {
+            errors: [{ message: 'Field "color" of required type "String!" was not provided.' }],
+          },
+        };
+      }
+      if (input.teamId !== 'team-1') {
+        return {
+          status: 200,
+          payload: { errors: [{ message: `Unknown team: ${input.teamId}` }] },
+        };
+      }
+      // Linear enforces state-name uniqueness within a team, so a mock that allowed
+      // duplicates would let a non-idempotent provisioner look correct.
+      if (this.states.some((state) => state.name.toLowerCase() === input.name.toLowerCase())) {
+        return {
+          status: 200,
+          payload: { errors: [{ message: `Workflow state already exists: ${input.name}` }] },
+        };
+      }
+      const created = {
+        id: this.nextId('state'),
+        name: input.name,
+        type: input.type,
+        position: input.position,
+      };
+      this.states.push(created);
+      return {
+        status: 200,
+        payload: { data: { workflowStateCreate: { success: true, workflowState: created } } },
       };
     }
 
@@ -548,6 +616,12 @@ export class LinearMockServer {
           typeof input.assigneeId === 'string'
             ? (this.users.find((user) => user.id === input.assigneeId) ?? null)
             : null,
+        // Linear delegates are app users, never people — asking for a human here is
+        // rejected rather than quietly accepted, which is what the adapter must respect.
+        delegate:
+          typeof input.delegateId === 'string'
+            ? (this.appUsers.find((agent) => agent.id === input.delegateId) ?? null)
+            : null,
         parent:
           typeof input.parentId === 'string'
             ? (() => {
@@ -607,6 +681,12 @@ export class LinearMockServer {
         issue.assignee =
           typeof input.assigneeId === 'string'
             ? (this.users.find((user) => user.id === input.assigneeId) ?? null)
+            : null;
+      }
+      if ('delegateId' in input) {
+        issue.delegate =
+          typeof input.delegateId === 'string'
+            ? (this.appUsers.find((agent) => agent.id === input.delegateId) ?? null)
             : null;
       }
       if (Array.isArray(input.labelIds)) {

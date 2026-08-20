@@ -5,16 +5,23 @@
  * Prove a packed candidate upgrades real published repositories safely.
  *
  * Three baselines exercise the real-world path and distinct compatibility contracts:
- * - the latest published patch (0.6.3 / f07), which guards the immediate format boundary;
+ * - the oldest published f08 release (0.7.0), the same-format case: the weakest client
+ *   that must still read a repository this candidate has written;
  * - the common pre-f07 release (0.4.2 / f06), whose client must fail closed after upgrade;
  * - the last pre-f07 release (0.5.0 / f06), the older boundary.
  *
- * Note the first baseline changes meaning with each format bump. While the candidate was
- * f07 it was the same-format case and its client had to keep working; now the candidate
- * is f08, every published version is older-format, and all three must fail closed. That
- * is the point of the bump — a pre-f08 client parses beads in Zod strip mode and would
- * delete fields it does not know — so there is deliberately no same-format baseline
- * until the candidate ships.
+ * The first baseline changes meaning with each format bump, and has to be revisited the
+ * release *after* one. While the candidate was f07, 0.6.3 was the same-format case. The
+ * f08 bump made every published version older-format, so the same-format slot was
+ * deliberately left empty until an f08 build shipped — a pre-f08 client parses beads in
+ * Zod strip mode and would delete fields it does not know, which is the point of the
+ * bump. f08 shipped in 0.7.0, so the slot is filled again, and the additive-field path
+ * this release actually takes is covered rather than assumed.
+ *
+ * The *oldest* f08 release is the baseline rather than the newest, for two reasons. It
+ * is the weakest client that must still work, so it is the stronger test. And it stays
+ * strictly older than any candidate, including an unbumped working tree, so CI can run
+ * this gate on every branch instead of only at release time.
  */
 
 /**
@@ -48,7 +55,7 @@ const execFileAsync = promisify(execFile);
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageDir = join(scriptDir, '..');
 const sourceRepoDir = join(packageDir, '..', '..');
-const sameFormatBaseline = process.env.TBD_UPGRADE_SAME_FORMAT_FROM ?? '0.6.3';
+const sameFormatBaseline = process.env.TBD_UPGRADE_SAME_FORMAT_FROM ?? '0.7.0';
 const commonUpgradeBaseline = process.env.TBD_UPGRADE_COMMON_FROM ?? '0.4.2';
 const previousFormatBaseline = process.env.TBD_UPGRADE_PREVIOUS_FORMAT_FROM ?? '0.5.0';
 const managedUpgradePaths = new Set([
@@ -684,14 +691,34 @@ try {
     `Previous-format baseline resolved to ${String(previousFormatPackage.manifest.version)}`,
   );
 
+  // A same-format baseline is only a comparison if the candidate is a *different*
+  // version. Before the release bump the working tree still carries the last published
+  // version, so baseline and candidate are the same build and the scenario degenerates
+  // — setup reports no transition because there is none. Caught here, by name, rather
+  // than surfacing later as a confusing invariant about missing output.
+  invariant(
+    candidateVersion !== sameFormatBaseline,
+    `Candidate version ${candidateVersion} equals the same-format baseline. ` +
+      `Bump the version before running this gate, or set TBD_UPGRADE_SAME_FORMAT_FROM ` +
+      `to an earlier published release.`,
+  );
+
   await validateScenario({
     baseline: sameFormatPackage,
     baselineVersion: sameFormatBaseline,
     candidate,
     candidateVersion,
-    expectedBaselineFormat: 'f07',
-    expectManagedScriptChange: true,
-    expectOldClientToWork: false,
+    expectedBaselineFormat: 'f08',
+    // A same-format upgrade should not churn the managed launcher. Setting this false
+    // asserts the stronger thing: the script is byte-stable across a compatible patch.
+    // It was `true` while this slot held a format-bump baseline, where the rewrite is
+    // expected.
+    expectManagedScriptChange: false,
+    // The contract that distinguishes a same-format upgrade from a format bump: the
+    // older client must still read a repository this candidate has written. That is
+    // what makes an additive release additive, and it is only checkable once a
+    // published build shares the candidate's format.
+    expectOldClientToWork: true,
     name: 'latest-published',
     root: temporaryDir,
   });

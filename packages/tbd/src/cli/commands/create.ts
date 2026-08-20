@@ -34,6 +34,7 @@ interface CreateOptions {
   description?: string;
   file?: string;
   assignee?: string;
+  delegate?: string;
   due?: string;
   defer?: string;
   parent?: string;
@@ -186,6 +187,7 @@ class CreateHandler extends BaseCommand {
             updated_at: timestamp,
             description: description ?? undefined,
             assignee: options.assignee ?? undefined,
+            delegate: options.delegate ?? undefined,
             due_date: options.due ?? undefined,
             deferred_until: options.defer ?? undefined,
             parent_id: parentId,
@@ -284,7 +286,8 @@ export const createCommand = new Command('create')
   .option('-p, --priority <0-4>', 'Priority (0=critical, 4=lowest)', '2')
   .option('-d, --description <text>', 'Description ("-" reads stdin)')
   .option('-f, --file <path>', 'Read description from file ("-" reads stdin)')
-  .option('--assignee <name>', 'Assignee')
+  .option('--assignee <name>', 'Assignee: who is accountable')
+  .option('--delegate <name>', 'Delegate: who is acting, when that differs from the assignee')
   .option('--due <date>', 'Due date (ISO8601)')
   .option('--defer <date>', 'Defer until date (ISO8601)')
   .option('--parent <id>', 'Parent issue ID')

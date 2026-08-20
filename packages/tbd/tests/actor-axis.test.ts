@@ -1,0 +1,141 @@
+/**
+ * The actor axis: who is accountable versus who is acting.
+ *
+ * `tbd start` used to claim by writing the agent name into `assignee`, because that was
+ * the only actor field there was. In an agent-driven repository that is the wrong
+ * field: `assignee` answers "whose plate is this on", and an agent in that slot
+ * destroys the answer while adding one nobody asked for. A claim is a delegation, so it
+ * writes `delegate` and leaves `assignee` alone.
+ *
+ * These tests drive the built CLI rather than the handler, because the claim's value is
+ * the observable end state of the bead file — which field moved, and which did not.
+ */
+
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// Every case here spawns the built CLI several times, which costs seconds rather than
+// milliseconds and is sensitive to whatever else the suite is running in parallel. The
+// 5s default is a load measurement, not a correctness signal; this matches the timeout
+// the other binary-driving suites use.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 120_000 });
+
+const BIN = fileURLToPath(new URL('../dist/bin.mjs', import.meta.url));
+
+let repo: string;
+
+/** Run the built CLI in the scratch repo, returning trimmed stdout. */
+function tbd(args: string[], env: Record<string, string> = {}): string {
+  return execFileSync(process.execPath, [BIN, ...args], {
+    cwd: repo,
+    encoding: 'utf-8',
+    env: { ...process.env, ...env },
+  }).trim();
+}
+
+function show(id: string): Record<string, unknown> {
+  return JSON.parse(tbd(['show', id, '--json'])) as Record<string, unknown>;
+}
+
+function create(title: string): string {
+  return (JSON.parse(tbd(['create', title, '--json'])) as { id: string }).id;
+}
+
+beforeAll(async () => {
+  repo = await mkdtemp(join(tmpdir(), 'tbd-actor-'));
+  execFileSync('git', ['init', '-q', '.'], { cwd: repo });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: repo });
+  execFileSync('git', ['config', 'user.name', 'Test'], { cwd: repo });
+  execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'init'], { cwd: repo });
+  tbd(['init', '--prefix=act']);
+}, 120_000);
+
+afterAll(async () => {
+  await rm(repo, { recursive: true, force: true });
+});
+
+describe('tbd start claims the acting axis', () => {
+  it('writes the agent to delegate and leaves assignee untouched', () => {
+    const id = create('Claim me');
+    tbd(['update', id, '--assignee', 'josh']);
+    tbd(['start', id], { TBD_AGENT: 'claude-code' });
+
+    const issue = show(id);
+    expect(issue.status).toBe('in_progress');
+    expect(issue.delegate).toBe('claude-code');
+    // The accountable human survives the claim. This is the whole point.
+    expect(issue.assignee).toBe('josh');
+  });
+
+  it('claims an unassigned bead without inventing an assignee', () => {
+    const id = create('No owner');
+    tbd(['start', id], { TBD_AGENT: 'claude-code' });
+
+    const issue = show(id);
+    expect(issue.delegate).toBe('claude-code');
+    expect(issue.assignee ?? null).toBeNull();
+  });
+
+  it('reports another agent’s live claim instead of stealing it', () => {
+    const id = create('Contended');
+    tbd(['start', id], { TBD_AGENT: 'agent-one' });
+    const out = tbd(['start', id], { TBD_AGENT: 'agent-two' });
+
+    expect(out).toContain('already claimed by agent-one');
+    expect(show(id).delegate).toBe('agent-one');
+  });
+
+  it('is idempotent for the same agent', () => {
+    const id = create('Mine already');
+    tbd(['start', id], { TBD_AGENT: 'agent-one' });
+    expect(tbd(['start', id], { TBD_AGENT: 'agent-one' })).toContain('already yours');
+  });
+});
+
+describe('delegate is settable directly', () => {
+  it('accepts --delegate on create and update, and clears on empty', () => {
+    const id = create('Direct');
+    tbd(['update', id, '--delegate', 'cyrus']);
+    expect(show(id).delegate).toBe('cyrus');
+
+    // The empty-string-clears convention every other actor flag uses.
+    tbd(['update', id, '--delegate', '']);
+    expect(show(id).delegate ?? null).toBeNull();
+  });
+});
+
+describe('readiness follows the acting axis', () => {
+  it('keeps accountable-but-unclaimed work in the ready pool', () => {
+    const id = create('Owned but unclaimed');
+    tbd(['update', id, '--assignee', 'josh']);
+    // Recording who is accountable must not empty the ready list. In an agent-driven
+    // repository one human is accountable for nearly everything, so treating
+    // `assignee` as "taken" would leave `tbd ready` permanently empty.
+    expect(tbd(['ready', '--json'])).toContain(id);
+  });
+
+  it('drops work once an agent is actually acting on it', () => {
+    const id = create('Claimed');
+    tbd(['update', id, '--delegate', 'claude-code']);
+    expect(tbd(['ready', '--json'])).not.toContain(id);
+  });
+
+  it('drops held work regardless of its dependencies', () => {
+    const paused = create('Set down');
+    const blocked = create('Waiting');
+    tbd(['pause', paused]);
+    tbd(['update', blocked, '--hold', 'blocked']);
+
+    const ready = tbd(['ready', '--json']);
+    expect(ready).not.toContain(paused);
+    expect(ready).not.toContain(blocked);
+
+    // And returns once the hold lifts.
+    tbd(['resume', paused]);
+    expect(tbd(['ready', '--json'])).toContain(paused);
+  });
+});

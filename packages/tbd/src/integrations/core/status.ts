@@ -7,13 +7,15 @@
  * a network call to report.
  */
 
+import { dirname, join } from 'node:path';
+
 import { checkEnvIgnored, ENV_FILE_NAME } from '../../lib/env-file.js';
 import type { Config, ProviderNameType } from '../../lib/types.js';
 import {
   CREDENTIAL_ENV_VARS,
   maskSecret,
   resolveCredential,
-  type CredentialSource,
+  type ResolvedCredential,
 } from './credentials.js';
 import { configuredProviders, type ProviderConfig } from './registry.js';
 
@@ -55,15 +57,37 @@ export interface StatusOptions {
   probe?: ReachabilityProbe;
 }
 
-function describeSource(source: CredentialSource): string {
-  switch (source) {
+/**
+ * Name where a credential came from.
+ *
+ * A `.env` is named by its full path, because resolution can reach the main
+ * worktree's file and the bare name would not say which one answered. A path is
+ * not a secret; the value beside it is already masked.
+ */
+function describeSource(credential: ResolvedCredential): string {
+  switch (credential.source) {
     case 'env':
       return 'process environment';
     case 'dotenv':
-      return ENV_FILE_NAME;
+      // Every dotenv result carries its path today; the bare name is a
+      // type-honest fallback, not a reachable case.
+      return credential.path ?? ENV_FILE_NAME;
     case 'gh-cli':
       return 'gh auth token';
   }
+}
+
+/** One `.env` location's safety state: where it is and how git treats it. */
+interface EnvFileCheck {
+  dir: string;
+  path: string;
+  exists: boolean;
+  ignored: boolean;
+}
+
+async function checkEnvFile(dir: string): Promise<EnvFileCheck> {
+  const status = await checkEnvIgnored(dir);
+  return { dir, path: join(dir, ENV_FILE_NAME), ...status };
 }
 
 /**
@@ -72,40 +96,72 @@ function describeSource(source: CredentialSource): string {
  * An unignored `.env` holding an API key is the highest-cost, lowest-visibility
  * failure in this feature, so it is reported as an error even though nothing is
  * broken yet.
+ *
+ * When the credential came from outside this working tree (`loadedFrom`), BOTH
+ * files are examined and the worse one wins. Checking only the file in use would
+ * vouch by omission for a local `.env` nobody read: it can sit unignored, holding
+ * some other credential, while the finding reports the main worktree's file as
+ * safe. Checking only the local one is the inverse mistake, examining a file
+ * that is not the one holding the key. Worktrees make the two genuinely
+ * different: `.gitignore` is branch content, so one checkout can ignore `.env`
+ * while another does not.
+ *
+ * Paths appear in the detail and remedy only when two files are in play; the
+ * single-file case keeps its historical wording.
  */
-async function envFileFinding(repoRoot: string): Promise<StatusFinding> {
-  const status = await checkEnvIgnored(repoRoot);
-  if (!status.exists) {
-    if (!status.ignored) {
-      return {
-        label: ENV_FILE_NAME,
-        state: 'warn',
-        detail: 'not present and not gitignored',
-        remedy: `Add ${ENV_FILE_NAME} to .gitignore before creating it or putting any credential in it.`,
-      };
-    }
-    return {
-      label: ENV_FILE_NAME,
-      state: 'ok',
-      detail: 'not present and gitignored',
-    };
-  }
-  if (!status.ignored) {
+async function envFileFinding(repoRoot: string, loadedFrom?: string): Promise<StatusFinding> {
+  const local = await checkEnvFile(repoRoot);
+  const external =
+    loadedFrom && dirname(loadedFrom) !== repoRoot
+      ? await checkEnvFile(dirname(loadedFrom))
+      : undefined;
+  const naming = external !== undefined;
+  const where = (file: EnvFileCheck) => (naming ? ` (${file.path})` : '');
+  const remedyIn = (file: EnvFileCheck) => (naming ? ` in ${file.dir}` : '');
+
+  // An exposed file: exists and git would commit it. Local outranks external so
+  // the file the operator can fix from here is the one named first.
+  const exposed = [local, external].find((file) => file && file.exists && !file.ignored);
+  if (exposed) {
     return {
       label: ENV_FILE_NAME,
       state: 'error',
-      detail: 'present and NOT gitignored',
-      remedy: `Add ${ENV_FILE_NAME} to .gitignore before putting any credential in it. If a key was already committed, rotate it.`,
+      detail: `present and NOT gitignored${where(exposed)}`,
+      remedy: `Add ${ENV_FILE_NAME} to .gitignore${remedyIn(exposed)} before putting any credential in it. If a key was already committed, rotate it.`,
     };
   }
-  return { label: ENV_FILE_NAME, state: 'ok', detail: 'present and gitignored' };
+
+  if (!local.exists && !local.ignored) {
+    return {
+      label: ENV_FILE_NAME,
+      state: 'warn',
+      detail: `not present and not gitignored${where(local)}`,
+      remedy: `Add ${ENV_FILE_NAME} to .gitignore${remedyIn(local)} before creating it or putting any credential in it.`,
+    };
+  }
+
+  // Nothing is exposed; describe the file actually in use.
+  const inUse = external ?? local;
+  return {
+    label: ENV_FILE_NAME,
+    state: 'ok',
+    detail: inUse.exists
+      ? `present and gitignored${where(inUse)}`
+      : `not present and gitignored${where(inUse)}`,
+  };
+}
+
+/** A provider's findings, plus the `.env` its credential came from, if any. */
+interface ProviderStatusResult {
+  status: ProviderStatus;
+  envPath?: string;
 }
 
 async function providerStatus(
   entry: ProviderConfig,
   repoRoot: string,
   probe?: ReachabilityProbe,
-): Promise<ProviderStatus> {
+): Promise<ProviderStatusResult> {
   const findings: StatusFinding[] = [];
   const varName = CREDENTIAL_ENV_VARS[entry.provider];
 
@@ -116,7 +172,7 @@ async function providerStatus(
       detail: 'configured but disabled',
       remedy: `Set integrations.${entry.provider}.enabled: true to use it.`,
     });
-    return { provider: entry.provider, enabled: false, findings };
+    return { status: { provider: entry.provider, enabled: false, findings } };
   }
 
   findings.push({ label: 'enabled', state: 'ok', detail: 'yes' });
@@ -144,15 +200,16 @@ async function providerStatus(
       detail: `${varName} not found`,
       remedy: `Set ${varName} in the environment or add it to ${ENV_FILE_NAME} (which must be gitignored).`,
     });
-    return { provider: entry.provider, enabled: true, findings };
+    return { status: { provider: entry.provider, enabled: true, findings } };
   }
 
   findings.push({
     label: 'credential',
     state: 'ok',
     // Enough to tell two keys apart, never enough to use.
-    detail: `${maskSecret(credential.value)} from ${describeSource(credential.source)}`,
+    detail: `${maskSecret(credential.value)} from ${describeSource(credential)}`,
   });
+  const envPath = credential.source === 'dotenv' ? credential.path : undefined;
 
   if (!probe) {
     findings.push({
@@ -160,7 +217,10 @@ async function providerStatus(
       state: 'skipped',
       detail: 'network check not run',
     });
-    return { provider: entry.provider, enabled: true, findings };
+    return {
+      status: { provider: entry.provider, enabled: true, findings },
+      ...(envPath ? { envPath } : {}),
+    };
   }
 
   const result = await probe(entry.provider, credential.value, entry.target);
@@ -175,7 +235,10 @@ async function providerStatus(
         },
   );
 
-  return { provider: entry.provider, enabled: true, findings };
+  return {
+    status: { provider: entry.provider, enabled: true, findings },
+    ...(envPath ? { envPath } : {}),
+  };
 }
 
 /**
@@ -183,12 +246,24 @@ async function providerStatus(
  */
 export async function integrationStatus(options: StatusOptions): Promise<IntegrationStatus> {
   const entries = configuredProviders(options.config);
-  const envFile = await envFileFinding(options.repoRoot);
 
   const providers: ProviderStatus[] = [];
+  const loadedFrom = new Set<string>();
   for (const entry of entries) {
-    providers.push(await providerStatus(entry, options.repoRoot, options.probe));
+    const result = await providerStatus(entry, options.repoRoot, options.probe);
+    providers.push(result.status);
+    if (result.envPath) {
+      loadedFrom.add(result.envPath);
+    }
   }
+
+  // Providers run first so the safety check knows which file to examine. Only a
+  // file outside this working tree needs naming; the local one is what the check
+  // has always meant, and every provider that reaches outside reaches the same
+  // main worktree, so at most one path qualifies.
+  const localEnv = join(options.repoRoot, ENV_FILE_NAME);
+  const external = [...loadedFrom].find((path) => path !== localEnv);
+  const envFile = await envFileFinding(options.repoRoot, external);
 
   return { inert: entries.length === 0, envFile, providers };
 }
