@@ -59,6 +59,23 @@ interface UpdateOptions {
   ignoreMissing?: boolean;
 }
 
+/**
+ * Read a date option into a full timestamp.
+ *
+ * The stored field is an ISO datetime, but nobody types one: `--due 2026-12-01` is what
+ * a person writes, and rejecting it for want of a time of day is the tool being pedantic
+ * about its own storage format. Anything `Date` can parse is accepted and normalized;
+ * anything it cannot is refused by name, rather than reaching the schema and coming back
+ * as "Invalid datetime".
+ */
+function parseDateOption(value: string, flag: string): string {
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    throw new ValidationError(`Invalid ${flag} value: ${value}. Expected a date or timestamp.`);
+  }
+  return new Date(parsed).toISOString();
+}
+
 class UpdateHandler extends BaseCommand {
   async run(ids: string[], options: UpdateOptions): Promise<void> {
     if (ids.length === 1) {
@@ -710,11 +727,11 @@ class UpdateHandler extends BaseCommand {
     }
 
     if (options.due !== undefined) {
-      updates.due_date = options.due || null;
+      updates.due_date = options.due ? parseDateOption(options.due, '--due') : null;
     }
 
     if (options.defer !== undefined) {
-      updates.deferred_until = options.defer || null;
+      updates.deferred_until = options.defer ? parseDateOption(options.defer, '--defer') : null;
     }
 
     if (options.parent !== undefined) {

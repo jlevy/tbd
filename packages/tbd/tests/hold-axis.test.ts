@@ -146,3 +146,27 @@ describe('hold mapped to Linear', () => {
     expect(holdFromLinear(undefined, [BLOCKED_LABEL])).toBeNull();
   });
 });
+
+describe('date options accept what a person types', () => {
+  it('normalizes a plain date on --due and --defer', () => {
+    // The stored field is an ISO datetime, but nobody types one. Rejecting `2026-12-01`
+    // for want of a time of day is the tool being pedantic about its own storage.
+    const id = create('Due dated');
+    tbd(['update', id, '--due', '2026-12-01', '--defer', '2026-11-01']);
+    const issue = show(id);
+    expect(issue.due_date).toBe('2026-12-01T00:00:00.000Z');
+    expect(issue.deferred_until).toBe('2026-11-01T00:00:00.000Z');
+  });
+
+  it('refuses an unparseable date by flag name, not as a schema error', () => {
+    const id = create('Bad date');
+    expect(() => tbd(['update', id, '--due', 'soonish'])).toThrow(/Invalid --due value/);
+  });
+
+  it('still clears on an empty value', () => {
+    const id = create('Clearable');
+    tbd(['update', id, '--due', '2026-12-01']);
+    tbd(['update', id, '--due', '']);
+    expect(show(id).due_date ?? null).toBeNull();
+  });
+});
