@@ -850,6 +850,24 @@ function createConflictEntry(
  * @param local - Local version
  * @param remote - Remote version
  */
+/**
+ * Refspec that advances the remote-tracking ref, not just FETCH_HEAD.
+ *
+ * `git fetch <remote> <branch>` writes FETCH_HEAD and deliberately leaves
+ * `refs/remotes/<remote>/<branch>` alone. Every ahead/behind count and every
+ * merge-and-retry in this file compares against that remote-tracking ref, so a
+ * destination-less fetch left them reading a ref the fetch never moved: sync reported
+ * "Already in sync" against a remote 283 commits ahead, and a push rejected as
+ * non-fast-forward was reported as "Remote has conflicting changes".
+ *
+ * Silent staleness in the direction that looks like success is the worst failure this
+ * primitive can have, so the destination is explicit at every call rather than left to
+ * whatever the remote happens to configure.
+ */
+export function trackingRefspec(remote: string, branch: string): string {
+  return `refs/heads/${branch}:refs/remotes/${remote}/${branch}`;
+}
+
 export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): MergeResult {
   const conflicts: ConflictEntry[] = [];
 
@@ -1212,7 +1230,7 @@ export async function pushWithRetry(
       // Fetch the advanced remote and integrate it (a real merge that commits),
       // so the next push fast-forwards. onMergeNeeded must advance local
       // `syncBranch` to include `${remote}/${syncBranch}`.
-      await git(...dirArgs, 'fetch', remote, syncBranch);
+      await git(...dirArgs, 'fetch', remote, trackingRefspec(remote, syncBranch));
       allConflicts.push(...(await onMergeNeeded()));
 
       // Loop to retry push.
@@ -1756,7 +1774,7 @@ export async function pushFreshOrphan(
     }
 
     // Detected init race: the remote already has a (different) branch.
-    await gitNoPrompt('-C', baseDir, 'fetch', remote, syncBranch);
+    await gitNoPrompt('-C', baseDir, 'fetch', remote, trackingRefspec(remote, syncBranch));
 
     if (await worktreeHasUserIssues(dataSyncPath)) {
       throw new Error(
@@ -2027,7 +2045,7 @@ export async function initWorktree(
 
     if (probe === 'present') {
       // Fetch and create worktree from remote branch with local tracking branch
-      await git('-C', baseDir, 'fetch', remote, syncBranch);
+      await git('-C', baseDir, 'fetch', remote, trackingRefspec(remote, syncBranch));
       // Use -b to create local branch tracking remote, not --detach
       // This ensures commits update the local branch which can then be pushed
       await git(
@@ -2103,7 +2121,7 @@ export async function updateWorktree(
 
   try {
     try {
-      await git('-C', baseDir, 'fetch', remote, syncBranch);
+      await git('-C', baseDir, 'fetch', remote, trackingRefspec(remote, syncBranch));
     } catch {
       // Remote fetch may fail if offline - that's ok
     }
@@ -2198,7 +2216,7 @@ export async function checkRemoteBranchHealth(
 ): Promise<RemoteBranchHealth> {
   const dirArgs = baseDir ? ['-C', baseDir] : [];
   try {
-    await git(...dirArgs, 'fetch', remote, syncBranch);
+    await git(...dirArgs, 'fetch', remote, trackingRefspec(remote, syncBranch));
     const head = await git(...dirArgs, 'rev-parse', `refs/remotes/${remote}/${syncBranch}`);
     const remoteHead = head.trim();
 
@@ -2647,7 +2665,7 @@ export async function rescueUnrelatedHistory(
   }
 
   // 1. Fetch the remote so origin/<syncBranch> is current.
-  await gitNoPrompt('-C', baseDir, 'fetch', remote, syncBranch);
+  await gitNoPrompt('-C', baseDir, 'fetch', remote, trackingRefspec(remote, syncBranch));
 
   // Capture local state BEFORE the reset.
   const localIssues = await listIssues(dataSyncPath);
@@ -2744,7 +2762,7 @@ export async function countRemoteIssues(
   const dirArgs = baseDir ? ['-C', baseDir] : [];
   try {
     // Fetch the remote branch first
-    await git(...dirArgs, 'fetch', remote, syncBranch);
+    await git(...dirArgs, 'fetch', remote, trackingRefspec(remote, syncBranch));
 
     // List all files in the remote branch
     const remoteBranch = `${remote}/${syncBranch}`;

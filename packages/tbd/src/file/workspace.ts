@@ -20,7 +20,13 @@ import { ATTIC_ENTRY_FIELD_ORDER } from '../lib/schemas.js';
 
 import { listIssues, writeIssue, readIssue } from './storage.js';
 import { parseIssue } from './parser.js';
-import { mergeIssues, issuesSubstantivelyEqual, git, type ConflictEntry } from './git.js';
+import {
+  mergeIssues,
+  issuesSubstantivelyEqual,
+  git,
+  type ConflictEntry,
+  trackingRefspec,
+} from './git.js';
 import { loadIdMapping, saveIdMapping, addIdMapping, reconcileMappings } from './id-mapping.js';
 import {
   WORKSPACES_DIR,
@@ -291,7 +297,7 @@ export async function saveToWorkspace(
     // Try to fetch latest remote state (may fail if offline)
     try {
       log.progress('Fetching remote for comparison...');
-      await git('-C', tbdRoot, 'fetch', 'origin', 'tbd-sync');
+      await git('-C', tbdRoot, 'fetch', 'origin', trackingRefspec('origin', 'tbd-sync'));
       log.debug('Fetch succeeded');
     } catch (fetchError) {
       const fetchMsg = fetchError instanceof Error ? fetchError.message : String(fetchError);
