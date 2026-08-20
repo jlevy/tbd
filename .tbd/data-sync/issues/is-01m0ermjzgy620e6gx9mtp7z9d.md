@@ -3,9 +3,9 @@ type: is
 id: is-01m0ermjzgy620e6gx9mtp7z9d
 title: Close out the state/actor axis loose ends
 kind: task
-status: in_progress
+status: closed
 priority: 1
-version: 15
+version: 16
 spec_path: docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md
 delegate: null
 labels: []
@@ -22,8 +22,12 @@ child_order_hints:
 hold: null
 hold_until: null
 created_at: 2026-08-20T04:59:57.787Z
-updated_at: 2026-08-20T05:22:11.772Z
+updated_at: 2026-08-20T05:53:40.785Z
 started_at: 2026-08-20T05:21:32.736Z
+closed_at: 2026-08-20T05:53:40.783Z
+close_reason: All eight children closed. Two were real defects (dead exhaustiveness guards since f08, which also exposed docs/refs never reaching tbd changes; and a skip-only sync reporting 'nothing to do'). Three were claimed properties with no test or verification behind them (f08 passthrough, directory-bound assignment live, Draft/Blocked columns live). Three were unbuilt features now built (prompt on ambiguous state resolution, board-order repair, formatted invariant errors). Nothing deferred.
+resolution: null
+duplicate_of: null
 extensions:
   linear:
     id: 7347e45a-b0d0-45ca-b0ac-9d0f0cad4075
