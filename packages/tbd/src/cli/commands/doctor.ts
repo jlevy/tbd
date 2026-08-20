@@ -794,7 +794,11 @@ class DoctorHandler extends BaseCommand {
   }
 
   private async checkNpmGlobalBin(): Promise<DiagnosticResult> {
-    return classifyNpmGlobalBin(await readNpmGlobalPrefix(), process.env.PATH, process.platform);
+    return classifyNpmGlobalBin(
+      await readNpmGlobalPrefix(process.platform),
+      process.env.PATH,
+      process.platform,
+    );
   }
 
   private async checkConfig(): Promise<DiagnosticResult> {

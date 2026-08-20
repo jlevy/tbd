@@ -401,6 +401,7 @@ Load the **General engineering** group first, then the language or framework gro
 
 | Name | Description |
 | --- | --- |
+| agent-session-bootstrap | When and how to make a repository install its own pinned toolchain at agent session start, for repos whose agents run in containers they do not control. Covers the fit test, the alternatives that are usually better, the install rules a bootstrap must follow, and the PATH and pin-drift traps that make one fail silently. Use when an agent session starts without the tools the repo requires, when writing or reviewing a SessionStart hook, or when deciding between a session hook and a provisioned image. |
 | cli-agent-skill-patterns | A concise decision guide for portable skills, CLI-backed skills, safe bundle installation, and agent integration |
 | common-doc-guidelines | Common cross-project standards for writing and organizing docs, code comments, and text files—how to organize, structure, write, and format documents, plus the guideline footer convention. Downstream of github.com/jlevy/practical-prose. Use whenever writing or editing any documentation, README, guideline, or design doc. |
 | electrobun-app-development-patterns | Building desktop apps with Electrobun—runtime and process model, typed RPC, project layout, packaging and the delta updater, plus an evidence-based maturity and security assessment |

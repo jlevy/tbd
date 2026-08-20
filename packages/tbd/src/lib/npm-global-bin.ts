@@ -27,8 +27,12 @@ const NPM_PREFIX_TIMEOUT_MS = 5000;
  *
  * The bare `node:path` exports follow the host, so `delimiter` would be `;` and
  * `resolve` would apply drive letters when these functions run on Windows. Selecting
- * the implementation from the caller's platform keeps them pure and testable from any
- * host, which is what the cross-platform CI matrix exercises.
+ * the implementation from the caller's platform makes them testable from any host,
+ * which is what the cross-platform CI matrix exercises.
+ *
+ * This holds for absolute inputs, which is all npm prefixes and PATH entries are in
+ * practice: both `resolve` implementations still fall back to the host's `process.cwd()`
+ * for a relative input, and no platform argument can change that.
  */
 function pathFor(platform: NodeJS.Platform): PlatformPath {
   return platform === 'win32' ? win32 : posix;
@@ -49,6 +53,12 @@ export function npmGlobalBinDir(prefix: string, platform: NodeJS.Platform): stri
  *
  * Entries are compared as resolved paths so `/usr/local/bin/` and `/usr/local/bin`
  * match, and case-insensitively on Windows.
+ *
+ * Windows entries containing spaces are commonly quoted (`"C:\Program Files\nodejs"`),
+ * and `cmd.exe` strips those quotes when it searches PATH, so this does too. A missed
+ * match here would be worse than a miss elsewhere: the caller would tell the user to add
+ * a directory that is already on PATH. POSIX has no such convention, so a quote there is
+ * an ordinary filename character and is left alone.
  */
 export function isDirOnPath(
   dir: string,
@@ -60,8 +70,10 @@ export function isDirOnPath(
   }
 
   const path = pathFor(platform);
+  const unquote = (value: string): string =>
+    platform === 'win32' ? value.replace(/^"(.*)"$/s, '$1') : value;
   const normalize = (value: string): string => {
-    const resolved = path.resolve(value);
+    const resolved = path.resolve(unquote(value));
     return platform === 'win32' ? resolved.toLowerCase() : resolved;
   };
 
@@ -73,14 +85,37 @@ export function isDirOnPath(
 }
 
 /**
+ * The command that prints npm's global prefix on the target platform.
+ *
+ * Windows npm is a `npm.cmd` shim, and Node documents `.bat` and `.cmd` files as "not
+ * executable on their own without a terminal, and therefore cannot be launched using
+ * `child_process.execFile()`". A bare `npm` there throws ENOENT on every machine, which
+ * this module's caller cannot distinguish from "npm is not installed" — so the check
+ * would silently never run on the one platform whose global bin layout differs. Go
+ * through `cmd.exe`, the same form `openBrowser` already uses, rather than `shell: true`,
+ * which Node deprecates for argument-taking spawns (DEP0190).
+ *
+ * Exported so the Windows branch is provable from any host, like the path helpers below.
+ */
+export function npmPrefixCommand(platform: NodeJS.Platform): {
+  file: string;
+  args: string[];
+} {
+  return platform === 'win32'
+    ? { file: 'cmd.exe', args: ['/d', '/s', '/c', 'npm', 'prefix', '-g'] }
+    : { file: 'npm', args: ['prefix', '-g'] };
+}
+
+/**
  * Read npm's global prefix, or null when npm is unavailable or does not answer.
  *
  * A missing npm is not an error here: it means there is no global install location to
  * misconfigure. Callers report that as "nothing to check", not as a failure.
  */
-export async function readNpmGlobalPrefix(): Promise<string | null> {
+export async function readNpmGlobalPrefix(platform: NodeJS.Platform): Promise<string | null> {
+  const { file, args } = npmPrefixCommand(platform);
   try {
-    const { stdout } = await execFileAsync('npm', ['prefix', '-g'], {
+    const { stdout } = await execFileAsync(file, args, {
       timeout: NPM_PREFIX_TIMEOUT_MS,
     });
     const prefix = stdout.trim();

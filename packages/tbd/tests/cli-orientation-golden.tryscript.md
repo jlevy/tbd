@@ -73,6 +73,14 @@ Use 'tbd stats' for issue statistics, 'tbd doctor' for health checks.
 
 This is the complete output of `tbd doctor`.
 
+The `...` after the Git version line tolerates the `npm global bin` finding, which
+describes the surrounding environment rather than the repository: it is silent on a
+machine whose npm global bin directory is on PATH and reports a warning (naming a
+machine-specific path) on one where it is not.
+Pinning either shape would fail the suite on the other, and the contributors most likely
+to see the warning are exactly the ones this check exists for.
+Every other line stays pinned.
+
 # Test: Doctor full output
 
 ```console
@@ -106,6 +114,7 @@ INTEGRATIONS
 
 HEALTH CHECKS
 ✓ Git version - [GIT_VERSION]
+...
 ✓ Config file (.tbd/config.yml)
 ✓ Launcher fallback
 ✓ Issues directory (.tbd/issues)

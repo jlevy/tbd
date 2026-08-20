@@ -10,7 +10,25 @@
 import { describe, it, expect } from 'vitest';
 
 import { classifyNpmGlobalBin } from '../src/cli/commands/doctor.js';
-import { isDirOnPath, npmGlobalBinDir } from '../src/lib/npm-global-bin.js';
+import { isDirOnPath, npmGlobalBinDir, npmPrefixCommand } from '../src/lib/npm-global-bin.js';
+
+describe('npmPrefixCommand', () => {
+  it('runs npm directly on POSIX platforms', () => {
+    expect(npmPrefixCommand('linux')).toEqual({ file: 'npm', args: ['prefix', '-g'] });
+    expect(npmPrefixCommand('darwin')).toEqual({ file: 'npm', args: ['prefix', '-g'] });
+  });
+
+  // Windows npm is a .cmd shim, which execFile cannot launch; a bare `npm` there throws
+  // ENOENT and the whole check degrades to "npm not available". Without this the finding
+  // never fires on the one platform whose global bin layout actually differs, and no
+  // amount of green Windows CI would show it, because nothing else spawns npm.
+  it('goes through cmd.exe on Windows, where npm is a .cmd shim', () => {
+    expect(npmPrefixCommand('win32')).toEqual({
+      file: 'cmd.exe',
+      args: ['/d', '/s', '/c', 'npm', 'prefix', '-g'],
+    });
+  });
+});
 
 describe('npmGlobalBinDir', () => {
   it('appends bin to the prefix on POSIX platforms', () => {
@@ -47,6 +65,19 @@ describe('isDirOnPath', () => {
 
   // These pin platform semantics to the argument rather than the host, so the
   // cross-platform CI matrix gets the same answers from every runner.
+  // cmd.exe strips the quotes Windows uses around entries containing spaces, so a
+  // quoted entry is on PATH. Missing it would tell the user to add a directory that is
+  // already there, which is worse than saying nothing.
+  it('matches a quoted Windows PATH entry', () => {
+    expect(
+      isDirOnPath('C:\\Program Files\\nodejs', '"C:\\Program Files\\nodejs";C:\\Windows', 'win32'),
+    ).toBe(true);
+  });
+
+  it('treats a quote as an ordinary character on POSIX, which has no such convention', () => {
+    expect(isDirOnPath('/usr/local/bin', '"/usr/local/bin":/bin', 'linux')).toBe(false);
+  });
+
   it('splits a Windows PATH on ; and compares case-insensitively', () => {
     expect(isDirOnPath('C:\\npm-global', 'C:\\Windows;C:\\npm-global', 'win32')).toBe(true);
     expect(isDirOnPath('C:\\NPM-Global', 'C:\\npm-global', 'win32')).toBe(true);
