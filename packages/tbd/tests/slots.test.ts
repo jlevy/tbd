@@ -13,9 +13,17 @@ import {
   computeSlot,
   decomposeSlot,
   bandOf,
+  migrateBaseSlot,
+  slotsAgree,
   SLOTS,
   isSlot,
 } from '../src/integrations/core/slots.js';
+import {
+  slotFromLinear,
+  slotToLinear,
+  PAUSED_LABEL,
+  BLOCKED_LABEL,
+} from '../src/integrations/linear/mapping.js';
 
 describe('computeSlot precedence', () => {
   it('lets a terminal resolution outrank everything else', () => {
@@ -141,5 +149,97 @@ describe('isSlot', () => {
     }
     expect(isSlot('deferred')).toBe(false);
     expect(isSlot('')).toBe(false);
+  });
+});
+
+describe('base migration', () => {
+  it('reports every legacy status as a coarse slot in the right band', () => {
+    const expected: Record<string, string> = {
+      open: 'open',
+      in_progress: 'started',
+      blocked: 'started',
+      deferred: 'open',
+      closed: 'terminal',
+    };
+    for (const [status, band] of Object.entries(expected)) {
+      const migrated = migrateBaseSlot(status as never);
+      expect(bandOf(migrated.slot)).toBe(band);
+      // Always coarse: a status simply cannot carry the finer distinction.
+      expect(migrated.coarse).toBe(true);
+    }
+  });
+
+  it('treats a within-band difference as agreement while the base is coarse', () => {
+    // THE upgrade property. A base holding `open` never recorded whether the work was
+    // ready, so a local `todo` against a remote `backlog` is a distinction the base
+    // cannot arbitrate. Flowing it in either direction would invent a change, and on a
+    // repository with hundreds of mirrored issues that is a state write to every one.
+    expect(slotsAgree('todo', 'backlog', true)).toBe(true);
+    expect(slotsAgree('draft', 'todo', true)).toBe(true);
+    expect(slotsAgree('in_progress', 'in_review', true)).toBe(true);
+    expect(slotsAgree('done', 'canceled', true)).toBe(true);
+  });
+
+  it('still sees a cross-band difference through a coarse base', () => {
+    // Silence within a band must not become blindness across bands.
+    expect(slotsAgree('todo', 'in_progress', true)).toBe(false);
+    expect(slotsAgree('in_progress', 'done', true)).toBe(false);
+  });
+
+  it('compares exactly once the base records a real slot', () => {
+    expect(slotsAgree('todo', 'backlog', false)).toBe(false);
+    expect(slotsAgree('in_progress', 'in_review', false)).toBe(false);
+    expect(slotsAgree('paused', 'paused', false)).toBe(true);
+  });
+});
+
+describe('slot mapping to and from Linear', () => {
+  it('reads the started columns apart by name, which the type cannot do', () => {
+    expect(slotFromLinear('started', 'In Progress', [])).toBe('in_progress');
+    expect(slotFromLinear('started', 'Paused', [])).toBe('paused');
+    expect(slotFromLinear('started', 'Blocked', [])).toBe('blocked');
+    expect(slotFromLinear('started', 'In Review', [])).toBe('in_review');
+  });
+
+  it('prefers a carrier label over a name, since tbd wrote the label', () => {
+    expect(slotFromLinear('started', 'In Review', [PAUSED_LABEL])).toBe('paused');
+  });
+
+  it("treats a team's own started column as plain started work", () => {
+    // Agreement-wise it is just started; its exact state id is preserved elsewhere so
+    // an outbound write does not drag it out of the team's column.
+    expect(slotFromLinear('started', 'In QA', [])).toBe('in_progress');
+  });
+
+  it('separates the terminal types instead of collapsing them', () => {
+    expect(slotFromLinear('completed', 'Done', [])).toBe('done');
+    expect(slotFromLinear('canceled', 'Canceled', [])).toBe('canceled');
+    expect(slotFromLinear('duplicate', 'Duplicate', [])).toBe('duplicate');
+  });
+
+  it('splits the open band by column name', () => {
+    expect(slotFromLinear('unstarted', 'Todo', [])).toBe('todo');
+    expect(slotFromLinear('backlog', 'Backlog', [])).toBe('backlog');
+    expect(slotFromLinear('backlog', 'Draft', [])).toBe('draft');
+  });
+
+  it('fails soft on an unknown state type rather than aborting a sync', () => {
+    expect(slotFromLinear('someFutureType', 'Whatever', [])).toBe('backlog');
+  });
+
+  it('round-trips every slot through the outbound mapping', () => {
+    for (const slot of SLOTS) {
+      const target = slotToLinear(slot);
+      expect(slotFromLinear(target.stateType, target.stateName, target.labels)).toBe(slot);
+    }
+  });
+
+  it('offers a carrier label only where a team may lack the column', () => {
+    // Paused and Blocked can be absent, so they need a fallback. Done, Canceled and
+    // Duplicate are default types in every team and need none.
+    expect(slotToLinear('paused').labels).toEqual([PAUSED_LABEL]);
+    expect(slotToLinear('blocked').labels).toEqual([BLOCKED_LABEL]);
+    expect(slotToLinear('done').labels).toEqual([]);
+    expect(slotToLinear('canceled').labels).toEqual([]);
   });
 });

@@ -181,3 +181,64 @@ export function decomposeSlot(slot: Slot): SlotDecomposition {
 export function isSlot(value: string): value is Slot {
   return (SLOTS as readonly string[]).includes(value);
 }
+
+/**
+ * The slot a stored base's five-value status represents, coarsely.
+ *
+ * Every base written before slots existed holds a status, and a status cannot express
+ * the distinctions slots exist for. `open` is the lossy one: it could have been Todo or
+ * Backlog and the base never recorded which, because readiness was not part of the
+ * comparison.
+ */
+function slotFromLegacyStatus(status: IssueStatusType): Slot {
+  switch (status) {
+    case 'closed':
+      return 'done';
+    case 'in_progress':
+      return 'in_progress';
+    case 'blocked':
+      return 'blocked';
+    case 'deferred':
+      return 'backlog';
+    default:
+      return 'backlog';
+  }
+}
+
+/**
+ * The slot a legacy base stands for, and how much it can be trusted.
+ *
+ * A base written before slots existed holds only a status, and a status cannot express
+ * the distinctions slots exist for: `open` could have meant Todo or Backlog, `closed`
+ * could have meant Done or Canceled, and the base never recorded which. So the migrated
+ * value comes with a warning that it is *coarse* — accurate about the band, silent
+ * within it.
+ *
+ * That silence is the whole difficulty. Read naively, a bead now computing `todo`
+ * disagrees with a base migrated to `backlog`, and on a repository with hundreds of
+ * mirrored issues the first sync after upgrading would push a state write to every one
+ * of them. The correct number of writes is zero, and "the bulk guard stopped it" is not
+ * the same as "it was right".
+ *
+ * The caller therefore compares *bands* while a base is coarse, so a distinction the
+ * base could not have recorded is treated as no disagreement in either direction rather
+ * than as a change to be flowed. Once a run stores a real slot the comparison becomes
+ * exact.
+ */
+export function migrateBaseSlot(baseStatus: IssueStatusType): {
+  slot: Slot;
+  coarse: true;
+} {
+  return { slot: slotFromLegacyStatus(baseStatus), coarse: true };
+}
+
+/**
+ * Whether two slots should count as the same position.
+ *
+ * Exact once the base records a real slot. Band-level while it is still the coarse
+ * migration of a legacy status, because the base is silent within a band rather than in
+ * disagreement about it.
+ */
+export function slotsAgree(a: Slot, b: Slot, baseIsCoarse: boolean): boolean {
+  return baseIsCoarse ? bandOf(a) === bandOf(b) : a === b;
+}

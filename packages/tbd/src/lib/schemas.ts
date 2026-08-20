@@ -593,6 +593,14 @@ export const COMMENTS_PER_BEAD_CAP = 50;
 export const BridgeBaseSchema = z.object({
   title: z.string(),
   status: IssueStatus,
+  /**
+   * The board position agreed at the last sync, once a run compares slots.
+   *
+   * Optional because every base written before slots existed holds only `status`.
+   * Absent, it is derived on read rather than backfilled by a migration pass, so
+   * upgrading writes nothing until a pair syncs for its own reasons.
+   */
+  slot: z.string().optional(),
   priority: Priority,
   labels: z.array(z.string()).default([]),
   assignee: z.string().nullable().optional(),

@@ -90,6 +90,8 @@ export interface CanonicalPatch {
   resolution?: IssueResolutionType | null;
   /** Why open work is not moving. Carried with `status`, like `resolution`. */
   hold?: IssueHoldType | null;
+  /** The board position to write, when the run compares slots. */
+  slot?: string;
   priority?: PriorityType;
   /**
    * REPLACES the item's labels. Absent leaves them alone, which is the default:

@@ -5,6 +5,7 @@
  * writes its own table and changes nothing else.
  */
 
+import type { Slot } from '../core/slots.js';
 import type {
   IssueStatusType,
   IssueResolutionType,
@@ -326,4 +327,91 @@ export function holdFromLinear(
     return 'blocked';
   }
   return null;
+}
+
+/**
+ * The slot a Linear state represents.
+ *
+ * Read from the state's **name** first and its type second. The type alone cannot tell
+ * In Progress from Paused, Blocked, or In Review — all four are `started` — which is
+ * the whole reason slots exist. The name is what a team actually calls the column, so
+ * it is what carries the distinction.
+ *
+ * A `started` state whose name tbd does not recognize returns `in_progress`: for
+ * agreement purposes it is simply started work, and the caller preserves its exact
+ * state id separately so an outbound write puts the issue back in the team's own column
+ * rather than dragging it to a generic one.
+ */
+export function slotFromLinear(
+  stateType: string,
+  stateName: string | undefined,
+  labels: readonly string[],
+): Slot {
+  const name = stateName?.trim().toLowerCase();
+
+  switch (stateType) {
+    case 'completed':
+      return 'done';
+    case 'canceled':
+      return 'canceled';
+    case 'duplicate':
+      return 'duplicate';
+    case 'started':
+      // Carrier labels win over the name: they are what tbd itself writes, so they are
+      // unambiguous, while a name is a team's own wording.
+      if (labels.includes(PAUSED_LABEL) || name === 'paused') {
+        return 'paused';
+      }
+      if (labels.includes(BLOCKED_LABEL) || name === 'blocked') {
+        return 'blocked';
+      }
+      if (name === 'in review') {
+        return 'in_review';
+      }
+      return 'in_progress';
+    case 'backlog':
+      if (name === 'draft') {
+        return 'draft';
+      }
+      return 'backlog';
+    case 'unstarted':
+      return 'todo';
+    default:
+      // An unrecognized type should never abort a sync; the open band is the least
+      // destructive assumption, matching `statusFromLinear`.
+      return 'backlog';
+  }
+}
+
+/**
+ * Where a slot should be written on the Linear side.
+ *
+ * The outbound half of {@link slotFromLinear}. `stateName` is a preference rather than
+ * a requirement: a team that has the column gets a real one, and a team that does not
+ * falls back to the type's default plus a carrier label, which is the degradation
+ * `blocked` and `deferred` have always used.
+ */
+export function slotToLinear(slot: Slot): LinearStatusTarget {
+  switch (slot) {
+    case 'done':
+      return { stateType: 'completed', labels: [] };
+    case 'canceled':
+      return { stateType: 'canceled', labels: [] };
+    case 'duplicate':
+      return { stateType: 'duplicate', labels: [] };
+    case 'paused':
+      return { stateType: 'started', stateName: 'Paused', labels: [PAUSED_LABEL] };
+    case 'blocked':
+      return { stateType: 'started', stateName: 'Blocked', labels: [BLOCKED_LABEL] };
+    case 'in_review':
+      return { stateType: 'started', stateName: 'In Review', labels: [] };
+    case 'in_progress':
+      return { stateType: 'started', labels: [] };
+    case 'draft':
+      return { stateType: 'backlog', stateName: 'Draft', labels: [] };
+    case 'todo':
+      return { stateType: 'unstarted', labels: [] };
+    default:
+      return { stateType: 'backlog', labels: [] };
+  }
 }

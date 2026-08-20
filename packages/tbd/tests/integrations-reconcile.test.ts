@@ -367,3 +367,73 @@ describe('labels compare as sets', () => {
     expect(empty(result)).toBe(true);
   });
 });
+
+describe('slots in the matrix', () => {
+  it('ignores slots entirely unless both sides supply one', () => {
+    // The widening is inert until callers are taught to compute slots, so a provider
+    // or caller that cannot keeps the five-value comparison byte for byte.
+    expect(empty(reconcile(base(), local({ slot: 'todo' }), remote(), RULES))).toBe(true);
+    expect(empty(reconcile(base(), local(), remote({ slot: 'todo' }), RULES))).toBe(true);
+  });
+
+  it('writes nothing when a coarse base cannot arbitrate the difference', () => {
+    // THE upgrade property, and the case that actually bites. Every base predating
+    // slots holds `status: open`, which could have meant Todo or Backlog and never
+    // recorded which. Here the bead is ready (`todo`) while its issue sits in the
+    // Backlog column — they genuinely differ, and the base cannot say which is newer
+    // because it was silent on the distinction. Flowing it either way invents a change,
+    // and on a repository with hundreds of mirrored pairs that is a write to every one.
+    const result = reconcile(
+      base({ status: 'open' }),
+      local({ slot: 'todo' }),
+      remote({ slot: 'backlog' }),
+      RULES,
+    );
+    expect(empty(result)).toBe(true);
+  });
+
+  it('writes nothing when a coarse closed base meets a resolution it never knew', () => {
+    const result = reconcile(
+      base({ status: 'closed' }),
+      local({ status: 'closed', slot: 'canceled' }),
+      remote({ status: 'closed', slot: 'done' }),
+      RULES,
+    );
+    expect(empty(result)).toBe(true);
+  });
+
+  it('still sees a real cross-band change through a coarse base', () => {
+    // Silence about a within-band distinction must not become blindness to a genuine
+    // move. Local started, remote still in the open band: that is a push.
+    const result = reconcile(
+      base({ status: 'open' }),
+      local({ status: 'in_progress', slot: 'in_progress' }),
+      remote({ slot: 'backlog' }),
+      RULES,
+    );
+    expect(result.externalPatch.slot).toBe('in_progress');
+  });
+
+  it('compares exactly once the base records a slot', () => {
+    // After the first run the base is no longer coarse, so a within-band move is a
+    // real difference the matrix acts on.
+    const rules = FieldSyncClauseSchema.parse({ fields: { status: 'merge' } });
+    const result = reconcile(
+      base({ status: 'in_progress', slot: 'in_progress' }),
+      local({ status: 'in_progress', slot: 'in_progress' }),
+      remote({ slot: 'paused' }),
+      rules,
+    );
+    expect(result.beadPatch.slot).toBe('paused');
+  });
+
+  it('treats an identical slot as no disagreement at all', () => {
+    const result = reconcile(
+      base({ status: 'in_progress', slot: 'in_progress' }),
+      local({ status: 'in_progress', slot: 'in_progress' }),
+      remote({ slot: 'in_progress' }),
+      RULES,
+    );
+    expect(empty(result)).toBe(true);
+  });
+});
