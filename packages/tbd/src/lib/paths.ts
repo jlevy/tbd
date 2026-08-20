@@ -218,7 +218,27 @@ async function resolveWorktreeTopLevel(cwd: string): Promise<string> {
  * directory outside any repository. Callers treat undefined as "skip this layer",
  * never as an error, so behavior outside a repository is unchanged.
  */
-export async function resolveMainWorktree(baseDir: string): Promise<string | undefined> {
+export function resolveMainWorktree(baseDir: string): Promise<string | undefined> {
+  let pending = mainWorktreeByBaseDir.get(baseDir);
+  if (!pending) {
+    pending = resolveMainWorktreeUncached(baseDir);
+    mainWorktreeByBaseDir.set(baseDir, pending);
+  }
+  return pending;
+}
+
+/**
+ * Memo for {@link resolveMainWorktree}, keyed by `baseDir`.
+ *
+ * One answer costs three or four git spawns and every provider asks the same
+ * question (`integration status` asks once for Linear and once for GitHub), so
+ * identical questions within a process share the first answer. Worktree topology
+ * does not change mid-command; `.env` CONTENT is not cached anywhere and is
+ * reread on every resolution.
+ */
+const mainWorktreeByBaseDir = new Map<string, Promise<string | undefined>>();
+
+async function resolveMainWorktreeUncached(baseDir: string): Promise<string | undefined> {
   let gitCommonDir: string;
   try {
     gitCommonDir = await resolveGitCommonDir(baseDir);

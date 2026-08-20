@@ -9,7 +9,7 @@ author: Joshua Levy (github.com/jlevy) with Claude assistance
 
 **Author:** Joshua Levy (github.com/jlevy) with Claude assistance
 
-**Status:** Draft
+**Status:** Implemented
 
 ## Overview
 
@@ -171,13 +171,13 @@ stays invisible.
 One phase. The four steps are sequential because each consumes the previous one’s
 surface.
 
-- [ ] **Main-worktree helper** (`tbd-mcw6`). The validated resolver, built on
+- [x] **Main-worktree helper** (`tbd-mcw6`). The validated resolver, built on
   `resolveGitCommonDir`, returning nothing rather than raising.
-- [ ] **Credential fallback** (`tbd-fzm7`). Layer 3 wired into `resolveCredential`, with
+- [x] **Credential fallback** (`tbd-fzm7`). Layer 3 wired into `resolveCredential`, with
   the read path carried on the result.
-- [ ] **Source reporting** (`tbd-lxjr`). Status names the file, and the `.env` safety
+- [x] **Source reporting** (`tbd-lxjr`). Status names the file, and the `.env` safety
   finding follows it.
-- [ ] **Tests and setup guidance** (`tbd-0tc3`).
+- [x] **Tests and setup guidance** (`tbd-0tc3`).
 
 ## Testing Strategy
 

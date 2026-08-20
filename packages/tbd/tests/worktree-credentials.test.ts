@@ -264,6 +264,23 @@ describe('status reporting of the credential source', () => {
     expect(status.envFile.detail).toContain(join(await realish(main), '.env'));
   });
 
+  it('flags an unignored local .env even when the credential comes from the main worktree', async () => {
+    await writeFile(join(main, '.gitignore'), '.env\n');
+    await writeFile(join(main, '.env'), `LINEAR_API_KEY=${MAIN_VALUE}\n`);
+    // The local file lacks the key, so resolution falls through to the main
+    // worktree; it is also not ignored on this branch. The safety check must not
+    // vouch for it by omission just because the main worktree's file answered.
+    await writeFile(join(linked, '.env'), 'SOME_OTHER_VAR=value\n');
+
+    const status = await integrationStatus({ config: config(), repoRoot: linked });
+    const credential = status.providers[0]?.findings.find((f) => f.label === 'credential');
+
+    expect(credential?.state).toBe('ok');
+    expect(status.envFile.state).toBe('error');
+    expect(status.envFile.detail).toContain(join(linked, '.env'));
+    expect(status.envFile.remedy).toContain(linked);
+  });
+
   it('says nothing about another file when the local .env answered', async () => {
     await writeFile(join(linked, '.gitignore'), '.env\n');
     await writeFile(join(linked, '.env'), `LINEAR_API_KEY=${LOCAL_VALUE}\n`);
