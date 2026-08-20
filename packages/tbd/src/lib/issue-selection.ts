@@ -38,6 +38,18 @@ export function issueMatchesSharedFilters(issue: Issue, filters: SharedIssueFilt
  * Compute ready issue IDs from one complete issue snapshot.
  *
  * A `blocks` relation is stored on the blocker and points to its blocked target.
+ *
+ * Ready means: open, unheld, unblocked, and nobody acting on it.
+ *
+ * "Nobody acting" reads `delegate`, not `assignee`. The two stopped being the same
+ * question when the actor axis landed: `assignee` is who is *accountable*, which in an
+ * agent-driven repository is often the same person on every bead, and treating that as
+ * "taken" would empty the ready list the moment ownership was recorded. `delegate` is
+ * who is *doing it*, which is the fact readiness actually depends on.
+ *
+ * A held bead is never ready regardless of its dependencies: `blocked` means it is
+ * waiting on something and `paused` means it was deliberately set down, and offering
+ * either to an agent looking for work is how a hold gets quietly ignored.
  */
 export function readyIssueIds(issues: Iterable<Issue>): ReadonlySet<string> {
   const allIssues = Array.from(issues);
@@ -58,7 +70,7 @@ export function readyIssueIds(issues: Iterable<Issue>): ReadonlySet<string> {
   return new Set(
     allIssues
       .filter((issue) => {
-        if (issue.status !== 'open' || issue.assignee) {
+        if (issue.status !== 'open' || issue.delegate || issue.hold) {
           return false;
         }
         const blockerIds = blockerIdsByTarget.get(issue.id) ?? [];

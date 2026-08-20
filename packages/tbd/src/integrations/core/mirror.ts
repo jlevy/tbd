@@ -70,6 +70,10 @@ export interface MirrorContext {
   originLabels?: readonly string[];
   /** Provider/config capability for projecting a canonical assignee. */
   canPushAssignee?: (assignee: string | null) => boolean;
+  canPushDelegate?: (delegate: string | null) => boolean;
+  delegateSkipReason?: (delegate: string) => string | undefined;
+  /** Why a handle could not be published, when the provider can say. */
+  assigneeSkipReason?: (assignee: string) => string | undefined;
 }
 
 /**
@@ -250,6 +254,8 @@ export function planMirror(context: MirrorContext): MirrorPlan {
     const patch: CanonicalPatch = {
       title: issue.title,
       status: issue.status,
+      resolution: issue.resolution ?? null,
+      hold: issue.hold ?? null,
       priority: issue.priority,
       // Carried on every action, consumed only by the create path: the adapter's
       // update surface ignores these, and the provider does not accept them there
@@ -274,10 +280,38 @@ export function planMirror(context: MirrorContext): MirrorPlan {
       ...(context.canPushAssignee?.(issue.assignee ?? null)
         ? { assignee: issue.assignee ?? null }
         : {}),
+      ...(context.canPushDelegate?.(issue.delegate ?? null)
+        ? { delegate: issue.delegate ?? null }
+        : {}),
     };
+
+    // An actor the tracker cannot name is a policy outcome, not an error — but it is
+    // one the operator has to be able to see. Silently dropping it is how a push
+    // reports success for a field that never left the machine.
+    const skippedFields: { field: string; reason: string }[] = [];
+    if (issue.assignee && context.canPushAssignee && !context.canPushAssignee(issue.assignee)) {
+      skippedFields.push({
+        field: 'assignee',
+        // The provider knows why it could not resolve the handle — no directory match,
+        // or several — and that is far more actionable than naming a config key the
+        // repository may deliberately not be using.
+        reason:
+          context.assigneeSkipReason?.(issue.assignee) ?? `no user_map entry for ${issue.assignee}`,
+      });
+    }
+
+    if (issue.delegate && context.canPushDelegate && !context.canPushDelegate(issue.delegate)) {
+      skippedFields.push({
+        field: 'delegate',
+        reason:
+          context.delegateSkipReason?.(issue.delegate) ??
+          `no agent_map entry for ${issue.delegate}`,
+      });
+    }
 
     const action: MirrorAction = {
       bead: issue,
+      ...(skippedFields.length > 0 ? { skippedFields } : {}),
       ...(parentBeadId ? { parentBeadId } : {}),
       externalId: existingLink?.id,
       patch,
@@ -335,6 +369,14 @@ export async function applyMirror(options: ApplyOptions): Promise<MirrorReport> 
       beadId: options.displayId(action.bead.id),
       reason: action.skipReason ?? 'skipped',
     })),
+    // Collected from every bead that will actually be written, since a field-level
+    // skip belongs to a successful write rather than to a skipped bead.
+    skippedFields: [...plan.creates, ...plan.updates].flatMap((action) =>
+      (action.skippedFields ?? []).map((entry) => ({
+        beadId: options.displayId(action.bead.id),
+        ...entry,
+      })),
+    ),
     failures: [],
   };
   const createdExternalIds = new Map<string, string>();

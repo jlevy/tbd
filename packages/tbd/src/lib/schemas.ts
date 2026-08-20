@@ -90,6 +90,33 @@ export const BaseEntity = z.object({
 export const IssueStatus = z.enum(['open', 'in_progress', 'blocked', 'deferred', 'closed']);
 
 /**
+ * Why closed work ended, on the axis beside {@link IssueStatus} rather than inside it.
+ *
+ * `status` is a lifecycle *position* and every consumer that asks "is this finished"
+ * tests `status === 'closed'`. The reason it finished is a different question, so it
+ * gets a different field: encoding `canceled` as a position would turn every terminal
+ * test into a set-membership check and buy nothing, since nothing in tbd wants canceled
+ * work to sit anywhere else.
+ *
+ * Absent reads as `completed`, which is what makes this additive: every bead closed
+ * before this field existed stays correct with no backfill.
+ */
+export const IssueResolution = z.enum(['completed', 'canceled', 'duplicate']);
+
+/**
+ * Why open work is not moving, on the axis beside {@link IssueStatus}.
+ *
+ * The mirror image of {@link IssueResolution} at the other end of the lifecycle. A hold
+ * is a *modifier* on a position, not a position itself: `deferred` had to overwrite
+ * `in_progress` to say "paused", which destroyed the one fact that made it interesting
+ * — that the work had started. Position and modifier are independent here, so
+ * `in_progress` + `paused` says "begun, then set down" without losing either half.
+ *
+ * Only valid while the work is not terminal.
+ */
+export const IssueHold = z.enum(['blocked', 'paused']);
+
+/**
  * Issue kind/type values matching Beads.
  * Note: CLI uses --type flag, which maps to this `kind` field.
  */
@@ -219,7 +246,15 @@ export const IssueRef = z.object({
  * now we have more reliable management of the mappings file (ids.yml) and
  * consider it authoritative. See IdMappingYamlSchema (§2.6.8).
  */
-export const IssueSchema = BaseEntity.extend({
+/**
+ * The issue shape as *declared*, before `.passthrough()` is applied.
+ *
+ * Exists only so the field names can be enumerated. `.passthrough()` adds an index
+ * signature, which widens `keyof Issue` to `string | number` and silently defeats any
+ * `Record<keyof Issue, …>` exhaustiveness guard built on it — two such guards had been
+ * dead since f08 without anyone noticing, because they still compiled.
+ */
+const IssueDeclaredShape = BaseEntity.extend({
   // Header seven: the fields you always want to see at a glance
   type: z.literal('is'),
   // id, version inherited from BaseEntity
@@ -248,6 +283,14 @@ export const IssueSchema = BaseEntity.extend({
 
   // Assignment and categorization
   assignee: z.string().nullable().optional(),
+  /**
+   * Who is acting on the work, when that differs from who is accountable for it.
+   *
+   * `assignee` answers "whose plate is this on"; an agent in that slot destroys the
+   * answer. Absent reads as "same as assignee". Linear renders this as `delegate`,
+   * which is the field its agent platform hangs off.
+   */
+  delegate: z.string().nullable().optional(),
   labels: z.array(z.string()).default([]),
   dependencies: z.array(Dependency).default([]),
 
@@ -262,11 +305,34 @@ export const IssueSchema = BaseEntity.extend({
   // Scheduling
   due_date: Timestamp.nullable().optional(),
   deferred_until: Timestamp.nullable().optional(),
+  /** Why open work is not moving. Only while non-terminal. */
+  hold: IssueHold.nullable().optional(),
+  /** When a `paused` hold is expected to lift. tbd-native; never a tracker snooze. */
+  hold_until: Timestamp.nullable().optional(),
 
   // Provenance and lifecycle
   created_by: z.string().nullable().optional(),
+  /**
+   * When the work first entered `in_progress`. Never cleared once set.
+   *
+   * The record that makes "paused" distinguishable from "never started": both are
+   * inactive, and without this they are the same bead. Pausing, resuming, and closing
+   * all leave it alone, because it is a fact about history rather than current state.
+   */
+  started_at: Timestamp.nullable().optional(),
   closed_at: Timestamp.nullable().optional(),
   close_reason: z.string().nullable().optional(),
+  /** Why the work ended. Only on `closed`; absent reads as `completed`. */
+  resolution: IssueResolution.nullable().optional(),
+  /**
+   * The bead this one duplicates. Required with `resolution: duplicate`.
+   *
+   * A scalar rather than a dependency edge: edges mean *blocks* here, and `ready` and
+   * the blocked computation read them, so a duplicate relation in that graph would
+   * change what those queries see. Providers that model duplicate as a relation get
+   * it built from this value in their adapter.
+   */
+  duplicate_of: IssueId.nullable().optional(),
 })
   // Preserve unknown keys (f08+). This is the reason f08 exists.
   //
@@ -279,6 +345,72 @@ export const IssueSchema = BaseEntity.extend({
   // Preserving here is only half the job. `mergeIssues` (file/git.ts) must also carry
   // keys outside FIELD_STRATEGIES, or a preserved key is dropped at the next merge.
   .passthrough();
+
+/**
+ * Field names the issue schema declares, un-widened by `.passthrough()`.
+ *
+ * Use this, never `keyof Issue`, when a table must cover every field: it is what makes
+ * a new field a compile error in the places that need to know about one.
+ */
+export type IssueFieldName = keyof typeof IssueDeclaredShape.shape;
+
+export const IssueSchema = IssueDeclaredShape
+  // The terminal axis is only meaningful at the terminal end, and `duplicate` is only
+  // meaningful with a pointer. Both providers that model duplicate (Linear's relation,
+  // GitHub's `duplicateIssueId`) reached the same conclusion independently, so a bare
+  // `duplicate` cannot be rendered on either and is rejected here rather than at push
+  // time, where the write has already happened.
+  .superRefine((issue, ctx) => {
+    if (issue.resolution != null && issue.status !== 'closed') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['resolution'],
+        message: `resolution is only valid on a closed issue (status: ${issue.status})`,
+      });
+    }
+    if (issue.resolution === 'duplicate' && issue.duplicate_of == null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['duplicate_of'],
+        message: 'duplicate_of is required when resolution is duplicate',
+      });
+    }
+    if (issue.hold != null && issue.status === 'closed') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['hold'],
+        message: 'hold is only valid on work that is not closed',
+      });
+    }
+    if (issue.hold_until != null && issue.hold !== 'paused') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['hold_until'],
+        message: 'hold_until is only valid with hold: paused',
+      });
+    }
+    if (issue.duplicate_of != null && issue.resolution !== 'duplicate') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['duplicate_of'],
+        message: 'duplicate_of is only valid with resolution: duplicate',
+      });
+    }
+  });
+
+/**
+ * A recorded answer to "which provider user is this tbd handle?".
+ *
+ * Keyed on disk by `provider_user_id`, because that is the identity; `display_name` is
+ * a label kept only so `tbd doctor` can report when the directory has drifted from it.
+ * No email is stored: the sync branch should not become a contact directory.
+ */
+export const ActorBindingSchema = z.object({
+  handle: z.string().min(1),
+  provider_user_id: z.string().min(1),
+  display_name: z.string(),
+  bound_at: Timestamp,
+});
 
 // =============================================================================
 // Config Schema (§2.6.4)
@@ -479,6 +611,14 @@ export const COMMENTS_PER_BEAD_CAP = 50;
 export const BridgeBaseSchema = z.object({
   title: z.string(),
   status: IssueStatus,
+  /**
+   * The board position agreed at the last sync, once a run compares slots.
+   *
+   * Optional because every base written before slots existed holds only `status`.
+   * Absent, it is derived on read rather than backfilled by a migration pass, so
+   * upgrading writes nothing until a pair syncs for its own reasons.
+   */
+  slot: z.string().optional(),
   priority: Priority,
   labels: z.array(z.string()).default([]),
   assignee: z.string().nullable().optional(),
@@ -515,6 +655,30 @@ export const LinkRecordSchema = z.object({
    */
   external_key: z.string().min(1).nullable().optional(),
   external_url: z.string().min(1).nullable().optional(),
+  /**
+   * The tracker state id for a column tbd has no name of its own for (f08+).
+   *
+   * A team's own "In QA" is `started` work as far as agreement goes, but writing it
+   * back as a generic In Progress would drag the issue out of the column someone put
+   * it in. Recording the exact id is what lets an outbound write put it back verbatim.
+   *
+   * It lives here rather than on the bead for the reason stated above: this is tracker
+   * *dynamics*, not identity, and it is rewritten every sync. Measured, too — holding it
+   * in `extensions.<provider>` merges the whole namespace last-writer-wins, so a clone
+   * recording a refinement while another refreshed `external_key` lost the key outright.
+   * Here the refinement and the link it describes travel as one record and cannot
+   * disagree.
+   */
+  refinement_state_id: z.string().min(1).nullable().optional(),
+  /**
+   * The slot that refinement column resolved to.
+   *
+   * Stored rather than derived because deriving it needs the column's name, which is
+   * exactly what is not in hand when replaying. Replay happens only when a write
+   * targets this same slot: the issue is going back to the position it left, so the
+   * column it left is still the right one.
+   */
+  refinement_slot: z.string().min(1).nullable().optional(),
   base: BridgeBaseSchema,
   /** The provider's clock at last sync. A fetch prefilter, never correctness. */
   remote_updated_at: Timestamp,
@@ -718,6 +882,23 @@ export const IntegrationIdentitySchema = z
   .object({
     /** Maps a tbd assignee string to a tracker user email or UUID. */
     user_map: z.record(z.string(), z.string()).default({}),
+    /**
+     * Workflow state name to use for a Linear state type, e.g. `started: Doing`.
+     *
+     * Only needed when a team has several states of one type and none carries the
+     * conventional name. Deliberately not `.default({})`: a defaulted key is
+     * re-materialized on every parse and written straight back by `writeConfig`, which
+     * is how a migration stops sticking.
+     */
+    state_map: z.record(z.string(), z.string()).optional(),
+    /**
+     * Agent name to Linear app-user id, for delegates that may be published.
+     *
+     * The only identity mapping this design still needs in config, and deliberately so:
+     * an agent reaching a shared workspace is a decision, not a discovery. Ordinary
+     * session agents are absent from here and therefore stay local by construction.
+     */
+    agent_map: z.record(z.string(), z.string()).optional(),
   })
   .passthrough();
 
@@ -1066,6 +1247,7 @@ export const ISSUE_FIELD_ORDER = [
 
   // Assignment and categorization
   'assignee',
+  'delegate',
   'labels',
   'dependencies',
 
@@ -1076,6 +1258,8 @@ export const ISSUE_FIELD_ORDER = [
   // Scheduling
   'due_date',
   'deferred_until',
+  'hold',
+  'hold_until',
 
   // Provenance
   'created_by',
@@ -1083,10 +1267,13 @@ export const ISSUE_FIELD_ORDER = [
   // Timestamps
   'created_at',
   'updated_at',
+  'started_at',
 
   // Lifecycle (closure)
   'closed_at',
   'close_reason',
+  'resolution',
+  'duplicate_of',
 
   // Extensibility
   'extensions',

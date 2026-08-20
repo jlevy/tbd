@@ -32,6 +32,28 @@ export const PROJECT_CREATE_MUTATION = `mutation ProjectCreate($input: ProjectCr
   }
 }`;
 
+/**
+ * Create one workflow state.
+ *
+ * `position` is always sent explicitly. Linear otherwise places a new state
+ * arbitrarily, and a board whose Paused column sits above In Progress is exactly the
+ * accident this design removes.
+ */
+export const WORKFLOW_STATE_CREATE_MUTATION = `mutation WorkflowStateCreate($input: WorkflowStateCreateInput!) {
+  workflowStateCreate(input: $input) {
+    success
+    workflowState { id name type position }
+  }
+}`;
+
+/** Move an existing workflow state to a new board position. */
+export const WORKFLOW_STATE_UPDATE_MUTATION = `mutation WorkflowStateUpdate($id: String!, $input: WorkflowStateUpdateInput!) {
+  workflowStateUpdate(id: $id, input: $input) {
+    success
+    workflowState { id name type position }
+  }
+}`;
+
 /** Resolve a team key (e.g. `FIN`) to its UUID plus states and labels. */
 export const TEAM_META_QUERY = `query TeamMeta($key: String!) {
   teams(filter: { key: { eq: $key } }, first: 1) {
@@ -59,6 +81,7 @@ const ISSUE_FIELDS = `
   updatedAt
   state { id name type }
   assignee { id name displayName email }
+  delegate { id name displayName }
   labels(first: 50) {
     pageInfo { hasNextPage endCursor }
     nodes { id name isGroup parent { id name } }
@@ -159,6 +182,19 @@ export const ISSUE_UPDATE_MUTATION = `mutation IssueUpdate($id: String!, $input:
 export const USERS_BY_EMAIL_QUERY = `query UsersByEmail($email: String!) {
   users(filter: { email: { eq: $email } }, first: 2) {
     nodes { id email }
+  }
+}`;
+
+/**
+ * Everyone the workspace knows, for directory-based actor resolution.
+ *
+ * `active` is selected so a deactivated member cannot win a fresh match while an
+ * existing binding to them keeps resolving.
+ */
+export const WORKSPACE_USERS_QUERY = `query WorkspaceUsers($first: Int!, $after: String) {
+  users(first: $first, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    nodes { id name displayName email active }
   }
 }`;
 

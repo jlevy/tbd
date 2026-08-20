@@ -75,6 +75,13 @@ This is the complete output of `tbd doctor`.
 
 # Test: Doctor full output
 
+Note: the `...` after the git version tolerates the optional `npm global bin` advisory.
+That finding reports on the surrounding machine rather than the repository, so it is
+absent on a healthy host and present — naming a machine-specific path — on one whose npm
+global bin directory is off PATH. Neither state can be pinned literally, and the hosts
+that would fail a pinned capture are exactly the ones the finding exists to help.
+Every other line stays pinned.
+
 ```console
 $ tbd doctor
 REPOSITORY
@@ -106,10 +113,13 @@ INTEGRATIONS
 
 HEALTH CHECKS
 ✓ Git version - [GIT_VERSION]
+...
 ✓ Config file (.tbd/config.yml)
 ✓ Launcher fallback
 ✓ Issues directory (.tbd/issues)
 ✓ Dependencies
+✓ Actor axis
+✓ State resolution - no tracker enabled
 ✓ Unique IDs
 ✓ Issue hierarchy
 ✓ ID mapping conflicts

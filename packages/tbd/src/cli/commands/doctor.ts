@@ -43,6 +43,8 @@ import {
 } from '../../lib/integration-paths.js';
 import { validateIssueId, extractUlidFromInternalId, formatDisplayId } from '../../lib/ids.js';
 import { isDirOnPath, npmGlobalBinDir, readNpmGlobalPrefix } from '../../lib/npm-global-bin.js';
+import { isAgentId } from '../../lib/agent-identity.js';
+import { KNOWN_STATE_TYPES, CONVENTIONAL_STATE_NAMES } from '../../integrations/linear/mapping.js';
 import { findHierarchyProblems } from '../../lib/issue-hierarchy.js';
 import { duplicateExternalLinks, readLink } from '../../integrations/core/link-store.js';
 import { integrationsInert } from '../../integrations/core/registry.js';
@@ -211,6 +213,18 @@ export function classifyNpmGlobalBin(
       `Add ${binDir} to PATH, or point npm at a directory already on it: ` +
       'npm config set prefix <dir>',
   };
+}
+
+/**
+ * Whether the npm global bin finding belongs in the report.
+ *
+ * It describes the surrounding environment rather than repository health, so it is
+ * listed only when there is something to act on. Named here rather than inlined at the
+ * call site so the rule is assertable directly, instead of only through a golden capture
+ * taken on a machine that happens to be healthy.
+ */
+export function shouldReportNpmGlobalBin(diagnostic: DiagnosticResult): boolean {
+  return diagnostic.status !== 'ok';
 }
 
 /**
@@ -438,7 +452,7 @@ class DoctorHandler extends BaseCommand {
     // so it is reported only when actionable: a healthy machine adds no line,
     // which also keeps doctor's output stable across environments.
     const npmGlobalBin = await this.safeCheck('npm global bin', () => this.checkNpmGlobalBin());
-    if (npmGlobalBin.status !== 'ok') {
+    if (shouldReportNpmGlobalBin(npmGlobalBin)) {
       healthChecks.push(npmGlobalBin);
     }
 
@@ -454,6 +468,8 @@ class DoctorHandler extends BaseCommand {
     // Check 4: Orphaned dependencies
     healthChecks.push(
       await this.safeCheck('Dependencies', async () => this.checkOrphanedDependencies(this.issues)),
+      await this.safeCheck('Actor axis', async () => this.checkAgentShapedAssignees(this.issues)),
+      await this.safeCheck('State resolution', () => Promise.resolve(this.checkStateResolution())),
     );
 
     // Check 5: Duplicate IDs
@@ -884,6 +900,88 @@ class DoctorHandler extends BaseCommand {
         path: issuesPath,
       };
     }
+  }
+
+  /**
+   * Beads whose `assignee` looks like an agent rather than a person.
+   *
+   * `tbd start` used to claim by writing the agent name into `assignee`, which is the
+   * slot reserved for whoever is accountable. Those beads are still out there, and left
+   * alone they publish an agent identity into a shared tracker as the responsible human
+   * — the outcome the actor axis exists to prevent. Reported rather than rewritten,
+   * because a name that merely looks agent-shaped might be a person's handle.
+   */
+  /**
+   * How each Linear state type will resolve, without touching the network.
+   *
+   * Offline on purpose: `tbd doctor` is what you run when a sync is misbehaving, and a
+   * diagnostic that needs the API cannot help when the API is the problem. What is
+   * knowable offline is the *plan* — which types have a configured name, which will
+   * fall back to Linear's conventional one, and which will be decided by the team
+   * having exactly one state of that type. Whether each actually binds is a fact about
+   * the team and is reported by `tbd integration status`.
+   */
+  private checkStateResolution(): DiagnosticResult {
+    const linear = this.config?.integrations?.linear;
+    const stateMap = (linear?.identity?.state_map ?? linear?.state_map) as
+      | Record<string, string>
+      | undefined;
+    if (!linear?.enabled) {
+      return { name: 'State resolution', status: 'ok', message: 'no tracker enabled' };
+    }
+
+    const details = KNOWN_STATE_TYPES.filter((stateType) => stateType !== 'triage').map(
+      (stateType) => {
+        const configured = stateMap?.[stateType];
+        if (configured) {
+          return `${stateType}: "${configured}" (configured)`;
+        }
+        const conventional = CONVENTIONAL_STATE_NAMES[stateType];
+        return conventional
+          ? `${stateType}: "${conventional}" (conventional), else the only state of that type`
+          : `${stateType}: the only state of that type`;
+      },
+    );
+
+    return {
+      name: 'State resolution',
+      status: 'ok',
+      message: stateMap ? `${Object.keys(stateMap).length} configured` : 'conventional names',
+      details,
+    };
+  }
+
+  private async checkAgentShapedAssignees(issues: Issue[]): Promise<DiagnosticResult> {
+    const { loadIdMapping } = await import('../../file/id-mapping.js');
+    const mapping = await loadIdMapping(this.dataSyncDir);
+    const prefix = this.config?.display.id_prefix ?? '';
+    const suspects: string[] = [];
+    for (const issue of issues) {
+      const assignee = issue.assignee?.trim();
+      if (!assignee || issue.delegate) {
+        continue;
+      }
+      // Two shapes tbd itself produces: a minted agent id, and the derived
+      // `<harness>@<host>` fallback an agent claims under when it cannot name itself.
+      const looksLikeAgent = isAgentId(assignee) || assignee.includes('@');
+      if (looksLikeAgent) {
+        suspects.push(`${formatDisplayId(issue.id, mapping, prefix)}: ${assignee}`);
+      }
+    }
+
+    if (suspects.length === 0) {
+      return { name: 'Actor axis', status: 'ok' };
+    }
+    return {
+      name: 'Actor axis',
+      status: 'warn',
+      message: `${suspects.length} bead(s) name an agent as assignee`,
+      details: suspects
+        .slice(0, 5)
+        .concat(suspects.length > 5 ? [`, and ${suspects.length - 5} more`] : []),
+      suggestion:
+        'assignee is who is accountable; an acting agent belongs in delegate. Move with: tbd update <id> --delegate <agent> --assignee ""',
+    };
   }
 
   private checkOrphanedDependencies(issues: Issue[]): DiagnosticResult {

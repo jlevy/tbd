@@ -9,8 +9,8 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { classifyNpmGlobalBin } from '../src/cli/commands/doctor.js';
-import { isDirOnPath, npmGlobalBinDir } from '../src/lib/npm-global-bin.js';
+import { classifyNpmGlobalBin, shouldReportNpmGlobalBin } from '../src/cli/commands/doctor.js';
+import { isDirOnPath, npmGlobalBinDir, npmPrefixCommand } from '../src/lib/npm-global-bin.js';
 
 describe('npmGlobalBinDir', () => {
   it('appends bin to the prefix on POSIX platforms', () => {
@@ -60,6 +60,37 @@ describe('isDirOnPath', () => {
   it('keeps POSIX comparisons case-sensitive', () => {
     expect(isDirOnPath('/usr/local/BIN', '/usr/local/bin', 'linux')).toBe(false);
   });
+
+  it('matches a quoted Windows entry, which resolve would otherwise keep quoted', () => {
+    // A quoted entry that failed to match would make doctor advise adding a directory
+    // that is already on PATH. Wrong advice is worse than none.
+    expect(
+      isDirOnPath('C:\\Program Files\\nodejs', '"C:\\Program Files\\nodejs";C:\\Windows', 'win32'),
+    ).toBe(true);
+  });
+
+  it('leaves quotes alone on POSIX, where they are literal filename characters', () => {
+    expect(isDirOnPath('/opt/bin', '"/opt/bin"', 'linux')).toBe(false);
+  });
+});
+
+describe('npmPrefixCommand', () => {
+  // On Windows npm is npm.cmd, which CreateProcess cannot launch, so execFile fails with
+  // ENOENT. Left unrouted, the whole check degrades to a permanent silent no-op there --
+  // on the one platform whose global bin layout actually differs. No test spawns npm, so
+  // a green Windows job would not have caught it either.
+  it('routes through cmd.exe on Windows so npm.cmd is launchable', () => {
+    expect(npmPrefixCommand('win32')).toEqual({
+      file: 'cmd.exe',
+      args: ['/d', '/s', '/c', 'npm', 'prefix', '-g'],
+    });
+  });
+
+  it('invokes npm directly on POSIX platforms', () => {
+    for (const platform of ['linux', 'darwin'] as const) {
+      expect(npmPrefixCommand(platform)).toEqual({ file: 'npm', args: ['prefix', '-g'] });
+    }
+  });
 });
 
 describe('classifyNpmGlobalBin', () => {
@@ -87,5 +118,28 @@ describe('classifyNpmGlobalBin', () => {
     const diag = classifyNpmGlobalBin(null, '/usr/bin', 'linux');
     expect(diag.status).toBe('ok');
     expect(diag.message).toMatch(/npm not available/);
+  });
+});
+
+describe('shouldReportNpmGlobalBin', () => {
+  it('omits the finding on a healthy machine and on a host without npm', () => {
+    expect(
+      shouldReportNpmGlobalBin(
+        classifyNpmGlobalBin('/home/agent/.local', '/home/agent/.local/bin:/bin', 'linux'),
+      ),
+    ).toBe(false);
+    expect(shouldReportNpmGlobalBin(classifyNpmGlobalBin(null, '/usr/bin', 'linux'))).toBe(false);
+  });
+
+  it('surfaces the finding when the global bin directory is unreachable', () => {
+    expect(shouldReportNpmGlobalBin(classifyNpmGlobalBin('/opt/node', '/usr/bin', 'linux'))).toBe(
+      true,
+    );
+  });
+
+  it('surfaces a check that errored, so a failure to probe is never swallowed', () => {
+    expect(
+      shouldReportNpmGlobalBin({ name: 'npm global bin', status: 'error', message: 'boom' }),
+    ).toBe(true);
   });
 });

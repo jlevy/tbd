@@ -35,7 +35,7 @@ import { execFile } from 'node:child_process';
 
 import { gitSafeEnv } from './git-env.js';
 import { homedir } from 'node:os';
-import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 
 /** The tbd configuration directory on main branch */
@@ -176,6 +176,88 @@ export async function resolveGitCommonDir(cwd: string): Promise<string> {
 
   const gitCommonDir = isAbsolute(output) ? output : resolve(cwd, output);
   return realpath(gitCommonDir).catch(() => gitCommonDir);
+}
+
+/**
+ * Resolve the checkout at the top of a worktree, normalized through realpath.
+ *
+ * Realpath matters on macOS, where `/tmp` is a symlink to `/private/tmp`: git
+ * answers one way here and another there, and an unnormalized comparison of two
+ * true answers reads as a mismatch.
+ */
+async function resolveWorktreeTopLevel(cwd: string): Promise<string> {
+  const { stdout } = await execFileAsync(
+    'git',
+    ['-C', cwd, 'rev-parse', '--path-format=absolute', '--show-toplevel'],
+    { env: gitSafeEnv(), maxBuffer: 1024 * 1024 },
+  );
+  const topLevel = stdout.trim();
+  if (!topLevel) {
+    throw new Error(`Unable to resolve the worktree top level from ${cwd}`);
+  }
+  return realpath(topLevel).catch(() => topLevel);
+}
+
+/**
+ * Resolve the main worktree of the repository containing `baseDir`.
+ *
+ * Linked worktrees do not receive gitignored files, so repository-scoped local
+ * state (a `.env` holding machine-local credentials) lives only in the main
+ * checkout. This answers where that checkout is, from anywhere in the repository.
+ * In the main checkout it returns that checkout, so callers need no worktree case.
+ *
+ * The common dir's parent is a *candidate*, not the answer. Under
+ * `git init --separate-git-dir` the common dir sits outside the checkout, so the
+ * dirname lands on an unrelated sibling directory, and reading a `.env` from
+ * there would hand one project's secrets to another. `git worktree list` shares
+ * the flaw: under that shape its first entry reports the git dir, not a checkout.
+ *
+ * So the candidate is verified. Asked from inside it, git must agree on both
+ * counts: the candidate is a worktree root, and it belongs to the repository we
+ * started from. Anything else returns undefined, as does a missing `git` or a
+ * directory outside any repository. Callers treat undefined as "skip this layer",
+ * never as an error, so behavior outside a repository is unchanged.
+ */
+export function resolveMainWorktree(baseDir: string): Promise<string | undefined> {
+  let pending = mainWorktreeByBaseDir.get(baseDir);
+  if (!pending) {
+    pending = resolveMainWorktreeUncached(baseDir);
+    mainWorktreeByBaseDir.set(baseDir, pending);
+  }
+  return pending;
+}
+
+/**
+ * Memo for {@link resolveMainWorktree}, keyed by `baseDir`.
+ *
+ * One answer costs three or four git spawns and every provider asks the same
+ * question (`integration status` asks once for Linear and once for GitHub), so
+ * identical questions within a process share the first answer. Worktree topology
+ * does not change mid-command; `.env` CONTENT is not cached anywhere and is
+ * reread on every resolution.
+ */
+const mainWorktreeByBaseDir = new Map<string, Promise<string | undefined>>();
+
+async function resolveMainWorktreeUncached(baseDir: string): Promise<string | undefined> {
+  let gitCommonDir: string;
+  try {
+    gitCommonDir = await resolveGitCommonDir(baseDir);
+  } catch {
+    return undefined;
+  }
+
+  const candidate = dirname(gitCommonDir);
+  try {
+    const [topLevel, candidateCommonDir] = await Promise.all([
+      resolveWorktreeTopLevel(candidate),
+      resolveGitCommonDir(candidate),
+    ]);
+    const isWorktreeRoot = resolve(topLevel) === resolve(candidate);
+    const isSameRepository = resolve(candidateCommonDir) === resolve(gitCommonDir);
+    return isWorktreeRoot && isSameRepository ? candidate : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**

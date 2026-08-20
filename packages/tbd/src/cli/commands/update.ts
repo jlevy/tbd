@@ -12,9 +12,14 @@ import { requireInit, NotFoundError, ValidationError, CLIError } from '../lib/er
 import { readIssue, writeIssue, listIssues } from '../../file/storage.js';
 import { parseMarkdownWithFrontmatter } from '../../file/parser.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
-import { IssueStatus, IssueKind } from '../../lib/schemas.js';
+import { IssueStatus, IssueKind, IssueHold } from '../../lib/schemas.js';
 import { parsePriority } from '../../lib/priority.js';
-import type { IssueStatusType, IssueKindType, PriorityType } from '../../lib/types.js';
+import type {
+  IssueStatusType,
+  IssueKindType,
+  PriorityType,
+  IssueHoldType,
+} from '../../lib/types.js';
 import { now } from '../../utils/time-utils.js';
 import { resolveToInternalId, type IdMapping } from '../../file/id-mapping.js';
 import { resolveSpecArg, getPathErrorMessage } from '../../lib/project-paths.js';
@@ -39,6 +44,8 @@ interface UpdateOptions {
   type?: string;
   priority?: string;
   assignee?: string;
+  delegate?: string;
+  hold?: string;
   description?: string;
   notes?: string;
   notesFile?: string;
@@ -50,6 +57,23 @@ interface UpdateOptions {
   spec?: string;
   childOrder?: string;
   ignoreMissing?: boolean;
+}
+
+/**
+ * Read a date option into a full timestamp.
+ *
+ * The stored field is an ISO datetime, but nobody types one: `--due 2026-12-01` is what
+ * a person writes, and rejecting it for want of a time of day is the tool being pedantic
+ * about its own storage format. Anything `Date` can parse is accepted and normalized;
+ * anything it cannot is refused by name, rather than reaching the schema and coming back
+ * as "Invalid datetime".
+ */
+function parseDateOption(value: string, flag: string): string {
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    throw new ValidationError(`Invalid ${flag} value: ${value}. Expected a date or timestamp.`);
+  }
+  return new Date(parsed).toISOString();
 }
 
 class UpdateHandler extends BaseCommand {
@@ -144,6 +168,15 @@ class UpdateHandler extends BaseCommand {
           }
           if (updates.assignee !== undefined) {
             issue.assignee = updates.assignee;
+          }
+          if (updates.delegate !== undefined) {
+            issue.delegate = updates.delegate;
+          }
+          if (updates.hold !== undefined) {
+            issue.hold = updates.hold;
+            if (updates.hold !== 'paused') {
+              issue.hold_until = null;
+            }
           }
           if (updates.description !== undefined) {
             issue.description = updates.description;
@@ -327,7 +360,7 @@ class UpdateHandler extends BaseCommand {
       throw new ValidationError(
         `Cannot use ${perIdOnly.join(', ')} when updating multiple issues. ` +
           `These apply to a single issue; use \`tbd close\`/\`tbd reopen\` for status changes. ` +
-          `Bulk update supports shared fields: --priority, --assignee, --type, ` +
+          `Bulk update supports shared fields: --priority, --assignee, --delegate, --hold, --type, ` +
           `--add-label, --remove-label, --due, --defer.`,
       );
     }
@@ -393,6 +426,15 @@ class UpdateHandler extends BaseCommand {
             }
             if (updates.assignee !== undefined) {
               issue.assignee = updates.assignee;
+            }
+            if (updates.delegate !== undefined) {
+              issue.delegate = updates.delegate;
+            }
+            if (updates.hold !== undefined) {
+              issue.hold = updates.hold;
+              if (updates.hold !== 'paused') {
+                issue.hold_until = null;
+              }
             }
             if (updates.due_date !== undefined) {
               issue.due_date = updates.due_date;
@@ -504,6 +546,8 @@ class UpdateHandler extends BaseCommand {
     kind?: IssueKindType;
     priority?: PriorityType;
     assignee?: string | null;
+    delegate?: string | null;
+    hold?: IssueHoldType | null;
     description?: string | null;
     notes?: string | null;
     due_date?: string | null;
@@ -521,6 +565,8 @@ class UpdateHandler extends BaseCommand {
       kind?: IssueKindType;
       priority?: PriorityType;
       assignee?: string | null;
+      delegate?: string | null;
+      hold?: IssueHoldType | null;
       description?: string | null;
       notes?: string | null;
       due_date?: string | null;
@@ -572,6 +618,9 @@ class UpdateHandler extends BaseCommand {
         }
         if (frontmatter.assignee !== undefined) {
           updates.assignee = typeof frontmatter.assignee === 'string' ? frontmatter.assignee : null;
+        }
+        if (frontmatter.delegate !== undefined) {
+          updates.delegate = typeof frontmatter.delegate === 'string' ? frontmatter.delegate : null;
         }
         if (frontmatter.due_date !== undefined) {
           updates.due_date = typeof frontmatter.due_date === 'string' ? frontmatter.due_date : null;
@@ -648,6 +697,24 @@ class UpdateHandler extends BaseCommand {
     if (options.assignee !== undefined) {
       updates.assignee = options.assignee || null;
     }
+    if (options.delegate !== undefined) {
+      updates.delegate = options.delegate || null;
+    }
+    if (options.hold !== undefined) {
+      // `--hold ''` and `--hold none` both lift it, matching the empty-clears
+      // convention the other modifier flags use.
+      if (!options.hold || options.hold === 'none') {
+        updates.hold = null;
+      } else {
+        const parsed = IssueHold.safeParse(options.hold);
+        if (!parsed.success) {
+          throw new ValidationError(
+            `Invalid hold: ${options.hold}. Expected blocked, paused, or none.`,
+          );
+        }
+        updates.hold = parsed.data;
+      }
+    }
 
     // Body fields are pre-resolved (inline/file/stdin) by resolveBodyOptions
     // before the data context, so here they are already plain strings.
@@ -660,11 +727,11 @@ class UpdateHandler extends BaseCommand {
     }
 
     if (options.due !== undefined) {
-      updates.due_date = options.due || null;
+      updates.due_date = options.due ? parseDateOption(options.due, '--due') : null;
     }
 
     if (options.defer !== undefined) {
-      updates.deferred_until = options.defer || null;
+      updates.deferred_until = options.defer ? parseDateOption(options.defer, '--defer') : null;
     }
 
     if (options.parent !== undefined) {
@@ -738,7 +805,9 @@ export const updateCommand = new Command('update')
   .option('--status <status>', 'Set status')
   .option('--type <type>', 'Set type')
   .option('--priority <0-4>', 'Set priority')
-  .option('--assignee <name>', 'Set assignee')
+  .option('--assignee <name>', 'Set assignee: who is accountable')
+  .option('--delegate <name>', 'Set delegate: who is acting')
+  .option('--hold <state>', 'Set hold: blocked, paused, or none')
   .option('--description <text>', 'Set description ("-" reads stdin)')
   .option('--notes <text>', 'Set working notes ("-" reads stdin)')
   .option('--notes-file <path>', 'Set notes from file ("-" reads stdin)')
