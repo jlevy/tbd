@@ -141,6 +141,26 @@ refs:
 `provider` is an opaque string; tbd does not validate it against a registry.
 `url` is optional, because a purely local run has none.
 
+### Refresh: events first, reconciliation as the backstop
+
+Adapters should not poll as their primary mechanism where a push channel exists.
+The pattern to follow is the one bb’s tasks plugin uses and the one the Linear brief
+reached independently about webhooks: **subscribe for speed, reconcile for
+correctness.** The push channel carries live transitions; a low-frequency sweep repairs
+whatever was missed while tbd was not running, which for a CLI is most of the time.
+
+Two rules keep the sweep bounded, both worth taking directly:
+
+- **Reconcile only non-terminal refs.** A settled session costs nothing.
+- **Terminal statuses are sticky.** Once `done` or `failed`, a ref is never transitioned
+  again, which prevents a late or duplicated event from resurrecting finished work.
+
+One deliberate divergence: bb treats a session its API can no longer find as
+`completed`. tbd should treat it as `stale`. A thread that vanished may equally have
+crashed, and the whole argument of [the freshness rule](#status-vocabulary) is that
+guessing optimistically about liveness is the failure mode that destroys trust in the
+surface.
+
 ### Status vocabulary
 
 Providers disagree on names, so tbd normalizes and each adapter maps into a set chosen
@@ -270,10 +290,17 @@ Nothing in `tbd setup` selects a runtime, which is the whole point of the design
    A Codex Cloud task can be legitimately quiet for minutes; a local Claude Code session
    that has not moved in thirty seconds probably has a human reading a diff.
    Starting fixed and generous is safer than starting clever.
+   There is now one worked answer to argue with: bb’s tasks plugin reconciles live links
+   every **five minutes** and idles at **sixty seconds** when nothing is live, with
+   events carrying the fast transitions in between.
 2. **Retention on close.** Do session refs survive bead closure as an audit trail, or
    get pruned to keep beads small?
    Retention argues for the traceability goal; pruning argues for the steady-size
    property the Linear design doc insists on.
+   bb’s answer is to keep the link row and make terminal statuses **sticky**: once a
+   link reads `completed` or `failed` it is never transitioned again and never
+   reconciled again, so retention costs storage but no recurring work.
+   That resolves most of the tension and is probably what tbd should copy.
 3. **Two claimants.** Two session refs on one bead, or a conflict to surface?
    Related to the zombie-claim sweep (`tbd-qxdb`).
 4. **Linear rendering.** Managed block line, native agent session with `externalUrl`, or

@@ -355,6 +355,87 @@ the runtime in hand and still concluded the tracker needed a link to the thread.
 It is simultaneously the best validation of [§9](#9-the-linkage-contract) and the
 clearest overlap with tbd’s own model, and both facts should be said plainly.
 
+#### 5.1b-i What the tasks plugin source actually does
+
+The plugin was read at `e2749bc` rather than taken from its README, because a working
+implementation of [§9](#9-the-linkage-contract) is worth more than any amount of
+landscape survey. Five mechanisms, each of which answers a question this brief or the
+spec had left open.
+
+**A join table, not a field.** `task_threads` is keyed `(task_id, thread_id)` and
+carries `preset_name`, `title`, `live_status`, `attached_at`, and `updated_at`
+(`plugins/tasks/db/store.ts`). One task, many threads, with a **cached status and its
+own timestamp on the link row**. That is the volatility split [§9.1](#91-the-ref-shape)
+proposes, in a schema, reached independently.
+
+**A five-value status vocabulary.** `liveStatusFromThread`
+(`plugins/tasks/lifecycle/index.ts`) maps bb’s thread lifecycle onto the task’s view:
+
+| bb thread status | Task-facing `live_status` |
+| --- | --- |
+| `starting` | `starting` |
+| `active`, `stopping` | `working` |
+| `idle` | `idle` |
+| `error` | `failed` |
+| deleted | `completed` |
+
+Set beside [§9.3](#93-a-status-vocabulary-tbd-owns), the agreement is close enough to be
+worth noticing: `starting`/`working`/`failed` are common, `idle` covers what tbd splits
+into `waiting` and `stale`, and `completed` is tbd’s `done`. Four independent parties
+(Linear, VS Code, codecast, bb) have now landed within one or two states of each other.
+
+**Events for speed, reconciliation for correctness.** The plugin subscribes to
+`thread.created`, `thread.active`, `thread.idle`, `thread.failed`, and `thread.deleted`
+for live transitions, and runs a separate background reconcile loop whose own comment
+calls it “a low-frequency recovery path for transitions that happen while the plugin is
+unloaded.” This is exactly the conclusion the Linear brief reached about webhooks in
+[§1.7 of that document](research-2026-08-09-linear-task-surfaces.md#17-webhooks): the
+push channel is a fast path layered over a polling correctness layer, never a
+replacement for it.
+Seeing the same architecture arrived at for sessions is the strongest
+evidence in this brief that the pattern is not Linear-specific.
+
+**Concrete cadences, and bounded work.** `THREAD_STATUS_RECONCILE_INTERVAL_MS` is five
+minutes and `THREAD_STATUS_IDLE_INTERVAL_MS` is sixty seconds.
+The loop reconciles only threads whose status is **not** terminal, and terminal statuses
+are sticky — a `completed` or `failed` link is never transitioned again.
+Settled pairs therefore cost nothing, which is the same steady-size property the
+[Linear integration design](../../../packages/tbd/docs/references/linear-integration-design.md)
+insists on, applied to sessions.
+The spec’s open question about a staleness threshold now has at least one worked answer
+to argue with rather than a blank.
+
+**A vanished thread is a decision, not an error.** `reconcileTrackedThread` catches SDK
+error code `thread_not_found` and transitions the link to `completed`. That is a
+deliberate, and optimistic, choice: a thread that disappeared may equally have crashed.
+tbd’s derived `stale` ([§9.4](#94-freshness-is-the-hard-part)) is the more honest
+handling of the same event, and this is the one place where the design here should
+**not** follow bb.
+
+**Two constraints a tbd adapter would inherit**, both confirmed in source rather than
+inferred:
+
+- **Thread ids are server-minted.** `raw-thread-id.ts` fixes the shape at `thr_` plus
+  ten characters from a restricted alphabet, enforced by a Zod regex, and the tasks
+  plugin rejects anything else with “threadId must be a bb `thr_*` id”.
+  The caller-chosen-id trick that makes [Rivet](#51a-rivet-sandbox-agent) so clean is
+  **not** available here.
+- **There is no metadata field.** `createThreadRequestSchema`
+  (`packages/server-contract/src/api/threads.ts`) accepts `title`, `origin`,
+  `originPluginId`, `originKind`, `parentThreadId`, `sectionId`, and `startedOnBehalfOf`
+  — and nothing free-form.
+  Unlike Claude Managed Agents, which allows eight metadata keys, a bead id cannot be
+  stamped onto a bb thread.
+
+The second constraint matters less than it first appears, and the reason is the whole
+argument of this brief: tbd’s ref lives **on the bead** and points outward, so bb never
+has to store anything for the forward link to work.
+Only `discover` — finding sessions tbd did not start — would need a title convention or
+a local mapping. That a design survives contact with a runtime offering neither of the
+two hooks it might have wanted is the best evidence available that
+[§9.5](#95-why-this-is-not-a-standard-and-should-not-become-one) is right to keep the
+ref local.
+
 **Linkability test:** passes all three.
 Threads have ids, lifecycle state, and an event stream; the app has URLs; the HTTP API
 and CLI are first-class.
@@ -1108,10 +1189,15 @@ marked rather than smoothed over.
 - **All sandbox performance figures in [§4](#4-layer-1-the-sandbox) are vendor claims.**
   Nothing was benchmarked.
   The Sprites cold-start discrepancy with the March brief is noted but not resolved.
-- **The three universal wrappers were read, not run.** bb, Omnigent, and Rivet were
-  assessed from their repositories and documentation (`gh api` for metadata and file
-  contents). None was installed or exercised.
+- **The three universal wrappers were read, not run.** None was installed or exercised.
   Repository activity is a fact; fitness is not.
+  The depth differs, and the difference matters: **bb was read from a local checkout**,
+  so the claims in [§5.1b-i](#51b-i-what-the-tasks-plugin-source-actually-does) — the
+  join-table schema, the status mapping, the reconcile cadences, the `thread_not_found`
+  handling, the server-minted id, the absent metadata field — come from source and can
+  be trusted at the level of “this is what the code says”.
+  Omnigent and Rivet were assessed from documentation only, and their entries deserve
+  the same scepticism as the rest of this survey.
 - **No paid account was used.** Managed Agents self-hosted environments, Coder Agents,
   and Codex Cloud were read from documentation, not exercised.
 - **Rivet’s caller-chosen session id** is read from the README’s API overview
