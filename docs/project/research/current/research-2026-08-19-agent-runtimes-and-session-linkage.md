@@ -728,6 +728,207 @@ them survive.
 
 * * *
 
+## 8a. Options considered
+
+[§5](#5-layer-2-harnesses-wrappers-and-control-planes) assessed products; this section
+assesses *postures* — the six strategies tbd could take, argued fully.
+Skimming the matrix in [§7](#7-comparison-matrix) makes the ref look like an easy
+default. It is the right call, but not an easy one: every option here has a real pull,
+and the honest version of this analysis names what choosing the ref gives up.
+
+### Option A: Define a session ref, write thin adapters
+
+**Description:** the [§9](#9-the-linkage-contract) contract.
+tbd stores provider, id, URL, actor, and timestamps; adapters translate provider status
+into a vocabulary tbd owns; no runtime is adopted.
+
+**Pros:**
+
+- **Survives the churn.** The ref outlives any vendor in
+  [§8](#8-churn-the-case-against-betting-on-a-runtime); a dead provider degrades to a
+  404 link and a `stale` badge rather than a broken feature.
+- **Proportionate.** One schema addition plus adapters measured in tens of lines,
+  against integration surfaces measured in thousands (the Linear adapter alone is
+  ~1,200).
+- **Neutral by construction, not by promise.** `provider` is an opaque string, so
+  neutrality cannot regress without someone deliberately special-casing a vendor.
+- **Ships in the order value arrives.** The `local` case works offline on day one; every
+  adapter after that is optional and independent.
+- **Agrees with the governing idea.** The bead stays the system of record and the
+  session is a projection onto it — the same shape that made the Linear integration
+  sound.
+
+**Cons:**
+
+- **It is the shallowest possible integration.** A ref cannot steer a session, show a
+  transcript, replay a run, or approve a tool call.
+  Everything in [§5.1](#51-universal-wrappers-three-of-them-no-interop) does more.
+- **Freshness is only as good as polling.** A push-based wrapper knows the instant a
+  session dies; a poller knows at the next refresh.
+  The `stale` derivation bounds the damage but does not eliminate it.
+- **N small adapters are still N maintenance burdens**, each coupled to an
+  undocumented-or-beta provider surface that can drift.
+- **Reverse lookup is inconsistent.** Some providers can answer “which sessions belong
+  to this bead” (`discover`); most cannot, so a session started outside `tbd start` may
+  never be linked.
+
+**Verdict: chosen.** The cons are bounded and mostly recoverable; the pros are
+structural. This is [R1](#11-recommendations).
+
+### Option B: Standardize on a universal wrapper
+
+**Description:** bless one of the three wrappers as *the* tbd runtime — recommend it in
+setup, document it as the way to run agents, build the session feature against its API.
+
+The candidates differ enough to argue separately:
+
+- **Rivet Sandbox Agent.** *For:* caller-chosen session ids collapse the linkage problem
+  entirely (the bead id *is* the session id); the universal event schema persisted to
+  your own Postgres is audit and replay for free; a single static binary with an OpenAPI
+  spec is the easiest possible integration target.
+  *Against:* two months without a commit; one company; the Inspector URL is only
+  reachable where the operator hosts it; no governance layer; a fixed list of six
+  agents.
+- **bb.** *For:* the most complete architecture surveyed, with real contract boundaries;
+  enrolled host daemons answer the multi-machine, deploy-to-GCP-or-AWS requirement
+  natively; the `provider-acp` bridge makes one integration reach 50+ agents; very
+  active; MIT. *Against:* it is an IDE, so adopting it adopts a server, a SQLite store,
+  and an app, not just an API; its API is unauthenticated by design, so tbd would be
+  recommending something users must firewall correctly; surfaces are self-described as
+  evolving; and its `tasks` plugin is a tracker.
+  That last point cuts deep: bb threads belong to bb’s tracker the way beads belong to
+  tbd, so coupling to bb means two systems of record with overlapping ambitions — the
+  exact conflict the Linear integration spent its whole design budget avoiding.
+- **Omnigent.** *For:* the broadest compute story (ten backends including Kubernetes,
+  which covers GKE and EKS directly); mixed-harness sessions; the only one with
+  policies, spend caps, and approval gates; very active.
+  *Against:* self-described alpha; the largest surface area to depend on; server-minted
+  session ids; the youngest documentation of its data model.
+
+**Pros (of the posture, whichever candidate):** visibility far beyond a status field —
+live transcripts, steering, delegation, approvals; one adapter instead of N; tbd could
+stop thinking about runtimes entirely.
+
+**Cons:** it picks a winner in a market with a demonstrated casualty rate and no interop
+between candidates, so the pick is sticky in exactly the way
+[§8](#8-churn-the-case-against-betting-on-a-runtime) warns about; every candidate is one
+company; a server on the install path contradicts tbd’s git-native, no-resident-process
+premise; and the bb tasks plugin is evidence that wrappers grow trackers, so today’s
+runtime partner is tomorrow’s competitor.
+
+**Verdict: rejected as a posture; embraced as adapters.** Write the adapter for
+whichever wrapper a user already runs ([R5](#11-recommendations)), recommend none.
+
+### Option C: Bless a vendor cloud
+
+**Description:** make one hosted runtime the documented path — Claude Managed Agents
+with a self-hosted environment, Codex Cloud, or Amp orbs, with Bedrock AgentCore as the
+AWS-native variant.
+
+**Pros:**
+
+- **The URLs are real.** Amp threads are public links by construction; the Managed
+  Agents Console is a genuine live trace view.
+  Nothing self-hosted matches either without the user running infrastructure.
+- **Someone else operates it.** No daemon to babysit, no sandbox fleet, vendor-grade
+  reliability and audit.
+- **The CMA topology is genuinely good for tbd’s audience:** outbound-only long-polling
+  means a laptop or a VPC worker with no inbound ports, no tunnel, no public hostname.
+
+**Cons:**
+
+- **Every candidate locks the agent choice.** CMA runs Anthropic’s loop (not the Claude
+  Code harness), Codex Cloud runs Codex, Amp runs Amp.
+  “Run Claude Code, Codex, or any other coding agent” — the actual requirement — is
+  precisely what none of them offer.
+- **Availability is conditional.** CMA is beta and absent from Bedrock, Vertex, and
+  Foundry; Codex Cloud and Amp have no bring-your-own-cloud story at all.
+- **A blessed cloud makes tbd vendor-specific in one step**, undoing the neutrality that
+  motivated the survey.
+
+**Verdict: rejected as the blessed path; carried as adapters** (Codex Cloud first,
+[R4](#11-recommendations)), with CMA explicitly scheduled for re-evaluation
+([R7](#11-recommendations)).
+
+### Option D: Lean on tracker-native agent sessions
+
+**Description:** skip the ref and surface liveness only where humans already look — a
+Linear agent session per working bead, in the Cyrus pattern, with `externalUrl` pointing
+wherever the run lives.
+
+**Pros:**
+
+- Zero new surface for a Linear-first team; the status appears inside the issue, which
+  is where the question gets asked.
+- The ecosystem has standardized on this gesture — delegation and agent sessions are
+  Linear’s native model, filterable everywhere.
+- Cyrus proves the pattern end to end, Apache-2.0.
+
+**Cons:**
+
+- **It couples visibility to one tracker.** tbd is multi-tracker by design (GitHub is
+  the next adapter), and `tbd web` plus the CLI need the same answer Linear does; a
+  Linear-only mechanism answers none of them.
+- **Full agent sessions want infrastructure.** OAuth app, and for the delegation flow a
+  reachable endpoint — the same hosting burden
+  [the Linear brief](research-2026-08-09-linear-task-surfaces.md) §6.4 documents.
+  (Proactive `agentSessionCreateOnIssue` without interaction scopes may dodge the
+  webhook requirement, but that is unprobed.)
+- **It reports into a surface tbd does not own**, so the bead browser inherits nothing.
+
+**Verdict: complementary, not foundational.** It is the outbound edge of the round trip
+— the spec’s Phase 2 `externalUrl` item — layered on the ref rather than replacing it.
+
+### Option E: Observe-only, the codecast technique as the whole answer
+
+**Description:** no ref written at claim; instead a watcher reads the harnesses’ own
+history files and reconstructs sessions after the fact.
+
+**Pros:**
+
+- **Requires nothing from anyone.** No wrapper, no adapter cooperation, no change to how
+  any agent is launched; it even backfills sessions tbd never knew about.
+- Proven against Claude Code, Codex CLI, Cursor, and Gemini simultaneously.
+
+**Cons:**
+
+- **Local machines only.** A cloud run leaves no history file on any machine tbd can
+  see, so the option answers exactly the cases the runtime question was not about.
+- **History-file formats are internals.** They drift with harness releases and carry no
+  compatibility promise; a watcher is a permanent maintenance treadmill.
+- **It wants a resident daemon**, which tbd deliberately does not ship.
+- **Transcripts are sensitive.** tbd should record that a session exists, not what was
+  said in it; a content-indexing watcher changes the tool’s privacy posture.
+
+**Verdict: adopt the technique, not the architecture** — read the history file once at
+claim time to detect the session id ([R5a](#11-recommendations)); no daemon, no content.
+
+### Option F: Build a tbd runtime
+
+**Description:** tbd hosts or ships its own session-bearing runtime.
+
+Rejected without a pros list worth writing.
+[§8](#8-churn-the-case-against-betting-on-a-runtime) shows a crowded, funded field dying
+at a visible rate; tbd’s differentiation is the git-native record, not compute.
+This is [R6](#11-recommendations).
+
+### Decision summary
+
+| Option | Posture | Verdict | Carried into |
+| --- | --- | --- | --- |
+| A. Session ref + adapters | Neutral record | **Chosen** | R1–R4, the spec |
+| B. Standardize on a wrapper | Adopt Rivet / bb / Omnigent | Adapters only | R5 |
+| C. Bless a vendor cloud | CMA / Codex / Amp / AgentCore | Adapters only; CMA re-check | R4, R7 |
+| D. Tracker-native sessions | Linear agent sessions | Complementary outbound edge | Spec Phase 2 |
+| E. Observe-only watcher | History-file daemon | Technique only, at claim time | R5a |
+| F. Own runtime | Build/host | Rejected | R6 |
+
+The pattern across the verdicts is one sentence: **every option contributes its
+mechanism and none earns a dependency** — which is what a commoditizing layer looks like
+from the outside.
+
+* * *
+
 ## 9. The linkage contract
 
 ### 9.1 The ref shape
@@ -842,7 +1043,8 @@ Two open beads are load-bearing for this work rather than adjacent to it: **`tbd
 
 **R1. Define the ref, adopt no runtime.** Add `kind: session` to `refs` with the shape
 in [§9.1](#91-the-ref-shape).
-This is the whole strategic recommendation; everything else is consequence.
+This is the whole strategic recommendation — argued against its five alternatives in
+[§8a](#8a-options-considered) — and everything else is consequence.
 
 **R2. Ship the degenerate case first.** `tbd start` writes a `local` session ref with
 the harness session id, the actor, and timestamps.
