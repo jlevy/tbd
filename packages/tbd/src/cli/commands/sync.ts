@@ -24,6 +24,7 @@ import {
   checkRemoteBranchHealth,
   type ConflictEntry,
   type PushResult,
+  trackingRefspec,
 } from '../../file/git.js';
 import { DATA_SYNC_DIR } from '../../lib/paths.js';
 import {
@@ -590,7 +591,7 @@ class SyncHandler extends BaseCommand {
 
     // Check for remote changes
     try {
-      await git('fetch', remote, syncBranch);
+      await git('fetch', remote, trackingRefspec(remote, syncBranch));
 
       // Count commits ahead/behind
       try {
@@ -648,7 +649,7 @@ class SyncHandler extends BaseCommand {
   private async pullChanges(syncBranch: string, remote: string): Promise<void> {
     const spinner = this.output.spinner('Pulling from remote...');
     try {
-      await git('fetch', remote, syncBranch);
+      await git('fetch', remote, trackingRefspec(remote, syncBranch));
 
       // Get list of changed files
       let behind = 0;
@@ -763,7 +764,7 @@ class SyncHandler extends BaseCommand {
       // Check how many commits we're ahead of remote
       let ahead = 0;
       try {
-        await git('fetch', remote, syncBranch);
+        await git('fetch', remote, trackingRefspec(remote, syncBranch));
         const aheadOutput = await git(
           'rev-list',
           '--count',
@@ -1123,7 +1124,7 @@ class SyncHandler extends BaseCommand {
       }
 
       // STEP 2: Fetch remote
-      await git('fetch', remote, syncBranch);
+      await git('fetch', remote, trackingRefspec(remote, syncBranch));
 
       // Detect unrelated histories UP FRONT (post-fetch), before any merge or
       // conflict/retry work, so sync does no misleading work, diagnostics
