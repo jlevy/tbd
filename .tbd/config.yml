@@ -101,6 +101,7 @@ docs_cache:
     shortcuts/standard/update-specs-status.md: internal:shortcuts/standard/update-specs-status.md
     shortcuts/standard/watch-beads.md: internal:shortcuts/standard/watch-beads.md
     shortcuts/standard/welcome-user.md: internal:shortcuts/standard/welcome-user.md
+    guidelines/agent-session-bootstrap.md: internal:guidelines/agent-session-bootstrap.md
     guidelines/backward-compatibility-rules.md: internal:guidelines/backward-compatibility-rules.md
     guidelines/bun-monorepo-patterns.md: internal:guidelines/bun-monorepo-patterns.md
     guidelines/cli-agent-skill-patterns.md: internal:guidelines/cli-agent-skill-patterns.md
