@@ -637,6 +637,30 @@ export const LinkRecordSchema = z.object({
    */
   external_key: z.string().min(1).nullable().optional(),
   external_url: z.string().min(1).nullable().optional(),
+  /**
+   * The tracker state id for a column tbd has no name of its own for (f08+).
+   *
+   * A team's own "In QA" is `started` work as far as agreement goes, but writing it
+   * back as a generic In Progress would drag the issue out of the column someone put
+   * it in. Recording the exact id is what lets an outbound write put it back verbatim.
+   *
+   * It lives here rather than on the bead for the reason stated above: this is tracker
+   * *dynamics*, not identity, and it is rewritten every sync. Measured, too — holding it
+   * in `extensions.<provider>` merges the whole namespace last-writer-wins, so a clone
+   * recording a refinement while another refreshed `external_key` lost the key outright.
+   * Here the refinement and the link it describes travel as one record and cannot
+   * disagree.
+   */
+  refinement_state_id: z.string().min(1).nullable().optional(),
+  /**
+   * The slot that refinement column resolved to.
+   *
+   * Stored rather than derived because deriving it needs the column's name, which is
+   * exactly what is not in hand when replaying. Replay happens only when a write
+   * targets this same slot: the issue is going back to the position it left, so the
+   * column it left is still the right one.
+   */
+  refinement_slot: z.string().min(1).nullable().optional(),
   base: BridgeBaseSchema,
   /** The provider's clock at last sync. A fetch prefilter, never correctness. */
   remote_updated_at: Timestamp,

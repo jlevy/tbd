@@ -871,6 +871,40 @@ describe('the sync engine', () => {
     expect(store.get(epic.id)?.assignee).toBe('josh');
   });
 
+  it("returns work to a team's own column after it leaves and comes back", async () => {
+    // The refinement record earning its keep. Within a single run the no-fight property
+    // already protects a custom column, because an unchanged slot produces no state
+    // write at all. This is the case it does not cover: the work genuinely moves out of
+    // the band and back, so a state IS written, and without a record of where it came
+    // from it lands in the band's generic column instead of the team's own.
+    const policy = PolicyDefinitionSchema.parse({
+      outbound: { kinds: ['epic'], statuses: ['open', 'in_progress'], specs: 'none', linked: true },
+    });
+    const inQa = { id: 'state-in-qa', name: 'In QA', type: 'started', position: 7 };
+    server.states.push(inQa);
+
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz', { status: 'in_progress' });
+    store.set(epic.id, epic);
+    await run([epic], policy);
+
+    // A person moves it into the team's own column.
+    const externalId = readLink(store.get(epic.id)!, 'linear')!.id;
+    server.issues.get(externalId)!.state = { ...inQa };
+    await run([store.get(epic.id)!], policy);
+    expect(server.issues.get(externalId)?.state.name).toBe('In QA');
+
+    // The work is paused, which is a genuine move out of the started band...
+    store.set(epic.id, { ...store.get(epic.id)!, hold: 'paused', version: 2 });
+    await run([store.get(epic.id)!], policy);
+    expect(server.issues.get(externalId)?.state.name).not.toBe('In QA');
+
+    // ...and then resumed, which should put it back where it was rather than in a
+    // generic In Progress.
+    store.set(epic.id, { ...store.get(epic.id)!, hold: null, version: 3 });
+    await run([store.get(epic.id)!], policy);
+    expect(server.issues.get(externalId)?.state.name).toBe('In QA');
+  });
+
   it('does not drag an issue back out of a column a person moved it to', async () => {
     // The no-fight property, pinned BEFORE slots widen what the matrix compares.
     //

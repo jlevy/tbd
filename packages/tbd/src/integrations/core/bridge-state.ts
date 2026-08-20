@@ -233,6 +233,10 @@ const SUBSTANTIVE_FIELDS: Readonly<Record<Exclude<keyof LinkRecord, 'synced_at'>
   // reason to rewrite the record. Treating them as cosmetic would strand every
   // stored identifier at its pre-rename value indefinitely.
   external_key: true,
+  // Substantive: if the issue moves to a different custom column, the recorded state
+  // id has to be rewritten or an outbound write puts it back in the old one.
+  refinement_state_id: true,
+  refinement_slot: true,
   external_url: true,
   base: true,
   remote_updated_at: true,

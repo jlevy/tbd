@@ -923,6 +923,7 @@ export class LinearAdapter implements TrackerAdapter {
       resolution: resolutionFromLinear(stateType),
       hold: holdFromLinear(raw.state?.name, labels),
       slot: slotFromLinear(stateType, raw.state?.name, labels),
+      stateId: raw.state?.id ?? null,
       delegate: raw.delegate
         ? (this.delegateByAppUserId.get(raw.delegate.id.toLowerCase()) ?? null)
         : null,
@@ -1021,7 +1022,10 @@ export class LinearAdapter implements TrackerAdapter {
               state.name.toLowerCase() === target.stateName!.toLowerCase(),
           )
         : undefined;
-      const stateId = named?.id ?? meta.stateIdsByType[target.stateType];
+      // An explicit state wins: it names the column this issue was actually in, which a
+      // slot cannot, and writing the band's default instead is what drags an issue out
+      // of a team's own column.
+      const stateId = patch.stateId ?? named?.id ?? meta.stateIdsByType[target.stateType];
       if (stateId) {
         input.stateId = stateId;
       }

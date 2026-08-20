@@ -50,6 +50,11 @@ export interface ExternalIssue extends ExternalRef {
    * comparison rather than silently degrading to a coarser one.
    */
   slot?: string;
+  /**
+   * The provider's exact state id, so a column tbd has no name for can be written
+   * back as itself rather than as its band's generic default.
+   */
+  stateId?: string | null;
   priority: PriorityType;
   labels: string[];
   assignee: string | null;
@@ -99,6 +104,13 @@ export interface CanonicalPatch {
   hold?: IssueHoldType | null;
   /** The board position to write, when the run compares slots. */
   slot?: string;
+  /**
+   * Write this exact state instead of resolving one from the slot.
+   *
+   * Set when the issue sits in a column tbd has no name for and nothing has moved it
+   * out of that column's band, so the write puts it back where it was.
+   */
+  stateId?: string | null;
   priority?: PriorityType;
   /**
    * REPLACES the item's labels. Absent leaves them alone, which is the default:

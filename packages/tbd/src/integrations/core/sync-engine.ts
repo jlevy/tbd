@@ -36,7 +36,7 @@ import type {
   PolicyDefinition,
   ProviderNameType,
 } from '../../lib/types.js';
-import { computeSlot, decomposeSlot, isSlot } from './slots.js';
+import { computeSlot, decomposeSlot, isSlot, type Slot } from './slots.js';
 import { readyIssueIds } from '../../lib/issue-selection.js';
 import {
   descriptionHash,
@@ -774,9 +774,30 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     // bead ends up canceled and open at once. Widening the matrix properly is the slot
     // work in a later phase; until then the rule is that the reason goes where the
     // position goes.
-    if (result.externalPatch.status !== undefined) {
+    // An outbound slot is decomposed into the fields the adapter already knows how to
+    // write. The adapter's job is provider vocabulary, not lifecycle arithmetic, so the
+    // slot is turned back into status/hold/resolution here rather than teaching every
+    // adapter to read slots.
+    if (result.externalPatch.slot !== undefined) {
+      const fields = decomposeSlot(result.externalPatch.slot as Slot);
+      result.externalPatch.status = fields.status;
+      result.externalPatch.hold = fields.hold;
+      result.externalPatch.resolution = fields.resolution;
+    } else if (result.externalPatch.status !== undefined) {
       result.externalPatch.resolution = bead.resolution ?? null;
       result.externalPatch.hold = bead.hold ?? null;
+    }
+    // Put the issue back in the column it came from when the position it is being
+    // written to is the same one that column represented. Without this, a bead that
+    // paused and resumed would come back to a generic In Progress rather than to the
+    // team's own column, which is the same "don't fight the human" rule applied across
+    // a round trip instead of within one run.
+    if (
+      result.externalPatch.slot !== undefined &&
+      record?.refinement_state_id &&
+      record.refinement_slot === result.externalPatch.slot
+    ) {
+      result.externalPatch.stateId = record.refinement_state_id;
     }
     if (result.beadPatch.status !== undefined) {
       // A Linear duplicate carries its target as a relation tbd does not read yet, and
@@ -1423,9 +1444,16 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
           // when the pair has nothing else to push.
           external_key: pair.remote.key ?? null,
           external_url: pair.remote.url ?? null,
+          // The exact column this issue was last seen in, remembered alongside the
+          // slot that column resolved to. Replayed only when a later write targets
+          // that same slot: if the work genuinely moves, the old state is no longer
+          // where it belongs and resolving afresh is correct.
+          refinement_state_id: pair.remote.stateId ?? null,
+          refinement_slot: pair.remote.slot && isSlot(pair.remote.slot) ? pair.remote.slot : null,
           base: {
             title: pair.result.merged.title,
             status: pair.result.merged.status,
+            slot: pair.result.merged.slot,
             priority: pair.result.merged.priority,
             labels: pair.result.merged.labels,
             assignee: pair.result.merged.assignee,

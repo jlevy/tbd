@@ -142,6 +142,8 @@ export interface ReconcileResult {
   merged: {
     title: string;
     status: IssueStatusType;
+    /** The agreed board position, when the run compared slots. */
+    slot?: Slot;
     priority: PriorityType;
     labels: string[];
     assignee: string | null;
