@@ -246,7 +246,15 @@ export const IssueRef = z.object({
  * now we have more reliable management of the mappings file (ids.yml) and
  * consider it authoritative. See IdMappingYamlSchema (§2.6.8).
  */
-export const IssueSchema = BaseEntity.extend({
+/**
+ * The issue shape as *declared*, before `.passthrough()` is applied.
+ *
+ * Exists only so the field names can be enumerated. `.passthrough()` adds an index
+ * signature, which widens `keyof Issue` to `string | number` and silently defeats any
+ * `Record<keyof Issue, …>` exhaustiveness guard built on it — two such guards had been
+ * dead since f08 without anyone noticing, because they still compiled.
+ */
+const IssueDeclaredShape = BaseEntity.extend({
   // Header seven: the fields you always want to see at a glance
   type: z.literal('is'),
   // id, version inherited from BaseEntity
@@ -336,7 +344,17 @@ export const IssueSchema = BaseEntity.extend({
   //
   // Preserving here is only half the job. `mergeIssues` (file/git.ts) must also carry
   // keys outside FIELD_STRATEGIES, or a preserved key is dropped at the next merge.
-  .passthrough()
+  .passthrough();
+
+/**
+ * Field names the issue schema declares, un-widened by `.passthrough()`.
+ *
+ * Use this, never `keyof Issue`, when a table must cover every field: it is what makes
+ * a new field a compile error in the places that need to know about one.
+ */
+export type IssueFieldName = keyof typeof IssueDeclaredShape.shape;
+
+export const IssueSchema = IssueDeclaredShape
   // The terminal axis is only meaningful at the terminal end, and `duplicate` is only
   // meaningful with a pointer. Both providers that model duplicate (Linear's relation,
   // GitHub's `duplicateIssueId`) reached the same conclusion independently, so a bare

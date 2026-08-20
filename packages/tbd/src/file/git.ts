@@ -18,6 +18,7 @@ import { basename, dirname, join, normalize } from 'node:path';
 
 import { writeFile } from 'atomically';
 
+import type { IssueFieldName } from '../lib/schemas.js';
 import type { Issue } from '../lib/types.js';
 import { now, nowFilenameTimestamp } from '../utils/time-utils.js';
 import { parseIssue, serializeIssue } from './parser.js';
@@ -443,7 +444,7 @@ const UNION_KEY_FIELDS: Readonly<Record<string, string>> = {
  * Field-level merge strategies for Issue fields.
  * See: tbd-design.md §3.5 Merge Rules
  */
-const FIELD_STRATEGIES: Record<keyof Issue, MergeStrategy> = {
+const FIELD_STRATEGIES: Record<IssueFieldName, MergeStrategy> = {
   // Immutable - never change after creation
   type: 'immutable',
   id: 'immutable',

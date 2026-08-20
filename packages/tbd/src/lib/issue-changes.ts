@@ -5,6 +5,7 @@
 import { extractShortId, extractUlidFromInternalId, isInternalId, makeInternalId } from './ids.js';
 import { issueMatchesSharedFilters, readyIssueIds } from './issue-selection.js';
 import type { Issue, IssueStatusType } from './types.js';
+import type { IssueFieldName } from './schemas.js';
 
 /** One committed issue graph and its append-only public-ID mapping. */
 export interface IssueSnapshot {
@@ -86,7 +87,7 @@ export interface CreateIssueChangesReportOptions {
 /** Inputs for diffing two issue snapshots without assigning commit semantics. */
 export type CreateIssueChangesOptions = Omit<CreateIssueChangesReportOptions, 'since' | 'tip'>;
 
-export type IssueChangeField = Exclude<keyof Issue, 'type' | 'id' | 'version' | 'updated_at'>;
+export type IssueChangeField = Exclude<IssueFieldName, 'type' | 'id' | 'version' | 'updated_at'>;
 
 // Object insertion order is the stable report order. Record exhaustiveness makes a new
 // substantive Issue field a type error until its change-report position is chosen.
@@ -98,6 +99,11 @@ const ISSUE_CHANGE_FIELD_ORDER = {
   description: true,
   notes: true,
   spec_path: true,
+  // Added in f08 and never registered here, because the exhaustiveness guard this
+  // table claims to have was silently dead. `tbd changes` has therefore never reported
+  // a doc or ref being attached to a bead.
+  docs: true,
+  refs: true,
   assignee: true,
   delegate: true,
   labels: true,
