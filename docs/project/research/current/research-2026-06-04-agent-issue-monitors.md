@@ -8,12 +8,12 @@
 
 **Related:**
 
-- [Running Claude Code Across Environments](research-running-claude-code.md) — has a
-  section on GitHub Actions `@claude` triggers; this doc goes deeper on the monitor
-  mechanisms themselves
+- [Running Claude Code Across Environments](../archive/research-running-claude-code.md)
+  — has a section on GitHub Actions `@claude` triggers; this doc goes deeper on the
+  monitor mechanisms themselves
 - [Agent Coordination Kernel](research-agent-coordination-kernel.md) — separating
   durable truth from live coordination across agent ecosystems
-- [Claude Code Orchestration Interfaces and UIs](research-claude-code-orchestration-and-uis.md)
+- [Claude Code Orchestration Interfaces and UIs](../archive/research-claude-code-orchestration-and-uis.md)
   — control protocols and orchestration surfaces
 - [API References for Bridge Integrations](api-references-bridge-integrations.md) —
   multi-agent protocols (MCP, ACP, A2A, ANP) and bridge APIs
@@ -316,8 +316,8 @@ The most significant architectural shift in the survey:
   agent pulls structured issue/PR/code data rather than receiving a hand-built string.
 - **State reporting (how the agent answers):** PR creation (Cursor, Devin, Copilot,
   Aider DIY), **PR/issue comments** (all), **labels & status checks** as a coarse state
-  machine (DIY pattern from `research-running-claude-code.md`), **assignee** changes,
-  **reactions** as lightweight ack.
+  machine (DIY pattern from `../archive/research-running-claude-code.md`), **assignee**
+  changes, **reactions** as lightweight ack.
   The issue/PR thread *is* the durable log of the coordination.
 
 ### Control plane / data plane / durable state
