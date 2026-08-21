@@ -269,11 +269,7 @@ The **issue tracking layer** has four core principles:
 Coordination and visibility build on that durable core: `tbd watch` (§4.14) wakes a
 process when selected bead state changes on the remote, `tbd web` (§4.15) serves a live
 read-only view, and `tbd integration` (§8.7) synchronizes beads with external trackers
-such as Linear. Git works best when latency is seconds, not milliseconds, and volume is
-thousands of issues, not millions, so sub-second messaging and atomic claim enforcement
-(as provided by [Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail) and
-[Gas Town](https://github.com/steveyegge/gastown)) remain separate problems—ones that
-can be layered on top of tbd or handled by other tools.
+such as Linear.
 
 **Key characteristics:**
 
@@ -310,10 +306,6 @@ can be layered on top of tbd or handled by other tools.
 
 - [Beads](https://github.com/steveyegge/beads)—The original git-backed issue tracker tbd
   is designed to replace
-- [Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail)—Real-time agent
-  messaging via MCP (complementary to tbd for coordination)
-- [Gas Town](https://github.com/steveyegge/gastown)—Multi-agent orchestration platform
-  (complementary to tbd for real-time coordination)
 - [ticket](https://github.com/wedow/ticket)—Bash-based Markdown+YAML tracker (~1900
   tickets in production)
 - [git-bug](https://github.com/git-bug/git-bug)—Issues stored as git objects
@@ -339,7 +331,7 @@ tbd and Beads serve different use cases:
 
 | Scenario | Why Beads |
 | --- | --- |
-| Multi-agent requiring real-time coordination | Agent Mail, daemon-based sync, atomic claims |
+| Multi-agent requiring atomic claim enforcement | Daemon-based sync with atomic claims |
 | Complex workflow orchestration | Molecules, wisps, formulas, bonding |
 | Need ephemeral work tracking | Wisps (never synced, squash to digest) |
 | High-performance queries on 10K+ issues | SQLite with indexes is faster than file scan |
@@ -355,7 +347,6 @@ tbd and Beads serve different use cases:
 | Storage | Markdown and YAML files | SQLite and JSONL |
 | Coordination | Advisory claims, polling | Atomic claims, real-time |
 | Workflow templates | Not supported | Molecules, wisps, protos |
-| Agent messaging | Not supported | Agent Mail |
 | Debugging | Inspect files directly | Requires SQLite queries |
 
 **tbd is NOT:**
@@ -365,12 +356,7 @@ tbd and Beads serve different use cases:
 
 - A replacement for Beads’ advanced orchestration features (molecules, wisps, formulas)
 
-- A replacement for Agent Mail or other real-time messaging layers
-
 - A workflow automation engine with templates
-
-For atomic claims or sub-second messaging, pair tbd with a real-time layer such as Agent
-Mail.
 
 ### 1.3 Why Replace Beads? (Architecture Comparison)
 
@@ -6008,7 +5994,7 @@ simplifying the architecture:
 | Data locations | 4 (SQLite, local JSONL, sync branch, main) | 2 (files on sync branch, config on main) |
 | Storage | SQLite + JSONL | Markdown + YAML (file-per-entity) |
 | Daemon | Required (recommended) | Not required |
-| Agent coordination | External (Agent Mail) | `tbd watch` wake-ups; atomic claims deferred |
+| Agent coordination | External daemon | `tbd watch` wake-ups; atomic claims deferred |
 | Comments | Embedded in issue | Deferred |
 | Conflict resolution | 3-way merge | Git-based detection + field-level LWW + attic |
 
@@ -6378,7 +6364,6 @@ Real-time agent coordination is deferred:
 | `bd agent register` | Agent registry - future |
 | `bd agent heartbeat` | Presence tracking - future |
 | `bd agent claim` | Atomic claims - future |
-| Agent Mail | Real-time messaging - future |
 
 ### B.4 Advanced Data Operations
 
