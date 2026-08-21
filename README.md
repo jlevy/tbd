@@ -143,7 +143,6 @@ The web view and Linear sync complete the picture: agents and humans share one d
 git-native task layer, visible from the terminal, the browser, and your tracker.
 
 On multi-agent style: unstructured agent loops like
-[Gas Town](https://github.com/steveyegge/gastown) and
 [Ralph Wiggum](https://github.com/anthropics/claude-code/tree/main/plugins/ralph-wiggum)
 seem great for rapid prototyping, but so far, for code where quality or scale matters,
 I’ve not fully embraced unstructured automation (e.g. 20+ concurrent agents or Ralph
@@ -681,15 +680,11 @@ merge conflicts, and multi-agent workflows.
 If you already use Beads, `tbd setup --from-beads` migrates you to `tbd`. This imports
 and sets up your `.tbd` directory and preserves the IDs of all issues.
 
-**Scope:** `tbd` focuses on the *durable layer*—issue tracking, specs, and knowledge
-that persist across sessions and live in git—and builds coordination on top of it:
-`tbd watch` wakes agents when bead state changes, `tbd web` shows the board live, and
-`tbd integration sync` keeps an external tracker current.
-Sub-second messaging and atomic claims are a separate problem; tools like
-[Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail) and
-[Gas Town](https://github.com/steveyegge/gastown) address that space and are
-complementary to `tbd`. See the [design doc](packages/tbd/docs/tbd-design.md) for a
-detailed comparison.
+**Scope:** `tbd` focuses on the *durable layer*, meaning issue tracking, specs, and
+knowledge that persist across sessions and live in git, and builds coordination on top
+of it: `tbd watch` wakes agents when bead state changes, `tbd web` shows the board live,
+and `tbd integration sync` keeps an external tracker current.
+See the [design doc](packages/tbd/docs/tbd-design.md) for a detailed comparison.
 
 ### Can my team see beads without using the CLI?
 
