@@ -82,6 +82,31 @@ not serve, so no tbd user receives it:
 | `agent-guidelines/typescript-dependency-injection-guidelines.md` | 293 | Dependency injection for testability. |
 | `agent-guidelines/typescript-testing-guidelines.md` | 136 | Testing real system interactions rather than mock existence, integration points, error scenarios, contract compliance. Mostly language-neutral. |
 
+### Consistency Fixes tbd Needs First
+
+Registering a Rust family exposes defects in how tbd serves guidelines.
+These block the migration and are fixed before it:
+
+- **`GUIDELINE_GROUPS` has no Rust group.** `packages/tbd/src/file/doc-cache.ts` assigns
+  each guideline to the first group whose `match` returns true, matching on the
+  guideline *name* rather than its `category` frontmatter.
+  Every `rust-*` document would fall through to the catch-all “Docs, process and
+  tooling” group.
+- **`rust-testing-rules` would be misrouted.** The `General engineering` group matches
+  `n.includes('testing')` and is checked first, so a Rust-only document would land in
+  the group whose note reads “Read all of these for any engineering work”, and would be
+  served to Python and TypeScript sessions.
+  The same pattern catches any future `<lang>-testing-rules`.
+- **`GUIDELINE_GROUPS` has no test.** Nothing asserts that a guideline lands in the
+  intended group, which is why the misrouting above is invisible today.
+- **Generated skill files drift.** `.claude/skills/tbd/SKILL.md`,
+  `.agents/skills/tbd/SKILL.md`, `skills/tbd/SKILL.md`, and `AGENTS.md` embed the
+  generated directory between `BEGIN SHORTCUT DIRECTORY` markers.
+  A guideline added without regenerating them is invisible to agents; `tbd-o732`
+  recorded exactly this failure on an earlier guideline addition.
+- **New names need `docs_cache.files` entries** in `.tbd/config.yml`, or `tbd docs sync`
+  does not serve them.
+
 ## Design
 
 ### How the Floor Is Set
@@ -246,6 +271,9 @@ the reuse review recommended.
 - [ ] Confirm `rpp-u657` still tracks upstreaming; file the tbd-side receiving bead.
 - [ ] Confirm `category: rust` renders correctly in `tbd guidelines --list`.
 - [ ] Record per-document deltas against the conversion checklist.
+- [ ] Add a Rust group to `GUIDELINE_GROUPS`, ordered ahead of `General engineering` so
+  `rust-testing-rules` is not captured by its `includes('testing')` match.
+- [ ] Add a test asserting each guideline lands in its intended group.
 
 ### Phase 2: Extract the Shared Guidelines
 
@@ -278,9 +306,35 @@ the reuse review recommended.
   `rust-cli-rules`, `rust-testing-rules`, applying the conversion checklist.
 - [ ] Wave 2: the three split documents plus `review-code-rust`.
 - [ ] Register every new name in `docs_cache.files` as an `internal:` docref.
+- [ ] Regenerate the skill files and `AGENTS.md`, so the new guidelines are visible to
+  agents rather than only present on disk.
 - [ ] Repoint the playbook’s `.tbd/config.yml` at `internal:guidelines/rust-*.md`, so it
   consumes them as it consumes the TypeScript family.
 - [ ] Record the outcome in the playbook’s `_meta/playbook-improvement-log.md`.
+
+### Phase 5: Simplify the Playbook
+
+Once tbd serves the Rust family, the playbook should consume it rather than keep a
+second copy. This phase is what makes the migration a consolidation instead of a fork.
+
+- [ ] Replace each migrated guideline in `guidelines/` with an `internal:` docref in
+  `.tbd/config.yml`, so the playbook loads tbd’s copy the way it already loads the
+  TypeScript family.
+- [ ] Record the disposition of every moved document in
+  `_meta/playbook-improvement-log.md`: which file moved, to which tbd name, and at which
+  commit. Git history holds the content; the log holds the mapping.
+- [ ] Rewrite `guidelines/README.md` so the general Rust table points at tbd names and
+  the porting table stays local.
+  The index stops being the home of the Rust suite and becomes a router.
+- [ ] Repoint the playbooks, mapping references, and case studies at the tbd names.
+- [ ] Reduce `tests/test_rust_guidelines.py` to what still lives in the repository, and
+  keep the porting-layer structure assertions.
+- [ ] Confirm the porting layer still reads correctly with the general layer external:
+  every target-side rule it relies on resolves through tbd.
+
+The porting documents stay in the playbook permanently.
+They exist only when another implementation is authoritative, which is the boundary the
+2026-08-08 reuse review drew and this phase preserves.
 
 ## Testing Strategy
 

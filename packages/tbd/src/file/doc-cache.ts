@@ -412,6 +412,11 @@ const SHORTCUT_DIRECTORY_END = '<!-- END SHORTCUT DIRECTORY -->';
  * Grouping is inferred from the guideline name so new guidelines are placed
  * automatically. A guideline is assigned to the first group whose `match`
  * returns true, so the final catch-all group must stay last.
+ *
+ * Language-neutral groups match on exact names, never on a substring. A
+ * substring match silently captures language-prefixed guidelines: an earlier
+ * `n.includes('testing')` here put `rust-testing-rules` in the group whose note
+ * tells agents to read every entry for any engineering work.
  */
 interface GuidelineGroup {
   heading: string;
@@ -419,18 +424,27 @@ interface GuidelineGroup {
   match: (name: string) => boolean;
 }
 
+/** Always-load guidelines that are not covered by the `general-` prefix. */
+const GENERAL_ENGINEERING_NAMES = new Set([
+  'backward-compatibility-rules',
+  'commit-conventions',
+  'error-handling-rules',
+  'golden-testing-guidelines',
+]);
+
+/** Language-neutral guidelines loaded when the work touches their topic. */
+const CROSS_CUTTING_NAMES = new Set([
+  'ci-and-gates-rules',
+  'code-review-rules',
+  'filesystem-rules',
+  'release-engineering-rules',
+]);
+
 const GUIDELINE_GROUPS: GuidelineGroup[] = [
   {
     heading: 'General engineering',
     note: 'Read all of these for any engineering work (writing or reviewing code).',
-    match: (n) =>
-      n.startsWith('general-') ||
-      n === 'error-handling-rules' ||
-      n === 'backward-compatibility-rules' ||
-      n === 'commit-conventions' ||
-      n.includes('tdd') ||
-      n.includes('testing') ||
-      n.includes('golden'),
+    match: (n) => n.startsWith('general-') || GENERAL_ENGINEERING_NAMES.has(n),
   },
   {
     heading: 'TypeScript & JS ecosystem',
@@ -444,9 +458,19 @@ const GUIDELINE_GROUPS: GuidelineGroup[] = [
     match: (n) => n.startsWith('python-'),
   },
   {
+    heading: 'Rust',
+    note: 'Also load these when working in Rust.',
+    match: (n) => n.startsWith('rust-'),
+  },
+  {
     heading: 'Convex',
     note: 'Also load these when working with Convex.',
     match: (n) => n.startsWith('convex-'),
+  },
+  {
+    heading: 'Cross-cutting engineering topics',
+    note: 'Load these when the work touches the topic, in any language.',
+    match: (n) => CROSS_CUTTING_NAMES.has(n),
   },
   {
     // Catch-all, must stay last.
@@ -454,6 +478,19 @@ const GUIDELINE_GROUPS: GuidelineGroup[] = [
     match: () => true,
   },
 ];
+
+/**
+ * Heading of the group a guideline is filed under.
+ *
+ * Exported so group assignment is directly testable: the generated directory is
+ * the only other place this logic surfaces, and a misfiled guideline there is
+ * easy to miss.
+ */
+export function guidelineGroupFor(name: string): string {
+  const group = GUIDELINE_GROUPS.find((g) => g.match(name));
+  // The catch-all matches everything, so this fallback is unreachable in practice.
+  return group?.heading ?? GUIDELINE_GROUPS[GUIDELINE_GROUPS.length - 1]!.heading;
+}
 
 /**
  * Build table rows from docs (shared helper for shortcuts and guidelines).
@@ -543,7 +580,8 @@ export function generateShortcutDirectory(
     const grouped = GUIDELINE_GROUPS.map((group) => ({ group, docs: [] as CachedDoc[] }));
     const catchAll = grouped[grouped.length - 1];
     for (const doc of guidelines) {
-      const entry = grouped.find((g) => g.group.match(doc.name)) ?? catchAll;
+      const heading = guidelineGroupFor(doc.name);
+      const entry = grouped.find((g) => g.group.heading === heading) ?? catchAll;
       entry?.docs.push(doc);
     }
 
