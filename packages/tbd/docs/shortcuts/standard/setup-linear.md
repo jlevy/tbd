@@ -239,12 +239,71 @@ If you hit it, re-read the dry run before adding `--yes`.
 After the first sync, plain `tbd sync` includes enabled trackers automatically, so a
 session-end `tbd sync` keeps Linear current with no extra command.
 
+## Step 6 (optional): Linear’s own GitHub app
+
+Everything above is complete without this step.
+tbd’s sync needs one credential, `LINEAR_API_KEY`, and never speaks to GitHub.
+
+Linear’s own GitHub app changes what a mirrored issue can do, not how tbd syncs.
+With it installed, a pull request whose title, branch, or body names a Linear issue
+(`Fixes FIN-123`) links itself to that issue, and the team’s pull request automation
+moves the issue as the pull request opens, is reviewed, and merges.
+Since tbd already maps a completed Linear state back onto the bead, a merge can travel
+all the way to a closed bead without anyone touching either tracker.
+
+**It sits on a different axis from tbd’s configuration:**
+
+| Aspect | tbd’s Linear sync | Linear’s GitHub app |
+| --- | --- | --- |
+| Scope | One repository | One **GitHub organization** |
+| Set up by | Whoever configures the repo | A GitHub org owner |
+| Credential | `LINEAR_API_KEY`, personal | None; an app installation |
+| Repeat per repo? | Yes | **No** |
+
+The scope row is the one people get wrong.
+The app is installed once per GitHub organization, granting either all repositories or a
+chosen subset, so a second tbd repository in the same organization needs no second
+install and no second decision.
+A repository administrator can install it for a single repository when org-wide access
+is not wanted.
+
+**You cannot complete this step for the user.** Installing a GitHub app is a browser
+flow that ends in an org owner approving the permissions.
+Linear does expose `integrationGithubConnect`, but its `code` and `installationId`
+arguments are outputs of that browser flow, so there is nothing to script ahead of it.
+Point the user at Linear’s [GitHub integration settings](https://linear.app/docs/github)
+and let them approve it.
+
+**Checking whether it is already installed is scriptable, and worth doing before you ask
+anyone for anything.** Either side answers:
+
+```bash
+# Linear's side: an entry with service "github" means a workspace is connected
+# (query { integrations { nodes { service createdAt } } } against api.linear.app/graphql)
+
+# GitHub's side, if the user's gh token can read the org:
+gh api /orgs/<org>/installations --jq '.installations[] | select(.app_slug|startswith("linear")) | {app_slug, repository_selection}'
+```
+
+A `repository_selection` of `all` means every repository in that organization is already
+covered, including any repository you are about to configure.
+
+**One warning that matters when tbd is mirroring.** The same settings page offers
+**GitHub Issues sync**, which creates Linear issues from GitHub issues.
+Leave it off for any team tbd mirrors into.
+tbd is already an issue writer for that team, and a second writer on one issue set
+produces duplicates and fights over state.
+Pull request linking and issue sync are separate features; this step is only the first.
+
 ## What to tell the user when you are done
 
 - Which case it was, and what you changed (config, `.env`, or nothing).
 - That the config is committed and shared, but their key is personal and stays local.
 - That `tbd sync` now covers Linear too.
 - For case A: that `.tbd/config.yml` needs committing so teammates inherit it.
+- Whether Linear’s GitHub app is already installed for their organization, and if it is
+  not, that pull request linking is available whenever an org owner wants it.
+  Say plainly that it is optional and that sync works without it.
 
 ## Troubleshooting
 
@@ -257,9 +316,10 @@ session-end `tbd sync` keeps Linear current with no extra command.
 | A teammate reports “This repository requires a newer version of tbd” | Working as intended: their tbd predates `f07` and would strip the block | Have them upgrade: `npm install -g get-tbd@latest` |
 | Sync says `nothing to do` but Linear looks stale | The policy does not select those beads | Check `policy.outbound` against what the user expects; `--dry-run integration sync --push` lists the selected set |
 | A bead reports malformed managed-block markers | A human edited inside the `⟦tbd⟧` … `⟦/tbd⟧` region in Linear | Repair the region in Linear (one `⟦tbd⟧` and one `⟦/tbd⟧`, in that order) or delete it entirely; the next sync rewrites it |
-
 | A reopened bead stops syncing, warning that its item is archived | Under the default `policy.archive: manual` the tracker’s archive is yours to manage | Restore the issue in Linear, or set `policy.archive: on_close` to let tbd own the lifecycle |
 | Newly mirrored issues all show today’s dates | A tbd older than 0.7.0 stamped them at sync time instead of sending the bead’s own | Upgrade; dates are sent on create, so already-mirrored issues keep their original stamps |
+| A pull request merged but its Linear issue did not move | Step 6 is not done, or the pull request never named the issue, or it used a non-closing word like `part of` | Confirm the app is installed for the organization, then check the pull request body for a closing word and the issue identifier |
+| Duplicate Linear issues appear for the same work | GitHub Issues sync is enabled on a team tbd already mirrors into | Turn Issues sync off for that team; tbd is the issue writer there |
 
 Full reference: the External Tracker Integrations section of `tbd docs`.
 

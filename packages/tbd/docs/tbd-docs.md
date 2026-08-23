@@ -1565,6 +1565,14 @@ Issue sync is separate and automatic.
 not clone the repo can see the work.
 Linear is the first provider; GitHub is planned.
 
+That refers to GitHub as a *tracker tbd writes to*, and it is not the only way GitHub
+reaches a bead.
+A repository whose Linear workspace has Linear’s own GitHub app installed
+already gets pull request linking and state automation on mirrored issues, so a merged
+pull request can move its Linear issue and the next `tbd sync` carries that onto the
+bead. That path needs nothing from tbd beyond the Linear integration described here.
+See Step 6 of `tbd shortcut setup-linear`.
+
 The **mirror** is one-way: beads are the source of truth and nothing is imported back,
 which is what makes it safe to run from any agent at any time.
 Full **bidirectional synchronization** (`tbd integration sync`) is also available and is
