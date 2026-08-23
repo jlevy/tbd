@@ -8,7 +8,8 @@ category: general
 
 **Date:** 2026-08-23 (last updated 2026-08-23)
 
-**Status:** Draft
+**Status:** In progress — Phases 1-4 complete in tbd; Phase 5 (playbook simplification)
+not started
 
 ## Overview
 
@@ -269,44 +270,44 @@ the reuse review recommended.
 ### Phase 1: Confirm and Prepare
 
 - [ ] Confirm `rpp-u657` still tracks upstreaming; file the tbd-side receiving bead.
-- [ ] Confirm `category: rust` renders correctly in `tbd guidelines --list`.
+- [x] Confirm `category: rust` renders correctly in `tbd guidelines --list`.
 - [ ] Record per-document deltas against the conversion checklist.
-- [ ] Add a Rust group to `GUIDELINE_GROUPS`, ordered ahead of `General engineering` so
+- [x] Add a Rust group to `GUIDELINE_GROUPS`, ordered ahead of `General engineering` so
   `rust-testing-rules` is not captured by its `includes('testing')` match.
-- [ ] Add a test asserting each guideline lands in its intended group.
+- [x] Add a test asserting each guideline lands in its intended group.
 
 ### Phase 2: Extract the Shared Guidelines
 
-- [ ] Author `ci-and-gates-rules`, `code-review-rules`, `filesystem-rules`, and
+- [x] Author `ci-and-gates-rules`, `code-review-rules`, `filesystem-rules`, and
   `release-engineering-rules` in `packages/tbd/docs/guidelines/`, absorbing the
   extraction table above.
-- [ ] Expand `general-testing-rules` with the neutral half of
+- [x] Expand `general-testing-rules` with the neutral half of
   `typescript-testing-guidelines`, the platform-conditional timeout rule, and the
   hostile-environment pointer.
-- [ ] Point `typescript-lint-format-rules` §Hooks and Gates and floor rules 6 and 8 at
+- [x] Point `typescript-lint-format-rules` §Hooks and Gates and floor rules 6 and 8 at
   `ci-and-gates-rules` rather than restating them.
-- [ ] Add the `filesystem-rules` pointer to `typescript-rules` §File Operations, giving
+- [x] Add the `filesystem-rules` pointer to `typescript-rules` §File Operations, giving
   the `atomically` rule a documented rationale.
-- [ ] Have the `review-code*` shortcuts load `code-review-rules`.
-- [ ] Bundle or retire the three unbundled `docs/general/` documents.
+- [x] Have the `review-code*` shortcuts load `code-review-rules`.
+- [x] Bundle or retire the three unbundled `docs/general/` documents.
 
 ### Phase 3: Author and Validate the Rust Floor
 
-- [ ] Draft `rust-lint-format-rules` in the playbook.
-- [ ] Validate the `[lints]` block and `clippy.toml` against a real Rust codebase.
+- [x] Draft `rust-lint-format-rules` in the playbook.
+- [x] Validate the `[lints]` block and `clippy.toml` against a real Rust codebase.
   flowmark-rs is the natural target, being first-party and the playbook’s primary case
   study. Record which lints fire, which are noise, and which need an exception.
 - [ ] Build the Rust config-contract check: a probe fixture the lint gate must reject,
   wired into CI.
-- [ ] Reduce `rust-project-setup` §"Define a Clippy Policy" to a pointer.
+- [x] Reduce `rust-project-setup` §"Define a Clippy Policy" to a pointer.
 
 ### Phase 4: Migrate
 
-- [ ] Wave 1: `rust-rules`, `rust-lint-format-rules`, `rust-project-setup`,
+- [x] Wave 1: `rust-rules`, `rust-lint-format-rules`, `rust-project-setup`,
   `rust-cli-rules`, `rust-testing-rules`, applying the conversion checklist.
-- [ ] Wave 2: the three split documents plus `review-code-rust`.
-- [ ] Register every new name in `docs_cache.files` as an `internal:` docref.
-- [ ] Regenerate the skill files and `AGENTS.md`, so the new guidelines are visible to
+- [x] Wave 2: the three split documents plus `review-code-rust`.
+- [x] Register every new name in `docs_cache.files` as an `internal:` docref.
+- [x] Regenerate the skill files and `AGENTS.md`, so the new guidelines are visible to
   agents rather than only present on disk.
 - [ ] Repoint the playbook’s `.tbd/config.yml` at `internal:guidelines/rust-*.md`, so it
   consumes them as it consumes the TypeScript family.
@@ -336,6 +337,52 @@ The porting documents stay in the playbook permanently.
 They exist only when another implementation is authoritative, which is the boundary the
 2026-08-08 reuse review drew and this phase preserves.
 
+## Outcome Notes
+
+Recorded during implementation, where the result differed from what this plan assumed.
+
+**The Rust floor is stricter than proposed.** The floor table below suggested
+`clippy::pedantic` at `warn`. [fdu](https://github.com/jlevy/fdu) enforces it at `deny`,
+along with `missing_docs`, `unsafe_code`, and `warnings`. Strictest wins, so the shipped
+document uses `deny`. `unsafe_code` is `deny` rather than `forbid`, because `forbid`
+cannot be overridden at all and the first justified platform-specific block would force
+the workspace setting down instead of taking a scoped exception.
+
+**The lint table was validated, and two entries did not survive.** Every candidate was
+measured against fdu at `d42d970` (~35k lines, already at the floor), splitting hits at
+each file’s `#[cfg(test)]` boundary.
+`let_underscore_future` (0 sites), `wildcard_enum_match_arm` (7 production), `panic` (2
+production), and `disallowed-methods` for filesystem writes (1 production) are
+adoptable. `clippy::expect_used` costs 25 production sites and is a design commitment
+rather than a lint tweak.
+`clippy::indexing_slicing` costs 62 production sites and is **not** a floor rule — this
+answers the open question below.
+The analogy to `noUncheckedIndexedAccess` is inexact: the TypeScript flag changes an
+inferred type and is usually satisfied by a bounds check the code already has, whereas
+`indexing_slicing` demands `.get()` plus real error handling at every site.
+
+**Two traps found by running the checks rather than reasoning about them.** Clippy’s
+`allow-unwrap-in-tests` / `allow-expect-in-tests` cover inline `#[cfg(test)]` items but
+not integration tests under `tests/`, examples, or build scripts.
+And `grep -L 'workspace = true'` is a false pass for lint opt-in, because that string
+also appears in inherited package fields; the check has to look for the `[lints]` table
+itself.
+
+**The three unbundled `docs/general/` documents are narrower than assumed.**
+`typescript-dependency-injection-guidelines` is Convex-specific in its framing, not a
+general TypeScript DI guideline, and `tool-development-rules` is specific to the AI
+SDK’s `tool()` API rather than to LLM-usable tools in general.
+Neither meets the bar for a bundled guideline as written; both are left in place,
+undecided. The neutral half of `typescript-testing-guidelines` was absorbed into
+`general-testing-rules`, and the source document now carries a pointer naming that
+guideline as the authority.
+
+**A group can name documents that do not exist.** The Cross-cutting group was wired and
+tested before its four documents were authored, so it rendered as an empty heading while
+the routing test passed.
+`guideline-groups.test.ts` now checks both explicit name sets against what is actually
+bundled.
+
 ## Testing Strategy
 
 - Extend the playbook’s `tests/test_rust_guidelines.py` to assert the conversion
@@ -354,12 +401,15 @@ They exist only when another implementation is authoritative, which is the bound
   `typescript-lint-format-rules` needs profiles because ESLint and Biome are genuine
   alternatives. Rust has one formatter and one linter, so the Rust document should be
   shorter than its model, with a single configuration.
-- **Is `clippy::indexing_slicing` tolerable codebase-wide,** or does it need test-file
-  scoping the way tbd scopes its `no-unsafe-*` relaxations?
-  Phase 3 answers this with evidence.
-- **Where is `rust-lint-format-rules` authored?** Drafting in the playbook keeps one
-  review venue and one validation target; drafting in tbd avoids a second migration.
-  Leaning playbook, since Phase 3 validation happens there.
+- ~~**Is `clippy::indexing_slicing` tolerable codebase-wide,** or does it need test-file
+  scoping?~~ **Answered.** No, not as a hard deny: 62 production sites in a codebase
+  already at this floor.
+  It is documented as a per-module ratchet, not a floor rule.
+  See Outcome Notes.
+- ~~**Where is `rust-lint-format-rules` authored?**~~ **Answered.** Authored directly in
+  tbd, which avoids a second migration.
+  Validation ran against fdu rather than flowmark-rs, since fdu is a larger first-party
+  Rust codebase already at this floor.
 - **Do the shared guidelines need Python counterparts?** The Python family has no
   filesystem or release document either.
   Extraction makes the shared ones available; Python-specific companions are out of

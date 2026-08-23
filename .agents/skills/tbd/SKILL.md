@@ -382,7 +382,7 @@ Load the **General engineering** group first, then the language or framework gro
 | general-comment-rules | Language-agnostic rules for writing clean, maintainable comments |
 | general-eng-agent-principles | Core principles for AI agents acting as senior engineers—objectivity and communication conduct plus the engineering process (detailed understanding, verification, end-to-end ownership, scope discipline, tracking future work, acting versus seeking clarification, and no ceremony without benefit) |
 | general-tdd-guidelines | Test-Driven Development methodology and best practices |
-| general-testing-rules | Rules for writing minimal, effective tests with maximum coverage |
+| general-testing-rules | Rules for writing minimal, effective tests with maximum coverage, plus what makes a suite trustworthy rather than merely green—assertions that survive refactoring, determinism, fixtures that do not encode the machine that recorded them, timeouts that record a measurement, and never letting an empty or skipped selection look like a pass. |
 | golden-testing-guidelines | Guidelines for implementing golden/snapshot testing for complex systems |
 
 ### TypeScript & JS ecosystem
