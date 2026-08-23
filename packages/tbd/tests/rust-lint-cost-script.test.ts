@@ -1,6 +1,8 @@
 import {
   chmodSync,
+  copyFileSync,
   existsSync,
+  linkSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
@@ -19,44 +21,53 @@ const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..'
 const SCRIPT = join(REPO_ROOT, 'scripts', 'measure-rust-lint-cost.mjs');
 const scratchDirectories: string[] = [];
 
-function fakeCargoDirectory(): string {
+function fakeCargo(): { directory: string; nodeOptions: string } {
   const directory = mkdtempSync(join(tmpdir(), 'fake-cargo-'));
   scratchDirectories.push(directory);
-  const implementation = join(directory, 'fake-cargo.mjs');
+  const implementation = join(directory, 'fake-cargo.cjs');
   writeFileSync(
     implementation,
     [
-      "import { appendFileSync } from 'node:fs';",
-      'const args = process.argv.slice(2);',
-      'if (process.env.FAKE_CARGO_LOG) appendFileSync(process.env.FAKE_CARGO_LOG, `${JSON.stringify(args)}\\n`);',
-      "if (args[0] === 'metadata') {",
-      "  console.log(JSON.stringify({ packages: [{ id: 'example 0.1.0', name: 'example' }] }));",
-      '  process.exit(0);',
+      "const { appendFileSync } = require('node:fs');",
+      "const { basename } = require('node:path');",
+      'const args = process.argv.slice(1);',
+      "const command = basename(args[0] ?? '');",
+      "if (command === 'metadata' || command === 'clippy') {",
+      '  if (process.env.FAKE_CARGO_LOG) {',
+      '    appendFileSync(process.env.FAKE_CARGO_LOG, `${JSON.stringify(args)}\\n`);',
+      '  }',
+      "  if (command === 'metadata') {",
+      "    console.log(JSON.stringify({ packages: [{ id: 'example 0.1.0', name: 'example' }] }));",
+      '    process.exit(0);',
+      '  }',
+      '  console.log(JSON.stringify({',
+      "    reason: 'compiler-message',",
+      "    package_id: 'example 0.1.0',",
+      "    target: { kind: ['lib'], name: 'example' },",
+      "    message: { code: { code: 'clippy::panic' }, spans: [{",
+      "      is_primary: true, file_name: 'src/lib.rs', line_start: 1, column_start: 1",
+      '    }] }',
+      '  }));',
+      "  process.exit(Number(process.env.FAKE_CARGO_EXIT ?? '1'));",
       '}',
-      'console.log(JSON.stringify({',
-      "  reason: 'compiler-message',",
-      "  package_id: 'example 0.1.0',",
-      "  target: { kind: ['lib'], name: 'example' },",
-      "  message: { code: { code: 'clippy::panic' }, spans: [{",
-      "    is_primary: true, file_name: 'src/lib.rs', line_start: 1, column_start: 1",
-      '  }] }',
-      '}));',
-      "process.exit(Number(process.env.FAKE_CARGO_EXIT ?? '1'));",
       '',
     ].join('\n'),
   );
 
-  if (process.platform === 'win32') {
-    writeFileSync(
-      join(directory, 'cargo.cmd'),
-      `@"${process.execPath}" "${implementation}" %*\r\n`,
-    );
-  } else {
-    const executable = join(directory, 'cargo');
-    writeFileSync(executable, `#!/bin/sh\nexec "${process.execPath}" "${implementation}" "$@"\n`);
+  const executable = join(directory, process.platform === 'win32' ? 'cargo.exe' : 'cargo');
+  try {
+    linkSync(process.execPath, executable);
+  } catch {
+    copyFileSync(process.execPath, executable);
+  }
+  if (process.platform !== 'win32') {
     chmodSync(executable, 0o755);
   }
-  return directory;
+  const requireHook = `--require=${JSON.stringify(implementation)}`;
+  return {
+    directory,
+    nodeOptions: [process.env.NODE_OPTIONS, requireHook].filter(Boolean).join(' '),
+  };
 }
 
 afterEach(() => {
@@ -74,7 +85,7 @@ describe('measure-rust-lint-cost', () => {
     const controlledTmp = join(subject, 'tmp');
     mkdirSync(controlledTmp);
     const output = join(subject, 'evidence');
-    const fakeCargo = fakeCargoDirectory();
+    const cargo = fakeCargo();
 
     const result = spawnSync(
       process.execPath,
@@ -84,7 +95,8 @@ describe('measure-rust-lint-cost', () => {
         encoding: 'utf8',
         env: {
           ...process.env,
-          PATH: `${fakeCargo}${delimiter}${process.env.PATH ?? ''}`,
+          NODE_OPTIONS: cargo.nodeOptions,
+          PATH: `${cargo.directory}${delimiter}${process.env.PATH ?? ''}`,
           TMPDIR: controlledTmp,
           TMP: controlledTmp,
           TEMP: controlledTmp,
@@ -106,7 +118,7 @@ describe('measure-rust-lint-cost', () => {
     mkdirSync(controlledTmp);
     const output = join(subject, 'evidence');
     const log = join(subject, 'cargo-args.jsonl');
-    const fakeCargo = fakeCargoDirectory();
+    const cargo = fakeCargo();
 
     const result = spawnSync(
       process.execPath,
@@ -118,7 +130,8 @@ describe('measure-rust-lint-cost', () => {
           ...process.env,
           FAKE_CARGO_EXIT: '0',
           FAKE_CARGO_LOG: log,
-          PATH: `${fakeCargo}${delimiter}${process.env.PATH ?? ''}`,
+          NODE_OPTIONS: cargo.nodeOptions,
+          PATH: `${cargo.directory}${delimiter}${process.env.PATH ?? ''}`,
           TMPDIR: controlledTmp,
           TMP: controlledTmp,
           TEMP: controlledTmp,
