@@ -78,7 +78,7 @@ Layered configs make this the normal failure, not an exotic one.
 A lint floor that cannot demonstrate a rejection is indistinguishable from a lint floor
 that is off.
 
-Run both in CI. Verifying by hand after a config edit works exactly until the once
+Run both in CI. Verifying by hand after a config edit works exactly until the one time
 somebody forgets.
 
 ## Traps That Keep a Gate Green
@@ -280,21 +280,10 @@ rather than inherit.
 
 ## Timeouts Record a Measurement
 
-Raise a timeout only where it is genuinely tight, and record the measurement that forced
-it. A global raise masks hangs everywhere else, which is the failure mode timeouts exist
-to catch.
-
-```typescript
-// `bridge-merge` failed CI at 5472ms against the 5s default: several tests drive a
-// dozen real git subprocesses, which fits comfortably on Linux and macOS and lands
-// right at the edge on the Windows runner's slower process spawn. Raising it only
-// there keeps the tight budget everywhere it is meaningful.
-testTimeout: isWindows ? 20000 : 5000,
-```
-
-The comment is the point.
-A bare `testTimeout: 20000` is indistinguishable from surrender, and the next person to
-see a slow test raises it again.
+Raise a timeout only where it is genuinely tight, scope the raise to where it applies,
+and record the measurement that forced it.
+A global raise masks hangs everywhere else, which is the failure mode timeouts exist to
+catch. `general-testing-rules` carries the rule and a worked example.
 
 ## Workflow Authority and Pinning
 

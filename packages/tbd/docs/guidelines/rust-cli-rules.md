@@ -13,9 +13,14 @@ exit status, terminal behavior, configuration, and destructive operations.
 **Related**:
 
 - `rust-rules` (language and API design)
-- `filesystem-rules` and `rust-filesystem-rules` (file mutation this CLI performs)
+- `rust-lint-format-rules` (the lint and format floor)
+- `rust-project-setup` (Cargo layout, features, CI)
+- `filesystem-rules`, `rust-filesystem-rules` (file mutation this CLI performs)
 - `rust-testing-rules` (executable-contract tests)
+- `release-engineering-rules`, `rust-release-rules` (packaging and artifacts)
 - `error-handling-rules` (the full error and exit-status contract)
+- `python-cli-patterns`, `typescript-cli-tool-rules` (the same contract in other
+  languages)
 
 ## Keep the Process Boundary Thin
 
@@ -281,16 +286,6 @@ CLI integration tests should cover:
 - platform-specific path and newline behavior.
 
 Use `rust-testing-rules` for fixture, snapshot, and property testing guidance.
-
-## Related Guidelines
-
-- `rust-rules` for language and API design
-- `rust-lint-format-rules` for the lint and format floor
-- `rust-project-setup` for Cargo layout, features, and CI
-- `filesystem-rules` and `rust-filesystem-rules` for safe mutation
-- `rust-testing-rules` for executable-contract tests
-- `release-engineering-rules` and `rust-release-rules` for packaging and artifacts
-- `tbd guidelines error-handling-rules python-cli-patterns typescript-cli-tool-rules`
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

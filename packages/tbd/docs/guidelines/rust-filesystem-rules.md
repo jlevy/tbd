@@ -18,7 +18,9 @@ This document owns what is specific to Rust: the types, the crates, and the enfo
 - `filesystem-rules` (the behavior contract this implements)
 - `rust-lint-format-rules` (the `clippy.toml` that enforces atomic writes)
 - `rust-rules` (ownership, errors, and API design)
+- `rust-cli-rules` (destructive-command design)
 - `rust-testing-rules` (isolated roots for mutating fixtures)
+- `error-handling-rules`, `general-testing-rules` (partial failure; fixture isolation)
 
 ## Use Filesystem-Native Types
 
@@ -56,21 +58,13 @@ Stay in `Path`/`OsStr` and the question does not arise.
 ## Make the Atomic-Write Rule Executable
 
 `std::fs::write` and `std::fs::File::create` truncate the destination before writing.
-Ban them in `clippy.toml` and direct callers to an atomic replacement:
+Ban both in `clippy.toml` via `disallowed-methods`, directing callers to an atomic
+replacement—`rust-lint-format-rules` carries the exact block, the measured adoption
+cost, and the fact that `disallowed-methods` has no test-scoping option.
 
-```toml
-[[disallowed-methods]]
-path = "std::fs::write"
-reason = "write via an atomic replace (tempfile::NamedTempFile::persist)"
-
-[[disallowed-methods]]
-path = "std::fs::File::create"
-reason = "write via an atomic replace (tempfile::NamedTempFile::persist)"
-```
-
-`disallowed-methods` has no test-scoping option, so test code that writes fixture files
-will trip it. Add a crate-level `#![allow(clippy::disallowed_methods)]` in test targets
-rather than dropping the rule; see `rust-lint-format-rules` for the measured cost.
+This is what turns `filesystem-rules`’ atomic-write rule from prose into something the
+gate enforces, which matters because the failure it prevents is silent: a truncated file
+looks like corrupt data later, not like a write error now.
 
 The same-filesystem replacement sequence, with the Rust specifics that matter:
 
@@ -86,8 +80,10 @@ fn stage_replacement(path: &Path, content: &[u8]) -> anyhow::Result<NamedTempFil
     let directory = path.parent().unwrap_or_else(|| Path::new("."));
     let mut staged = NamedTempFile::new_in(directory)?;
     staged.write_all(content)?;
-    staged.flush()?;      // flushes the BufWriter, not the file
-    staged.as_file().sync_all()?;  // this is what makes it survive power loss
+    // A no-op here, but required the moment a buffered writer wraps the file.
+    staged.flush()?;
+    // This is what reaches the device; flushing alone does not.
+    staged.as_file().sync_all()?;
     Ok(staged)
 }
 ```
@@ -98,10 +94,16 @@ Two Rust-specific traps in that sequence:
   only `sync_all` gets them onto the device.
   `filesystem-rules` explains why atomic visibility and crash durability are separate
   promises—this is where they diverge in code.
-- **`NamedTempFile::persist` fails rather than clobbering on Windows**, whereas
-  `persist_noclobber` and plain `rename` differ again.
-  Read the exact method’s overwrite semantics; they are not uniform across platforms or
-  across the crate’s API.
+- **`persist` replaces; `persist_noclobber` refuses.** `NamedTempFile::persist`
+  atomically replaces an existing destination on every platform—that is what makes it
+  the atomic-replace primitive—while `persist_noclobber` is the variant that fails when
+  the destination exists.
+  Pick by the collision policy the operation promises, per `filesystem-rules`; do not
+  assume either one from the other’s name.
+  On Windows, `persist` can still fail with a permission error when the destination is
+  open, because there is no POSIX-style replace-while-open.
+  Treat that as a real failure path in a program that replaces files other processes may
+  hold.
 
 A temp file also starts with the temp file’s permissions, not the destination’s. Copy
 the mode across explicitly when the operation promises to preserve it.
@@ -117,34 +119,26 @@ or performance requirement.
 - Set `follow_links` explicitly rather than inheriting the crate default.
 - Sort results by a documented key whenever the order is observable.
 
-**Never use `filter_map(Result::ok)` on a traversal.** It silently converts “I could not
-read this directory” into “this directory has no entries”, and the caller reports
-success over a partial result:
+**Never use `filter_map(Result::ok)` on a traversal.** `filesystem-rules` carries the
+worked example and the reasoning: it converts “I could not read this directory” into
+“this directory has no entries”, and the caller reports success over a partial result.
+
+Rust adds one refinement.
+When some traversal errors genuinely are ignorable, match on the specific kind rather
+than dropping all of them:
 
 ```rust
-// Bad: a permission error silently shrinks the result set.
-let files: Vec<_> = WalkDir::new(root)
-    .into_iter()
-    .filter_map(Result::ok)
-    .filter(|entry| entry.file_type().is_file())
-    .collect();
-
-// Good: the error reaches the caller, and the order is defined.
-fn regular_files(root: &Path) -> anyhow::Result<Vec<PathBuf>> {
-    let mut files = Vec::new();
-    for entry in WalkDir::new(root).follow_links(false) {
-        let entry = entry?;
-        if entry.file_type().is_file() {
-            files.push(entry.into_path());
-        }
+for entry in WalkDir::new(root).follow_links(false) {
+    match entry {
+        Ok(entry) => files.push(entry.into_path()),
+        // A directory that vanished mid-walk is expected here; anything else is not.
+        Err(error) if error.io_error().map(io::Error::kind) == Some(ErrorKind::NotFound) => {}
+        Err(error) => return Err(error.into()),
     }
-    files.sort();
-    Ok(files)
 }
 ```
 
-If some errors genuinely are ignorable, match on `entry.io_error().map(|e| e.kind())`
-and say which. A blanket `.ok()` is not that.
+A blanket `.ok()` is not that, and neither is a `_ => continue` arm.
 
 ## Platform Metadata Is Behind a `cfg`
 
@@ -173,15 +167,6 @@ while the test is still using it, which presents as a confusing `NotFound`.
 `rust-testing-rules` owns fixture construction; `filesystem-rules` owns the list of
 behaviors the fixture must exercise, including the failure-injection cases that are the
 only real proof of atomicity.
-
-## Related Guidelines
-
-- `filesystem-rules` for the language-neutral behavior contract
-- `rust-rules` for ownership, errors, and API design
-- `rust-lint-format-rules` for the `clippy.toml` that enforces atomic writes
-- `rust-cli-rules` for destructive-command design
-- `rust-testing-rules` for isolated roots and fixtures
-- `tbd guidelines error-handling-rules general-testing-rules`
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

@@ -14,8 +14,11 @@ boundaries, toolchains, linting, CI, documentation, and dependency policy.
 
 - `rust-lint-format-rules` (the lint, format, and toolchain floor)
 - `rust-rules` (language and API design)
+- `rust-testing-rules` (test architecture and coverage)
+- `release-engineering-rules`, `rust-release-rules` (artifacts and publishing)
+- `code-review-rules`, `rust-code-review-rules` (review)
 - `ci-and-gates-rules` (how the gate is wired and how you prove it is live)
-- `supply-chain-hardening` (dependency policy across ecosystems)
+- `supply-chain-hardening`, `commit-conventions` (dependency and commit policy)
 
 ## Choose the Smallest Package Shape That Fits
 
@@ -79,13 +82,6 @@ license = "MIT OR Apache-2.0"
 unsafe_code = "deny"
 ```
 
-Each member package must opt in; defining workspace lints alone does not apply them:
-
-```toml
-[lints]
-workspace = true
-```
-
 Virtual workspaces must declare the resolver because there is no root package edition
 from which Cargo can infer it.
 
@@ -116,25 +112,17 @@ required-features = ["cli"]
 
 ## Pin the Development Toolchain Deliberately
 
-Use `rust-toolchain.toml` when contributors and CI should use the same Rust release and
-components:
+`rust-lint-format-rules` carries the `rust-toolchain.toml` block and why the pin and the
+MSRV are different things.
+The project-shape decisions that belong here:
 
-```toml
-[toolchain]
-channel = "1.97.1"
-components = ["clippy", "rustfmt"]
-profile = "minimal"
-```
-
-The normal toolchain pin and the MSRV serve different purposes:
-
-- the normal pin makes development and CI reproducible;
-- `rust-version` states the oldest compiler supported by the package;
-- a separate CI job proves the package still builds on the MSRV.
-
-Review and update the toolchain pin intentionally.
-Do not use a moving `stable` channel in a reproducibility-sensitive workflow and assume
-the result will remain unchanged.
+- Pin whenever contributors and CI must agree.
+  A moving `stable` channel in a reproducibility-sensitive workflow means the rule set
+  changes under you between runs that look identical.
+- Set `rust-version` from what the package actually supports, not from what happens to
+  compile today, and treat raising it as a compatibility decision released under the
+  project’s own policy—consumers do not all treat an MSRV bump the same way.
+- Review and update the pin deliberately, as a change with a diff to read.
 
 ## Let rustfmt Own Formatting
 
@@ -172,19 +160,10 @@ passes, CI should. Use a checked-in `justfile` by default because it keeps named
 local and reviewable; use a script or another task runner when bootstrap availability,
 portability, or an established repository convention gives a concrete reason.
 
-The Rust baseline, ordered so it fails fastest:
-
-```bash
-cargo fmt --all -- --check
-cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
-cargo test --locked --workspace --all-features
-RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --all-features --no-deps
-cargo deny --locked check
-```
-
-Add the checks that define the actual project contract: MSRV compilation and tests,
-no-default-feature and selected-feature builds, cross-platform tests, coverage or semver
-checks, and tests for the release and maintenance scripts.
+`rust-lint-format-rules` carries the baseline command list, ordered so it fails fastest.
+Add to it the checks that define the actual project contract: MSRV compilation and
+tests, no-default-feature and selected-feature builds, cross-platform tests, coverage or
+semver checks, and tests for the release and maintenance scripts.
 
 Keep auto-fix and verification separate—`ci-and-gates-rules` explains why a project with
 only fix-mode commands cannot detect drift.
@@ -292,16 +271,6 @@ LICENSE-APACHE
   sufficiently deterministic.
 - Keep source checkouts used for comparison, vendoring, or fixtures governed by an
   explicit provenance and update policy.
-
-## Related Guidelines
-
-- `rust-lint-format-rules` for the lint, format, and toolchain floor
-- `rust-rules` for language and API design
-- `rust-testing-rules` for test architecture and coverage
-- `rust-release-rules` and `release-engineering-rules` for artifacts and publishing
-- `rust-code-review-rules` and `code-review-rules` for review
-- `ci-and-gates-rules` for gate wiring
-- `tbd guidelines supply-chain-hardening commit-conventions`
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

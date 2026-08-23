@@ -73,7 +73,9 @@ Create a to-do list with the following items then perform all of them:
    - For TypeScript/JavaScript files:
      `tbd guidelines typescript-rules typescript-lint-format-rules`
    - For Python files: `tbd guidelines python-rules`
-   - Load both if changes contain both languages
+   - For Rust files:
+     `tbd guidelines rust-rules rust-lint-format-rules rust-code-review-rules`
+   - Load each language present in the diff
    - Add the topic guidelines the diff touches, in any language: `filesystem-rules`
      (paths, traversal, file mutation), `ci-and-gates-rules` (build config, CI, hooks,
      gate scripts), `release-engineering-rules` (artifacts, publishing, version

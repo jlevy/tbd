@@ -440,11 +440,30 @@ const CROSS_CUTTING_NAMES = new Set([
   'release-engineering-rules',
 ]);
 
+/**
+ * Every guideline a group matches by exact name rather than by prefix.
+ *
+ * Exported so a test can assert each one is actually bundled. A name added to a
+ * group without a matching document renders an empty heading in the generated
+ * directory while every routing assertion still passes, which is how the
+ * Cross-cutting group shipped empty. A test with its own copy of these names
+ * cannot catch that, because the copy never gains the new name either.
+ */
+export const EXPLICITLY_GROUPED_GUIDELINES: readonly string[] = [
+  ...GENERAL_ENGINEERING_NAMES,
+  ...CROSS_CUTTING_NAMES,
+];
+
 const GUIDELINE_GROUPS: GuidelineGroup[] = [
   {
     heading: 'General engineering',
     note: 'Read all of these for any engineering work (writing or reviewing code).',
     match: (n) => n.startsWith('general-') || GENERAL_ENGINEERING_NAMES.has(n),
+  },
+  {
+    heading: 'Cross-cutting engineering topics',
+    note: 'Load these when the work touches the topic, in any language.',
+    match: (n) => CROSS_CUTTING_NAMES.has(n),
   },
   {
     heading: 'TypeScript & JS ecosystem',
@@ -466,11 +485,6 @@ const GUIDELINE_GROUPS: GuidelineGroup[] = [
     heading: 'Convex',
     note: 'Also load these when working with Convex.',
     match: (n) => n.startsWith('convex-'),
-  },
-  {
-    heading: 'Cross-cutting engineering topics',
-    note: 'Load these when the work touches the topic, in any language.',
-    match: (n) => CROSS_CUTTING_NAMES.has(n),
   },
   {
     // Catch-all, must stay last.

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { guidelineGroupFor } from '../src/file/doc-cache.js';
+import { EXPLICITLY_GROUPED_GUIDELINES, guidelineGroupFor } from '../src/file/doc-cache.js';
 
 const GUIDELINES_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'docs', 'guidelines');
 
@@ -71,19 +71,11 @@ describe('guidelineGroupFor', () => {
   it('has a bundled guideline for every name a group matches explicitly', async () => {
     // A group that names documents which do not exist renders as an empty heading:
     // the routing test passes, the generated directory shows nothing, and the gap is
-    // invisible. Both explicit name sets are checked against what is actually bundled.
+    // invisible. This reads the real name sets rather than a copy of them, so a name
+    // added to a group without a document fails here instead of shipping silently.
     const bundled = new Set(await bundledGuidelineNames());
-    const named = [
-      'backward-compatibility-rules',
-      'commit-conventions',
-      'error-handling-rules',
-      'golden-testing-guidelines',
-      'ci-and-gates-rules',
-      'code-review-rules',
-      'filesystem-rules',
-      'release-engineering-rules',
-    ];
-    const missing = named.filter((name) => !bundled.has(name));
+    expect(EXPLICITLY_GROUPED_GUIDELINES.length).toBeGreaterThan(0);
+    const missing = EXPLICITLY_GROUPED_GUIDELINES.filter((name) => !bundled.has(name));
     expect(missing, `named in a guideline group but not bundled: ${missing.join(', ')}`).toEqual(
       [],
     );

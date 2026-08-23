@@ -42,8 +42,8 @@ All commands below require the CLI.
 
 1. **Issue Tracking (Beads)**: Create, track, and close git-native issues.
    Track tasks, bugs, and features across sessions.
-2. **Coding Guidelines**: 25+ engineering guidelines (TypeScript, Python, TDD, testing,
-   monorepos) loaded on demand.
+2. **Coding Guidelines**: 40+ engineering guidelines (TypeScript, Python, Rust, TDD,
+   testing, monorepos) loaded on demand.
 3. **Workflow Shortcuts**: Reusable instruction templates for code review, commits, PRs,
    planning, cleanup, and handoffs.
 4. **Spec-Driven Planning**: Plan features, break into trackable beads, implement

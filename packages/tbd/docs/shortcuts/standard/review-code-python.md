@@ -21,7 +21,9 @@ Create a to-do list with the following items then perform all of them:
    - If changes are unstaged, review `git diff`
    - Or review specific files the user mentions
 
-2. Load Python guidelines:
+2. Load the review process and the Python guidelines:
+   - Run `tbd guidelines code-review-rules` (severity vocabulary, risk ordering, and
+     what makes a finding actionable)
    - Run `tbd guidelines python-rules`
 
 3. Perform a Python-focused review:

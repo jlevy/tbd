@@ -278,12 +278,18 @@ After setting up or changing any lint configuration, prove it holds:
    in manifests that declare no lints at all and reports a clean result for an unlinted
    crate—a false pass of exactly the kind `ci-and-gates-rules` describes.
 
-2. **Confirm the effective lint level**, not the config text:
-   ```bash
-   cargo clippy --workspace --all-targets -- -W clippy::pedantic 2>&1 | head
-   ```
-   Then add a deliberate violation—an `unwrap()` in library code, an undocumented public
-   item—and confirm the gate fails on it.
+2. **Confirm the effective lint level with a deliberate violation**, not by inspecting
+   the config text. Add an `unwrap()` to library code, or an undocumented public item,
+   and run the gate exactly as CI runs it—with no extra flags.
+   It must fail.
+
+   Do not try to confirm a level by passing the lint on the command line.
+   Cargo emits the `[lints]` table as rustc flags first, and arguments after `--` come
+   later; the last flag of equal specificity wins.
+   So `-- -W clippy::pedantic` *demotes* a manifest `deny` to `warn` for that run, and
+   reports on a floor the project does not have.
+   The violation probe is the only check that reads the configuration you actually ship.
+
    Commit that probe as a config-contract check if the project has anywhere to put one
    (`ci-and-gates-rules`).
 

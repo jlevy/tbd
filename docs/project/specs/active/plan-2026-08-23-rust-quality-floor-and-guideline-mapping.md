@@ -8,8 +8,9 @@ category: general
 
 **Date:** 2026-08-23 (last updated 2026-08-23)
 
-**Status:** In progress — Phases 1-4 complete in tbd; Phase 5 (playbook simplification)
-not started
+**Status:** In progress — Phases 2-4 complete in tbd; Phase 1 and 3 each leave one item
+open that needs the playbook repo or a Rust codebase (noted inline); Phase 5 (playbook
+simplification) not started
 
 ## Overview
 
@@ -235,24 +236,27 @@ Enforced by `globs` and `alwaysApply` frontmatter, a `**Related**:` block under 
 Applies to every migrated document.
 Current state was measured, not assumed:
 
-- [ ] **Relative links to bare names.** All seven documents cross-link as
+- [x] **Relative links to bare names.** All seven documents cross-link as
   `](rust-rules.md)`, which breaks once served from `.tbd/docs/`.
-- [ ] **Anchors rewritten.** Three documents use section anchors that do not survive the
+- [x] **Anchors rewritten.** Three documents use section anchors that do not survive the
   split.
-- [ ] **Repo-local links resolved.** `rust-project-setup` and `rust-release-rules` link
+- [x] **Repo-local links resolved.** `rust-project-setup` and `rust-release-rules` link
   to `../SUPPLY-CHAIN-SECURITY.md`; `rust-release-rules` also links to a research
   document under `../docs/`.
-- [ ] **Porting pointers removed.** `rust-cli-rules`, `rust-filesystem-rules`, and
+- [x] **Porting pointers removed.** `rust-cli-rules`, `rust-filesystem-rules`, and
   `rust-testing-rules` link to playbook documents that will not exist in tbd.
-- [ ] **Frontmatter completed.** Add `globs: "*.rs"` and `alwaysApply: true` to
+- [x] **Frontmatter completed.** Add `globs: "*.rs"` and `alwaysApply: true` to
   `rust-rules` and `rust-lint-format-rules`. `category: rust` is a new category.
-- [ ] **Related block added under the H1.** All seven put related links in a trailing H2
-  only. Keep that section and add the bolded `Related` header block, matching Python and
-  TypeScript.
-- [ ] **Optionality removed**, per the no-menus rule.
-- [ ] **Tracker language generalized** to “tracking issue or bead”.
-- [ ] **Severity vocabulary** is Blocker, High, Medium, Low.
-- [ ] **`common-doc-guidelines` followed**, including the footer and flowmark-clean
+- [x] **Related block added under the H1.** All seven put related links in a trailing H2
+  only. ~~Keep that section and add the bolded `Related` header block~~—**this
+  instruction was wrong**, and produced two Related lists per document.
+  The family convention (`typescript-rules`, `python-rules`, and the four new
+  cross-cutting documents) is the top block only.
+  The trailing sections were removed and their unique links folded into the top block.
+- [x] **Optionality removed**, per the no-menus rule.
+- [x] **Tracker language generalized** to “tracking issue or bead”.
+- [x] **Severity vocabulary** is Blocker, High, Medium, Low.
+- [x] **`common-doc-guidelines` followed**, including the footer and flowmark-clean
   formatting.
 
 ### Execution
@@ -270,8 +274,10 @@ the reuse review recommended.
 ### Phase 1: Confirm and Prepare
 
 - [ ] Confirm `rpp-u657` still tracks upstreaming; file the tbd-side receiving bead.
+  (Not done: the playbook is checked out read-only in this environment.)
 - [x] Confirm `category: rust` renders correctly in `tbd guidelines --list`.
-- [ ] Record per-document deltas against the conversion checklist.
+- [x] Record per-document deltas against the conversion checklist.
+  (Recorded as the checklist above rather than as a separate table.)
 - [x] Add a Rust group to `GUIDELINE_GROUPS`, ordered ahead of `General engineering` so
   `rust-testing-rules` is not captured by its `includes('testing')` match.
 - [x] Add a test asserting each guideline lands in its intended group.
@@ -289,7 +295,11 @@ the reuse review recommended.
 - [x] Add the `filesystem-rules` pointer to `typescript-rules` §File Operations, giving
   the `atomically` rule a documented rationale.
 - [x] Have the `review-code*` shortcuts load `code-review-rules`.
-- [x] Bundle or retire the three unbundled `docs/general/` documents.
+- [~] Bundle or retire the three unbundled `docs/general/` documents.
+  One absorbed (`typescript-testing-guidelines`, whose neutral half is now in
+  `general-testing-rules`, with a pointer left behind).
+  Two left undecided—see the Outcome Note: neither is what the plan described, so
+  neither is bundled as written.
 
 ### Phase 3: Author and Validate the Rust Floor
 
@@ -298,7 +308,8 @@ the reuse review recommended.
   flowmark-rs is the natural target, being first-party and the playbook’s primary case
   study. Record which lints fire, which are noise, and which need an exception.
 - [ ] Build the Rust config-contract check: a probe fixture the lint gate must reject,
-  wired into CI.
+  wired into CI. (Not done: tbd has no Rust code, so the probe has no home here.
+  `rust-lint-format-rules` §Verifying the Floor specifies it for adopting projects.)
 - [x] Reduce `rust-project-setup` §"Define a Clippy Policy" to a pointer.
 
 ### Phase 4: Migrate
@@ -376,6 +387,14 @@ Neither meets the bar for a bundled guideline as written; both are left in place
 undecided. The neutral half of `typescript-testing-guidelines` was absorbed into
 `general-testing-rules`, and the source document now carries a pointer naming that
 guideline as the authority.
+
+**The group fix shipped is not the one planned.** The plan called for ordering the Rust
+group ahead of `General engineering` so `rust-testing-rules` would not be captured by
+its `includes('testing')` match.
+Ordering only moves the collision: the next `<lang>-testing-rules` hits it again, and so
+does any future group added above.
+What shipped replaces the substring matches with explicit name sets, which removes the
+class rather than the instance, and makes group membership something a test can assert.
 
 **A group can name documents that do not exist.** The Cross-cutting group was wired and
 tested before its four documents were authored, so it rendered as an empty heading while

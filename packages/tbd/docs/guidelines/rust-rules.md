@@ -16,11 +16,16 @@ guidelines.
 
 **Related**:
 
-- `rust-lint-format-rules` (the lint and format floor; always loaded with this document)
+- `rust-lint-format-rules` (the lint, format, and toolchain floor; always loaded with
+  this document)
 - `rust-project-setup` (Cargo layout, features, workspace shape)
+- `rust-cli-rules` (command-line applications)
 - `rust-testing-rules` (test placement, features, platforms)
-- `general-coding-rules`, `error-handling-rules` (the language-neutral rules this
-  assumes)
+- `filesystem-rules`, `rust-filesystem-rules` (filesystem mutation)
+- `release-engineering-rules`, `rust-release-rules` (packaging and publishing)
+- `code-review-rules`, `rust-code-review-rules` (review)
+- `general-coding-rules`, `general-comment-rules`, `error-handling-rules`,
+  `general-testing-rules` (the language-neutral rules this assumes)
 
 ## Toolchain, Edition, and MSRV
 
@@ -279,17 +284,6 @@ send(&payload).await?;
   only evidence that an optimization preserves behavior.
 - **Record the tradeoff.** Non-obvious optimizations need a comment or benchmark link
   explaining the constraint they satisfy.
-
-## Related Guidelines
-
-- `rust-lint-format-rules` for the lint, format, and toolchain floor
-- `rust-project-setup` for Cargo layout, features, and workspace shape
-- `rust-cli-rules` for command-line applications
-- `rust-filesystem-rules` and `filesystem-rules` for filesystem mutation
-- `rust-testing-rules` for Rust testing strategy
-- `rust-release-rules` and `release-engineering-rules` for packaging and publishing
-- `rust-code-review-rules` and `code-review-rules` for review
-- `tbd guidelines general-comment-rules error-handling-rules general-testing-rules`
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

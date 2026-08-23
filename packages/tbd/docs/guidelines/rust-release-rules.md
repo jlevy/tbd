@@ -19,8 +19,10 @@ a Rust binary to Python users.
 
 - `release-engineering-rules` (the release contract this implements)
 - `release-notes-guidelines` (what goes in the notes)
-- `supply-chain-hardening` (cool-off and pinning for release tooling)
 - `rust-project-setup` (the package contract being published)
+- `rust-testing-rules` (the tests the pre-release gate runs)
+- `ci-and-gates-rules` (gate wiring and workflow authority)
+- `supply-chain-hardening` (cool-off and pinning for release tooling)
 
 ## Publish Crates Safely
 
@@ -135,15 +137,6 @@ Rust adds:
 - [ ] `--locked` on every release build.
 - [ ] Wheel tag matrix covers the documented libc and macOS floors.
 - [ ] Trusted publishing used for every registry that supports it.
-
-## Related Guidelines
-
-- `release-engineering-rules` for the language-neutral release contract
-- `release-notes-guidelines` for the notes
-- `rust-project-setup` for the package contract and CI shape
-- `rust-testing-rules` for the tests the pre-release gate runs
-- `ci-and-gates-rules` for gate wiring and workflow authority
-- `tbd guidelines supply-chain-hardening`
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

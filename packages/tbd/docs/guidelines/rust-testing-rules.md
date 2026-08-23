@@ -16,6 +16,10 @@ test placement, feature, platform, fixture, and toolchain concerns.
   language-neutral testing rules this supplements)
 - `rust-rules` (language and API design)
 - `rust-project-setup` (feature and workspace shape the matrix reflects)
+- `rust-cli-rules` (the executable contract these tests exercise)
+- `filesystem-rules`, `rust-filesystem-rules` (the filesystem cases to cover)
+- `ci-and-gates-rules` (running the suite in a hostile environment; timeouts)
+- `error-handling-rules` (failure paths and exit codes)
 
 ## Choose the Smallest Test Boundary That Proves Behavior
 
@@ -24,8 +28,6 @@ test placement, feature, platform, fixture, and toolchain concerns.
 - Use doctests for public examples that should compile and run.
 - Use an end-to-end test only when the process boundary, environment, terminal, network,
   or filesystem behavior is part of the contract.
-- Do not duplicate the same assertion at every layer.
-  Each broader test should prove an interaction the narrower test cannot.
 
 In a workspace, integration tests belong inside the member package they test.
 A workspace-root `tests/` directory is not automatically a test target.
@@ -44,29 +46,17 @@ A workspace-root `tests/` directory is not automatically a test target.
 - Use `panic!` or `assert!` with a useful impossible-branch message rather than an
   unconditional `assert!(false)`.
 
-## Keep Tests Deterministic
+## Embed or Read Fixtures Deliberately
 
-- Sort filesystem, map, set, and concurrent results before asserting order unless order
-  itself is the behavior.
-- Inject clocks, random-number generators, IDs, environment access, and network clients
-  at boundaries.
-- Use fixed seeds for randomized regression tests and print the seed on failure.
-- Avoid real sleeps. Advance a controllable clock or synchronize on observable state.
-- Give concurrent tests bounded timeouts so deadlocks fail with context.
-- Isolate environment-variable and current-directory changes; restore state even when
-  the test fails.
-- Do not rely on test execution order or one test’s side effects.
+`general-testing-rules` owns fixture provenance—one authoritative copy, stated
+regeneration, reviewable diffs, and no machine-specific content.
+Rust adds one choice:
 
-## Treat Fixtures as Inputs With Provenance
-
-- Keep small text fixtures in source control near the tests that own them.
-- Use `include_str!` or `include_bytes!` when compile-time embedding is appropriate.
-- Use runtime reads when the test exercises path handling or mutable state.
-- Keep one authoritative fixture instead of copying the same bytes across unit and
-  integration directories.
-- Explain how generated fixtures are regenerated and which source or schema they came
-  from.
-- Make fixture diffs reviewable; avoid one giant input that hides the failing behavior.
+- Use `include_str!` or `include_bytes!` when the fixture is fixed at compile time.
+  The bytes become part of the binary, so the test cannot drift from them and cannot
+  fail on a missing file.
+- Read at runtime when the test exercises path handling, permissions, or mutable state—
+  embedding would bypass the very code under test.
 
 ```rust
 const INPUT: &str = include_str!("fixtures/input.txt");
@@ -177,27 +167,22 @@ Use the report to ask which behavior lacks evidence.
 Coverage is a discovery tool.
 It does not prove assertion quality or input-space completeness.
 
-## Keep Ignored and Flaky Tests Actionable
+## Keep Ignored Tests Actionable
 
-- Every ignored, quarantined, or retried test needs a tracking issue or bead, owner,
-  reason, and unblock condition.
-- A missing external dependency should fail setup clearly or be a separately selected
-  test tier; it should not silently skip a required test.
-- Investigate flakes as correctness defects until evidence shows otherwise.
-- Do not weaken assertions, increase sleeps, or add retries without identifying the race
-  or nondeterministic dependency.
-- Report how many tests ran so an empty selection cannot appear green.
+`general-testing-rules` owns the rule: every ignored or retried test carries a tracking
+issue or bead, an owner, a reason, and an unblock condition, and a flake is a
+correctness defect until evidence says otherwise.
 
-## Related Guidelines
+Two Rust specifics:
 
-- `general-testing-rules`, `general-tdd-guidelines`, `golden-testing-guidelines` for the
-  language-neutral testing rules this supplements
-- `rust-rules` for language and API design
-- `rust-project-setup` for feature and workspace shape
-- `rust-cli-rules` for the executable contract these tests exercise
-- `filesystem-rules` and `rust-filesystem-rules` for the filesystem cases to cover
-- `ci-and-gates-rules` for running the suite in a hostile environment and for timeouts
-- `tbd guidelines error-handling-rules`
+- Put the reason and tracker in the attribute, not a comment above it.
+  `cargo test` prints the string
+  back—`test tests::merge ... ignored, flaky under CI: tbd-1234`—so the justification
+  appears in every run instead of only in the source.
+- `cargo test` reports `N filtered out`, which is how a selection that matched nothing
+  becomes visible. A renamed module or a stale filter otherwise prints
+  `0 passed; 0 failed` and exits zero, which is the empty-selection failure
+  `general-testing-rules` warns about.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

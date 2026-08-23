@@ -141,10 +141,6 @@ This is the failure that hides every other failure.
   nondeterministic dependency it works around.
   Each of those converts a real signal into silence.
 
-When reviewing a diff that touches tests, ask the two questions no search will answer:
-*did this change make a check unable to fail?* and *does this test still assert what its
-name claims?*
-
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
 -->

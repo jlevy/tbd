@@ -23,6 +23,9 @@ disabled, or demonstrably failed—`rust-lint-format-rules` covers how to tell.
 - `code-review-rules` (severity, baseline, risk ordering, actionable findings)
 - `rust-rules` (the rules most Rust findings cite)
 - `rust-lint-format-rules` (what the gate should already have caught)
+- `rust-project-setup`, `rust-cli-rules`, `rust-filesystem-rules`, `rust-testing-rules`,
+  `rust-release-rules` (the topic rules a review loads by changed surface)
+- `backward-compatibility-rules`, `error-handling-rules`, `supply-chain-hardening`
 - `tbd shortcut review-code-rust`
 
 ## Load the Rules That Own the Changed Surface
@@ -77,47 +80,25 @@ here.
 
 ## Quick Scan
 
-Rust-specific patterns and the severity each usually warrants.
+Rust-specific patterns only—`code-review-rules` carries the language-neutral scan, and
+running both is the intent.
 This says where to investigate; it does not replace reading the changed control flow.
-`code-review-rules` carries the language-neutral scan.
 
 | Pattern | Default severity |
 | --- | --- |
 | unsafe block without a safety argument | Blocker |
 | safe API through which unsafe code can be made to misbehave | Blocker |
-| `let _ = fallible()` discarding a required result | Blocker |
 | blocking call inside an async executor | Blocker |
 | recursive delete whose resolved scope is not verified | Blocker |
 | lock guard held across an `await` or slow I/O | High |
 | lock guard exposed through a public API | High |
 | `unwrap()` in a production path, or `expect()` without a stated invariant | High |
 | `filter_map(Result::ok)` over a traversal or fallible iterator | High |
-| success reported before every required operation is verified | High |
 | repeated `clone()` introduced to satisfy the borrow checker | High |
 | spawned task neither awaited nor supervised | High |
-| `pub` item with no use outside its own crate | High |
-| new always-on dependency in a crate that had a deliberate minimal graph | High |
 | wildcard `_ =>` arm where a new enum variant should force a decision | Medium |
 | `#[allow]` used where `#[expect]` would expire on its own | Medium |
-| `#[allow]` without a non-obvious reason or tracker ID | Medium |
-| `#[ignore]`d test without a tracking issue or bead | Medium |
-| trait with one implementation and no generic caller or test seam | Medium |
 | `mod.rs` added where the `foo.rs` + `foo/` layout is the convention | Low |
-
-Two questions no grep will answer, worth asking explicitly on any diff that touches the
-build: *did this change make a check unable to fail?* and *does this test still assert
-what its name claims?* A weakened gate and an adjusted test both look like small green
-diffs.
-
-## Related Guidelines
-
-- `code-review-rules` for severity, baseline, risk ordering, and findings
-- `rust-rules` for language and API design
-- `rust-lint-format-rules` for what the gate should have caught first
-- `rust-project-setup`, `rust-cli-rules`, `rust-filesystem-rules`, `rust-testing-rules`,
-  `rust-release-rules` for the topic rules
-- `tbd shortcut review-code-rust`
-- `tbd guidelines backward-compatibility-rules error-handling-rules supply-chain-hardening`
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

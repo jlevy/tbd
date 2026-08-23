@@ -68,34 +68,63 @@ Create a to-do list with the following items then perform all of them:
    ```
 
 5. **Required elements**:
-   - YAML frontmatter with `title` and `description`
-   - Clear introduction explaining scope
-   - Actionable rules with examples
-   - Cross-references to related guidelines (context injection pattern)
+   - YAML frontmatter with `title`, `description`, `author`, and `category`. `category`
+     must be one of the values in `DOC_CATEGORIES`
+     (`packages/tbd/src/lib/doc-categories.ts`); a new category needs adding there *and*
+     in `doc-categories.test.ts`, which deliberately keeps its own copy of the
+     vocabulary.
+   - The `description` is what `tbd guidelines --list` and the generated skill tables
+     render, so make it self-routing—say what the document covers and when to load it.
+     Keep it to one sentence or two; it is re-rendered in every session that loads the
+     skill. **Do not put a colon-space in it**: the frontmatter is YAML, and an unquoted
+     `foo: bar` parses as a nested mapping and fails the doc-categories test.
+   - A `**Related**:` block immediately under the H1, listing the guidelines this one
+     assumes or hands off to.
+     One list per document—do not also add a trailing “Related Guidelines” section.
+   - `globs` and `alwaysApply: true` for a language document that should always load
+     when that language is in play (see `typescript-rules`, `rust-rules`).
+   - Clear introduction explaining scope, and actionable rules with examples.
 
-6. **Link hygiene** (for official guidelines):
+6. **Register the guideline** (official guidelines only—without this, `tbd docs sync`
+   does not serve it and no user receives it):
+   - Add `guidelines/<name>.md: internal:guidelines/<name>.md` to `docs_cache.files` in
+     `.tbd/config.yml`.
+   - If the name does not start with an existing group prefix (`general-`,
+     `typescript-`, `python-`, `rust-`, `convex-`), add it to the right explicit name
+     set in `GUIDELINE_GROUPS` (`packages/tbd/src/file/doc-cache.ts`) or it lands in the
+     “Docs, process & tooling” catch-all.
+     Those sets are exported and asserted in `guideline-groups.test.ts`—a name added
+     there without a bundled document fails that test rather than silently rendering an
+     empty heading.
+   - Run `tbd docs sync`, then `tbd setup --auto` to regenerate the skill files.
+
+7. **Link hygiene** (for official guidelines):
    - Use full public URLs for external references
    - Example: `https://github.com/jlevy/tbd/blob/main/docs/...`
    - Don’t use relative paths that break when doc is installed elsewhere
 
-7. **Test the guideline**:
+8. **Test the guideline**:
    ```bash
    tbd guidelines <name>  # Verify it loads correctly
    tbd guidelines --list  # Verify it appears in the list
    ```
 
-8. **For official guidelines**, also:
+9. **For official guidelines**, also:
    - Rebuild tbd: `pnpm build` (in packages/tbd/)
    - Verify bundled: check `packages/tbd/dist/docs/guidelines/<name>.md`
 
-9. **Update documentation** (for official guidelines):
-   - Add to root `README.md` “Built-in Engineering Knowledge” table
-   - Sync docs cache: `tbd setup --auto` (updates `.tbd/docs/`)
-   - Note: `packages/tbd/README.md` is auto-copied from root during build
+10. **Update documentation** (for official guidelines):
+- Add to root `README.md` “Built-in Engineering Knowledge” table
+- Sync docs cache: `tbd setup --auto` (updates `.tbd/docs/`)
+- Note: `packages/tbd/README.md` is auto-copied from root during build
 
 ## Guideline Quality Checklist
 
-- [ ] Frontmatter has title and description
+- [ ] Frontmatter has title, description, author, and a valid category
+- [ ] Description has no colon-space (YAML would read it as a nested mapping)
+- [ ] `**Related**:` block under the H1, and no trailing duplicate list
+- [ ] Registered in `.tbd/config.yml` `docs_cache.files`
+- [ ] Grouped correctly (prefix match, or added to an explicit name set)
 - [ ] Introduction explains when to use the guideline
 - [ ] Rules are actionable (not vague principles)
 - [ ] Code examples where applicable

@@ -6,14 +6,14 @@ description: >-
 
   Use for: tracking issues/beads with dependencies, creating bugs/features/tasks, planning specs,
   implementing features from specs, code reviews, committing code, creating PRs, loading coding
-  guidelines (TypeScript, Python, TDD, golden testing, Convex, monorepo patterns), code cleanup,
+  guidelines (TypeScript, Python, Rust, TDD, golden testing, Convex, monorepo patterns), code cleanup,
   research briefs, architecture docs, agent handoffs, external tracker and Linear integration setup,
   personal Linear API key onboarding, viewing beads in a live browser, and checking out third-party library
   source code.
 
   Invoke when user mentions: tbd, beads, bd, shortcuts, issues, bugs, tasks, features, epics, todo,
   tracking, specs, planning, implementation, validation, guidelines, templates, commit, PR, pull request,
-  code review, testing, TDD, test-driven, golden testing, snapshot testing, TypeScript, Python, Convex,
+  code review, testing, TDD, test-driven, golden testing, snapshot testing, TypeScript, Python, Rust, Convex,
   monorepo, cleanup, dead code, refactor, handoff, research, architecture, labels, search, web, browser,
   live view, external tracker, Linear, Linear API key, integration setup, checkout library, source code
   review, or any workflow shortcut.
@@ -26,7 +26,7 @@ allowed-tools: Bash(tbd:*) Read Write
    Drop-in replacement for `bd`.
 2. **Spec-Driven Workflows**: Plan features → break into beads → implement
    systematically.
-3. **Knowledge Injection**: 25+ engineering guidelines (TypeScript, Python, TDD,
+3. **Knowledge Injection**: 40+ engineering guidelines (TypeScript, Python, Rust, TDD,
    testing, Convex, monorepos) available on demand.
 4. **Shortcuts**: Reusable instruction templates for common workflows (code review,
    commits, PRs, cleanup, handoffs).
@@ -113,7 +113,10 @@ or want help → run `tbd shortcut welcome-user`
 | *(any engineering work)* | Load the **General engineering** group first (see below) |
 | “Use TypeScript best practices” | `tbd guidelines typescript-rules typescript-lint-format-rules` |
 | “Use Python best practices” | `tbd guidelines python-rules` |
+| “Use Rust best practices” | `tbd guidelines rust-rules rust-lint-format-rules` |
 | “Set up TS/JS lint, format, or hooks” | `tbd guidelines typescript-lint-format-rules` |
+| “Set up Rust lint, clippy, or the quality floor” | `tbd guidelines rust-lint-format-rules` |
+| “Build a Rust CLI” | `tbd guidelines rust-cli-rules` |
 | “Build a TypeScript CLI” | `tbd guidelines typescript-cli-tool-rules` |
 | “Improve monorepo setup” | `tbd guidelines pnpm-monorepo-patterns` or `bun-monorepo-patterns` |
 | “Add golden/e2e testing” | `tbd guidelines golden-testing-guidelines` |
