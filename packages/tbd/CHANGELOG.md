@@ -1,5 +1,137 @@
 # get-tbd
 
+## 0.8.0
+
+tbd could say that work was open, started, or closed.
+It could not say *how* work ended, *who* is acting on it as distinct from who owns it,
+or that started work is on hold.
+This release adds those three axes, and teaches the Linear integration to project them
+onto a real board. No format change: repositories stay on `f08`, and there is no
+migration step.
+
+### Work can end three ways, not one
+
+`closed` collapsed “we did it”, “we dropped it”, and “this was already filed”.
+Closing now takes a resolution:
+
+```bash
+tbd close tbd-a1b2 --as canceled --reason "approach superseded"
+tbd close tbd-c3d4 --as duplicate --duplicate-of tbd-a1b2
+```
+
+`resolution` is `completed` (the default, so existing scripts are unchanged),
+`canceled`, or `duplicate`; `duplicate_of` is required with `duplicate` and refused
+without it. Both are validated against `status`, so a resolution cannot attach to open
+work.
+
+This matters most where it leaves your repository.
+A canceled bead previously filed in Linear as **Done** with a completion date stamped on
+it, which is wrong data rather than a wrong label.
+Now `canceled` maps to Linear’s Canceled with no completion date, and `duplicate`
+creates the provider-side duplicate relation from the scalar.
+
+### Who is accountable and who is acting are different fields
+
+`assignee` had to mean both, so in agent-driven repositories it usually meant nothing
+and went unused. `delegate` now sits beside it: the human stays accountable, the agent
+acts.
+
+```bash
+tbd update tbd-a1b2 --assignee alice --delegate claude-agent
+tbd start tbd-a1b2            # claims the acting axis, leaving assignee alone
+```
+
+`tbd start` sets `delegate` rather than overwriting `assignee`, and `--as <name>` claims
+under an explicit agent name.
+People resolve through the tracker’s own directory instead of a hand-maintained table,
+so a rename survives; `user_map` is still honored as an override.
+Publishing a delegate to Linear requires naming an installed Linear agent in
+`agent_map`, and an unmapped agent produces a reported skip rather than a silent one.
+
+### Paused work stops erasing that it started
+
+Parking work meant moving it to `deferred`, which discarded the fact that it had ever
+started. `hold` is now its own axis:
+
+```bash
+tbd pause tbd-a1b2 --until 2026-09-15 --reason "waiting on upstream"
+tbd resume tbd-a1b2
+```
+
+`hold` is `blocked` or `paused`, with `hold_until` for an expected lift date, and
+`started_at` is set on first entry to `in_progress` and never cleared—so a paused bead
+still knows it was started.
+`tbd ready` excludes anything on hold.
+Bulk `tbd update --hold` covers a subtree, which previously meant a per-bead loop.
+
+### A board tbd can project onto
+
+`state_map` maps lifecycle slots to Linear states **by name**, not by board position, so
+reordering a board no longer changes what tbd thinks a column means.
+It is optional: omit it and tbd maps states as it did before, creating nothing.
+
+`tbd integration setup` proposes the default map, and on confirmation creates the states
+a repository asked for—and only those—validated against the team’s real states before
+anything is mutated.
+It never renames, deletes, or touches a state outside the map.
+`tbd doctor` prints the resolved slot table offline, so the projection is inspectable
+without a sync.
+
+### Fixes
+
+- **A bead with no assignee no longer clears the assignee in Linear.** An absent
+  assignee pushed outbound as an explicit unassign, so populating `user_map`—the
+  documented prerequisite for assignee sync—was by itself enough to start erasing
+  whoever a human had assigned.
+  Observed as steady state rather than a race: one issue lost its assignee, regained it,
+  and lost it again on the next sync.
+  An absent assignee is now read as no opinion.
+  Affects every repository that adopted the integration after its beads existed.
+- **`.env` credentials resolve from the main worktree.** `.env` is gitignored, so it
+  does not propagate to linked worktrees; a fully configured repository reported
+  `LINEAR_API_KEY not found` from any worktree of it, and status read as “Linear is not
+  set up here”. Resolution now falls back to the main worktree’s `.env` through git,
+  guarded so it cannot read a sibling project under `git init --separate-git-dir`.
+- **A sync that skipped a field says so.** Pushes reported a clean summary over fields
+  they had dropped. Field-level skips are now named, and `--verbose` names each excluded
+  field, distinguishing “not eligible” from “eligible and unchanged”.
+- **`--due` and `--defer` accept the dates people actually type**, not only full ISO
+  8601 timestamps.
+- **`tbd doctor` warns when npm’s global bin directory is not on `PATH`**, and only when
+  that finding is actionable.
+
+### Guidelines and content
+
+- **New `agent-session-bootstrap` guideline** covering session startup for agents.
+- **The tbd skill now says where beads live.** It never stated that beads are stored on
+  the `tbd-sync` branch, and its one branch note pointed the other way, so an agent that
+  found no bead changes in its feature branch could report the work lost.
+  The skill now states that tbd owns that branch—`tbd sync` maintains it,
+  `tbd doctor --fix` repairs it—and that tbd commands, not raw git, are the interface to
+  it. ([#238](https://github.com/jlevy/tbd/issues/238))
+- **`ensure-gh-cli.sh` states the proxied-session consequences it has already proven.**
+  Where it detects that a session proxy intercepts GitHub while direct egress is open,
+  it now reports that tags can 403 through a ref-scoped credential broker while branches
+  succeed, that `git push --dry-run` passes for tags the broker later refuses, and that
+  a GitHub-host 403 with no `x-github-request-id` header is proxy-manufactured rather
+  than an egress denial.
+  The same facts are in the skill.
+  ([#255](https://github.com/jlevy/tbd/issues/255))
+- **`setup-linear` covers Linear’s GitHub app**, including that it is an
+  organization-level decision rather than a per-repository one.
+- **`update-specs-status` gained a dangling `spec_path` sweep** and no longer files
+  never-started specs as finished.
+
+### Security
+
+Lockfile is byte-identical to v0.7.1 and no manifest changed, so the resolved dependency
+tree is unchanged. `pnpm audit --prod` reports no advisories in the shipped tree;
+outstanding advisories are confined to dev tooling (vitest, vite, rollup, postcss and
+their transitives).
+
+**Full commit history**:
+[Compare v0.7.1 to v0.8.0](https://github.com/jlevy/tbd/compare/v0.7.1...v0.8.0)
+
 ## 0.7.1
 
 A patch release about one thing: the first time you point tbd at a tracker, it should be
