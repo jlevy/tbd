@@ -12,12 +12,12 @@
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-const WORKFLOW_DIR = path.join(process.cwd(), '.github', 'workflows');
 const USES = /^\s*(?:-\s+)?uses:\s*(\S+)/;
 const PINNED = /^[^@]+@[0-9a-f]{40}$/;
 
-export function findUnpinnedUses(source, file) {
+function findUnpinnedUses(source, file) {
   const problems = [];
   source.split('\n').forEach((line, index) => {
     const match = USES.exec(line);
@@ -36,7 +36,7 @@ export function findUnpinnedUses(source, file) {
   return problems;
 }
 
-export function checkWorkflows(directory) {
+function checkWorkflows(directory) {
   const files = readdirSync(directory).filter(
     (name) => name.endsWith('.yml') || name.endsWith('.yaml'),
   );
@@ -46,11 +46,18 @@ export function checkWorkflows(directory) {
   return { files, problems };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const { files, problems } = checkWorkflows(WORKFLOW_DIR);
+// `file://${process.argv[1]}` does not match on Windows, where argv[1] is a drive path;
+// that spelling silently turns this gate into a no-op there.
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const flag = process.argv.indexOf('--dir');
+  const directory =
+    flag === -1
+      ? path.join(process.cwd(), '.github', 'workflows')
+      : path.resolve(process.argv[flag + 1]);
+  const { files, problems } = checkWorkflows(directory);
   // An empty workflow directory is the same green as a clean one. Say so.
   if (files.length === 0) {
-    console.error('check-action-pins: no workflow files found in .github/workflows');
+    console.error(`check-action-pins: no workflow files found in ${directory}`);
     process.exit(1);
   }
   if (problems.length > 0) {

@@ -33,7 +33,14 @@
  * Writes <prefix>.tsv (one row per diagnostic) and prints the summary table.
  */
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -72,10 +79,27 @@ function workspaceMembers(repo) {
 
 /** Force re-checking so cargo emits diagnostics instead of replaying a fresh unit. */
 function touchWorkspaceSources(repo) {
-  execFileSync('sh', [
-    '-c',
-    `find "${repo}/crates" "${repo}/src" -name '*.rs' -exec touch {} + 2>/dev/null || true`,
-  ]);
+  const now = new Date();
+  let touched = 0;
+  const walk = (directory) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const full = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== 'target' && entry.name !== '.git') {
+          walk(full);
+        }
+      } else if (entry.name.endsWith('.rs')) {
+        utimesSync(full, now, now);
+        touched += 1;
+      }
+    }
+  };
+  walk(repo);
+  // Zero touched sources means cargo replays cached diagnostics and the run measures
+  // nothing, which looks exactly like a clean workspace.
+  if (touched === 0) {
+    throw new Error(`no .rs files found under ${repo}`);
+  }
 }
 
 function runPass(repo, targetDir, selection, lints, clippyConf, members) {
