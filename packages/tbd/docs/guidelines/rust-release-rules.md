@@ -101,7 +101,7 @@ strip = false
 Codegen matches `release`, so the profile describes the shipped code and only the symbol
 table differs. Timing decisions still come from `release` builds.
 
-## Publish Binary Wheels Deliberately
+## Publish Python Wheels Deliberately
 
 Maturin with `bindings = "bin"` packages a Rust executable as a Python wheel.
 Use it when the audience already installs tools through Python packaging—it is the
@@ -112,9 +112,6 @@ natural path for a Rust replacement of an existing Python CLI.
 - Build the documented wheel-tag matrix, including the minimum supported libc (manylinux
   tag) and macOS deployment target.
   These decide which users can install at all.
-- Use `abi3` where the extension API allows it, so one wheel serves many Python
-  versions. Note that `abi3-pyXY` sets a *minimum* interpreter version and the build
-  fails against an older one.
 - Include an sdist only when source builds are supported and tested.
   An sdist that cannot build is worse than no sdist: pip will try it as a fallback.
 - Smoke-test every native wheel’s installed console command, from an isolated
@@ -123,6 +120,31 @@ natural path for a Rust replacement of an existing Python CLI.
 - Publish through PyPI trusted publishing.
 - Make repeated workflow runs detect an already-published immutable version without
   treating a conflicting artifact as success.
+
+A PyO3 extension module is a *different* artifact with different rules, and the two get
+conflated because both are “a Rust wheel”.
+A binary wheel contains an executable and never touches the interpreter’s ABI; an
+extension module is loaded into the interpreter, so it has an interpreter matrix that a
+binary wheel does not.
+If the project ships one:
+
+- Use `abi3` so one compiled module serves many interpreter versions.
+  `abi3-pyXY` sets a *minimum* version, not a target: the build fails against an older
+  interpreter and the wheel keeps working on newer ones.
+- Put `extension-module` behind a feature and know which invocation carries the switch.
+  An extension module deliberately does not link libpython, so anything that runs
+  in-process—`cargo test`, a bench, an embedding harness—needs the build *without* it,
+  and the wheel needs the build *with* it.
+  Either polarity works: default it off and have the build backend enable it, or default
+  it on and spell the test invocations `--no-default-features`. What does not work is a
+  single invocation for both, and the failure is a wall of undefined `Py_*` symbols at
+  link time that reads as a broken toolchain.
+  Whichever polarity you choose, CI must run the tests with the switch it requires, or
+  the tests silently stop building.
+- Expect the module to be its own crate.
+  A `cdylib` cannot also be the `rlib` that Rust consumers depend on.
+- A panic that reaches the interpreter across the boundary aborts the process rather
+  than raising; `rust-code-review-rules` covers converting it at the boundary.
 
 ## Release Checklist Additions
 

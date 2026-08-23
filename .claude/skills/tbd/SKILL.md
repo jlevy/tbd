@@ -131,16 +131,25 @@ or want help → run `tbd shortcut welcome-user`
 | “Check out this library’s source” | `tbd shortcut checkout-third-party-repo` |
 | *(your choice whenever appropriate)* | `tbd list`, `tbd dep add`, `tbd close`, `tbd sync`, etc. |
 
-**Loading guidelines for engineering work:** Before writing or reviewing code, load the
-**General engineering** group—the `general-*` rules plus `error-handling-rules`—since
-these apply to all code regardless of language.
-Then load the group for the language or framework in use (TypeScript, Python, Convex,
-etc.). Load a whole group in **one call**; `guidelines`, `shortcut`, `template`, and
-`docs show` all take several names:
+**Loading guidelines for engineering work:** three layers, in this order.
 
-```bash
-tbd guidelines general-coding-rules general-comment-rules error-handling-rules general-testing-rules
-```
+1. **Always**, before writing or reviewing code, the **General engineering** group.
+   It is four documents and it is deliberately short:
+
+   ```bash
+   tbd guidelines general-eng-agent-principles general-coding-rules general-comment-rules error-handling-rules
+   ```
+
+2. **The language group** for what you are working in (TypeScript, Python, Rust,
+   Convex).
+
+3. **Cross-cutting topics, by what the change actually touches**—tests, goldens, a
+   published interface, commits, review, CI and gates, filesystem work, releases.
+   These are not always-load: read the group's note in `tbd guidelines --list` and pull
+   the ones that apply.
+
+Load a whole group in **one call**; `guidelines`, `shortcut`, `template`, and `docs
+show` all take several names.
 
 Run `tbd guidelines --list` to see all available guidelines.
 
@@ -374,29 +383,29 @@ Load the **General engineering** group first, then the language or framework gro
 
 ### General engineering
 
-*Read all of these for any engineering work (writing or reviewing code).*
+*Read all of these before writing or reviewing any code. This group is deliberately small: everything else is routed by what the change touches.*
 
 | Name | Description |
 | --- | --- |
-| backward-compatibility-rules | Guidelines for maintaining backward compatibility only for real consumers and data from released versions |
-| commit-conventions | Conventional Commits format with extensions for agentic workflows |
 | error-handling-rules | Rules for handling errors, failures, and exceptional conditions |
 | general-coding-rules | Rules for constants, magic numbers, cryptographic hash checks, and general coding practices |
 | general-comment-rules | Language-agnostic rules for writing clean, maintainable comments |
 | general-eng-agent-principles | Core principles for AI agents acting as senior engineers—objectivity and communication conduct plus the engineering process (detailed understanding, verification, end-to-end ownership, scope discipline, tracking future work, acting versus seeking clarification, and no ceremony without benefit) |
-| general-tdd-guidelines | Test-Driven Development methodology and best practices |
-| general-testing-rules | Rules for writing minimal, effective tests with maximum coverage, plus what makes a suite trustworthy rather than merely green—assertions that survive refactoring, determinism, fixtures that do not encode the machine that recorded them, timeouts that record a measurement, and never letting an empty or skipped selection look like a pass. |
-| golden-testing-guidelines | Guidelines for implementing golden/snapshot testing for complex systems |
 
 ### Cross-cutting engineering topics
 
-*Load these when the work touches the topic, in any language.*
+*Language-neutral, loaded by what the change touches. Writing or changing tests: general-testing-rules. Working red-green: general-tdd-guidelines. Snapshots or goldens: golden-testing-guidelines. Changing a published interface: backward-compatibility-rules. Committing: commit-conventions. Reviewing a diff: code-review-rules. CI, hooks, or quality gates: ci-and-gates-rules. Paths, traversal, or file mutation: filesystem-rules. Building, versioning, or publishing artifacts: release-engineering-rules.*
 
 | Name | Description |
 | --- | --- |
+| backward-compatibility-rules | Guidelines for maintaining backward compatibility only for real consumers and data from released versions |
 | ci-and-gates-rules | How to wire a quality gate that actually holds—one entry point in two modes, config-contract checks that prove the floor is live, the traps that keep a gate green while it checks nothing (pipeline exit status, self-recorded evidence, single-platform blindness, scope holes), suppression ratchets, generated-file ownership, and least-privilege workflow authority. Language-neutral; load it with the language floor document whenever wiring, debugging, or reviewing a gate. |
 | code-review-rules | The language-neutral substance of a code review—the Blocker/High/Medium/Low severity vocabulary, establishing a baseline before hunting findings, reviewing highest-risk boundaries first, writing findings that can be acted on, and a quick-scan table of patterns with default severities. The review-code shortcuts are the procedure; this is what they apply. Load for any review, with the language-specific review document where one exists. |
+| commit-conventions | Conventional Commits format with extensions for agentic workflows |
 | filesystem-rules | Language-neutral rules for code that reads directory trees or mutates files—separating planning from mutation, atomic visibility versus crash durability, explicit metadata and collision policy, cross-device moves, deterministic traversal, symlink and root boundaries, honest partial failure, and testing the state machine rather than the final bytes. Load whenever a change touches file mutation, traversal, or path handling, alongside the language-specific filesystem document if one exists. |
+| general-tdd-guidelines | Test-Driven Development methodology and best practices |
+| general-testing-rules | Rules for writing minimal, effective tests with maximum coverage, plus what makes a suite trustworthy rather than merely green—assertions that survive refactoring, determinism, fixtures that do not encode the machine that recorded them, timeouts that record a measurement, and never letting an empty or skipped selection look like a pass. |
+| golden-testing-guidelines | Guidelines for implementing golden/snapshot testing for complex systems |
 | release-engineering-rules | Language-neutral rules for turning a reviewed commit into artifacts users execute—one release identity, a pre-release gate that runs where publishing happens, least-privilege publishing authority, build-once-and-promote, packaging and checksums, smoke-testing the packaged artifact rather than the build output, multi-channel coordination, testable release logic, and incident preparation. Load for any release, alongside release-notes-guidelines and the language-specific release document. |
 
 ### TypeScript & JS ecosystem

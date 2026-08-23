@@ -78,6 +78,8 @@ Create a to-do list with the following items then perform all of them:
      Keep it to one sentence or two; it is re-rendered in every session that loads the
      skill. **Do not put a colon-space in it**: the frontmatter is YAML, and an unquoted
      `foo: bar` parses as a nested mapping and fails the doc-categories test.
+     Quote the whole scalar—`description: 'Reads foo: bar and…'`—rather than avoiding
+     the punctuation; the same applies to a leading `-`, `[`, `{`, `*`, `&`, or `%`.
    - A `**Related**:` block immediately under the H1, listing the guidelines this one
      assumes or hands off to.
      One list per document—do not also add a trailing “Related Guidelines” section.
@@ -96,32 +98,42 @@ Create a to-do list with the following items then perform all of them:
      Those sets are exported and asserted in `guideline-groups.test.ts`—a name added
      there without a bundled document fails that test rather than silently rendering an
      empty heading.
-   - Run `tbd docs sync`, then `tbd setup --auto` to regenerate the skill files.
 
 7. **Link hygiene** (for official guidelines):
    - Use full public URLs for external references
    - Example: `https://github.com/jlevy/tbd/blob/main/docs/...`
    - Don’t use relative paths that break when doc is installed elsewhere
 
-8. **Test the guideline**:
+8. **Build, then test — in that order, and through the local build.** A bare `tbd` is
+   the *globally installed* CLI carrying the previously published document bundle.
+   It cannot serve a guideline you just wrote, so running it first reports on the old
+   bundle and looks like a pass.
+   `docs/development.md` covers this; the order matters more here than anywhere else,
+   because the thing being validated is the bundling itself.
+
+   In this repository:
+
    ```bash
-   tbd guidelines <name>  # Verify it loads correctly
-   tbd guidelines --list  # Verify it appears in the list
+   pnpm build                                     # bundle the new file into dist/docs/
+   ls packages/tbd/dist/docs/guidelines/<name>.md # it is in the bundle
+   node packages/tbd/dist/bin.mjs docs sync       # local build, not global tbd
+   node packages/tbd/dist/bin.mjs setup --auto    # regenerate the skill surfaces
+   ls .tbd/docs/guidelines/<name>.md              # it reached the cache
+   node packages/tbd/dist/bin.mjs guidelines <name>
+   node packages/tbd/dist/bin.mjs guidelines --list | grep <name>
    ```
 
-9. **For official guidelines**, also:
-   - Rebuild tbd: `pnpm build` (in packages/tbd/)
-   - Verify bundled: check `packages/tbd/dist/docs/guidelines/<name>.md`
+   In a downstream project consuming published tbd, there is no build step and plain
+   `tbd docs sync` / `tbd guidelines <name>` is correct.
 
-10. **Update documentation** (for official guidelines):
-- Add to root `README.md` “Built-in Engineering Knowledge” table
-- Sync docs cache: `tbd setup --auto` (updates `.tbd/docs/`)
-- Note: `packages/tbd/README.md` is auto-copied from root during build
+9. **Update documentation** (for official guidelines):
+   - Add to root `README.md` “Built-in Engineering Knowledge” table
+   - Note: `packages/tbd/README.md` is auto-copied from root during build
 
 ## Guideline Quality Checklist
 
 - [ ] Frontmatter has title, description, author, and a valid category
-- [ ] Description has no colon-space (YAML would read it as a nested mapping)
+- [ ] Description with a colon-space (or other YAML punctuation) is quoted
 - [ ] `**Related**:` block under the H1, and no trailing duplicate list
 - [ ] Registered in `.tbd/config.yml` `docs_cache.files`
 - [ ] Grouped correctly (prefix match, or added to an explicit name set)

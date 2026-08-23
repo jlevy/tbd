@@ -142,29 +142,35 @@ remaining risks that could not be tested locally.
 
 ## Quick Scan
 
-Patterns worth grepping for, with the severity each usually warrants.
-The scan says where to investigate; it does not replace reading the changed control
-flow.
+Patterns worth grepping for, each with the question that decides whether it is a
+finding. A pattern is not a severity: severity comes from reachability, impact,
+likelihood, and what already contains the failure, and none of those are visible in the
+grep hit. Carrying a preassigned severity through the scan produces exactly the review
+this document is trying to prevent—a list of matches reported at the level the table
+suggested.
 
-| Pattern | Default severity |
-| --- | --- |
-| destructive operation whose resolved scope is not verified | Blocker |
-| required error or task result discarded | Blocker |
-| unsafe block or FFI call without a traceable safety argument | Blocker |
-| authorization decided from unvalidated or pre-resolution input | Blocker |
-| success reported before all required work is verified | High |
-| partial failure reported as success (batch exits zero after failures) | High |
-| non-atomic write to a file another process reads | High |
-| blocking work on an async executor, or a lock held across I/O or await | High |
-| unexplained production `unwrap`/`!`/bare `catch {}` swallowing an error | High |
-| new always-on dependency added without a stated reason | High |
-| mutable or unreviewed action, image, or build-tool pin | High |
-| public item used only inside its own module or crate | Medium |
-| test skipped, ignored, or narrowed without a tracking issue | Medium |
-| suppression comment without a non-obvious reason or tracker ID | Medium |
-| abstraction, trait, or interface with exactly one consumer | Medium |
-| TODO, FIXME, or HACK without tracking | Medium |
-| generated file edited by hand | Medium |
+| Pattern | Question that decides it | If the answer is bad |
+| --- | --- | --- |
+| destructive operation whose resolved scope is not verified | What is the widest path this can resolve to, and who can influence it? | Blocker: data loss outside the intended tree |
+| required error or task result discarded | Does any caller depend on the work that error reports failed? | Blocker: silent partial state reported as success |
+| unsafe block or FFI call without a traceable safety argument | Which safe input can violate the invariant, and where is it checked? | Blocker: memory unsafety from safe code |
+| authorization decided from unvalidated or pre-resolution input | Can the value change between the check and the use? | Blocker: access granted on a value the caller controls |
+| success reported before all required work is verified | What does the exit status prove was completed? | High: a green run over unfinished work |
+| partial failure reported as success (batch exits zero after failures) | Does the caller distinguish “all done” from “some done”? | High: undetected partial results |
+| non-atomic write to a file another process reads | Can a reader observe the file mid-write, or after a crash? | High: truncated file read as valid data |
+| blocking work on an async executor, or a lock held across I/O or await | How long, on which runtime, and what else shares that thread or lock? | Blocker on a shared runtime; Low in a one-shot CLI |
+| unexplained production `unwrap`/`!`/bare `catch {}` swallowing an error | Is the invariant established locally, or assumed from a caller? | High: a crash or a swallowed failure on real input |
+| new always-on dependency added without a stated reason | What does it replace, and what does it execute at install or build time? | High: unreviewed code in the build |
+| mutable or unreviewed action, image, or build-tool pin | Can the referenced code change without a diff? | High: unreviewed code in a privileged context |
+| public item used only inside its own module or crate | Is it a deliberate API surface or leaked internals? | Medium: a compatibility obligation nobody chose |
+| test skipped, ignored, or narrowed without a tracking issue | What regression class is now unguarded, and who is reminded? | Medium: permanent silent gap |
+| suppression comment without a non-obvious reason or tracker ID | Is the rule wrong here, or is the code wrong? | Medium: a suppression that outlives its cause |
+| abstraction, trait, or interface with exactly one consumer | Is a second consumer real and near, or hypothetical? | Low: indirection with no payer |
+| TODO, FIXME, or HACK without tracking | Is this a note or an unshipped requirement? | Medium if it is a requirement, Low otherwise |
+| generated file edited by hand | Will the generator overwrite this, and does CI notice? | Medium: the change silently disappears |
+
+Reserve Blocker for a consequence you can describe as a sequence of events, not for a
+construct that is usually risky.
 
 Two of these are worth stating as explicit review questions rather than pattern matches,
 because grep will not find them: *does this change make a check unable to fail?* and

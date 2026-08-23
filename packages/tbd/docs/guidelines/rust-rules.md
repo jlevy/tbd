@@ -45,10 +45,10 @@ capture, shorter tail-expression temporary lifetimes, and resolver version 3.
 
 ## Ownership and Borrowing
 
-- **Borrow when the callee only reads.** Prefer `&str`, `&Path`, and slices over owned
-  arguments when the function neither stores nor consumes the value.
-- **Own data when ownership is part of the contract.** Accept `String`, `PathBuf`, or
-  `Vec<T>` when the function stores, transforms, or transfers the value.
+- **Let the signature state the ownership contract.** `&str` and `&Path` say the callee
+  only reads; `String` and `PathBuf` say it stores, transforms, or transfers.
+  Choosing by convenience—an owned parameter because one caller happened to have one—
+  makes the contract unreadable and forces an allocation at every other call site.
 - **Make every clone explainable.** A clone used only to silence a borrow-checker error
   is a design signal. Shorten borrow scopes, split state, or change ownership before
   copying a large value.
@@ -89,8 +89,6 @@ fn normalize(input: &str) -> Cow<'_, str> {
 
 ## Types and API Design
 
-- **Use domain types instead of primitive aliases.** Newtypes make units and validated
-  values explicit.
 - **Replace related booleans and sentinels with one enum.** Several flags such as
   `is_pending`, `is_running`, and `is_complete` permit contradictory states that one
   enum makes unrepresentable.
@@ -102,8 +100,6 @@ fn normalize(input: &str) -> Cow<'_, str> {
   choices rather than silently selecting them.
 - **Make matches exhaustive.** Avoid wildcard arms when adding a new enum variant should
   force callers to make a decision.
-- **Keep public APIs minimal.** Default to private or `pub(crate)` and make an item
-  `pub` only when it is part of the supported external contract.
 - **Avoid allocation-forcing APIs.** Accept borrowed inputs where practical and return
   iterators or slices when callers do not need a newly allocated collection.
 - **Use `#[must_use]` when ignoring a result is likely to be a bug.** Apply it to
@@ -132,16 +128,12 @@ enum OutputMode {
   errors are normally displayed rather than matched.
   Use a different report type only when the project documents another error-stack or
   diagnostic contract.
-- **Preserve the source error.** Add context with error chaining; do not replace a
-  detailed error with a generic string.
 - **Do not discard fallible results.** A `let _ = operation()` requires an explicit
   reason that failure is safe to ignore.
 - **Avoid `unwrap()` in production paths.** Use `expect()` only for a proven invariant
   and state that invariant in the message.
 - **Do not panic across a library’s normal input surface.** Panics are for violated
   programmer contracts or states that are genuinely unreachable.
-- **Classify retryable failures explicitly.** Network and service code should not infer
-  retry behavior from error strings.
 
 Discarding a result hides whether required cleanup or persistence happened.
 
@@ -200,8 +192,6 @@ static IDENTIFIER: LazyLock<Regex> =
 
 ## Modules and Documentation
 
-- **Organize modules around coherent responsibilities.** Split files when distinct
-  concepts change for different reasons, not at an arbitrary line threshold.
 - **Prefer `foo.rs` with `foo/` submodules over `foo/mod.rs`.** The Edition 2018+ layout
   keeps editor tabs and search results descriptive.
   Use `mod.rs` only when a project-wide convention or generated layout provides a
@@ -216,12 +206,11 @@ static IDENTIFIER: LazyLock<Regex> =
   compatibility policy requires a migration window and names a removal release.
 - **Keep binaries thin.** Put reusable domain behavior in library modules and keep
   process setup at the executable boundary.
-- **Document public contracts and invariants.** Public items need concise `///` docs;
-  modules with non-obvious responsibilities need `//!` docs.
-- **Use doctests for examples that should compile.** Mark an example `no_run` only when
-  it must not execute, and explain any `ignore`.
-- **Explain why, not syntax.** Comments should record invariants, safety arguments,
-  compatibility constraints, or surprising tradeoffs.
+- **Document what the signature cannot say.** `missing_docs = "deny"`
+  (`rust-lint-format-rules`) puts a `///` on every public item, which reliably produces
+  a wall of restatement unless each one carries the invariant, the panic condition, or
+  the ordering guarantee.
+  `general-comment-rules` owns comments generally; `rust-testing-rules` owns doctests.
 
 ## Unsafe Code and FFI
 
@@ -230,16 +219,17 @@ static IDENTIFIER: LazyLock<Regex> =
   `rust-lint-format-rules` explains why the level is `deny` rather than `forbid`:
   `forbid` cannot be overridden at all, so the first justified platform-specific block
   forces the workspace setting down instead of taking a scoped exception.
-- **Put a `// SAFETY:` argument on every unsafe block.** State the invariant that makes
-  the operation sound and where that invariant is established.
-- **Keep unsafe blocks minimal.** Wrap them in safe interfaces whose inputs cannot
-  trigger undefined behavior.
-- **Audit manual `Send` and `Sync` implementations as unsafe code.** Document every
-  field and aliasing assumption.
-- **Validate FFI boundaries.** Check layouts, ownership, nullability, string encoding,
-  error codes, unwinding, and the lifetime of every pointer passed across the boundary.
-- **Benchmark before using unsafe for speed.** A safe implementation is the baseline;
-  retain unsafe optimization only when measurements justify it.
+- **The unsafe block’s soundness must be a property of the module, not of its callers.**
+  A `// SAFETY:` comment naming an invariant that a caller is trusted to uphold
+  describes an unsound API; the safe wrapper has to make violating it impossible.
+  This is the one rule that decides whether the rest is review or archaeology.
+- **Benchmark before using unsafe for speed.** The safe implementation is the baseline,
+  and “obviously faster” is not a measurement.
+
+`rust-code-review-rules` carries the full unsafe and FFI checklist—`Send`/`Sync`
+soundness, the unwinding matrix in each direction, ownership and nullability across the
+boundary, and target-specific layout.
+Read it when writing the code, not only when reviewing it.
 
 ## Concurrency and Async
 

@@ -1,0 +1,12 @@
+# SHA-pinned actions do not float, so an update bot is what keeps pinning from meaning
+# freezing. Dependabot rewrites the SHA and the trailing version comment together, which
+# is what makes the pin reviewable in the diff.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']

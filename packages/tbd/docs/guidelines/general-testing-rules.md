@@ -14,31 +14,41 @@ category: general
 - `ci-and-gates-rules` (running the suite in a hostile environment; timeouts; gates that
   pass while checking nothing)
 
-## Write Few Tests, and Make Each One Earn Its Place
+## Every Test Names What It Uniquely Establishes
 
-- Write the minimal set of tests with the maximal coverage.
-  Write as few tests as possible that *also* cover the desired functionality.
-  If you see many similar tests, review to see if any can be removed or rewritten to be
-  shorter without reducing test coverage.
+The useful question is not how many tests there are.
+It is what each one proves that nothing else does—and how fast it tells you where the
+break is when it fails.
+Both count-based rules fail: “fewer tests” deletes independent evidence, and “a test per
+function” manufactures tests with no oracle.
 
-- Do NOT write unit tests that are obviously going to pass (like creating objects and
-  validating they are set on an object).
-  These needlessly clutter the codebase.
-  For example:
-  - Do not write a test that simply instantiates a class and the object’s fields are
-    set.
+- **Every test names the contract, boundary, failure mode, or interaction it uniquely
+  establishes.** If that sentence cannot be written, the test is not earning its place.
+  This is usually visible in the name: a test called `handles_empty_input` states one;
+  `test_process_2` does not.
 
-- Do NOT write a test that is trivial enough it is obviously tested as part of another
-  test in the same codebase.
+- **Overlap is fine when it buys something.** Two tests that execute the same lines can
+  protect different public contracts, or localize a regression to a layer instead of a
+  subsystem. Coverage overlap is not duplication.
+  What is duplication: the same assertion, about the same contract, at three layers,
+  where two of them fail only when the third already has.
 
-- Don’t test implementation details: Focus on behavior and outcomes, not internal
-  mechanics, so tests remain valid when you refactor.
+- **Do not write a test whose oracle is the code under test.** Instantiating a class and
+  asserting its fields hold what the constructor put there tests the language.
+  So does asserting that a mock you configured has the methods you gave it.
 
-- Test edge cases and boundaries: Include tests for empty inputs, nulls, maximums,
-  minimums, and error conditions—not just happy paths.
+- **Prefer a stronger oracle to another example.** When a behavior has a property that
+  holds for all inputs, a property test with a fixed seed beats five hand-picked cases.
+  When a rewrite must match an old implementation, a differential test beats both.
+  When a failure path is hard to reach, fault injection is the only way to reach it.
+  These strengthen the oracle; adding cases to a weak one does not.
 
-- Do not duplicate the same assertion at every layer.
-  Each broader test should prove an interaction the narrower one cannot.
+- **Test edge cases and boundaries**: empty inputs, nulls, maximums, minimums, and error
+  conditions—not just happy paths.
+  These are where the contract is actually decided.
+
+- **Don’t test implementation details.** Focus on behavior and outcomes, not internal
+  mechanics, so tests survive a refactor.
 
 ## Assert the Outcome, Not the Interaction
 

@@ -173,6 +173,18 @@ if [ -n "${GH_TOKEN:-}" ]; then
             echo "[gh] Agent harnesses often reset shell state between tool calls; if the"
             echo "[gh] exports do not stick, prefix each command instead:"
             echo '[gh]   NO_PROXY="'"${GITHUB_DIRECT_HOSTS}"'" no_proxy="'"${GITHUB_DIRECT_HOSTS}"'" gh <command>'
+            # State the consequences here rather than only pointing at the shortcut. This
+            # branch has already proven both halves of the condition (proxy intercepts
+            # GitHub, direct channel is open), and at the moment these facts are needed the
+            # session's own docs say the opposite. An unread pointer loses that argument.
+            echo "[gh] This session's git remote may use a ref-scoped credential broker:"
+            echo "[gh]   - pushes to refs/heads/* succeed; pushes to refs/tags/* fail with HTTP 403."
+            echo "[gh]   - 'git push --dry-run' PASSES for tags the broker later refuses"
+            echo "[gh]     (it refuses at receive-pack, after ref advertisement); it proves nothing."
+            echo "[gh]   - create tags on the direct channel instead:"
+            echo "[gh]       gh api repos/OWNER/REPO/git/refs -f ref=refs/tags/vX.Y.Z -f sha=SHA"
+            echo "[gh]   - a GitHub-host 403 with NO x-github-request-id header is proxy-manufactured,"
+            echo "[gh]     not an egress denial. Run the egress test before reporting a block."
             echo "[gh] Details: tbd shortcut setup-github-cli (Proxied Remote Sessions)"
         else
             echo "[gh] WARNING: GH_TOKEN is set but could not be verified on any channel"

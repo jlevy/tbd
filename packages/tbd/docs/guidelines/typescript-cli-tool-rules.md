@@ -380,20 +380,34 @@ Strict separation of data and diagnostics enables pipeline composability.
   `error()` outputs `{"error": "..."}` to stderr.
   `data()` outputs structured JSON to stdout.
 
-- **Handle EPIPE for graceful pipe close:** Both stdout and stderr need EPIPE handlers
-  so piping to `head` or quitting a pager works cleanly.
+- **Handle EPIPE for graceful pipe close:** piping to `head` or quitting a pager must
+  not produce a crash.
+  `error-handling-rules` owns the contract; two Node specifics make the obvious
+  implementation wrong.
+
+  `process.exit()` from inside the handler abandons writes still pending on the other
+  stream, and forcing `0` there means a closed **stderr**—which happens while an error
+  is being reported—overwrites a real failure with success.
+  Set `process.exitCode` and let the process end on its own:
 
   ```ts
   // cli/bin.ts
   process.stdout.on('error', (err: NodeJS.ErrnoException) => {
-    if (err.code === 'EPIPE') process.exit(0);
+    // The consumer stopped reading. Nothing further to render; keep whatever status
+    // the run has already earned.
+    if (err.code === 'EPIPE') return;
     throw err;
   });
   process.stderr.on('error', (err: NodeJS.ErrnoException) => {
-    if (err.code === 'EPIPE') process.exit(0);
+    // A closed diagnostics stream is not a successful run. Never lower the status here.
+    if (err.code === 'EPIPE') return;
     throw err;
   });
   ```
+
+  Test a closed stdout *and* a closed stderr.
+  A handler that returns `0` for both passes the `| head` test and silently converts
+  failures into successes everywhere else.
 
 - **Support pagination with `PAGER`:** For long output, pipe through `$PAGER` (or
   `less -R` for colored content) when stdout is a TTY. Fall through to `console.log()`

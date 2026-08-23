@@ -140,16 +140,25 @@ or want help → run `tbd shortcut welcome-user`
 | “Check out this library’s source” | `tbd shortcut checkout-third-party-repo` |
 | *(your choice whenever appropriate)* | `tbd list`, `tbd dep add`, `tbd close`, `tbd sync`, etc. |
 
-**Loading guidelines for engineering work:** Before writing or reviewing code, load the
-**General engineering** group—the `general-*` rules plus `error-handling-rules`—since
-these apply to all code regardless of language.
-Then load the group for the language or framework in use (TypeScript, Python, Convex,
-etc.). Load a whole group in **one call**; `guidelines`, `shortcut`, `template`, and
-`docs show` all take several names:
+**Loading guidelines for engineering work:** three layers, in this order.
 
-```bash
-tbd guidelines general-coding-rules general-comment-rules error-handling-rules general-testing-rules
-```
+1. **Always**, before writing or reviewing code, the **General engineering** group.
+   It is four documents and it is deliberately short:
+
+   ```bash
+   tbd guidelines general-eng-agent-principles general-coding-rules general-comment-rules error-handling-rules
+   ```
+
+2. **The language group** for what you are working in (TypeScript, Python, Rust,
+   Convex).
+
+3. **Cross-cutting topics, by what the change actually touches**—tests, goldens, a
+   published interface, commits, review, CI and gates, filesystem work, releases.
+   These are not always-load: read the group’s note in `tbd guidelines --list` and pull
+   the ones that apply.
+
+Load a whole group in **one call**; `guidelines`, `shortcut`, `template`, and
+`docs show` all take several names.
 
 Run `tbd guidelines --list` to see all available guidelines.
 

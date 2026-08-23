@@ -20,18 +20,24 @@ async function bundledGuidelineNames(): Promise<string[]> {
  * here rather than left to the generated directory.
  */
 describe('guidelineGroupFor', () => {
-  it('files general-prefixed and named always-load guidelines under General engineering', () => {
+  it('files the always-load core under General engineering', () => {
     for (const name of [
+      'general-eng-agent-principles',
       'general-coding-rules',
-      'general-testing-rules',
-      'general-tdd-guidelines',
+      'general-comment-rules',
       'error-handling-rules',
-      'backward-compatibility-rules',
-      'commit-conventions',
-      'golden-testing-guidelines',
     ]) {
       expect(guidelineGroupFor(name), name).toBe('General engineering');
     }
+  });
+
+  it('does not admit a guideline to the always-load core by filename prefix', () => {
+    // Membership of the group every session reads is a context budget, not a naming
+    // convention. A new `general-*` document must be routed deliberately.
+    for (const name of ['general-testing-rules', 'general-tdd-guidelines']) {
+      expect(guidelineGroupFor(name), name).toBe('Cross-cutting engineering topics');
+    }
+    expect(guidelineGroupFor('general-something-new')).toBe('Docs, process & tooling');
   });
 
   it('files language guidelines under their own language group', () => {
@@ -54,9 +60,12 @@ describe('guidelineGroupFor', () => {
 
   it('files language-neutral topic guidelines under Cross-cutting engineering topics', () => {
     for (const name of [
+      'backward-compatibility-rules',
       'ci-and-gates-rules',
       'code-review-rules',
+      'commit-conventions',
       'filesystem-rules',
+      'golden-testing-guidelines',
       'release-engineering-rules',
     ]) {
       expect(guidelineGroupFor(name), name).toBe('Cross-cutting engineering topics');

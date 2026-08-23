@@ -36,8 +36,11 @@ A workspace-root `tests/` directory is not automatically a test target.
 
 - Assert public results, state transitions, emitted events, files, streams, and errors;
   avoid private counters or call order unless those are the interface.
-- For every fallible operation, test at least one representative failure and verify the
-  complete outcome.
+- Cover each *externally distinct* failure behavior, not each fallible call.
+  Twenty `?` operators that all surface the same error, at the same exit status, with
+  the same cleanup, are one behavior and want one test.
+  Two that differ in what the caller must do next are two, however similar the code
+  looks.
 - Check structured error variants where callers depend on them and user-visible context
   where users depend on it.
 - Test partial success, retries, interruption, cancellation, and cleanup for operations

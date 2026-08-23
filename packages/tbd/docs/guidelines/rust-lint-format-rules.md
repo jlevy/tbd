@@ -8,9 +8,8 @@ category: rust
 ---
 # Rust Lint and Format Rules
 
-Every Rust project enforces the same quality floor.
-Rust makes this simpler than most ecosystems: there is one formatter and one linter, so
-there are no toolchain profiles to choose between—only one configuration, stated here.
+Rust has one formatter and one linter, so the configuration question is not *which
+tools* but *which rules earn a place in the default*.
 
 This document is the Rust counterpart of `typescript-lint-format-rules`.
 `ci-and-gates-rules` owns gate wiring in general (fix versus verify mode,
@@ -24,9 +23,33 @@ says which Rust rules the gate enforces.
 - `ci-and-gates-rules` (how the gate is wired and how you prove it is live)
 - `supply-chain-hardening` (pin the toolchain and every lint tool; the cool-off applies)
 
+## What Earns a Place in the Floor
+
+A rule belongs in the floor below only if it clears all six of these.
+Anything clearing fewer is a project preference and belongs in that project’s manifest,
+not in a document every Rust task loads:
+
+- **Defect class.** It prevents a named failure, not a style someone dislikes.
+- **Enforcement reliability.** A tool detects it mechanically, with few false positives
+  on correct code.
+- **Incidence.** The defect occurs in real Rust rather than in principle.
+- **Adoption cost.** Measured on a real codebase—“Measured Adoption Cost” below shows
+  what that means and how far a plausible-looking method can be off.
+- **Applicability.** It holds across project shapes, or it names the shapes where it
+  does not.
+- **Context cost.** Stating it changes what a competent engineer would otherwise do.
+
+**Strictness is not one of the six.** A stricter rule can add false positives,
+suppressions, tool dependencies, and ceremony that hide more signal than the rule
+recovers. Where two sources disagree, the better answer to those six questions wins, not
+the one that denies more.
+This floor is what survived them against one codebase shape; the departure conditions
+below are the boundaries that shape did not test.
+
 ## The Floor
 
-A project may add rules; it may not drop these.
+A project may add rules.
+It may drop one only under a departure condition stated at the end of this section.
 
 1. **Everything auto-formattable is auto-formatted.** `cargo fmt --all` owns Rust
    layout; `taplo fmt` owns TOML; [flowmark](https://github.com/jlevy/flowmark) owns
@@ -80,6 +103,24 @@ A project may add rules; it may not drop these.
     never been linted anywhere if CI lints only on Linux.
     Add a cross-target lint pass; see `ci-and-gates-rules`, “Single-platform blindness”,
     for the shape that skips uninstalled targets instead of failing.
+
+**Departures by project shape.** These are the known boundaries, each with the reason it
+is a boundary rather than an excuse:
+
+- **MSRV below 1.81.** `#[expect]` does not exist there, so rule 8 degrades to
+  `#[allow]` plus the written removal discipline the TypeScript family needs for the
+  same reason.
+- **Crates whose macros expand to forbidden code.** A pyo3 or similar attribute macro
+  emitting `unsafe impl` cannot inherit `unsafe_code = "deny"`. Restate every *other*
+  lint verbatim in that member; see below.
+- **Proc-macro crates.** `pedantic` fires on macro-expanded code the author cannot edit.
+  Scope the relaxation to the expansion, not to the crate.
+- **No pinned toolchain.** `warnings = "deny"` in the manifest turns every new compiler
+  lint into a build failure for everyone at once on the day rustc ships it.
+  Pin the toolchain (`rust-project-setup`) or hold denied warnings in the CI command
+  only. This does *not* affect your published crate’s consumers: cargo builds registry
+  dependencies with `--cap-lints allow`, so your `[lints]` table never breaks a
+  downstream build.
 
 ## The `[lints]` Floor
 
@@ -186,40 +227,49 @@ Two limits worth knowing before you turn these on:
 ## Beyond the Floor: Measured Adoption Cost
 
 The lints below are all defensible, and all commonly proposed as floor rules.
-Whether they belong in *your* floor depends on what they cost to adopt, which is a
-measurement, not an opinion.
+Whether they belong in *your* floor is a measurement, not an opinion—and the measurement
+is easy to get wrong in a way that looks authoritative.
 
-The numbers are from [fdu](https://github.com/jlevy/fdu) at `d42d970`—about 35k lines of
-Rust across three crates, already at the floor above (`pedantic` denied, `unwrap_used`
-denied), measured with `allow-*-in-tests` enabled:
+The numbers are from [fdu](https://github.com/jlevy/fdu) at `d42d970`: 35,081 lines of
+Rust across a library, a CLI, and a PyO3 extension module, already at the floor above,
+measured with `allow-*-in-tests` enabled.
+Method, reproducer, and the full 415-row diagnostic mapping are in
+`docs/project/research/current/evidence-2026-08-23-rust-lint-cost.md`.
 
-| Candidate lint | Production sites | Test/build sites | Verdict |
-| --- | ---: | ---: | --- |
-| `clippy::let_underscore_future` | 0 | 0 | **Adopt.** Free unless the crate has no async at all, in which case it is free and inert. |
-| `clippy::panic` | 2 | 4 | **Adopt** in library code. Build scripts panic legitimately and need their own allow. |
-| `clippy::wildcard_enum_match_arm` | 7 | 11 | **Adopt.** Small, and it is the rule that makes adding an enum variant a compile error rather than a silent `_ =>`. |
-| `clippy::disallowed_methods` (fs writes) | 1 | 82 | **Adopt.** Production cost is nil; the entire cost is test fixtures, handled with one crate-level allow. |
-| `clippy::expect_used` | 25 | 45 | **Defer or ratchet.** Denying it on top of `unwrap_used` means every fallible call in library code returns a `Result`. That is a design commitment, not a lint tweak. |
-| `clippy::indexing_slicing` | 62 | 136 | **Do not deny outright.** This is the analogue of `noUncheckedIndexedAccess`, and it is the most expensive rule here—62 production sites in a codebase already at this floor. Adopt per-module with a tracked ratchet, or not at all. |
+| Candidate lint | Ships | Build scripts | Tests/examples | Verdict |
+| --- | ---: | ---: | ---: | --- |
+| `clippy::let_underscore_future` | 0 | 0 | 0 | **Adopt.** Free, and inert in a crate with no async. |
+| `clippy::panic` | 2 | 2 | 35 | **Adopt** in library code. Half the non-test cost is `build.rs`, which panics legitimately and needs its own allow. |
+| `clippy::wildcard_enum_match_arm` | 12 | 0 | 9 | **Adopt.** Small, and it is what makes adding an enum variant a compile error instead of a silent `_ =>`. |
+| `clippy::disallowed_methods` (fs writes) | 0 | 1 | 82 | **Adopt.** Zero shipping cost; the entire cost is test fixtures, covered by one crate-level allow. |
+| `clippy::expect_used` | 32 | 7 | 35 | **Defer or ratchet.** On top of `unwrap_used`, this means every fallible call in library code returns a `Result`. That is a design commitment, not a lint tweak. |
+| `clippy::indexing_slicing` | 79 | 0 | 119 | **Do not deny outright.** The most expensive rule here, in a codebase already at this floor. Adopt per-module with a tracked ratchet, or not at all. |
 
 The two most-proposed additions are the two that do not survive contact with a real
-codebase unmodified.
-`indexing_slicing` in particular is often recommended by analogy to
+codebase. `indexing_slicing` in particular is recommended by analogy to
 `noUncheckedIndexedAccess`, but the analogy is inexact: TypeScript’s flag changes an
-inferred *type* and is usually satisfied by a `!` or a bounds check the code already
-has, whereas `indexing_slicing` demands `.get()` plus real error handling at every site.
+inferred *type* and is usually satisfied by a bounds check the code already has, whereas
+`indexing_slicing` demands `.get()` plus real error handling at all 79 sites.
 
-Measure before adopting.
-The command:
+**Measure by compile unit, not by reading the source.** The obvious method—split each
+file at its `#[cfg(test)]` and call the rest test code—is wrong, because a
+`#[cfg(test)]` attribute applies to the *next item* and not to the remainder of the
+file. Applied to this codebase it misfiled 34% of diagnostics, in both directions.
+Ask cargo instead:
 
 ```bash
-cargo clippy --locked --workspace --all-targets --all-features --message-format=json \
-  -- -W clippy::indexing_slicing -W clippy::expect_used
+# Pass 1: code that compiles without cfg(test). Pass 2: everything.
+# A diagnostic in both is production; one only in pass 2 is test-only. Cargo's
+# per-diagnostic target also separates build scripts, examples, and integration tests.
+cargo clippy --workspace --lib --bins    --message-format=json -- -W clippy::indexing_slicing
+cargo clippy --workspace --all-targets   --message-format=json -- -W clippy::indexing_slicing
 ```
 
-Count distinct `file:line` primary spans per lint, and split them at each file’s
-`#[cfg(test)]` boundary—`--all-targets` compiles the library twice, so raw diagnostic
-counts roughly double, and inline test modules otherwise read as production code.
+Cap lints at `warn` for the run (`RUSTFLAGS="--cap-lints warn"`). A workspace that
+denies warnings stops at its first failing target, and the count you get back describes
+whichever crate compiled first rather than the workspace.
+Deduplicate by lint plus primary-span file, line, and column: `--all-targets` compiles
+the library twice.
 
 ## Hooks and Gates
 
@@ -265,18 +315,47 @@ and the next real advisory scrolls past with it.
 After setting up or changing any lint configuration, prove it holds:
 
 1. **Confirm every member has a lint policy.** This is the failure that looks exactly
-   like success, so check for the `[lints]` table itself:
+   like success, so check for the `[lints]` table itself, over the manifests cargo says
+   are in the workspace:
 
    ```bash
-   for m in crates/*/Cargo.toml; do
-     grep -qE '^\[lints(\.|\])' "$m" || echo "NO LINT POLICY: $m"
-   done
+   #!/usr/bin/env bash
+   set -euo pipefail
+
+   missing=()
+   count=0
+   while IFS= read -r manifest; do
+     count=$((count + 1))
+     grep -qE '^\[lints(\.|\])' "$manifest" || missing+=("$manifest")
+   done < <(cargo metadata --format-version 1 --no-deps | jq -r '.packages[].manifest_path')
+
+   # An empty member list is the same green as a clean one. Say so.
+   if [ "$count" -eq 0 ]; then
+     echo 'no workspace members found' >&2
+     exit 1
+   fi
+   if [ "${#missing[@]}" -gt 0 ]; then
+     printf 'no [lints] table: %s\n' "${missing[@]}" >&2
+     exit 1
+   fi
+   echo "$count workspace manifests declare a lint policy"
    ```
+
+   Three things in that script are the point, and a shorter version loses all three.
+   **It exits nonzero.** A loop that prints a complaint and reaches its final statement
+   exits zero, and a required check that always passes is worse than no check—it is a
+   green light with a paper trail.
+   **It enumerates from `cargo metadata`,** not from `crates/*/Cargo.toml`: a glob
+   misses a root package, a nested member, a member at an explicit path, and it silently
+   includes an excluded directory.
+   **It counts.** Zero members is what a renamed directory or a broken `cargo metadata`
+   looks like, and it is indistinguishable from success otherwise.
 
    Do not check with `grep -L 'workspace = true'`: that string also appears in inherited
    package fields (`edition.workspace = true`) and inherited dependencies, so it matches
    in manifests that declare no lints at all and reports a clean result for an unlinted
-   crate—a false pass of exactly the kind `ci-and-gates-rules` describes.
+   crate. Checking for inheritance is also the wrong question—a member that legitimately
+   cannot inherit declares its own `[lints]` table, and this check must pass for it.
 
 2. **Confirm the effective lint level with a deliberate violation**, not by inspecting
    the config text. Add an `unwrap()` to library code, or an undocumented public item,

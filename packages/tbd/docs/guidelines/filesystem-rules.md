@@ -24,15 +24,37 @@ reports when half of it worked—so every caller assumes a different one.
 - `general-testing-rules` (fixture isolation for the tests below)
 - `ci-and-gates-rules` (making the atomic-write rule enforceable rather than advisory)
 
-## Make the Atomic-Write Rule Executable
+## Name the Write Contract, Then Enforce It
 
 Every language has a one-line “write this file” call that truncates the destination and
 then writes. If the process dies between those steps—or two writers interleave—the file
 is left empty or half-written, and the failure surfaces later as corrupt state rather
 than as a write error.
 
-Route every file write through an atomic-replacement helper, and enforce it in the
-linter rather than in review:
+Atomic replacement fixes that, and it is the wrong primitive for several other things a
+program legitimately does with a file.
+A write has one of these contracts, and the code should say which:
+
+| Contract | What it promises | Primitive |
+| --- | --- | --- |
+| **Replace** | A reader sees the old contents or the new ones, never a mix, and never an empty file | temp file in the destination directory, then atomic rename |
+| **Create exclusively** | Fails if the path exists; the check and the create are one operation | `O_EXCL` / `wx` / `create_new` — *not* “check then write”, which is a race |
+| **Append** | Adds to the end without disturbing what is there, safely from concurrent writers | open in append mode, which positions per write rather than per open |
+| **Stream** | Produces output incrementally, possibly larger than memory, possibly to a consumer that reads as it goes | ordinary buffered write to the sink |
+| **Scratch** | Nobody but this process will read it, and it does not outlive the run | ordinary write, into a temp directory |
+
+Replacement is for the first row: a persistent, authoritative path that other readers or
+a later run will read.
+Routing the others through it *weakens* them—an append forced through
+replace-the-whole-file has to read and rewrite the file, which loses the concurrency
+property that made append correct, and turns an O(1) write into an O(size) one.
+Exclusive creation forced through replacement loses the atomicity of the existence
+check.
+
+So the enforcement is a boundary, not a global ban.
+Restrict the raw truncating call, and provide named alternatives for each contract, so
+choosing something other than replacement is a visible decision with a name on it rather
+than a lint suppression:
 
 ```javascript
 // eslint.config.js — the correctness invariant, enforced.
@@ -54,6 +76,13 @@ holds until the first contributor who has not read the prose.
 
 List every spelling of the import.
 A restriction on `node:fs` that omits plain `fs` enforces nothing.
+
+The restriction message should name the alternatives—`replaceFile`, `createNewFile`,
+`appendToFile`—rather than only the atomic one.
+A ban with a single suggested replacement teaches contributors that the suppression
+comment is the way to append to a log, and after that the boundary stops meaning
+anything. Scope the restriction to the modules that write persistent state, or accept
+that test fixtures and scratch output will carry suppressions forever.
 
 ## Separate Planning From Mutation
 

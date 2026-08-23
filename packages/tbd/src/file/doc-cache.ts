@@ -424,19 +424,35 @@ interface GuidelineGroup {
   match: (name: string) => boolean;
 }
 
-/** Always-load guidelines that are not covered by the `general-` prefix. */
-const GENERAL_ENGINEERING_NAMES = new Set([
-  'backward-compatibility-rules',
-  'commit-conventions',
+/**
+ * The always-load core: read before writing or reviewing any code.
+ *
+ * Membership is explicit rather than inferred from a `general-` filename prefix,
+ * because "always load" is a context budget, not a naming convention. Everything
+ * an agent reads here is attention it does not have for the repository's own
+ * code, so a document earns a place only if it applies to essentially every
+ * engineering task. Topic documents are routed instead, however general their
+ * name — `general-testing-rules` and `general-tdd-guidelines` are cross-cutting.
+ *
+ * `guideline-budget.test.ts` asserts the size of what this set renders to.
+ */
+const ALWAYS_LOAD_NAMES = new Set([
+  'general-eng-agent-principles',
+  'general-coding-rules',
+  'general-comment-rules',
   'error-handling-rules',
-  'golden-testing-guidelines',
 ]);
 
 /** Language-neutral guidelines loaded when the work touches their topic. */
 const CROSS_CUTTING_NAMES = new Set([
+  'backward-compatibility-rules',
   'ci-and-gates-rules',
   'code-review-rules',
+  'commit-conventions',
   'filesystem-rules',
+  'general-tdd-guidelines',
+  'general-testing-rules',
+  'golden-testing-guidelines',
   'release-engineering-rules',
 ]);
 
@@ -450,19 +466,22 @@ const CROSS_CUTTING_NAMES = new Set([
  * cannot catch that, because the copy never gains the new name either.
  */
 export const EXPLICITLY_GROUPED_GUIDELINES: readonly string[] = [
-  ...GENERAL_ENGINEERING_NAMES,
+  ...ALWAYS_LOAD_NAMES,
   ...CROSS_CUTTING_NAMES,
 ];
+
+/** The always-load core, exported so its rendered size can be measured in a test. */
+export const ALWAYS_LOAD_GUIDELINES: readonly string[] = [...ALWAYS_LOAD_NAMES];
 
 const GUIDELINE_GROUPS: GuidelineGroup[] = [
   {
     heading: 'General engineering',
-    note: 'Read all of these for any engineering work (writing or reviewing code).',
-    match: (n) => n.startsWith('general-') || GENERAL_ENGINEERING_NAMES.has(n),
+    note: 'Read all of these before writing or reviewing any code. This group is deliberately small: everything else is routed by what the change touches.',
+    match: (n) => ALWAYS_LOAD_NAMES.has(n),
   },
   {
     heading: 'Cross-cutting engineering topics',
-    note: 'Load these when the work touches the topic, in any language.',
+    note: 'Language-neutral, loaded by what the change touches. Writing or changing tests: general-testing-rules. Working red-green: general-tdd-guidelines. Snapshots or goldens: golden-testing-guidelines. Changing a published interface: backward-compatibility-rules. Committing: commit-conventions. Reviewing a diff: code-review-rules. CI, hooks, or quality gates: ci-and-gates-rules. Paths, traversal, or file mutation: filesystem-rules. Building, versioning, or publishing artifacts: release-engineering-rules.',
     match: (n) => CROSS_CUTTING_NAMES.has(n),
   },
   {

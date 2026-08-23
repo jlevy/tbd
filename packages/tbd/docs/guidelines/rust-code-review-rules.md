@@ -62,9 +62,16 @@ Review it first, and review it even when the diff is small.
 - [ ] **Blocker: manual `Send` or `Sync` implementations are sound**, considering every
   contained field and every mutation path—including interior mutability reached through
   a raw pointer.
-- [ ] **Blocker: unwinding across an FFI boundary is prevented or explicitly
-  supported.** A Rust panic crossing into C is undefined behavior; catch it at the
-  boundary or declare the function `extern "C-unwind"` and mean it.
+- [ ] **Blocker: unwinding across an FFI boundary is handled in the direction it
+  actually travels.** The two directions have different consequences, and the common
+  summary gets both wrong.
+  A Rust panic that would escape an `extern "C"` function aborts the process: defined
+  behavior, but a process death with no foreign cleanup and no way to report the
+  failure, so an exported function that must return an error wraps its body in
+  `catch_unwind` instead.
+  A *foreign* exception entering Rust through a non-unwind ABI is the undefined-behavior
+  case. `extern "C-unwind"` declares that unwinding is an intended and compatible part of
+  the ABI on both sides; it is not a general fix for “this might panic”.
 - [ ] **High: FFI ownership is unambiguous.** Allocation and free pairs, pointer
   lifetime, nullability, string encoding and NUL handling, callback lifetimes, and
   thread affinity all match the foreign contract.
@@ -80,25 +87,25 @@ here.
 
 ## Quick Scan
 
-Rust-specific patterns only—`code-review-rules` carries the language-neutral scan, and
-running both is the intent.
-This says where to investigate; it does not replace reading the changed control flow.
+Rust-specific patterns only—`code-review-rules` carries the language-neutral scan and
+the rule that a pattern is not a severity.
+Each row here is a question to resolve, not a finding to report at a preset level.
 
-| Pattern | Default severity |
-| --- | --- |
-| unsafe block without a safety argument | Blocker |
-| safe API through which unsafe code can be made to misbehave | Blocker |
-| blocking call inside an async executor | Blocker |
-| recursive delete whose resolved scope is not verified | Blocker |
-| lock guard held across an `await` or slow I/O | High |
-| lock guard exposed through a public API | High |
-| `unwrap()` in a production path, or `expect()` without a stated invariant | High |
-| `filter_map(Result::ok)` over a traversal or fallible iterator | High |
-| repeated `clone()` introduced to satisfy the borrow checker | High |
-| spawned task neither awaited nor supervised | High |
-| wildcard `_ =>` arm where a new enum variant should force a decision | Medium |
-| `#[allow]` used where `#[expect]` would expire on its own | Medium |
-| `mod.rs` added where the `foo.rs` + `foo/` layout is the convention | Low |
+| Pattern | Question that decides it | If the answer is bad |
+| --- | --- | --- |
+| unsafe block without a safety argument | Which invariant makes this sound, and what code establishes it? | Blocker: unsound in the general case |
+| safe API through which unsafe code can be made to misbehave | Is there a safe input sequence that violates the invariant? | Blocker: safe code causes UB |
+| blocking call inside an async executor | Which runtime, how long, and how many worker threads? | Blocker on a shared multi-task runtime; Low in a one-shot CLI where the executor has nothing else to run |
+| recursive delete whose resolved scope is not verified | What does the path resolve to under a symlink or an empty argument? | Blocker: deletion outside the intended tree |
+| lock guard held across an `await` or slow I/O | Does another task need this lock to make progress? | Blocker if it can deadlock; High if it only serializes |
+| lock guard exposed through a public API | Can a caller hold it across arbitrary code? | High: the deadlock is now in someone else’s crate |
+| `unwrap()` in a production path, or `expect()` without a stated invariant | Is the invariant established locally, or assumed from a caller? | High: a panic on real input |
+| `filter_map(Result::ok)` over a traversal or fallible iterator | Does “I could not read this” become “there was nothing here”? | High: partial results reported as complete |
+| repeated `clone()` introduced to satisfy the borrow checker | Is this a hot path, or a startup path run once? | Medium in a hot path; Low elsewhere, and a design smell either way |
+| spawned task neither awaited nor supervised | Who observes its panic, its error, and its completion? | High: silent failure with no exit-status effect |
+| wildcard `_ =>` arm where a new enum variant should force a decision | Is the enum owned here, and is it expected to grow? | Medium: a new variant compiles into the wrong behavior |
+| `#[allow]` used where `#[expect]` would expire on its own | Will anyone notice when the underlying cause is fixed? | Low: a suppression that outlives its cause |
+| `mod.rs` added where the `foo.rs` + `foo/` layout is the convention | Is the convention stated anywhere the tooling enforces? | Low: layout drift |
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

@@ -1,0 +1,14 @@
+# The clippy.toml used for the lint-cost measurement documented in
+# docs/project/research/current/evidence-2026-08-23-rust-lint-cost.md.
+# It is the configuration a project adopting the floor in `rust-lint-format-rules`
+# would have, so the measured cost is the cost of adding candidate lints on top of it.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+
+[[disallowed-methods]]
+path = "std::fs::write"
+reason = "write via an atomic replace (tempfile::NamedTempFile::persist)"
+
+[[disallowed-methods]]
+path = "std::fs::File::create"
+reason = "write via an atomic replace (tempfile::NamedTempFile::persist)"

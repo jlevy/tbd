@@ -55,45 +55,76 @@ Rust string indices are byte offsets, so any path or filename manipulation done 
 `&str` will panic on a multi-byte boundary.
 Stay in `Path`/`OsStr` and the question does not arise.
 
-## Make the Atomic-Write Rule Executable
+## Make the Write Boundary Executable
 
 `std::fs::write` and `std::fs::File::create` truncate the destination before writing.
-Ban both in `clippy.toml` via `disallowed-methods`, directing callers to an atomic
-replacement—`rust-lint-format-rules` carries the exact block, the measured adoption
-cost, and the fact that `disallowed-methods` has no test-scoping option.
+Restrict both in `clippy.toml` via `disallowed-methods`, directing callers to the
+crate’s named write helpers—`rust-lint-format-rules` carries the exact block, the
+measured adoption cost (zero shipping sites in a real 35k-line codebase), and the fact
+that `disallowed-methods` has no test-scoping option.
 
-This is what turns `filesystem-rules`’ atomic-write rule from prose into something the
+This is what turns `filesystem-rules`’ write-contract rule from prose into something the
 gate enforces, which matters because the failure it prevents is silent: a truncated file
 looks like corrupt data later, not like a write error now.
+
+`filesystem-rules` owns *which* contract applies; Rust’s standard library expresses each
+of them through `OpenOptions`, so the alternatives the restriction points at are real
+and cheap:
+
+| Contract | Rust |
+| --- | --- |
+| Replace | `NamedTempFile::new_in(dir)` → write → `persist` |
+| Create exclusively | `OpenOptions::new().write(true).create_new(true)` |
+| Append | `OpenOptions::new().append(true)` |
+| Stream, scratch | `File::create`, with a scoped `#[expect]` and a reason |
+
+`create_new` is the atomic exclusive-create; `Path::exists()` followed by a create is
+the race it exists to replace.
+`append(true)` positions at the end of the file on *every* write, not once at open,
+which is why concurrent appends of a single small record do not interleave and a
+`seek`-to-end-then-write does.
 
 The same-filesystem replacement sequence, with the Rust specifics that matter:
 
 ```rust
-use std::io::Write;
+use std::io::{BufWriter, IntoInnerError, Write};
 use std::path::Path;
 use tempfile::NamedTempFile;
 
-fn stage_replacement(path: &Path, content: &[u8]) -> anyhow::Result<NamedTempFile> {
+fn stage_replacement(
+    path: &Path,
+    records: &[Record],
+    durable: bool,
+) -> anyhow::Result<NamedTempFile> {
     // In the destination directory, not the system temp dir: a temp file elsewhere is
     // probably on another filesystem, which turns the final persist into a
     // cross-device copy and loses atomicity.
     let directory = path.parent().unwrap_or_else(|| Path::new("."));
-    let mut staged = NamedTempFile::new_in(directory)?;
-    staged.write_all(content)?;
-    // A no-op here, but required the moment a buffered writer wraps the file.
-    staged.flush()?;
-    // This is what reaches the device; flushing alone does not.
-    staged.as_file().sync_all()?;
+    let mut writer = BufWriter::new(NamedTempFile::new_in(directory)?);
+    for record in records {
+        writeln!(writer, "{record}")?;
+    }
+    // Recover the file *through* the writer, not around it. `into_inner` flushes and
+    // surfaces the error; `BufWriter`'s Drop also flushes but discards the result, so a
+    // full disk becomes a short file and a successful exit status.
+    let staged = writer.into_inner().map_err(IntoInnerError::into_error)?;
+    if durable {
+        // Only when the operation promises crash durability. `filesystem-rules` keeps
+        // these two promises apart; this is the line where they diverge.
+        staged.as_file().sync_all()?;
+    }
     Ok(staged)
 }
 ```
 
 Two Rust-specific traps in that sequence:
 
-- **`flush()` is not `sync_all()`.** Flushing pushes buffered bytes into the kernel;
-  only `sync_all` gets them onto the device.
-  `filesystem-rules` explains why atomic visibility and crash durability are separate
-  promises—this is where they diverge in code.
+- **The buffer holds the bytes, not the file.** `flush()` on the underlying file does
+  nothing for data still sitting in a `BufWriter`, and `BufWriter`’s own `Drop` flushes
+  and then throws the error away.
+  `into_inner` is the call that both drains the buffer and reports failure.
+  Then `sync_all` is a further step again: flushing hands bytes to the kernel, and only
+  a sync gets them onto the device.
 - **`persist` replaces; `persist_noclobber` refuses.** `NamedTempFile::persist`
   atomically replaces an existing destination on every platform—that is what makes it
   the atomic-replace primitive—while `persist_noclobber` is the variant that fails when

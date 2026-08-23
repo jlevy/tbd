@@ -113,7 +113,7 @@ These block the migration and are fixed before it:
 
 ### How the Floor Is Set
 
-The Rust floor is the strictest of three sources, not a merge of their averages:
+Three sources feed the floor:
 
 1. **This repo’s enforced config.** `eslint.config.js`, `tsconfig.base.json`,
    `lefthook.yml`, `vitest.config.ts`, `scripts/`. The highest bar, because it is
@@ -122,9 +122,21 @@ The Rust floor is the strictest of three sources, not a merge of their averages:
 3. **tbd’s TypeScript family.** The structural model, and the source of rules that are
    about strictness rather than about TypeScript.
 
-Where they disagree, the strictest wins.
-Where one source has a mechanism the others lack, it is adopted rather than averaged
-away.
+**A rule is admitted on its merits, not on its strictness.** The first version of this
+plan said “where they disagree, the strictest wins”, which is not an engineering
+criterion: a stricter rule can add false positives, suppressions, tool dependencies, and
+ceremony that hide more signal than it recovers.
+The admission criteria are the six in `rust-lint-format-rules`—defect class, enforcement
+reliability, incidence, measured adoption cost, applicability across project shapes, and
+context cost—and a rule clearing fewer than all six is a project preference, not a floor
+rule. Where one source has a mechanism the others lack, it is adopted rather than
+averaged away.
+
+The evidence base is one codebase shape (a filesystem CLI with a library and an
+extension module).
+That is enough to *reject* a proposed universal rule and not enough to
+*establish* one, which is why the floor now carries explicit departure conditions by
+project shape rather than presenting itself as universal.
 
 **No menus.** A guideline states one default and the conditions for departing from it.
 An agent handed ranked alternatives takes the cheapest one.
@@ -354,23 +366,32 @@ Recorded during implementation, where the result differed from what this plan as
 
 **The Rust floor is stricter than proposed.** The floor table below suggested
 `clippy::pedantic` at `warn`. [fdu](https://github.com/jlevy/fdu) enforces it at `deny`,
-along with `missing_docs`, `unsafe_code`, and `warnings`. Strictest wins, so the shipped
-document uses `deny`. `unsafe_code` is `deny` rather than `forbid`, because `forbid`
-cannot be overridden at all and the first justified platform-specific block would force
-the workspace setting down instead of taking a scoped exception.
+along with `missing_docs`, `unsafe_code`, and `warnings`, and each clears the admission
+criteria above, so the shipped document uses `deny`. `unsafe_code` is `deny` rather than
+`forbid`, because `forbid` cannot be overridden at all and the first justified
+platform-specific block would force the workspace setting down instead of taking a
+scoped exception.
 
-**The lint table was validated, and two entries did not survive.** Every candidate was
-measured against fdu at `d42d970` (~35k lines, already at the floor), splitting hits at
-each file’s `#[cfg(test)]` boundary.
-`let_underscore_future` (0 sites), `wildcard_enum_match_arm` (7 production), `panic` (2
-production), and `disallowed-methods` for filesystem writes (1 production) are
-adoptable. `clippy::expect_used` costs 25 production sites and is a design commitment
-rather than a lint tweak.
-`clippy::indexing_slicing` costs 62 production sites and is **not** a floor rule — this
+**The lint table was validated, then re-measured after the first method proved wrong.**
+The original measurement split each file’s diagnostics at its first `#[cfg(test)]`
+attribute. That attribute applies to the *next item*, not to the rest of the file, and
+the split misfiled 34% of diagnostics — in both directions.
+The measurement now runs two clippy passes and classifies by compile unit and cargo
+target. The reproducer is `scripts/measure-rust-lint-cost.mjs`; the full 415-row mapping
+and the method are in
+`docs/project/research/current/evidence-2026-08-23-rust-lint-cost.md`.
+
+Corrected costs (shipping / build scripts / tests): `let_underscore_future` 0/0/0,
+`panic` 2/2/35, `wildcard_enum_match_arm` 12/0/9, `disallowed-methods` for filesystem
+writes 0/1/82, `expect_used` 32/7/35, `indexing_slicing` 79/0/119. Every nonzero figure
+moved and no verdict reversed; two are better supported than before, because the
+build-script share of `panic` and the zero shipping cost of `disallowed-methods` had
+been asserted rather than shown.
+`clippy::indexing_slicing` costs 79 shipping sites and is **not** a floor rule — this
 answers the open question below.
 The analogy to `noUncheckedIndexedAccess` is inexact: the TypeScript flag changes an
 inferred type and is usually satisfied by a bounds check the code already has, whereas
-`indexing_slicing` demands `.get()` plus real error handling at every site.
+`indexing_slicing` demands `.get()` plus real error handling at all 79 sites.
 
 **Two traps found by running the checks rather than reasoning about them.** Clippy’s
 `allow-unwrap-in-tests` / `allow-expect-in-tests` cover inline `#[cfg(test)]` items but
@@ -402,6 +423,34 @@ the routing test passed.
 `guideline-groups.test.ts` now checks both explicit name sets against what is actually
 bundled.
 
+### Response to the Holistic Review (2026-08-23)
+
+`docs/project/reviews/review-2026-08-23-pr258-holistic-engineering-guidelines.md`
+requested changes on eight High and five Medium findings.
+What changed, and what the evidence for each was:
+
+| Finding | Resolution |
+| --- | --- |
+| R1 lint-cost method | Re-measured by compile unit; reproducer, raw 415-row mapping, and the 34% misattribution rate published. No verdict reversed. |
+| R2 gates that cannot fail | Both recipes rewritten and *run*: the old lint-policy loop exits 0 both when it prints a complaint and when a member sits outside `crates/*`; the old cross-lint passes green on a runner with no cross targets. Both new versions were watched failing. |
+| R3 action pinning | Tag exception removed. All 15 action references in this repo pinned to commit SHAs, `dependabot.yml` added so pins do not freeze, and `scripts/check-action-pins.mjs` added as the gate, with negative tests. |
+| R4 write contracts | `filesystem-rules` now names five write contracts and scopes atomic replacement to authoritative-path replacement; the Rust half maps each to an `OpenOptions` spelling. |
+| R5 context budget | Always-load core cut from 2,233 lines / 11,806 words to 909 / 4,663 by routing testing, TDD, goldens, compatibility, and commits by changed surface. Membership is now an explicit set rather than a filename prefix, `guideline-budget.test.ts` asserts the ceiling, and `skill-baseline` was reconciled with the generated directory. |
+| R6 strictest wins | Replaced with six admission criteria and per-project-shape departure conditions. |
+| R7 FFI unwinding | Corrected: a Rust panic escaping `extern "C"` aborts; a foreign exception entering Rust is the UB case. |
+| R8 broken pipes | Neutral contract moved to `error-handling-rules`; Rust and TypeScript recipes fixed so only the primary stdout renderer converts, and a closed stderr can never lower a nonzero status. |
+| R9 `abi3` | Removed from the binary-wheel path; extension modules given their own subsection. |
+| R10 flush | Example rewritten around a real `BufWriter`, with `into_inner` for error-preserving recovery and a conditional `sync_all`. Compile-verified. |
+| R11 test counts | Both count-based proxies replaced with independent-evidence selection. |
+| R12 severity anchoring | Both quick-scan tables converted from “default severity” to “question that decides it” plus consequence. |
+| R13 authoring order | Build-then-validate through `packages/tbd/dist/bin.mjs`, YAML quoting rather than punctuation avoidance, list nesting fixed. |
+
+Not done, and tracked rather than silently dropped: the `topics` / `appliesTo` /
+load-policy metadata refactor R5 proposes (the routing change here delivers the budget
+without it), the adversarial decision-scenario suite in S2, and admission records for
+every rule in S1 — the criteria are published and applied to the Rust floor, but the
+per-rule records are not.
+
 ## Testing Strategy
 
 - Extend the playbook’s `tests/test_rust_guidelines.py` to assert the conversion
@@ -421,7 +470,7 @@ bundled.
   alternatives. Rust has one formatter and one linter, so the Rust document should be
   shorter than its model, with a single configuration.
 - ~~**Is `clippy::indexing_slicing` tolerable codebase-wide,** or does it need test-file
-  scoping?~~ **Answered.** No, not as a hard deny: 62 production sites in a codebase
+  scoping?~~ **Answered.** No, not as a hard deny: 79 shipping sites in a codebase
   already at this floor.
   It is documented as a per-module ratchet, not a floor rule.
   See Outcome Notes.

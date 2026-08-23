@@ -172,9 +172,13 @@ Rust ignores SIGPIPE by default—unlike a C program—so the write returns
 `ErrorKind::BrokenPipe` instead of terminating the process, and a CLI that propagates
 that error unchanged prints `error: Broken pipe` when a user pipes it to `head`.
 
-**Propagate write errors and convert `ErrorKind::BrokenPipe` into quiet success at the
-executable boundary.** This is safe Rust, explicit, and testable, and it keeps the error
-path intact for every other I/O failure.
+`error-handling-rules` owns the contract: an early close counts as success only at the
+primary stdout renderer, only when the required work already succeeded, and never in a
+way that lowers a nonzero status.
+The Rust-specific point is that the conversion has to happen where the *sink* is still
+known. A helper at the executable boundary sees `io::Error` and nothing else, so it
+cannot tell a closed `head` from a closed socket, and mapping every `BrokenPipe` there
+converts real failures into exit `0`.
 
 Restoring default SIGPIPE behavior on Unix instead is the traditional alternative, and
 it matches how other Unix tools terminate.
@@ -184,23 +188,50 @@ normal exit. It needs either a small dependency or a narrowly reviewed `unsafe` 
 call; if the latter, isolate it in one function with a `// SAFETY:` argument.
 
 ```rust
-use std::io;
+use std::io::{self, Write};
 use std::process::ExitCode;
 
-fn exit_for_io(result: io::Result<()>) -> ExitCode {
-    match result {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(error) if error.kind() == io::ErrorKind::BrokenPipe => ExitCode::SUCCESS,
+/// Render to stdout. The only place a broken pipe means "the consumer has seen
+/// enough", because it is the only place we know the sink is stdout.
+fn render(report: &Report) -> io::Result<Outcome> {
+    let mut out = io::stdout().lock();
+    match write_report(&mut out, report).and_then(|()| out.flush()) {
+        Ok(()) => Ok(Outcome::Complete),
+        Err(error) if error.kind() == io::ErrorKind::BrokenPipe => Ok(Outcome::ConsumerLeft),
+        Err(error) => Err(error),
+    }
+}
+
+fn main() -> ExitCode {
+    // Required work first: its failures own the exit status, and nothing downstream
+    // may raise them.
+    let report = match collect() {
+        Ok(report) => report,
         Err(error) => {
-            eprintln!("error: {error}");
+            let _ = writeln!(io::stderr(), "error: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    match render(&report) {
+        // Either outcome is a completed run; ConsumerLeft just stopped early.
+        Ok(_) => ExitCode::SUCCESS,
+        Err(error) => {
+            let _ = writeln!(io::stderr(), "error: {error}");
             ExitCode::FAILURE
         }
     }
 }
 ```
 
-Whichever policy the project chooses, test stdout and stderr pipes and ensure a closed
-consumer does not produce a panic or misleading error.
+Two details that are easy to lose.
+`write!` on a `BufWriter` or a locked stdout can succeed while the bytes are still
+buffered, so the **flush** is part of the operation being checked—omit it and the broken
+pipe surfaces during drop, where nothing can classify it.
+And writes to stderr in the failure path use `let _ =`: a closed stderr must not panic
+and must not change the status that was already decided.
+
+Test both a closed stdout and a closed stderr.
+The second is what separates the correct implementation from the plausible one.
 
 ## Layer Configuration Explicitly
 

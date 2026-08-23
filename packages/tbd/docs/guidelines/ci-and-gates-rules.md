@@ -81,6 +81,18 @@ that is off.
 Run both in CI. Verifying by hand after a config edit works exactly until the one time
 somebody forgets.
 
+**A check nobody has watched fail is not a gate.** This applies with particular force to
+the shell fragment written inline in a workflow or a Makefile, because that is where
+exit status is easiest to lose: a loop that prints complaints and reaches its last
+statement exits zero; a pipeline reports only its final command; a `grep` guard
+disappears when the command feeding it errors.
+Before a check is allowed to be required, run it against an input it must reject and
+watch the nonzero status.
+Then keep that input.
+Checks that matter belong in a file with a positive and a negative test beside them, the
+same as any other code; the guideline or workflow calls the script rather than restating
+it, so there is one copy to fix when it is wrong.
+
 ## Traps That Keep a Gate Green
 
 Each of these has shipped a green build that checked nothing.
@@ -125,19 +137,44 @@ checks, or equivalent conditionals is invisible to a linter and a type checker r
 on one platform.
 If CI lints only on Linux, platform-gated modules have never been linted
 anywhere. Lint-check the other targets explicitly—checking, not building, so no
-cross-linker is needed—and skip targets that are not installed rather than failing, so
-the target stays usable locally:
+cross-linker is needed.
+
+This needs **two** targets, and collapsing them into one is how the check quietly stops
+checking. Locally, a missing target should be a skip: developers should not have to
+install every cross target to run `make lint`. In CI, a missing target must be a
+failure, because a runner with none of them installed skips every target, lints none of
+the platform-gated code, and reports the same green as a full pass:
 
 ```make
 CROSS_TARGETS := x86_64-apple-darwin x86_64-pc-windows-msvc
+
+# Local: lint what is installed, name what was skipped.
 cross-lint:
-	@installed="$$(rustup target list --installed 2>/dev/null)"; \
+	@installed="$$(rustup target list --installed)"; \
 	for target in $(CROSS_TARGETS); do \
 		if echo "$$installed" | grep -qx "$$target"; then \
 			cargo clippy --locked --all-targets --target "$$target" -- -D warnings || exit 1; \
 		else echo "== skipping $$target (rustup target add $$target)"; fi; \
 	done
+
+# CI: the target set is part of the check. Assert it before linting, so "not installed"
+# cannot be mistaken for "nothing to report".
+cross-lint-strict:
+	@installed="$$(rustup target list --installed)"; \
+	missing=""; \
+	for target in $(CROSS_TARGETS); do \
+		echo "$$installed" | grep -qx "$$target" || missing="$$missing $$target"; \
+	done; \
+	if [ -n "$$missing" ]; then echo "cross targets not installed:$$missing" >&2; exit 1; fi; \
+	for target in $(CROSS_TARGETS); do \
+		echo "== linting $$target"; \
+		cargo clippy --locked --all-targets --target "$$target" -- -D warnings || exit 1; \
+	done
 ```
+
+Note the absent `2>/dev/null` on `rustup target list`. Silencing it turns “rustup is not
+on this runner” into an empty installed-set, which the permissive target reads as
+“everything is skipped” and reports as success.
 
 Tests have the mirror-image version: where platform behavior differs (filesystem event
 backends, path semantics, line endings), a matrix across the supported platforms is the
@@ -292,9 +329,12 @@ catch. `general-testing-rules` carries the rule and a worked example.
   A test job never needs `contents: write`.
 - Check out without persisting credentials (`persist-credentials: false`) so later steps
   cannot use the checkout token.
-- Pin third-party actions to reviewed immutable commit SHAs with the version in a
-  trailing comment. Where an action publishes no floating major tag, pin the full exact
-  tag and say why.
+- Pin third-party actions to reviewed immutable commit SHAs, with the release tag in a
+  trailing comment for readability: `uses: owner/action@<40-hex> # v6`. There is no tag
+  exception. An exact tag is not more immutable than a floating one—a tag is a mutable
+  reference either way, and `v8.3.2` can be repointed at different code without any diff
+  in your repository. The SHA is what fixes the code you reviewed.
+  Let an update bot propose SHA bumps so pinning does not mean freezing.
 - Disable install scripts in CI (`--ignore-scripts`, `NPM_CONFIG_IGNORE_SCRIPTS`), and
   run the dependency audit inside the gate.
 - Treat a changed runner image or label as an input change, not as infrastructure.
