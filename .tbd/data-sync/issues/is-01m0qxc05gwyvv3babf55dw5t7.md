@@ -3,14 +3,18 @@ type: is
 id: is-01m0qxc05gwyvv3babf55dw5t7
 title: "S1: add admission records for always-loaded rules"
 kind: bug
-status: in_progress
+status: closed
 priority: 2
-version: 2
+version: 3
 spec_path: docs/project/reviews/review-2026-08-23-pr258-holistic-engineering-guidelines.md
 labels: []
 dependencies: []
 parent_id: is-01m0qxb2r48hpyfvzbpbcrnh3w
 created_at: 2026-08-23T18:15:49.167Z
-updated_at: 2026-08-23T18:16:12.022Z
+updated_at: 2026-08-23T19:33:18.638Z
+closed_at: 2026-08-23T19:33:18.638Z
+close_reason: "Addressed across PR #258 and stacked PR #260; local and GitHub quality gates pass."
+resolution: null
+duplicate_of: null
 ---
 PR #258 review suggestion S1. Define a concise admission record with behavioral delta, failure class, evidence, scope, departure condition, context cost, and verification date for always-loaded guidance.
