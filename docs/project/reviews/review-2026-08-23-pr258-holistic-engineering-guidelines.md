@@ -509,8 +509,8 @@ delta. The top branch does not edit `general-eng-agent-principles.md`; it preser
 document and limits its guideline edits to specific claims, executable examples, and
 routing behavior.
 
-**Verdict at the restacked commit: request changes.** Three integration defects remained
-after the mechanical restack.
+**Verdict at the restacked commit: request changes.** The review and platform
+verification found five integration defects after the mechanical restack.
 The focused corrections below are included in the stacked branch.
 
 ### R23 (High): The new cross-target helper hard-codes one invalid feature strategy
@@ -560,6 +560,19 @@ refresh them.
 **Correction:** Replace the pseudo-regex with one glob per generated surface and add a
 contract test that passes all five protected paths through the installed Lefthook
 matcher. The test’s command fails deliberately if even one path reaches it.
+
+### R27 (High): Feature-matrix regression coverage is not portable to Windows
+
+The feature-option tests dynamically imported the executable guideline script through
+Vitest.
+That path passed on Linux and macOS but produced a syntax error on Windows before
+either assertion ran, leaving the required platform check red and the feature contract
+unverified there.
+
+**Correction:** Exercise the distributed script through its CLI on every platform, use a
+portable fake Cargo executable, and assert the complete generated command for default,
+all-feature, and minimal named-feature configurations.
+Test contradictory options through the same public CLI boundary.
 
 ### Stacked-PR Validation Notes
 

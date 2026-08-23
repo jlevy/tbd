@@ -1,8 +1,7 @@
 import { spawnSync } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, link, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { basename, delimiter, join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -15,19 +14,50 @@ const SCRIPT = join(
   'check-rust-gate.mjs',
 );
 
-function run(args: string[]) {
-  return spawnSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8' });
+function run(args: string[], env = process.env) {
+  return spawnSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8', env });
 }
 
-async function cargoFeatureArgs(options: {
-  allFeatures?: boolean;
-  features?: string[];
-  noDefaultFeatures?: boolean;
-}): Promise<string[]> {
-  const gate = (await import(pathToFileURL(SCRIPT).href)) as {
-    cargoFeatureArgs: (value: typeof options) => string[];
+async function fakeCargo(root: string) {
+  const directory = join(root, 'fake-cargo');
+  const implementation = join(directory, 'fake-cargo.cjs');
+  const log = join(root, 'cargo-args.jsonl');
+  await mkdir(directory);
+  await writeFile(
+    implementation,
+    [
+      "const { appendFileSync } = require('node:fs');",
+      "const { basename } = require('node:path');",
+      'const args = process.argv.slice(1);',
+      "if (basename(args[0] ?? '') === 'clippy') {",
+      '  appendFileSync(process.env.FAKE_CARGO_LOG, `${JSON.stringify(args)}\\n`);',
+      '  process.exit(0);',
+      '}',
+      '',
+    ].join('\n'),
+  );
+
+  const executable = join(directory, process.platform === 'win32' ? 'cargo.exe' : 'cargo');
+  try {
+    await link(process.execPath, executable);
+  } catch {
+    await copyFile(process.execPath, executable);
+  }
+  if (process.platform !== 'win32') {
+    await chmod(executable, 0o755);
+  }
+
+  return {
+    log,
+    env: {
+      ...process.env,
+      FAKE_CARGO_LOG: log,
+      NODE_OPTIONS: [process.env.NODE_OPTIONS, `--require=${JSON.stringify(implementation)}`]
+        .filter(Boolean)
+        .join(' '),
+      PATH: `${directory}${delimiter}${process.env.PATH ?? ''}`,
+    },
   };
-  return gate.cargoFeatureArgs(options);
 }
 
 describe('check-rust-gate guideline script', () => {
@@ -121,17 +151,75 @@ describe('check-rust-gate guideline script', () => {
     expect(result.stdout).toContain('SKIP TARGET: target-b');
   });
 
-  it('uses the default feature set unless the project declares another one', async () => {
-    await expect(cargoFeatureArgs({})).resolves.toEqual([]);
-    await expect(cargoFeatureArgs({ allFeatures: true })).resolves.toEqual(['--all-features']);
-    await expect(
-      cargoFeatureArgs({ features: ['serde', 'cli', 'serde'], noDefaultFeatures: true }),
-    ).resolves.toEqual(['--no-default-features', '--features', 'cli,serde']);
+  it('passes the declared feature set to Cargo exactly', async () => {
+    const manifest = join(root, 'Cargo.toml');
+    await writeFile(manifest, '[workspace]\n');
+    const cargo = await fakeCargo(root);
+    const cases = [
+      { options: [], expected: [] },
+      { options: ['--all-features'], expected: ['--all-features'] },
+      {
+        options: ['--features', 'serde,cli,serde', '--no-default-features'],
+        expected: ['--no-default-features', '--features', 'cli,serde'],
+      },
+    ];
+
+    for (const testCase of cases) {
+      const result = run(
+        [
+          'cross-targets',
+          '--mode',
+          'strict',
+          '--target',
+          'target-a',
+          '--installed',
+          'target-a',
+          '--manifest-path',
+          manifest,
+          ...testCase.options,
+        ],
+        cargo.env,
+      );
+      expect(result.status, result.stderr).toBe(0);
+    }
+
+    const invocations = (await readFile(cargo.log, 'utf8'))
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as string[])
+      .map(([command, ...args]) => [basename(command ?? ''), ...args]);
+    expect(invocations).toEqual(
+      cases.map((testCase) => [
+        'clippy',
+        '--locked',
+        '--workspace',
+        '--all-targets',
+        ...testCase.expected,
+        '--manifest-path',
+        manifest,
+        '--target',
+        'target-a',
+        '--',
+        '-D',
+        'warnings',
+      ]),
+    );
   });
 
-  it('rejects contradictory Cargo feature options', async () => {
-    await expect(cargoFeatureArgs({ allFeatures: true, features: ['cli'] })).rejects.toThrow(
-      '--all-features cannot be combined',
-    );
+  it('rejects contradictory Cargo feature options', () => {
+    const result = run([
+      'plan-cross-targets',
+      '--mode',
+      'strict',
+      '--expected',
+      'target-a',
+      '--installed',
+      'target-a',
+      '--all-features',
+      '--features',
+      'cli',
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('--all-features cannot be combined');
   });
 });
