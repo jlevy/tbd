@@ -1,10 +1,14 @@
-import { readdir } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { EXPLICITLY_GROUPED_GUIDELINES, guidelineGroupFor } from '../src/file/doc-cache.js';
+import {
+  ALWAYS_LOAD_GUIDELINES,
+  EXPLICITLY_GROUPED_GUIDELINES,
+  guidelineGroupFor,
+} from '../src/file/doc-cache.js';
 
 const GUIDELINES_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'docs', 'guidelines');
 
@@ -21,12 +25,8 @@ async function bundledGuidelineNames(): Promise<string[]> {
  */
 describe('guidelineGroupFor', () => {
   it('files the always-load core under General engineering', () => {
-    for (const name of [
-      'general-eng-agent-principles',
-      'general-coding-rules',
-      'general-comment-rules',
-      'error-handling-rules',
-    ]) {
+    expect(ALWAYS_LOAD_GUIDELINES).toEqual(['general-eng-agent-principles']);
+    for (const name of ALWAYS_LOAD_GUIDELINES) {
       expect(guidelineGroupFor(name), name).toBe('General engineering');
     }
   });
@@ -64,9 +64,13 @@ describe('guidelineGroupFor', () => {
       'ci-and-gates-rules',
       'code-review-rules',
       'commit-conventions',
+      'error-handling-rules',
       'filesystem-rules',
+      'general-coding-rules',
+      'general-comment-rules',
       'golden-testing-guidelines',
       'release-engineering-rules',
+      'supply-chain-hardening',
     ]) {
       expect(guidelineGroupFor(name), name).toBe('Cross-cutting engineering topics');
     }
@@ -74,7 +78,6 @@ describe('guidelineGroupFor', () => {
 
   it('falls through to the catch-all group', () => {
     expect(guidelineGroupFor('common-doc-guidelines')).toBe('Docs, process & tooling');
-    expect(guidelineGroupFor('supply-chain-hardening')).toBe('Docs, process & tooling');
   });
 
   it('has a bundled guideline for every name a group matches explicitly', async () => {
@@ -88,6 +91,15 @@ describe('guidelineGroupFor', () => {
     expect(missing, `named in a guideline group but not bundled: ${missing.join(', ')}`).toEqual(
       [],
     );
+  });
+
+  it('does not let document-local metadata contradict generated routing', async () => {
+    for (const name of await bundledGuidelineNames()) {
+      const content = await readFile(join(GUIDELINES_DIR, `${name}.md`), 'utf8');
+      expect(content, `${name}: route always-load policy in doc-cache.ts`).not.toMatch(
+        /^alwaysApply:/m,
+      );
+    }
   });
 
   it('files every bundled guideline in a group whose heading is non-empty', async () => {

@@ -335,12 +335,13 @@ export async function runCli(): Promise<void> {
   } catch (error) {
     if (error instanceof CLIError) {
       outputError(error.message, error);
-      process.exit(error.exitCode);
+      process.exitCode = error.exitCode;
+      return;
     }
     // Unexpected error
     const message = error instanceof Error ? error.message : String(error);
     outputError(message, error instanceof Error ? error : undefined);
-    process.exit(EXIT_OPERATIONAL_ERROR);
+    process.exitCode = EXIT_OPERATIONAL_ERROR;
   }
 }
 

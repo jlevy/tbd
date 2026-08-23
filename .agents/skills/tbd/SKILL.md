@@ -133,23 +133,23 @@ or want help → run `tbd shortcut welcome-user`
 
 **Loading guidelines for engineering work:** three layers, in this order.
 
-1. **Always**, before writing or reviewing code, the **General engineering** group.
-   It is four documents and it is deliberately short:
+1. **Always**, before writing or reviewing code, load the engineering core:
 
    ```bash
-   tbd guidelines general-eng-agent-principles general-coding-rules general-comment-rules error-handling-rules
+   tbd guidelines general-eng-agent-principles
    ```
 
-2. **The language group** for what you are working in (TypeScript, Python, Rust,
-   Convex).
+2. **The language documents** that match the changed surface.
+   Do not load an entire language group by default.
 
-3. **Cross-cutting topics, by what the change actually touches**—tests, goldens, a
-   published interface, commits, review, CI and gates, filesystem work, releases.
-   These are not always-load: read the group's note in `tbd guidelines --list` and pull
+3. **Cross-cutting topics, by what the change actually touches**—errors, tests and
+   goldens, code and comment policy, dependencies, published interfaces, commits,
+   review, CI and gates, filesystem work, and releases.
+   These are not always-load: read the group’s note in `tbd guidelines --list` and pull
    the ones that apply.
 
-Load a whole group in **one call**; `guidelines`, `shortcut`, `template`, and `docs
-show` all take several names.
+Load several selected documents in **one call**; `guidelines`, `shortcut`, `template`,
+and `docs show` all take several names.
 
 Run `tbd guidelines --list` to see all available guidelines.
 
@@ -319,7 +319,7 @@ Narrow with `--docs`, `--issues`, or `--integrations` for a single surface.
 | --- | --- |
 | `tbd shortcut <name>` | Run a shortcut |
 | `tbd shortcut --list` | List shortcuts |
-| `tbd guidelines <name> [<name> …]` | Load coding guidelines (a whole group in one call) |
+| `tbd guidelines <name> [<name> …]` | Load coding guidelines (several names in one call) |
 | `tbd guidelines --list` | List guidelines |
 | `tbd template <name>` | Output a template |
 | `tbd docs` / `tbd docs list` | Managed-docs overview / cross-kind list with state markers |
@@ -379,22 +379,29 @@ Run `tbd shortcut <name>` to use any of these shortcuts:
 ## Available Guidelines
 
 Run `tbd guidelines <name>` to apply any of these guidelines.
-Load the **General engineering** group first, then the language or framework group.
+Load the **General engineering** core, then only guidelines matching the task.
 
 ### General engineering
 
-*Read all of these before writing or reviewing any code. This group is deliberately small: everything else is routed by what the change touches.*
+*Read all of these before writing or reviewing any code.
+This group is deliberately small: everything else is routed by what the change touches.*
 
 | Name | Description |
 | --- | --- |
-| error-handling-rules | Rules for handling errors, failures, and exceptional conditions |
-| general-coding-rules | Rules for constants, magic numbers, cryptographic hash checks, and general coding practices |
-| general-comment-rules | Language-agnostic rules for writing clean, maintainable comments |
 | general-eng-agent-principles | Core principles for AI agents acting as senior engineers—objectivity and communication conduct plus the engineering process (detailed understanding, verification, end-to-end ownership, scope discipline, tracking future work, acting versus seeking clarification, and no ceremony without benefit) |
 
 ### Cross-cutting engineering topics
 
-*Language-neutral, loaded by what the change touches. Writing or changing tests: general-testing-rules. Working red-green: general-tdd-guidelines. Snapshots or goldens: golden-testing-guidelines. Changing a published interface: backward-compatibility-rules. Committing: commit-conventions. Reviewing a diff: code-review-rules. CI, hooks, or quality gates: ci-and-gates-rules. Paths, traversal, or file mutation: filesystem-rules. Building, versioning, or publishing artifacts: release-engineering-rules.*
+*Language-neutral, loaded by what the change touches.
+Writing or changing tests: general-testing-rules.
+Working red-green: general-tdd-guidelines.
+Snapshots or goldens: golden-testing-guidelines.
+Changing a published interface: backward-compatibility-rules.
+Committing: commit-conventions.
+Reviewing a diff: code-review-rules.
+CI, hooks, or quality gates: ci-and-gates-rules.
+Paths, traversal, or file mutation: filesystem-rules.
+Building, versioning, or publishing artifacts: release-engineering-rules.*
 
 | Name | Description |
 | --- | --- |
@@ -402,11 +409,15 @@ Load the **General engineering** group first, then the language or framework gro
 | ci-and-gates-rules | How to wire a quality gate that actually holds—one entry point in two modes, config-contract checks that prove the floor is live, the traps that keep a gate green while it checks nothing (pipeline exit status, self-recorded evidence, single-platform blindness, scope holes), suppression ratchets, generated-file ownership, and least-privilege workflow authority. Language-neutral; load it with the language floor document whenever wiring, debugging, or reviewing a gate. |
 | code-review-rules | The language-neutral substance of a code review—the Blocker/High/Medium/Low severity vocabulary, establishing a baseline before hunting findings, reviewing highest-risk boundaries first, writing findings that can be acted on, and a quick-scan table of patterns with default severities. The review-code shortcuts are the procedure; this is what they apply. Load for any review, with the language-specific review document where one exists. |
 | commit-conventions | Conventional Commits format with extensions for agentic workflows |
+| error-handling-rules | Rules for handling errors, failures, and exceptional conditions |
 | filesystem-rules | Language-neutral rules for code that reads directory trees or mutates files—separating planning from mutation, atomic visibility versus crash durability, explicit metadata and collision policy, cross-device moves, deterministic traversal, symlink and root boundaries, honest partial failure, and testing the state machine rather than the final bytes. Load whenever a change touches file mutation, traversal, or path handling, alongside the language-specific filesystem document if one exists. |
+| general-coding-rules | Rules for constants, magic numbers, cryptographic hash checks, and general coding practices |
+| general-comment-rules | Language-agnostic rules for writing clean, maintainable comments |
 | general-tdd-guidelines | Test-Driven Development methodology and best practices |
 | general-testing-rules | Rules for writing minimal, effective tests with maximum coverage, plus what makes a suite trustworthy rather than merely green—assertions that survive refactoring, determinism, fixtures that do not encode the machine that recorded them, timeouts that record a measurement, and never letting an empty or skipped selection look like a pass. |
 | golden-testing-guidelines | Guidelines for implementing golden/snapshot testing for complex systems |
 | release-engineering-rules | Language-neutral rules for turning a reviewed commit into artifacts users execute—one release identity, a pre-release gate that runs where publishing happens, least-privilege publishing authority, build-once-and-promote, packaging and checksums, smoke-testing the packaged artifact rather than the build output, multi-channel coordination, testable release logic, and incident preparation. Load for any release, alongside release-notes-guidelines and the language-specific release document. |
+| supply-chain-hardening | Strongly recommended for EVERY repo—apply it if a repo has not been hardened yet. Cross-ecosystem policy for installing dependencies safely (the 14-day cool-off, disabled install scripts, lockfile discipline, untrusted-repo handling). Use whenever a user mentions hardening, security, supply chain, or setting up a new repo; before adding/upgrading dependencies; when auditing for compromised packages; or when reviewing install/build/run commands across npm/pnpm, PyPI, Cargo, or Go. |
 
 ### TypeScript & JS ecosystem
 
@@ -442,7 +453,7 @@ Load the **General engineering** group first, then the language or framework gro
 | --- | --- |
 | rust-cli-rules | Rules for composable, testable, and cross-platform Rust command-line applications |
 | rust-code-review-rules | The Rust-specific half of review—which guideline owns each changed surface, the unsafe and FFI checklist with default severities, and a Rust quick-scan table. The severity vocabulary, review baseline, and risk ordering live in code-review-rules. |
-| rust-filesystem-rules | The Rust-specific half of filesystem work—path and string types, the tempfile atomic-replacement sequence, traversal crate choice and error propagation, platform metadata, and making the atomic-write rule executable through clippy. The behavior contract itself lives in filesystem-rules. |
+| rust-filesystem-rules | The Rust-specific half of filesystem work—path and string types, intent-specific write boundaries, the tempfile atomic-replacement sequence, traversal error propagation, and platform metadata. The behavior contract itself lives in filesystem-rules. |
 | rust-lint-format-rules | The lint and auto-formatting floor for every Rust project—the `[lints]` block, the clippy.toml, rustfmt and toolchain pinning, hooks and CI gates, and how to prove the floor is live. Includes measured adoption cost for the lints beyond the floor, taken from a real 35k-line codebase, so a project can decide with evidence rather than taste. |
 | rust-project-setup | Rules for structuring, validating, and maintaining modern Rust packages and workspaces |
 | rust-release-rules | The Rust-specific half of releasing—crates.io publishing and workspace ordering, trusted publishing, cargo package and the unpublished-sibling trap, semver checks, and shipping a Rust binary as a Python wheel through maturin. The release contract itself lives in release-engineering-rules. |
@@ -467,7 +478,6 @@ Load the **General engineering** group first, then the language or framework gro
 | common-doc-guidelines | Common cross-project standards for writing and organizing docs, code comments, and text files—how to organize, structure, write, and format documents, plus the guideline footer convention. Downstream of github.com/jlevy/practical-prose. Use whenever writing or editing any documentation, README, guideline, or design doc. |
 | electrobun-app-development-patterns | Building desktop apps with Electrobun—runtime and process model, typed RPC, project layout, packaging and the delta updater, plus an evidence-based maturity and security assessment |
 | release-notes-guidelines | Guidelines for writing clear, accurate release notes |
-| supply-chain-hardening | Strongly recommended for EVERY repo—apply it if a repo has not been hardened yet. Cross-ecosystem policy for installing dependencies safely (the 14-day cool-off, disabled install scripts, lockfile discipline, untrusted-repo handling). Use whenever a user mentions hardening, security, supply chain, or setting up a new repo; before adding/upgrading dependencies; when auditing for compromised packages; or when reviewing install/build/run commands across npm/pnpm, PyPI, Cargo, or Go. |
 | tauri-app-development-patterns | Building desktop apps with Tauri 2—the Rust core and system webview model, capabilities and permissions, typed commands and IPC, attaching Rust or non-Rust backends, packaging, signing, and the signed updater |
 | tbd-sync-troubleshooting | Common issues and solutions for tbd sync and workspace operations |
 

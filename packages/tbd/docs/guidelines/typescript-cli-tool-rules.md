@@ -380,34 +380,33 @@ Strict separation of data and diagnostics enables pipeline composability.
   `error()` outputs `{"error": "..."}` to stderr.
   `data()` outputs structured JSON to stdout.
 
-- **Handle EPIPE for graceful pipe close:** piping to `head` or quitting a pager must
-  not produce a crash.
+- **Handle EPIPE without erasing the command outcome:** piping primary stdout to `head`
+  or quitting a pager must not produce a crash.
   `error-handling-rules` owns the contract; two Node specifics make the obvious
   implementation wrong.
 
-  `process.exit()` from inside the handler abandons writes still pending on the other
-  stream, and forcing `0` there means a closed **stderr**—which happens while an error
-  is being reported—overwrites a real failure with success.
-  Set `process.exitCode` and let the process end on its own:
+  `process.exit()` from inside the handler abandons pending writes, and treating stderr
+  EPIPE as success can overwrite the failure whose diagnostic was being written.
+  Only primary stdout gets the expected-early-close policy, and an existing nonzero
+  `process.exitCode` must win:
 
   ```ts
   // cli/bin.ts
   process.stdout.on('error', (err: NodeJS.ErrnoException) => {
-    // The consumer stopped reading. Nothing further to render; keep whatever status
-    // the run has already earned.
-    if (err.code === 'EPIPE') return;
+    if (err.code === 'EPIPE') {
+      process.exitCode ??= 0;
+      return;
+    }
     throw err;
   });
   process.stderr.on('error', (err: NodeJS.ErrnoException) => {
-    // A closed diagnostics stream is not a successful run. Never lower the status here.
-    if (err.code === 'EPIPE') return;
+    // A diagnostics failure is not a successful early consumer close.
     throw err;
   });
   ```
 
-  Test a closed stdout *and* a closed stderr.
-  A handler that returns `0` for both passes the `| head` test and silently converts
-  failures into successes everywhere else.
+  Test closed stdout and closed stderr separately, including stdout EPIPE after a
+  nonzero outcome has already been selected.
 
 - **Support pagination with `PAGER`:** For long output, pipe through `$PAGER` (or
   `less -R` for colored content) when stdout is a TTY. Fall through to `console.log()`
@@ -458,10 +457,12 @@ Strict separation of data and diagnostics enables pipeline composability.
       await program.parseAsync(process.argv);
     } catch (error) {
       if (error instanceof CLIError) {
-        process.exit(error.exitCode);
+        outputError(error);
+        process.exitCode = error.exitCode;
+        return;
       }
       outputError(error);
-      process.exit(1);
+      process.exitCode = 1;
     }
   }
   // Separate SIGINT handler
@@ -480,7 +481,8 @@ A three-tier entry point optimizes startup time and error handling:
    `void runCli()`. Should be minimal.
 
 3. **CLI setup (`cli.ts`):** Creates the Commander program, registers all commands,
-   defines global options, and handles the top-level try/catch with `process.exit()`.
+   defines global options, and handles the top-level try/catch by selecting
+   `process.exitCode` and returning.
 
 ## Timing and Performance
 
@@ -519,7 +521,7 @@ A three-tier entry point optimizes startup time and error handling:
 
   main().catch((err) => {
     console.error(`Script failed: ${err.message || err}`);
-    process.exit(1);
+    process.exitCode = 1;
   });
   ```
 
@@ -530,9 +532,11 @@ A three-tier entry point optimizes startup time and error handling:
 - **Handle errors gracefully:** Always catch errors at the top level and provide clear
   error messages before exiting.
 
-- **Exit with proper codes:** Use `process.exit(0)` for success and `process.exit(1)`
-  for failures. Use `process.exit(130)` for SIGINT. Use `process.exit(2)` for validation
-  errors. This is important for CI/CD pipelines and shell scripts.
+- **Select the proper code without discarding output:** Set `process.exitCode` to `0`
+  for success, `1` for operational failure, or `2` for validation errors, then return so
+  stdout and stderr can drain.
+  Reserve `process.exit(130)` for an interrupt path whose contract is immediate
+  termination and explicitly accepts losing buffered output.
 
 ## File Naming
 

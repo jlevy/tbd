@@ -3,7 +3,6 @@ title: Rust Lint and Format Rules
 description: The lint and auto-formatting floor for every Rust project—the `[lints]` block, the clippy.toml, rustfmt and toolchain pinning, hooks and CI gates, and how to prove the floor is live. Includes measured adoption cost for the lints beyond the floor, taken from a real 35k-line codebase, so a project can decide with evidence rather than taste.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 globs: "*.rs"
-alwaysApply: true
 category: rust
 ---
 # Rust Lint and Format Rules
@@ -101,8 +100,10 @@ It may drop one only under a departure condition stated at the end of this secti
 10. **Platform-gated code is linted for its own platform.** `cfg(target_os = ...)` code
     is invisible to a single-platform clippy run, so a module behind such a gate has
     never been linted anywhere if CI lints only on Linux.
-    Add a cross-target lint pass; see `ci-and-gates-rules`, “Single-platform blindness”,
-    for the shape that skips uninstalled targets instead of failing.
+    Add a required cross-target lint pass.
+    CI must fail when a declared target is unavailable; a local discovery command may
+    report an optional target as skipped, but that command is not a gate.
+    See `ci-and-gates-rules`, “Single-platform blindness”.
 
 **Departures by project shape.** These are the known boundaries, each with the reason it
 is a boundary rather than an excuse:
@@ -193,7 +194,8 @@ regressions.
 
 ## clippy.toml
 
-Two settings carry most of the value.
+The test allowances below preserve the production panic policy without forcing fixture
+setup to use production-style recovery:
 
 ```toml
 # Unit tests live inside the source file under #[cfg(test)], so a path-based
@@ -201,28 +203,23 @@ Two settings carry most of the value.
 # These options are how that distinction is expressed.
 allow-unwrap-in-tests = true
 allow-expect-in-tests = true
-
-# The atomic-write rule from `filesystem-rules`, made executable.
-[[disallowed-methods]]
-path = "std::fs::write"
-reason = "write via an atomic replace (tempfile::NamedTempFile::persist)"
-
-[[disallowed-methods]]
-path = "std::fs::File::create"
-reason = "write via an atomic replace (tempfile::NamedTempFile::persist)"
 ```
 
-`disallowed-methods` is the Rust analogue of `no-restricted-imports`: it converts a rule
-that otherwise lives only in prose into something the gate enforces.
-
-Two limits worth knowing before you turn these on:
+One limit matters when using these settings:
 
 - `allow-*-in-tests` covers inline `#[cfg(test)]` items.
   It does **not** cover integration tests under `tests/`, examples, or build scripts,
   which need a crate-level `#![allow(...)]` of their own.
-- `disallowed-methods` has no test-scoping option at all.
-  Test code that legitimately writes fixture files will trip it, so pair it with a
-  crate-level allow in test targets or accept the exceptions.
+
+Do not globally disallow `std::fs::write` or `File::create` to enforce atomic
+replacement. Those functions are correct for scratch files and other contracts that do
+not replace authoritative state; Clippy cannot infer the caller’s write intent, and
+`disallowed-methods` has no test or intent scope.
+Expose intent-specific persistence operations such as `replace_atomic`,
+`replace_durable`, `create_new`, and `append_record` from the module that owns stored
+state. If a legacy *project helper* has an unambiguously unsafe contract, disallow that
+helper after callers have migrated; do not ban general standard-library operations whose
+correctness depends on context.
 
 ## Beyond the Floor: Measured Adoption Cost
 
@@ -241,10 +238,12 @@ Method, reproducer, and the full 415-row diagnostic mapping are in
 | `clippy::let_underscore_future` | 0 | 0 | 0 | **Adopt.** Free, and inert in a crate with no async. |
 | `clippy::panic` | 2 | 2 | 35 | **Adopt** in library code. Half the non-test cost is `build.rs`, which panics legitimately and needs its own allow. |
 | `clippy::wildcard_enum_match_arm` | 12 | 0 | 9 | **Adopt.** Small, and it is what makes adding an enum variant a compile error instead of a silent `_ =>`. |
-| `clippy::disallowed_methods` (fs writes) | 0 | 1 | 82 | **Adopt.** Zero shipping cost; the entire cost is test fixtures, covered by one crate-level allow. |
+| `clippy::disallowed_methods` (filesystem writes) | 0 | 1 | 82 | **Do not adopt as a global filesystem policy.** The low shipping count measures migration cost, not semantic fit; write contracts differ by intent. |
 | `clippy::expect_used` | 32 | 7 | 35 | **Defer or ratchet.** On top of `unwrap_used`, this means every fallible call in library code returns a `Result`. That is a design commitment, not a lint tweak. |
 | `clippy::indexing_slicing` | 79 | 0 | 119 | **Do not deny outright.** The most expensive rule here, in a codebase already at this floor. Adopt per-module with a tracked ratchet, or not at all. |
 
+These counts measure adoption cost in one repository; they do not measure defect
+prevention by themselves.
 The two most-proposed additions are the two that do not survive contact with a real
 codebase. `indexing_slicing` in particular is recommended by analogy to
 `noUncheckedIndexedAccess`, but the analogy is inexact: TypeScript’s flag changes an
@@ -321,29 +320,11 @@ After setting up or changing any lint configuration, prove it holds:
    are in the workspace:
 
    ```bash
-   #!/usr/bin/env bash
-   set -euo pipefail
-
-   missing=()
-   count=0
-   while IFS= read -r manifest; do
-     count=$((count + 1))
-     grep -qE '^\[lints(\.|\])' "$manifest" || missing+=("$manifest")
-   done < <(cargo metadata --format-version 1 --no-deps | jq -r '.packages[].manifest_path')
-
-   # An empty member list is the same green as a clean one. Say so.
-   if [ "$count" -eq 0 ]; then
-     echo 'no workspace members found' >&2
-     exit 1
-   fi
-   if [ "${#missing[@]}" -gt 0 ]; then
-     printf 'no [lints] table: %s\n' "${missing[@]}" >&2
-     exit 1
-   fi
-   echo "$count workspace manifests declare a lint policy"
+   node .tbd/docs/guidelines/scripts/check-rust-gate.mjs lint-policy \
+     --manifest-path Cargo.toml
    ```
 
-   Three things in that script are the point, and a shorter version loses all three.
+   Three properties of that tested script are the point.
    **It exits nonzero.** A loop that prints a complaint and reaches its final statement
    exits zero, and a required check that always passes is worse than no check—it is a
    green light with a paper trail.
@@ -377,8 +358,19 @@ After setting up or changing any lint configuration, prove it holds:
 3. **Confirm `--all-targets` is present** in the CI command.
    Without it a passing clippy run says nothing about test code.
 
-4. **Confirm platform-gated modules are linted.** Run the cross-target lint pass; if the
-   project has `cfg(target_os)` code and no such pass, that code is unlinted.
+4. **Confirm platform-gated modules are linted.** Run the cross-target lint pass in
+   strict mode in CI; if a required target is missing, the gate must fail rather than
+   report a successful skip:
+
+   ```bash
+   node .tbd/docs/guidelines/scripts/check-rust-gate.mjs cross-targets \
+     --mode strict \
+     --manifest-path Cargo.toml \
+     --target x86_64-unknown-linux-gnu \
+     --target x86_64-pc-windows-msvc
+   ```
+
+   Choose targets from the project’s supported platform contract.
 
 5. **Confirm CI runs verify mode**, not `--fix`, and that the docs and MSRV gates are
    present and actually executed rather than skipped on a missing toolchain.

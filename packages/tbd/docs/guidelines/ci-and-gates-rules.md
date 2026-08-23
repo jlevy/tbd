@@ -145,36 +145,26 @@ install every cross target to run `make lint`. In CI, a missing target must be a
 failure, because a runner with none of them installed skips every target, lints none of
 the platform-gated code, and reports the same green as a full pass:
 
-```make
-CROSS_TARGETS := x86_64-apple-darwin x86_64-pc-windows-msvc
+```bash
+# Local discovery: lint installed targets and name every skip.
+node .tbd/docs/guidelines/scripts/check-rust-gate.mjs cross-targets \
+  --mode local \
+  --target x86_64-apple-darwin \
+  --target x86_64-pc-windows-msvc
 
-# Local: lint what is installed, name what was skipped.
-cross-lint:
-	@installed="$$(rustup target list --installed)"; \
-	for target in $(CROSS_TARGETS); do \
-		if echo "$$installed" | grep -qx "$$target"; then \
-			cargo clippy --locked --all-targets --target "$$target" -- -D warnings || exit 1; \
-		else echo "== skipping $$target (rustup target add $$target)"; fi; \
-	done
-
-# CI: the target set is part of the check. Assert it before linting, so "not installed"
-# cannot be mistaken for "nothing to report".
-cross-lint-strict:
-	@installed="$$(rustup target list --installed)"; \
-	missing=""; \
-	for target in $(CROSS_TARGETS); do \
-		echo "$$installed" | grep -qx "$$target" || missing="$$missing $$target"; \
-	done; \
-	if [ -n "$$missing" ]; then echo "cross targets not installed:$$missing" >&2; exit 1; fi; \
-	for target in $(CROSS_TARGETS); do \
-		echo "== linting $$target"; \
-		cargo clippy --locked --all-targets --target "$$target" -- -D warnings || exit 1; \
-	done
+# Required CI gate: fail before linting if any declared target is unavailable.
+node .tbd/docs/guidelines/scripts/check-rust-gate.mjs cross-targets \
+  --mode strict \
+  --target x86_64-apple-darwin \
+  --target x86_64-pc-windows-msvc
 ```
 
-Note the absent `2>/dev/null` on `rustup target list`. Silencing it turns “rustup is not
-on this runner” into an empty installed-set, which the permissive target reads as
-“everything is skipped” and reports as success.
+The expected targets come from the project’s support contract, not from what happens to
+be installed on the current runner.
+The checked-in script is distributed with this guideline and has negative tests for an
+empty workspace and a missing strict target.
+It also leaves `rustup target list` errors visible; silencing that command can turn
+“rustup is not on this runner” into a successful local no-op.
 
 Tests have the mirror-image version: where platform behavior differs (filesystem event
 backends, path semantics, line endings), a matrix across the supported platforms is the

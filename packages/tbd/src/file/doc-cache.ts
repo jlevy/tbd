@@ -436,12 +436,7 @@ interface GuidelineGroup {
  *
  * `guideline-budget.test.ts` asserts the size of what this set renders to.
  */
-const ALWAYS_LOAD_NAMES = new Set([
-  'general-eng-agent-principles',
-  'general-coding-rules',
-  'general-comment-rules',
-  'error-handling-rules',
-]);
+const ALWAYS_LOAD_NAMES = new Set(['general-eng-agent-principles']);
 
 /** Language-neutral guidelines loaded when the work touches their topic. */
 const CROSS_CUTTING_NAMES = new Set([
@@ -449,11 +444,15 @@ const CROSS_CUTTING_NAMES = new Set([
   'ci-and-gates-rules',
   'code-review-rules',
   'commit-conventions',
+  'error-handling-rules',
   'filesystem-rules',
+  'general-coding-rules',
+  'general-comment-rules',
   'general-tdd-guidelines',
   'general-testing-rules',
   'golden-testing-guidelines',
   'release-engineering-rules',
+  'supply-chain-hardening',
 ]);
 
 /**
@@ -626,9 +625,7 @@ export function generateShortcutDirectory(
       // This directory is injected into generated files that flowmark must not
       // reformat, so keep prose paragraphs to a single line under flowmark's wrap
       // width (~88 cols); otherwise flowmark would re-wrap them and cause churn.
-      lines.push(
-        'Load the **General engineering** group first, then the language or framework group.',
-      );
+      lines.push('Load the **General engineering** core, then only guidelines matching the task.');
 
       for (const { group, docs } of grouped) {
         const rows = buildTableRows(docs);

@@ -1,6 +1,6 @@
 ---
 title: Rust Filesystem Rules
-description: The Rust-specific half of filesystem work—path and string types, the tempfile atomic-replacement sequence, traversal crate choice and error propagation, platform metadata, and making the atomic-write rule executable through clippy. The behavior contract itself lives in filesystem-rules.
+description: The Rust-specific half of filesystem work—path and string types, intent-specific write boundaries, the tempfile atomic-replacement sequence, traversal crate choice and error propagation, and platform metadata. The behavior contract itself lives in filesystem-rules.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: rust
 ---
@@ -16,7 +16,7 @@ This document owns what is specific to Rust: the types, the crates, and the enfo
 **Related**:
 
 - `filesystem-rules` (the behavior contract this implements)
-- `rust-lint-format-rules` (the `clippy.toml` that enforces atomic writes)
+- `rust-lint-format-rules` (lint policy and the limits of method bans)
 - `rust-rules` (ownership, errors, and API design)
 - `rust-cli-rules` (destructive-command design)
 - `rust-testing-rules` (isolated roots for mutating fixtures)
@@ -51,21 +51,29 @@ fn append_suffix(path: &Path, suffix: &str) -> PathBuf {
 }
 ```
 
-Rust string indices are byte offsets, so any path or filename manipulation done through
-`&str` will panic on a multi-byte boundary.
-Stay in `Path`/`OsStr` and the question does not arise.
+Rust string indices are byte offsets, so slicing a `&str` at an arbitrary byte position
+panics when that position is not a character boundary; converting a path to `&str` also
+rejects non-UTF-8 names.
+Stay in `Path`/`OsStr` unless text semantics are part of the contract.
 
-## Make the Write Boundary Executable
+## Make Write Intent Explicit
 
-`std::fs::write` and `std::fs::File::create` truncate the destination before writing.
-Restrict both in `clippy.toml` via `disallowed-methods`, directing callers to the
-crate’s named write helpers—`rust-lint-format-rules` carries the exact block, the
-measured adoption cost (zero shipping sites in a real 35k-line codebase), and the fact
-that `disallowed-methods` has no test-scoping option.
+`std::fs::write` and `std::fs::File::create` truncate an existing destination before
+writing. That is wrong for replacement of authoritative state, but it can be correct for
+scratch output or a newly created non-authoritative file.
+Do not ban these standard-library methods globally: Clippy cannot infer the caller’s
+write contract, and `disallowed-methods` has no intent scope.
 
-This is what turns `filesystem-rules`’ write-contract rule from prose into something the
-gate enforces, which matters because the failure it prevents is silent: a truncated file
-looks like corrupt data later, not like a write error now.
+Instead, route authoritative persistence through a module with named operations such as
+`replace_atomic`, `replace_durable`, `create_new`, and `append_record`. If a legacy
+project helper is unambiguously unsafe, disallow that helper after migrating callers;
+preserve the general primitives for contexts where their semantics are the declared
+contract.
+
+The named boundary makes `filesystem-rules`’ write contract reviewable and gives a
+project a specific helper to prohibit during migration.
+That matters because the failure is silent: a truncated file looks like corrupt data
+later, not like a write error now.
 
 `filesystem-rules` owns *which* contract applies; Rust’s standard library expresses each
 of them through `OpenOptions`, so the alternatives the restriction points at are real
@@ -76,13 +84,18 @@ and cheap:
 | Replace | `NamedTempFile::new_in(dir)` → write → `persist` |
 | Create exclusively | `OpenOptions::new().write(true).create_new(true)` |
 | Append | `OpenOptions::new().append(true)` |
-| Stream, scratch | `File::create`, with a scoped `#[expect]` and a reason |
+| Stream, scratch | `File::create` |
 
 `create_new` is the atomic exclusive-create; `Path::exists()` followed by a create is
 the race it exists to replace.
-`append(true)` positions at the end of the file on *every* write, not once at open,
-which is why concurrent appends of a single small record do not interleave and a
-`seek`-to-end-then-write does.
+`append(true)` positions each write at the current end of the file, avoiding the race in
+`seek`-to-end-then-write.
+It does **not** guarantee that records from concurrent writers cannot interleave: a
+write may accept only part of its buffer, and the amount accepted depends on the
+operating system and filesystem
+([`OpenOptions::append`](https://doc.rust-lang.org/std/fs/struct.OpenOptions.html#method.append)).
+Assemble each record before writing; if record atomicity is required, serialize writers
+or use a storage format and protocol that supplies it.
 
 The same-filesystem replacement sequence, with the Rust specifics that matter:
 

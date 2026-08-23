@@ -1,5 +1,5 @@
-import { readFile, readdir } from 'node:fs/promises';
-import { dirname, extname, join } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
@@ -17,7 +17,7 @@ const GUIDELINES_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'docs
  * Raising the ceiling is a deliberate decision that costs every session, and it should
  * be made by moving something out rather than by editing the number.
  */
-const ALWAYS_LOAD_WORD_BUDGET = 6000;
+const ALWAYS_LOAD_WORD_BUDGET = 1500;
 
 async function wordCount(name: string): Promise<number> {
   const text = await readFile(join(GUIDELINES_DIR, `${name}.md`), 'utf8');
@@ -61,15 +61,6 @@ describe('always-load guideline budget', () => {
       'code-review-rules',
     ]) {
       expect(guidelineGroupFor(name), name).toBe('Cross-cutting engineering topics');
-    }
-  });
-
-  it('files every bundled guideline in a group', async () => {
-    const names = (await readdir(GUIDELINES_DIR))
-      .filter((f) => extname(f) === '.md')
-      .map((f) => f.slice(0, -'.md'.length));
-    for (const name of names) {
-      expect(guidelineGroupFor(name), name).toBeTruthy();
     }
   });
 });
