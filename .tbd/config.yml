@@ -1,6 +1,6 @@
 tbd_format: f08
-tbd_version: 0.7.0
-tbd_fallback_version: 0.7.0
+tbd_version: 0.8.0
+tbd_fallback_version: 0.8.0
 # tbd_upgrades: tbd versions that have run `tbd setup` in this repo (oldest first);
 # tbd_version above is the most recent. Informational; updated automatically by setup.
 # tbd_fallback_version is the one exact registry fallback for format-incompatible launchers.
@@ -38,6 +38,8 @@ tbd_upgrades:
     at: 2026-08-14T22:57:38.370Z
   - version: 0.7.0
     at: 2026-08-16T22:46:01.589Z
+  - version: 0.8.0
+    at: 2026-08-23T06:26:27.253Z
 display:
   id_prefix: tbd
 sync:
@@ -89,6 +91,7 @@ docs_cache:
     shortcuts/standard/pr-review-workflows.md: internal:shortcuts/standard/pr-review-workflows.md
     shortcuts/standard/precommit-process.md: internal:shortcuts/standard/precommit-process.md
     shortcuts/standard/review-code-python.md: internal:shortcuts/standard/review-code-python.md
+    shortcuts/standard/review-code-rust.md: internal:shortcuts/standard/review-code-rust.md
     shortcuts/standard/review-code-typescript.md: internal:shortcuts/standard/review-code-typescript.md
     shortcuts/standard/review-code.md: internal:shortcuts/standard/review-code.md
     shortcuts/standard/review-github-pr.md: internal:shortcuts/standard/review-github-pr.md
@@ -126,8 +129,15 @@ docs_cache:
     guidelines/python-modern-guidelines.md: internal:guidelines/python-modern-guidelines.md
     guidelines/python-rules.md: internal:guidelines/python-rules.md
     guidelines/release-engineering-rules.md: internal:guidelines/release-engineering-rules.md
-    guidelines/rust-lint-format-rules.md: internal:guidelines/rust-lint-format-rules.md
     guidelines/release-notes-guidelines.md: internal:guidelines/release-notes-guidelines.md
+    guidelines/rust-cli-rules.md: internal:guidelines/rust-cli-rules.md
+    guidelines/rust-code-review-rules.md: internal:guidelines/rust-code-review-rules.md
+    guidelines/rust-filesystem-rules.md: internal:guidelines/rust-filesystem-rules.md
+    guidelines/rust-lint-format-rules.md: internal:guidelines/rust-lint-format-rules.md
+    guidelines/rust-project-setup.md: internal:guidelines/rust-project-setup.md
+    guidelines/rust-release-rules.md: internal:guidelines/rust-release-rules.md
+    guidelines/rust-rules.md: internal:guidelines/rust-rules.md
+    guidelines/rust-testing-rules.md: internal:guidelines/rust-testing-rules.md
     guidelines/supply-chain-hardening.md: internal:guidelines/supply-chain-hardening.md
     guidelines/tauri-app-development-patterns.md: internal:guidelines/tauri-app-development-patterns.md
     guidelines/tbd-sync-troubleshooting.md: internal:guidelines/tbd-sync-troubleshooting.md

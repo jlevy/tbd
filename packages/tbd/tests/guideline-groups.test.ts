@@ -1,6 +1,17 @@
+import { readdir } from 'node:fs/promises';
+import { dirname, extname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
 import { guidelineGroupFor } from '../src/file/doc-cache.js';
+
+const GUIDELINES_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'docs', 'guidelines');
+
+async function bundledGuidelineNames(): Promise<string[]> {
+  const entries = await readdir(GUIDELINES_DIR);
+  return entries.filter((f) => extname(f) === '.md').map((f) => f.slice(0, -'.md'.length));
+}
 
 /**
  * Group assignment decides which guidelines an agent is told to always load.
@@ -55,5 +66,40 @@ describe('guidelineGroupFor', () => {
   it('falls through to the catch-all group', () => {
     expect(guidelineGroupFor('common-doc-guidelines')).toBe('Docs, process & tooling');
     expect(guidelineGroupFor('supply-chain-hardening')).toBe('Docs, process & tooling');
+  });
+
+  it('has a bundled guideline for every name a group matches explicitly', async () => {
+    // A group that names documents which do not exist renders as an empty heading:
+    // the routing test passes, the generated directory shows nothing, and the gap is
+    // invisible. Both explicit name sets are checked against what is actually bundled.
+    const bundled = new Set(await bundledGuidelineNames());
+    const named = [
+      'backward-compatibility-rules',
+      'commit-conventions',
+      'error-handling-rules',
+      'golden-testing-guidelines',
+      'ci-and-gates-rules',
+      'code-review-rules',
+      'filesystem-rules',
+      'release-engineering-rules',
+    ];
+    const missing = named.filter((name) => !bundled.has(name));
+    expect(missing, `named in a guideline group but not bundled: ${missing.join(', ')}`).toEqual(
+      [],
+    );
+  });
+
+  it('files every bundled guideline in a group whose heading is non-empty', async () => {
+    const grouped = new Map<string, string[]>();
+    for (const name of await bundledGuidelineNames()) {
+      const heading = guidelineGroupFor(name);
+      grouped.set(heading, [...(grouped.get(heading) ?? []), name]);
+    }
+    // Every language family that has bundled documents must have them routed to its own
+    // group rather than falling through to the catch-all.
+    expect(grouped.get('Rust')?.sort()).toEqual(
+      (await bundledGuidelineNames()).filter((n) => n.startsWith('rust-')).sort(),
+    );
+    expect(grouped.get('Cross-cutting engineering topics')?.length).toBeGreaterThan(0);
   });
 });

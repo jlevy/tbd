@@ -141,8 +141,18 @@ tbd guidelines general-coding-rules general-comment-rules error-handling-rules g
 
 Run `tbd guidelines --list` to see all available guidelines.
 
-**Note:** Never gitignore `.tbd/workspaces/`; the outbox must be committed to your
-working branch. See `tbd guidelines tbd-sync-troubleshooting` for details.
+**Where beads live:** on the dedicated `tbd-sync` branch, not your working branch.
+Bead changes never appear in your feature branch’s commits or its PR diff.
+That is the design, not lost work: don’t hunt for them there, and don’t claim
+“everything is on this PR” about bead state.
+
+**Let tbd own that branch.** `tbd sync` maintains it and `tbd doctor --fix` repairs it.
+Use tbd commands rather than raw git for anything touching `tbd-sync`; hand checkouts,
+merges, and pushes are how bead state gets tangled.
+
+**Note:** `.tbd/workspaces/` is the exception: never gitignore it; the outbox must be
+committed to your working branch.
+See `tbd guidelines tbd-sync-troubleshooting` for details.
 
 ## CRITICAL: Session Closing Protocol
 
@@ -160,8 +170,20 @@ working branch. See `tbd guidelines tbd-sync-troubleshooting` for details.
 **Work is not done until pushed, CI passes, and tbd is synced.**
 
 **Remote/proxied session where GitHub seems blocked?** If the environment has egress,
-`gh` works through a scoped `NO_PROXY` bypass — run `tbd shortcut setup-github-cli` and
-follow “Proxied Remote Sessions” before concluding gh is unavailable.
+`gh` works through a scoped `NO_PROXY` bypass.
+Three facts decide most of these:
+
+- The git remote may sit behind a **ref-scoped credential broker**: pushes to
+  `refs/heads/*` succeed, pushes to `refs/tags/*` fail with HTTP 403. Create the tag on
+  the direct channel instead:
+  `gh api repos/OWNER/REPO/git/refs -f ref=refs/tags/vX.Y.Z -f sha=SHA`.
+- `git push --dry-run` **passes** for tags the broker then refuses at receive-pack, so a
+  clean dry run proves nothing.
+- A GitHub-host 403 carrying no `x-github-request-id` header is proxy-manufactured, not
+  an organization egress denial.
+
+Run `tbd shortcut setup-github-cli` and follow “Proxied Remote Sessions” before
+concluding gh is unavailable.
 
 ## Bead Tracking Rules
 
@@ -329,6 +351,7 @@ Run `tbd shortcut <name>` to use any of these shortcuts:
 | precommit-process | Full pre-commit checklist including spec sync, code review, and testing |
 | review-code | Comprehensive code review for uncommitted changes, branch work, or GitHub PRs |
 | review-code-python | Python-focused code review (language-specific rules only) |
+| review-code-rust | Rust-focused code review (language-specific rules only) |
 | review-code-typescript | TypeScript-focused code review (language-specific rules only) |
 | review-github-pr | Review a GitHub pull request and publish the review to a chosen channel (formal review, PR comment, GitHub issue, or in-repo review doc). To fix the findings, see address-pr-review. |
 | revise-all-architecture-docs | Comprehensive revision of all current architecture documents |
@@ -388,6 +411,21 @@ Load the **General engineering** group first, then the language or framework gro
 | python-modern-guidelines | Guidelines for modern Python projects using uv, with a few more opinionated practices |
 | python-rules | General Python coding rules and best practices |
 
+### Rust
+
+*Also load these when working in Rust.*
+
+| Name | Description |
+| --- | --- |
+| rust-cli-rules | Rules for composable, testable, and cross-platform Rust command-line applications |
+| rust-code-review-rules | The Rust-specific half of review—which guideline owns each changed surface, the unsafe and FFI checklist with default severities, and a Rust quick-scan table. The severity vocabulary, review baseline, and risk ordering live in code-review-rules. |
+| rust-filesystem-rules | The Rust-specific half of filesystem work—path and string types, the tempfile atomic-replacement sequence, traversal crate choice and error propagation, platform metadata, and making the atomic-write rule executable through clippy. The behavior contract itself lives in filesystem-rules. |
+| rust-lint-format-rules | The lint and auto-formatting floor for every Rust project—the `[lints]` block, the clippy.toml, rustfmt and toolchain pinning, hooks and CI gates, and how to prove the floor is live. Includes measured adoption cost for the lints beyond the floor, taken from a real 35k-line codebase, so a project can decide with evidence rather than taste. |
+| rust-project-setup | Rules for structuring, validating, and maintaining modern Rust packages and workspaces |
+| rust-release-rules | The Rust-specific half of releasing—crates.io publishing and workspace ordering, trusted publishing, cargo package and the unpublished-sibling trap, semver checks, and shipping a Rust binary as a Python wheel through maturin. The release contract itself lives in release-engineering-rules. |
+| rust-rules | General Rust coding rules for modern libraries, applications, services, and command-line tools |
+| rust-testing-rules | Rules for effective unit, integration, property, snapshot, and cross-platform testing in Rust |
+
 ### Convex
 
 *Also load these when working with Convex.*
@@ -396,6 +434,17 @@ Load the **General engineering** group first, then the language or framework gro
 | --- | --- |
 | convex-limits-best-practices | Comprehensive reference for Convex platform limits, workarounds, and performance best practices |
 | convex-rules | Guidelines and best practices for building Convex projects, including database schema design, queries, mutations, and real-world examples |
+
+### Cross-cutting engineering topics
+
+*Load these when the work touches the topic, in any language.*
+
+| Name | Description |
+| --- | --- |
+| ci-and-gates-rules | How to wire a quality gate that actually holds—one entry point in two modes, config-contract checks that prove the floor is live, the traps that keep a gate green while it checks nothing (pipeline exit status, self-recorded evidence, single-platform blindness, scope holes), suppression ratchets, generated-file ownership, and least-privilege workflow authority. Language-neutral; load it with the language floor document whenever wiring, debugging, or reviewing a gate. |
+| code-review-rules | The language-neutral substance of a code review—the Blocker/High/Medium/Low severity vocabulary, establishing a baseline before hunting findings, reviewing highest-risk boundaries first, writing findings that can be acted on, and a quick-scan table of patterns with default severities. The review-code shortcuts are the procedure; this is what they apply. Load for any review, with the language-specific review document where one exists. |
+| filesystem-rules | Language-neutral rules for code that reads directory trees or mutates files—separating planning from mutation, atomic visibility versus crash durability, explicit metadata and collision policy, cross-device moves, deterministic traversal, symlink and root boundaries, honest partial failure, and testing the state machine rather than the final bytes. Load whenever a change touches file mutation, traversal, or path handling, alongside the language-specific filesystem document if one exists. |
+| release-engineering-rules | Language-neutral rules for turning a reviewed commit into artifacts users execute—one release identity, a pre-release gate that runs where publishing happens, least-privilege publishing authority, build-once-and-promote, packaging and checksums, smoke-testing the packaged artifact rather than the build output, multi-channel coordination, testable release logic, and incident preparation. Load for any release, alongside release-notes-guidelines and the language-specific release document. |
 
 ### Docs, process & tooling
 

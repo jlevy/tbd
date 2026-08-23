@@ -263,7 +263,7 @@ And yes, all the code *and* all the specs of `tbd` are agent written—see
 ## Built-in Engineering Knowledge
 
 When you run `tbd setup`, your agent gets instant access to
-[25+ guideline documents](packages/tbd/docs/guidelines/) covering real-world engineering
+[40+ guideline documents](packages/tbd/docs/guidelines/) covering real-world engineering
 practices. These aren’t generic tips; they’re mostly my own detailed and sometimes
 opinionated rules with concrete examples, built from months of heavy agentic coding.
 
@@ -295,6 +295,14 @@ opinionated rules with concrete examples, built from months of heavy agentic cod
 | [typescript-yaml-handling-rules](packages/tbd/docs/guidelines/typescript-yaml-handling-rules.md) | YAML parsing/serialization with the `yaml` package, Zod validation, consistent formatting |
 | [python-rules](packages/tbd/docs/guidelines/python-rules.md) | Type hints, docstrings, exception handling, resource management |
 | [python-cli-patterns](packages/tbd/docs/guidelines/python-cli-patterns.md) | Modern Python CLI stack: uv, Typer, Rich, Ruff, BasedPyright |
+| [rust-rules](packages/tbd/docs/guidelines/rust-rules.md) | Ownership and borrowing, domain types over primitives, error handling with thiserror/anyhow, unsafe, async, performance |
+| [rust-lint-format-rules](packages/tbd/docs/guidelines/rust-lint-format-rules.md) | The Rust quality floor: the `[lints]` block, `clippy.toml`, and measured adoption cost for the lints beyond it |
+| [rust-project-setup](packages/tbd/docs/guidelines/rust-project-setup.md) | Cargo package shape, workspace metadata, features, toolchain pinning, MSRV |
+| [rust-cli-rules](packages/tbd/docs/guidelines/rust-cli-rules.md) | clap patterns, stream composability, exit status, broken pipes, destructive commands |
+| [rust-testing-rules](packages/tbd/docs/guidelines/rust-testing-rules.md) | Test boundaries, determinism, fixtures, insta snapshots, property tests, feature and platform matrices |
+| [rust-filesystem-rules](packages/tbd/docs/guidelines/rust-filesystem-rules.md) | Path and OsStr types, the tempfile atomic-replacement sequence, traversal crates and error propagation |
+| [rust-release-rules](packages/tbd/docs/guidelines/rust-release-rules.md) | crates.io publishing, the unpublished-sibling trap, semver checks, maturin wheels |
+| [rust-code-review-rules](packages/tbd/docs/guidelines/rust-code-review-rules.md) | Unsafe and FFI review checklist, Rust quick-scan patterns and severities |
 | [backward-compatibility-rules](packages/tbd/docs/guidelines/backward-compatibility-rules.md) | Compatibility across code, APIs, file formats, and database schemas |
 | [ci-and-gates-rules](packages/tbd/docs/guidelines/ci-and-gates-rules.md) | Wiring a quality gate that holds: one entry point in two modes, config-contract checks, the traps that keep a gate green while it checks nothing |
 | [code-review-rules](packages/tbd/docs/guidelines/code-review-rules.md) | Severity vocabulary, review baseline, risk-ordered reading, and findings that can be acted on |
