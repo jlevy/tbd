@@ -46,9 +46,11 @@ capture, shorter tail-expression temporary lifetimes, and resolver version 3.
 ## Ownership and Borrowing
 
 - **Let the signature state the ownership contract.** `&str` and `&Path` say the callee
-  only reads; `String` and `PathBuf` say it stores, transforms, or transfers.
+  does not take ownership; `String` and `PathBuf` transfer ownership and let the callee
+  retain or transform an owned value.
   Choosing by convenience—an owned parameter because one caller happened to have one—
-  makes the contract unreadable and forces an allocation at every other call site.
+  makes the contract unreadable and can force callers that only have a borrowed value to
+  allocate.
 - **Make every clone explainable.** A clone used only to silence a borrow-checker error
   is a design signal. Shorten borrow scopes, split state, or change ownership before
   copying a large value.

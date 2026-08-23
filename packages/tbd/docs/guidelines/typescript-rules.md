@@ -407,9 +407,11 @@ yet production-ready**—do not adopt for shipped builds.
 
 ## File Operations
 
-- **Use `atomically` for writing files:** When writing files to disk, use the
-  `atomically` library instead of `fs.writeFile` or `fs.writeFileSync`. This prevents
-  partial or corrupted files if the process crashes mid-write.
+- **Use `atomically` when replacing authoritative files:** For a persistent path that
+  readers must never observe half-written, use the `atomically` library instead of
+  truncating it through `fs.writeFile` or `fs.writeFileSync`. Append, exclusive create,
+  streams, and scratch files have different contracts and should use the matching
+  primitive.
 
   The `atomically` library writes to a temp file first, then renames atomically to the
   final path. This guarantees you never have half-written files.
@@ -426,11 +428,11 @@ yet production-ready**—do not adopt for shipped builds.
   await writeFile(filePath, content);
   ```
 
-  Enforce this in the linter rather than in review, with a `no-restricted-imports` entry
-  naming every spelling (`fs`, `node:fs`, `fs/promises`, `node:fs/promises`); see
-  `tbd guidelines filesystem-rules` for the rule’s rationale and the rest of the
-  filesystem contract (atomic visibility versus crash durability, collision policy,
-  deterministic traversal, honest partial failure).
+  Enforce this at authoritative-persistence boundaries rather than through a global
+  method ban. A scoped `no-restricted-imports` entry must name every spelling (`fs`,
+  `node:fs`, `fs/promises`, `node:fs/promises`). See `tbd guidelines filesystem-rules`
+  for the rule’s rationale and the other write contracts (atomic visibility versus crash
+  durability, collision policy, deterministic traversal, honest partial failure).
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

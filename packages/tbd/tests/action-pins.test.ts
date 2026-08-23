@@ -61,6 +61,33 @@ describe('check-action-pins', () => {
     expect(output).toContain('ci.yml:4');
   });
 
+  it('parses valid YAML forms instead of scanning lines', () => {
+    const directory = workflowDirWith({
+      'ci.yml': [
+        'jobs:',
+        '  build:',
+        '    steps:',
+        '      - { uses: owner/flow-action@main }',
+        '      - uses : owner/spaced-action@main',
+        '      - run: |',
+        '          echo "uses: owner/not-an-action@main"',
+        '',
+      ].join('\n'),
+    });
+    const { status, output } = runGate(directory);
+    expect(status).toBe(1);
+    expect(output).toContain('owner/flow-action@main');
+    expect(output).toContain('owner/spaced-action@main');
+    expect(output).not.toContain('owner/not-an-action@main');
+  });
+
+  it('fails closed when workflow YAML is invalid', () => {
+    const directory = workflowDirWith({ 'ci.yml': 'jobs:\n  build: [\n' });
+    const { status, output } = runGate(directory);
+    expect(status).toBe(1);
+    expect(output).toContain('invalid workflow YAML');
+  });
+
   it('accepts a full commit SHA and ignores local actions', () => {
     const directory = workflowDirWith({
       'ci.yml': [

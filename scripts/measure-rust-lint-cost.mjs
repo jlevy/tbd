@@ -28,7 +28,7 @@
  *
  * Usage:
  *   node scripts/measure-rust-lint-cost.mjs --repo <path> --out <prefix> \
- *     [--lint clippy::panic ...] [--disallowed-methods <path-to-clippy.toml-fragment>]
+ *     [--lint clippy::panic ...] [--clippy-conf <path-to-clippy.toml>]
  *
  * Writes <prefix>.tsv (one row per diagnostic) and prints the summary table.
  */
@@ -38,6 +38,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  rmSync,
   utimesSync,
   writeFileSync,
 } from 'node:fs';
@@ -68,11 +69,15 @@ function parseArgs(argv) {
 
 /** Workspace member manifests, so diagnostics from dependencies can be dropped. */
 function workspaceMembers(repo) {
-  const raw = execFileSync('cargo', ['metadata', '--format-version', '1', '--no-deps'], {
-    cwd: repo,
-    encoding: 'utf8',
-    maxBuffer: 256 * 1024 * 1024,
-  });
+  const raw = execFileSync(
+    'cargo',
+    ['metadata', '--locked', '--format-version', '1', '--no-deps'],
+    {
+      cwd: repo,
+      encoding: 'utf8',
+      maxBuffer: 256 * 1024 * 1024,
+    },
+  );
   const metadata = JSON.parse(raw);
   return new Map(metadata.packages.map((pkg) => [pkg.id, pkg.name]));
 }
@@ -111,35 +116,30 @@ function runPass(repo, targetDir, selection, lints, clippyConf, members) {
   if (clippyConf) {
     env.CLIPPY_CONF_DIR = clippyConf;
   }
-  let stdout;
-  try {
-    stdout = execFileSync(
-      'cargo',
-      [
-        'clippy',
-        '--workspace',
-        ...selection,
-        '--message-format=json',
-        '--target-dir',
-        targetDir,
-        '--',
-        ...warnFlags,
-      ],
-      {
-        cwd: repo,
-        encoding: 'utf8',
-        env,
-        maxBuffer: 512 * 1024 * 1024,
-        stdio: ['ignore', 'pipe', 'inherit'],
-      },
-    );
-  } catch (error) {
-    // A nonzero exit still carries the diagnostics we want; rethrow only if it produced none.
-    stdout = error.stdout ?? '';
-    if (!stdout) {
-      throw error;
-    }
-  }
+  // Candidate lints are capped at warn, so a nonzero status means compilation or the
+  // measurement itself failed. Diagnostics emitted before that failure describe only
+  // the targets Cargo happened to reach first and must not be summarized.
+  const stdout = execFileSync(
+    'cargo',
+    [
+      'clippy',
+      '--locked',
+      '--workspace',
+      ...selection,
+      '--message-format=json',
+      '--target-dir',
+      targetDir,
+      '--',
+      ...warnFlags,
+    ],
+    {
+      cwd: repo,
+      encoding: 'utf8',
+      env,
+      maxBuffer: 512 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'inherit'],
+    },
+  );
   const rows = [];
   for (const line of stdout.split('\n')) {
     if (!line.startsWith('{')) {
@@ -183,14 +183,22 @@ const key = (row) => `${row.lint}\t${row.file}\t${row.line}\t${row.column}`;
 const args = parseArgs(process.argv.slice(2));
 const repo = path.resolve(args.repo);
 const members = workspaceMembers(repo);
+const temporaryDirectories = [];
+process.once('exit', () => {
+  for (const directory of temporaryDirectories) {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 let clippyConf = null;
 if (args.clippyConf) {
   clippyConf = mkdtempSync(path.join(tmpdir(), 'clippy-conf-'));
+  temporaryDirectories.push(clippyConf);
   writeFileSync(path.join(clippyConf, 'clippy.toml'), readFileSync(args.clippyConf, 'utf8'));
 }
 
 const scratch = mkdtempSync(path.join(tmpdir(), 'lint-cost-'));
+temporaryDirectories.push(scratch);
 const production = runPass(
   repo,
   path.join(scratch, 'prod'),

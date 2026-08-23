@@ -39,7 +39,7 @@ A write has one of these contracts, and the code should say which:
 | --- | --- | --- |
 | **Replace** | A reader sees the old contents or the new ones, never a mix, and never an empty file | temp file in the destination directory, then atomic rename |
 | **Create exclusively** | Fails if the path exists; the check and the create are one operation | `O_EXCL` / `wx` / `create_new` — *not* “check then write”, which is a race |
-| **Append** | Adds to the end without disturbing what is there, safely from concurrent writers | open in append mode, which positions per write rather than per open |
+| **Append** | Adds to the end without truncating; concurrent writers do not race on a shared file position, but records may still interleave | open in append mode, which positions per write rather than per open; serialize writers when record atomicity is required |
 | **Stream** | Produces output incrementally, possibly larger than memory, possibly to a consumer that reads as it goes | ordinary buffered write to the sink |
 | **Scratch** | Nobody but this process will read it, and it does not outlive the run | ordinary write, into a temp directory |
 
@@ -51,13 +51,13 @@ property that made append correct, and turns an O(1) write into an O(size) one.
 Exclusive creation forced through replacement loses the atomicity of the existence
 check.
 
-So the enforcement is a boundary, not a global ban.
-Restrict the raw truncating call, and provide named alternatives for each contract, so
-choosing something other than replacement is a visible decision with a name on it rather
-than a lint suppression:
+So enforcement belongs at the authoritative-persistence boundary, not in a global ban.
+Restrict raw truncating calls in that boundary and provide named alternatives for each
+contract, so choosing something other than replacement is a visible decision with a name
+on it rather than a lint suppression:
 
 ```javascript
-// eslint.config.js — the correctness invariant, enforced.
+// eslint.config.js — apply this rule to authoritative-persistence modules.
 '@typescript-eslint/no-restricted-imports': ['error', {
   paths: [
     { name: 'node:fs', importNames: ['writeFile', 'writeFileSync'],
@@ -69,10 +69,14 @@ than a lint suppression:
 }],
 ```
 
-Rust states the same rule through `clippy.toml` `disallowed-methods` naming
-`std::fs::write` and `std::fs::File::create`; Python through a lint rule or a wrapper
-module. The mechanism differs, the reasoning does not: a rule that only lives in prose
-holds until the first contributor who has not read the prose.
+Rust’s `clippy.toml` method restrictions are global and cannot see the caller’s write
+intent, so do not ban `std::fs::write` or `std::fs::File::create` there merely to
+enforce this boundary.
+Prefer a persistence module with named operations; disallow a project-specific helper
+only when its contract is unambiguously unsafe.
+Python can use a scoped lint rule or wrapper module.
+The mechanism differs, but the rule must remain executable at the boundary where it
+applies.
 
 List every spelling of the import.
 A restriction on `node:fs` that omits plain `fs` enforces nothing.

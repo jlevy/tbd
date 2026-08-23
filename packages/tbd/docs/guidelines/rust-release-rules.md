@@ -128,9 +128,15 @@ extension module is loaded into the interpreter, so it has an interpreter matrix
 binary wheel does not.
 If the project ships one:
 
-- Use `abi3` so one compiled module serves many interpreter versions.
-  `abi3-pyXY` sets a *minimum* version, not a target: the build fails against an older
-  interpreter and the wheel keeps working on newer ones.
+- Choose the Python ABI from the APIs and interpreters the extension supports.
+  `abi3` lets one wheel serve several GIL-enabled CPython versions, but restricts the
+  available C API and version-specific optimizations; it does not serve free-threaded
+  CPython. In PyO3 0.29, `abi3t` covers free-threaded and GIL-enabled CPython from Python
+  3.15 onward. Use version-specific wheels when those stable-ABI limits do not fit.
+  `abi3-pyXY` and `abi3t-pyXY` declare a *minimum* compatible API version, not a single
+  interpreter target; the resulting wheel works on supported newer versions.
+  See PyO3’s
+  [building and distribution guide](https://pyo3.rs/main/building-and-distribution).
 - Put `extension-module` behind a feature and know which invocation carries the switch.
   An extension module deliberately does not link libpython, so anything that runs
   in-process—`cargo test`, a bench, an embedding harness—needs the build *without* it,
@@ -141,10 +147,20 @@ If the project ships one:
   link time that reads as a broken toolchain.
   Whichever polarity you choose, CI must run the tests with the switch it requires, or
   the tests silently stop building.
-- Expect the module to be its own crate.
-  A `cdylib` cannot also be the `rlib` that Rust consumers depend on.
-- A panic that reaches the interpreter across the boundary aborts the process rather
-  than raising; `rust-code-review-rules` covers converting it at the boundary.
+- Prefer a separate extension crate when Python packaging and Rust consumers require
+  different features, dependencies, or release lifecycles.
+  This is an architecture choice, not a compiler restriction: Rust can emit `cdylib` and
+  `rlib` artifacts from one crate by listing both crate types
+  ([Rust Reference](https://doc.rust-lang.org/reference/linkage.html)).
+- Return `PyResult` for expected failures.
+  With unwinding enabled, PyO3-generated trampolines catch Rust panics and raise
+  [`PanicException`](https://docs.rs/pyo3/latest/pyo3/panic/struct.PanicException.html);
+  because it derives from Python’s `BaseException` rather than `Exception`, ordinary
+  `except Exception` handlers do not absorb it.
+  Treat that conversion as last-resort containment, not application error handling.
+  A panic that escapes a hand-written non-unwind FFI boundary aborts before Python can
+  receive an exception, and `panic = "abort"` disables PyO3’s conversion.
+  Apply `rust-code-review-rules` to custom FFI boundaries.
 
 ## Release Checklist Additions
 

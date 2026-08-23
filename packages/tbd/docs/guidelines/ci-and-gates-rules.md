@@ -215,11 +215,15 @@ cache turns into a mystery rather than a failure.
 
 Adding a check that fails for reasons the change did not cause teaches everyone to
 re-run the gate until it is green, which is the same as not having it.
-Two checks belong to a workflow rather than to the gate:
+Two checks need evidence beyond an ordinary pass/fail command:
 
-- **Timing.** A performance threshold on a shared CI runner measures the runner.
-  Keep benchmarks in a documented loop that runs on a quiet machine against a fixed
-  tree, and record the evidence rather than gating on it.
+- **Uncontrolled timing.** An absolute wall-clock threshold on a heterogeneous shared
+  runner often measures runner contention rather than the change.
+  Gate performance only when the environment and noise budget are controlled—for
+  example, on a dedicated runner or with a repeated within-run comparison against a
+  fixed baseline whose regression margin exceeds observed variance.
+  Otherwise keep the benchmark in a documented workflow, record the evidence, and do not
+  make a noisy threshold block unrelated changes.
 - **Anything racing on shared mutable state.** A check that compares against a branch
   other working copies push to independently will fail a change for something the change
   did not do.
@@ -335,6 +339,9 @@ catch. `general-testing-rules` carries the rule and a worked example.
   reference either way, and `v8.3.2` can be repointed at different code without any diff
   in your repository. The SHA is what fixes the code you reviewed.
   Let an update bot propose SHA bumps so pinning does not mean freezing.
+- Parse workflow YAML when enforcing pins.
+  A line regex misses valid flow-style maps, quoted or spaced keys, and can mistake
+  `uses:` inside a block-scalar script for an action reference.
 - Disable install scripts in CI (`--ignore-scripts`, `NPM_CONFIG_IGNORE_SCRIPTS`), and
   run the dependency audit inside the gate.
 - Treat a changed runner image or label as an input change, not as infrastructure.

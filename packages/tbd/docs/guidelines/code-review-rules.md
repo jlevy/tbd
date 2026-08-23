@@ -1,6 +1,6 @@
 ---
 title: Code Review Rules
-description: The language-neutral substance of a code review—the Blocker/High/Medium/Low severity vocabulary, establishing a baseline before hunting findings, reviewing highest-risk boundaries first, writing findings that can be acted on, and a quick-scan table of patterns with default severities. The review-code shortcuts are the procedure; this is what they apply. Load for any review, with the language-specific review document where one exists.
+description: The language-neutral substance of a code review—the Blocker/High/Medium/Low severity vocabulary, establishing a baseline before hunting findings, reviewing highest-risk boundaries first, writing findings that can be acted on, and investigative quick-scan questions with possible consequences. The review-code shortcuts are the procedure; this is what they apply. Load for any review, with the language-specific review document where one exists.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: general
 ---
@@ -11,9 +11,10 @@ It is the substance; the `review-code*` shortcuts are the procedure that applies
 (`tbd shortcut review-code`), and the topic guidelines own the actual rules for each
 surface.
 
-Run it after formatting, lint, type checks, and tests pass.
-Automated ownership should not consume review time unless the automation is missing,
-disabled, or demonstrably failed—in which case that is itself the first finding.
+Inspect formatting, lint, type-check, and test results before the manual review.
+A missing or failed required gate is a finding, but it does not justify postponing
+review of independent higher-risk boundaries.
+Do not spend manual review time repeating work an effective passing gate already owns.
 
 **Related**:
 

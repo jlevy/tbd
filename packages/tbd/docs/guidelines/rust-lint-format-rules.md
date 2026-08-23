@@ -261,15 +261,17 @@ Ask cargo instead:
 # Pass 1: code that compiles without cfg(test). Pass 2: everything.
 # A diagnostic in both is production; one only in pass 2 is test-only. Cargo's
 # per-diagnostic target also separates build scripts, examples, and integration tests.
-cargo clippy --workspace --lib --bins    --message-format=json -- -W clippy::indexing_slicing
-cargo clippy --workspace --all-targets   --message-format=json -- -W clippy::indexing_slicing
+cargo clippy --locked --workspace --lib --bins  --message-format=json -- -W clippy::indexing_slicing
+cargo clippy --locked --workspace --all-targets --message-format=json -- -W clippy::indexing_slicing
 ```
 
 Cap lints at `warn` for the run (`RUSTFLAGS="--cap-lints warn"`). A workspace that
 denies warnings stops at its first failing target, and the count you get back describes
 whichever crate compiled first rather than the workspace.
-Deduplicate by lint plus primary-span file, line, and column: `--all-targets` compiles
-the library twice.
+Once capped, any nonzero Cargo result is a build or measurement failure; reject it even
+if Cargo emitted some diagnostics first, or the table silently describes a prefix of the
+workspace. Deduplicate by lint plus primary-span file, line, and column: `--all-targets`
+compiles the library twice.
 
 ## Hooks and Gates
 

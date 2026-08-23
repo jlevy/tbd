@@ -1,6 +1,6 @@
 ---
 title: Rust Code Review Rules
-description: The Rust-specific half of review—which guideline owns each changed surface, the unsafe and FFI checklist with default severities, and a Rust quick-scan table. The severity vocabulary, review baseline, and risk ordering live in code-review-rules.
+description: The Rust-specific half of review—which guideline owns each changed surface, the unsafe and FFI checklist, and a Rust quick-scan table of investigative questions and possible consequences. The severity vocabulary, review baseline, and risk ordering live in code-review-rules.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: rust
 ---
@@ -14,9 +14,11 @@ can be acted on. Read it first; it applies in every language.
 This document owns what is specific to Rust: routing by changed surface, and the unsafe
 and FFI review that has no equivalent elsewhere.
 
-Run it after `cargo fmt --check`, clippy, tests, and docs pass.
-Automated ownership should not consume review time unless the automation is missing,
-disabled, or demonstrably failed—`rust-lint-format-rules` covers how to tell.
+Inspect `cargo fmt --check`, clippy, test, and documentation results first.
+A missing or failed required gate is a finding, but continue reviewing independent
+soundness, data-loss, FFI, concurrency, and API risks.
+Do not spend manual review time repeating work an effective passing gate already owns;
+`rust-lint-format-rules` covers how to tell.
 
 **Related**:
 

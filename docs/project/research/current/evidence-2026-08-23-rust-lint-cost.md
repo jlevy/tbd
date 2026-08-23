@@ -51,8 +51,8 @@ positionally. Two passes over the same workspace:
 
 | Pass | Command | Contains |
 | --- | --- | --- |
-| production | `cargo clippy --workspace --lib --bins` | library and binary code compiled without `cfg(test)`, plus build scripts |
-| all | `cargo clippy --workspace --all-targets` | the above plus inline `#[cfg(test)]` modules, integration tests, examples, and benches |
+| production | `cargo clippy --locked --workspace --lib --bins` | library and binary code compiled without `cfg(test)`, plus build scripts |
+| all | `cargo clippy --locked --workspace --all-targets` | the above plus inline `#[cfg(test)]` modules, integration tests, examples, and benches |
 
 A diagnostic present in both passes is in code that compiles without `cfg(test)`. A
 diagnostic present only in the second is test-only.
@@ -78,6 +78,9 @@ instead of 415, with zeroes for three of the six candidate lints.
 A measurement run that stops at the first failure measures whichever crate compiled
 first. That is the same failure mode `ci-and-gates-rules` describes for gates, arriving
 through the back door.
+The reproducer therefore rejects every nonzero Cargo result even when it emitted some
+diagnostics, and uses `--locked` so measuring a commit cannot rewrite the dependency
+resolution.
 
 ## Results
 

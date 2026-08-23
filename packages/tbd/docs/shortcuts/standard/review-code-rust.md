@@ -34,13 +34,17 @@ Create a to-do list with the following items then perform all of them:
      `release-engineering-rules rust-release-rules`
    - Lint config, `clippy.toml`, rustfmt, CI gates: `ci-and-gates-rules`
 
-4. Confirm the automated gate ran and passed before spending review time on what it
-   owns:
+4. Inspect the repository’s documented automated gate before spending review time on
+   what it owns. If the repository has no gate, the commands below are a baseline only
+   when its feature model permits `--all-features`:
    - `cargo fmt --all -- --check`
    - `cargo clippy --locked --workspace --all-targets --all-features -- -D warnings`
    - `cargo test --locked --workspace --all-features`
 
-   If the gate is missing, disabled, or failed, that is the first finding.
+   For mutually exclusive features, run the supported feature matrix instead of forcing
+   an invalid `--all-features` build.
+   If the gate is missing, disabled, or failed, record that finding and continue with
+   independent higher-risk review work.
    If the diff touches `cfg(target_os)` code, check whether it is linted for those
    targets at all—a single-platform CI run does not.
 

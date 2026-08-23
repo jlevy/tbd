@@ -302,7 +302,7 @@ opinionated rules with concrete examples, built from months of heavy agentic cod
 | [rust-testing-rules](packages/tbd/docs/guidelines/rust-testing-rules.md) | Test boundaries, determinism, fixtures, insta snapshots, property tests, feature and platform matrices |
 | [rust-filesystem-rules](packages/tbd/docs/guidelines/rust-filesystem-rules.md) | Path and OsStr types, the tempfile atomic-replacement sequence, traversal crates and error propagation |
 | [rust-release-rules](packages/tbd/docs/guidelines/rust-release-rules.md) | crates.io publishing, the unpublished-sibling trap, semver checks, maturin wheels |
-| [rust-code-review-rules](packages/tbd/docs/guidelines/rust-code-review-rules.md) | Unsafe and FFI review checklist, Rust quick-scan patterns and severities |
+| [rust-code-review-rules](packages/tbd/docs/guidelines/rust-code-review-rules.md) | Unsafe and FFI review checklist, plus investigative Rust quick-scan questions |
 | [backward-compatibility-rules](packages/tbd/docs/guidelines/backward-compatibility-rules.md) | Compatibility across code, APIs, file formats, and database schemas |
 | [ci-and-gates-rules](packages/tbd/docs/guidelines/ci-and-gates-rules.md) | Wiring a quality gate that holds: one entry point in two modes, config-contract checks, the traps that keep a gate green while it checks nothing |
 | [code-review-rules](packages/tbd/docs/guidelines/code-review-rules.md) | Severity vocabulary, review baseline, risk-ordered reading, and findings that can be acted on |

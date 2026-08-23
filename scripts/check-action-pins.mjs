@@ -11,29 +11,77 @@
  * code is in the diff already.
  */
 import { readdirSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, URL } from 'node:url';
 
-const USES = /^\s*(?:-\s+)?uses:\s*(\S+)/;
+const requireFromTbdPackage = createRequire(
+  new URL('../packages/tbd/package.json', import.meta.url),
+);
+const { LineCounter, isMap, isScalar, isSeq, parseDocument } = requireFromTbdPackage('yaml');
 const PINNED = /^[^@]+@[0-9a-f]{40}$/;
 
+function pairForKey(map, key) {
+  if (!isMap(map)) {
+    return undefined;
+  }
+  return map.items.find((pair) => isScalar(pair.key) && pair.key.value === key);
+}
+
+function actionReference(map, lineCounter, file) {
+  const pair = pairForKey(map, 'uses');
+  if (!pair) {
+    return undefined;
+  }
+  const reference = isScalar(pair.value) ? String(pair.value.value) : '<non-scalar uses value>';
+  const offset = pair.key?.range?.[0] ?? pair.value?.range?.[0] ?? 0;
+  return { file, line: lineCounter.linePos(offset).line, reference };
+}
+
+/** Action and reusable-workflow references from the two locations GitHub executes. */
+function workflowReferences(source, file) {
+  const lineCounter = new LineCounter();
+  const document = parseDocument(source, { lineCounter, prettyErrors: false });
+  if (document.errors.length > 0) {
+    throw new Error(`${file}: invalid workflow YAML: ${document.errors[0].message}`);
+  }
+
+  const jobs = pairForKey(document.contents, 'jobs')?.value;
+  if (!isMap(jobs)) {
+    return [];
+  }
+
+  const references = [];
+  for (const jobPair of jobs.items) {
+    const job = jobPair.value;
+    if (!isMap(job)) {
+      continue;
+    }
+    const reusableWorkflow = actionReference(job, lineCounter, file);
+    if (reusableWorkflow) {
+      references.push(reusableWorkflow);
+    }
+    const steps = pairForKey(job, 'steps')?.value;
+    if (!isSeq(steps)) {
+      continue;
+    }
+    for (const step of steps.items) {
+      const reference = actionReference(step, lineCounter, file);
+      if (reference) {
+        references.push(reference);
+      }
+    }
+  }
+  return references;
+}
+
 function findUnpinnedUses(source, file) {
-  const problems = [];
-  source.split('\n').forEach((line, index) => {
-    const match = USES.exec(line);
-    if (!match) {
-      return;
-    }
-    const reference = match[1].replace(/^['"]|['"]$/g, '');
+  return workflowReferences(source, file).filter(({ reference }) => {
     if (reference.startsWith('./') || reference.startsWith('.\\')) {
-      return;
+      return false;
     }
-    if (PINNED.test(reference)) {
-      return;
-    }
-    problems.push({ file, line: index + 1, reference });
+    return !PINNED.test(reference);
   });
-  return problems;
 }
 
 function checkWorkflows(directory) {
@@ -54,7 +102,14 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     flag === -1
       ? path.join(process.cwd(), '.github', 'workflows')
       : path.resolve(process.argv[flag + 1]);
-  const { files, problems } = checkWorkflows(directory);
+  let files;
+  let problems;
+  try {
+    ({ files, problems } = checkWorkflows(directory));
+  } catch (error) {
+    console.error(`check-action-pins: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
   // An empty workflow directory is the same green as a clean one. Say so.
   if (files.length === 0) {
     console.error(`check-action-pins: no workflow files found in ${directory}`);

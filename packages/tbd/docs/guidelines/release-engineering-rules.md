@@ -26,8 +26,12 @@ not exist.
 
 ## Define One Release Identity
 
+- Define the **release unit** first.
+  One package or product released through several channels has one version and tag;
+  independently versioned packages in a monorepo are separate release units and may
+  release on different cadences.
 - A reviewed git commit is the source of every artifact.
-- One version and one tag cover all channels in the same release.
+- Within a release unit, one version and one tag cover every channel in that release.
 - State whether the tag or a manifest field is authoritative, and derive the rest from
   it.
 - Refuse to publish when tag, package metadata, and the built program’s own `--version`

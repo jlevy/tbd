@@ -357,6 +357,151 @@ The exact fdu evidence commit was checked out read-only and inspected directly.
 The shell-loop failure was reproduced: two missing policies were printed and the loop
 exited zero. No dependencies were added or upgraded for this review.
 
+## Second-Pass Preservation and Precision Review
+
+**Reviewed commit:** `0c34446b5c2b8a0085d000e7ef44469398b1a40b`
+
+**Scope:** All 54 files changed from `origin/main`, with two deliberate passes: first
+over every modified pre-existing tbd document, treating its wording and structure as
+authoritative; then over every new Rust and cross-language guideline, gate, script, and
+test. The admission standard remained the one above: a change must add correctness,
+clarity, precision, or a material omission—not merely restyle sound guidance.
+
+**Verdict at the reviewed commit: request changes.** Nine additional defects survived
+the first review.
+Four could make a gate or persistence rule report a false result; three
+overgeneralized a policy beyond its actual applicability; and two misstated a language
+or review contract. The focused corrections described below are included with this
+addendum.
+
+### R14 (Medium): The testing expansion obscures a trusted optimization principle
+
+`general-testing-rules.md:17` replaced the original compact list, including “the minimal
+set of tests with the maximal coverage,” with a differently framed rule.
+The new evidence language was useful, but it did not require rewriting the established
+core and could be read as rejecting test-set minimization altogether.
+
+**Correction:** Restore the original list verbatim under `Core Principles`. Put the new
+material in a separate `Demand Independent Evidence` section that defines coverage as
+independent behavior, boundaries, failure modes, and diagnostic value.
+
+### R15 (High): The lint-cost reproducer accepts partial evidence as a completed run
+
+`measure-rust-lint-cost.mjs:115` previously caught any nonzero Clippy invocation and
+continued whenever the process had emitted stdout.
+A compile failure after one member therefore produced a plausible table for only the
+prefix Cargo reached.
+The reproducer also omitted `--locked` and left large temporary target directories
+behind.
+
+**Correction:** Require all Cargo invocations to succeed, use the committed dependency
+graph, clean temporary directories, and add a regression test in which fake Cargo emits
+a valid diagnostic and then exits nonzero.
+The test proves that no partial table is accepted.
+
+### R16 (High): A line regex is not a parser for executable workflow references
+
+The action-pin gate recognized only one textual spelling of `uses:`. It missed valid
+flow-style maps and spaced keys, while a `uses:` string inside a block-scalar shell
+script could be reported as an action.
+Both failures undermine a security gate whose green result is meant to prove complete
+coverage.
+
+**Correction:** Traverse the parsed workflow structure at the two executable locations
+(`jobs.<job>.uses` and `jobs.<job>.steps[*].uses`), retain source line diagnostics, fail
+on invalid YAML, and cover the missed and false-positive forms in `action-pins.test.ts`.
+This uses the repository’s existing `yaml` dependency.
+
+### R17 (High): The PyO3 section conflates ABI, crate-output, and panic boundaries
+
+`rust-release-rules.md:131` previously prescribed `abi3` without its API, optimization,
+or free-threaded-interpreter limits; said a `cdylib` could not also be an `rlib`; and
+said a panic reaching Python necessarily aborted.
+Rust permits stacked crate types, and PyO3-generated trampolines catch unwinding panics
+as `PanicException`. A custom non-unwind FFI boundary and a build using
+`panic = "abort"` are different cases.
+
+**Correction:** State the `abi3`/`abi3t` applicability boundary, describe a separate
+extension crate as an architecture choice, and distinguish expected `PyResult` failures,
+PyO3’s last-resort panic conversion, and aborting custom FFI boundaries.
+Link the Rust Reference and current PyO3 documentation beside the claims.
+
+### R18 (Medium): One-version policy needs a named release unit
+
+`release-engineering-rules.md:29` said one version and tag cover all channels without
+defining whether an independently versioned package in a monorepo was a channel or a
+separate product. Taken literally, the rule imposed lockstep versioning unrelated
+packages.
+
+**Correction:** Define the release unit first.
+Keep one identity across channels within that unit while allowing independently
+versioned packages to have separate units and cadences.
+
+### R19 (Medium): The gate guidance rules out controlled performance regressions
+
+`ci-and-gates-rules.md:220` categorized all timing checks as workflow evidence rather
+than gates. That is right for absolute thresholds on heterogeneous shared runners, but
+not for dedicated runners or repeated within-run comparisons whose margin exceeds a
+measured noise budget.
+
+**Correction:** Prohibit uncontrolled absolute wall-clock gates and state the conditions
+under which a performance regression gate is honest.
+
+### R20 (Medium): A failed generic gate must not postpone independent high-risk review
+
+`code-review-rules.md:14`, `rust-code-review-rules.md:17`, and the Rust review shortcut
+required gates to pass before review.
+They also supplied `--all-features` as if every feature set were composable.
+A formatting failure does not justify delaying an independent soundness or data-loss
+review, and mutually exclusive features make `--all-features` invalid.
+
+**Correction:** Inspect gate results first and record failures, then continue
+independent high-risk review.
+Prefer the repository’s documented gate and run its supported feature matrix rather than
+assuming one universal Cargo command.
+
+### R21 (Low): Borrowed Rust inputs describe ownership, not read-only behavior
+
+`rust-rules.md:48` said `&str` and `&Path` mean the callee “only reads.”
+A callee can parse, hash, compare, or derive and retain owned data from a borrow; the
+signature says only that it does not take ownership of the input.
+The same paragraph also implied an owned parameter always allocates at every other call
+site.
+
+**Correction:** State the ownership transfer precisely and limit the allocation claim to
+callers that possess only a borrowed value.
+
+### R22 (High): Filesystem enforcement still contradicts the write-intent model
+
+`filesystem-rules.md:42-75` correctly separates replacement, exclusive creation, append,
+stream, and scratch contracts, but then described concurrent append as safe at the
+record level and prescribed global bans that cannot observe intent.
+`typescript-rules.md:410-434` carried the global replacement rule into the trusted
+TypeScript guidance.
+Concurrent append writes may interleave, and forcing every write through replacement is
+wrong for four of the five named contracts.
+
+**Correction:** State append’s positioning guarantee without promising record atomicity,
+scope enforcement to authoritative-persistence boundaries, explain why Rust’s global
+method restriction cannot enforce an intent-sensitive rule, and narrow the TypeScript
+rule to replacement of authoritative files.
+
+### Second-Pass Validation Notes
+
+The two executable defects were demonstrated with regression tests before their fixes:
+the YAML-form test and partial-Clippy-run test both failed against the reviewed code and
+pass after the corrections.
+The full parent-branch gate then passed: format checks, type checks, ESLint and gate
+contract checks, build, and 2,431 tests across 161 files.
+Stacked-branch validation is recorded in the PR after the corrected parent is pushed and
+the top branch is rebased.
+
+One lower-priority omission is deliberately deferred: the repository currently has no
+local composite actions, so the pin gate does not yet recurse into
+`.github/actions/**/action.yml` or distinguish Docker image digests from action commit
+SHAs. That extension should land with fixtures for both forms rather than be folded into
+the workflow-parser correction without coverage.
+
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
 -->
