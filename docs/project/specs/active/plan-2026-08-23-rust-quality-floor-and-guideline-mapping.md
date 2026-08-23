@@ -1,6 +1,6 @@
 ---
 title: Rust Quality Floor and Guideline Mapping
-description: Map the quality insights accumulated in tbd and the Rust Porting Playbook, extract the non-obvious enforcement practices into a Rust guideline suite, and make the Rust family consistent with the Python and TypeScript families
+description: Add a strict Rust guideline family to tbd by migrating the Rust Porting Playbook suite, extracting its language-neutral core into shared guidelines, and setting the floor at the strictest of tbd's enforced config, the playbook, and the TypeScript family
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: general
 ---
@@ -13,285 +13,322 @@ category: general
 ## Overview
 
 tbd guidelines exist to give agents the *non-obvious* practices that raise code quality:
-strict type-checker flags, high lint floors, and atypical-but-better conventions that a
-model will not produce from its priors.
+strict type-checker flags, high lint floors, and atypical-but-better conventions a model
+will not produce from its priors.
 The TypeScript family does this well.
-The Rust suite in the Rust Porting Playbook covers a large surface but stops short of
-defining an enforceable floor, and none of it is distributed through tbd.
+tbd has no Rust coverage at all, and the Rust suite that exists in the Rust Porting
+Playbook stops short of defining an enforceable floor.
 
-This spec inventories where every kind of insight currently lives across both
-repositories, identifies which insights are portable, and plans the two-way transfer:
-playbook Rust guidelines up into tbd, and tbd’s enforcement practices across into Rust.
+This spec plans the migration: which documents move, what each becomes, what gets
+extracted into language-neutral guidelines that all three families share, and how tbd
+routes an agent to the right document for each scenario.
 
 ## Goals
 
-- Produce a single map of insight *kinds* and their current homes across tbd and the
-  playbook, so later passes stop rediscovering the same material.
-- Define a real Rust lint and type-strictness floor (`rust-lint-format-rules`) modeled
-  section-for-section on `typescript-lint-format-rules`, replacing the current “choose
-  one of three Clippy strategies” optionality.
-- Extract the enforcement practices that exist in tbd only as executable config
-  (`eslint.config.js`, `tsconfig.base.json`, `lefthook.yml`, `scripts/`) into
-  documented, language-neutral or Rust-specific rules.
-- Bring the seven existing Rust guidelines up to the tbd frontmatter and cross-reference
-  contract so they can ship as bundled tbd guidelines.
-- Add `review-code-rust` so the Rust family has the same shortcut coverage as Python and
-  TypeScript.
+- Ship a Rust guideline family in tbd with the same flavor and structure as the Python
+  and TypeScript families.
+- Set the Rust floor at the *strictest* of the three sources available, with no menu of
+  lax alternatives.
+- Extract the language-neutral core of the playbook’s Rust documents into shared
+  guidelines, so the same rule is written once instead of once per language — and so
+  four real gaps in tbd’s own coverage get closed along the way.
+- Keep coverage identical after extraction, with explicit routing from every scenario to
+  the documents that own it.
 
 ## Non-Goals
 
 - Upstreaming the porting layer.
   Construct mappings, parity evidence, differential testing, and upstream-sync workflows
-  stay in the playbook; only source-language-independent Rust guidance moves to tbd.
-- Rewriting the Python or TypeScript families.
-  They are the reference shape here, changed only where a genuinely cross-language rule
-  is being lifted out of them.
-- Changing tbd’s own ESLint or tsconfig settings.
-  This spec documents and transfers what is already enforced; it does not retune it.
-- Porting tbd itself to Rust.
-  That is tracked separately in the playbook’s active TypeScript-to-Rust plans.
+  stay in the playbook.
+- Rewriting the Python or TypeScript families beyond the edits needed to route them at
+  newly shared guidelines.
+- Retuning tbd’s own ESLint or tsconfig settings.
+  This spec documents and transfers what is already enforced.
+- Porting tbd itself to Rust; that is tracked in the playbook’s active TypeScript plans.
 
 ## Background
 
-Two repositories hold the relevant material:
+**Confirmed: tbd has zero Rust coverage today.** No `rust-*` guideline, no
+`review-code-rust` shortcut, no `category: rust`. The 31 bundled guidelines carry five
+categories — `general` (15), `typescript` (8), `python` (3), `desktop` (3), `convex`
+(2). The only mentions of Rust anywhere in `packages/tbd/docs/` are incidental (a
+`ripgrep` reference, a tooling aside).
 
-- **tbd** (this repo, TypeScript): 31 bundled guidelines in
-  `packages/tbd/docs/guidelines/`, plus a decade’s worth of enforcement decisions baked
-  into executable config at the repo root.
-  The config layer is where the highest-value, least-documented practices live.
-- **Rust Porting Playbook** (`attic/rust-porting-playbook/`, cloned for this review):
-  seven general Rust guidelines plus five porting guidelines, produced by the
-  [2026-08-08 reuse review](https://github.com/jlevy/rust-porting-playbook/blob/main/docs/reviews/rust-guideline-reuse-review-2026-08-08.md),
-  which already recommends upstreaming the reusable suite to tbd in two waves and tracks
-  it as `rpp-u657`.
+The playbook holds 1,765 lines across seven general Rust guidelines, produced by the
+[2026-08-08 reuse review](https://github.com/jlevy/rust-porting-playbook/blob/main/docs/reviews/rust-guideline-reuse-review-2026-08-08.md),
+which already recommends upstreaming them in two waves and tracks it as `rpp-u657`. They
+were written to tbd’s shape — correct frontmatter, actionable rules, related links,
+common footer — so the migration is real but mechanical.
 
 The playbook already consumes tbd guidelines through `internal:` docrefs in its
-`.tbd/config.yml`, so the distribution mechanism for the reverse direction exists and is
-proven. What is missing is a `rust-*` set on tbd’s side to point at.
+`.tbd/config.yml`, so the distribution path is proven in one direction.
+
+### Gaps This Exposes in tbd Itself
+
+Auditing the playbook’s Rust documents against tbd’s catalog turned up four topics tbd
+has no guideline for, in any language:
+
+| Topic | tbd today | Consequence |
+| --- | --- | --- |
+| Filesystem behavior | Nothing | `eslint.config.js` forbids `fs.writeFile` in favor of `atomically`, and no guideline explains why. The rule is enforced but not taught. |
+| Release engineering | `release-notes-guidelines` only, which is about *notes* | Nothing states release identity, pre-release gates, least-privilege publishing, or artifact smoke tests. |
+| Code review rules | Four `review-code*` shortcuts | The shortcuts are procedures with no rules document to load; severity vocabulary lives only in dated review artifacts. |
+| CI and gate wiring | Scattered across `pnpm-monorepo-patterns`, `typescript-lint-format-rules` §Hooks and Gates, `supply-chain-hardening` | No single answer to “how is a quality gate wired, and how do you prove it is live?” |
+
+The playbook has strong material on all four.
+Extracting it serves both repositories at once.
 
 ## Design
 
-### Insight Taxonomy
+### How the Floor Is Set
 
-Insights fall into five kinds.
-The kind determines both where a rule belongs and whether it can travel.
+The Rust floor is the **strictest of three sources**, not a merge of their averages:
 
-| Kind | What it is | Where it lives in tbd | Where it lives in the playbook | Portable? |
-| --- | --- | --- | --- | --- |
-| A. Enforced config | Settings that make a rule unskippable | `eslint.config.js`, `tsconfig.base.json`, `lefthook.yml`, `package.json` scripts, `.github/workflows/ci.yml`, `scripts/*.mjs` | `.github/workflows/docs-quality.yml`, `scripts/check_*.py` | Concept yes, syntax no |
-| B. Codified guidelines | Prose rules an agent loads on demand | `packages/tbd/docs/guidelines/` (general, python, typescript families) | `guidelines/` (rust + porting families) | Directly |
-| C. Process assets | Shortcuts, templates, references | `packages/tbd/docs/{shortcuts,templates,references}/` | `playbooks/`, `references/`, `_meta/*-template.md` | Directly |
-| D. Project evidence | Dated findings tied to one codebase | `docs/project/{specs,reviews,retrospectives,research}/` | `case-studies/`, `docs/reviews/`, `_meta/playbook-improvement-log.md` | No — cite, never copy |
-| E. Distribution | How a doc reaches an agent | `.tbd/config.yml` `docs_cache`, `tbd docs fork`, `docs_cache.local_dirs`, `tbd guidelines --add=<url>` | consumes tbd via `internal:` docrefs | N/A |
+1. **This repo’s enforced config** — `eslint.config.js`, `tsconfig.base.json`,
+   `lefthook.yml`, `scripts/check-eslint-contract.mjs`. The highest bar, because it is
+   executable and has survived iteration.
+2. **The playbook’s Rust guidelines** — broadest Rust-specific surface coverage.
+3. **tbd’s TypeScript family** — the structural model, and the source of rules that are
+   really about strictness rather than about TypeScript.
 
-Kind A is the priority.
-It holds the practices the user is asking for and it is the least documented, because a
-config file is the enforcement, not the explanation.
+Where they disagree, the strictest wins.
+Where a source has a mechanism the others lack, it is adopted rather than averaged away.
 
-### Finding: Floor Versus Optionality
-
-`typescript-lint-format-rules.md` states a floor — “These rules are the minimum for
-every project.
-A project may add rules; it may not drop these” — then gives per-toolchain
-profiles that implement it and a
-[Verifying the Floor](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/typescript-lint-format-rules.md)
-section that proves the floor is live.
-
-`rust-project-setup.md` §"Define a Clippy Policy" instead says:
+**No menus.** A guideline states one default and the conditions for departing from it.
+It does not offer ranked alternatives, because an agent handed options takes the
+cheapest one. `rust-project-setup.md` §"Define a Clippy Policy" currently violates this:
 
 > Choose and document one lint strategy: 1. default Clippy lints plus `-D warnings`; 2.
 > a curated set of additional lints; or 3. `clippy::pedantic` with explicit, reviewed
 > exceptions.
 
-Option 1 is materially weaker than the other two, and an agent handed three options will
-take the cheapest. This is the single largest quality gap between the families, and
-closing it is the highest-value item in this spec.
+Option 1 is materially weaker than the other two.
+This menu is deleted and replaced by the floor below.
 
-### The Proposed Rust Floor
+### The Rust Floor
 
-New guideline `rust-lint-format-rules.md`, mirroring the TypeScript document’s
-structure: The Floor → The `[lints]` Floor → profiles → Hooks and Gates → Verifying the
-Floor.
+New guideline `rust-lint-format-rules`, mirroring `typescript-lint-format-rules`
+section-for-section: The Floor → The `[lints]` Floor → Hooks and Gates → Verifying the
+Floor. Every floor rule is derived from something already enforced, not invented:
 
-Each floor rule is derived from an existing tbd rule, not invented:
-
-| tbd floor rule (source) | Rust analogue | Mechanism |
+| Source rule | Rust analogue | Mechanism |
 | --- | --- | --- |
-| Everything auto-formattable is auto-formatted | `cargo fmt --all`; `taplo fmt` for TOML; flowmark for Markdown; `--check` variants in CI | `rustfmt.toml`, CI |
+| Everything auto-formattable is auto-formatted | `cargo fmt --all`; `taplo fmt` for TOML; flowmark for Markdown; `--check` in CI | `rustfmt.toml`, CI |
 | Zero-tolerance, verify-only lint gate | `cargo clippy --locked --workspace --all-targets --all-features -- -D warnings`; never `--fix` in CI | CI job |
 | Type checking is a separate strict gate | `[lints.rust] unsafe_code = "forbid"`; `RUSTDOCFLAGS="-D warnings" cargo doc --no-deps` as the doc-link gate | `Cargo.toml`, CI |
-| Strictest standard preset plus named rules | `clippy::pedantic` at `warn` with `priority = -1`, plus the named restriction picks below | `[lints.clippy]` |
+| Strictest standard preset plus named rules | `clippy::pedantic` at `warn` with `priority = -1`, plus the named picks below | `[lints.clippy]` |
 | `noUncheckedIndexedAccess` | `clippy::indexing_slicing` — forces `.get()` over `[i]` | `[lints.clippy]` |
-| Exhaustiveness checks / `noFallthroughCasesInSwitch` | `clippy::wildcard_enum_match_arm` — a new enum variant becomes a compile error, not a silent `_ =>` | `[lints.clippy]` |
-| `no-floating-promises` | `clippy::let_underscore_future` plus `#[must_use]` discipline; `unused_must_use` at deny | `[lints.clippy]`, `[lints.rust]` |
+| Exhaustiveness checks | `clippy::wildcard_enum_match_arm` — a new variant becomes an error, not a silent `_ =>` | `[lints.clippy]` |
+| `no-floating-promises` | `clippy::let_underscore_future`, `#[must_use]` discipline, `unused_must_use` at deny | `[lints.clippy]`, `[lints.rust]` |
 | `no-restricted-imports` forcing atomic writes | `disallowed-methods` naming `std::fs::write` and `std::fs::File::create`, directing to `tempfile::NamedTempFile::persist` | `clippy.toml` |
 | Strict-preset tuning with a stated reason | `clippy::unwrap_used` and `expect_used` denied outside tests; `panic` denied in library code | `[lints.clippy]` |
 | Exceptions are narrow and file-scoped | `#[expect(lint, reason = "...")]` at the narrowest scope | attribute |
 | Legacy ratchets toward strict | per-crate `[lints]` overrides, each off-switch carrying a tracker ID in a comment | `Cargo.toml` |
 
-Two of these deserve emphasis because they are the ones an agent will not reach for on
-its own:
+Two entries carry most of the value:
 
 - **`disallowed-methods` is the Rust `no-restricted-imports`.** tbd uses lint config to
   enforce a *correctness invariant* — that no code path writes a file non-atomically —
   rather than trusting reviewers to notice.
-  `clippy.toml` supports exactly this, and `rust-filesystem-rules.md` already states the
+  `clippy.toml` supports exactly this, and the playbook’s filesystem rules state the
   atomic-replacement rule in prose without wiring it to enforcement.
-- **`#[expect]` is strictly better than the TypeScript equivalent.** It warns when the
-  suppression is no longer needed, so exceptions expire on their own.
-  The TypeScript floor has to say “remove obsolete exceptions” as a rule because the
-  tooling cannot. This is a case where the Rust guideline should not merely mirror the
-  TypeScript one.
+- **`#[expect]` beats the TypeScript equivalent.** It warns once the suppression is
+  unnecessary, so exceptions expire on their own.
+  The TypeScript floor needs a written “remove obsolete exceptions” rule because its
+  tooling cannot do this.
+  Where Rust has the better mechanism, the Rust document uses it rather than mirroring.
 
-The floor table above is a design proposal, not a validated configuration.
+The floor table is a design proposal, not a validated configuration.
 Phase 3 validates it against a real Rust codebase before it ships.
 
-### Cross-Language Rules to Lift Out
+### Document Migration Map
 
-Four practices are currently trapped in TypeScript-specific documents or in tbd’s config
-comments, but are language-neutral.
-They should move to the `general-*` family so the Rust suite inherits them instead of
-restating them:
+Every playbook Rust document, what it becomes, and where it lands.
+“Neutral core” means the sections move into a shared guideline that Python and
+TypeScript also use; the Rust document keeps only what is genuinely Rust-specific and
+routes to the shared one.
 
-1. **The tracked ratchet.** tbd disables `@typescript-eslint/no-unnecessary-condition`
-   and omits `exactOptionalPropertyTypes`, and each off-switch carries a bead ID
-   (`tbd-s9vn`, `tbd-tdh3`) and a re-enable condition in a comment.
+| Playbook document | Lines | Disposition | tbd destination(s) | Wave |
+| --- | ---: | --- | --- | --- |
+| `rust-rules.md` | 287 | Move as-is | `guidelines/rust-rules.md` (`category: rust`, `globs: "*.rs"`, `alwaysApply: true`) | 1 |
+| *(new)* `rust-lint-format-rules.md` | — | Author new, per the floor above | `guidelines/rust-lint-format-rules.md` (`globs: "*.rs"`, `alwaysApply: true`) | 1 |
+| `rust-project-setup.md` | 327 | Split: 4 of 12 content sections are neutral | `guidelines/rust-project-setup.md` (Cargo, features, toolchain, rustfmt) + `guidelines/ci-and-gates-rules.md` (new, general) | 1 |
+| `rust-cli-rules.md` | 290 | Move; drop the porting-parity pointer | `guidelines/rust-cli-rules.md` | 1 |
+| `rust-testing-rules.md` | 201 | Move; route generic assertions at `general-testing-rules` | `guidelines/rust-testing-rules.md` | 1 |
+| `rust-filesystem-rules.md` | 234 | Split: 9 of 10 content sections are neutral | `guidelines/filesystem-rules.md` (new, general) + thin `guidelines/rust-filesystem-rules.md` (`Path`/`OsStr` types, `walkdir`, platform metadata) | 2 |
+| `rust-release-rules.md` | 267 | Split: 13 of 15 content sections are neutral | `guidelines/release-engineering-rules.md` (new, general) + thin `guidelines/rust-release-rules.md` (crates.io trusted publishing, maturin wheels) | 2 |
+| `rust-code-review-rules.md` | 159 | Split: 6 of 7 content sections are neutral | `guidelines/code-review-rules.md` (new, general) + thin `guidelines/rust-code-review-rules.md` (unsafe and FFI review) | 2 |
+| *(new)* `review-code-rust.md` | — | Author new, mirroring `review-code-typescript` | `shortcuts/standard/review-code-rust.md` | 2 |
+| `porting-principles-and-antipatterns.md`, `python-to-rust-*.md`, `filesystem-heavy-cli-porting.md`, `test-coverage-for-porting.md` | 1,674 | **Stays in the playbook** | — | — |
+
+Result in tbd: 8 `rust-*` documents and 1 shortcut, plus 4 new `general` guidelines that
+the TypeScript and Python families also gain.
+
+### New Language-Neutral Guidelines
+
+Each absorbs material from more than one source, which is what makes the extraction pay
+for itself:
+
+**`filesystem-rules`** (general) — planning vs.
+mutation, atomic visibility vs.
+crash durability, backup and collision policy, cross-device moves as copies,
+deterministic traversal with error propagation, symlink and root boundaries, honest
+partial failure, testing the state machine rather than final bytes.
+Absorbs the rationale behind tbd’s `atomically` enforcement, which is currently an
+unexplained ESLint rule.
+Routes to `rust-filesystem-rules` and (new) a short TypeScript section in
+`typescript-rules` §File Operations.
+
+**`release-engineering-rules`** (general) — one release identity, clean pre-release
+gate, deliberate automation, minimal workflow authority, cool-off for release tooling,
+build once per target, predictable packaging, smoke-test the packaged artifact, channels
+chosen by audience, multi-channel coordination without rebuilding, release logic tested
+outside the workflow, incident preparation.
+Absorbs tbd’s own practice (`release.yml`, `publint`, `release:verify`, the packed
+upgrade proof in CI). Complements, does not replace, `release-notes-guidelines`.
+
+**`code-review-rules`** (general) — Blocker/High/Medium/Low severity, loading the rules
+that own the changed surface, establishing the review baseline, reviewing highest-risk
+boundaries first, findings that can be acted on, the quick scan.
+Gives the four existing `review-code*` shortcuts a rules document to load; they
+currently have none.
+
+**`ci-and-gates-rules`** (general) — one local command matching CI, CI jobs as
+independent evidence, reviewable development automation, dependency and supply-chain
+policy at the gate. Absorbs the neutral half of `typescript-lint-format-rules` §"Hooks
+and Gates Reference" and becomes the home for the four cross-language practices
+currently trapped in tbd’s config comments:
+
+1. **Tracked ratchets.** tbd disables `@typescript-eslint/no-unnecessary-condition` and
+   omits `exactOptionalPropertyTypes`, each off-switch carrying a bead ID (`tbd-s9vn`,
+   `tbd-tdh3`) and a re-enable condition.
    A suppression with a tracker ID is debt; one without is decay.
-   Currently only floor rule 8 of the TypeScript document says this.
-2. **The config-contract check.** `scripts/check-eslint-contract.mjs` computes the
-   *effective* config and asserts the floor rules are live at error severity, catching
-   the case where the gate stays green while the floor is silently off.
-   The rule generalizes: a quality gate that is not itself tested is not a gate.
-   Its Rust form is a probe fixture that lint must reject.
-3. **Hook subprocesses inherit a hostile environment.** `scripts/scrub-git-env.mjs`
-   exists because git exports `GIT_DIR` into hook environments, which redirected every
-   git subprocess the test suite spawned onto the real repository and let fixtures
-   rewrite real refs and tbd data (`tbd-a1lc`). Any tool whose tests shell out to git
-   hits this; it is not a TypeScript concern, and it is directly relevant to Rust ports
-   of git-touching CLIs.
-4. **Generated files are formatter-excluded and drift-tested.** tbd excludes `.tbd/`,
-   `.claude/skills/`, `.agents/skills/` and `AGENTS.md` from the Markdown formatter
-   because they must match their generator byte-for-byte, and guards that with drift
-   tests. The general rule — a formatter and a generator must never both own a file —
-   applies everywhere.
+2. **Config-contract checks.** `scripts/check-eslint-contract.mjs` computes the
+   *effective* config and asserts floor rules are live at error severity, catching the
+   case where the gate stays green while the floor is silently off.
+   A quality gate that is not itself tested is not a gate.
+3. **Hostile hook environments.** `scripts/scrub-git-env.mjs` exists because git exports
+   `GIT_DIR` into hook environments, redirecting every git subprocess the test suite
+   spawned onto the real repository and letting fixtures rewrite real refs and tbd data
+   (`tbd-a1lc`). Any tool whose tests shell out to git hits this.
+4. **Generator versus formatter ownership.** Generated files are formatter-excluded and
+   drift-tested; a formatter and a generator must never both own a file.
 
-### Direction: Playbook to tbd
+### Routing
 
-Per the reuse review’s two-wave recommendation, extended with the new floor document and
-the missing shortcut:
+Extraction only works if an agent still lands on the right document.
+Four routing mechanisms, all already used by tbd:
 
-- **Wave 1 (common floor):** `rust-rules`, `rust-lint-format-rules` (new),
-  `rust-project-setup`, `rust-cli-rules`, `rust-testing-rules`.
-- **Wave 2 (specialized):** `rust-filesystem-rules`, `rust-release-rules`,
-  `rust-code-review-rules`, plus a `review-code-rust` shortcut that loads
-  `rust-code-review-rules` and only the topic guidelines matching the diff.
+| Scenario | Loads |
+| --- | --- |
+| Writing Rust | `rust-rules`, `rust-lint-format-rules` (both `alwaysApply: true`, `globs: "*.rs"`) |
+| Starting a Rust project | `rust-project-setup`, `rust-lint-format-rules`, `ci-and-gates-rules` |
+| Rust CLI work | `rust-cli-rules`, `error-handling-rules` |
+| Any filesystem mutation | `filesystem-rules`, plus `rust-filesystem-rules` in Rust |
+| Any release | `release-engineering-rules`, `release-notes-guidelines`, plus `rust-release-rules` in Rust |
+| Reviewing Rust | `tbd shortcut review-code-rust` → `code-review-rules`, `rust-code-review-rules`, and the topic guidelines matching the diff |
+| Wiring or debugging a quality gate | `ci-and-gates-rules`, plus the language floor document |
 
-Three playbook assets are valuable to tbd independent of Rust:
+Enforced by: `globs`/`alwaysApply` frontmatter; a `**Related**:` block under each H1;
+`description` text that makes `tbd guidelines --list` self-routing; and
+`docs_cache.files` entries so every new name is served.
 
-- The reuse review’s **section classification rule** (classify every section by the
-  question it answers: general / porting / evidence / navigation) is a reusable
-  doc-architecture technique.
-  It belongs in `common-doc-guidelines` or the `new-guideline` shortcut.
-- The `_meta/` **observation → triage → improvement-log loop** is a working mechanism
-  for turning project experience into guideline changes.
-  tbd has retrospectives but no structured loop; this is a candidate template.
-- `scripts/check_docs.py` validates local links, anchors, code fences, and forbidden
-  invisible Unicode across all tracked text.
-  tbd runs flowmark but has no anchor or hidden-Unicode validation.
+### Mechanical Conversion Checklist
 
-### Consistency Contract
+Applies to every migrated document.
+The current state was measured, not assumed:
 
-Every Rust guideline must satisfy this before it ships in tbd.
-Derived from the Python and TypeScript families as they actually are, not from the
-template:
-
-- [ ] Frontmatter: `title`, `description`, `author`, `category: rust`.
-- [ ] `globs: "*.rs"` and `alwaysApply: true` on the always-on documents (`rust-rules`,
-  `rust-lint-format-rules`), matching `typescript-rules` and
-  `typescript-lint-format-rules`.
-- [ ] A `**Related**:` block directly under the H1, as Python and TypeScript do.
-  The Rust suite currently puts related links in a trailing H2 only; keep that section
-  but add the header block so the links load with the first screen.
-- [ ] A scope statement answering “use this when…” in the opening paragraph.
-- [ ] Rules stated as actionable imperatives with a named benefit
-  (`general-eng-agent-principles` §10: no ceremony without a named benefit).
-- [ ] Guideline cross-references by bare name (`rust-testing-rules`), never by relative
-  path — relative links break once the doc is served from `.tbd/docs/`.
-- [ ] External references as full public URLs, per the `new-guideline` shortcut.
-- [ ] Severity vocabulary is Blocker / High / Medium / Low.
-- [ ] No source-language assumptions, no repo-specific tracker prefixes, and “tracking
-  issue or bead” rather than “bead”.
-- [ ] The `common-doc-guidelines` footer, and flowmark-clean formatting.
+- [ ] **Relative links → bare guideline names.** All seven documents cross-link as
+  `](rust-rules.md)`. These break once served from `.tbd/docs/`. Convert to
+  `` `rust-rules` `` per the `new-guideline` shortcut.
+- [ ] **Anchor links dropped or rewritten.** Three documents use section anchors
+  (`rust-testing-rules.md#test-filesystem-behavior-in-isolated-roots` and two more);
+  anchors do not survive the split.
+- [ ] **Repo-local links resolved.** `rust-project-setup` and `rust-release-rules` link
+  to `../SUPPLY-CHAIN-SECURITY.md`; `rust-release-rules` also links to
+  `../docs/project/research/research-rust-cli-pypi-distribution.md`. Retarget at
+  `supply-chain-hardening` or a full public URL.
+- [ ] **Porting pointers removed.** `rust-cli-rules`, `rust-filesystem-rules`, and
+  `rust-testing-rules` link to playbook porting documents that will not exist in tbd.
+- [ ] **Frontmatter completed.** Add `globs: "*.rs"` and `alwaysApply: true` to
+  `rust-rules` and `rust-lint-format-rules`, matching their TypeScript counterparts.
+  `category: rust` is a new category; confirm `tbd guidelines --list` groups it.
+- [ ] **`**Related**:` block added under the H1.** All seven put related links in a
+  trailing H2 only. Keep that section, add the header block, matching Python and
+  TypeScript.
+- [ ] **Optionality removed.** Seven documents contain 19 instances of
+  choose/may/either/one-of phrasing.
+  Each becomes one default plus the conditions for departing from it.
+- [ ] **Tracker language generalized.** “tracking issue or bead”, never “bead”.
+- [ ] **Severity vocabulary** is Blocker / High / Medium / Low.
+- [ ] **Footer and formatting.** `common-doc-guidelines` footer; flowmark-clean.
 
 ## Implementation Plan
 
-### Phase 1: Map and Verify
+### Phase 1: Confirm and Prepare
 
-- [ ] Confirm `rpp-u657` is still the tracking item for upstreaming, and file a tbd-side
-  bead for the receiving work.
-- [ ] Diff each of the seven Rust guidelines against the consistency contract above and
-  record the per-document deltas.
-- [ ] Confirm no `rust-*` name collides with an existing bundled tbd guideline.
+- [ ] Confirm `rpp-u657` still tracks upstreaming; file the tbd-side receiving bead.
+- [ ] Confirm `category: rust` renders correctly in `tbd guidelines --list`.
+- [ ] Record per-document deltas against the conversion checklist.
 
-### Phase 2: Extract the Cross-Language Rules
+### Phase 2: Extract the Neutral Guidelines
 
-- [ ] Add a “Tracked Ratchets” section to `general-coding-rules`, with the tbd config
-  comments as the worked example.
-- [ ] Add “verify the gate itself” to `general-testing-rules`, citing
-  `check-eslint-contract.mjs`.
-- [ ] Add the hostile-environment rule (`GIT_DIR` and friends) to
-  `general-testing-rules`.
-- [ ] Add the generator-versus-formatter ownership rule to `common-doc-guidelines`.
-- [ ] Update `typescript-lint-format-rules` floor rules 6 and 8 to reference the new
-  general homes rather than restating them.
+- [ ] Author `ci-and-gates-rules`, `code-review-rules`, `filesystem-rules`, and
+  `release-engineering-rules` in `packages/tbd/docs/guidelines/`.
+- [ ] Point `typescript-lint-format-rules` §Hooks and Gates and floor rules 6 and 8 at
+  `ci-and-gates-rules` instead of restating them.
+- [ ] Add the `filesystem-rules` pointer to `typescript-rules` §File Operations, so the
+  `atomically` ESLint rule finally has a documented rationale.
+- [ ] Have the `review-code*` shortcuts load `code-review-rules`.
 
 ### Phase 3: Author and Validate the Rust Floor
 
-- [ ] Draft `rust-lint-format-rules.md` in the playbook, mirroring the TypeScript
-  document’s section order.
-- [ ] Validate the proposed `[lints]` block and `clippy.toml` against a real Rust
-  codebase — flowmark-rs is the natural target, since it is first-party and already the
-  playbook’s primary case study.
-  Record which lints fire, which are noise, and which need a project-level exception.
-- [ ] Build the Rust config-contract check: a probe fixture that the lint gate must
-  reject, wired into CI so a config regression fails.
-- [ ] Cut `rust-project-setup.md` §"Define a Clippy Policy" down to a pointer at the new
-  floor document, removing the three-option menu.
+- [ ] Draft `rust-lint-format-rules` in the playbook, mirroring the TypeScript document.
+- [ ] Validate the `[lints]` block and `clippy.toml` against a real Rust codebase —
+  flowmark-rs is the natural target, being first-party and the playbook’s primary case
+  study. Record which lints fire, which are noise, and which need a project exception.
+- [ ] Build the Rust config-contract check: a probe fixture the lint gate must reject,
+  wired into CI.
+- [ ] Reduce `rust-project-setup` §"Define a Clippy Policy" to a pointer, deleting the
+  three-option menu.
 
-### Phase 4: Upstream
+### Phase 4: Migrate
 
-- [ ] Wave 1 into `packages/tbd/docs/guidelines/`, registered in `docs_cache.files` as
-  `internal:` docrefs.
-- [ ] Wave 2, plus the `review-code-rust` shortcut.
-- [ ] Point the playbook’s `.tbd/config.yml` at the now-bundled
-  `internal:guidelines/rust-*.md` so the playbook consumes them the same way it consumes
-  the TypeScript family, and the playbook stops being their home.
-- [ ] Record the outcome in `_meta/playbook-improvement-log.md`.
+- [ ] Wave 1: `rust-rules`, `rust-lint-format-rules`, `rust-project-setup`,
+  `rust-cli-rules`, `rust-testing-rules` — applying the conversion checklist.
+- [ ] Wave 2: the three split documents plus `review-code-rust`.
+- [ ] Register every new name in `docs_cache.files` as an `internal:` docref.
+- [ ] Repoint the playbook’s `.tbd/config.yml` at `internal:guidelines/rust-*.md` so it
+  consumes them as it consumes the TypeScript family, and stops being their home.
+- [ ] Record the outcome in the playbook’s `_meta/playbook-improvement-log.md`.
 
 ## Testing Strategy
 
-- Guideline structure regressions belong in the playbook’s existing
-  `tests/test_rust_guidelines.py`; extend it to assert the consistency contract.
-- The Rust floor is validated empirically in Phase 3 by running it against flowmark-rs,
-  not by inspection.
+- Extend the playbook’s `tests/test_rust_guidelines.py` to assert the conversion
+  checklist, so structure regressions fail there before migration.
+- Validate the Rust floor empirically in Phase 3 against flowmark-rs, not by inspection.
 - The config-contract probe is the test for the floor itself.
-- tbd-side: `pnpm ci:quality` plus the forkable-docs tests already cover a new bundled
-  guideline; confirm `tbd docs sync` serves each new name.
+- tbd-side: `pnpm ci:quality` plus the forkable-docs tests cover new bundled guidelines;
+  confirm `tbd docs sync` serves each new name and `tbd guidelines <name>` resolves it.
+- Coverage check after extraction: every H2 section in the seven source documents maps
+  to a section in some destination document.
+  No section is dropped silently.
 
 ## Open Questions
 
-- Should `rust-lint-format-rules` be authored in the playbook first and then upstreamed
-  (matching how the other seven were developed), or authored directly in tbd since it
-  has no porting content?
-  Authoring in the playbook keeps one review venue and one validation target; authoring
-  in tbd avoids a second migration.
-- Does the Rust floor need profiles at all?
-  The TypeScript document needs them because ESLint and Biome are genuine alternatives.
-  Rust has one formatter and one linter, so the profile layer may collapse into a single
-  configuration — which would make the Rust document shorter than its model, not longer.
-- Is `clippy::indexing_slicing` tolerable across a whole codebase, or does it need to be
-  scoped to library code with tests exempted, as tbd scopes its unsafe-* relaxations to
-  test files? Phase 3 answers this with evidence.
+- **Does the Rust floor need a profile layer?** Probably not.
+  `typescript-lint-format-rules` needs profiles because ESLint and Biome are genuine
+  alternatives; Rust has one formatter and one linter, so the Rust document should be
+  shorter than its model, with a single configuration and no branches.
+- **Is `clippy::indexing_slicing` tolerable codebase-wide,** or does it need test-file
+  scoping the way tbd scopes its `no-unsafe-*` relaxations to tests?
+  Phase 3 answers this with evidence.
+- **Where is `rust-lint-format-rules` authored?** Drafting in the playbook keeps one
+  review venue and one validation target; drafting directly in tbd avoids a second
+  migration. Leaning playbook, since Phase 3 validation happens there.
+- **Do the four new neutral guidelines need Python counterparts filed?** The Python
+  family has no filesystem or release document either.
+  Extraction makes them available, but Python-specific companions are out of scope here.
 
 ## References
 
@@ -300,7 +337,7 @@ template:
 - [`general-eng-agent-principles`](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/general-eng-agent-principles.md)
 - [`supply-chain-hardening`](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/supply-chain-hardening.md)
 - [Rust guideline reuse review, 2026-08-08](https://github.com/jlevy/rust-porting-playbook/blob/main/docs/reviews/rust-guideline-reuse-review-2026-08-08.md)
-  — prior art and the two-wave upstream recommendation
+  — prior art and the two-wave recommendation
 - [Playbook guidelines index](https://github.com/jlevy/rust-porting-playbook/blob/main/guidelines/README.md)
 - tbd enforcement config: `eslint.config.js`, `tsconfig.base.json`, `lefthook.yml`,
   `scripts/check-eslint-contract.mjs`, `scripts/scrub-git-env.mjs`,
