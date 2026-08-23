@@ -296,6 +296,10 @@ opinionated rules with concrete examples, built from months of heavy agentic cod
 | [python-rules](packages/tbd/docs/guidelines/python-rules.md) | Type hints, docstrings, exception handling, resource management |
 | [python-cli-patterns](packages/tbd/docs/guidelines/python-cli-patterns.md) | Modern Python CLI stack: uv, Typer, Rich, Ruff, BasedPyright |
 | [backward-compatibility-rules](packages/tbd/docs/guidelines/backward-compatibility-rules.md) | Compatibility across code, APIs, file formats, and database schemas |
+| [ci-and-gates-rules](packages/tbd/docs/guidelines/ci-and-gates-rules.md) | Wiring a quality gate that holds: one entry point in two modes, config-contract checks, the traps that keep a gate green while it checks nothing |
+| [code-review-rules](packages/tbd/docs/guidelines/code-review-rules.md) | Severity vocabulary, review baseline, risk-ordered reading, and findings that can be acted on |
+| [filesystem-rules](packages/tbd/docs/guidelines/filesystem-rules.md) | Atomic visibility vs crash durability, planning vs mutation, collision policy, deterministic traversal, honest partial failure |
+| [release-engineering-rules](packages/tbd/docs/guidelines/release-engineering-rules.md) | Release identity, least-privilege publishing, build-once-and-promote, smoke-testing the packaged artifact |
 | [agent-session-bootstrap](packages/tbd/docs/guidelines/agent-session-bootstrap.md) | Installing a repo’s pinned toolchain at session start when agents run in containers you don’t control |
 | [convex-rules](packages/tbd/docs/guidelines/convex-rules.md) | Convex function syntax, schema design, queries, mutations |
 | [convex-limits-best-practices](packages/tbd/docs/guidelines/convex-limits-best-practices.md) | Convex platform limits, workarounds, performance tuning |

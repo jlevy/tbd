@@ -426,6 +426,12 @@ yet production-ready**—do not adopt for shipped builds.
   await writeFile(filePath, content);
   ```
 
+  Enforce this in the linter rather than in review, with a `no-restricted-imports` entry
+  naming every spelling (`fs`, `node:fs`, `fs/promises`, `node:fs/promises`); see
+  `tbd guidelines filesystem-rules` for the rule’s rationale and the rest of the
+  filesystem contract (atomic visibility versus crash durability, collision policy,
+  deterministic traversal, honest partial failure).
+
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
 -->

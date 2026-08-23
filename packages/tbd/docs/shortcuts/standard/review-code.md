@@ -61,6 +61,8 @@ Create a to-do list with the following items then perform all of them:
 
 4. **Load general guidelines:**
 
+   - Run `tbd guidelines code-review-rules` (severity vocabulary, risk ordering, and
+     what makes a finding actionable)
    - Run `tbd guidelines general-coding-rules`
    - Run `tbd guidelines general-comment-rules`
    - Run `tbd guidelines error-handling-rules`
@@ -72,6 +74,10 @@ Create a to-do list with the following items then perform all of them:
      `tbd guidelines typescript-rules typescript-lint-format-rules`
    - For Python files: `tbd guidelines python-rules`
    - Load both if changes contain both languages
+   - Add the topic guidelines the diff touches, in any language: `filesystem-rules`
+     (paths, traversal, file mutation), `ci-and-gates-rules` (build config, CI, hooks,
+     gate scripts), `release-engineering-rules` (artifacts, publishing, version
+     identity), `supply-chain-hardening` (dependencies added or upgraded)
 
 6. **Perform comprehensive senior engineering review:**
 
