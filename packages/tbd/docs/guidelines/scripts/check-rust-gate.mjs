@@ -19,7 +19,7 @@ function splitCsv(value) {
 }
 
 function parseOptions(args) {
-  const options = { targets: [] };
+  const options = { features: [], targets: [] };
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     const value = args[index + 1];
@@ -40,6 +40,13 @@ function parseOptions(args) {
       index += 1;
     } else if (arg === '--installed' && value) {
       options.installed = splitCsv(value);
+      index += 1;
+    } else if (arg === '--all-features') {
+      options.allFeatures = true;
+    } else if (arg === '--no-default-features') {
+      options.noDefaultFeatures = true;
+    } else if (arg === '--features' && value) {
+      options.features.push(...splitCsv(value));
       index += 1;
     } else {
       fail(`unknown or incomplete option: ${arg}`);
@@ -112,6 +119,25 @@ function planCrossTargets(expectedTargets, installedTargets, mode) {
   return { selected, missing };
 }
 
+function cargoFeatureArgs(options) {
+  const features = [...new Set(options.features ?? [])].sort();
+  if (options.allFeatures && (options.noDefaultFeatures || features.length > 0)) {
+    fail('--all-features cannot be combined with --no-default-features or --features');
+  }
+  if (options.allFeatures) {
+    return ['--all-features'];
+  }
+
+  const args = [];
+  if (options.noDefaultFeatures) {
+    args.push('--no-default-features');
+  }
+  if (features.length > 0) {
+    args.push('--features', features.join(','));
+  }
+  return args;
+}
+
 function checkLintPolicy(options) {
   const missing = missingLintPolicies(loadMetadata(options));
   if (missing.length > 0) {
@@ -143,6 +169,7 @@ function checkCrossTargets(options, execute) {
   const mode = options.mode ?? 'strict';
   const installed = options.installed ?? installedRustTargets();
   const plan = planCrossTargets(options.targets, installed, mode);
+  const featureArgs = cargoFeatureArgs(options);
   printTargetPlan(plan);
 
   if (!execute) {
@@ -162,7 +189,7 @@ function checkCrossTargets(options, execute) {
         '--locked',
         '--workspace',
         '--all-targets',
-        '--all-features',
+        ...featureArgs,
         '--manifest-path',
         manifestPath,
         '--target',
@@ -180,12 +207,13 @@ function usage() {
   return `Usage:
   check-rust-gate.mjs lint-policy [--manifest-path Cargo.toml]
   check-rust-gate.mjs cross-targets --mode strict|local --target <triple> [...]
+    [--all-features | [--no-default-features] [--features <csv>]]
   check-rust-gate.mjs plan-cross-targets --mode strict|local --expected <csv> --installed <csv>
 
 Use strict mode in CI. Local mode is discovery-only and may skip missing targets.`;
 }
 
-export { manifestDeclaresLintPolicy, missingLintPolicies, planCrossTargets };
+export { cargoFeatureArgs, manifestDeclaresLintPolicy, missingLintPolicies, planCrossTargets };
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
   try {

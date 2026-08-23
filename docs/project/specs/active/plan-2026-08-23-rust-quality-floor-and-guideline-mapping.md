@@ -202,7 +202,7 @@ Every rule is derived from something already enforced.
 | Source rule | Rust analogue | Mechanism |
 | --- | --- | --- |
 | Everything auto-formattable is auto-formatted | `cargo fmt --all`; `taplo fmt` for TOML; flowmark for Markdown; `--check` in CI | `rustfmt.toml`, CI |
-| Zero-tolerance, verify-only lint gate | `cargo clippy --locked --workspace --all-targets --all-features -- -D warnings`; never `--fix` in CI | CI job |
+| Zero-tolerance, verify-only lint gate | `cargo clippy --locked --workspace --all-targets -- -D warnings`, repeated for each supported feature combination; never `--fix` in CI | CI job |
 | Unsafe and documentation checks are separate strict gates | `[lints.rust] unsafe_code = "deny"`; `missing_docs = "deny"`; `RUSTDOCFLAGS="-D warnings" cargo doc --no-deps` | `Cargo.toml`, CI |
 | Standard preset plus named rules | `clippy::pedantic` at `deny` with `priority = -1`, plus the admitted rules below | `[lints.clippy]` |
 | `noUncheckedIndexedAccess` | No universal analogue: `clippy::indexing_slicing` is a per-module ratchet where bounds failure must become recoverable behavior | `[lints.clippy]` |

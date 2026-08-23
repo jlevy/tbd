@@ -245,8 +245,11 @@ Published projects normally need:
 Build docs with warnings denied where practical:
 
 ```bash
-RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --all-features --no-deps
+RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --no-deps
 ```
+
+Pass the exact feature set used for the published documentation surface; use
+`--all-features` only when that is a valid, supported combination.
 
 ## Keep Repository Configuration Minimal
 

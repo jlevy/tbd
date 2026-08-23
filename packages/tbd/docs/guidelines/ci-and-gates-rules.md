@@ -165,6 +165,10 @@ The checked-in script is distributed with this guideline and has negative tests 
 empty workspace and a missing strict target.
 It also leaves `rustup target list` errors visible; silencing that command can turn
 “rustup is not on this runner” into a successful local no-op.
+It uses Cargo’s default feature set unless passed `--all-features`,
+`--no-default-features`, or `--features`. Repeat the strict invocation for each
+supported feature combination; do not substitute `--all-features` when features are
+mutually exclusive or that combination is not part of the project’s contract.
 
 Tests have the mirror-image version: where platform behavior differs (filesystem event
 backends, path semantics, line endings), a matrix across the supported platforms is the

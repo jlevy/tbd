@@ -56,10 +56,13 @@ It may drop one only under a departure condition stated at the end of this secti
    and a readability setting or two.
    Every other knob needs a stated reason.
 
-2. **The lint gate is zero-tolerance and verify-only in CI.**
-   `cargo clippy --locked --workspace --all-targets --all-features -- -D warnings`.
+2. **The lint gate is zero-tolerance and verify-only in CI.** Start with
+   `cargo clippy --locked --workspace --all-targets -- -D warnings`, then repeat it for
+   each additional feature combination in the project’s support contract.
    `--all-targets` is load-bearing: without it, tests, examples, and benches are not
-   linted at all. Never run `--fix` in CI.
+   linted at all. `--all-features` is valid only when all features are compatible and
+   that combination is itself supported.
+   Never run `--fix` in CI.
 
 3. **Warnings are denied in the manifest, not only on the command line.** Put
    `warnings = "deny"` in `[lints.rust]` so a local `cargo build` enforces the same
@@ -72,8 +75,9 @@ It may drop one only under a departure condition stated at the end of this secti
 
 5. **Public items are documented and documentation warnings are errors.**
    `missing_docs = "deny"` in `[lints.rust]`, and
-   `RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps --all-features` as its own
-   gate. A broken intra-doc link is a broken link whether or not anyone builds the docs.
+   `RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --no-deps` as its own
+   gate, using the feature set that defines the published documentation surface.
+   A broken intra-doc link is a broken link whether or not anyone builds the docs.
 
 6. **`unsafe_code` is denied at the workspace root.** Use `deny`, not `forbid`, unless
    the project genuinely has no unsafe anywhere and never will: `forbid` cannot be
@@ -289,16 +293,26 @@ pre-commit:
       priority: 1
 ```
 
-The verify gate, as separate jobs so failures answer different questions:
+The default-feature verify gate, as separate jobs so failures answer different
+questions:
 
 ```bash
 cargo fmt --all -- --check
-cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
-cargo test --locked --workspace --all-features
-RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --all-features --no-deps
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo test --locked --workspace
+RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --no-deps
 cargo deny --locked check                 # advisories, licenses, sources, bans
-cargo +$MSRV check --locked --all-features && cargo +$MSRV test --locked
+cargo +$MSRV check --locked --workspace && cargo +$MSRV test --locked --workspace
 ```
+
+Add clippy and test invocations for every other supported feature combination.
+Run the docs job with the feature set used for published documentation, and run MSRV
+jobs only for feature sets the project promises on its MSRV. Do not collapse that matrix
+to `--all-features` unless every feature is compatible and the combined configuration is
+supported. The MSRV command above assumes one compiler floor across the workspace.
+If members declare different `rust-version` values, replace it with explicit package or
+release-unit jobs at each promised floor; do not fall back to Cargo’s default-member
+selection, which can leave published members unchecked.
 
 Set `RUSTFLAGS: "-D warnings"` and `CARGO_INCREMENTAL: 0` in the CI environment.
 Keep fix mode (`cargo clippy --fix`, `cargo fmt --all`) in a separate `fix` target that
@@ -370,7 +384,10 @@ After setting up or changing any lint configuration, prove it holds:
      --target x86_64-pc-windows-msvc
    ```
 
-   Choose targets from the project’s supported platform contract.
+   Choose targets and feature options from the project’s support contract.
+   The helper defaults to Cargo’s default features and accepts `--all-features`,
+   `--no-default-features`, and `--features <csv>` explicitly; repeat the invocation
+   when the supported feature matrix has more than one valid combination.
 
 5. **Confirm CI runs verify mode**, not `--fix`, and that the docs and MSRV gates are
    present and actually executed rather than skipped on a missing toolchain.

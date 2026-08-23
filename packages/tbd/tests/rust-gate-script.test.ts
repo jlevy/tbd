@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -16,6 +17,17 @@ const SCRIPT = join(
 
 function run(args: string[]) {
   return spawnSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8' });
+}
+
+async function cargoFeatureArgs(options: {
+  allFeatures?: boolean;
+  features?: string[];
+  noDefaultFeatures?: boolean;
+}): Promise<string[]> {
+  const gate = (await import(pathToFileURL(SCRIPT).href)) as {
+    cargoFeatureArgs: (value: typeof options) => string[];
+  };
+  return gate.cargoFeatureArgs(options);
 }
 
 describe('check-rust-gate guideline script', () => {
@@ -107,5 +119,19 @@ describe('check-rust-gate guideline script', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('LINT TARGET: target-a');
     expect(result.stdout).toContain('SKIP TARGET: target-b');
+  });
+
+  it('uses the default feature set unless the project declares another one', async () => {
+    await expect(cargoFeatureArgs({})).resolves.toEqual([]);
+    await expect(cargoFeatureArgs({ allFeatures: true })).resolves.toEqual(['--all-features']);
+    await expect(
+      cargoFeatureArgs({ features: ['serde', 'cli', 'serde'], noDefaultFeatures: true }),
+    ).resolves.toEqual(['--no-default-features', '--features', 'cli,serde']);
+  });
+
+  it('rejects contradictory Cargo feature options', async () => {
+    await expect(cargoFeatureArgs({ allFeatures: true, features: ['cli'] })).rejects.toThrow(
+      '--all-features cannot be combined',
+    );
   });
 });

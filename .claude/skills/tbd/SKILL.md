@@ -383,8 +383,7 @@ Load the **General engineering** core, then only guidelines matching the task.
 
 ### General engineering
 
-*Read all of these before writing or reviewing any code.
-This group is deliberately small: everything else is routed by what the change touches.*
+*Read this core before writing or reviewing code. Everything else is routed by what the change touches.*
 
 | Name | Description |
 | --- | --- |
@@ -392,22 +391,13 @@ This group is deliberately small: everything else is routed by what the change t
 
 ### Cross-cutting engineering topics
 
-*Language-neutral, loaded by what the change touches.
-Writing or changing tests: general-testing-rules.
-Working red-green: general-tdd-guidelines.
-Snapshots or goldens: golden-testing-guidelines.
-Changing a published interface: backward-compatibility-rules.
-Committing: commit-conventions.
-Reviewing a diff: code-review-rules.
-CI, hooks, or quality gates: ci-and-gates-rules.
-Paths, traversal, or file mutation: filesystem-rules.
-Building, versioning, or publishing artifacts: release-engineering-rules.*
+*Select by the changed surface: general code details, comments, errors, tests or TDD, goldens, dependencies, published interfaces, commits, review, CI and gates, filesystem work, or releases.*
 
 | Name | Description |
 | --- | --- |
 | backward-compatibility-rules | Guidelines for maintaining backward compatibility only for real consumers and data from released versions |
 | ci-and-gates-rules | How to wire a quality gate that actually holds—one entry point in two modes, config-contract checks that prove the floor is live, the traps that keep a gate green while it checks nothing (pipeline exit status, self-recorded evidence, single-platform blindness, scope holes), suppression ratchets, generated-file ownership, and least-privilege workflow authority. Language-neutral; load it with the language floor document whenever wiring, debugging, or reviewing a gate. |
-| code-review-rules | The language-neutral substance of a code review—the Blocker/High/Medium/Low severity vocabulary, establishing a baseline before hunting findings, reviewing highest-risk boundaries first, writing findings that can be acted on, and a quick-scan table of patterns with default severities. The review-code shortcuts are the procedure; this is what they apply. Load for any review, with the language-specific review document where one exists. |
+| code-review-rules | The language-neutral substance of a code review—the Blocker/High/Medium/Low severity vocabulary, establishing a baseline before hunting findings, reviewing highest-risk boundaries first, writing findings that can be acted on, and investigative quick-scan questions with possible consequences. The review-code shortcuts are the procedure; this is what they apply. Load for any review, with the language-specific review document where one exists. |
 | commit-conventions | Conventional Commits format with extensions for agentic workflows |
 | error-handling-rules | Rules for handling errors, failures, and exceptional conditions |
 | filesystem-rules | Language-neutral rules for code that reads directory trees or mutates files—separating planning from mutation, atomic visibility versus crash durability, explicit metadata and collision policy, cross-device moves, deterministic traversal, symlink and root boundaries, honest partial failure, and testing the state machine rather than the final bytes. Load whenever a change touches file mutation, traversal, or path handling, alongside the language-specific filesystem document if one exists. |
@@ -421,7 +411,7 @@ Building, versioning, or publishing artifacts: release-engineering-rules.*
 
 ### TypeScript & JS ecosystem
 
-*Also load these when working in TypeScript or JavaScript.*
+*Select the documents that match the TypeScript or JavaScript surface; do not load this whole group by default.*
 
 | Name | Description |
 | --- | --- |
@@ -437,7 +427,7 @@ Building, versioning, or publishing artifacts: release-engineering-rules.*
 
 ### Python
 
-*Also load these when working in Python.*
+*Select the documents that match the Python surface; do not load this whole group by default.*
 
 | Name | Description |
 | --- | --- |
@@ -447,13 +437,13 @@ Building, versioning, or publishing artifacts: release-engineering-rules.*
 
 ### Rust
 
-*Also load these when working in Rust.*
+*Select the documents that match the Rust surface; do not load this whole group by default.*
 
 | Name | Description |
 | --- | --- |
 | rust-cli-rules | Rules for composable, testable, and cross-platform Rust command-line applications |
-| rust-code-review-rules | The Rust-specific half of review—which guideline owns each changed surface, the unsafe and FFI checklist with default severities, and a Rust quick-scan table. The severity vocabulary, review baseline, and risk ordering live in code-review-rules. |
-| rust-filesystem-rules | The Rust-specific half of filesystem work—path and string types, intent-specific write boundaries, the tempfile atomic-replacement sequence, traversal error propagation, and platform metadata. The behavior contract itself lives in filesystem-rules. |
+| rust-code-review-rules | The Rust-specific half of review—which guideline owns each changed surface, the unsafe and FFI checklist, and a Rust quick-scan table of investigative questions and possible consequences. The severity vocabulary, review baseline, and risk ordering live in code-review-rules. |
+| rust-filesystem-rules | The Rust-specific half of filesystem work—path and string types, intent-specific write boundaries, the tempfile atomic-replacement sequence, traversal crate choice and error propagation, and platform metadata. The behavior contract itself lives in filesystem-rules. |
 | rust-lint-format-rules | The lint and auto-formatting floor for every Rust project—the `[lints]` block, the clippy.toml, rustfmt and toolchain pinning, hooks and CI gates, and how to prove the floor is live. Includes measured adoption cost for the lints beyond the floor, taken from a real 35k-line codebase, so a project can decide with evidence rather than taste. |
 | rust-project-setup | Rules for structuring, validating, and maintaining modern Rust packages and workspaces |
 | rust-release-rules | The Rust-specific half of releasing—crates.io publishing and workspace ordering, trusted publishing, cargo package and the unpublished-sibling trap, semver checks, and shipping a Rust binary as a Python wheel through maturin. The release contract itself lives in release-engineering-rules. |
@@ -462,7 +452,7 @@ Building, versioning, or publishing artifacts: release-engineering-rules.*
 
 ### Convex
 
-*Also load these when working with Convex.*
+*Select the documents that match the Convex surface; do not load this whole group by default.*
 
 | Name | Description |
 | --- | --- |
