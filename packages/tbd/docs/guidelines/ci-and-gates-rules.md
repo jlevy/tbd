@@ -1,6 +1,6 @@
 ---
 title: CI and Quality Gate Rules
-description: How to wire a quality gate that actually holds—one entry point in two modes, config-contract checks that prove the floor is live, the traps that keep a gate green while it checks nothing (pipeline exit status, self-recorded evidence, single-platform blindness, scope holes), suppression ratchets, generated-file ownership, and least-privilege workflow authority. Language-neutral; load it with the language floor document whenever wiring, debugging, or reviewing a gate.
+description: How to wire a quality gate that actually holds—one entry point in two modes, thin workflow and build-file orchestration backed by tested project-native programs, config-contract checks that prove the floor is live, the traps that keep a gate green while it checks nothing (pipeline exit status, self-recorded evidence, single-platform blindness, scope holes), suppression ratchets, generated-file ownership, and least-privilege workflow authority. Language-neutral; load it with the language floor document whenever wiring, debugging, or reviewing a gate.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: general
 ---
@@ -44,9 +44,46 @@ If they differ, CI failures are discoveries rather than confirmations.
 - **Fail when a required check did not run.** A gate that skips a job on a missing tool,
   an unset variable, or an empty file list reports success for work it never did.
 
-Keep complex gate logic in checked-in scripts that accept explicit inputs and return
-non-zero on partial failure, not in long inline YAML or shell blocks.
-Scripts can be unit-tested; a shell block in a workflow cannot be run except by pushing.
+## Keep Shell at the Invocation Boundary
+
+GitHub Actions workflows, Makefile recipes, package scripts, and task-runner files
+should describe dependencies and invoke stable project commands.
+Do not put parsing, loops, branching on computed state, aggregation, validation, or
+release-plan decisions in their inline shell.
+Bash failure behavior is easy to misread around `set -e`, pipelines, command
+substitutions, and loop bodies; embedded shell also lacks an ordinary unit-test boundary
+and couples the gate to a runner shell.
+
+Shell is appropriate for a single command or transparent plumbing whose failures remain
+visible.
+Once a step computes a result or decides whether the gate passes, move it into a
+checked-in program with explicit inputs, outputs, and exit behavior.
+The local build target and CI must call the same program through the same stable
+command; do not copy its logic into a Makefile and a workflow.
+
+Choose the implementation language from the project’s pinned toolchain:
+
+- Use JavaScript or TypeScript when the repository already pins Node and has an
+  established JavaScript or TypeScript test path.
+- Use Python when the repository pins a Python version and environment and already tests
+  Python code.
+- Otherwise prefer the project’s existing implementation language or build tooling.
+  In a polyglot repository, choose a runtime installed on every supported runner and
+  owned by the team responsible for the gate.
+
+Do not choose Node because GitHub Actions itself uses JavaScript, or Python because the
+current runner image happens to contain `python3`. An ambient interpreter is not a
+pinned build input, and adding a second runtime solely for CI glue creates another
+bootstrap and supply-chain surface.
+Prefer the standard library when it is sufficient.
+
+Separate reusable decision logic from the thin command-line adapter.
+Do not recreate the shell inside the program: spawn tools with argument arrays, inspect
+each status, and reject missing or partial output explicitly.
+Test successful input, expected rejection, child-process failure, and any empty or
+partial state that the gate must reject.
+Diagnostics go to stderr; machine-consumed results use a structured output or file; and
+only complete success returns zero.
 
 ## Prove the Gate Is Live
 
@@ -161,10 +198,15 @@ node .tbd/docs/guidelines/scripts/check-rust-gate.mjs cross-targets \
 
 The expected targets come from the project’s support contract, not from what happens to
 be installed on the current runner.
-The checked-in script is distributed with this guideline and has negative tests for an
-empty workspace and a missing strict target.
-It also leaves `rustup target list` errors visible; silencing that command can turn
-“rustup is not on this runner” into a successful local no-op.
+The command above uses tbd’s Node reference helper because tbd already pins Node; the
+file extension is not a language recommendation for Rust projects.
+If a project does not otherwise pin Node in its gate environment, implement the same
+contract in its existing toolchain and invoke that project-owned program from both local
+and CI entry points.
+Do not add Node solely to run this check.
+The reference helper has negative tests for an empty workspace and a missing strict
+target. It also leaves `rustup target list` errors visible; silencing that command can
+turn “rustup is not on this runner” into a successful local no-op.
 It uses Cargo’s default feature set unless passed `--all-features`,
 `--no-default-features`, or `--features`. Repeat the strict invocation for each
 supported feature combination; do not substitute `--all-features` when features are
@@ -306,6 +348,7 @@ things that are not tests.
 pre-push:
   commands:
     check:
+      # Node-project example; use the project’s pinned runtime.
       run: node scripts/scrub-git-env.mjs pnpm run ci:quality
 ```
 
@@ -368,6 +411,9 @@ After wiring or reordering any gate, prove it holds:
 5. Break a generated file by hand; the drift test fails.
 6. Each check that can pass vacuously (empty input, skipped job, missing tool) fails
    loudly when its input disappears.
+7. Local build targets and CI invoke the same tested gate program; their workflow,
+   Makefile, or task-runner definitions contain orchestration rather than duplicated
+   decision logic.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

@@ -331,7 +331,9 @@ After setting up or changing any lint configuration, prove it holds:
 
 1. **Confirm every member has a lint policy.** This is the failure that looks exactly
    like success, so check for the `[lints]` table itself, over the manifests cargo says
-   are in the workspace:
+   are in the workspace.
+   Use a tested helper in the project’s pinned language; tbd’s Node reference
+   implementation is:
 
    ```bash
    node .tbd/docs/guidelines/scripts/check-rust-gate.mjs lint-policy \
