@@ -1,0 +1,17 @@
+---
+type: is
+id: is-01m0xm9m2p48wy0tsss6akmcxe
+title: Add a concise correct Python atomic-write example
+kind: task
+status: open
+priority: 2
+version: 1
+labels: []
+dependencies: []
+parent_id: is-01m0xm6ckrwa936ffezb6qsxmk
+created_at: 2026-08-25T23:32:40.661Z
+updated_at: 2026-08-25T23:32:40.661Z
+---
+Give a concise example of atomic writes done properly in Python.
+
+The example must use the recommended atomic output-file method where it fits, name the exact API, show failure behavior, and state when the example applies. Prefer a concrete example that changes an agent's implementation over general file-safety advice it would already know.
