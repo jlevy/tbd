@@ -19,7 +19,7 @@ not exist.
 
 **Related**:
 
-- `release-notes-guidelines` (what goes in the notes)
+- `release-notes-guidelines` (the published delta; unreleased regressions are not fixes)
 - `supply-chain-hardening` (cool-off and pinning for release tooling)
 - `ci-and-gates-rules` (the gate this reuses, and workflow authority in general)
 - `rust-release-rules` (crates.io trusted publishing, maturin wheels)
@@ -50,8 +50,9 @@ an explicit release identity.
 Before creating or accepting a release tag, verify formatting, lint, tests, docs, and
 project-specific checks; supported feature combinations and platforms; the declared
 minimum toolchain; dependency and license policy; package contents and exclusions;
-release notes for the exact commit range; version consistency; and that nothing is
-uncommitted or unpushed.
+release notes for the exact previous-release-to-candidate delta, with development-only
+regressions omitted or folded into their parent entries; version consistency; and that
+nothing is uncommitted or unpushed.
 
 The release workflow repeats the checks that protect publishing.
 A local run is convenience, not proof that the remote tag still names the same state.
@@ -221,7 +222,8 @@ failed run’s logs removes the only record of what went wrong.
 - [ ] Packaged artifacts—not build outputs—pass smoke tests in a clean environment.
 - [ ] Channel selection matches documented audiences.
 - [ ] Multi-channel reruns are idempotent, and conflicts fail.
-- [ ] Release notes describe the exact commit range.
+- [ ] Every item under Fixes corrects a defect present in the previous release;
+  unreleased regressions are omitted or folded into their parent entries.
 - [ ] Incident and recovery actions are documented.
 
 <!-- This document follows common-doc-guidelines.md.

@@ -467,7 +467,7 @@ Load the **General engineering** core, then only guidelines matching the task.
 | cli-agent-skill-patterns | A concise decision guide for portable skills, CLI-backed skills, safe bundle installation, and agent integration |
 | common-doc-guidelines | Common cross-project standards for writing and organizing docs, code comments, and text files—how to organize, structure, write, and format documents, plus the guideline footer convention. Downstream of github.com/jlevy/practical-prose. Use whenever writing or editing any documentation, README, guideline, or design doc. |
 | electrobun-app-development-patterns | Building desktop apps with Electrobun—runtime and process model, typed RPC, project layout, packaging and the delta updater, plus an evidence-based maturity and security assessment |
-| release-notes-guidelines | Guidelines for writing clear, accurate release notes |
+| release-notes-guidelines | Rules for release notes that describe the published delta and exclude defects introduced and corrected before release from separate Fixes entries |
 | tauri-app-development-patterns | Building desktop apps with Tauri 2—the Rust core and system webview model, capabilities and permissions, typed commands and IPC, attaching Rust or non-Rust backends, packaging, signing, and the signed updater |
 | tbd-sync-troubleshooting | Common issues and solutions for tbd sync and workspace operations |
 
