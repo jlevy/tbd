@@ -132,16 +132,32 @@ export type SyncErrorType = 'permanent' | 'transient' | 'unknown';
  * @param error - Error message or Error object from git push
  * @returns Classification of the error type
  */
+/**
+ * Match an HTTP status code only where the message reports one.
+ *
+ * A bare `/5\d\d/` matches digits anywhere, so any path, object id, or byte count
+ * carrying those characters decides the classification. That is not theoretical: a
+ * missing-remote push failure under `/tmp/tryscript-05895p` classified as a 5xx
+ * server error because `5\d\d` matched the `589` in the directory name, while the
+ * identical failure elsewhere classified as `unknown`.
+ *
+ * A status code git reports stands on its own — `HTTP 500`, `returned error: 403`,
+ * `status=401` — so require a boundary on both sides. The two sides differ: a
+ * leading `.` means the digits are part of a longer number (`v1.500.2`), while a
+ * trailing `.` is ordinary sentence punctuation (`returned error: 503.`).
+ */
+function reportsStatusCode(lowerMessage: string, code: string): boolean {
+  return new RegExp(String.raw`(?<![\w./-])${code}(?![\w/-])`).test(lowerMessage);
+}
+
 export function classifySyncError(error: Error | string): SyncErrorType {
   const msg = typeof error === 'string' ? error : error.message;
   const lower = msg.toLowerCase();
 
   // Permanent indicators - push is blocked by policy/permissions
   const permanentPatterns = [
-    /403/, // HTTP 403 Forbidden
     /forbidden/,
     /permission denied/,
-    /401/, // HTTP 401 Unauthorized
     /unauthorized/,
     /protected branch/,
     /remote rejected/,
@@ -149,6 +165,11 @@ export function classifySyncError(error: Error | string): SyncErrorType {
     /push declined/,
     /not allowed to push/,
   ];
+
+  // HTTP 403 Forbidden, HTTP 401 Unauthorized
+  if (['403', '401'].some((code) => reportsStatusCode(lower, code))) {
+    return 'permanent';
+  }
 
   for (const pattern of permanentPatterns) {
     if (pattern.test(lower)) {
@@ -164,7 +185,6 @@ export function classifySyncError(error: Error | string): SyncErrorType {
     /connection reset/,
     /network/,
     /dns/,
-    /5\d\d/, // HTTP 5xx server errors
     /server error/,
     /temporarily/,
     /try again/,
@@ -172,6 +192,11 @@ export function classifySyncError(error: Error | string): SyncErrorType {
     /no route to host/,
     /connection closed/,
   ];
+
+  // HTTP 5xx server errors
+  if (reportsStatusCode(lower, String.raw`5\d\d`)) {
+    return 'transient';
+  }
 
   for (const pattern of transientPatterns) {
     if (pattern.test(lower)) {
