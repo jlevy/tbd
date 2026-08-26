@@ -282,7 +282,7 @@ opinionated rules with concrete examples, built from months of heavy agentic cod
 | Guideline | What it covers |
 | --- | --- |
 | [general-eng-agent-principles](packages/tbd/docs/guidelines/general-eng-agent-principles.md) | Senior-engineer responsibility, verification, scope discipline, and when to act or clarify |
-| [general-coding-rules](packages/tbd/docs/guidelines/general-coding-rules.md) | Correctness checks, defensive coding boundaries, dependency discipline, and code structure |
+| [general-coding-rules](packages/tbd/docs/guidelines/general-coding-rules.md) | Named constants, magic-number avoidance, and when cryptographic hash checks add real assurance |
 | [general-comment-rules](packages/tbd/docs/guidelines/general-comment-rules.md) | Comments that preserve non-obvious rationale without restating code |
 | [backward-compatibility-rules](packages/tbd/docs/guidelines/backward-compatibility-rules.md) | Compatibility across code, APIs, file formats, and database schemas |
 | [error-handling-rules](packages/tbd/docs/guidelines/error-handling-rules.md) | Failure propagation, error context, cleanup, exit status, and partial success |
@@ -308,7 +308,7 @@ opinionated rules with concrete examples, built from months of heavy agentic cod
 | Guideline | What it covers |
 | --- | --- |
 | [typescript-rules](packages/tbd/docs/guidelines/typescript-rules.md) | Strict type safety, type guards, null safety, async patterns, and atomic file replacement |
-| [typescript-lint-format-rules](packages/tbd/docs/guidelines/typescript-lint-format-rules.md) | ESLint and formatting floors with effective-config checks |
+| [typescript-lint-format-rules](packages/tbd/docs/guidelines/typescript-lint-format-rules.md) | Lint and formatting floor across ESLint/Prettier and Biome toolchains |
 | [typescript-sorting-patterns](packages/tbd/docs/guidelines/typescript-sorting-patterns.md) | Deterministic sorting and comparison chains for multi-field sorts |
 | [typescript-cli-tool-rules](packages/tbd/docs/guidelines/typescript-cli-tool-rules.md) | Commander.js patterns, streams, exit status, and terminal formatting |
 | [typescript-yaml-handling-rules](packages/tbd/docs/guidelines/typescript-yaml-handling-rules.md) | YAML parsing and serialization, Zod validation, and stable formatting |
@@ -340,7 +340,7 @@ opinionated rules with concrete examples, built from months of heavy agentic cod
 
 | Guideline | What it covers |
 | --- | --- |
-| [cli-agent-skill-patterns](packages/tbd/docs/guidelines/cli-agent-skill-patterns.md) | CLIs designed to function as coding-agent skills |
+| [cli-agent-skill-patterns](packages/tbd/docs/guidelines/cli-agent-skill-patterns.md) | Portable skill, CLI-backed skill, and bundle installation decision guide |
 | [electron-app-development-patterns](packages/tbd/docs/guidelines/electron-app-development-patterns.md) | Electron process boundaries, backends, security, signing, and updates |
 | [electrobun-app-development-patterns](packages/tbd/docs/guidelines/electrobun-app-development-patterns.md) | Electrobun runtime, typed RPC, packaging, delta updates, and maturity risks |
 | [tauri-app-development-patterns](packages/tbd/docs/guidelines/tauri-app-development-patterns.md) | Tauri 2 capabilities, sidecars, non-Rust backends, signing, and updates |
@@ -352,7 +352,8 @@ opinionated rules with concrete examples, built from months of heavy agentic cod
 | Guideline | What it covers |
 | --- | --- |
 | [common-doc-guidelines](packages/tbd/docs/guidelines/common-doc-guidelines.md) | Concrete documentation structure, style, formatting, and required footer |
-| [commit-conventions](packages/tbd/docs/guidelines/commit-conventions.md) | Conventional commit types and descriptions |
+| [commit-conventions](packages/tbd/docs/guidelines/commit-conventions.md) | Conventional Commits format with agentic-workflow extensions |
+| [tbd-sync-troubleshooting](packages/tbd/docs/guidelines/tbd-sync-troubleshooting.md) | Common issues and solutions for tbd sync and workspace operations |
 
 You can also add your own team’s guidelines from any URL:
 

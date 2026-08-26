@@ -480,7 +480,7 @@ const GUIDELINE_GROUPS: GuidelineGroup[] = [
   },
   {
     heading: 'Cross-cutting engineering topics',
-    note: 'Select by the changed surface: general code details, comments, errors, tests or TDD, goldens, dependencies, published interfaces, commits, review, CI and gates, filesystem work, or releases.',
+    note: 'Select by the changed surface; do not load this whole group by default.',
     match: (n) => CROSS_CUTTING_NAMES.has(n),
   },
   {
