@@ -35,6 +35,21 @@ export function issueMatchesSharedFilters(issue: Issue, filters: SharedIssueFilt
 }
 
 /**
+ * Whether a bead is still waiting out a `deferred_until` at `now`.
+ *
+ * A deferral exactly at `now` has arrived, so the work is available. An unparseable
+ * timestamp fails open — the schema validates the field, and hiding work because a
+ * date could not be read is the worse failure of the two.
+ */
+function deferralPending(issue: Issue, now: number): boolean {
+  if (issue.deferred_until == null) {
+    return false;
+  }
+  const until = Date.parse(issue.deferred_until);
+  return Number.isFinite(until) && until > now;
+}
+
+/**
  * Compute ready issue IDs from one complete issue snapshot.
  *
  * A `blocks` relation is stored on the blocker and points to its blocked target.
@@ -50,8 +65,21 @@ export function issueMatchesSharedFilters(issue: Issue, filters: SharedIssueFilt
  * A held bead is never ready regardless of its dependencies: `blocked` means it is
  * waiting on something and `paused` means it was deliberately set down, and offering
  * either to an agent looking for work is how a hold gets quietly ignored.
+ *
+ * A `deferred_until` still in the future is the same kind of hold, written as a date
+ * instead of a flag. It used to be recorded and then ignored here, so a bead deferred
+ * to next year was offered as available work today and the field read as scheduling
+ * while scheduling nothing.
+ *
+ * `now` is a parameter rather than a `Date.now()` read inside the filter because
+ * `issue-changes.ts` computes this set twice to diff two snapshots: if each call took
+ * its own clock, a bead whose deferral elapsed between them would surface as a ready
+ * transition that no edit caused.
  */
-export function readyIssueIds(issues: Iterable<Issue>): ReadonlySet<string> {
+export function readyIssueIds(
+  issues: Iterable<Issue>,
+  now: number = Date.now(),
+): ReadonlySet<string> {
   const allIssues = Array.from(issues);
   const issueById = new Map(allIssues.map((issue) => [issue.id, issue]));
   const blockerIdsByTarget = new Map<string, string[]>();
@@ -71,6 +99,9 @@ export function readyIssueIds(issues: Iterable<Issue>): ReadonlySet<string> {
     allIssues
       .filter((issue) => {
         if (issue.status !== 'open' || issue.delegate || issue.hold) {
+          return false;
+        }
+        if (deferralPending(issue, now)) {
           return false;
         }
         const blockerIds = blockerIdsByTarget.get(issue.id) ?? [];

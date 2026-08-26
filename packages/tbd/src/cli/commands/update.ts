@@ -23,7 +23,7 @@ import type {
 import { now } from '../../utils/time-utils.js';
 import { resolveToInternalId, type IdMapping } from '../../file/id-mapping.js';
 import { resolveSpecArg, getPathErrorMessage } from '../../lib/project-paths.js';
-import { validateIssueTitle } from '../lib/issue-input-validation.js';
+import { parseDateOption, validateIssueTitle } from '../lib/issue-input-validation.js';
 import { checkParentAssignment, describeHierarchyProblem } from '../../lib/issue-hierarchy.js';
 import { withDataSyncContext } from '../lib/data-context.js';
 import {
@@ -68,14 +68,6 @@ interface UpdateOptions {
  * anything it cannot is refused by name, rather than reaching the schema and coming back
  * as "Invalid datetime".
  */
-function parseDateOption(value: string, flag: string): string {
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) {
-    throw new ValidationError(`Invalid ${flag} value: ${value}. Expected a date or timestamp.`);
-  }
-  return new Date(parsed).toISOString();
-}
-
 class UpdateHandler extends BaseCommand {
   async run(ids: string[], options: UpdateOptions): Promise<void> {
     if (ids.length === 1) {

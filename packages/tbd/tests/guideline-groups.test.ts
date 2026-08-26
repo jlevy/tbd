@@ -102,6 +102,53 @@ describe('guidelineGroupFor', () => {
     }
   });
 
+  it('routes a declared category to its own group rather than the catch-all', async () => {
+    // The grouping matched on name prefixes while every bundled guideline already
+    // declares a category, and doc-categories.ts calls name inference retired. The
+    // two disagreed: `electron-app-development-patterns` matched the TypeScript
+    // prefix, while its siblings `electrobun-` and `tauri-` matched nothing and fell
+    // into "Docs, process & tooling", where an agent looking for desktop guidance
+    // will not find them. Assert on the declared field, for every category at once,
+    // so the next category added cannot land in the catch-all unnoticed.
+    const declared = new Map<string, string[]>();
+    for (const name of await bundledGuidelineNames()) {
+      const content = await readFile(join(GUIDELINES_DIR, `${name}.md`), 'utf8');
+      const category = /^category:\s*(\S+)/m.exec(content)?.[1];
+      if (category == null || category === 'general') {
+        continue; // `general` is the default and is routed by explicit membership.
+      }
+      declared.set(category, [...(declared.get(category) ?? []), name]);
+    }
+    expect(declared.size).toBeGreaterThan(0);
+
+    for (const [category, names] of declared) {
+      const headings = new Set(names.map((n) => guidelineGroupFor(n, category)));
+      expect(headings.size, `${category} split across headings: ${[...headings].join(', ')}`).toBe(
+        1,
+      );
+      const [heading] = headings;
+      expect(heading, `${category} (${names.join(', ')}) fell into the catch-all`).not.toBe(
+        'Docs, process & tooling',
+      );
+    }
+  });
+
+  it('keeps the desktop frameworks together under their own heading', () => {
+    for (const name of [
+      'electron-app-development-patterns',
+      'electrobun-app-development-patterns',
+      'tauri-app-development-patterns',
+    ]) {
+      expect(guidelineGroupFor(name, 'desktop'), name).toBe('Desktop app frameworks');
+    }
+  });
+
+  it('files release-notes-guidelines beside the release engineering rules', () => {
+    // publishing.md and release-engineering-rules both tell the reader to load these
+    // together; the catch-all heading hid one half of that pair.
+    expect(guidelineGroupFor('release-notes-guidelines')).toBe('Cross-cutting engineering topics');
+  });
+
   it('files every bundled guideline in a group whose heading is non-empty', async () => {
     const grouped = new Map<string, string[]>();
     for (const name of await bundledGuidelineNames()) {

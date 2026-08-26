@@ -38,6 +38,13 @@ export interface IssueQuery {
   spec: string | null;
   /** `--deferred` */
   deferred: boolean;
+  /**
+   * `--defer-before <date>`, already parsed to an ISO timestamp by the caller (as
+   * `priority` is): keep only beads whose `deferred_until` falls before this instant.
+   * Null means no filter. A bead with no `deferred_until` is not deferred before
+   * anything and is excluded whenever this is set.
+   */
+  deferBefore: string | null;
   /** `tbd ready` semantics: open, unassigned, and unblocked per `readyIssueIds`. */
   ready: boolean;
   /** `--sort` */
@@ -61,6 +68,7 @@ export function defaultIssueQuery(): IssueQuery {
     parentId: null,
     spec: null,
     deferred: false,
+    deferBefore: null,
     ready: false,
     sort: 'priority',
     limit: null,
@@ -80,6 +88,22 @@ export function selectIssues(issues: readonly Issue[], query: IssueQuery): Issue
   const filtered = filterIssues(issues, query);
   const sorted = sortIssues(filtered, query.sort);
   return query.limit === null ? sorted : sorted.slice(0, query.limit);
+}
+
+/**
+ * Whether a bead carries a `deferred_until` strictly before `cutoff`.
+ *
+ * A bead with no deferral is not "deferred before" any date, so it is excluded rather
+ * than treated as deferred since the beginning of time. `cutoff` is already-parsed
+ * per the field contract, so an unusable value is rejected at the CLI boundary rather
+ * than degrading into a filter that matches everything.
+ */
+function deferredBefore(issue: Issue, cutoff: string): boolean {
+  if (issue.deferred_until == null) {
+    return false;
+  }
+  const until = Date.parse(issue.deferred_until);
+  return Number.isFinite(until) && until < Date.parse(cutoff);
 }
 
 /** Apply shared CLI query predicates without paying for ordering when only facets need rows. */
@@ -113,6 +137,9 @@ export function filterIssues(issues: readonly Issue[], query: IssueQuery): Issue
       return false;
     }
     if (query.deferred && issue.status !== 'deferred') {
+      return false;
+    }
+    if (query.deferBefore !== null && !deferredBefore(issue, query.deferBefore)) {
       return false;
     }
     if (readyIds !== null && !readyIds.has(issue.id)) {

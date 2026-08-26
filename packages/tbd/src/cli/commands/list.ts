@@ -23,6 +23,7 @@ import {
   formatNoSpecGroupHeader,
   type IssueForDisplay,
 } from '../lib/issue-format.js';
+import { parseDateOption } from '../lib/issue-input-validation.js';
 import { parsePriority } from '../../lib/priority.js';
 import { selectIssues } from '../../lib/issue-query.js';
 import type { IssueQuery, IssueSort } from '../../lib/issue-query.js';
@@ -215,6 +216,10 @@ class ListHandler extends BaseCommand {
       // An empty --spec means "no filter", as before.
       spec: options.spec === '' ? null : (options.spec ?? null),
       deferred: options.deferred ?? false,
+      deferBefore:
+        options.deferBefore === undefined
+          ? null
+          : parseDateOption(options.deferBefore, '--defer-before'),
       ready: false,
       sort: (options.sort ?? 'priority') as IssueSort,
       limit: null,
@@ -240,7 +245,7 @@ export const listCommand = new Command('list')
     'Filter by spec path (matches full path, partial path suffix, or filename)',
   )
   .option('--deferred', 'Show only deferred issues')
-  .option('--defer-before <date>', 'Deferred before date')
+  .option('--defer-before <date>', 'Only issues whose deferred_until falls before this date')
   .option('--sort <field>', 'Sort by: priority, created, updated', 'priority')
   .option('--limit <n>', 'Limit results')
   .option('--count', 'Output only the count of matching issues')

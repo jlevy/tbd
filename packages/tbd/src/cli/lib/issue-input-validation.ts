@@ -35,3 +35,18 @@ export function validateIssueTitle(title: string, options: IssueTitleValidationO
 
   return title;
 }
+
+/**
+ * Parse a user-supplied date flag into a normalized ISO timestamp.
+ *
+ * Shared by every date-valued flag so an unusable value fails loudly at the CLI
+ * boundary. A filter that silently accepts garbage and then matches everything is
+ * indistinguishable to the caller from a filter that did not run.
+ */
+export function parseDateOption(value: string, flag: string): string {
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    throw new ValidationError(`Invalid ${flag} value: ${value}. Expected a date or timestamp.`);
+  }
+  return new Date(parsed).toISOString();
+}

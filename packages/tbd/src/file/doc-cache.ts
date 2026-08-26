@@ -421,7 +421,12 @@ const SHORTCUT_DIRECTORY_END = '<!-- END SHORTCUT DIRECTORY -->';
 interface GuidelineGroup {
   heading: string;
   note?: string;
-  match: (name: string) => boolean;
+  /**
+   * `category` is the doc's declared frontmatter category. Prefer it over the name:
+   * doc-categories.ts calls name inference retired, and a prefix test silently
+   * misfiles a sibling whose name does not share the prefix.
+   */
+  match: (name: string, category?: string) => boolean;
 }
 
 /**
@@ -452,6 +457,7 @@ const CROSS_CUTTING_NAMES = new Set([
   'general-testing-rules',
   'golden-testing-guidelines',
   'release-engineering-rules',
+  'release-notes-guidelines',
   'supply-chain-hardening',
 ]);
 
@@ -486,8 +492,7 @@ const GUIDELINE_GROUPS: GuidelineGroup[] = [
   {
     heading: 'TypeScript & JS ecosystem',
     note: 'Select the documents that match the TypeScript or JavaScript surface; do not load this whole group by default.',
-    match: (n) =>
-      n.startsWith('typescript-') || n.endsWith('monorepo-patterns') || n.startsWith('electron-'),
+    match: (n) => n.startsWith('typescript-') || n.endsWith('monorepo-patterns'),
   },
   {
     heading: 'Python',
@@ -505,6 +510,14 @@ const GUIDELINE_GROUPS: GuidelineGroup[] = [
     match: (n) => n.startsWith('convex-'),
   },
   {
+    heading: 'Desktop app frameworks',
+    note: 'Select the document for the framework in use; do not load this whole group by default.',
+    // Matched on the declared category, not the name. `electron-`, `electrobun-`, and
+    // `tauri-` share no prefix, which is exactly how two of the three used to land in
+    // the catch-all while the third was filed under TypeScript.
+    match: (_n, category) => category === 'desktop',
+  },
+  {
     // Catch-all, must stay last.
     heading: 'Docs, process & tooling',
     match: () => true,
@@ -518,8 +531,8 @@ const GUIDELINE_GROUPS: GuidelineGroup[] = [
  * the only other place this logic surfaces, and a misfiled guideline there is
  * easy to miss.
  */
-export function guidelineGroupFor(name: string): string {
-  const group = GUIDELINE_GROUPS.find((g) => g.match(name));
+export function guidelineGroupFor(name: string, category?: string): string {
+  const group = GUIDELINE_GROUPS.find((g) => g.match(name, category));
   // The catch-all matches everything, so this fallback is unreachable in practice.
   return group?.heading ?? GUIDELINE_GROUPS[GUIDELINE_GROUPS.length - 1]!.heading;
 }
@@ -612,7 +625,7 @@ export function generateShortcutDirectory(
     const grouped = GUIDELINE_GROUPS.map((group) => ({ group, docs: [] as CachedDoc[] }));
     const catchAll = grouped[grouped.length - 1];
     for (const doc of guidelines) {
-      const heading = guidelineGroupFor(doc.name);
+      const heading = guidelineGroupFor(doc.name, doc.frontmatter?.category);
       const entry = grouped.find((g) => g.group.heading === heading) ?? catchAll;
       entry?.docs.push(doc);
     }

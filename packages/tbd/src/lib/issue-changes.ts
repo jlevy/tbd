@@ -442,8 +442,16 @@ export function createIssueChanges(options: CreateIssueChangesOptions): IssueCha
   const idsToCompare = explicitIds ?? candidateIds;
   const needsReadySets = options.selection.kind === 'filter' && options.selection.ready;
   const emptySet: ReadonlySet<string> = new Set();
-  const readyBefore = needsReadySets ? readyIssueIds(options.before.issues.values()) : emptySet;
-  const readyAfter = needsReadySets ? readyIssueIds(options.after.issues.values()) : emptySet;
+  // One instant for both snapshots: readiness depends on `deferred_until`, so two
+  // clock reads could report a deferral that merely elapsed between them as a ready
+  // transition that no edit caused.
+  const readyAt = Date.now();
+  const readyBefore = needsReadySets
+    ? readyIssueIds(options.before.issues.values(), readyAt)
+    : emptySet;
+  const readyAfter = needsReadySets
+    ? readyIssueIds(options.after.issues.values(), readyAt)
+    : emptySet;
   const changes: IssueChange[] = [];
 
   for (const internalId of Array.from(idsToCompare).sort((left, right) =>
