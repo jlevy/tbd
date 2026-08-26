@@ -3,14 +3,41 @@ type: is
 id: is-01m0c6d92k9x74f1sgc04x0aqb
 title: "sync: fetch writes FETCH_HEAD only, so ahead/behind and push-retry compare a stale remote-tracking ref"
 kind: epic
-status: open
+status: closed
 priority: 0
-version: 4
+version: 5
 assignee: josh
 labels: []
 dependencies: []
 created_at: 2026-08-19T05:02:55.056Z
-updated_at: 2026-08-19T16:30:48.892Z
+updated_at: 2026-08-26T07:15:44.042Z
+closed_at: 2026-08-26T07:15:44.041Z
+close_reason: |-
+  Fixed before v0.8.0; verified against the code and by running this bead's own repro on the 0.8.1 build.
+
+  ROOT CAUSE — fixed. The prescribed fix ("give every sync-path fetch an explicit destination") is implemented as trackingRefspec() in src/file/git.ts:867, returning refs/heads/<branch>:refs/remotes/<remote>/<branch>. Introduced in 191b584e, which predates v0.8.0.
+
+  Every fetch in src/ now carries an explicit destination — both sites this bead named and ten others:
+    - sync.ts:594 (the site cited as :593), plus 652, 767, 1127
+    - git.ts:1233 (the retry loop cited as :1181), plus 1777, 2048, 2124, 2219, 2668, 2765
+    - workspace.ts:300
+    - bead-watch.ts:143 fetches into a private ref with --refmap= and --no-write-fetch-head; that is the read-only observer's Git isolation contract, not this defect.
+
+  SYMPTOM 1 (silent stale read) — fixed. sync.ts:594 fetches with the tracking refspec immediately before the rev-list at :597-605 compares against ${remote}/${syncBranch}, so the comparison now reads a ref the fetch actually advanced.
+
+  SYMPTOM 2 (misattributed push failure) — fixed by the same change. The retry loop at git.ts:1233 fetches with the tracking refspec before onMergeNeeded(), so the merge can advance local syncBranch and the next push fast-forwards. The strictly-behind case converges instead of exhausting all three attempts, so it no longer reaches the "Remote has conflicting changes" message, which is now only produced when a merge genuinely fails.
+
+  REPRO, re-run on git 2.43.0. The destination-less form only loses the ref when the remote's configured refspec does not cover tbd-sync (a single-branch clone). In a full clone git updates the tracking ref opportunistically, which is why this reproduced intermittently. Under a narrow refspec (+refs/heads/main:refs/remotes/origin/main):
+    - git fetch origin tbd-sync           -> FETCH_HEAD advanced; refs/remotes/origin/tbd-sync absent
+    - git fetch origin refs/heads/tbd-sync:refs/remotes/origin/tbd-sync -> tracking ref written
+
+  End-to-end on that same single-branch clone with the 0.8.1 build, remote 1 commit ahead:
+    tbd sync --status -> "↓ 1 commit(s) behind (to pull)" and named the remote commit. It did not report "Already in sync".
+    tbd sync          -> "received 3 new, 1 updated"; 7 beads -> 10, converged with the remote tip.
+
+  Related but separate, left open: tbd-az97 (handle missing origin/tbd-sync in single-branch clones).
+resolution: null
+duplicate_of: null
 extensions:
   linear:
     id: b5a35ee8-341e-4988-aac6-fa5202af4d4a
