@@ -3,7 +3,6 @@ title: TypeScript Rules
 description: TypeScript coding rules and best practices
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 globs: "*.ts"
-alwaysApply: true
 category: typescript
 ---
 # TypeScript Rules
@@ -405,26 +404,40 @@ yet production-ready**—do not adopt for shipped builds.
   }
   ```
 
-## File Operations
+## Always Atomically Publish Files Completed in One Operation
 
-- **Use `atomically` for writing files:** When writing files to disk, use the
-  `atomically` library instead of `fs.writeFile` or `fs.writeFileSync`. This prevents
-  partial or corrupted files if the process crashes mid-write.
+Always use `atomically.writeFile` when one operation creates and completes an output
+file, whether the destination is new or replaced and whether the file is durable state,
+a report, an export, a cache entry, or a temporary artifact.
+Direct `fs.writeFile` or `fs.writeFileSync` truncates first and can leave the path empty
+or partial if the process stops during the write.
 
-  The `atomically` library writes to a temp file first, then renames atomically to the
-  final path. This guarantees you never have half-written files.
-  (`atomically` is TypeScript-native, zero third-party dependencies, slightly faster,
-  has more robust error handling and retry logic than `write-file-atomic`.)
+```ts
+// Bad: the destination becomes visible before the write is complete.
+import { writeFile } from 'node:fs/promises';
+await writeFile(filePath, content, 'utf8');
 
-  ```ts
-  // BAD: Can leave corrupted file if process crashes mid-write
-  import { writeFileSync } from 'fs';
-  writeFileSync(filePath, content);
+// Good: a same-directory temporary file is complete before the final path appears.
+import { writeFile as writeAtomic } from 'atomically';
+await writeAtomic(filePath, content, { encoding: 'utf8' });
+```
 
-  // GOOD: Modern TypeScript-native with zero dependencies
-  import { writeFile } from 'atomically';
-  await writeFile(filePath, content);
-  ```
+Append and live streams intentionally expose incremental output and need their own
+primitives. A private staging file inside an atomic helper is not itself published
+output. Create-only output still needs staged publication, but its final commit must
+atomically refuse an existing destination; opening the final path with `wx` exposes it
+before its contents are complete.
+
+Because `writeFile` receives the complete value, direct use in production output code
+normally triggers this rule.
+Restrict every import spelling (`fs`, `node:fs`, `fs/promises`, `node:fs/promises`)
+there, with narrow path-based exclusions for the atomic helper’s implementation and
+test-fixture construction.
+
+`atomically` syncs the staged file by default, but it does not sync the containing
+directory after the rename; do not describe it as full crash durability.
+See `filesystem-rules` for the distinction and for collision, metadata, and
+partial-failure policy.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

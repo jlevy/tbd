@@ -1,3 +1,11 @@
+> **Superseded in part.** The language-neutral half of this document—assert the outcome
+> rather than the interaction, test data flow between components, test error paths, and
+> validate the contract that crossed the boundary—now lives in the bundled
+> `general-testing-rules` guideline (`tbd guidelines general-testing-rules`), which is
+> served to every tbd user.
+> What remains here is the TypeScript/Vitest illustration of those points.
+> Prefer the guideline as the authority.
+
 # Essential Testing Guidelines
 
 ## 1. Test Real System Interactions, Not Mock Existence

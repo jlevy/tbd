@@ -376,6 +376,12 @@ Instead, write a clean, unit-tested script and invoke it by reference:
   (`pnpm exec tsx packages/tbd/scripts/extract-changelog.ts …`) and wire its output;
   keep any remaining shell to trivial plumbing (e.g. the `GITHUB_OUTPUT` heredoc).
 
+This repository uses TypeScript for CI-support programs because Node, `tsx`, and Vitest
+are already pinned project tools; it is not a general preference for Node over Python.
+See
+[`ci-and-gates-rules`](../packages/tbd/docs/guidelines/ci-and-gates-rules.md#keep-shell-at-the-invocation-boundary)
+for the language-neutral selection rule.
+
 If you find yourself reaching for `awk`/`sed` in a workflow, that is the signal to move
 it into a script.
 

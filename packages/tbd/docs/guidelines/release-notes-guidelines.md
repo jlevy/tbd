@@ -1,6 +1,6 @@
 ---
 title: Release Notes Guidelines
-description: Guidelines for writing clear, accurate release notes
+description: Rules for release notes that describe the published delta and exclude defects introduced and corrected before release from separate Fixes entries
 category: general
 ---
 # Release Notes Guidelines
@@ -55,7 +55,7 @@ compared to before.
 bug fix separately.
 Describe the feature as it now works (the complete, working version).
 
-### The test to apply to every “Fixed” entry
+### Do Not List Unreleased Regressions as Fixes
 
 Ask: **was this broken for someone running the previous release?**
 
@@ -76,6 +76,10 @@ Two concrete cases:
 - A behavior was introduced, refined twice, and renamed before release.
   Users see one new behavior under its final name.
   Describe that, not the path taken to it.
+
+The same rule applies when a refactor creates the defect.
+If the regression and its repair both occur before release, neither is a shipped fix;
+describe only the user-visible aggregate change.
 
 A useful cross-check: run `git log $PREV..HEAD` and, for each `fix:` commit, find the
 published version that carried the bug.
@@ -153,6 +157,7 @@ changes—include them under `Guidelines and content` (see Structure).
 Before finalizing release notes:
 
 - [ ] Does each item describe the aggregate delta from the previous release?
+- [ ] Does every item under Fixes correct behavior broken in the previous release?
 - [ ] Are related changes (features and their fixes) consolidated under one heading?
 - [ ] Would a user understand what’s different after upgrading?
 - [ ] Are feature names/commands in consistent format?

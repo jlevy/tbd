@@ -9,10 +9,14 @@
  * - Shortcut directory (generated from available shortcuts)
  */
 
-import { describe, it, expect } from 'vitest';
-import { readFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
+
 import { parseFrontmatter } from '../src/utils/markdown-utils.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -20,6 +24,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const docsDir = join(__dirname, '..', 'dist', 'docs');
 const installDir = join(docsDir, 'install');
 const shortcutsSystemDir = join(docsDir, 'shortcuts', 'system');
+const monorepoRoot = join(__dirname, '..', '..', '..');
 
 describe('integration file formats', () => {
   describe('claude-header.md (source for SKILL.md)', () => {
@@ -219,7 +224,6 @@ describe('integration file formats', () => {
   });
 
   describe('skills/tbd/SKILL.md (distribution copy)', () => {
-    const monorepoRoot = join(__dirname, '..', '..', '..');
     const distSkillPath = join(monorepoRoot, 'skills', 'tbd', 'SKILL.md');
 
     it('is committed and free of drift from the composed skill', async () => {
@@ -237,6 +241,63 @@ describe('integration file formats', () => {
       expect(frontmatter).toContain('name:');
       expect(frontmatter).toContain('description:');
       expect(frontmatter).toContain('allowed-tools: Bash(tbd:*) Read Write');
+    });
+  });
+
+  describe('generated Markdown formatter boundary', () => {
+    it('uses Lefthook globs that exclude every generated skill surface', async () => {
+      const source = parseYaml(await readFile(join(monorepoRoot, 'lefthook.yml'), 'utf8')) as {
+        'pre-commit': { commands: { 'format-md': { exclude: string[] } } };
+      };
+      const excludes = source['pre-commit'].commands['format-md'].exclude;
+      const root = await mkdtemp(join(tmpdir(), 'tbd-lefthook-contract-'));
+
+      try {
+        const configPath = join(root, 'lefthook.yml');
+        await writeFile(
+          configPath,
+          stringifyYaml({
+            'pre-commit': {
+              commands: {
+                probe: {
+                  exclude: excludes,
+                  glob: '*.md',
+                  run: 'node -e "process.exit(91)" {staged_files}',
+                },
+              },
+            },
+          }),
+        );
+
+        const lefthookEntry = join(monorepoRoot, 'node_modules', 'lefthook', 'bin', 'index.js');
+        const args = [
+          lefthookEntry,
+          'run',
+          'pre-commit',
+          '--command',
+          'probe',
+          '--no-auto-install',
+          '--no-tty',
+          ...[
+            '.tbd/docs/__contract-probe__.md',
+            '.claude/skills/tbd/__contract-probe__.md',
+            '.agents/skills/tbd/__contract-probe__.md',
+            'skills/tbd/__contract-probe__.md',
+            'AGENTS.md',
+          ].flatMap((path) => ['--file', path]),
+        ];
+        const result = spawnSync(process.execPath, args, {
+          cwd: monorepoRoot,
+          encoding: 'utf8',
+          env: { ...process.env, LEFTHOOK_CONFIG: configPath },
+        });
+        const output = `${result.stdout}${result.stderr}`;
+
+        expect(result.error, output).toBeUndefined();
+        expect(result.status, output).toBe(0);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
     });
   });
 });

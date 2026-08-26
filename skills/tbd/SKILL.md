@@ -6,14 +6,14 @@ description: >-
 
   Use for: tracking issues/beads with dependencies, creating bugs/features/tasks, planning specs,
   implementing features from specs, code reviews, committing code, creating PRs, loading coding
-  guidelines (TypeScript, Python, TDD, golden testing, Convex, monorepo patterns), code cleanup,
+  guidelines (TypeScript, Python, Rust, TDD, golden testing, Convex, monorepo patterns), code cleanup,
   research briefs, architecture docs, agent handoffs, external tracker and Linear integration setup,
   personal Linear API key onboarding, viewing beads in a live browser, and checking out third-party library
   source code.
 
   Invoke when user mentions: tbd, beads, bd, shortcuts, issues, bugs, tasks, features, epics, todo,
   tracking, specs, planning, implementation, validation, guidelines, templates, commit, PR, pull request,
-  code review, testing, TDD, test-driven, golden testing, snapshot testing, TypeScript, Python, Convex,
+  code review, testing, TDD, test-driven, golden testing, snapshot testing, TypeScript, Python, Rust, Convex,
   monorepo, cleanup, dead code, refactor, handoff, research, architecture, labels, search, web, browser,
   live view, external tracker, Linear, Linear API key, integration setup, checkout library, source code
   review, or any workflow shortcut.
@@ -26,7 +26,7 @@ allowed-tools: Bash(tbd:*) Read Write
    Drop-in replacement for `bd`.
 2. **Spec-Driven Workflows**: Plan features → break into beads → implement
    systematically.
-3. **Knowledge Injection**: 25+ engineering guidelines (TypeScript, Python, TDD,
+3. **Knowledge Injection**: 40+ engineering guidelines (TypeScript, Python, Rust, TDD,
    testing, Convex, monorepos) available on demand.
 4. **Shortcuts**: Reusable instruction templates for common workflows (code review,
    commits, PRs, cleanup, handoffs).
@@ -113,7 +113,10 @@ or want help → run `tbd shortcut welcome-user`
 | *(any engineering work)* | Load the **General engineering** group first (see below) |
 | “Use TypeScript best practices” | `tbd guidelines typescript-rules typescript-lint-format-rules` |
 | “Use Python best practices” | `tbd guidelines python-rules` |
+| “Use Rust best practices” | `tbd guidelines rust-rules rust-lint-format-rules` |
 | “Set up TS/JS lint, format, or hooks” | `tbd guidelines typescript-lint-format-rules` |
+| “Set up Rust lint, clippy, or the quality floor” | `tbd guidelines rust-lint-format-rules` |
+| “Build a Rust CLI” | `tbd guidelines rust-cli-rules` |
 | “Build a TypeScript CLI” | `tbd guidelines typescript-cli-tool-rules` |
 | “Improve monorepo setup” | `tbd guidelines pnpm-monorepo-patterns` or `bun-monorepo-patterns` |
 | “Add golden/e2e testing” | `tbd guidelines golden-testing-guidelines` |
@@ -137,16 +140,25 @@ or want help → run `tbd shortcut welcome-user`
 | “Check out this library’s source” | `tbd shortcut checkout-third-party-repo` |
 | *(your choice whenever appropriate)* | `tbd list`, `tbd dep add`, `tbd close`, `tbd sync`, etc. |
 
-**Loading guidelines for engineering work:** Before writing or reviewing code, load the
-**General engineering** group—the `general-*` rules plus `error-handling-rules`—since
-these apply to all code regardless of language.
-Then load the group for the language or framework in use (TypeScript, Python, Convex,
-etc.). Load a whole group in **one call**; `guidelines`, `shortcut`, `template`, and
-`docs show` all take several names:
+**Loading guidelines for engineering work:** three layers, in this order.
 
-```bash
-tbd guidelines general-coding-rules general-comment-rules error-handling-rules general-testing-rules
-```
+1. **Always**, before writing or reviewing code, load the engineering core:
+
+   ```bash
+   tbd guidelines general-eng-agent-principles
+   ```
+
+2. **The language documents** that match the changed surface.
+   Do not load an entire language group by default.
+
+3. **Cross-cutting topics, by what the change actually touches**—errors, tests and
+   goldens, code and comment policy, dependencies, published interfaces, commits,
+   review, CI and gates, filesystem work, and releases.
+   These are not always-load: read the group’s note in `tbd guidelines --list` and pull
+   the ones that apply.
+
+Load several selected documents in **one call**; `guidelines`, `shortcut`, `template`,
+and `docs show` all take several names.
 
 Run `tbd guidelines --list` to see all available guidelines.
 
@@ -316,7 +328,7 @@ Narrow with `--docs`, `--issues`, or `--integrations` for a single surface.
 | --- | --- |
 | `tbd shortcut <name>` | Run a shortcut |
 | `tbd shortcut --list` | List shortcuts |
-| `tbd guidelines <name> [<name> …]` | Load coding guidelines (a whole group in one call) |
+| `tbd guidelines <name> [<name> …]` | Load coding guidelines (several names in one call) |
 | `tbd guidelines --list` | List guidelines |
 | `tbd template <name>` | Output a template |
 | `tbd docs` / `tbd docs list` | Managed-docs overview / cross-kind list with state markers |

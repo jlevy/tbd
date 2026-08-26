@@ -28,7 +28,7 @@
     "format:md": "find README.md docs packages/tbd -name '*.md' -type f -not -path '*/dist/*' -not -path '*/node_modules/*' -not -path '*/.claude/*' -not -path '*/.agents/*' -not -path '*/skills/tbd/*' 2>/dev/null | xargs uvx --exclude-newer-package flowmark-rs=2026-05-31 flowmark-rs@0.3.1 --auto",
     "format:md:check": "find README.md docs packages/tbd -name '*.md' -type f -not -path '*/dist/*' -not -path '*/node_modules/*' -not -path '*/.claude/*' -not -path '*/.agents/*' -not -path '*/skills/tbd/*' 2>/dev/null | xargs uvx --exclude-newer-package flowmark-rs=2026-05-31 flowmark-rs@0.3.1 --auto --check",
     "lint": "eslint . --fix && pnpm typecheck && eslint . --max-warnings 0",
-    "lint:check": "pnpm typecheck && eslint . --max-warnings 0 && node scripts/check-eslint-contract.mjs",
+    "lint:check": "pnpm typecheck && eslint . --max-warnings 0 && node scripts/check-eslint-contract.mjs && node scripts/check-action-pins.mjs",
     "precommit": "pnpm format && pnpm lint && pnpm build && pnpm test",
     "ci": "pnpm format:check && pnpm lint:check && pnpm build && pnpm test",
     "ci:quality": "pnpm format:check && pnpm lint:check",

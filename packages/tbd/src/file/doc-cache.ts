@@ -412,6 +412,11 @@ const SHORTCUT_DIRECTORY_END = '<!-- END SHORTCUT DIRECTORY -->';
  * Grouping is inferred from the guideline name so new guidelines are placed
  * automatically. A guideline is assigned to the first group whose `match`
  * returns true, so the final catch-all group must stay last.
+ *
+ * Language-neutral groups match on exact names, never on a substring. A
+ * substring match silently captures language-prefixed guidelines: an earlier
+ * `n.includes('testing')` here put `rust-testing-rules` in the group whose note
+ * tells agents to read every entry for any engineering work.
  */
 interface GuidelineGroup {
   heading: string;
@@ -419,33 +424,84 @@ interface GuidelineGroup {
   match: (name: string) => boolean;
 }
 
+/**
+ * The always-load core: read before writing or reviewing any code.
+ *
+ * Membership is explicit rather than inferred from a `general-` filename prefix,
+ * because "always load" is a context budget, not a naming convention. Everything
+ * an agent reads here is attention it does not have for the repository's own
+ * code, so a document earns a place only if it applies to essentially every
+ * engineering task. Topic documents are routed instead, however general their
+ * name — `general-testing-rules` and `general-tdd-guidelines` are cross-cutting.
+ *
+ * `guideline-budget.test.ts` asserts the size of what this set renders to.
+ */
+const ALWAYS_LOAD_NAMES = new Set(['general-eng-agent-principles']);
+
+/** Language-neutral guidelines loaded when the work touches their topic. */
+const CROSS_CUTTING_NAMES = new Set([
+  'backward-compatibility-rules',
+  'ci-and-gates-rules',
+  'code-review-rules',
+  'commit-conventions',
+  'error-handling-rules',
+  'filesystem-rules',
+  'general-coding-rules',
+  'general-comment-rules',
+  'general-tdd-guidelines',
+  'general-testing-rules',
+  'golden-testing-guidelines',
+  'release-engineering-rules',
+  'supply-chain-hardening',
+]);
+
+/**
+ * Every guideline a group matches by exact name rather than by prefix.
+ *
+ * Exported so a test can assert each one is actually bundled. A name added to a
+ * group without a matching document renders an empty heading in the generated
+ * directory while every routing assertion still passes, which is how the
+ * Cross-cutting group shipped empty. A test with its own copy of these names
+ * cannot catch that, because the copy never gains the new name either.
+ */
+export const EXPLICITLY_GROUPED_GUIDELINES: readonly string[] = [
+  ...ALWAYS_LOAD_NAMES,
+  ...CROSS_CUTTING_NAMES,
+];
+
+/** The always-load core, exported so its rendered size can be measured in a test. */
+export const ALWAYS_LOAD_GUIDELINES: readonly string[] = [...ALWAYS_LOAD_NAMES];
+
 const GUIDELINE_GROUPS: GuidelineGroup[] = [
   {
     heading: 'General engineering',
-    note: 'Read all of these for any engineering work (writing or reviewing code).',
-    match: (n) =>
-      n.startsWith('general-') ||
-      n === 'error-handling-rules' ||
-      n === 'backward-compatibility-rules' ||
-      n === 'commit-conventions' ||
-      n.includes('tdd') ||
-      n.includes('testing') ||
-      n.includes('golden'),
+    note: 'Read this core before writing or reviewing code. Everything else is routed by what the change touches.',
+    match: (n) => ALWAYS_LOAD_NAMES.has(n),
+  },
+  {
+    heading: 'Cross-cutting engineering topics',
+    note: 'Select by the changed surface; do not load this whole group by default.',
+    match: (n) => CROSS_CUTTING_NAMES.has(n),
   },
   {
     heading: 'TypeScript & JS ecosystem',
-    note: 'Also load these when working in TypeScript or JavaScript.',
+    note: 'Select the documents that match the TypeScript or JavaScript surface; do not load this whole group by default.',
     match: (n) =>
       n.startsWith('typescript-') || n.endsWith('monorepo-patterns') || n.startsWith('electron-'),
   },
   {
     heading: 'Python',
-    note: 'Also load these when working in Python.',
+    note: 'Select the documents that match the Python surface; do not load this whole group by default.',
     match: (n) => n.startsWith('python-'),
   },
   {
+    heading: 'Rust',
+    note: 'Select the documents that match the Rust surface; do not load this whole group by default.',
+    match: (n) => n.startsWith('rust-'),
+  },
+  {
     heading: 'Convex',
-    note: 'Also load these when working with Convex.',
+    note: 'Select the documents that match the Convex surface; do not load this whole group by default.',
     match: (n) => n.startsWith('convex-'),
   },
   {
@@ -454,6 +510,19 @@ const GUIDELINE_GROUPS: GuidelineGroup[] = [
     match: () => true,
   },
 ];
+
+/**
+ * Heading of the group a guideline is filed under.
+ *
+ * Exported so group assignment is directly testable: the generated directory is
+ * the only other place this logic surfaces, and a misfiled guideline there is
+ * easy to miss.
+ */
+export function guidelineGroupFor(name: string): string {
+  const group = GUIDELINE_GROUPS.find((g) => g.match(name));
+  // The catch-all matches everything, so this fallback is unreachable in practice.
+  return group?.heading ?? GUIDELINE_GROUPS[GUIDELINE_GROUPS.length - 1]!.heading;
+}
 
 /**
  * Build table rows from docs (shared helper for shortcuts and guidelines).
@@ -543,7 +612,8 @@ export function generateShortcutDirectory(
     const grouped = GUIDELINE_GROUPS.map((group) => ({ group, docs: [] as CachedDoc[] }));
     const catchAll = grouped[grouped.length - 1];
     for (const doc of guidelines) {
-      const entry = grouped.find((g) => g.group.match(doc.name)) ?? catchAll;
+      const heading = guidelineGroupFor(doc.name);
+      const entry = grouped.find((g) => g.group.heading === heading) ?? catchAll;
       entry?.docs.push(doc);
     }
 
@@ -555,9 +625,7 @@ export function generateShortcutDirectory(
       // This directory is injected into generated files that flowmark must not
       // reformat, so keep prose paragraphs to a single line under flowmark's wrap
       // width (~88 cols); otherwise flowmark would re-wrap them and cause churn.
-      lines.push(
-        'Load the **General engineering** group first, then the language or framework group.',
-      );
+      lines.push('Load the **General engineering** core, then only guidelines matching the task.');
 
       for (const { group, docs } of grouped) {
         const rows = buildTableRows(docs);

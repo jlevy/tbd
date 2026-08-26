@@ -3,7 +3,6 @@ title: TypeScript and JavaScript Lint and Format Rules
 description: The shared lint and auto-formatting floor for all TypeScript and JavaScript projects, across pnpm and Bun and across ESLint/Prettier and Biome toolchains. Defines the rules every project enforces, the per-toolchain profiles that implement them, and the verification steps that prove the floor is real.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 globs: "*.ts,*.tsx,*.mts,*.cts,*.js,*.jsx,*.mjs,*.cjs"
-alwaysApply: true
 category: typescript
 ---
 # TypeScript and JavaScript Lint and Format Rules
@@ -23,6 +22,9 @@ setup and reference this document for lint and formatting.
 - `typescript-cli-tool-rules` (CLI-specific patterns; assumes this floor)
 - `supply-chain-hardening` (pin exact tool versions; the 14-day rule applies to linters
   and formatters too)
+- `ci-and-gates-rules` (language-neutral gate wiring: proving the floor is live,
+  suppression ratchets, generated-file ownership, and the traps that keep a gate green
+  while it checks nothing)
 
 ## Three Independent Choices
 
@@ -315,6 +317,11 @@ If a project deliberately declines the overlay, it must document that it runs a 
 floor without static promise safety; it may not claim this floor.
 
 ## Hooks and Gates Reference
+
+`ci-and-gates-rules` owns gate wiring in general—why hooks run sequentially, why fix and
+verify modes are separate commands, how suppressions carry a tracker ID, and how to
+prove the floor is live.
+This section is the TypeScript instantiation of it.
 
 lefthook pre-commit (sequential, auto-fix staged files):
 

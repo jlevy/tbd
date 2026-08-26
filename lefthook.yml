@@ -33,7 +33,12 @@ pre-commit:
     # hook does not need to (and must not) reformat them.
     format-md:
       glob: '*.md'
-      exclude: '(\.tbd/|\.claude/skills/|\.agents/skills/|skills/tbd/|AGENTS\.md)'
+      exclude:
+        - '.tbd/**'
+        - '.claude/skills/**'
+        - '.agents/skills/**'
+        - 'skills/tbd/**'
+        - 'AGENTS.md'
       run: pnpm exec prettier --write --log-level warn {staged_files} && uvx --exclude-newer-package flowmark-rs=2026-05-31 flowmark-rs@0.3.1 --auto {staged_files}
       stage_fixed: true
       priority: 2

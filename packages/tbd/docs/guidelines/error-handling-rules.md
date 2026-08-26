@@ -120,6 +120,29 @@ Scripts, CI systems, and orchestrators depend on them.
 The caller needs to know something went wrong.
 Be explicit about what succeeded and what failed in the output.
 
+**A closed consumer is success only at the primary output stream.** `cmd | head` closes
+the pipe early, and the producer’s next write fails (`EPIPE`, `ErrorKind::BrokenPipe`).
+That is the expected end of a successful run *when* the failing write was the primary
+stdout renderer and the command’s required work had already succeeded.
+It is the one case. Three ways the usual handler gets it wrong:
+
+- **It does not ask which sink failed.** A broken pipe writing to a child process’s
+  stdin, a socket, or an output file is an ordinary I/O failure on required work.
+  A handler installed at the executable boundary sees only an error kind, not which
+  stream produced it, so it maps all of them to success.
+- **It raises a failure into a success.** If the run already failed and the pipe breaks
+  while the error is being *reported*, forcing exit `0` from the handler discards the
+  real outcome. A closed stderr must never improve the exit status.
+- **It exits immediately.** Terminating from inside the handler abandons writes still
+  pending on other streams.
+  Set the exit status and let the program finish unwinding.
+
+The rule, in one line: convert an expected early close at the primary stdout renderer
+into a quiet stop, preserve every other sink’s error, and never let the conversion lower
+a nonzero status to zero.
+Test it against both a closed stdout and a closed stderr; the second is where the
+plausible implementations diverge.
+
 ### Principle 7: Tests Must Verify Error Behavior
 
 Happy-path tests are necessary but insufficient.

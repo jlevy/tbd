@@ -213,7 +213,7 @@ A provenance badge is necessary, not sufficient—the @antv worm forged one.
 audit:
   runs-on: ubuntu-latest
   steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@<40-hex-sha> # v6 — a tag is mutable; the SHA is the pin
     - run: pnpm install --frozen-lockfile # or: bun install --frozen-lockfile / npm ci
     - run: pnpm audit --audit-level=moderate # or: bun audit / npm audit
     - run: pnpm audit signatures # provenance check where supported
