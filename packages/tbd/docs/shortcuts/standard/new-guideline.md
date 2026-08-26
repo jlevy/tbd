@@ -83,8 +83,10 @@ Create a to-do list with the following items then perform all of them:
    - A `**Related**:` block immediately under the H1, listing the guidelines this one
      assumes or hands off to.
      One list per document—do not also add a trailing “Related Guidelines” section.
-   - `globs` and `alwaysApply: true` for a language document that should always load
-     when that language is in play (see `typescript-rules`, `rust-rules`).
+   - `globs` for language-specific documents.
+     Do not add document-local `alwaysApply`: `globs` declare file applicability, while
+     the generated skill directory owns always-load policy.
+     Duplicate always-load metadata can contradict that routing.
    - Clear introduction explaining scope, and actionable rules with examples.
 
 6. **Register the guideline** (official guidelines only—without this, `tbd docs sync`

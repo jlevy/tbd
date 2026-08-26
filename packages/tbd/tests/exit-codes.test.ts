@@ -30,11 +30,8 @@ import {
   EXIT_USAGE_ERROR,
 } from '../src/cli/lib/exit-codes.js';
 
-// Capture process.exit calls for testing
-let exitCode: number | null = null;
-// eslint-disable-next-line @typescript-eslint/unbound-method
-const originalExit = process.exit;
 const originalArgv = process.argv;
+const originalExitCode = process.exitCode;
 
 /**
  * Helper to run CLI with specific arguments.
@@ -53,16 +50,11 @@ describe('exit codes', () => {
     testDir = join(tmpdir(), `tbd-exit-test-${randomBytes(4).toString('hex')}`);
     await mkdir(testDir, { recursive: true });
     process.chdir(testDir);
-    exitCode = null;
-    // Mock process.exit to capture exit code instead of actually exiting
-    process.exit = ((code?: number) => {
-      exitCode = code ?? 0;
-      throw new Error(`process.exit(${code})`);
-    }) as never;
+    process.exitCode = undefined;
   });
 
   afterEach(async () => {
-    process.exit = originalExit;
+    process.exitCode = originalExitCode;
     process.argv = originalArgv;
     process.chdir(originalCwd);
     await rm(testDir, { recursive: true, force: true });
@@ -127,34 +119,15 @@ describe('exit codes', () => {
   describe('integration: NotInitializedError', () => {
     it('returns exit code 1 when not initialized', async () => {
       // No .tbd directory - should trigger NotInitializedError
-      try {
-        await runCliWithArgs(['node', 'tbd', 'list']);
-      } catch (e) {
-        // Expected: our mocked process.exit throws to stop execution
-        // The actual exit code is captured in the exitCode variable
-        const msg = e instanceof Error ? e.message : String(e);
-        if (!msg.includes('process.exit')) {
-          console.error('Unexpected error in exit code test:', msg);
-          throw e; // Re-throw unexpected errors
-        }
-      }
+      await runCliWithArgs(['node', 'tbd', 'list']);
 
-      expect(exitCode).toBe(1);
+      expect(process.exitCode).toBe(1);
     });
 
     it('returns exit code 1 for show in uninitialized repo', async () => {
-      try {
-        await runCliWithArgs(['node', 'tbd', 'show', 'test-123']);
-      } catch (e) {
-        // Expected: our mocked process.exit throws to stop execution
-        const msg = e instanceof Error ? e.message : String(e);
-        if (!msg.includes('process.exit')) {
-          console.error('Unexpected error in exit code test:', msg);
-          throw e; // Re-throw unexpected errors
-        }
-      }
+      await runCliWithArgs(['node', 'tbd', 'show', 'test-123']);
 
-      expect(exitCode).toBe(1);
+      expect(process.exitCode).toBe(1);
     });
   });
 
@@ -175,18 +148,9 @@ describe('exit codes', () => {
         'short_to_ulid: {}\nulid_to_short: {}\n',
       );
 
-      try {
-        await runCliWithArgs(['node', 'tbd', 'show', 'nonexistent-id']);
-      } catch (e) {
-        // Expected: our mocked process.exit throws to stop execution
-        const msg = e instanceof Error ? e.message : String(e);
-        if (!msg.includes('process.exit')) {
-          console.error('Unexpected error in exit code test:', msg);
-          throw e; // Re-throw unexpected errors
-        }
-      }
+      await runCliWithArgs(['node', 'tbd', 'show', 'nonexistent-id']);
 
-      expect(exitCode).toBe(1);
+      expect(process.exitCode).toBe(1);
     });
   });
 });

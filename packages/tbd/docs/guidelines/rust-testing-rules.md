@@ -32,7 +32,7 @@ test placement, feature, platform, fixture, and toolchain concerns.
 In a workspace, integration tests belong inside the member package they test.
 A workspace-root `tests/` directory is not automatically a test target.
 
-## Test Outcomes and Failure Paths
+## Assert Public Outcomes and Each Externally Distinct Failure
 
 - Assert public results, state transitions, emitted events, files, streams, and errors;
   avoid private counters or call order unless those are the interface.
@@ -49,7 +49,7 @@ A workspace-root `tests/` directory is not automatically a test target.
 - Use `panic!` or `assert!` with a useful impossible-branch message rather than an
   unconditional `assert!(false)`.
 
-## Embed or Read Fixtures Deliberately
+## Embed Fixed Fixtures and Read Path-Semantics Fixtures at Runtime
 
 `general-testing-rules` owns fixture provenance—one authoritative copy, stated
 regeneration, reviewable diffs, and no machine-specific content.
@@ -71,7 +71,7 @@ fn renders_the_document() {
 }
 ```
 
-## Use Golden and Snapshot Tests Deliberately
+## Use Goldens for Stable Structured Output and CLI Sessions
 
 Golden or snapshot tests are useful for structured output, diagnostics, CLI sessions,
 serialized data, and large render trees.
@@ -125,7 +125,7 @@ stderr separately, and assert the exit status before interpreting output.
 `rust-cli-rules` owns the command, stream, terminal, configuration, interruption, and
 destructive-operation behaviors the harness must exercise.
 
-## Test Async and Concurrent Code as a State Machine
+## Control Scheduling and Exercise Cancellation, Backpressure, and Shutdown
 
 - Await every spawned task or supervise its failure.
 - Test cancellation at meaningful await points.
@@ -137,7 +137,7 @@ destructive-operation behaviors the harness must exercise.
 
 A passing happy-path async test does not establish cancellation safety.
 
-## Cover Features, Toolchains, and Platforms by Policy
+## Test Every Supported Feature, Toolchain, and Platform Dimension
 
 The test matrix should reflect supported configurations:
 
@@ -153,7 +153,7 @@ Do not multiply a matrix without a question for each dimension.
 Compile-only checks can cover configurations whose runtime behavior is identical;
 platform adapters need real tests on the platform.
 
-## Use Coverage to Find Missing Questions
+## Use Coverage to Find Untested Contracts, Not as the Goal
 
 Use `cargo-llvm-cov` by default to identify unexecuted lines, regions, and branches.
 Use another coverage tool only when the compiler, target, or reporting environment

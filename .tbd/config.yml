@@ -138,6 +138,7 @@ docs_cache:
     guidelines/rust-release-rules.md: internal:guidelines/rust-release-rules.md
     guidelines/rust-rules.md: internal:guidelines/rust-rules.md
     guidelines/rust-testing-rules.md: internal:guidelines/rust-testing-rules.md
+    guidelines/scripts/check-rust-gate.mjs: internal:guidelines/scripts/check-rust-gate.mjs
     guidelines/supply-chain-hardening.md: internal:guidelines/supply-chain-hardening.md
     guidelines/tauri-app-development-patterns.md: internal:guidelines/tauri-app-development-patterns.md
     guidelines/tbd-sync-troubleshooting.md: internal:guidelines/tbd-sync-troubleshooting.md

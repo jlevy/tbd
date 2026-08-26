@@ -436,12 +436,7 @@ interface GuidelineGroup {
  *
  * `guideline-budget.test.ts` asserts the size of what this set renders to.
  */
-const ALWAYS_LOAD_NAMES = new Set([
-  'general-eng-agent-principles',
-  'general-coding-rules',
-  'general-comment-rules',
-  'error-handling-rules',
-]);
+const ALWAYS_LOAD_NAMES = new Set(['general-eng-agent-principles']);
 
 /** Language-neutral guidelines loaded when the work touches their topic. */
 const CROSS_CUTTING_NAMES = new Set([
@@ -449,11 +444,15 @@ const CROSS_CUTTING_NAMES = new Set([
   'ci-and-gates-rules',
   'code-review-rules',
   'commit-conventions',
+  'error-handling-rules',
   'filesystem-rules',
+  'general-coding-rules',
+  'general-comment-rules',
   'general-tdd-guidelines',
   'general-testing-rules',
   'golden-testing-guidelines',
   'release-engineering-rules',
+  'supply-chain-hardening',
 ]);
 
 /**
@@ -476,33 +475,33 @@ export const ALWAYS_LOAD_GUIDELINES: readonly string[] = [...ALWAYS_LOAD_NAMES];
 const GUIDELINE_GROUPS: GuidelineGroup[] = [
   {
     heading: 'General engineering',
-    note: 'Read all of these before writing or reviewing any code. This group is deliberately small: everything else is routed by what the change touches.',
+    note: 'Read this core before writing or reviewing code. Everything else is routed by what the change touches.',
     match: (n) => ALWAYS_LOAD_NAMES.has(n),
   },
   {
     heading: 'Cross-cutting engineering topics',
-    note: 'Language-neutral, loaded by what the change touches. Writing or changing tests: general-testing-rules. Working red-green: general-tdd-guidelines. Snapshots or goldens: golden-testing-guidelines. Changing a published interface: backward-compatibility-rules. Committing: commit-conventions. Reviewing a diff: code-review-rules. CI, hooks, or quality gates: ci-and-gates-rules. Paths, traversal, or file mutation: filesystem-rules. Building, versioning, or publishing artifacts: release-engineering-rules.',
+    note: 'Select by the changed surface: general code details, comments, errors, tests or TDD, goldens, dependencies, published interfaces, commits, review, CI and gates, filesystem work, or releases.',
     match: (n) => CROSS_CUTTING_NAMES.has(n),
   },
   {
     heading: 'TypeScript & JS ecosystem',
-    note: 'Also load these when working in TypeScript or JavaScript.',
+    note: 'Select the documents that match the TypeScript or JavaScript surface; do not load this whole group by default.',
     match: (n) =>
       n.startsWith('typescript-') || n.endsWith('monorepo-patterns') || n.startsWith('electron-'),
   },
   {
     heading: 'Python',
-    note: 'Also load these when working in Python.',
+    note: 'Select the documents that match the Python surface; do not load this whole group by default.',
     match: (n) => n.startsWith('python-'),
   },
   {
     heading: 'Rust',
-    note: 'Also load these when working in Rust.',
+    note: 'Select the documents that match the Rust surface; do not load this whole group by default.',
     match: (n) => n.startsWith('rust-'),
   },
   {
     heading: 'Convex',
-    note: 'Also load these when working with Convex.',
+    note: 'Select the documents that match the Convex surface; do not load this whole group by default.',
     match: (n) => n.startsWith('convex-'),
   },
   {
@@ -626,9 +625,7 @@ export function generateShortcutDirectory(
       // This directory is injected into generated files that flowmark must not
       // reformat, so keep prose paragraphs to a single line under flowmark's wrap
       // width (~88 cols); otherwise flowmark would re-wrap them and cause churn.
-      lines.push(
-        'Load the **General engineering** group first, then the language or framework group.',
-      );
+      lines.push('Load the **General engineering** core, then only guidelines matching the task.');
 
       for (const { group, docs } of grouped) {
         const rows = buildTableRows(docs);

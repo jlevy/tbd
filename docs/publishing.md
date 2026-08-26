@@ -284,6 +284,10 @@ See [tbd-format-versioning.md](tbd-format-versioning.md) for the full contract.
 Write the `## X.X.X` CHANGELOG section following
 `tbd guidelines release-notes-guidelines`.
 
+Before accepting a Fixes entry, ask whether the defect existed in the previous published
+release. A regression introduced and corrected within this candidate, including one
+caused by a refactor, is not a shipped fix; omit it or fold it into its parent entry.
+
 The `## X.X.X` section you write in `CHANGELOG.md` is the single source of truth: at tag
 time `release.yml` extracts it (via `packages/tbd/scripts/extract-changelog.ts`) to
 populate the GitHub Release body.

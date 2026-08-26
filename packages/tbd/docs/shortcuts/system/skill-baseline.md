@@ -125,23 +125,23 @@ or want help → run `tbd shortcut welcome-user`
 
 **Loading guidelines for engineering work:** three layers, in this order.
 
-1. **Always**, before writing or reviewing code, the **General engineering** group.
-   It is four documents and it is deliberately short:
+1. **Always**, before writing or reviewing code, load the engineering core:
 
    ```bash
-   tbd guidelines general-eng-agent-principles general-coding-rules general-comment-rules error-handling-rules
+   tbd guidelines general-eng-agent-principles
    ```
 
-2. **The language group** for what you are working in (TypeScript, Python, Rust,
-   Convex).
+2. **The language documents** that match the changed surface.
+   Do not load an entire language group by default.
 
-3. **Cross-cutting topics, by what the change actually touches**—tests, goldens, a
-   published interface, commits, review, CI and gates, filesystem work, releases.
+3. **Cross-cutting topics, by what the change actually touches**—errors, tests and
+   goldens, code and comment policy, dependencies, published interfaces, commits,
+   review, CI and gates, filesystem work, and releases.
    These are not always-load: read the group’s note in `tbd guidelines --list` and pull
    the ones that apply.
 
-Load a whole group in **one call**; `guidelines`, `shortcut`, `template`, and
-`docs show` all take several names.
+Load several selected documents in **one call**; `guidelines`, `shortcut`, `template`,
+and `docs show` all take several names.
 
 Run `tbd guidelines --list` to see all available guidelines.
 
@@ -311,7 +311,7 @@ Narrow with `--docs`, `--issues`, or `--integrations` for a single surface.
 | --- | --- |
 | `tbd shortcut <name>` | Run a shortcut |
 | `tbd shortcut --list` | List shortcuts |
-| `tbd guidelines <name> [<name> …]` | Load coding guidelines (a whole group in one call) |
+| `tbd guidelines <name> [<name> …]` | Load coding guidelines (several names in one call) |
 | `tbd guidelines --list` | List guidelines |
 | `tbd template <name>` | Output a template |
 | `tbd docs` / `tbd docs list` | Managed-docs overview / cross-kind list with state markers |

@@ -88,8 +88,14 @@ These are general rules that *must* be followed on this project for Python code.
 - Use pathlib `Path` instead of strings.
   Use `Path(filename).read_text()` instead of two-line `with open(...)` blocks.
 
-- Use strif’s `atomic_output_file` context manager when writing files to ensure output
-  files are written atomically.
+- When one operation creates and completes an output file, strongly prefer Strif’s
+  `atomic_output_file`, `atomic_write_text`, or `atomic_write_bytes` instead of writing
+  directly to the final path.
+  This applies to new and replacement outputs regardless of how important or long-lived
+  they are. Append, live streams, and private staging files need their own primitives;
+  create-only output needs an atomic no-replace commit.
+  See `python-modern-guidelines` and `filesystem-rules` for the examples and decision
+  boundary.
 
 ## Types and Type Annotations
 

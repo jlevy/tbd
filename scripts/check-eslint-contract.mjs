@@ -23,7 +23,7 @@ const REPO_ROOT = resolve(__dirname, '..');
 
 // One representative file per language; both must exist and be linted.
 const TS_PROBE = join(REPO_ROOT, 'packages/tbd/src/cli/bin.ts');
-const JS_PROBE = join(REPO_ROOT, 'scripts/check-package-age.mjs');
+const JS_PROBE = join(REPO_ROOT, 'packages/tbd/docs/guidelines/scripts/check-rust-gate.mjs');
 
 // rule -> expected: severity 2, plus (for array entries) leading options.
 const TS_CONTRACT = {
@@ -42,8 +42,13 @@ const TS_CONTRACT = {
 
 const JS_CONTRACT = {
   curly: { options: ['all'] },
-  // From js.configs.recommended; proves the JS baseline preset is applied.
-  'no-unused-vars': {},
+  // Checked JavaScript receives the same type-aware safety floor as TypeScript.
+  '@typescript-eslint/no-unused-vars': {},
+  '@typescript-eslint/no-floating-promises': {},
+  '@typescript-eslint/no-misused-promises': {},
+  '@typescript-eslint/await-thenable': {},
+  '@typescript-eslint/consistent-type-imports': {},
+  '@typescript-eslint/use-unknown-in-catch-callback-variable': {},
 };
 
 function severityOf(entry) {

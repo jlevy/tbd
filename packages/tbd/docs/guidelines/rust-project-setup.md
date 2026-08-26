@@ -48,7 +48,7 @@ project/
 └── .github/workflows/
 ```
 
-## Declare the Package Contract
+## Declare Edition, MSRV, License, and Published Metadata
 
 Every published package should declare its edition, MSRV, license, repository, readme,
 and a concise description.
@@ -110,7 +110,7 @@ required-features = ["cli"]
 - Use target-specific dependencies for OS-specific integrations instead of compiling
   unused platform code everywhere.
 
-## Pin the Development Toolchain Deliberately
+## Pin the Development Toolchain Separately From the MSRV
 
 `rust-lint-format-rules` carries the `rust-toolchain.toml` block and why the pin and the
 MSRV are different things.
@@ -139,7 +139,7 @@ max_width = 100
 Format TOML, Markdown, YAML, JSON, and scripts with their own formatters too;
 `rust-lint-format-rules` covers the full set and the verify-mode commands.
 
-## Lint and Format Policy
+## Apply the Shared Rust Lint and Format Floor to Every Workspace Member
 
 `rust-lint-format-rules` owns the lint and format floor: the `[lints]` block, the
 `clippy.toml`, rustfmt settings, and measured adoption cost for the lints beyond the
@@ -153,7 +153,7 @@ Two project-shape points belong here rather than there:
 - Never enable the entire Clippy `restriction` group.
   It contains mutually contradictory lints and is designed to be drawn from selectively.
 
-## Make One Local Command Match CI
+## Use One Verify Command Locally and in CI
 
 Contributors and CI run the same named entry point, and it is the handoff gate: if it
 passes, CI should. Use a checked-in `justfile` by default because it keeps named tasks
@@ -169,7 +169,7 @@ Keep auto-fix and verification separate—`ci-and-gates-rules` explains why a pr
 only fix-mode commands cannot detect drift.
 CI verifies; it never commits.
 
-## Design CI as Independent Evidence
+## Test the MSRV and Supported Feature Sets in Separate CI Jobs
 
 `ci-and-gates-rules` owns gate design in general: splitting jobs so failures answer
 different questions, read-only default permissions with per-job grants, SHA-pinned
@@ -245,8 +245,11 @@ Published projects normally need:
 Build docs with warnings denied where practical:
 
 ```bash
-RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --all-features --no-deps
+RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --no-deps
 ```
+
+Pass the exact feature set used for the published documentation surface; use
+`--all-features` only when that is a valid, supported combination.
 
 ## Keep Repository Configuration Minimal
 

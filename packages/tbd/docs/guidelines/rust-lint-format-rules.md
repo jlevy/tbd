@@ -3,7 +3,6 @@ title: Rust Lint and Format Rules
 description: The lint and auto-formatting floor for every Rust project—the `[lints]` block, the clippy.toml, rustfmt and toolchain pinning, hooks and CI gates, and how to prove the floor is live. Includes measured adoption cost for the lints beyond the floor, taken from a real 35k-line codebase, so a project can decide with evidence rather than taste.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 globs: "*.rs"
-alwaysApply: true
 category: rust
 ---
 # Rust Lint and Format Rules
@@ -23,7 +22,7 @@ says which Rust rules the gate enforces.
 - `ci-and-gates-rules` (how the gate is wired and how you prove it is live)
 - `supply-chain-hardening` (pin the toolchain and every lint tool; the cool-off applies)
 
-## What Earns a Place in the Floor
+## Add Lints to the Floor Only When Their Signal Exceeds Their Cost
 
 A rule belongs in the floor below only if it clears all six of these.
 Anything clearing fewer is a project preference and belongs in that project’s manifest,
@@ -46,7 +45,7 @@ the one that denies more.
 This floor is what survived them against one codebase shape; the departure conditions
 below are the boundaries that shape did not test.
 
-## The Floor
+## Use This Baseline Rust Quality Floor
 
 A project may add rules.
 It may drop one only under a departure condition stated at the end of this section.
@@ -57,10 +56,13 @@ It may drop one only under a departure condition stated at the end of this secti
    and a readability setting or two.
    Every other knob needs a stated reason.
 
-2. **The lint gate is zero-tolerance and verify-only in CI.**
-   `cargo clippy --locked --workspace --all-targets --all-features -- -D warnings`.
+2. **The lint gate is zero-tolerance and verify-only in CI.** Start with
+   `cargo clippy --locked --workspace --all-targets -- -D warnings`, then repeat it for
+   each additional feature combination in the project’s support contract.
    `--all-targets` is load-bearing: without it, tests, examples, and benches are not
-   linted at all. Never run `--fix` in CI.
+   linted at all. `--all-features` is valid only when all features are compatible and
+   that combination is itself supported.
+   Never run `--fix` in CI.
 
 3. **Warnings are denied in the manifest, not only on the command line.** Put
    `warnings = "deny"` in `[lints.rust]` so a local `cargo build` enforces the same
@@ -73,8 +75,9 @@ It may drop one only under a departure condition stated at the end of this secti
 
 5. **Public items are documented and documentation warnings are errors.**
    `missing_docs = "deny"` in `[lints.rust]`, and
-   `RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps --all-features` as its own
-   gate. A broken intra-doc link is a broken link whether or not anyone builds the docs.
+   `RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --no-deps` as its own
+   gate, using the feature set that defines the published documentation surface.
+   A broken intra-doc link is a broken link whether or not anyone builds the docs.
 
 6. **`unsafe_code` is denied at the workspace root.** Use `deny`, not `forbid`, unless
    the project genuinely has no unsafe anywhere and never will: `forbid` cannot be
@@ -96,13 +99,16 @@ It may drop one only under a departure condition stated at the end of this secti
 
 9. **Legacy code ratchets toward strict.** Per-crate `[lints]` overrides relax a rule
    for one member, never for the workspace, and each off-switch carries a tracker ID and
-   a re-enable condition (`ci-and-gates-rules`, “Suppressions Are Debt or Decay”).
+   a re-enable condition (`ci-and-gates-rules`, “Track Every Disabled or Relaxed
+   Check”).
 
 10. **Platform-gated code is linted for its own platform.** `cfg(target_os = ...)` code
     is invisible to a single-platform clippy run, so a module behind such a gate has
     never been linted anywhere if CI lints only on Linux.
-    Add a cross-target lint pass; see `ci-and-gates-rules`, “Single-platform blindness”,
-    for the shape that skips uninstalled targets instead of failing.
+    Add a required cross-target lint pass.
+    CI must fail when a declared target is unavailable; a local discovery command may
+    report an optional target as skipped, but that command is not a gate.
+    See `ci-and-gates-rules`, “Single-platform blindness”.
 
 **Departures by project shape.** These are the known boundaries, each with the reason it
 is a boundary rather than an excuse:
@@ -193,7 +199,8 @@ regressions.
 
 ## clippy.toml
 
-Two settings carry most of the value.
+The test allowances below preserve the production panic policy without forcing fixture
+setup to use production-style recovery:
 
 ```toml
 # Unit tests live inside the source file under #[cfg(test)], so a path-based
@@ -201,28 +208,22 @@ Two settings carry most of the value.
 # These options are how that distinction is expressed.
 allow-unwrap-in-tests = true
 allow-expect-in-tests = true
-
-# The atomic-write rule from `filesystem-rules`, made executable.
-[[disallowed-methods]]
-path = "std::fs::write"
-reason = "write via an atomic replace (tempfile::NamedTempFile::persist)"
-
-[[disallowed-methods]]
-path = "std::fs::File::create"
-reason = "write via an atomic replace (tempfile::NamedTempFile::persist)"
 ```
 
-`disallowed-methods` is the Rust analogue of `no-restricted-imports`: it converts a rule
-that otherwise lives only in prose into something the gate enforces.
-
-Two limits worth knowing before you turn these on:
+One limit matters when using these settings:
 
 - `allow-*-in-tests` covers inline `#[cfg(test)]` items.
   It does **not** cover integration tests under `tests/`, examples, or build scripts,
   which need a crate-level `#![allow(...)]` of their own.
-- `disallowed-methods` has no test-scoping option at all.
-  Test code that legitimately writes fixture files will trip it, so pair it with a
-  crate-level allow in test targets or accept the exceptions.
+
+Do not globally disallow `std::fs::write` or `File::create` to enforce atomic
+publication. They are valid inside the atomic helper when populating a private staging
+file, and in test-fixture or live-stream code; Clippy cannot tell those paths from final
+output, and `disallowed-methods` has no path or intent scope.
+Expose intent-specific output operations such as `write_atomic`, `write_durable`,
+`create_atomic`, `append_record`, and `open_stream`. If a legacy *project helper* has an
+unambiguously unsafe contract, disallow that helper after callers have migrated; do not
+ban general standard-library operations whose correctness depends on context.
 
 ## Beyond the Floor: Measured Adoption Cost
 
@@ -241,10 +242,12 @@ Method, reproducer, and the full 415-row diagnostic mapping are in
 | `clippy::let_underscore_future` | 0 | 0 | 0 | **Adopt.** Free, and inert in a crate with no async. |
 | `clippy::panic` | 2 | 2 | 35 | **Adopt** in library code. Half the non-test cost is `build.rs`, which panics legitimately and needs its own allow. |
 | `clippy::wildcard_enum_match_arm` | 12 | 0 | 9 | **Adopt.** Small, and it is what makes adding an enum variant a compile error instead of a silent `_ =>`. |
-| `clippy::disallowed_methods` (fs writes) | 0 | 1 | 82 | **Adopt.** Zero shipping cost; the entire cost is test fixtures, covered by one crate-level allow. |
+| `clippy::disallowed_methods` (filesystem writes) | 0 | 1 | 82 | **Do not adopt as a global filesystem policy.** A method ban cannot distinguish a final output from the private staging write used to publish it atomically. |
 | `clippy::expect_used` | 32 | 7 | 35 | **Defer or ratchet.** On top of `unwrap_used`, this means every fallible call in library code returns a `Result`. That is a design commitment, not a lint tweak. |
 | `clippy::indexing_slicing` | 79 | 0 | 119 | **Do not deny outright.** The most expensive rule here, in a codebase already at this floor. Adopt per-module with a tracked ratchet, or not at all. |
 
+These counts measure adoption cost in one repository; they do not measure defect
+prevention by themselves.
 The two most-proposed additions are the two that do not survive contact with a real
 codebase. `indexing_slicing` in particular is recommended by analogy to
 `noUncheckedIndexedAccess`, but the analogy is inexact: TypeScript’s flag changes an
@@ -273,7 +276,7 @@ if Cargo emitted some diagnostics first, or the table silently describes a prefi
 workspace. Deduplicate by lint plus primary-span file, line, and column: `--all-targets`
 compiles the library twice.
 
-## Hooks and Gates
+## Run the Same Rust Quality Commands Locally and in CI
 
 Pre-commit auto-fixes staged files; pre-push and CI run the identical verify gate.
 `ci-and-gates-rules` covers why hooks run sequentially and why fix and verify are
@@ -290,16 +293,26 @@ pre-commit:
       priority: 1
 ```
 
-The verify gate, as separate jobs so failures answer different questions:
+The default-feature verify gate, as separate jobs so failures answer different
+questions:
 
 ```bash
 cargo fmt --all -- --check
-cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
-cargo test --locked --workspace --all-features
-RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --all-features --no-deps
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo test --locked --workspace
+RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --no-deps
 cargo deny --locked check                 # advisories, licenses, sources, bans
-cargo +$MSRV check --locked --all-features && cargo +$MSRV test --locked
+cargo +$MSRV check --locked --workspace && cargo +$MSRV test --locked --workspace
 ```
+
+Add clippy and test invocations for every other supported feature combination.
+Run the docs job with the feature set used for published documentation, and run MSRV
+jobs only for feature sets the project promises on its MSRV. Do not collapse that matrix
+to `--all-features` unless every feature is compatible and the combined configuration is
+supported. The MSRV command above assumes one compiler floor across the workspace.
+If members declare different `rust-version` values, replace it with explicit package or
+release-unit jobs at each promised floor; do not fall back to Cargo’s default-member
+selection, which can leave published members unchecked.
 
 Set `RUSTFLAGS: "-D warnings"` and `CARGO_INCREMENTAL: 0` in the CI environment.
 Keep fix mode (`cargo clippy --fix`, `cargo fmt --all`) in a separate `fix` target that
@@ -312,38 +325,22 @@ project accepts, not an inventory of what the tree happens to contain today.
 Warning about entries nothing currently uses trains everyone to skim the audit’s output,
 and the next real advisory scrolls past with it.
 
-## Verifying the Floor
+## Break Each Floor Rule Once to Prove It Runs
 
 After setting up or changing any lint configuration, prove it holds:
 
 1. **Confirm every member has a lint policy.** This is the failure that looks exactly
    like success, so check for the `[lints]` table itself, over the manifests cargo says
-   are in the workspace:
+   are in the workspace.
+   Use a tested helper in the project’s pinned language; tbd’s Node reference
+   implementation is:
 
    ```bash
-   #!/usr/bin/env bash
-   set -euo pipefail
-
-   missing=()
-   count=0
-   while IFS= read -r manifest; do
-     count=$((count + 1))
-     grep -qE '^\[lints(\.|\])' "$manifest" || missing+=("$manifest")
-   done < <(cargo metadata --format-version 1 --no-deps | jq -r '.packages[].manifest_path')
-
-   # An empty member list is the same green as a clean one. Say so.
-   if [ "$count" -eq 0 ]; then
-     echo 'no workspace members found' >&2
-     exit 1
-   fi
-   if [ "${#missing[@]}" -gt 0 ]; then
-     printf 'no [lints] table: %s\n' "${missing[@]}" >&2
-     exit 1
-   fi
-   echo "$count workspace manifests declare a lint policy"
+   node .tbd/docs/guidelines/scripts/check-rust-gate.mjs lint-policy \
+     --manifest-path Cargo.toml
    ```
 
-   Three things in that script are the point, and a shorter version loses all three.
+   Three properties of that tested script are the point.
    **It exits nonzero.** A loop that prints a complaint and reaches its final statement
    exits zero, and a required check that always passes is worse than no check—it is a
    green light with a paper trail.
@@ -377,8 +374,22 @@ After setting up or changing any lint configuration, prove it holds:
 3. **Confirm `--all-targets` is present** in the CI command.
    Without it a passing clippy run says nothing about test code.
 
-4. **Confirm platform-gated modules are linted.** Run the cross-target lint pass; if the
-   project has `cfg(target_os)` code and no such pass, that code is unlinted.
+4. **Confirm platform-gated modules are linted.** Run the cross-target lint pass in
+   strict mode in CI; if a required target is missing, the gate must fail rather than
+   report a successful skip:
+
+   ```bash
+   node .tbd/docs/guidelines/scripts/check-rust-gate.mjs cross-targets \
+     --mode strict \
+     --manifest-path Cargo.toml \
+     --target x86_64-unknown-linux-gnu \
+     --target x86_64-pc-windows-msvc
+   ```
+
+   Choose targets and feature options from the project’s support contract.
+   The helper defaults to Cargo’s default features and accepts `--all-features`,
+   `--no-default-features`, and `--features <csv>` explicitly; repeat the invocation
+   when the supported feature matrix has more than one valid combination.
 
 5. **Confirm CI runs verify mode**, not `--fix`, and that the docs and MSRV gates are
    present and actually executed rather than skipped on a missing toolchain.

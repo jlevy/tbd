@@ -1,6 +1,6 @@
 ---
 title: Rust Filesystem Rules
-description: The Rust-specific half of filesystem work—path and string types, the tempfile atomic-replacement sequence, traversal crate choice and error propagation, platform metadata, and making the atomic-write rule executable through clippy. The behavior contract itself lives in filesystem-rules.
+description: The Rust-specific half of filesystem work—path and string types, intent-specific write boundaries, the tempfile atomic-replacement sequence, traversal crate choice and error propagation, and platform metadata. The behavior contract itself lives in filesystem-rules.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: rust
 ---
@@ -16,7 +16,7 @@ This document owns what is specific to Rust: the types, the crates, and the enfo
 **Related**:
 
 - `filesystem-rules` (the behavior contract this implements)
-- `rust-lint-format-rules` (the `clippy.toml` that enforces atomic writes)
+- `rust-lint-format-rules` (lint policy and the limits of method bans)
 - `rust-rules` (ownership, errors, and API design)
 - `rust-cli-rules` (destructive-command design)
 - `rust-testing-rules` (isolated roots for mutating fixtures)
@@ -51,21 +51,31 @@ fn append_suffix(path: &Path, suffix: &str) -> PathBuf {
 }
 ```
 
-Rust string indices are byte offsets, so any path or filename manipulation done through
-`&str` will panic on a multi-byte boundary.
-Stay in `Path`/`OsStr` and the question does not arise.
+Rust string indices are byte offsets, so slicing a `&str` at an arbitrary byte position
+panics when that position is not a character boundary; converting a path to `&str` also
+rejects non-UTF-8 names.
+Stay in `Path`/`OsStr` unless text semantics are part of the contract.
 
-## Make the Write Boundary Executable
+## Use Intent-Specific APIs and Atomically Publish Completed Output Files
 
-`std::fs::write` and `std::fs::File::create` truncate the destination before writing.
-Restrict both in `clippy.toml` via `disallowed-methods`, directing callers to the
-crate’s named write helpers—`rust-lint-format-rules` carries the exact block, the
-measured adoption cost (zero shipping sites in a real 35k-line codebase), and the fact
-that `disallowed-methods` has no test-scoping option.
+`std::fs::write` and `std::fs::File::create` truncate an existing destination before
+writing. That is wrong whenever one operation creates and completes an output file,
+including a new destination.
+A reader can observe the path after creation but before the write finishes.
+Do not ban these standard-library methods globally: Clippy cannot infer whether the
+caller’s path is a published output, a private staging file, or a test fixture, and
+`disallowed-methods` has no intent scope.
 
-This is what turns `filesystem-rules`’ write-contract rule from prose into something the
-gate enforces, which matters because the failure it prevents is silent: a truncated file
-looks like corrupt data later, not like a write error now.
+Instead, route output publication through a module with named operations such as
+`write_atomic`, `write_durable`, `create_atomic`, and `append_record`. If a legacy
+project helper is unambiguously unsafe, disallow that helper after migrating callers;
+preserve the general primitives for contexts where their semantics are the declared
+contract.
+
+The named boundary makes `filesystem-rules`’ write contract reviewable and gives a
+project a specific helper to prohibit during migration.
+That matters because the failure is silent: a truncated file looks like corrupt data
+later, not like a write error now.
 
 `filesystem-rules` owns *which* contract applies; Rust’s standard library expresses each
 of them through `OpenOptions`, so the alternatives the restriction points at are real
@@ -73,51 +83,54 @@ and cheap:
 
 | Contract | Rust |
 | --- | --- |
-| Replace | `NamedTempFile::new_in(dir)` → write → `persist` |
-| Create exclusively | `OpenOptions::new().write(true).create_new(true)` |
+| Publish, replacement allowed | `NamedTempFile::new_in(dir)` → write → `persist` |
+| Publish, replacement forbidden | `NamedTempFile::new_in(dir)` → write → `persist_noclobber` |
 | Append | `OpenOptions::new().append(true)` |
-| Stream, scratch | `File::create`, with a scoped `#[expect]` and a reason |
+| Live stream, private staging, test fixture | `File::create` |
 
-`create_new` is the atomic exclusive-create; `Path::exists()` followed by a create is
-the race it exists to replace.
-`append(true)` positions at the end of the file on *every* write, not once at open,
-which is why concurrent appends of a single small record do not interleave and a
-`seek`-to-end-then-write does.
+`create_new` is useful for a lock, sentinel, or private work file that may become
+visible before later writes finish.
+It is not atomic publication of a completed output: use `persist_noclobber` when a
+completed file must appear only if the destination is absent.
+In either case, `Path::exists()` followed by create or rename is a race.
+`append(true)` positions each write at the current end of the file, avoiding the race in
+`seek`-to-end-then-write.
+It does **not** guarantee that records from concurrent writers cannot interleave: a
+write may accept only part of its buffer, and the amount accepted depends on the
+operating system and filesystem
+([`OpenOptions::append`](https://doc.rust-lang.org/std/fs/struct.OpenOptions.html#method.append)).
+Assemble each record before writing; if record atomicity is required, serialize writers
+or use a storage format and protocol that supplies it.
 
-The same-filesystem replacement sequence, with the Rust specifics that matter:
+For any output file completed by one operation, the smallest correct Rust implementation
+writes before `persist` and stages beside the destination:
 
 ```rust
-use std::io::{BufWriter, IntoInnerError, Write};
+use std::io::Write;
 use std::path::Path;
 use tempfile::NamedTempFile;
 
-fn stage_replacement(
-    path: &Path,
-    records: &[Record],
-    durable: bool,
-) -> anyhow::Result<NamedTempFile> {
+fn write_atomic(path: &Path, contents: &[u8]) -> anyhow::Result<()> {
     // In the destination directory, not the system temp dir: a temp file elsewhere is
-    // probably on another filesystem, which turns the final persist into a
-    // cross-device copy and loses atomicity.
-    let directory = path.parent().unwrap_or_else(|| Path::new("."));
-    let mut writer = BufWriter::new(NamedTempFile::new_in(directory)?);
-    for record in records {
-        writeln!(writer, "{record}")?;
-    }
-    // Recover the file *through* the writer, not around it. `into_inner` flushes and
-    // surfaces the error; `BufWriter`'s Drop also flushes but discards the result, so a
-    // full disk becomes a short file and a successful exit status.
-    let staged = writer.into_inner().map_err(IntoInnerError::into_error)?;
-    if durable {
-        // Only when the operation promises crash durability. `filesystem-rules` keeps
-        // these two promises apart; this is the line where they diverge.
-        staged.as_file().sync_all()?;
-    }
-    Ok(staged)
+    // on another filesystem and makes `persist` fail rather than replace atomically.
+    let directory = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let mut staged = NamedTempFile::new_in(directory)?;
+    staged.write_all(contents)?;
+    staged.flush()?;
+    staged.persist(path).map_err(|error| error.error)?;
+    Ok(())
 }
 ```
 
-Two Rust-specific traps in that sequence:
+This example promises atomic visibility, not crash durability or metadata preservation.
+If the operation promises those properties, sync the staged file before `persist`, sync
+the parent directory afterward where supported, and copy each promised metadata field
+before the replacement as specified in `filesystem-rules`.
+
+Rust-specific traps in this sequence:
 
 - **The buffer holds the bytes, not the file.** `flush()` on the underlying file does
   nothing for data still sitting in a `BufWriter`, and `BufWriter`’s own `Drop` flushes
@@ -131,6 +144,11 @@ Two Rust-specific traps in that sequence:
   the destination exists.
   Pick by the collision policy the operation promises, per `filesystem-rules`; do not
   assume either one from the other’s name.
+  `tempfile` does not guarantee that the entire `persist_noclobber` operation is atomic
+  on every platform: its fallback may create the final hard link atomically and then
+  leave the staging link behind if cleanup fails.
+  The destination is never overwritten, but a contract that also forbids residual
+  staging links needs a platform-specific commit or explicit recovery.
   On Windows, `persist` can still fail with a permission error when the destination is
   open, because there is no POSIX-style replace-while-open.
   Treat that as a real failure path in a program that replaces files other processes may
@@ -171,7 +189,7 @@ for entry in WalkDir::new(root).follow_links(false) {
 
 A blanket `.ok()` is not that, and neither is a `_ => continue` arm.
 
-## Platform Metadata Is Behind a `cfg`
+## Lint and Test Platform-Specific Metadata Code on Each Supported OS
 
 Permissions, ownership, and extended attributes reach Rust through platform extension
 traits—`std::os::unix::fs::PermissionsExt`, `MetadataExt`, and their Windows

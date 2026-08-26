@@ -24,7 +24,7 @@ Do not spend manual review time repeating work an effective passing gate already
   defect)
 - `ci-and-gates-rules` (when the change is to a gate rather than to code)
 
-## Severity
+## Assign Blocker, High, Medium, or Low Severity
 
 | Tag | Meaning |
 | --- | --- |
@@ -141,7 +141,7 @@ Additional rules that keep a review honest:
 End with a short verdict, the validation evidence you actually inspected, and any
 remaining risks that could not be tested locally.
 
-## Quick Scan
+## Investigate These High-Risk Patterns Before Reporting Them
 
 Patterns worth grepping for, each with the question that decides whether it is a
 finding. A pattern is not a severity: severity comes from reachability, impact,

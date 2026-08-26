@@ -1,6 +1,6 @@
 ---
 title: Filesystem Rules
-description: Language-neutral rules for code that reads directory trees or mutates files—separating planning from mutation, atomic visibility versus crash durability, explicit metadata and collision policy, cross-device moves, deterministic traversal, symlink and root boundaries, honest partial failure, and testing the state machine rather than the final bytes. Load whenever a change touches file mutation, traversal, or path handling, alongside the language-specific filesystem document if one exists.
+description: Language-neutral rules for code that reads directory trees or mutates files—atomic publication of completed output files, atomic visibility versus crash durability, explicit metadata and collision policy, cross-device moves, deterministic traversal, symlink and root boundaries, honest partial failure, and failure injection at commit boundaries. Load whenever a change touches file mutation, traversal, or path handling, alongside the language-specific filesystem document if one exists.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: general
 ---
@@ -20,60 +20,76 @@ reports when half of it worked—so every caller assumes a different one.
 **Related**:
 
 - `rust-filesystem-rules` (path and string types, platform metadata)
+- `python-modern-guidelines` (Strif atomic-output helpers)
+- `typescript-rules` (the `atomically` publication helper)
 - `error-handling-rules` (partial failure and error context)
 - `general-testing-rules` (fixture isolation for the tests below)
 - `ci-and-gates-rules` (making the atomic-write rule enforceable rather than advisory)
 
-## Name the Write Contract, Then Enforce It
+## Always Atomically Publish Files Completed in One Operation
 
 Every language has a one-line “write this file” call that truncates the destination and
 then writes. If the process dies between those steps—or two writers interleave—the file
 is left empty or half-written, and the failure surfaces later as corrupt state rather
 than as a write error.
 
-Atomic replacement fixes that, and it is the wrong primitive for several other things a
-program legitimately does with a file.
+Whenever one operation creates and completes an output file, write to a private
+temporary file in the destination directory and atomically publish it at the final path.
+This rule applies whether the destination is new or replaced, and whether the output is
+durable state, a report, an export, a cache entry, or a temporary artifact.
+Readers should see no file, the previous file, or the complete new file—never a file
+still being written.
+
+“Created and completed in the same code block” describes this publication contract, not
+a requirement to hold the contents in memory.
+A producer may stream gigabytes into the private temporary file, as long as it closes
+successfully before publication.
+
 A write has one of these contracts, and the code should say which:
 
 | Contract | What it promises | Primitive |
 | --- | --- | --- |
-| **Replace** | A reader sees the old contents or the new ones, never a mix, and never an empty file | temp file in the destination directory, then atomic rename |
-| **Create exclusively** | Fails if the path exists; the check and the create are one operation | `O_EXCL` / `wx` / `create_new` — *not* “check then write”, which is a race |
+| **Publish, replacement allowed** | A reader sees no file, the old contents, or the complete new contents | temp file in the destination directory, then atomic replacing rename |
+| **Publish, replacement forbidden** | Preserves an existing destination; otherwise makes the complete new file visible in one step | temp file in the destination directory, then an atomic no-replace commit—*not* “check then rename”, which is a race |
 | **Append** | Adds to the end without truncating; concurrent writers do not race on a shared file position, but records may still interleave | open in append mode, which positions per write rather than per open; serialize writers when record atomicity is required |
-| **Stream** | Produces output incrementally, possibly larger than memory, possibly to a consumer that reads as it goes | ordinary buffered write to the sink |
-| **Scratch** | Nobody but this process will read it, and it does not outlive the run | ordinary write, into a temp directory |
+| **Live stream** | Makes output available incrementally to a consumer that reads while the producer is still writing | ordinary buffered write to the sink |
+| **Private staging or work file** | Has no published destination and cannot be observed as a completed output | ordinary write in a private temp location |
 
-Replacement is for the first row: a persistent, authoritative path that other readers or
-a later run will read.
-Routing the others through it *weakens* them—an append forced through
-replace-the-whole-file has to read and rewrite the file, which loses the concurrency
-property that made append correct, and turns an O(1) write into an O(size) one.
-Exclusive creation forced through replacement loses the atomicity of the existence
-check.
+Atomic publication is for the first two rows.
+Business importance is irrelevant: a generated report and a cache file need the same
+publication pattern as configuration if one operation completes them before a reader
+should see them. Routing append and live streams through replacement *weakens* them—an
+append forced through replace-the-whole-file has to read and rewrite the file, which
+loses the concurrency property that made append correct, and turns an O(1) write into an
+O(size) one. For create-only output, atomicity and collision policy are independent:
+stage the complete file, then use a commit primitive that atomically refuses an existing
+target.
 
-So enforcement belongs at the authoritative-persistence boundary, not in a global ban.
-Restrict raw truncating calls in that boundary and provide named alternatives for each
-contract, so choosing something other than replacement is a visible decision with a name
-on it rather than a lint suppression:
+Enforce the rule in code that publishes files.
+Restrict raw truncating calls there and provide named alternatives for each contract, so
+choosing something other than atomic publication is a visible decision with a name on it
+rather than a lint suppression.
+Exclude the implementation of the atomic helper and code that creates private fixtures
+or staging files; those writes are not publication:
 
 ```javascript
-// eslint.config.js — apply this rule to authoritative-persistence modules.
+// eslint.config.js — apply this rule to modules that publish output files.
 '@typescript-eslint/no-restricted-imports': ['error', {
   paths: [
     { name: 'node:fs', importNames: ['writeFile', 'writeFileSync'],
-      message: 'Use writeFile from "atomically" instead for atomic writes.' },
+      message: 'Use publishFileAtomic, createFileAtomic, appendToFile, or openOutputStream.' },
     { name: 'node:fs/promises', importNames: ['writeFile'],
-      message: 'Use writeFile from "atomically" instead for atomic writes.' },
+      message: 'Use publishFileAtomic, createFileAtomic, appendToFile, or openOutputStream.' },
     // ...and the un-prefixed 'fs' and 'fs/promises' spellings.
   ],
 }],
 ```
 
-Rust’s `clippy.toml` method restrictions are global and cannot see the caller’s write
-intent, so do not ban `std::fs::write` or `std::fs::File::create` there merely to
-enforce this boundary.
-Prefer a persistence module with named operations; disallow a project-specific helper
-only when its contract is unambiguously unsafe.
+Rust’s `clippy.toml` method restrictions are global and cannot tell a final output path
+from a private staging path, so do not ban `std::fs::write` or `std::fs::File::create`
+globally merely to enforce this boundary.
+Prefer an output module with named operations; disallow a project-specific helper only
+when its contract is unambiguously unsafe.
 Python can use a scoped lint rule or wrapper module.
 The mechanism differs, but the rule must remain executable at the boundary where it
 applies.
@@ -81,12 +97,12 @@ applies.
 List every spelling of the import.
 A restriction on `node:fs` that omits plain `fs` enforces nothing.
 
-The restriction message should name the alternatives—`replaceFile`, `createNewFile`,
-`appendToFile`—rather than only the atomic one.
-A ban with a single suggested replacement teaches contributors that the suppression
-comment is the way to append to a log, and after that the boundary stops meaning
-anything. Scope the restriction to the modules that write persistent state, or accept
-that test fixtures and scratch output will carry suppressions forever.
+The restriction message should name the alternatives—`publishFileAtomic`,
+`createFileAtomic`, `appendToFile`, `openOutputStream`—rather than only one atomic
+helper. A ban with a single suggested replacement teaches contributors that the
+suppression comment is the way to append to a log, and after that the boundary stops
+meaning anything. Scope the restriction to modules that publish output, with narrow
+exclusions for helper internals, test fixtures, and private staging files.
 
 ## Separate Planning From Mutation
 
@@ -249,7 +265,7 @@ target, or on neither.
 An exit code of zero after a batch in which three of ten targets failed is a bug in the
 same class as data loss: the caller’s automation proceeds on a false premise.
 
-## Test the State Machine, Not the Final Bytes
+## Inject Failures Before and After the Filesystem Commit Point
 
 Build every mutating fixture in an isolated root (`general-testing-rules` owns fixture
 construction and cleanup).

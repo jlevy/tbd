@@ -1,6 +1,6 @@
 ---
 title: CI and Quality Gate Rules
-description: How to wire a quality gate that actually holds—one entry point in two modes, config-contract checks that prove the floor is live, the traps that keep a gate green while it checks nothing (pipeline exit status, self-recorded evidence, single-platform blindness, scope holes), suppression ratchets, generated-file ownership, and least-privilege workflow authority. Language-neutral; load it with the language floor document whenever wiring, debugging, or reviewing a gate.
+description: How to wire a quality gate that actually holds—one entry point in two modes, thin workflow and build-file orchestration backed by tested project-native programs, config-contract checks that prove the floor is live, the traps that keep a gate green while it checks nothing (pipeline exit status, self-recorded evidence, single-platform blindness, scope holes), suppression ratchets, generated-file ownership, and least-privilege workflow authority. Language-neutral; load it with the language floor document whenever wiring, debugging, or reviewing a gate.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: general
 ---
@@ -26,7 +26,7 @@ mechanisms rather than advising vigilance.
 - `general-testing-rules` (what the tests inside the gate should assert)
 - `release-engineering-rules` (the pre-release gate and publishing authority)
 
-## One Entry Point, Two Modes
+## Use One Quality Command in Fix and Verify Modes
 
 A contributor and CI run the same named command.
 If they differ, CI failures are discoveries rather than confirmations.
@@ -44,11 +44,48 @@ If they differ, CI failures are discoveries rather than confirmations.
 - **Fail when a required check did not run.** A gate that skips a job on a missing tool,
   an unset variable, or an empty file list reports success for work it never did.
 
-Keep complex gate logic in checked-in scripts that accept explicit inputs and return
-non-zero on partial failure, not in long inline YAML or shell blocks.
-Scripts can be unit-tested; a shell block in a workflow cannot be run except by pushing.
+## Keep Shell at the Invocation Boundary
 
-## Prove the Gate Is Live
+GitHub Actions workflows, Makefile recipes, package scripts, and task-runner files
+should describe dependencies and invoke stable project commands.
+Do not put parsing, loops, branching on computed state, aggregation, validation, or
+release-plan decisions in their inline shell.
+Bash failure behavior is easy to misread around `set -e`, pipelines, command
+substitutions, and loop bodies; embedded shell also lacks an ordinary unit-test boundary
+and couples the gate to a runner shell.
+
+Shell is appropriate for a single command or transparent plumbing whose failures remain
+visible.
+Once a step computes a result or decides whether the gate passes, move it into a
+checked-in program with explicit inputs, outputs, and exit behavior.
+The local build target and CI must call the same program through the same stable
+command; do not copy its logic into a Makefile and a workflow.
+
+Choose the implementation language from the project’s pinned toolchain:
+
+- Use JavaScript or TypeScript when the repository already pins Node and has an
+  established JavaScript or TypeScript test path.
+- Use Python when the repository pins a Python version and environment and already tests
+  Python code.
+- Otherwise prefer the project’s existing implementation language or build tooling.
+  In a polyglot repository, choose a runtime installed on every supported runner and
+  owned by the team responsible for the gate.
+
+Do not choose Node because GitHub Actions itself uses JavaScript, or Python because the
+current runner image happens to contain `python3`. An ambient interpreter is not a
+pinned build input, and adding a second runtime solely for CI glue creates another
+bootstrap and supply-chain surface.
+Prefer the standard library when it is sufficient.
+
+Separate reusable decision logic from the thin command-line adapter.
+Do not recreate the shell inside the program: spawn tools with argument arrays, inspect
+each status, and reject missing or partial output explicitly.
+Test successful input, expected rejection, child-process failure, and any empty or
+partial state that the gate must reject.
+Diagnostics go to stderr; machine-consumed results use a structured output or file; and
+only complete success returns zero.
+
+## Keep a Known Violation for Every Required Gate
 
 A gate that is not itself tested is not a gate.
 Two mechanisms, both cheap:
@@ -93,7 +130,7 @@ Checks that matter belong in a file with a positive and a negative test beside t
 same as any other code; the guideline or workflow calls the script rather than restating
 it, so there is one copy to fix when it is wrong.
 
-## Traps That Keep a Gate Green
+## Prevent Gates From Passing Without Running Their Checks
 
 Each of these has shipped a green build that checked nothing.
 
@@ -145,36 +182,35 @@ install every cross target to run `make lint`. In CI, a missing target must be a
 failure, because a runner with none of them installed skips every target, lints none of
 the platform-gated code, and reports the same green as a full pass:
 
-```make
-CROSS_TARGETS := x86_64-apple-darwin x86_64-pc-windows-msvc
+```bash
+# Local discovery: lint installed targets and name every skip.
+node .tbd/docs/guidelines/scripts/check-rust-gate.mjs cross-targets \
+  --mode local \
+  --target x86_64-apple-darwin \
+  --target x86_64-pc-windows-msvc
 
-# Local: lint what is installed, name what was skipped.
-cross-lint:
-	@installed="$$(rustup target list --installed)"; \
-	for target in $(CROSS_TARGETS); do \
-		if echo "$$installed" | grep -qx "$$target"; then \
-			cargo clippy --locked --all-targets --target "$$target" -- -D warnings || exit 1; \
-		else echo "== skipping $$target (rustup target add $$target)"; fi; \
-	done
-
-# CI: the target set is part of the check. Assert it before linting, so "not installed"
-# cannot be mistaken for "nothing to report".
-cross-lint-strict:
-	@installed="$$(rustup target list --installed)"; \
-	missing=""; \
-	for target in $(CROSS_TARGETS); do \
-		echo "$$installed" | grep -qx "$$target" || missing="$$missing $$target"; \
-	done; \
-	if [ -n "$$missing" ]; then echo "cross targets not installed:$$missing" >&2; exit 1; fi; \
-	for target in $(CROSS_TARGETS); do \
-		echo "== linting $$target"; \
-		cargo clippy --locked --all-targets --target "$$target" -- -D warnings || exit 1; \
-	done
+# Required CI gate: fail before linting if any declared target is unavailable.
+node .tbd/docs/guidelines/scripts/check-rust-gate.mjs cross-targets \
+  --mode strict \
+  --target x86_64-apple-darwin \
+  --target x86_64-pc-windows-msvc
 ```
 
-Note the absent `2>/dev/null` on `rustup target list`. Silencing it turns “rustup is not
-on this runner” into an empty installed-set, which the permissive target reads as
-“everything is skipped” and reports as success.
+The expected targets come from the project’s support contract, not from what happens to
+be installed on the current runner.
+The command above uses tbd’s Node reference helper because tbd already pins Node; the
+file extension is not a language recommendation for Rust projects.
+If a project does not otherwise pin Node in its gate environment, implement the same
+contract in its existing toolchain and invoke that project-owned program from both local
+and CI entry points.
+Do not add Node solely to run this check.
+The reference helper has negative tests for an empty workspace and a missing strict
+target. It also leaves `rustup target list` errors visible; silencing that command can
+turn “rustup is not on this runner” into a successful local no-op.
+It uses Cargo’s default feature set unless passed `--all-features`,
+`--no-default-features`, or `--features`. Repeat the strict invocation for each
+supported feature combination; do not substitute `--all-features` when features are
+mutually exclusive or that combination is not part of the project’s contract.
 
 Tests have the mirror-image version: where platform behavior differs (filesystem event
 backends, path semantics, line endings), a matrix across the supported platforms is the
@@ -211,7 +247,7 @@ Make caches performance-only.
 A gate whose correctness depends on cache state is not reproducible, and a poisoned
 cache turns into a mystery rather than a failure.
 
-## Keep Out What the Gate Cannot Measure
+## Gate Only Attributable and Reproducible Measurements
 
 Adding a check that fails for reasons the change did not cause teaches everyone to
 re-run the gate until it is green, which is the same as not having it.
@@ -233,7 +269,7 @@ accepted. A dependency audit that warns about allowed-but-unused license entries
 readers to skim its output, and the next real advisory scrolls past with it.
 Noise is not free strictness; it is a slow repeal.
 
-## Suppressions Are Debt or Decay
+## Track Every Disabled or Relaxed Check
 
 Every off-switch—a disabled lint rule, a relaxed type flag, an ignored advisory, a
 skipped test—carries a tracker ID and the condition under which it comes back:
@@ -277,7 +313,7 @@ the other, and the diff never settles.
   from source data. A committed page that keeps asserting numbers its source no longer
   supports is worse than no page, because it carries the record’s authority.
 
-## Hooks
+## Use Hooks for Local Feedback, Not as CI Authority
 
 Hooks are the fast local pass, not the gate.
 Pre-commit auto-fixes staged files; pre-push runs the full verify gate; CI repeats it so
@@ -297,7 +333,7 @@ a `--no-verify` commit cannot land unchecked.
   tool’s own ignore file with a whole-tree run—and do not mix them, or the ignore list
   silently stops protecting fixtures and generated docs.
 
-## Gates Run in Hostile Environments
+## Scrub Ambient State Before Gates Spawn Subprocesses
 
 A gate’s subprocesses inherit an environment nobody chose.
 
@@ -312,6 +348,7 @@ things that are not tests.
 pre-push:
   commands:
     check:
+      # Node-project example; use the project’s pinned runtime.
       run: node scripts/scrub-git-env.mjs pnpm run ci:quality
 ```
 
@@ -319,14 +356,14 @@ Generalize the rule: any ambient variable that redirects a tool’s target—`GI
 `HOME`, registry and cache overrides, `NODE_OPTIONS`—is an input the gate must control
 rather than inherit.
 
-## Timeouts Record a Measurement
+## Raise Gate Timeouts Only With a Recorded Measurement
 
 Raise a timeout only where it is genuinely tight, scope the raise to where it applies,
 and record the measurement that forced it.
 A global raise masks hangs everywhere else, which is the failure mode timeouts exist to
 catch. `general-testing-rules` carries the rule and a worked example.
 
-## Workflow Authority and Pinning
+## Minimize Workflow Permissions and Pin Actions by Commit SHA
 
 - Start with read-only permissions at the workflow level and grant additional
   permissions per job.
@@ -349,7 +386,7 @@ catch. `general-testing-rules` carries the rule and a worked example.
 Full cross-ecosystem installation policy is `supply-chain-hardening`; release-only
 authority is `release-engineering-rules`.
 
-## Name the True Cause of a Known Bad Failure
+## Precheck Tool Versions With Known Misleading Failures
 
 When a dependency’s failure mode is misleading, add a precondition check that says the
 real cause. A tool version below the floor that fails with
@@ -361,7 +398,7 @@ failure into one sentence and an install command.
 This is worth doing exactly once per known trap, when the failure has already cost
 someone an hour. It is not a reason to precheck every tool.
 
-## Verifying the Gate
+## Verify Every Gate With a Known Failure
 
 After wiring or reordering any gate, prove it holds:
 
@@ -374,6 +411,9 @@ After wiring or reordering any gate, prove it holds:
 5. Break a generated file by hand; the drift test fails.
 6. Each check that can pass vacuously (empty input, skipped job, missing tool) fails
    loudly when its input disappears.
+7. Local build targets and CI invoke the same tested gate program; their workflow,
+   Makefile, or task-runner definitions contain orchestration rather than duplicated
+   decision logic.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

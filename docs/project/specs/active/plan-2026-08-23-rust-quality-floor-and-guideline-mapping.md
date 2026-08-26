@@ -30,8 +30,8 @@ family and closes four coverage gaps that affect every language.
 
 - Ship a Rust guideline family in tbd with the same shape as the Python and TypeScript
   families.
-- Set the Rust floor at the strictest of the available sources, with no menu of lax
-  alternatives.
+- Admit a compact Rust floor by defect class, enforcement reliability, incidence,
+  adoption cost, applicability, and context cost, with named departure conditions.
 - Extract the undocumented practices from tbd’s enforced config into guidelines.
 - Extract the language-neutral core of the Rust documents into shared guidelines, so
   each rule is written once rather than once per language.
@@ -154,7 +154,7 @@ The destination column names where it lands.
 
 | Source | Practice | Destination |
 | --- | --- | --- |
-| `eslint.config.js` `no-restricted-imports` | Lint config enforces a correctness invariant—no code path writes a file non-atomically—rather than trusting review to catch it | `filesystem-rules` for the rationale; `rust-lint-format-rules` for the `disallowed-methods` form |
+| `eslint.config.js` `no-restricted-imports` | Lint config can enforce a named persistence boundary, but that boundary must distinguish replacement, creation, append, and scratch writes rather than ban general primitives | `filesystem-rules` for the contracts; `rust-filesystem-rules` for Rust operations; `rust-lint-format-rules` for the limits of `disallowed-methods` |
 | `eslint.config.js` and `tsconfig.base.json` ratchet comments | An off-switch carries a tracker ID and a re-enable condition (`tbd-s9vn`, `tbd-tdh3`). A suppression with a tracker ID is debt; one without is decay | `ci-and-gates-rules` |
 | `eslint.config.js` `.claude/worktrees/**` ignore | Agent worktrees hold a nested, mid-edit copy of the repo outside the tsconfig project. Linting them reports another agent’s work as your failures | `ci-and-gates-rules` |
 | `scripts/check-eslint-contract.mjs` | Assert the *effective* config: compute severity for a probe file and require the floor rules at error. A gate that is not itself tested is not a gate | `ci-and-gates-rules` |
@@ -179,8 +179,8 @@ TypeScript also use, and the Rust document keeps only what is Rust-specific.
 
 | Playbook document | Lines | Disposition | tbd destination | Wave |
 | --- | ---: | --- | --- | --- |
-| `rust-rules.md` | 287 | Move as-is | `rust-rules` (`globs: "*.rs"`, `alwaysApply: true`) | 1 |
-| *(new)* `rust-lint-format-rules.md` | — | Author, per the floor below | `rust-lint-format-rules` (`globs: "*.rs"`, `alwaysApply: true`) | 1 |
+| `rust-rules.md` | 287 | Move as-is | `rust-rules` (`globs: "*.rs"`) | 1 |
+| *(new)* `rust-lint-format-rules.md` | — | Author, per the floor below | `rust-lint-format-rules` (`globs: "*.rs"`) | 1 |
 | `rust-project-setup.md` | 327 | Split; 4 of 12 content sections are neutral | `rust-project-setup` keeps Cargo shape, features, toolchain, rustfmt; CI, local-command parity, automation review, and dependency policy go to `ci-and-gates-rules` | 1 |
 | `rust-cli-rules.md` | 290 | Move; drop the porting-parity pointer | `rust-cli-rules` | 1 |
 | `rust-testing-rules.md` | 201 | Move; route generic assertions at `general-testing-rules` | `rust-testing-rules` | 1 |
@@ -196,30 +196,29 @@ TypeScript and Python families also gain.
 ### The Rust Floor
 
 `rust-lint-format-rules` mirrors `typescript-lint-format-rules` section for section: The
-Floor, The `[lints]` Floor, Hooks and Gates, Verifying the Floor.
+Baseline Rust Quality Floor, The `[lints]` Floor, Run the Same Rust Quality Commands
+Locally and in CI, Break Each Floor Rule Once to Prove It Runs.
 Every rule is derived from something already enforced.
 
 | Source rule | Rust analogue | Mechanism |
 | --- | --- | --- |
 | Everything auto-formattable is auto-formatted | `cargo fmt --all`; `taplo fmt` for TOML; flowmark for Markdown; `--check` in CI | `rustfmt.toml`, CI |
-| Zero-tolerance, verify-only lint gate | `cargo clippy --locked --workspace --all-targets --all-features -- -D warnings`; never `--fix` in CI | CI job |
-| Type checking is a separate strict gate | `[lints.rust] unsafe_code = "forbid"`; `RUSTDOCFLAGS="-D warnings" cargo doc --no-deps` | `Cargo.toml`, CI |
-| Strictest standard preset plus named rules | `clippy::pedantic` at `warn` with `priority = -1`, plus the picks below | `[lints.clippy]` |
-| `noUncheckedIndexedAccess` | `clippy::indexing_slicing`, forcing `.get()` over `[i]` | `[lints.clippy]` |
-| Exhaustiveness checks | `clippy::wildcard_enum_match_arm`, so a new variant is an error rather than a silent `_ =>` | `[lints.clippy]` |
+| Zero-tolerance, verify-only lint gate | `cargo clippy --locked --workspace --all-targets -- -D warnings`, repeated for each supported feature combination; never `--fix` in CI | CI job |
+| Unsafe and documentation checks are separate strict gates | `[lints.rust] unsafe_code = "deny"`; `missing_docs = "deny"`; `RUSTDOCFLAGS="-D warnings" cargo doc --no-deps` | `Cargo.toml`, CI |
+| Standard preset plus named rules | `clippy::pedantic` at `deny` with `priority = -1`, plus the admitted rules below | `[lints.clippy]` |
+| `noUncheckedIndexedAccess` | No universal analogue: `clippy::indexing_slicing` is a per-module ratchet where bounds failure must become recoverable behavior | `[lints.clippy]` |
+| Exhaustiveness checks | `clippy::wildcard_enum_match_arm` when exhaustive handling is part of the enum-evolution contract | `[lints.clippy]` |
 | `no-floating-promises` | `clippy::let_underscore_future`, `#[must_use]` discipline, `unused_must_use` at deny | `[lints.clippy]`, `[lints.rust]` |
-| `no-restricted-imports` forcing atomic writes | `disallowed-methods` naming `std::fs::write` and `std::fs::File::create`, directing to `tempfile::NamedTempFile::persist` | `clippy.toml` |
-| Strict-preset tuning with a stated reason | `clippy::unwrap_used` and `expect_used` denied outside tests; `panic` denied in library code | `[lints.clippy]` |
+| Persistence boundary enforcement | Intent-specific APIs; optionally disallow a project helper whose contract is always wrong, not `std::fs::write` or `File::create` globally | persistence module, optionally `clippy.toml` |
+| Strict-preset tuning with a stated reason | `clippy::unwrap_used` denied outside tests; `expect_used` and `panic` are profile-specific candidates | `[lints.clippy]` |
 | Exceptions are narrow and file-scoped | `#[expect(lint, reason = "...")]` at the narrowest scope | attribute |
 | Legacy ratchets toward strict | Per-crate `[lints]` overrides, each off-switch carrying a tracker ID | `Cargo.toml` |
 
-Two entries carry most of the value.
-`disallowed-methods` is the Rust `no-restricted-imports`: the playbook states the
-atomic-replacement rule in prose without wiring it to enforcement, and `clippy.toml`
-supports exactly this.
 `#[expect]` improves on the TypeScript equivalent, because it warns once the suppression
 is unnecessary, so exceptions expire on their own; the TypeScript floor needs a written
 rule to remove obsolete exceptions because its tooling cannot.
+Filesystem enforcement does not transfer directly from `no-restricted-imports`: Clippy
+sees the method, not the caller’s replacement, creation, append, or scratch contract.
 Where Rust has the better mechanism, the Rust document uses it rather than mirroring.
 
 This table is a design proposal.
@@ -231,7 +230,7 @@ Extraction only works if an agent still lands on the right document.
 
 | Scenario | Loads |
 | --- | --- |
-| Writing Rust | `rust-rules`, `rust-lint-format-rules` (both `alwaysApply: true`, `globs: "*.rs"`) |
+| Writing Rust | `rust-rules`, `rust-lint-format-rules` (both `globs: "*.rs"`) |
 | Starting a Rust project | `rust-project-setup`, `rust-lint-format-rules`, `ci-and-gates-rules` |
 | Rust CLI work | `rust-cli-rules`, `error-handling-rules` |
 | Any filesystem mutation | `filesystem-rules`, plus `rust-filesystem-rules` in Rust |
@@ -239,8 +238,8 @@ Extraction only works if an agent still lands on the right document.
 | Reviewing Rust | `review-code-rust`, which loads `code-review-rules`, `rust-code-review-rules`, and the topic guidelines matching the diff |
 | Wiring or debugging a quality gate | `ci-and-gates-rules`, plus the language floor document |
 
-Enforced by `globs` and `alwaysApply` frontmatter, a `**Related**:` block under each H1,
-`description` text that makes `tbd guidelines --list` self-routing, and
+Enforced by `globs` frontmatter, generated-skill routing, a `**Related**:` block under
+each H1, `description` text that makes `tbd guidelines --list` self-routing, and
 `docs_cache.files` entries so every new name is served.
 
 ### Conversion Checklist
@@ -257,8 +256,10 @@ Current state was measured, not assumed:
   document under `../docs/`.
 - [x] **Porting pointers removed.** `rust-cli-rules`, `rust-filesystem-rules`, and
   `rust-testing-rules` link to playbook documents that will not exist in tbd.
-- [x] **Frontmatter completed.** Add `globs: "*.rs"` and `alwaysApply: true` to
-  `rust-rules` and `rust-lint-format-rules`. `category: rust` is a new category.
+- [x] **Frontmatter completed.** Add `globs: "*.rs"` to `rust-rules` and
+  `rust-lint-format-rules`. `globs` declare applicability; generated skill routing owns
+  always-load policy, which document-local `alwaysApply` could contradict.
+  `category: rust` is new.
 - [x] **Related block added under the H1.** All seven put related links in a trailing H2
   only. ~~Keep that section and add the bolded `Related` header block~~—**this
   instruction was wrong**, and produced two Related lists per document.
@@ -321,7 +322,8 @@ the reuse review recommended.
   study. Record which lints fire, which are noise, and which need an exception.
 - [ ] Build the Rust config-contract check: a probe fixture the lint gate must reject,
   wired into CI. (Not done: tbd has no Rust code, so the probe has no home here.
-  `rust-lint-format-rules` §Verifying the Floor specifies it for adopting projects.)
+  `rust-lint-format-rules` §Break Each Floor Rule Once to Prove It Runs specifies it for
+  adopting projects.)
 - [x] Reduce `rust-project-setup` §"Define a Clippy Policy" to a pointer.
 
 ### Phase 4: Migrate
@@ -384,9 +386,10 @@ and the method are in
 Corrected costs (shipping / build scripts / tests): `let_underscore_future` 0/0/0,
 `panic` 2/2/35, `wildcard_enum_match_arm` 12/0/9, `disallowed-methods` for filesystem
 writes 0/1/82, `expect_used` 32/7/35, `indexing_slicing` 79/0/119. Every nonzero figure
-moved and no verdict reversed; two are better supported than before, because the
-build-script share of `panic` and the zero shipping cost of `disallowed-methods` had
-been asserted rather than shown.
+moved.
+The build-script share of `panic` is now supported, while semantic review reversed
+the filesystem-method verdict: low incidence measures migration cost but cannot
+establish that a global ban fits distinct write contracts.
 `clippy::indexing_slicing` costs 79 shipping sites and is **not** a floor rule — this
 answers the open question below.
 The analogy to `noUncheckedIndexedAccess` is inexact: the TypeScript flag changes an
@@ -431,11 +434,11 @@ What changed, and what the evidence for each was:
 
 | Finding | Resolution |
 | --- | --- |
-| R1 lint-cost method | Re-measured by compile unit; reproducer, raw 415-row mapping, and the 34% misattribution rate published. No verdict reversed. |
+| R1 lint-cost method | Re-measured by compile unit; reproducer, raw 415-row mapping, and the 34% misattribution rate published. The counts did not reverse a verdict; later contract analysis, independent of cost, rejected the global filesystem-method ban. |
 | R2 gates that cannot fail | Both recipes rewritten and *run*: the old lint-policy loop exits 0 both when it prints a complaint and when a member sits outside `crates/*`; the old cross-lint passes green on a runner with no cross targets. Both new versions were watched failing. |
 | R3 action pinning | Tag exception removed. All 15 action references in this repo pinned to commit SHAs, `dependabot.yml` added so pins do not freeze, and `scripts/check-action-pins.mjs` added as the gate, with negative tests. |
-| R4 write contracts | `filesystem-rules` now names five write contracts and scopes atomic replacement to authoritative-path replacement; the Rust half maps each to an `OpenOptions` spelling. |
-| R5 context budget | Always-load core cut from 2,233 lines / 11,806 words to 909 / 4,663 by routing testing, TDD, goldens, compatibility, and commits by changed surface. Membership is now an explicit set rather than a filename prefix, `guideline-budget.test.ts` asserts the ceiling, and `skill-baseline` was reconciled with the generated directory. |
+| R4 write contracts | `filesystem-rules` requires atomic publication for every file completed within one operation and separates append, live streams, and private staging files by their visibility contracts. The Rust half maps publication to `persist` or `persist_noclobber`; the residual global Clippy ban was removed because the method cannot distinguish a final output from its staging write. |
+| R5 context budget | Always-load core cut from 2,233 lines / 11,806 words to 136 / 1,090 by routing testing, TDD, goldens, compatibility, commits, coding details, comment policy, and error handling by changed surface. Membership is explicit, `guideline-budget.test.ts` asserts the ceiling, and generated routing is the sole always-load-policy source. |
 | R6 strictest wins | Replaced with six admission criteria and per-project-shape departure conditions. |
 | R7 FFI unwinding | Corrected: a Rust panic escaping `extern "C"` aborts; a foreign exception entering Rust is the UB case. |
 | R8 broken pipes | Neutral contract moved to `error-handling-rules`; Rust and TypeScript recipes fixed so only the primary stdout renderer converts, and a closed stderr can never lower a nonzero status. |

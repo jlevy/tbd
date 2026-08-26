@@ -22,7 +22,7 @@ exit status, terminal behavior, configuration, and destructive operations.
 - `python-cli-patterns`, `typescript-cli-tool-rules` (the same contract in other
   languages)
 
-## Keep the Process Boundary Thin
+## Keep `main` Limited to Process Setup and Exit Translation
 
 The executable entry point should initialize process-wide concerns, parse arguments,
 call domain logic, render results, and select an exit status.
@@ -87,7 +87,7 @@ struct Args {
 }
 ```
 
-## Preserve Stream Composability
+## Write Primary Data to stdout and Diagnostics to stderr
 
 - **Write primary data to stdout.** This includes content intended for pipes or files.
 - **Write diagnostics to stderr.** Errors, warnings, progress, debug output, and status
@@ -114,7 +114,7 @@ fn write_lines(lines: impl IntoIterator<Item = String>) -> io::Result<()> {
 }
 ```
 
-## Make Terminal Behavior Conditional
+## Enable Color and Progress Only for an Appropriate Terminal
 
 Use `std::io::IsTerminal` to decide whether interactive presentation is appropriate.
 
@@ -165,7 +165,7 @@ fn run() -> anyhow::Result<()> {
 
 Apply `tbd guidelines error-handling-rules` for the full error contract.
 
-## Broken Pipes and SIGPIPE
+## Treat Broken Pipes as Normal CLI Termination
 
 Consumers such as `head` can close a pipe before the producer finishes.
 Rust ignores SIGPIPE by default—unlike a C program—so the write returns
@@ -233,7 +233,7 @@ and must not change the status that was already decided.
 Test both a closed stdout and a closed stderr.
 The second is what separates the correct implementation from the plausible one.
 
-## Layer Configuration Explicitly
+## Define One Configuration Precedence Order
 
 Configuration precedence is documented and implemented in one place, lowest to highest:
 
@@ -280,7 +280,7 @@ events. Libraries should not choose a global subscriber.
 
 Use `rust-filesystem-rules` for file mutations.
 
-## Handle Cross-Platform Behavior at Boundaries
+## Confine Platform Differences to Typed Boundary Modules
 
 - Use `Path` and `PathBuf`; do not assemble paths with string separators.
 - Preserve non-UTF-8 paths unless the documented interface requires Unicode.
@@ -303,7 +303,7 @@ definition with `clap_complete` or the parser’s equivalent.
   them.
 - Test that generation succeeds for every supported shell.
 
-## Test the Executable Contract
+## Test Arguments, Streams, Exit Status, and Side Effects Through the Executable
 
 CLI integration tests should cover:
 

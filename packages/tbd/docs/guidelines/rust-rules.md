@@ -3,7 +3,6 @@ title: Rust Rules
 description: General Rust coding rules for modern libraries, applications, services, and command-line tools
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 globs: "*.rs"
-alwaysApply: true
 category: rust
 ---
 # Rust Rules

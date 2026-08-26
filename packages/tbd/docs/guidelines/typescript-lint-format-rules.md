@@ -3,7 +3,6 @@ title: TypeScript and JavaScript Lint and Format Rules
 description: The shared lint and auto-formatting floor for all TypeScript and JavaScript projects, across pnpm and Bun and across ESLint/Prettier and Biome toolchains. Defines the rules every project enforces, the per-toolchain profiles that implement them, and the verification steps that prove the floor is real.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 globs: "*.ts,*.tsx,*.mts,*.cts,*.js,*.jsx,*.mjs,*.cjs"
-alwaysApply: true
 category: typescript
 ---
 # TypeScript and JavaScript Lint and Format Rules

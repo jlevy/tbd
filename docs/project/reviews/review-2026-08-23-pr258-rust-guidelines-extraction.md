@@ -121,7 +121,8 @@ permission error when the destination is open (no POSIX-style replace-while-open
 `persist_noclobber` is the variant that fails when the destination exists.
 
 **R2 (Medium). `rust-lint-format-rules.md:281-284` — the “confirm the effective lint
-level” command changes the effective lint level.** Step 2 of Verifying the Floor runs
+level” command changes the effective lint level.** Step 2 of “Break Each Floor Rule Once
+to Prove It Runs” runs
 `cargo clippy --workspace --all-targets -- -W clippy::pedantic 2>&1 | head`. Trailing
 command-line lint flags are passed to rustc after the `[lints]`-derived flags, and the
 last flag wins, so `-W clippy::pedantic` demotes the manifest’s `deny` to `warn` for
@@ -135,10 +136,11 @@ no extra flags, and confirm it fails.
 **R3 (Medium). Whole sections, config blocks, and examples are duplicated across
 co-loaded documents.** The inventory, each with the suggested single owner:
 
-- (a) “Timeouts Record a Measurement”—full section including the identical
-  `bridge-merge`/`isWindows` example—appears in both `ci-and-gates-rules.md:281-297` and
-  `general-testing-rules.md`. The plan assigned this rule to `general-testing-rules`;
-  keep it there and reduce the CI document to one sentence and a pointer.
+- (a) “Raise Gate Timeouts Only With a Recorded Measurement”—full section including the
+  identical `bridge-merge`/`isWindows` example—appears in both
+  `ci-and-gates-rules.md:281-297` and `general-testing-rules.md`. The plan assigned this
+  rule to `general-testing-rules`; keep it there and reduce the CI document to one
+  sentence and a pointer.
 - (b) `rust-testing-rules` restates three sections of the co-loaded
   `general-testing-rules` with only wording changes and no Rust content: “Keep Tests
   Deterministic” (`rust-testing-rules.md:47-58`), most of “Treat Fixtures as Inputs With

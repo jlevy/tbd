@@ -112,24 +112,28 @@ comment for readability, and let an update bot propose reviewed SHA changes.
 `filesystem-rules.md:27-53` requires every write to go through atomic replacement and
 globally bans ordinary write APIs.
 `rust-filesystem-rules.md:58-67` carries the same ban into Clippy.
-Replacement is the right invariant for an authoritative path whose readers must never
-observe partial new contents.
-It is the wrong primitive for append-only logs or journals, exclusive creation,
-temporary and scratch outputs, streams, and some large sequential artifacts.
-Those operations have different collision, ordering, metadata, durability, and cost
-contracts.
+Atomic publication is the right invariant whenever one operation creates and completes
+an output before readers should see it.
+That includes new files, reports, exports, caches, and temporary artifacts, not only
+replacement of authoritative state.
+It is the wrong primitive for append-only logs, live streams, and private staging or
+work files, whose contracts intentionally expose incremental state or publish nothing.
+Those operations have different ordering, visibility, durability, and cost contracts.
 
 Rust’s standard library makes the distinction concrete: append mode has concurrent
-positioning semantics, while `create_new` is an atomic exclusive-create operation
-([`OpenOptions`](https://doc.rust-lang.org/std/fs/struct.OpenOptions.html)). Routing
-both through replacement can weaken the intended invariant instead of strengthening it.
+positioning semantics, while `create_new` makes the path visible before subsequent
+writes complete
+([`OpenOptions`](https://doc.rust-lang.org/std/fs/struct.OpenOptions.html)). A
+create-only completed output therefore needs a staged no-replace commit, not direct
+creation of the final path.
 
-**Fix:** Scope atomic replacement to replacement of persistent authoritative paths that
-may be observed concurrently or after a crash.
-Define intent-specific boundaries such as `replace_atomic`, `create_new`, `append`, and
-a separately named durable replacement.
-Enforce the boundary in persistence modules or through intent-specific wrappers; do not
-ban language primitives globally without an escape that names the alternate contract.
+**Fix:** Require atomic publication for every file completed within one operation,
+whether it is new or replaced and regardless of its business importance.
+Define intent-specific boundaries such as `write_atomic`, `create_atomic`, `append`,
+`open_stream`, and a separately named durable write.
+Enforce the rule in output modules or through intent-specific wrappers; do not ban
+language primitives globally when the same primitive also writes the helper’s private
+staging file or a test fixture.
 
 ### R5 (High): Mandatory guideline loading consumes more context than the policy justifies
 
@@ -471,20 +475,21 @@ site.
 **Correction:** State the ownership transfer precisely and limit the allocation claim to
 callers that possess only a borrowed value.
 
-### R22 (High): Filesystem enforcement still contradicts the write-intent model
+### R22 (High): Filesystem enforcement still contradicts the publication boundary
 
-`filesystem-rules.md:42-75` correctly separates replacement, exclusive creation, append,
-stream, and scratch contracts, but then described concurrent append as safe at the
-record level and prescribed global bans that cannot observe intent.
-`typescript-rules.md:410-434` carried the global replacement rule into the trusted
-TypeScript guidance.
-Concurrent append writes may interleave, and forcing every write through replacement is
-wrong for four of the five named contracts.
+`filesystem-rules.md:42-75` correctly separated publication, append, streams, and
+private work files, but then described concurrent append as safe at the record level and
+prescribed global bans that cannot distinguish a final output path from a private
+staging path.
+`typescript-rules.md:410-434` carried the same enforcement problem into the
+trusted TypeScript guidance.
+Concurrent append writes may interleave; completed outputs require atomic publication,
+while append, live streams, and unpublished staging files require different primitives.
 
 **Correction:** State append’s positioning guarantee without promising record atomicity,
-scope enforcement to authoritative-persistence boundaries, explain why Rust’s global
-method restriction cannot enforce an intent-sensitive rule, and narrow the TypeScript
-rule to replacement of authoritative files.
+scope enforcement to code that publishes outputs, explain why Rust’s global method
+restriction cannot distinguish final outputs from staging writes, and apply the
+TypeScript rule to every file completed within one operation.
 
 ### Second-Pass Validation Notes
 
@@ -501,6 +506,88 @@ local composite actions, so the pin gate does not yet recurse into
 `.github/actions/**/action.yml` or distinguish Docker image digests from action commit
 SHAs. That extension should land with fixtures for both forms rather than be folded into
 the workflow-parser correction without coverage.
+
+## Stacked-PR Preservation Review
+
+After the parent corrections, PR #260 was restacked and reviewed only for its residual
+delta. The top branch does not edit `general-eng-agent-principles.md`; it preserves that
+document and limits its guideline edits to specific claims, executable examples, and
+routing behavior.
+
+**Verdict at the restacked commit: request changes.** The review and platform
+verification found five integration defects after the mechanical restack.
+The focused corrections below are included in the stacked branch.
+
+### R23 (High): The new cross-target helper hard-codes one invalid feature strategy
+
+`check-rust-gate.mjs` unconditionally passed `--all-features`. That can make the gate
+unusable for mutually exclusive features and can leave default, minimal, or named
+configurations untested even when they are the public contract.
+The inherited Rust floor and project-setup examples repeated the same universal command.
+
+**Correction:** Default to Cargo’s normal feature set, accept explicit `--all-features`,
+`--no-default-features`, and `--features` options, reject contradictory options, and
+require one invocation for each supported feature combination.
+The Rust floor, verification recipe, project-setup example, and plan now state the same
+contract, with regression coverage for feature-argument construction.
+
+### R24 (Medium): Generated routing still tells agents to load whole language groups
+
+The new loading policy says to select language documents by changed surface, but the
+generated TypeScript, Python, Rust, and Convex headings still said to load every
+document in each group.
+That contradiction recreates the context-budget problem the routing change is intended
+to solve.
+
+**Correction:** Make every generated group note describe selective, surface-based
+routing and name the cross-cutting surfaces moved out of the always-load core.
+
+### R25 (High): The MSRV recipe can pass without checking every promised package
+
+The verification block scoped ordinary clippy, test, and docs jobs to `--workspace` but
+omitted that flag from both MSRV commands.
+In a workspace with a root package or `default-members`, the MSRV job could stay green
+while other published members no longer compile or test on their promised compiler.
+
+**Correction:** Use `--workspace` when members share one MSRV; when they do not, require
+explicit package or release-unit jobs at each declared `rust-version`. The standalone
+docs command also names its workspace scope rather than relying on Cargo’s
+default-member selection.
+
+### R26 (High): The commit hook mutates generated skills despite claiming to exclude them
+
+`lefthook.yml` supplied one regex-shaped alternation to `exclude`, but Lefthook 2
+interprets each entry as a glob.
+The Markdown hook therefore reformatted staged `.agents` and `.claude` skill files after
+generation, making both managed artifacts stale in the same commit that was meant to
+refresh them.
+
+**Correction:** Replace the pseudo-regex with one glob per generated surface and add a
+contract test that passes all five protected paths through the installed Lefthook
+matcher. The test’s command fails deliberately if even one path reaches it.
+
+### R27 (High): Feature-matrix regression coverage is not portable to Windows
+
+The feature-option tests dynamically imported the executable guideline script through
+Vitest.
+That path passed on Linux and macOS but produced a syntax error on Windows before
+either assertion ran, leaving the required platform check red and the feature contract
+unverified there.
+
+**Correction:** Exercise the distributed script through its CLI on every platform, use a
+portable fake Cargo executable, and assert the complete generated command for default,
+all-feature, and minimal named-feature configurations.
+Test contradictory options through the same public CLI boundary.
+
+### Stacked-PR Validation Notes
+
+The focused routing, Rust-gate, stream-error, exit-code, and generated-artifact suite
+passed 52 tests across six files.
+The full stacked-branch gate passed formatting, type checking, ESLint, both contract
+gates, the build, and 2,443 tests across 163 files.
+The Rust helper is identical in source, the built distribution, and the local docs
+cache; the generated skill mirrors were refreshed from the corrected routing policy.
+No unresolved Blocker, High, or Medium finding remains in the stacked delta.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
