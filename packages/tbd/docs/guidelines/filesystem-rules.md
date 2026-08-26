@@ -85,9 +85,9 @@ or staging files; those writes are not publication:
 }],
 ```
 
-Rust’s `clippy.toml` method restrictions are global and cannot tell a final output path
-from a private staging path, so do not ban `std::fs::write` or `std::fs::File::create`
-globally merely to enforce this boundary.
+Not every enforcement mechanism can scope to publication code—Rust’s method
+restrictions, for example, are global (see `rust-filesystem-rules`)—so do not ban
+standard write calls globally merely to enforce this boundary.
 Prefer an output module with named operations; disallow a project-specific helper only
 when its contract is unambiguously unsafe.
 Python can use a scoped lint rule or wrapper module.
@@ -145,8 +145,10 @@ The full same-filesystem replacement sequence:
 6. sync the parent directory where supported and required.
 
 Overwrite semantics of the final replacement differ by platform and by API. Read the
-exact call rather than assuming every rename replaces atomically—on Windows, several do
-not.
+exact call rather than assuming every rename replaces atomically: POSIX `rename`
+atomically replaces the destination, but on Windows, C `rename` and `MoveFile` fail when
+the destination exists, `MoveFileEx` with `MOVEFILE_REPLACE_EXISTING` is not documented
+as atomic, and only `ReplaceFile` is designed for atomic replacement.
 
 ## Make Metadata Policy Explicit
 

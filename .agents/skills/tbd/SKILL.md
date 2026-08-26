@@ -391,7 +391,7 @@ Load the **General engineering** core, then only guidelines matching the task.
 
 ### Cross-cutting engineering topics
 
-*Select by the changed surface: general code details, comments, errors, tests or TDD, goldens, dependencies, published interfaces, commits, review, CI and gates, filesystem work, or releases.*
+*Select by the changed surface; do not load this whole group by default.*
 
 | Name | Description |
 | --- | --- |

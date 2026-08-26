@@ -133,8 +133,8 @@ Two refinements that catch what a naive smoke test misses:
   search path.
 - **Run the entry point the way a user gets it.** An isolated run from the built
   artifact (`uv tool run --isolated --no-index --from <wheel> tool --version`,
-  `npx --no-install`, extracting the archive to a scratch dir) exercises the console
-  script and its metadata, not just the library.
+  `npx --no`, extracting the archive to a scratch dir) exercises the console script and
+  its metadata, not just the library.
 
 Where a cross-compiled artifact cannot run on its builder, use a native validation job
 or explicitly record the evidence gap.
@@ -150,11 +150,10 @@ Two details make a rehearsal honest:
 
 - **Set the release identity explicitly**, even on a branch, so the rehearsal exercises
   exact-version behavior instead of a placeholder.
-- **Package interdependent components in one invocation.** A package that depends on an
-  unpublished sibling cannot resolve it from the registry; packaging the sibling first
-  in a separate run does not help, because that produces a build artifact rather than a
-  registry entry. Naming both in a single invocation is what lets the tooling verify each
+- **Package interdependent components in one invocation** so the tooling can verify each
   against the just-packaged sibling.
+  See the language-specific release document for the mechanism and command (e.g.
+  `rust-release-rules` §The Unpublished-Sibling Trap).
 
 ## Publish Only to Channels the Intended Audience Uses
 

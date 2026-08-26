@@ -20,8 +20,7 @@ Do not spend manual review time repeating work an effective passing gate already
 
 - `tbd shortcut review-code` (the review procedure and artifact format)
 - `rust-code-review-rules` (unsafe and FFI review)
-- `general-eng-agent-principles` (objectivity, and not reporting a preference as a
-  defect)
+- `general-eng-agent-principles` (objectivity)
 - `ci-and-gates-rules` (when the change is to a gate rather than to code)
 
 ## Assign Blocker, High, Medium, or Low Severity
@@ -148,7 +147,8 @@ finding. A pattern is not a severity: severity comes from reachability, impact,
 likelihood, and what already contains the failure, and none of those are visible in the
 grep hit. Carrying a preassigned severity through the scan produces exactly the review
 this document is trying to prevent—a list of matches reported at the level the table
-suggested.
+suggested. The third column states what happens when the question confirms the
+risk—severity follows from that consequence, not from the match.
 
 | Pattern | Question that decides it | If the answer is bad |
 | --- | --- | --- |
@@ -156,18 +156,18 @@ suggested.
 | required error or task result discarded | Does any caller depend on the work that error reports failed? | Blocker: silent partial state reported as success |
 | unsafe block or FFI call without a traceable safety argument | Which safe input can violate the invariant, and where is it checked? | Blocker: memory unsafety from safe code |
 | authorization decided from unvalidated or pre-resolution input | Can the value change between the check and the use? | Blocker: access granted on a value the caller controls |
-| success reported before all required work is verified | What does the exit status prove was completed? | High: a green run over unfinished work |
+| success reported before all required work is verified | What does the exit status prove was completed? | High: downstream steps proceed on results that do not yet exist |
 | partial failure reported as success (batch exits zero after failures) | Does the caller distinguish “all done” from “some done”? | High: undetected partial results |
 | non-atomic write to a file another process reads | Can a reader observe the file mid-write, or after a crash? | High: truncated file read as valid data |
-| blocking work on an async executor, or a lock held across I/O or await | How long, on which runtime, and what else shares that thread or lock? | Blocker on a shared runtime; Low in a one-shot CLI |
+| blocking work on an async executor, or a lock held across I/O or await | How long, on which runtime, and what else shares that thread or lock? | Blocker: executor starvation blocks unrelated tasks on a shared runtime; Low in a one-shot CLI |
 | unexplained production `unwrap`/`!`/bare `catch {}` swallowing an error | Is the invariant established locally, or assumed from a caller? | High: a crash or a swallowed failure on real input |
 | new always-on dependency added without a stated reason | What does it replace, and what does it execute at install or build time? | High: unreviewed code in the build |
 | mutable or unreviewed action, image, or build-tool pin | Can the referenced code change without a diff? | High: unreviewed code in a privileged context |
-| public item used only inside its own module or crate | Is it a deliberate API surface or leaked internals? | Medium: a compatibility obligation nobody chose |
+| public item used only inside its own module or package | Is it a deliberate API surface or leaked internals? | Medium: a compatibility obligation nobody chose |
 | test skipped, ignored, or narrowed without a tracking issue | What regression class is now unguarded, and who is reminded? | Medium: permanent silent gap |
 | suppression comment without a non-obvious reason or tracker ID | Is the rule wrong here, or is the code wrong? | Medium: a suppression that outlives its cause |
 | abstraction, trait, or interface with exactly one consumer | Is a second consumer real and near, or hypothetical? | Low: indirection with no payer |
-| TODO, FIXME, or HACK without tracking | Is this a note or an unshipped requirement? | Medium if it is a requirement, Low otherwise |
+| TODO, FIXME, or HACK without tracking | Is this a note or an unshipped requirement? | Medium: an unfinished requirement exits the plan; Low if only a note |
 | generated file edited by hand | Will the generator overwrite this, and does CI notice? | Medium: the change silently disappears |
 
 Reserve Blocker for a consequence you can describe as a sequence of events, not for a

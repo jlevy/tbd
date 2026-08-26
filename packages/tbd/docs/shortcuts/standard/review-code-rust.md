@@ -25,7 +25,8 @@ Create a to-do list with the following items then perform all of them:
    - Run `tbd guidelines code-review-rules rust-code-review-rules`
    - Run `tbd guidelines rust-rules rust-lint-format-rules`
 
-3. Add the topic guidelines that match the changed surface:
+3. Add the topic guidelines that match the changed surface (full table in
+   `rust-code-review-rules`):
    - Cargo layout, features, toolchains, workspace shape: `rust-project-setup`
    - Arguments, streams, terminal behavior, exits: `rust-cli-rules`
    - Paths, traversal, file mutation, metadata: `filesystem-rules rust-filesystem-rules`
@@ -33,6 +34,7 @@ Create a to-do list with the following items then perform all of them:
    - Artifacts, publishing, version identity:
      `release-engineering-rules rust-release-rules`
    - Lint config, `clippy.toml`, rustfmt, CI gates: `ci-and-gates-rules`
+   - Dependencies added or upgraded: `supply-chain-hardening`
 
 4. Inspect the repository’s documented automated gate before spending review time on
    what it owns. If the repository has no gate, the commands below are a baseline only
@@ -48,22 +50,14 @@ Create a to-do list with the following items then perform all of them:
    If the diff touches `cfg(target_os)` code, check whether it is linted for those
    targets at all—a single-platform CI run does not.
 
-5. Review the highest-risk boundaries first, per `rust-code-review-rules`:
-   - Unsafe code and FFI, using the checklist in that document
-   - Data loss and destructive operations
-   - Errors, partial failure, and recovery
-   - Public API and compatibility
-   - Concurrency, cancellation, and shutdown
-   - Ownership, lifetimes, and resource cleanup
+5. Review the highest-risk boundaries first, in the order `code-review-rules` defines.
+   Start with unsafe code and FFI, using the checklist in `rust-code-review-rules`.
 
 6. Run the quick scan for Rust-specific patterns (`rust-code-review-rules`), then read
    the changed control flow rather than stopping at the matches.
 
-7. Summarize findings:
-   - Severity (Blocker/High/Medium/Low), `file:line`, the violated contract, the
-     concrete failure path, and a bounded fix
-   - Group repeated instances under one root-cause finding
-   - Record confirmed false positives so the next reviewer does not repeat the work
+7. Summarize findings in the format `code-review-rules` specifies (severity,
+   `file:line`, violated contract, concrete failure path, bounded fix).
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

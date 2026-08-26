@@ -38,7 +38,7 @@ A `#[cfg(test)]` attribute applies to the *next item*. It is not a divider.
 test code.
 
 Reconstructing that method over the raw diagnostics and comparing it against the
-compile-unit classification below: **145 of 415 diagnostics — 34% — were placed in the
+compile-unit classification below: **145 of 415 diagnostics — 35% — were placed in the
 wrong bucket, in both directions.** Thirty-five `expect_used` hits in inline test
 modules were counted as production, and twenty-seven `indexing_slicing` hits in
 production code were counted as tests.

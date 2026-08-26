@@ -76,10 +76,12 @@ Create a to-do list with the following items then perform all of them:
    - For Rust files:
      `tbd guidelines rust-rules rust-lint-format-rules rust-code-review-rules`
    - Load each language present in the diff
-   - Add the topic guidelines the diff touches, in any language: `filesystem-rules`
-     (paths, traversal, file mutation), `ci-and-gates-rules` (build config, CI, hooks,
-     gate scripts), `release-engineering-rules` (artifacts, publishing, version
-     identity), `supply-chain-hardening` (dependencies added or upgraded)
+   - Add the topic guidelines the diff touches, in any language (full table in
+     `code-review-rules`): `filesystem-rules` (paths, traversal, file mutation),
+     `ci-and-gates-rules` (build config, CI, hooks, gate scripts),
+     `release-engineering-rules` (artifacts, publishing, version identity),
+     `supply-chain-hardening` (dependencies added or upgraded),
+     `backward-compatibility-rules` (public API or persisted data shape)
 
 6. **Perform comprehensive senior engineering review:**
 

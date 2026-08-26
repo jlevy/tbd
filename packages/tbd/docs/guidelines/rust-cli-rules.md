@@ -230,8 +230,7 @@ pipe surfaces during drop, where nothing can classify it.
 And writes to stderr in the failure path use `let _ =`: a closed stderr must not panic
 and must not change the status that was already decided.
 
-Test both a closed stdout and a closed stderr.
-The second is what separates the correct implementation from the plausible one.
+Test both a closed stdout and a closed stderr (`error-handling-rules`).
 
 ## Define One Configuration Precedence Order
 

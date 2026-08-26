@@ -34,11 +34,6 @@ evidence. Optimize these properties simultaneously:
    test another implementation language without being rewritten, when they preserve the
    same coverage and useful failure location.
 
-Reducing test volume is required maintenance.
-Merge or delete a test when another test already proves the same contract with equal
-clarity and diagnosis.
-Preserve tests that exercise different contracts through the same code.
-
 ## Don’t Just Test the Test
 
 A test is vacuous when it verifies only facts established by its own setup rather than

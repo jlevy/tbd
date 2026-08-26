@@ -198,11 +198,8 @@ node .tbd/docs/guidelines/scripts/check-rust-gate.mjs cross-targets \
 
 The expected targets come from the project’s support contract, not from what happens to
 be installed on the current runner.
-The command above uses tbd’s Node reference helper because tbd already pins Node; the
-file extension is not a language recommendation for Rust projects.
-If a project does not otherwise pin Node in its gate environment, implement the same
-contract in its existing toolchain and invoke that project-owned program from both local
-and CI entry points.
+The command above uses tbd’s Node reference helper because tbd already pins Node.
+If a project does not pin Node, implement the same contract in its existing toolchain.
 Do not add Node solely to run this check.
 The reference helper has negative tests for an empty workspace and a missing strict
 target. It also leaves `rustup target list` errors visible; silencing that command can
