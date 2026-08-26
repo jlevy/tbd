@@ -37,8 +37,7 @@ This document owns what is specific to Rust: the types, the crates, and the enfo
   or an explicit base.
   Do not leave it to whatever the caller happened to have.
 - Canonicalize only when resolving links *and* requiring existence is the intended
-  behavior. Canonicalization changes semantics and can itself expose paths outside a
-  root.
+  behavior (`filesystem-rules` states the full rationale).
 
 ```rust
 use std::ffi::OsString;
