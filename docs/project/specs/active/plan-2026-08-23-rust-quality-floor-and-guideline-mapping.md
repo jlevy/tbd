@@ -196,7 +196,8 @@ TypeScript and Python families also gain.
 ### The Rust Floor
 
 `rust-lint-format-rules` mirrors `typescript-lint-format-rules` section for section: The
-Floor, The `[lints]` Floor, Hooks and Gates, Verifying the Floor.
+Baseline Rust Quality Floor, The `[lints]` Floor, Run the Same Rust Quality Commands
+Locally and in CI, Break Each Floor Rule Once to Prove It Runs.
 Every rule is derived from something already enforced.
 
 | Source rule | Rust analogue | Mechanism |
@@ -321,7 +322,8 @@ the reuse review recommended.
   study. Record which lints fire, which are noise, and which need an exception.
 - [ ] Build the Rust config-contract check: a probe fixture the lint gate must reject,
   wired into CI. (Not done: tbd has no Rust code, so the probe has no home here.
-  `rust-lint-format-rules` §Verifying the Floor specifies it for adopting projects.)
+  `rust-lint-format-rules` §Break Each Floor Rule Once to Prove It Runs specifies it for
+  adopting projects.)
 - [x] Reduce `rust-project-setup` §"Define a Clippy Policy" to a pointer.
 
 ### Phase 4: Migrate

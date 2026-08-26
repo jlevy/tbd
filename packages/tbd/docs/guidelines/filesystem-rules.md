@@ -1,6 +1,6 @@
 ---
 title: Filesystem Rules
-description: Language-neutral rules for code that reads directory trees or mutates files—separating planning from mutation, atomic visibility versus crash durability, explicit metadata and collision policy, cross-device moves, deterministic traversal, symlink and root boundaries, honest partial failure, and testing the state machine rather than the final bytes. Load whenever a change touches file mutation, traversal, or path handling, alongside the language-specific filesystem document if one exists.
+description: Language-neutral rules for code that reads directory trees or mutates files—atomic replacement of authoritative files, atomic visibility versus crash durability, explicit metadata and collision policy, cross-device moves, deterministic traversal, symlink and root boundaries, honest partial failure, and failure injection at commit boundaries. Load whenever a change touches file mutation, traversal, or path handling, alongside the language-specific filesystem document if one exists.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: general
 ---
@@ -20,19 +20,24 @@ reports when half of it worked—so every caller assumes a different one.
 **Related**:
 
 - `rust-filesystem-rules` (path and string types, platform metadata)
+- `python-modern-guidelines` (Strif atomic-output helpers)
+- `typescript-rules` (the `atomically` replacement helper)
 - `error-handling-rules` (partial failure and error context)
 - `general-testing-rules` (fixture isolation for the tests below)
 - `ci-and-gates-rules` (making the atomic-write rule enforceable rather than advisory)
 
-## Name the Write Contract, Then Enforce It
+## Always Atomically Replace Authoritative Files
 
 Every language has a one-line “write this file” call that truncates the destination and
 then writes. If the process dies between those steps—or two writers interleave—the file
 is left empty or half-written, and the failure surfaces later as corrupt state rather
 than as a write error.
 
-Atomic replacement fixes that, and it is the wrong primitive for several other things a
-program legitimately does with a file.
+Whenever a program publishes complete new contents at a persistent, authoritative path,
+write a private temporary file in the destination directory and atomically replace the
+destination. Use a different primitive only when the operation has a different contract,
+such as exclusive creation, append, streaming, or process-private scratch output.
+
 A write has one of these contracts, and the code should say which:
 
 | Contract | What it promises | Primitive |
@@ -61,9 +66,9 @@ on it rather than a lint suppression:
 '@typescript-eslint/no-restricted-imports': ['error', {
   paths: [
     { name: 'node:fs', importNames: ['writeFile', 'writeFileSync'],
-      message: 'Use writeFile from "atomically" instead for atomic writes.' },
+      message: 'Use replaceFile, createNewFile, appendToFile, or writeScratchFile.' },
     { name: 'node:fs/promises', importNames: ['writeFile'],
-      message: 'Use writeFile from "atomically" instead for atomic writes.' },
+      message: 'Use replaceFile, createNewFile, appendToFile, or writeScratchFile.' },
     // ...and the un-prefixed 'fs' and 'fs/promises' spellings.
   ],
 }],
@@ -249,7 +254,7 @@ target, or on neither.
 An exit code of zero after a batch in which three of ten targets failed is a bug in the
 same class as data loss: the caller’s automation proceeds on a false premise.
 
-## Test the State Machine, Not the Final Bytes
+## Inject Failures Before and After the Filesystem Commit Point
 
 Build every mutating fixture in an isolated root (`general-testing-rules` owns fixture
 construction and cleanup).

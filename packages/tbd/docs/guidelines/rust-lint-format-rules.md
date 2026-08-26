@@ -22,7 +22,7 @@ says which Rust rules the gate enforces.
 - `ci-and-gates-rules` (how the gate is wired and how you prove it is live)
 - `supply-chain-hardening` (pin the toolchain and every lint tool; the cool-off applies)
 
-## What Earns a Place in the Floor
+## Add Lints to the Floor Only When Their Signal Exceeds Their Cost
 
 A rule belongs in the floor below only if it clears all six of these.
 Anything clearing fewer is a project preference and belongs in that project’s manifest,
@@ -45,7 +45,7 @@ the one that denies more.
 This floor is what survived them against one codebase shape; the departure conditions
 below are the boundaries that shape did not test.
 
-## The Floor
+## Use This Baseline Rust Quality Floor
 
 A project may add rules.
 It may drop one only under a departure condition stated at the end of this section.
@@ -99,7 +99,8 @@ It may drop one only under a departure condition stated at the end of this secti
 
 9. **Legacy code ratchets toward strict.** Per-crate `[lints]` overrides relax a rule
    for one member, never for the workspace, and each off-switch carries a tracker ID and
-   a re-enable condition (`ci-and-gates-rules`, “Suppressions Are Debt or Decay”).
+   a re-enable condition (`ci-and-gates-rules`, “Track Every Disabled or Relaxed
+   Check”).
 
 10. **Platform-gated code is linted for its own platform.** `cfg(target_os = ...)` code
     is invisible to a single-platform clippy run, so a module behind such a gate has
@@ -276,7 +277,7 @@ if Cargo emitted some diagnostics first, or the table silently describes a prefi
 workspace. Deduplicate by lint plus primary-span file, line, and column: `--all-targets`
 compiles the library twice.
 
-## Hooks and Gates
+## Run the Same Rust Quality Commands Locally and in CI
 
 Pre-commit auto-fixes staged files; pre-push and CI run the identical verify gate.
 `ci-and-gates-rules` covers why hooks run sequentially and why fix and verify are
@@ -325,7 +326,7 @@ project accepts, not an inventory of what the tree happens to contain today.
 Warning about entries nothing currently uses trains everyone to skim the audit’s output,
 and the next real advisory scrolls past with it.
 
-## Verifying the Floor
+## Break Each Floor Rule Once to Prove It Runs
 
 After setting up or changing any lint configuration, prove it holds:
 

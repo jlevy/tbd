@@ -26,7 +26,7 @@ mechanisms rather than advising vigilance.
 - `general-testing-rules` (what the tests inside the gate should assert)
 - `release-engineering-rules` (the pre-release gate and publishing authority)
 
-## One Entry Point, Two Modes
+## Use One Quality Command in Fix and Verify Modes
 
 A contributor and CI run the same named command.
 If they differ, CI failures are discoveries rather than confirmations.
@@ -85,7 +85,7 @@ partial state that the gate must reject.
 Diagnostics go to stderr; machine-consumed results use a structured output or file; and
 only complete success returns zero.
 
-## Prove the Gate Is Live
+## Keep a Known Violation for Every Required Gate
 
 A gate that is not itself tested is not a gate.
 Two mechanisms, both cheap:
@@ -130,7 +130,7 @@ Checks that matter belong in a file with a positive and a negative test beside t
 same as any other code; the guideline or workflow calls the script rather than restating
 it, so there is one copy to fix when it is wrong.
 
-## Traps That Keep a Gate Green
+## Prevent Gates From Passing Without Running Their Checks
 
 Each of these has shipped a green build that checked nothing.
 
@@ -247,7 +247,7 @@ Make caches performance-only.
 A gate whose correctness depends on cache state is not reproducible, and a poisoned
 cache turns into a mystery rather than a failure.
 
-## Keep Out What the Gate Cannot Measure
+## Gate Only Attributable and Reproducible Measurements
 
 Adding a check that fails for reasons the change did not cause teaches everyone to
 re-run the gate until it is green, which is the same as not having it.
@@ -269,7 +269,7 @@ accepted. A dependency audit that warns about allowed-but-unused license entries
 readers to skim its output, and the next real advisory scrolls past with it.
 Noise is not free strictness; it is a slow repeal.
 
-## Suppressions Are Debt or Decay
+## Track Every Disabled or Relaxed Check
 
 Every off-switch—a disabled lint rule, a relaxed type flag, an ignored advisory, a
 skipped test—carries a tracker ID and the condition under which it comes back:
@@ -313,7 +313,7 @@ the other, and the diff never settles.
   from source data. A committed page that keeps asserting numbers its source no longer
   supports is worse than no page, because it carries the record’s authority.
 
-## Hooks
+## Use Hooks for Local Feedback, Not as CI Authority
 
 Hooks are the fast local pass, not the gate.
 Pre-commit auto-fixes staged files; pre-push runs the full verify gate; CI repeats it so
@@ -333,7 +333,7 @@ a `--no-verify` commit cannot land unchecked.
   tool’s own ignore file with a whole-tree run—and do not mix them, or the ignore list
   silently stops protecting fixtures and generated docs.
 
-## Gates Run in Hostile Environments
+## Scrub Ambient State Before Gates Spawn Subprocesses
 
 A gate’s subprocesses inherit an environment nobody chose.
 
@@ -356,14 +356,14 @@ Generalize the rule: any ambient variable that redirects a tool’s target—`GI
 `HOME`, registry and cache overrides, `NODE_OPTIONS`—is an input the gate must control
 rather than inherit.
 
-## Timeouts Record a Measurement
+## Raise Gate Timeouts Only With a Recorded Measurement
 
 Raise a timeout only where it is genuinely tight, scope the raise to where it applies,
 and record the measurement that forced it.
 A global raise masks hangs everywhere else, which is the failure mode timeouts exist to
 catch. `general-testing-rules` carries the rule and a worked example.
 
-## Workflow Authority and Pinning
+## Minimize Workflow Permissions and Pin Actions by Commit SHA
 
 - Start with read-only permissions at the workflow level and grant additional
   permissions per job.
@@ -386,7 +386,7 @@ catch. `general-testing-rules` carries the rule and a worked example.
 Full cross-ecosystem installation policy is `supply-chain-hardening`; release-only
 authority is `release-engineering-rules`.
 
-## Name the True Cause of a Known Bad Failure
+## Precheck Tool Versions With Known Misleading Failures
 
 When a dependency’s failure mode is misleading, add a precondition check that says the
 real cause. A tool version below the floor that fails with
@@ -398,7 +398,7 @@ failure into one sentence and an install command.
 This is worth doing exactly once per known trap, when the failure has already cost
 someone an hour. It is not a reason to precheck every tool.
 
-## Verifying the Gate
+## Verify Every Gate With a Known Failure
 
 After wiring or reordering any gate, prove it holds:
 

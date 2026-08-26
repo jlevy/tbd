@@ -87,7 +87,7 @@ Review it first, and review it even when the diff is small.
 For safe Rust, use the topic guidelines above rather than recreating their checklists
 here.
 
-## Quick Scan
+## Investigate These Rust-Specific Failure Patterns
 
 Rust-specific patterns only—`code-review-rules` carries the language-neutral scan and
 the rule that a pattern is not a severity.

@@ -32,25 +32,36 @@ Python packaging tools unless absolutely necessary.
 [Read the uv docs overview here](https://docs.astral.sh/uv/llms.txt) to find the
 appropriate docs.
 
-## Atomic Output Files
+## Atomically Replace Authoritative Output Files
 
-Always write files using an atomic process so partial files are never created.
-The best way to do this is `with_atomic_output_file` from
-[strif](https://github.com/jlevy/strif).
-Add this as a dependency (it is small).
+Always use atomic replacement when publishing complete new contents at a persistent path
+that another reader or later run treats as authoritative.
+A direct `Path.write_text`, `Path.write_bytes`, or truncating `open(..., "w")` can leave
+that path empty or partial if the process stops during the write.
+
+Strongly prefer [Strif](https://github.com/jlevy/strif) for this contract.
+Its `atomic_output_file` context manager gives any pathname-based producer a private
+path in the destination directory and installs that path only after the context exits
+successfully. For whole strings or byte buffers, use its `atomic_write_text` or
+`atomic_write_bytes` convenience function.
 
 ```python
-# It is always a good idea to wrap `open` with `atomic_output_file`:
-with atomic_output_file("some-dir/my-final-output.txt") as temp_target:
-    with open(temp_target, "w") as f:
-        f.write("some contents")
+from strif import atomic_output_file, atomic_write_text
 
-# There are also some handy additional options:
-with atomic_output_file("some-dir/my-final-output.txt",
-                        make_parents=True, backup_suffix=".old.{timestamp}") as temp_target:
-    with open(temp_target, "w") as f:
-        f.write("some contents")
+atomic_write_text("state/report.json", report_json, make_parents=True)
+
+# Use the context manager when the producer needs an output pathname.
+with atomic_output_file("state/report.pdf", make_parents=True) as staged_path:
+    render_pdf(staged_path)
 ```
+
+Do not force append, exclusive creation, streaming output, or process-private scratch
+files through replacement; use the primitive for that contract as defined in
+`filesystem-rules`. Do not pass `backup_suffix` when readers require uninterrupted
+destination visibility: Strif moves the old destination to the backup before installing
+the new one, so the destination is briefly absent.
+Strif provides atomic visibility but does not promise that the replacement survives
+power loss; use a durability-specific implementation when that is part of the contract.
 
 ## String Abbreviations, Plurals, and Date, Time, and Time Delta Formats
 

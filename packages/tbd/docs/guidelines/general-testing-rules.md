@@ -1,6 +1,6 @@
 ---
 title: General Testing Rules
-description: Rules for writing minimal, effective tests with maximum coverage, plus what makes a suite trustworthy rather than merely green—assertions that survive refactoring, determinism, fixtures that do not encode the machine that recorded them, timeouts that record a measurement, and never letting an empty or skipped selection look like a pass.
+description: Rules for keeping test volume low while preserving broad evidence—rejecting vacuous tests, choosing portable black-box tests when they preserve coverage, keeping the inner loop fast, controlling nondeterminism, and never letting an empty or skipped selection look like a pass.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: general
 ---
@@ -14,65 +14,105 @@ category: general
 - `ci-and-gates-rules` (running the suite in a hostile environment; timeouts; gates that
   pass while checking nothing)
 
-## Core Principles
+## Keep Test Suites Concise, Clear, High-Coverage, Fast, and Portable
 
-- Write the minimal set of tests with the maximal coverage.
-  Write as few tests as possible that *also* cover the desired functionality.
-  If you see many similar tests, review to see if any can be removed or rewritten to be
-  shorter without reducing test coverage.
+Test volume and evidence are separate variables.
+Minimize total maintenance and runtime cost while preserving the strongest practical
+evidence. Optimize these properties simultaneously:
 
-- Do NOT write unit tests that are obviously going to pass (like creating objects and
-  validating they are set on an object).
-  These needlessly clutter the codebase.
-  For example:
-  - Do not write a test that simply instantiates a class and the object’s fields are
-    set.
+1. **Concision:** Keep total test code, fixture data, setup, and expected output as
+   small as possible without losing independent evidence.
+2. **Clarity:** Make the asserted contract and the reason for each expected value
+   obvious enough that a reviewer can detect a wrong test and a maintainer can update it
+   safely.
+3. **Coverage:** Exercise as many distinct public contracts, boundaries, failure modes,
+   and state transitions as reasonably possible.
+   Line coverage is a discovery tool, not the definition of coverage.
+4. **Efficiency:** Keep the edit, commit, and ordinary CI loop as fast as possible;
+   isolate evidence that cannot fit its measured budget in an explicit slower tier.
+5. **Portability:** Prefer fixtures, commands, inputs, and expected outputs that can
+   test another implementation language without being rewritten, when they preserve the
+   same coverage and useful failure location.
 
-- Do NOT write a test that is trivial enough it is obviously tested as part of another
-  test in the same codebase.
+Reducing test volume is required maintenance.
+Merge or delete a test when another test already proves the same contract with equal
+clarity and diagnosis.
+Preserve tests that exercise different contracts through the same code.
 
-- Don’t test implementation details: Focus on behavior and outcomes, not internal
-  mechanics, so tests remain valid when you refactor.
+## Don’t Just Test the Test
 
-- Test edge cases and boundaries: Include tests for empty inputs, nulls, maximums,
-  minimums, and error conditions—not just happy paths.
-  For verifying failure paths and exit codes, see `error-handling-rules`.
+A test is vacuous when it verifies only facts established by its own setup rather than
+behavior supplied by the program:
 
-- For the red-green development workflow, see `general-tdd-guidelines`. For
-  golden/snapshot testing, see `golden-testing-guidelines`.
+- constructing `User(name="Ada")` and asserting `user.name == "Ada"` when construction
+  only assigns the argument;
+- running the fixture initializer and asserting its `initialized` flag is true;
+- adding `process` to a mock and asserting that the mock has a `process` method;
+- creating a fixture with three records and asserting that the untouched fixture still
+  has three records.
 
-## Demand Independent Evidence
+Delete these tests. Keep a construction test only when construction performs a real
+contract such as validation, normalization, defaulting, copying, or invariant
+enforcement, and assert that behavior.
+Test setup code directly only when the setup mechanism is itself production behavior;
+otherwise a broken setup should cause the behavioral assertion to fail.
 
-Coverage means required behavior, not a line count.
-A smaller suite is better only while it preserves every independent contract, boundary,
-failure mode, and useful failure location the larger suite established.
+## Keep a Test Only When It Adds Independent Evidence
 
-- **Make each test name what it uniquely establishes.** If that sentence cannot be
-  written, the test is not earning its place.
-  This is usually visible in the name: a test called `handles_empty_input` states one;
-  `test_process_2` does not.
-- **Keep intentional overlap when it buys evidence or diagnosis.** Two tests that
-  execute the same lines can protect different public contracts or localize a regression
-  to one layer. That is not the needless duplication prohibited above.
-- **Prefer a stronger oracle to another example.** When a behavior has a property that
-  holds for all inputs, a property test with a fixed seed beats five hand-picked cases.
-  When a rewrite must match an old implementation, a differential test beats both.
-  When a failure path is hard to reach, use fault injection.
+For every test, state the contract, boundary, failure mode, or useful failure location
+it establishes that the rest of the suite does not.
+If that statement cannot be written, merge or remove the test.
 
-## Assert the Outcome, Not the Interaction
+- Keep overlapping execution when tests protect different public interfaces or narrow a
+  failure to different layers.
+- Collapse repeated examples into a parameterized case or a compact golden when the
+  combined failure still identifies the broken behavior.
+- Prefer a stronger oracle to more examples: a fixed-seed property test for an
+  invariant, a differential test for compatibility with another implementation, or
+  injected failure at a commit boundary.
+- Cover externally distinct failures, not every internal fallible call that produces the
+  same public error and recovery behavior.
 
-A test that asserts a mock was called proves the code under test called a mock.
-That is usually the least interesting thing that happened.
+## Assert Transferred Data, Not Merely That a Mock Was Called
 
-- **Assert the contract that crossed the boundary, not that a call occurred.**
-  `expect(store.save).toHaveBeenCalled()` passes when the wrong object is saved.
-  Assert the shape and the values that the receiving component depends on.
-- **Never assert that a mock has the methods you gave it.** A test that checks
-  `typeof mock.process === 'function'` tests the test.
-- **Test the data flow between components**, not each call in isolation.
-  The defects worth catching live in what one component hands the next.
-- **Prefer a real collaborator to a mock** wherever it is fast and deterministic.
-  A mock encodes your belief about the dependency; a real one encodes the dependency.
+`expect(store.save).toHaveBeenCalled()` passes when the wrong object is saved.
+Assert the exact fields and values the receiver depends on, plus the observable result
+of the operation. A call-count assertion earns its place only when the count is itself a
+public contract, such as exactly-once billing, bounded retries, or no external call
+after local validation fails.
+
+Never assert that a mock has the methods or values the test assigned to it.
+Prefer a real or in-memory collaborator when it is deterministic and cheaper than
+maintaining a mock model; otherwise keep the mock at one boundary and verify the
+complete data crossing that boundary.
+
+## Keep the Inner Loop Fast and Put Costly Evidence in Explicit Outer Loops
+
+Measure the suite used during editing, on commit, and in ordinary CI, then set a budget
+that preserves frequent use.
+Before moving a test out of that loop, reduce redundant setup, share immutable fixtures,
+replace sleeps with synchronization, batch process startup, and use a cheaper oracle
+with the same coverage.
+
+If the evidence still cannot fit the budget, put it in a named outer tier such as a
+platform matrix, scheduled system test, hardware test, live-service test, or documented
+manual check. State when that tier runs and which contract it covers.
+An outer tier is a placement for inherently costly evidence, not a place to hide an
+unnecessarily slow test.
+
+## Prefer Language-Neutral Tests When They Preserve the Same Coverage
+
+For a CLI, prefer golden fixtures that invoke the built executable and record arguments,
+stdout, stderr, exit status, and relevant files over language-coupled unit or
+integration tests when both approaches cover the same contracts.
+A Python implementation can then be ported to Rust while the commands and expected
+outputs remain unchanged; the unchanged tests also serve as differential evidence during
+the port.
+
+Keep language-specific tests when they cover an invariant that the public interface
+cannot expose economically, run materially faster, or give necessary failure
+localization. Portability is one optimization property; preserve stronger evidence when
+the two conflict.
 
 ## Keep Tests Deterministic
 
@@ -110,7 +150,7 @@ layer alone is sufficient, because tests also run outside hooks.
 Any ambient variable that redirects a tool’s target—`GIT_DIR`, `HOME`, registry and
 cache overrides—is an input the suite must control rather than inherit.
 
-## Fixtures Are Inputs With Provenance
+## Keep One Portable Source for Every Test Fixture
 
 - Keep one authoritative copy of a fixture, near the tests that own it.
   Copying the same bytes into unit and integration directories guarantees they diverge.
@@ -125,7 +165,7 @@ cache overrides—is an input the suite must control rather than inherit.
   covers the stronger version of this, where the authority for a recording is CI rather
   than a developer’s laptop.
 
-## Timeouts Record a Measurement
+## Raise a Timeout Only With a Recorded Measurement
 
 Raise a timeout only where it is genuinely tight, scope the raise to where it applies,
 and record the measurement that forced it:

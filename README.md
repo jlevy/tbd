@@ -277,45 +277,82 @@ opinionated rules with concrete examples, built from months of heavy agentic cod
 > Now simply telling your agent “check the guidelines on golden testing” can make a huge
 > difference, encouraging far more maintainable, deeper tests.
 
+### Engineering Process and Cross-Cutting Rules
+
 | Guideline | What it covers |
 | --- | --- |
-| [general-tdd-guidelines](packages/tbd/docs/guidelines/general-tdd-guidelines.md) | Red-Green-Refactor methodology, small slices, test-first discipline |
-| [golden-testing-guidelines](packages/tbd/docs/guidelines/golden-testing-guidelines.md) | Snapshot/golden testing for complex systems: session schemas, YAML captures, mock modes |
-| [general-testing-rules](packages/tbd/docs/guidelines/general-testing-rules.md) | Minimal tests for maximum coverage, avoiding redundant test cases |
-| [typescript-code-coverage](packages/tbd/docs/guidelines/typescript-code-coverage.md) | Code coverage best practices with Vitest and v8 provider |
-| [typescript-rules](packages/tbd/docs/guidelines/typescript-rules.md) | Strict type safety, no `any`, type guards, null safety, async patterns |
-| [typescript-sorting-patterns](packages/tbd/docs/guidelines/typescript-sorting-patterns.md) | Deterministic sorting, comparison chains for multi-field sorts |
-| [pnpm-monorepo-patterns](packages/tbd/docs/guidelines/pnpm-monorepo-patterns.md) | pnpm workspaces, tsdown, Vitest, Changesets, publint, dual ESM/CJS |
-| [bun-monorepo-patterns](packages/tbd/docs/guidelines/bun-monorepo-patterns.md) | Bun workspaces, Bunup, Biome, bun test, standalone executables |
-| [typescript-cli-tool-rules](packages/tbd/docs/guidelines/typescript-cli-tool-rules.md) | Commander.js patterns, picocolors, terminal formatting |
-| [cli-agent-skill-patterns](packages/tbd/docs/guidelines/cli-agent-skill-patterns.md) | Building CLIs that function as agent skills in Claude Code |
-| [electron-app-development-patterns](packages/tbd/docs/guidelines/electron-app-development-patterns.md) | Standalone Electron apps: process model, Vite build, Node/Bun/Python backends, security, signing, updates |
-| [electrobun-app-development-patterns](packages/tbd/docs/guidelines/electrobun-app-development-patterns.md) | Electrobun apps: runtime and process model, typed RPC, packaging and the delta updater, maturity and security assessment |
-| [tauri-app-development-patterns](packages/tbd/docs/guidelines/tauri-app-development-patterns.md) | Tauri 2 apps: Rust core and system webview, capabilities and permissions, sidecars and non-Rust backends, signing and the signed updater |
-| [typescript-yaml-handling-rules](packages/tbd/docs/guidelines/typescript-yaml-handling-rules.md) | YAML parsing/serialization with the `yaml` package, Zod validation, consistent formatting |
-| [python-rules](packages/tbd/docs/guidelines/python-rules.md) | Type hints, docstrings, exception handling, resource management |
-| [python-cli-patterns](packages/tbd/docs/guidelines/python-cli-patterns.md) | Modern Python CLI stack: uv, Typer, Rich, Ruff, BasedPyright |
-| [rust-rules](packages/tbd/docs/guidelines/rust-rules.md) | Ownership and borrowing, domain types over primitives, error handling with thiserror/anyhow, unsafe, async, performance |
-| [rust-lint-format-rules](packages/tbd/docs/guidelines/rust-lint-format-rules.md) | The Rust quality floor: the `[lints]` block, `clippy.toml`, and measured adoption cost for the lints beyond it |
-| [rust-project-setup](packages/tbd/docs/guidelines/rust-project-setup.md) | Cargo package shape, workspace metadata, features, toolchain pinning, MSRV |
-| [rust-cli-rules](packages/tbd/docs/guidelines/rust-cli-rules.md) | clap patterns, stream composability, exit status, broken pipes, destructive commands |
-| [rust-testing-rules](packages/tbd/docs/guidelines/rust-testing-rules.md) | Test boundaries, determinism, fixtures, insta snapshots, property tests, feature and platform matrices |
-| [rust-filesystem-rules](packages/tbd/docs/guidelines/rust-filesystem-rules.md) | Path and OsStr types, the tempfile atomic-replacement sequence, traversal crates and error propagation |
-| [rust-release-rules](packages/tbd/docs/guidelines/rust-release-rules.md) | crates.io publishing, the unpublished-sibling trap, semver checks, maturin wheels |
-| [rust-code-review-rules](packages/tbd/docs/guidelines/rust-code-review-rules.md) | Unsafe and FFI review checklist, plus investigative Rust quick-scan questions |
+| [general-eng-agent-principles](packages/tbd/docs/guidelines/general-eng-agent-principles.md) | Senior-engineer responsibility, verification, scope discipline, and when to act or clarify |
+| [general-coding-rules](packages/tbd/docs/guidelines/general-coding-rules.md) | Correctness checks, defensive coding boundaries, dependency discipline, and code structure |
+| [general-comment-rules](packages/tbd/docs/guidelines/general-comment-rules.md) | Comments that preserve non-obvious rationale without restating code |
 | [backward-compatibility-rules](packages/tbd/docs/guidelines/backward-compatibility-rules.md) | Compatibility across code, APIs, file formats, and database schemas |
-| [ci-and-gates-rules](packages/tbd/docs/guidelines/ci-and-gates-rules.md) | Wiring a quality gate that holds: one entry point in two modes, config-contract checks, the traps that keep a gate green while it checks nothing |
-| [code-review-rules](packages/tbd/docs/guidelines/code-review-rules.md) | Severity vocabulary, review baseline, risk-ordered reading, and findings that can be acted on |
-| [filesystem-rules](packages/tbd/docs/guidelines/filesystem-rules.md) | Atomic visibility vs crash durability, planning vs mutation, collision policy, deterministic traversal, honest partial failure |
-| [release-engineering-rules](packages/tbd/docs/guidelines/release-engineering-rules.md) | Release identity, least-privilege publishing, build-once-and-promote, smoke-testing the packaged artifact |
-| [agent-session-bootstrap](packages/tbd/docs/guidelines/agent-session-bootstrap.md) | Installing a repo’s pinned toolchain at session start when agents run in containers you don’t control |
-| [convex-rules](packages/tbd/docs/guidelines/convex-rules.md) | Convex function syntax, schema design, queries, mutations |
-| [convex-limits-best-practices](packages/tbd/docs/guidelines/convex-limits-best-practices.md) | Convex platform limits, workarounds, performance tuning |
+| [error-handling-rules](packages/tbd/docs/guidelines/error-handling-rules.md) | Failure propagation, error context, cleanup, exit status, and partial success |
+| [ci-and-gates-rules](packages/tbd/docs/guidelines/ci-and-gates-rules.md) | One local and CI entry point, testable gate logic, non-vacuous checks, and workflow authority |
+| [code-review-rules](packages/tbd/docs/guidelines/code-review-rules.md) | Severity vocabulary, review baseline, risk-ordered reading, and actionable findings |
+| [filesystem-rules](packages/tbd/docs/guidelines/filesystem-rules.md) | Atomic replacement, crash durability, collision policy, deterministic traversal, and partial failure |
+| [supply-chain-hardening](packages/tbd/docs/guidelines/supply-chain-hardening.md) | Dependency cool-offs, lockfiles, install scripts, provenance, and immutable CI inputs |
+| [release-engineering-rules](packages/tbd/docs/guidelines/release-engineering-rules.md) | Release identity, least-privilege publishing, build-once promotion, and packaged-artifact testing |
+| [release-notes-guidelines](packages/tbd/docs/guidelines/release-notes-guidelines.md) | User-visible release deltas without listing development-only fixes as shipped changes |
+| [agent-session-bootstrap](packages/tbd/docs/guidelines/agent-session-bootstrap.md) | Installing a repository’s pinned toolchain in agent environments |
 
-Plus guidelines on [coding rules](packages/tbd/docs/guidelines/general-coding-rules.md),
-[comment quality](packages/tbd/docs/guidelines/general-comment-rules.md),
-[commit conventions](packages/tbd/docs/guidelines/commit-conventions.md), and
-[documentation style](packages/tbd/docs/guidelines/common-doc-guidelines.md).
+### Testing
+
+| Guideline | What it covers |
+| --- | --- |
+| [general-tdd-guidelines](packages/tbd/docs/guidelines/general-tdd-guidelines.md) | Red-Green-Refactor, small slices, and test-first discipline |
+| [general-testing-rules](packages/tbd/docs/guidelines/general-testing-rules.md) | Low test volume with high coverage, vacuous tests, loop speed, and portability |
+| [golden-testing-guidelines](packages/tbd/docs/guidelines/golden-testing-guidelines.md) | End-to-end golden sessions, stable fields, YAML captures, and mock modes |
+| [typescript-code-coverage](packages/tbd/docs/guidelines/typescript-code-coverage.md) | Coverage with Vitest and the V8 provider |
+
+### TypeScript and JavaScript
+
+| Guideline | What it covers |
+| --- | --- |
+| [typescript-rules](packages/tbd/docs/guidelines/typescript-rules.md) | Strict type safety, type guards, null safety, async patterns, and atomic file replacement |
+| [typescript-lint-format-rules](packages/tbd/docs/guidelines/typescript-lint-format-rules.md) | ESLint and formatting floors with effective-config checks |
+| [typescript-sorting-patterns](packages/tbd/docs/guidelines/typescript-sorting-patterns.md) | Deterministic sorting and comparison chains for multi-field sorts |
+| [typescript-cli-tool-rules](packages/tbd/docs/guidelines/typescript-cli-tool-rules.md) | Commander.js patterns, streams, exit status, and terminal formatting |
+| [typescript-yaml-handling-rules](packages/tbd/docs/guidelines/typescript-yaml-handling-rules.md) | YAML parsing and serialization, Zod validation, and stable formatting |
+| [pnpm-monorepo-patterns](packages/tbd/docs/guidelines/pnpm-monorepo-patterns.md) | pnpm workspaces, tsdown, Vitest, Changesets, publint, and dual ESM/CJS |
+| [bun-monorepo-patterns](packages/tbd/docs/guidelines/bun-monorepo-patterns.md) | Bun workspaces, Bunup, Biome, `bun test`, and standalone executables |
+
+### Python
+
+| Guideline | What it covers |
+| --- | --- |
+| [python-rules](packages/tbd/docs/guidelines/python-rules.md) | Type annotations, imports, exceptions, resource management, and atomic file replacement |
+| [python-modern-guidelines](packages/tbd/docs/guidelines/python-modern-guidelines.md) | uv-based projects, Strif atomic output, and concise human-readable formatting |
+| [python-cli-patterns](packages/tbd/docs/guidelines/python-cli-patterns.md) | uv, Typer, Rich, Ruff, and BasedPyright for Python CLIs |
+
+### Rust
+
+| Guideline | What it covers |
+| --- | --- |
+| [rust-rules](packages/tbd/docs/guidelines/rust-rules.md) | Ownership, domain types, errors, unsafe code, async, and performance |
+| [rust-lint-format-rules](packages/tbd/docs/guidelines/rust-lint-format-rules.md) | The `[lints]` floor, `clippy.toml`, and measured adoption cost beyond the floor |
+| [rust-project-setup](packages/tbd/docs/guidelines/rust-project-setup.md) | Cargo package shape, workspace metadata, features, toolchain pinning, and MSRV |
+| [rust-cli-rules](packages/tbd/docs/guidelines/rust-cli-rules.md) | clap patterns, stream composability, exit status, broken pipes, and destructive commands |
+| [rust-testing-rules](packages/tbd/docs/guidelines/rust-testing-rules.md) | Test boundaries, fixtures, snapshots, properties, features, and platform matrices |
+| [rust-filesystem-rules](packages/tbd/docs/guidelines/rust-filesystem-rules.md) | Path and `OsStr` types, atomic replacement, traversal crates, and error propagation |
+| [rust-release-rules](packages/tbd/docs/guidelines/rust-release-rules.md) | crates.io publishing, unpublished sibling crates, semver checks, and maturin wheels |
+| [rust-code-review-rules](packages/tbd/docs/guidelines/rust-code-review-rules.md) | Unsafe and FFI review plus investigative Rust quick-scan questions |
+
+### Frameworks and Application Platforms
+
+| Guideline | What it covers |
+| --- | --- |
+| [cli-agent-skill-patterns](packages/tbd/docs/guidelines/cli-agent-skill-patterns.md) | CLIs designed to function as coding-agent skills |
+| [electron-app-development-patterns](packages/tbd/docs/guidelines/electron-app-development-patterns.md) | Electron process boundaries, backends, security, signing, and updates |
+| [electrobun-app-development-patterns](packages/tbd/docs/guidelines/electrobun-app-development-patterns.md) | Electrobun runtime, typed RPC, packaging, delta updates, and maturity risks |
+| [tauri-app-development-patterns](packages/tbd/docs/guidelines/tauri-app-development-patterns.md) | Tauri 2 capabilities, sidecars, non-Rust backends, signing, and updates |
+| [convex-rules](packages/tbd/docs/guidelines/convex-rules.md) | Convex functions, schemas, queries, and mutations |
+| [convex-limits-best-practices](packages/tbd/docs/guidelines/convex-limits-best-practices.md) | Convex limits, workarounds, and performance constraints |
+
+### Documentation and Change History
+
+| Guideline | What it covers |
+| --- | --- |
+| [common-doc-guidelines](packages/tbd/docs/guidelines/common-doc-guidelines.md) | Concrete documentation structure, style, formatting, and required footer |
+| [commit-conventions](packages/tbd/docs/guidelines/commit-conventions.md) | Conventional commit types and descriptions |
 
 You can also add your own team’s guidelines from any URL:
 

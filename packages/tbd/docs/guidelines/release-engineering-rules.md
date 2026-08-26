@@ -24,7 +24,7 @@ not exist.
 - `ci-and-gates-rules` (the gate this reuses, and workflow authority in general)
 - `rust-release-rules` (crates.io trusted publishing, maturin wheels)
 
-## Define One Release Identity
+## Use One Version and Commit for Each Release Unit
 
 - Define the **release unit** first.
   One package or product released through several channels has one version and tag;
@@ -61,7 +61,7 @@ Give release-support code an interpreter or toolchain the project pins, not the 
 A release script that runs under “whatever `python3` is on the runner” is one image
 update away from failing at the least recoverable moment.
 
-## Minimize Publishing Authority
+## Grant Publish Credentials Only to Publish Jobs
 
 - Grant write, package, or OIDC token permissions only to the job that needs them.
 - Keep build jobs unable to publish.
@@ -94,7 +94,7 @@ not test.
 - Fail an all-or-nothing release if a required target fails; never silently publish a
   partial platform set.
 
-## Package Predictably
+## Make Archive Contents and Names Deterministic
 
 Artifact names carry project, version, and target.
 Archives contain only what users expect: the executable or library, license files, a
@@ -156,7 +156,7 @@ Two details make a rehearsal honest:
   registry entry. Naming both in a single invocation is what lets the tooling verify each
   against the just-packaged sibling.
 
-## Choose Channels by Audience
+## Publish Only to Channels the Intended Audience Uses
 
 No channel is universally primary.
 Pick the smallest set that serves the actual users; each added channel is a permanent
@@ -200,7 +200,7 @@ should not itself contain the logic.
 Anything expressed only as inline shell in a release workflow is tested exclusively in
 production.
 
-## Prepare for Release Incidents
+## Document Credential Revocation and Release Recovery Before Publishing
 
 Document who can revoke or rotate publishing credentials, quarantine compromised
 workflow access, yank or remove a published version where the registry permits it,

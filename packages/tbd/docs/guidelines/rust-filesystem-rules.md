@@ -56,7 +56,7 @@ panics when that position is not a character boundary; converting a path to `&st
 rejects non-UTF-8 names.
 Stay in `Path`/`OsStr` unless text semantics are part of the contract.
 
-## Make Write Intent Explicit
+## Use Intent-Specific APIs and Atomically Replace Authoritative Files
 
 `std::fs::write` and `std::fs::File::create` truncate an existing destination before
 writing. That is wrong for replacement of authoritative state, but it can be correct for
@@ -97,40 +97,36 @@ operating system and filesystem
 Assemble each record before writing; if record atomicity is required, serialize writers
 or use a storage format and protocol that supplies it.
 
-The same-filesystem replacement sequence, with the Rust specifics that matter:
+For an authoritative file whose contract is atomic visibility of complete contents, the
+smallest correct Rust implementation writes before `persist` and stages beside the
+destination:
 
 ```rust
-use std::io::{BufWriter, IntoInnerError, Write};
+use std::io::Write;
 use std::path::Path;
 use tempfile::NamedTempFile;
 
-fn stage_replacement(
-    path: &Path,
-    records: &[Record],
-    durable: bool,
-) -> anyhow::Result<NamedTempFile> {
+fn replace_atomic(path: &Path, contents: &[u8]) -> anyhow::Result<()> {
     // In the destination directory, not the system temp dir: a temp file elsewhere is
-    // probably on another filesystem, which turns the final persist into a
-    // cross-device copy and loses atomicity.
-    let directory = path.parent().unwrap_or_else(|| Path::new("."));
-    let mut writer = BufWriter::new(NamedTempFile::new_in(directory)?);
-    for record in records {
-        writeln!(writer, "{record}")?;
-    }
-    // Recover the file *through* the writer, not around it. `into_inner` flushes and
-    // surfaces the error; `BufWriter`'s Drop also flushes but discards the result, so a
-    // full disk becomes a short file and a successful exit status.
-    let staged = writer.into_inner().map_err(IntoInnerError::into_error)?;
-    if durable {
-        // Only when the operation promises crash durability. `filesystem-rules` keeps
-        // these two promises apart; this is the line where they diverge.
-        staged.as_file().sync_all()?;
-    }
-    Ok(staged)
+    // on another filesystem and makes `persist` fail rather than replace atomically.
+    let directory = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let mut staged = NamedTempFile::new_in(directory)?;
+    staged.write_all(contents)?;
+    staged.flush()?;
+    staged.persist(path).map_err(|error| error.error)?;
+    Ok(())
 }
 ```
 
-Two Rust-specific traps in that sequence:
+This example promises atomic visibility, not crash durability or metadata preservation.
+If the operation promises those properties, sync the staged file before `persist`, sync
+the parent directory afterward where supported, and copy each promised metadata field
+before the replacement as specified in `filesystem-rules`.
+
+Rust-specific traps in this sequence:
 
 - **The buffer holds the bytes, not the file.** `flush()` on the underlying file does
   nothing for data still sitting in a `BufWriter`, and `BufWriter`’s own `Drop` flushes
@@ -184,7 +180,7 @@ for entry in WalkDir::new(root).follow_links(false) {
 
 A blanket `.ok()` is not that, and neither is a `_ => continue` arm.
 
-## Platform Metadata Is Behind a `cfg`
+## Lint and Test Platform-Specific Metadata Code on Each Supported OS
 
 Permissions, ownership, and extended attributes reach Rust through platform extension
 traits—`std::os::unix::fs::PermissionsExt`, `MetadataExt`, and their Windows
