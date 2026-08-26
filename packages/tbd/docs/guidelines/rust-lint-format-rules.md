@@ -257,7 +257,7 @@ inferred *type* and is usually satisfied by a bounds check the code already has,
 **Measure by compile unit, not by reading the source.** The obvious method—split each
 file at its `#[cfg(test)]` and call the rest test code—is wrong, because a
 `#[cfg(test)]` attribute applies to the *next item* and not to the remainder of the
-file. Applied to this codebase it misfiled 34% of diagnostics, in both directions.
+file. Applied to this codebase it misfiled 35% of diagnostics, in both directions.
 Ask cargo instead:
 
 ```bash

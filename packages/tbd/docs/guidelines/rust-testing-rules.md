@@ -34,18 +34,16 @@ A workspace-root `tests/` directory is not automatically a test target.
 
 ## Assert Public Outcomes and Each Externally Distinct Failure
 
-- Assert public results, state transitions, emitted events, files, streams, and errors;
-  avoid private counters or call order unless those are the interface.
-- Cover each *externally distinct* failure behavior, not each fallible call.
-  Twenty `?` operators that all surface the same error, at the same exit status, with
+`general-testing-rules` owns the “cover externally distinct failures, not every fallible
+call” rule and the public-outcome focus.
+Rust specifics:
+
+- Twenty `?` operators that all surface the same error, at the same exit status, with
   the same cleanup, are one behavior and want one test.
   Two that differ in what the caller must do next are two, however similar the code
   looks.
-- Check structured error variants where callers depend on them and user-visible context
-  where users depend on it.
-- Test partial success, retries, interruption, cancellation, and cleanup for operations
-  that can stop mid-flight.
-- Never let a test ignore a fallible setup or assertion step.
+- Check structured error variants (`enum` arms callers match on) and user-visible
+  context fields callers display.
 - Use `panic!` or `assert!` with a useful impossible-branch message rather than an
   unconditional `assert!(false)`.
 
@@ -56,8 +54,8 @@ regeneration, reviewable diffs, and no machine-specific content.
 Rust adds one choice:
 
 - Use `include_str!` or `include_bytes!` when the fixture is fixed at compile time.
-  The bytes become part of the binary, so the test cannot drift from them and cannot
-  fail on a missing file.
+  The bytes become part of the binary, so the test cannot drift from them at runtime; a
+  missing file is caught at compile time.
 - Read at runtime when the test exercises path handling, permissions, or mutable state—
   embedding would bypass the very code under test.
 
@@ -73,48 +71,30 @@ fn renders_the_document() {
 
 ## Use Goldens for Stable Structured Output and CLI Sessions
 
-Golden or snapshot tests are useful for structured output, diagnostics, CLI sessions,
-serialized data, and large render trees.
-
-- Name the behavior each snapshot represents.
-- Normalize only fields outside the contract.
-- Review the rendered diff before accepting an update.
-- Keep snapshots small enough to diagnose.
-- Pair a broad snapshot with focused assertions for critical invariants that a reviewer
-  might miss in a large diff.
-- Never auto-accept snapshots in CI.
+`golden-testing-guidelines` owns the representation rules—naming, normalization, review,
+sizing, layered assertions, and CI acceptance policy.
 
 Use `insta` by default for Rust snapshots because it keeps reviewed snapshot files and
 update diffs in the test workflow.
 Use another representation only when the project documents a format, interoperability,
 or dependency-policy constraint that `insta` cannot satisfy.
-Apply `tbd guidelines golden-testing-guidelines` before choosing the representation.
 
 ## Use Property Tests for Invariants
 
 Property tests are appropriate when a broad input space can be described through
-invariants, such as:
+invariants—round trips, idempotency, ordering, boundary-safe string processing,
+state-machine rules, or no-panic over arbitrary valid input.
 
-- parse/serialize round trips;
-- output idempotency;
-- ordering and deduplication;
-- boundary-safe string processing;
-- state-machine transition rules;
-- no panic for arbitrary valid input.
-
-Use constrained generators that produce meaningful cases.
-Retain minimal failing cases as ordinary regression tests when they reveal a defect.
-Property tests complement, rather than replace, examples with exact expected output.
+Use `proptest` by default; it provides integrated shrinking, value trees, and composable
+strategies. Use `quickcheck` when the project already depends on it and migration is not
+justified.
 
 ## Test Filesystem Behavior in Isolated Roots
 
-Give every mutating test its own `tempfile::TempDir` by default, build all fixture paths
-under that root, and let its exact lifetime own cleanup.
-Inject filesystem behavior through a narrow adapter when a deterministic failure cannot
-be produced portably.
-
-`rust-filesystem-rules` owns the collision, symlink, metadata, commit-point, durability,
-and recovery cases that the test suite must cover.
+`rust-filesystem-rules` owns the `tempfile::TempDir` isolation pattern and the
+collision, symlink, metadata, commit-point, durability, and recovery cases that the test
+suite must cover. Inject filesystem behavior through a narrow adapter when a
+deterministic failure cannot be produced portably.
 
 ## Test CLI Contracts Through the Built Binary
 
@@ -155,20 +135,12 @@ platform adapters need real tests on the platform.
 
 ## Use Coverage to Find Untested Contracts, Not as the Goal
 
+`general-testing-rules` owns the principle: coverage is a discovery tool, not the
+definition of coverage.
+
 Use `cargo-llvm-cov` by default to identify unexecuted lines, regions, and branches.
 Use another coverage tool only when the compiler, target, or reporting environment
 cannot support it, and keep the replacement command reproducible.
-Use the report to ask which behavior lacks evidence.
-
-- Do not optimize for a universal percentage.
-- Require stronger evidence for parsers, state machines, security boundaries, and error
-  handling than for trivial glue.
-- Track coverage trends when a sudden drop indicates a missing test path.
-- Exclude generated or unreachable code only with a documented reason.
-- Keep the coverage command reproducible and subject to dependency pinning policy.
-
-Coverage is a discovery tool.
-It does not prove assertion quality or input-space completeness.
 
 ## Keep Ignored Tests Actionable
 

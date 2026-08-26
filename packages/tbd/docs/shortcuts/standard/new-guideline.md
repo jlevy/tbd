@@ -77,7 +77,8 @@ Create a to-do list with the following items then perform all of them:
      render, so make it self-routing—say what the document covers and when to load it.
      Keep it to one sentence or two; it is re-rendered in every session that loads the
      skill. **Do not put a colon-space in it**: the frontmatter is YAML, and an unquoted
-     `foo: bar` parses as a nested mapping and fails the doc-categories test.
+     `foo: bar` causes a YAML parse error ("Nested mappings are not allowed in compact
+     mappings") and fails the doc-categories test.
      Quote the whole scalar—`description: 'Reads foo: bar and…'`—rather than avoiding
      the punctuation; the same applies to a leading `-`, `[`, `{`, `*`, `&`, or `%`.
    - A `**Related**:` block immediately under the H1, listing the guidelines this one
@@ -93,10 +94,12 @@ Create a to-do list with the following items then perform all of them:
    does not serve it and no user receives it):
    - Add `guidelines/<name>.md: internal:guidelines/<name>.md` to `docs_cache.files` in
      `.tbd/config.yml`.
-   - If the name does not start with an existing group prefix (`general-`,
-     `typescript-`, `python-`, `rust-`, `convex-`), add it to the right explicit name
-     set in `GUIDELINE_GROUPS` (`packages/tbd/src/file/doc-cache.ts`) or it lands in the
-     “Docs, process & tooling” catch-all.
+   - If the name does not start with a language-group prefix (`typescript-`, `python-`,
+     `rust-`, `convex-`, `electron-`) or end with `monorepo-patterns`, add it to the
+     right explicit name set in `GUIDELINE_GROUPS`
+     (`packages/tbd/src/file/doc-cache.ts`) or it lands in the “Docs, process & tooling”
+     catch-all. Note: `general-` is not a prefix match—`general-testing-rules` is routed
+     by explicit name, and a new `general-*` name falls through without it.
      Those sets are exported and asserted in `guideline-groups.test.ts`—a name added
      there without a bundled document fails that test rather than silently rendering an
      empty heading.
@@ -137,6 +140,7 @@ Create a to-do list with the following items then perform all of them:
 - [ ] Frontmatter has title, description, author, and a valid category
 - [ ] Description with a colon-space (or other YAML punctuation) is quoted
 - [ ] `**Related**:` block under the H1, and no trailing duplicate list
+- [ ] Language-specific docs have `globs`; no document-local `alwaysApply`
 - [ ] Registered in `.tbd/config.yml` `docs_cache.files`
 - [ ] Grouped correctly (prefix match, or added to an explicit name set)
 - [ ] Introduction explains when to use the guideline

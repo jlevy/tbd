@@ -91,11 +91,8 @@ These are general rules that *must* be followed on this project for Python code.
 - When one operation creates and completes an output file, strongly prefer Strif’s
   `atomic_output_file`, `atomic_write_text`, or `atomic_write_bytes` instead of writing
   directly to the final path.
-  This applies to new and replacement outputs regardless of how important or long-lived
-  they are. Append, live streams, and private staging files need their own primitives;
-  create-only output needs an atomic no-replace commit.
-  See `python-modern-guidelines` and `filesystem-rules` for the examples and decision
-  boundary.
+  See `python-modern-guidelines` for examples and `filesystem-rules` for the full
+  decision boundary.
 
 ## Types and Type Annotations
 
