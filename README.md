@@ -288,7 +288,7 @@ opinionated rules with concrete examples, built from months of heavy agentic cod
 | [error-handling-rules](packages/tbd/docs/guidelines/error-handling-rules.md) | Failure propagation, error context, cleanup, exit status, and partial success |
 | [ci-and-gates-rules](packages/tbd/docs/guidelines/ci-and-gates-rules.md) | One local and CI entry point, testable gate logic, non-vacuous checks, and workflow authority |
 | [code-review-rules](packages/tbd/docs/guidelines/code-review-rules.md) | Severity vocabulary, review baseline, risk-ordered reading, and actionable findings |
-| [filesystem-rules](packages/tbd/docs/guidelines/filesystem-rules.md) | Atomic replacement, crash durability, collision policy, deterministic traversal, and partial failure |
+| [filesystem-rules](packages/tbd/docs/guidelines/filesystem-rules.md) | Atomic output publication, crash durability, collision policy, deterministic traversal, and partial failure |
 | [supply-chain-hardening](packages/tbd/docs/guidelines/supply-chain-hardening.md) | Dependency cool-offs, lockfiles, install scripts, provenance, and immutable CI inputs |
 | [release-engineering-rules](packages/tbd/docs/guidelines/release-engineering-rules.md) | Release identity, least-privilege publishing, build-once promotion, and packaged-artifact testing |
 | [release-notes-guidelines](packages/tbd/docs/guidelines/release-notes-guidelines.md) | User-visible release deltas without listing development-only fixes as shipped changes |
@@ -332,7 +332,7 @@ opinionated rules with concrete examples, built from months of heavy agentic cod
 | [rust-project-setup](packages/tbd/docs/guidelines/rust-project-setup.md) | Cargo package shape, workspace metadata, features, toolchain pinning, and MSRV |
 | [rust-cli-rules](packages/tbd/docs/guidelines/rust-cli-rules.md) | clap patterns, stream composability, exit status, broken pipes, and destructive commands |
 | [rust-testing-rules](packages/tbd/docs/guidelines/rust-testing-rules.md) | Test boundaries, fixtures, snapshots, properties, features, and platform matrices |
-| [rust-filesystem-rules](packages/tbd/docs/guidelines/rust-filesystem-rules.md) | Path and `OsStr` types, atomic replacement, traversal crates, and error propagation |
+| [rust-filesystem-rules](packages/tbd/docs/guidelines/rust-filesystem-rules.md) | Path and `OsStr` types, atomic output publication, traversal crates, and error propagation |
 | [rust-release-rules](packages/tbd/docs/guidelines/rust-release-rules.md) | crates.io publishing, unpublished sibling crates, semver checks, and maturin wheels |
 | [rust-code-review-rules](packages/tbd/docs/guidelines/rust-code-review-rules.md) | Unsafe and FFI review plus investigative Rust quick-scan questions |
 

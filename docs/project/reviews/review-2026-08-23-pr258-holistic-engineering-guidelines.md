@@ -112,24 +112,28 @@ comment for readability, and let an update bot propose reviewed SHA changes.
 `filesystem-rules.md:27-53` requires every write to go through atomic replacement and
 globally bans ordinary write APIs.
 `rust-filesystem-rules.md:58-67` carries the same ban into Clippy.
-Replacement is the right invariant for an authoritative path whose readers must never
-observe partial new contents.
-It is the wrong primitive for append-only logs or journals, exclusive creation,
-temporary and scratch outputs, streams, and some large sequential artifacts.
-Those operations have different collision, ordering, metadata, durability, and cost
-contracts.
+Atomic publication is the right invariant whenever one operation creates and completes
+an output before readers should see it.
+That includes new files, reports, exports, caches, and temporary artifacts, not only
+replacement of authoritative state.
+It is the wrong primitive for append-only logs, live streams, and private staging or
+work files, whose contracts intentionally expose incremental state or publish nothing.
+Those operations have different ordering, visibility, durability, and cost contracts.
 
 Rust’s standard library makes the distinction concrete: append mode has concurrent
-positioning semantics, while `create_new` is an atomic exclusive-create operation
-([`OpenOptions`](https://doc.rust-lang.org/std/fs/struct.OpenOptions.html)). Routing
-both through replacement can weaken the intended invariant instead of strengthening it.
+positioning semantics, while `create_new` makes the path visible before subsequent
+writes complete
+([`OpenOptions`](https://doc.rust-lang.org/std/fs/struct.OpenOptions.html)). A
+create-only completed output therefore needs a staged no-replace commit, not direct
+creation of the final path.
 
-**Fix:** Scope atomic replacement to replacement of persistent authoritative paths that
-may be observed concurrently or after a crash.
-Define intent-specific boundaries such as `replace_atomic`, `create_new`, `append`, and
-a separately named durable replacement.
-Enforce the boundary in persistence modules or through intent-specific wrappers; do not
-ban language primitives globally without an escape that names the alternate contract.
+**Fix:** Require atomic publication for every file completed within one operation,
+whether it is new or replaced and regardless of its business importance.
+Define intent-specific boundaries such as `write_atomic`, `create_atomic`, `append`,
+`open_stream`, and a separately named durable write.
+Enforce the rule in output modules or through intent-specific wrappers; do not ban
+language primitives globally when the same primitive also writes the helper’s private
+staging file or a test fixture.
 
 ### R5 (High): Mandatory guideline loading consumes more context than the policy justifies
 
@@ -471,20 +475,21 @@ site.
 **Correction:** State the ownership transfer precisely and limit the allocation claim to
 callers that possess only a borrowed value.
 
-### R22 (High): Filesystem enforcement still contradicts the write-intent model
+### R22 (High): Filesystem enforcement still contradicts the publication boundary
 
-`filesystem-rules.md:42-75` correctly separates replacement, exclusive creation, append,
-stream, and scratch contracts, but then described concurrent append as safe at the
-record level and prescribed global bans that cannot observe intent.
-`typescript-rules.md:410-434` carried the global replacement rule into the trusted
-TypeScript guidance.
-Concurrent append writes may interleave, and forcing every write through replacement is
-wrong for four of the five named contracts.
+`filesystem-rules.md:42-75` correctly separated publication, append, streams, and
+private work files, but then described concurrent append as safe at the record level and
+prescribed global bans that cannot distinguish a final output path from a private
+staging path.
+`typescript-rules.md:410-434` carried the same enforcement problem into the
+trusted TypeScript guidance.
+Concurrent append writes may interleave; completed outputs require atomic publication,
+while append, live streams, and unpublished staging files require different primitives.
 
 **Correction:** State append’s positioning guarantee without promising record atomicity,
-scope enforcement to authoritative-persistence boundaries, explain why Rust’s global
-method restriction cannot enforce an intent-sensitive rule, and narrow the TypeScript
-rule to replacement of authoritative files.
+scope enforcement to code that publishes outputs, explain why Rust’s global method
+restriction cannot distinguish final outputs from staging writes, and apply the
+TypeScript rule to every file completed within one operation.
 
 ### Second-Pass Validation Notes
 

@@ -404,10 +404,11 @@ yet production-ready**—do not adopt for shipped builds.
   }
   ```
 
-## Atomically Replace Authoritative Files
+## Always Atomically Publish Files Completed in One Operation
 
-Always use `atomically.writeFile` when publishing complete new contents at a persistent
-path that another reader or later run treats as authoritative.
+Always use `atomically.writeFile` when one operation creates and completes an output
+file, whether the destination is new or replaced and whether the file is durable state,
+a report, an export, a cache entry, or a temporary artifact.
 Direct `fs.writeFile` or `fs.writeFileSync` truncates first and can leave the path empty
 or partial if the process stops during the write.
 
@@ -416,16 +417,22 @@ or partial if the process stops during the write.
 import { writeFile } from 'node:fs/promises';
 await writeFile(filePath, content, 'utf8');
 
-// Good: a same-directory temporary file is complete before it replaces the destination.
-import { writeFile as replaceFile } from 'atomically';
-await replaceFile(filePath, content, { encoding: 'utf8' });
+// Good: a same-directory temporary file is complete before the final path appears.
+import { writeFile as writeAtomic } from 'atomically';
+await writeAtomic(filePath, content, { encoding: 'utf8' });
 ```
 
-Append, exclusive creation, streams, and process-private scratch files have different
-contracts and should use the matching primitive.
-Enforce this rule at authoritative-persistence boundaries rather than through a global
-method ban. A scoped `no-restricted-imports` entry must name every spelling (`fs`,
-`node:fs`, `fs/promises`, `node:fs/promises`).
+Append and live streams intentionally expose incremental output and need their own
+primitives. A private staging file inside an atomic helper is not itself published
+output. Create-only output still needs staged publication, but its final commit must
+atomically refuse an existing destination; opening the final path with `wx` exposes it
+before its contents are complete.
+
+Because `writeFile` receives the complete value, direct use in production output code
+normally triggers this rule.
+Restrict every import spelling (`fs`, `node:fs`, `fs/promises`, `node:fs/promises`)
+there, with narrow path-based exclusions for the atomic helper’s implementation and
+test-fixture construction.
 
 `atomically` syncs the staged file by default, but it does not sync the containing
 directory after the rename; do not describe it as full crash durability.

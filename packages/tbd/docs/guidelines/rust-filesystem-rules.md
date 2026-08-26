@@ -56,16 +56,18 @@ panics when that position is not a character boundary; converting a path to `&st
 rejects non-UTF-8 names.
 Stay in `Path`/`OsStr` unless text semantics are part of the contract.
 
-## Use Intent-Specific APIs and Atomically Replace Authoritative Files
+## Use Intent-Specific APIs and Atomically Publish Completed Output Files
 
 `std::fs::write` and `std::fs::File::create` truncate an existing destination before
-writing. That is wrong for replacement of authoritative state, but it can be correct for
-scratch output or a newly created non-authoritative file.
-Do not ban these standard-library methods globally: Clippy cannot infer the caller’s
-write contract, and `disallowed-methods` has no intent scope.
+writing. That is wrong whenever one operation creates and completes an output file,
+including a new destination.
+A reader can observe the path after creation but before the write finishes.
+Do not ban these standard-library methods globally: Clippy cannot infer whether the
+caller’s path is a published output, a private staging file, or a test fixture, and
+`disallowed-methods` has no intent scope.
 
-Instead, route authoritative persistence through a module with named operations such as
-`replace_atomic`, `replace_durable`, `create_new`, and `append_record`. If a legacy
+Instead, route output publication through a module with named operations such as
+`write_atomic`, `write_durable`, `create_atomic`, and `append_record`. If a legacy
 project helper is unambiguously unsafe, disallow that helper after migrating callers;
 preserve the general primitives for contexts where their semantics are the declared
 contract.
@@ -81,13 +83,16 @@ and cheap:
 
 | Contract | Rust |
 | --- | --- |
-| Replace | `NamedTempFile::new_in(dir)` → write → `persist` |
-| Create exclusively | `OpenOptions::new().write(true).create_new(true)` |
+| Publish, replacement allowed | `NamedTempFile::new_in(dir)` → write → `persist` |
+| Publish, replacement forbidden | `NamedTempFile::new_in(dir)` → write → `persist_noclobber` |
 | Append | `OpenOptions::new().append(true)` |
-| Stream, scratch | `File::create` |
+| Live stream, private staging, test fixture | `File::create` |
 
-`create_new` is the atomic exclusive-create; `Path::exists()` followed by a create is
-the race it exists to replace.
+`create_new` is useful for a lock, sentinel, or private work file that may become
+visible before later writes finish.
+It is not atomic publication of a completed output: use `persist_noclobber` when a
+completed file must appear only if the destination is absent.
+In either case, `Path::exists()` followed by create or rename is a race.
 `append(true)` positions each write at the current end of the file, avoiding the race in
 `seek`-to-end-then-write.
 It does **not** guarantee that records from concurrent writers cannot interleave: a
@@ -97,16 +102,15 @@ operating system and filesystem
 Assemble each record before writing; if record atomicity is required, serialize writers
 or use a storage format and protocol that supplies it.
 
-For an authoritative file whose contract is atomic visibility of complete contents, the
-smallest correct Rust implementation writes before `persist` and stages beside the
-destination:
+For any output file completed by one operation, the smallest correct Rust implementation
+writes before `persist` and stages beside the destination:
 
 ```rust
 use std::io::Write;
 use std::path::Path;
 use tempfile::NamedTempFile;
 
-fn replace_atomic(path: &Path, contents: &[u8]) -> anyhow::Result<()> {
+fn write_atomic(path: &Path, contents: &[u8]) -> anyhow::Result<()> {
     // In the destination directory, not the system temp dir: a temp file elsewhere is
     // on another filesystem and makes `persist` fail rather than replace atomically.
     let directory = path
@@ -140,6 +144,11 @@ Rust-specific traps in this sequence:
   the destination exists.
   Pick by the collision policy the operation promises, per `filesystem-rules`; do not
   assume either one from the other’s name.
+  `tempfile` does not guarantee that the entire `persist_noclobber` operation is atomic
+  on every platform: its fallback may create the final hard link atomically and then
+  leave the staging link behind if cleanup fails.
+  The destination is never overwritten, but a contract that also forbids residual
+  staging links needs a platform-specific commit or explicit recovery.
   On Windows, `persist` can still fail with a permission error when the destination is
   open, because there is no POSIX-style replace-while-open.
   Treat that as a real failure path in a program that replaces files other processes may

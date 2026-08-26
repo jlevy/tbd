@@ -32,10 +32,11 @@ Python packaging tools unless absolutely necessary.
 [Read the uv docs overview here](https://docs.astral.sh/uv/llms.txt) to find the
 appropriate docs.
 
-## Atomically Replace Authoritative Output Files
+## Always Atomically Publish Files Completed in One Operation
 
-Always use atomic replacement when publishing complete new contents at a persistent path
-that another reader or later run treats as authoritative.
+Always use atomic publication when one operation creates and completes an output file,
+whether the destination is new or replaced and whether the file is durable state, a
+report, an export, a cache entry, or a temporary artifact.
 A direct `Path.write_text`, `Path.write_bytes`, or truncating `open(..., "w")` can leave
 that path empty or partial if the process stops during the write.
 
@@ -55,11 +56,15 @@ with atomic_output_file("state/report.pdf", make_parents=True) as staged_path:
     render_pdf(staged_path)
 ```
 
-Do not force append, exclusive creation, streaming output, or process-private scratch
-files through replacement; use the primitive for that contract as defined in
-`filesystem-rules`. Do not pass `backup_suffix` when readers require uninterrupted
-destination visibility: Strif moves the old destination to the backup before installing
-the new one, so the destination is briefly absent.
+Append and live streams intentionally expose incremental output and need their own
+primitives. A private staging file is not itself published output.
+Create-only output still needs staged publication, but its final commit must atomically
+refuse an existing destination rather than replace it.
+See `filesystem-rules` for these contracts.
+
+Do not pass `backup_suffix` when readers require uninterrupted destination visibility:
+Strif moves the old destination to the backup before installing the new one, so the
+destination is briefly absent.
 Strif provides atomic visibility but does not promise that the replacement survives
 power loss; use a durability-specific implementation when that is part of the contract.
 

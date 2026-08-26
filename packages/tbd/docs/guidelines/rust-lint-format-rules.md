@@ -217,14 +217,13 @@ One limit matters when using these settings:
   which need a crate-level `#![allow(...)]` of their own.
 
 Do not globally disallow `std::fs::write` or `File::create` to enforce atomic
-replacement. Those functions are correct for scratch files and other contracts that do
-not replace authoritative state; Clippy cannot infer the caller’s write intent, and
-`disallowed-methods` has no test or intent scope.
-Expose intent-specific persistence operations such as `replace_atomic`,
-`replace_durable`, `create_new`, and `append_record` from the module that owns stored
-state. If a legacy *project helper* has an unambiguously unsafe contract, disallow that
-helper after callers have migrated; do not ban general standard-library operations whose
-correctness depends on context.
+publication. They are valid inside the atomic helper when populating a private staging
+file, and in test-fixture or live-stream code; Clippy cannot tell those paths from final
+output, and `disallowed-methods` has no path or intent scope.
+Expose intent-specific output operations such as `write_atomic`, `write_durable`,
+`create_atomic`, `append_record`, and `open_stream`. If a legacy *project helper* has an
+unambiguously unsafe contract, disallow that helper after callers have migrated; do not
+ban general standard-library operations whose correctness depends on context.
 
 ## Beyond the Floor: Measured Adoption Cost
 
@@ -243,7 +242,7 @@ Method, reproducer, and the full 415-row diagnostic mapping are in
 | `clippy::let_underscore_future` | 0 | 0 | 0 | **Adopt.** Free, and inert in a crate with no async. |
 | `clippy::panic` | 2 | 2 | 35 | **Adopt** in library code. Half the non-test cost is `build.rs`, which panics legitimately and needs its own allow. |
 | `clippy::wildcard_enum_match_arm` | 12 | 0 | 9 | **Adopt.** Small, and it is what makes adding an enum variant a compile error instead of a silent `_ =>`. |
-| `clippy::disallowed_methods` (filesystem writes) | 0 | 1 | 82 | **Do not adopt as a global filesystem policy.** The low shipping count measures migration cost, not semantic fit; write contracts differ by intent. |
+| `clippy::disallowed_methods` (filesystem writes) | 0 | 1 | 82 | **Do not adopt as a global filesystem policy.** A method ban cannot distinguish a final output from the private staging write used to publish it atomically. |
 | `clippy::expect_used` | 32 | 7 | 35 | **Defer or ratchet.** On top of `unwrap_used`, this means every fallible call in library code returns a `Result`. That is a design commitment, not a lint tweak. |
 | `clippy::indexing_slicing` | 79 | 0 | 119 | **Do not deny outright.** The most expensive rule here, in a codebase already at this floor. Adopt per-module with a tracked ratchet, or not at all. |
 
