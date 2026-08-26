@@ -5,6 +5,8 @@ import { basename, delimiter, join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { subprocessTestTimeout } from './test-helpers.js';
+
 const SCRIPT = join(
   import.meta.dirname,
   '..',
@@ -60,7 +62,10 @@ async function fakeCargo(root: string) {
   };
 }
 
-describe('check-rust-gate guideline script', () => {
+// The contradictory-options subprocess took 6.08s under full-suite parallel load and
+// 42ms alone. Use the shared subprocess budget so this remains a contract test, not a
+// scheduler-load probe.
+describe('check-rust-gate guideline script', { timeout: subprocessTestTimeout() }, () => {
   let root: string;
 
   beforeEach(async () => {
