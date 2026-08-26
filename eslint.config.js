@@ -9,10 +9,17 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
 
-// Apply type-checked configs only to TypeScript files
+const typedSourceFiles = [
+  '**/*.ts',
+  '**/*.tsx',
+  // This reference helper is copied into projects that may not compile TypeScript,
+  // so it stays directly executable ESM but receives the checked-JavaScript floor.
+  'packages/tbd/docs/guidelines/scripts/check-rust-gate.mjs',
+];
+
 const typedStrict = tseslint.configs.strictTypeChecked.map((cfg) => ({
   ...cfg,
-  files: ['**/*.ts', '**/*.tsx'],
+  files: typedSourceFiles,
   languageOptions: {
     ...(cfg.languageOptions ?? {}),
     parserOptions: {
@@ -25,7 +32,7 @@ const typedStrict = tseslint.configs.strictTypeChecked.map((cfg) => ({
 
 const typedStylistic = tseslint.configs.stylisticTypeChecked.map((cfg) => ({
   ...cfg,
-  files: ['**/*.ts', '**/*.tsx'],
+  files: typedSourceFiles,
   languageOptions: {
     ...(cfg.languageOptions ?? {}),
     parserOptions: {
@@ -60,9 +67,9 @@ export default [
   ...typedStrict,
   ...typedStylistic,
 
-  // TypeScript-specific rules
+  // Type-aware rules for TypeScript and explicitly checked JavaScript.
   {
-    files: ['**/*.ts', '**/*.tsx'],
+    files: typedSourceFiles,
     rules: {
       // === Strict-preset tuning ===
       // Numbers and booleans interpolate unambiguously; everything else

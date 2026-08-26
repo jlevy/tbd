@@ -71,6 +71,26 @@ describe('check-rust-gate guideline script', () => {
     await rm(root, { recursive: true, force: true });
   });
 
+  it('documents every command, mode, and exit-status class in help output', () => {
+    const result = run(['--help']);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('lint-policy');
+    expect(result.stdout).toContain('cross-targets');
+    expect(result.stdout).toContain('strict rejects missing targets');
+    expect(result.stdout).toContain('2  Invalid command usage exits before any gate runs.');
+  });
+
+  it('returns a usage error for an unknown or incomplete option', () => {
+    const unknown = run(['lint-policy', '--unknown']);
+    const incomplete = run(['lint-policy', '--manifest-path']);
+
+    expect(unknown.status).toBe(2);
+    expect(unknown.stderr).toContain('unknown option: --unknown');
+    expect(incomplete.status).toBe(2);
+    expect(incomplete.stderr).toContain('--manifest-path requires a value');
+  });
+
   it('fails when any cargo metadata workspace member has no lint policy', async () => {
     const goodManifest = join(root, 'good', 'Cargo.toml');
     const badManifest = join(root, 'bad', 'Cargo.toml');
@@ -103,6 +123,15 @@ describe('check-rust-gate guideline script', () => {
     const result = run(['lint-policy', '--metadata-file', metadataFile]);
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('cargo metadata returned no workspace member packages');
+  });
+
+  it('rejects malformed Cargo metadata instead of treating missing fields as empty', async () => {
+    const metadataFile = join(root, 'metadata.json');
+    await writeFile(metadataFile, JSON.stringify({ packages: [] }));
+
+    const result = run(['lint-policy', '--metadata-file', metadataFile]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('has no string workspace_members array');
   });
 
   it('passes only after every workspace member declares a lint policy', async () => {
@@ -219,7 +248,7 @@ describe('check-rust-gate guideline script', () => {
       '--features',
       'cli',
     ]);
-    expect(result.status).toBe(1);
+    expect(result.status).toBe(2);
     expect(result.stderr).toContain('--all-features cannot be combined');
   });
 });
