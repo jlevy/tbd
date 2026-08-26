@@ -79,6 +79,27 @@ family arriving in this release would have pulled `rust-testing-rules` into the 
 every agent reads for every task, in any language.
 A test now measures what the always-read core renders to and fails if it grows.
 
+### A push failure is classified by the error, not by stray digits
+
+`tbd sync` classifies a failed push as permanent, transient, or unknown, and acts on
+that: a permanent failure auto-saves your changes to the outbox and reports the push as
+blocked, while the other two suggest a retry.
+The HTTP status patterns it classified with (`403`, `401`, `5\d\d`) matched bare digits
+anywhere in the error text, including the repository path.
+
+So a push failure under a directory like `/tmp/build-05895p` read as an HTTP 5xx server
+error, because `5\d\d` matched the `589` in that name — and the identical failure in a
+differently-named directory classified as `unknown`. A path containing `403` was worse:
+it made an ordinary network failure look policy-blocked and triggered the outbox save.
+
+Status codes are now recognized only where git actually reports one — `HTTP 500`,
+`returned error: 403`, `status=401` — and not when the digits are embedded in a path,
+object id, or larger number.
+
+This surfaced during the release validation for this version: the same sync test
+classified its failure differently between runs, purely on the random temp directory
+name it happened to get.
+
 ### Guidelines and content
 
 - `general-testing-rules` grew from a stub into a full document: keeping suites concise
