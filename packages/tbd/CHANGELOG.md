@@ -1,5 +1,110 @@
 # get-tbd
 
+## 0.8.1
+
+A patch release about what an agent reads before it touches your code.
+Rust becomes a first-class guideline family, four language-neutral topics that were
+previously scattered across other documents get their own, and the set an agent is told
+to read for *any* engineering work drops from nine documents to one.
+No format change: repositories stay on `f08`, and there is no migration step.
+
+### Rust is a first-class guideline family
+
+Eight documents, reachable the same way as the TypeScript and Python families:
+
+- `rust-rules` — general coding rules for libraries, applications, services, and CLIs
+- `rust-project-setup` — structuring, validating, and maintaining packages and
+  workspaces
+- `rust-lint-format-rules` — the `[lints]` block, `clippy.toml`, rustfmt and toolchain
+  pinning, hooks and CI gates, and how to prove the floor is live
+- `rust-testing-rules` — unit, integration, property, snapshot, and cross-platform tests
+- `rust-cli-rules` — composable, testable, cross-platform command-line applications
+- `rust-filesystem-rules` — path and string types, write boundaries, and the `tempfile`
+  atomic-replacement sequence
+- `rust-code-review-rules` — which guideline owns each changed surface, plus the
+  `unsafe` and FFI checklist
+- `rust-release-rules` — crates.io publishing and workspace ordering, trusted
+  publishing, semver checks, and shipping a Rust binary as a Python wheel through
+  maturin
+
+```bash
+tbd guidelines rust-rules rust-lint-format-rules
+tbd shortcut review-code-rust
+```
+
+`rust-lint-format-rules` reports measured adoption cost for the lints above the floor,
+taken from a real 35k-line codebase, so a project can choose its lint set from evidence
+rather than taste. `check-rust-gate.mjs` ships beside the guidelines so a project can
+check that the floor it declares is the floor it actually runs.
+
+`rust` is now a doc category, so `tbd docs fork --category=rust` forks the family and
+the generated agent surfaces list it under its own heading.
+`tbd shortcut review-code` routes a Rust diff to the Rust documents.
+
+### Four cross-cutting topics that used to be implicit
+
+Each is language-neutral and pairs with the language-specific document where one exists:
+
+- `code-review-rules` — the Blocker/High/Medium/Low severity vocabulary, establishing a
+  baseline before hunting findings, reviewing the highest-risk boundaries first, and
+  what makes a finding actionable.
+  The `review-code` shortcuts are the procedure; this is the substance they apply.
+- `ci-and-gates-rules` — one entry point in two modes, thin workflow orchestration over
+  tested project-native programs, and the traps that keep a gate green while it checks
+  nothing: swallowed pipeline exit status, self-recorded evidence, single-platform
+  blindness, and scope holes.
+- `filesystem-rules` — atomic publication of finished files, atomic visibility versus
+  crash durability, cross-device moves, deterministic traversal, symlink and root
+  boundaries, and honest partial failure.
+- `release-engineering-rules` — one release identity, a pre-release gate that runs where
+  publishing happens, least-privilege publishing authority, build-once-and-promote, and
+  smoke-testing the packaged artifact rather than the build output.
+
+### The always-read core is one document, not nine
+
+The generated guideline directory sorted documents into groups, and the first group told
+agents to “read all of these for any engineering work.”
+That group had grown to nine documents and roughly 10,600 words — read in full before
+the agent had seen a line of your code, competing directly with attention for your
+actual repository.
+
+It is now one document, `general-eng-agent-principles`, at about 1,100 words.
+Everything else is routed by what the change touches, under a new **Cross-cutting
+engineering topics** group and the per-language groups, each of which now says to select
+from it rather than load it whole.
+
+Group membership is matched on exact names instead of substrings.
+The old rule matched any name containing `testing`, `tdd`, or `golden`, so the Rust
+family arriving in this release would have pulled `rust-testing-rules` into the group
+every agent reads for every task, in any language.
+A test now measures what the always-read core renders to and fails if it grows.
+
+### Guidelines and content
+
+- `general-testing-rules` grew from a stub into a full document: keeping suites concise
+  and portable, not just testing the test, asserting transferred data rather than that a
+  mock was called, keeping the inner loop fast, raising a timeout only with a recorded
+  measurement, and never letting an absent test look like a passing one.
+- `typescript-rules` replaces its general file-operations section with an explicit rule
+  to atomically publish files completed in one operation.
+- `release-notes-guidelines` adds the rule that a defect introduced and corrected before
+  a release is not a shipped fix, with the cross-check for finding them.
+- `new-guideline`, `review-code`, `review-code-typescript`, and `review-code-python`
+  were updated for the new routing; `supply-chain-hardening`,
+  `golden-testing-guidelines`, `error-handling-rules`, `typescript-cli-tool-rules`,
+  `typescript-lint-format-rules`, `python-rules`, and `python-modern-guidelines`
+  received focused corrections.
+
+The bundled guideline count goes from 31 to 43.
+
+### Security
+
+Lockfile byte-identical since v0.8.0, so the installed dependency tree is unchanged.
+`pnpm audit --prod` reports no runtime advisories.
+The 32 open advisories are all dev-only, reached through `vitest`/`vite` and other build
+tooling that is not shipped to users; they are tracked in the repository rather than
+blocking this release.
+
 ## 0.8.0
 
 tbd could say that work was open, started, or closed.
