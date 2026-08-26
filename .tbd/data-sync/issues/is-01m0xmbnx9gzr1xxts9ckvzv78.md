@@ -3,14 +3,18 @@ type: is
 id: is-01m0xmbnx9gzr1xxts9ckvzv78
 title: Sharpen Demand Independent Evidence into concrete test-retention rules
 kind: task
-status: open
+status: closed
 priority: 2
-version: 1
+version: 2
 labels: []
 dependencies: []
 parent_id: is-01m0xm7a8pywqqpqn451h4tdsv
 created_at: 2026-08-25T23:33:48.072Z
-updated_at: 2026-08-25T23:33:48.072Z
+updated_at: 2026-08-26T00:33:11.678Z
+closed_at: 2026-08-26T00:33:11.677Z
+close_reason: Replaced Demand Independent Evidence with concrete keep, merge, collapse, stronger-oracle, and externally-distinct-failure rules.
+resolution: null
+duplicate_of: null
 ---
 Here is the more bloated generic advice text to be sharpened:
 

@@ -3,9 +3,9 @@ type: is
 id: is-01m0xm8na51f2q7fa5g198mcdz
 title: Reconcile atomic-write rules across Rust and general filesystem guidance
 kind: task
-status: open
+status: closed
 priority: 2
-version: 6
+version: 8
 labels: []
 dependencies:
   - type: blocks
@@ -20,7 +20,11 @@ dependencies:
     target: is-01m0xm9tc3ryqjh3xv2ad3eqhg
 parent_id: is-01m0xm6ckrwa936ffezb6qsxmk
 created_at: 2026-08-25T23:32:09.155Z
-updated_at: 2026-08-25T23:32:47.106Z
+updated_at: 2026-08-26T00:33:07.989Z
+closed_at: 2026-08-26T00:33:07.988Z
+close_reason: Scoped atomic replacement to persistent authoritative paths and reconciled the general, Rust, Python, and TypeScript rules with append, exclusive-create, stream, and scratch contracts.
+resolution: null
+duplicate_of: null
 ---
 Note in some other places you're recommending against always using atomic output files in Rust. Let's make sure that we're consistent across this too.
 

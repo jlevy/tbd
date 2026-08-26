@@ -3,9 +3,9 @@ type: is
 id: is-01m0xm7a8pywqqpqn451h4tdsv
 title: Optimize testing guidance for five simultaneous properties
 kind: epic
-status: open
+status: closed
 priority: 2
-version: 11
+version: 13
 labels: []
 dependencies:
   - type: blocks
@@ -20,7 +20,11 @@ child_order_hints:
   - is-01m0xmbnx9gzr1xxts9ckvzv78
   - is-01m0xmbzp5xmkkmcyr4txjkp6g
 created_at: 2026-08-25T23:31:25.076Z
-updated_at: 2026-08-25T23:34:28.982Z
+updated_at: 2026-08-26T00:33:12.275Z
+closed_at: 2026-08-26T00:33:12.273Z
+close_reason: Completed the testing-guidance epic with a shorter, more actionable general testing guide centered on the five simultaneous suite properties.
+resolution: null
+duplicate_of: null
 ---
 Let's tighten up the testing doc and keep it focused. Much of your advice is very generic and not immediately actionable or likely to trigger a competent coding agent to do a lot differently.
 

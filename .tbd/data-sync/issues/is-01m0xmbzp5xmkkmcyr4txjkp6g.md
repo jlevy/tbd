@@ -3,14 +3,18 @@ type: is
 id: is-01m0xmbzp5xmkkmcyr4txjkp6g
 title: Replace generic mock advice with concrete vacuous-test rules
 kind: task
-status: open
+status: closed
 priority: 2
-version: 1
+version: 2
 labels: []
 dependencies: []
 parent_id: is-01m0xm7a8pywqqpqn451h4tdsv
 created_at: 2026-08-25T23:33:58.082Z
-updated_at: 2026-08-25T23:33:58.082Z
+updated_at: 2026-08-26T00:33:11.994Z
+closed_at: 2026-08-26T00:33:11.993Z
+close_reason: Replaced generic mock advice with concrete rules for transferred data, vacuous mock assertions, and the exact cases where call counts are public contracts.
+resolution: null
+duplicate_of: null
 ---
 Here is the more bloated generic advice text to be sharpened:
 

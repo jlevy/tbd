@@ -3,15 +3,19 @@ type: is
 id: is-01m0xmcavq4f7c7cpp744mr91z
 title: Replace abstract guideline headings with topic-specific headings
 kind: task
-status: open
+status: closed
 priority: 2
-version: 2
+version: 3
 labels: []
 dependencies:
   - type: blocks
     target: is-01m0xmcxvqt3p2qz7p4netcne2
 created_at: 2026-08-25T23:34:09.526Z
-updated_at: 2026-08-25T23:34:28.982Z
+updated_at: 2026-08-26T00:33:12.565Z
+closed_at: 2026-08-26T00:33:12.563Z
+close_reason: Replaced abstract headings across the new cross-cutting and Rust guidelines with topic-specific prescriptions while leaving the underlying carefully written sections intact.
+resolution: null
+duplicate_of: null
 ---
 On all the new files you're writing, don't be abstract. Be concrete and follow the tbd.md guidelines to be as precise and concrete as possible.
 

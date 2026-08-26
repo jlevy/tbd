@@ -3,14 +3,18 @@ type: is
 id: is-01m0xmaxpmqg92tzvnjjjhan2t
 title: Define the five simultaneous test-suite optimization criteria
 kind: task
-status: open
+status: closed
 priority: 2
-version: 1
+version: 2
 labels: []
 dependencies: []
 parent_id: is-01m0xm7a8pywqqpqn451h4tdsv
 created_at: 2026-08-25T23:33:23.283Z
-updated_at: 2026-08-25T23:33:23.283Z
+updated_at: 2026-08-26T00:33:10.854Z
+closed_at: 2026-08-26T00:33:10.853Z
+close_reason: Defined concision, clarity, coverage, efficiency, and portability as five properties that a suite must optimize simultaneously.
+resolution: null
+duplicate_of: null
 ---
 The only solution is to simultaneously optimize for five things:
 
