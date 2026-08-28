@@ -5,8 +5,8 @@ title: "[bug] tests/lockfile.test.ts EPERM flake on Windows still hangs main CI 
 kind: bug
 status: open
 priority: 2
-version: 5
-spec_path: null
+version: 6
+spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels:
   - ci
   - windows
@@ -14,7 +14,7 @@ labels:
 dependencies: []
 parent_id: null
 created_at: 2026-05-29T06:23:49.268Z
-updated_at: 2026-08-15T05:34:49.976Z
+updated_at: 2026-08-28T19:56:03.409Z
 closed_at: 2026-05-29T16:22:02.977Z
 close_reason: "Addressed in #140 (merged 2f5746e): withLockfile atomic stale-break + resilient release + low-staleMs/timeout test hardening; Windows CI green."
 ---

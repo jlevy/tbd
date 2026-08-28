@@ -5,9 +5,10 @@ title: Stabilize flaky full-suite timeouts in doc-add/performance/setup-hooks te
 kind: bug
 status: open
 priority: 2
-version: 6
+version: 7
+spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
 created_at: 2026-02-26T06:47:24.929Z
-updated_at: 2026-03-09T16:12:34.651Z
+updated_at: 2026-08-28T19:55:57.135Z
 ---

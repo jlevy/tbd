@@ -5,11 +5,12 @@ title: Wall-clock perf assertions flake under parallel load and coverage
 kind: bug
 status: open
 priority: 2
-version: 2
+version: 3
+spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
 created_at: 2026-08-16T01:58:57.138Z
-updated_at: 2026-08-16T02:26:34.667Z
+updated_at: 2026-08-28T19:55:42.524Z
 ---
 Wall-clock and git-heavy tests fail intermittently under parallel load. Evidence from 2026-08-15/16, every one passing in isolation immediately after:
 

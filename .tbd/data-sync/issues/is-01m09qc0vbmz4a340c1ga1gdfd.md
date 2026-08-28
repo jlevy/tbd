@@ -5,11 +5,12 @@ title: deferred_until does not remove a bead from tbd ready
 kind: bug
 status: open
 priority: 2
-version: 1
+version: 2
+spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
 created_at: 2026-08-18T06:01:36.362Z
-updated_at: 2026-08-18T06:01:36.362Z
+updated_at: 2026-08-28T19:56:09.604Z
 ---
 Setting `--defer <datetime>` on a bead records `deferred_until` but leaves `status: open`, and `tbd ready` still offers the bead. A bead deferred until 2027-01-01 shows as ready today, which makes the field misleading: it reads as scheduling but changes nothing about what work is surfaced.
 
