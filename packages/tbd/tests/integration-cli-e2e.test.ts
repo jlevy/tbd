@@ -181,6 +181,25 @@ describe('tbd integration, end to end via the built binary', () => {
     expect(settle.stdout).toContain('nothing to do');
   });
 
+  it('names the tracker surface on an ordinary tbd sync, without --verbose', async () => {
+    // The silent failure behind #265. `tbd sync` documents itself as covering docs,
+    // issues AND enabled trackers, but the tracker line went through `output.info`,
+    // which prints only under --verbose. So a sync that reconciled the tracker and
+    // wrote to it reported nothing about it, and an operator following the documented
+    // session-closing protocol believed the mirror was reconciled when it was not.
+    expect((await cli(['create', 'Tracker line sentinel', '-t', 'epic'])).code).toBe(0);
+
+    const first = await cli(['sync']);
+    expect(first.code).toBe(0);
+    expect(first.stdout).toContain('Integrations (linear)');
+
+    // And it keeps saying so once settled: "ran, nothing to do" and "did not run" are
+    // different answers, and silence cannot tell them apart.
+    const settled = await cli(['sync']);
+    expect(settled.code).toBe(0);
+    expect(settled.stdout).toContain('Integrations (linear): nothing to do');
+  });
+
   it('keeps tbd sync --push away from the tracker entirely', async () => {
     // `--push` used to reach the outbound-only projection, writing local state over the
     // tracker without reconciling first — the operation `setup-linear` warns joiners

@@ -359,6 +359,7 @@ class SyncHandler extends BaseCommand {
       createdOutbound: string[];
       conflicts: unknown[];
       failures: unknown[];
+      warnings: unknown[];
     }[],
     dryRun = false,
   ): void {
@@ -368,13 +369,35 @@ class SyncHandler extends BaseCommand {
       ? { push: 'would push', pull: 'would pull', create: 'would create' }
       : { push: 'pushed', pull: 'pulled', create: 'created' };
     for (const report of reports) {
+      // `notice`, not `info`. `info` is verbose-only (see cli/lib/output.ts), so every
+      // tracker line this method produced was invisible on an ordinary `tbd sync` — the
+      // command reconciled the tracker, wrote to it, and said nothing about it at all
+      // (#265). The skip notice above already made exactly this choice, for exactly this
+      // reason; the report path had not.
       if (report.nothingToDo) {
+        // Still say so. A tracker that ran and had nothing to do is a different answer
+        // from a tracker that did not run, and silence cannot distinguish them.
+        const standing = report.warnings.length > 0 ? ` (warnings ${report.warnings.length})` : '';
+        this.output.notice(`Integrations (${report.provider}): nothing to do${standing}`, {
+          provider: report.provider,
+          nothingToDo: true,
+          warnings: report.warnings.length,
+        });
         continue;
       }
-      this.output.info(
+      this.output.notice(
         `Integrations (${report.provider}): ${verbs.push} ${report.pushed.length}, ` +
           `${verbs.pull} ${report.pulled.length}, ${verbs.create} ${report.createdOutbound.length}, ` +
           `conflicts ${report.conflicts.length}, failures ${report.failures.length}`,
+        {
+          provider: report.provider,
+          nothingToDo: false,
+          pushed: report.pushed.length,
+          pulled: report.pulled.length,
+          created: report.createdOutbound.length,
+          conflicts: report.conflicts.length,
+          failures: report.failures.length,
+        },
       );
     }
   }
@@ -385,10 +408,18 @@ class SyncHandler extends BaseCommand {
       ? { create: 'would create', update: 'would update' }
       : { create: 'created', update: 'updated' };
     for (const report of reports) {
-      this.output.info(
+      // Default-visible, same reason as reportIntegrationRun above.
+      this.output.notice(
         `Integrations (${report.provider}): ${verbs.create} ${report.created.length}, ` +
           `${verbs.update} ${report.updated.length}, skipped ${report.skipped.length}, ` +
           `failures ${report.failures.length}`,
+        {
+          provider: report.provider,
+          created: report.created.length,
+          updated: report.updated.length,
+          skipped: report.skipped.length,
+          failures: report.failures.length,
+        },
       );
     }
   }

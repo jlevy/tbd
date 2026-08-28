@@ -542,18 +542,35 @@ class IntegrationSyncHandler extends BaseCommand {
 function printSyncReport(report: SyncRunReport, dryRun: boolean): void {
   const would = dryRun ? 'would ' : '';
   if (report.nothingToDo) {
-    console.log(`${report.provider}: nothing to do`);
+    // Warnings no longer count as work (see sync-engine's nothingToDo), so a settled
+    // mirror can carry standing ones. They must still be printed here, or removing them
+    // from the count would have traded a mirror that never settles for a mirror that
+    // settles silently over a real diagnostic.
+    const standing = report.warnings.length > 0 ? `, warnings ${report.warnings.length}` : '';
+    console.log(`${report.provider}: nothing to do${standing}`);
+    for (const warning of report.warnings) {
+      console.log(`  ! ${warning.externalKey ?? warning.externalId}: ${warning.message}`);
+    }
     return;
   }
   const parts = [
     report.replayedOps > 0 ? `replayed ${report.replayedOps}` : '',
     report.pushed.length > 0 ? `${would}push ${report.pushed.length}` : '',
     report.pulled.length > 0 ? `${would}pull ${report.pulled.length}` : '',
+    // Its own vocabulary, never the push verb: this is outbound work the run is NOT
+    // doing, and naming it "would push" is what made `--pull` announce a push (#265).
+    report.suppressedPushes.length > 0
+      ? `outbound pending ${report.suppressedPushes.length} (not sent: inbound-only run)`
+      : '',
     report.commentsPushed > 0 ? `comments out ${report.commentsPushed}` : '',
     report.commentsPulled > 0 ? `comments in ${report.commentsPulled}` : '',
     report.createdOutbound.length > 0 ? `${would}create ${report.createdOutbound.length}` : '',
     report.importedInbound.length > 0 ? `${would}import ${report.importedInbound.length}` : '',
     report.skippedOutbound.length > 0 ? `skipped ${report.skippedOutbound.length}` : '',
+    // Surfaced in the summary, not only in the detail lines below: a field that cannot
+    // be published is why a pair never converges, and it belongs in the one line an
+    // operator reads.
+    report.skippedPushes.length > 0 ? `fields not pushed ${report.skippedPushes.length}` : '',
     report.conflicts.length > 0 ? `conflicts ${report.conflicts.length}` : '',
     report.orphaned.length > 0 ? `orphaned ${report.orphaned.length}` : '',
     report.warnings.length > 0 ? `warnings ${report.warnings.length}` : '',

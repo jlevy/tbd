@@ -9,7 +9,11 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Draft
+**Status:** Phase 1 partially implemented.
+Four defects fixed and verified (`tbd-p40p`, `tbd-10zb`, `tbd-8gcz`, `tbd-r1a3`); the
+13-item alternation in #265 is not yet reproduced and stays open as `tbd-u9eg`. Two
+further defects were found while investigating and are tracked but unfixed: `tbd-g1bu`
+and `tbd-vpje`.
 
 **Tracked as:** epic `tbd-bcss`.
 
@@ -58,7 +62,7 @@ The skip notice at `sync.ts:167-181` carries the comment:
 
 That reasoning was applied to the skip path and never carried to the report path.
 
-### D2: a settled pair can have no fixed point (reachable path confirmed; cause in the reporter’s repo not yet confirmed)
+### D2: a settled pair can have no fixed point (see the 2026-08-28 update below)
 
 A field owned `local` short-circuits the three-way matrix
 (`integrations/core/reconcile.ts:413-427`): whenever local and remote are unequal, the
@@ -97,6 +101,49 @@ one layer down.
 **Not yet confirmed:** that labels (rather than assignee, or description) are the stuck
 field in the reporter’s 13 pairs.
 Phase 1 builds the diagnostic that answers this before it changes reconciliation.
+
+### 2026-08-28 update: D2 investigated, one cause found, the hypothesis above disproved
+
+The label hypothesis in D2 is **wrong for the reporter’s configuration**, and saying so
+matters more than the part that was right.
+They run `labels.mirror: none`, and the engine deletes `externalPatch.labels` outright
+under that setting (the “Labels are inert unless explicitly mirrored” branch).
+Bead labels are never pushed for them, so `resolveLabelIds`’ drop cannot be reached that
+way. The drop is still real for repositories running `mirror: prefixed` or `verbatim`,
+and is now tracked separately as `tbd-vpje`.
+
+**What the reproduction did find** is a different defect, and a simpler one.
+`report.warnings.length` was a term in *both* `nothingToDo` computations.
+A mapping warning describes a standing condition tbd cannot resolve from this side: a
+Linear assignee absent from `identity.user_map` is re-reported on every read of that
+issue, forever. So a fully settled mirror could never report itself settled.
+Reproduced against the mock server: a pair whose remote carries an unmapped assignee
+returns `push=0, pull=0`, performs no provider writes, and reports `nothingToDo: false`
+on every run indefinitely.
+
+That accounts for #265’s “`nothing to do` is never reached” and its constant
+`warnings 5`. Fixed as `tbd-p40p`.
+
+**What is still not reproduced** is the 13-item push/pull alternation itself.
+Probed against the mock across remote state changes (Backlog, Todo, In Review, Canceled,
+Duplicate, a custom started column, an unknown state type), remote title and priority
+edits, an extra human label, local `blocked`/`deferred`/`in_progress`, local labels
+under `mirror: none`, and description prose.
+Every one settles within one or two runs.
+The pull-then-push round trip exists — a pull adopts a remote value and the next run
+pushes `slot`/`status`/`hold`/`resolution` back — but it converges in the mock, whose
+state machine is self-consistent by construction.
+The next step is diagnosis on the reporter’s data (`tbd-aypl`, plus the now-shipped
+dry-run `skippedPushes`), not more hypotheses.
+`tbd-u9eg` carries the detail.
+
+Live Linear was not available in the session that did this work: no `LINEAR_API_KEY` in
+the environment and no Linear connector, so every result above is mock-server evidence.
+
+**Found in passing, unfixed:** a `deferred` bead is silently reset to `open` by a sync,
+while the tracker still carries the `tbd:deferred` carrier label and nobody touched it
+(`tbd-g1bu`). It settles, which is what makes it worse than the convergence defects:
+silent, permanent local data loss with no report.
 
 ### D3: dry-run and execute disagree about direction (confirmed)
 
@@ -165,7 +212,7 @@ one command that cannot report why it is stuck.
 repository is not yet confirmed, and changing reconciliation before it can be observed
 would be guessing.
 
-**1a. Make the run observable.** (`tbd-8gcz`, `tbd-aypl`)
+**1a. Make the run observable.** (`tbd-8gcz` done, `tbd-aypl` open)
 
 - Populate `report.skippedPushes` in the dry-run branch, from the same
   `pair.result.skippedPushes` the execute path reads (`sync-engine.ts:1376`). This makes
@@ -178,7 +225,8 @@ would be guessing.
   A settled-looking pair that keeps reporting work must be answerable without reading
   `.tbd/data-sync/bridge/` by hand, which is what #265 had to do.
 
-**1b. Close the loop.** (`tbd-u9eg`) With the field named, fix the round-trip.
+**1b. Close the loop.** (`tbd-u9eg`, still open; `tbd-p40p` fixed a different loop) With
+the field named, fix the round-trip.
 A push whose value the adapter drops must not be reported as pushed: `resolveLabelIds`
 (`adapter.ts:1057-1074`) must return what it dropped, and the engine must record it as a
 skipped push rather than counting the pair in `report.pushed`. Then an owned field that
@@ -190,13 +238,13 @@ push—is a policy question the diagnostic should answer first.
 Recording it honestly is correct regardless, and is the part that ends the loop’s
 silence.
 
-**1c. Make the two directions agree.** (`tbd-r1a3`) Gate the dry-run `pushed`/`pulled`
-population on `inboundOnly` to match the execute path (`sync-engine.ts:1022-1031`
-against `:1306`), and render the suppressed half in its own vocabulary rather than the
-verb for work that will happen.
+**1c. Make the two directions agree.** (`tbd-r1a3`, done) Gate the dry-run
+`pushed`/`pulled` population on `inboundOnly` to match the execute path
+(`sync-engine.ts:1022-1031` against `:1306`), and render the suppressed half in its own
+vocabulary rather than the verb for work that will happen.
 
-**1d. Make the tracker line visible.** (`tbd-10zb`) Convert `reportIntegrationRun` and
-`reportIntegrationPush` (`sync.ts:353-392`) from `output.info` to `output.notice`,
+**1d. Make the tracker line visible.** (`tbd-10zb`, done) Convert `reportIntegrationRun`
+and `reportIntegrationPush` (`sync.ts:353-392`) from `output.info` to `output.notice`,
 matching the skip path that already made this choice.
 A folded run that did nothing should still say so.
 
@@ -340,10 +388,12 @@ prints a tracker line.
   Phase 1b records it honestly regardless; the policy choice needs the diagnostic’s
   answer about how often this happens in practice.
   Related: `tbd-b7cy`, already flagged as a human decision about workspace scope.
-- **Does the suppressed half belong in the report at all?** The engine argues yes
-  (`sync-engine.ts:154-162`). If it stays, it needs its own vocabulary; if it goes,
-  `--pull` becomes a genuine narrowing of the plan.
-  Either resolves D3; they differ in what an operator learns.
+- ~~**Does the suppressed half belong in the report at all?**~~ **Decided:** it stays,
+  in its own vocabulary.
+  A new report field, `suppressedPushes`, carries outbound work an inbound-only run will
+  not perform, rendered as `outbound pending N (not sent: inbound-only run)` and never
+  as a push verb. Both paths record it and it counts as work, so a `--pull` run over a
+  pair with pending outbound no longer claims to be quiet.
 - **`identity.user_map` is empty in this repository, so assignee sync is skipped and
   every sync emits two warnings** (`tbd-klgh`). With `assignee: local`, that is a second
   candidate for a permanently divergent owned field, and it should be checked against

@@ -175,6 +175,15 @@ export interface SyncRunReport {
   replayedOps: number;
   pushed: string[];
   pulled: string[];
+  /**
+   * Pairs with outbound work that THIS run will not perform because it is inbound-only.
+   *
+   * Separate from `pushed` on purpose. `pushed` is what the run does; a `--pull` run
+   * does not push, so reporting these as pushes made the dry run contradict the run it
+   * previewed and left three mutually inconsistent numbers for one state (#265). Kept
+   * rather than dropped because "there is outbound work pending" is worth knowing.
+   */
+  suppressedPushes: string[];
   conflicts: { beadId: string; field: string; winner: string }[];
   overwrites: { beadId: string; field: string; direction: string }[];
   skippedPushes: { beadId: string; field: string }[];
@@ -372,6 +381,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     replayedOps: 0,
     pushed: [],
     pulled: [],
+    suppressedPushes: [],
     conflicts: [],
     overwrites: [],
     skippedPushes: [],
@@ -1024,7 +1034,9 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     for (const pair of synchronizablePairs) {
       const id = options.displayId(pair.bead.id);
       if (Object.keys(pair.result.externalPatch).length > 0 || managedBlocks.has(pair.bead.id)) {
-        report.pushed.push(id);
+        // Gated on direction, as the execute path is. Ungated, this branch reported a
+        // push that an inbound-only run would never perform.
+        (inboundOnly ? report.suppressedPushes : report.pushed).push(id);
       }
       if (Object.keys(pair.result.beadPatch).length > 0) {
         report.pulled.push(id);
@@ -1038,6 +1050,14 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
           field: overwrite.field,
           direction: overwrite.direction,
         });
+      }
+      // A field the run cannot publish is the one thing that explains a pair which
+      // reports work forever without ever converging, and it was recorded only on the
+      // execute path — so a dry run, the command an operator actually reaches for to
+      // diagnose a stuck mirror, could not name the stuck field (#265). It also made
+      // the `skippedPushes.length === 0` term in this branch's own `nothingToDo` inert.
+      for (const skipped of pair.result.skippedPushes) {
+        report.skippedPushes.push({ beadId: id, field: skipped.field });
       }
       if (pair.parentOverwrite) {
         report.overwrites.push({ beadId: id, field: 'parent', direction: 'push' });
@@ -1072,7 +1092,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       report.createdOutbound.length === 0 &&
       report.importable.length === 0 &&
       report.failures.length === 0 &&
-      report.warnings.length === 0 &&
+      report.suppressedPushes.length === 0 &&
       report.skippedOutbound.length === 0 &&
       // A field the run could not publish is something to do, not nothing. Omitting it
       // here is the same defect as OS-351's `skipped 0`: the summary reads as success
@@ -1431,6 +1451,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       // then claim — a suppressed outbound change must stay pending, so the
       // record keeps its previous base and the next full sync still pushes.
       if (inboundOnly && Object.keys(pair.result.externalPatch).length > 0) {
+        report.suppressedPushes.push(displayId);
         continue;
       }
       // Only when something actually changed: a settled pair reconciles to the
@@ -1675,6 +1696,14 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     await deleteIntentFile(dataSyncDir, provider, runId);
   }
 
+  // Warnings are deliberately NOT a term here. A mapping warning describes a standing
+  // condition tbd cannot resolve from this side — a Linear assignee absent from
+  // `user_map` is re-reported on every read of that issue, forever — so counting it as
+  // work meant a fully settled mirror could never report itself settled, and an
+  // operator could not tell a quiet mirror from a mirror with real pending work
+  // (#265). Warnings are still reported on every run; they just no longer claim there
+  // is something to do. Failures are different and stay counted: a failure is work that
+  // was attempted and did not land.
   report.nothingToDo =
     report.replayedOps === 0 &&
     report.pushed.length +
@@ -1688,7 +1717,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       report.importable.length +
       report.skippedOutbound.length +
       report.skippedPushes.length +
-      report.warnings.length +
+      report.suppressedPushes.length +
       report.failures.length ===
       0;
   return report;
