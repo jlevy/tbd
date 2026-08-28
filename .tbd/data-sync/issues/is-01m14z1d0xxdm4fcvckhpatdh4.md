@@ -3,15 +3,19 @@ type: is
 id: is-01m14z1d0xxdm4fcvckhpatdh4
 title: "Dry-run and execute disagree about direction: --pull announces 'would push'"
 kind: bug
-status: open
+status: closed
 priority: 1
-version: 1
+version: 2
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
 parent_id: is-01m14yzbwwg92e5k7z7d4kyn00
 created_at: 2026-08-28T19:55:06.653Z
-updated_at: 2026-08-28T19:55:06.653Z
+updated_at: 2026-08-28T20:29:30.422Z
+closed_at: 2026-08-28T20:29:30.422Z
+close_reason: "Fixed: the dry-run pushed/pulled population is now gated on inboundOnly to match the execute path, and outbound work an inbound-only run will not perform is recorded in a new report field, suppressedPushes, rendered as 'outbound pending N (not sent: inbound-only run)' rather than the push verb. Both paths record it, and it counts as work in nothingToDo. Test: 'an inbound-only dry run reports outbound work as suppressed, never as a push'."
+resolution: null
+duplicate_of: null
 ---
 GH #265 defect 3, confirmed. The dry-run branch populates report.pushed and report.pulled with no inboundOnly gate at all (sync-engine.ts:1022-1031). The execute path records a push only under !inboundOnly (sync-engine.ts:1306-1310). The two paths mean different things by the same word, which is why 'tbd --dry-run integration sync --pull' announces 'would push 13'.
 

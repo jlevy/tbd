@@ -1,17 +1,17 @@
 ---
 type: is
 id: is-01m14z0nr8gaygh727ysr134qc
-title: "An owned field that cannot round-trip loops forever: dropped labels are reported as pushed"
+title: "Linear mirror alternates push/pull on 13 agreeing pairs: mechanism not yet reproduced"
 kind: bug
 status: open
 priority: 0
-version: 1
+version: 2
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
 parent_id: is-01m14yzbwwg92e5k7z7d4kyn00
 created_at: 2026-08-28T19:54:42.823Z
-updated_at: 2026-08-28T19:54:42.823Z
+updated_at: 2026-08-28T20:29:49.168Z
 ---
 GH #265 defect 2. The reachable code path is confirmed; that labels (rather than assignee or description) are the stuck field in the reporter's 13 pairs is NOT yet confirmed.
 
@@ -24,3 +24,15 @@ The drop happens inside the adapter, below the reporting layer, so the pair is c
 Fix (order matters): land the diagnostic first (see sibling bead), then make resolveLabelIds return what it dropped and have the engine record it as a skipped push rather than counting the pair in report.pushed. Whether the drop should stop being a drop (create the label, or refuse the push) is a policy question the diagnostic should answer first; recording it honestly is correct regardless and is what ends the loop's silence.
 
 Red-green: tests/helpers/linear-mock-server.ts already models a fixed team label set (Bug, Feature; linear-mock-server.ts:106-108), which is exactly the condition that triggers the drop. Failing test: link a bead carrying a label absent from the mock team with labels: local, sync twice over unchanged data, assert the second run reports nothing to do.
+
+## Notes
+
+INVESTIGATED 2026-08-28. The label-drop hypothesis in the description is DISPROVED for the reporter's configuration, and the separately-confirmed never-converges defect turned out to be a different bug (tbd-p40p, fixed).
+
+Why the label hypothesis does not apply: the reporter runs labels.mirror: none, and sync-engine.ts deletes externalPatch.labels outright under mirrorLabels === 'none' (the 'Labels are inert unless explicitly mirrored' branch). Bead labels are therefore never pushed at all, so resolveLabelIds' silent drop cannot be reached through externalPatch.labels for them. The drop is still real for repos running mirror: prefixed|verbatim, and is worth fixing on its own, but it is not this loop.
+
+What WAS reproduced and fixed: a standing mapping warning (unmapped Linear assignee, empty user_map) kept nothingToDo permanently false. That accounts for #265's 'nothing to do is never reached' and its constant 'warnings 5'. See tbd-p40p.
+
+What is still NOT reproduced: the 13-item push/pull alternation itself. Probed against the mock server across remote state changes (Backlog, Todo, In Review, Canceled, Duplicate, a custom started column, an unknown state type), remote title/priority edits, an extra human label, local status blocked/deferred/in_progress, local labels under mirror: none, and description prose. Every one settles within one or two runs. The pull-then-push round trip exists (a pull adopts a remote value, the next run pushes slot/status/hold/resolution back) but converges in the mock because the mock's state machine is self-consistent.
+
+Next step is diagnosis on the reporter's data, not more guessing: tbd-aypl (per-pair divergence diagnostic) plus the now-shipped dry-run skippedPushes (tbd-8gcz) should name the field. Worth checking specifically whether a pulled value fails to map back to the same Linear state on a team with custom workflow states, since that is the one path the mock cannot model faithfully. Live Linear was NOT available in the session that did this work (no LINEAR_API_KEY).

@@ -3,15 +3,19 @@ type: is
 id: is-01m14z1bp3gncnvfv7vyxm9c5w
 title: Dry-run reports omit skippedPushes entirely, so a dry run cannot name a stuck field
 kind: bug
-status: open
+status: closed
 priority: 1
-version: 1
+version: 2
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
 parent_id: is-01m14yzbwwg92e5k7z7d4kyn00
 created_at: 2026-08-28T19:55:05.283Z
-updated_at: 2026-08-28T19:55:05.283Z
+updated_at: 2026-08-28T20:29:29.065Z
+closed_at: 2026-08-28T20:29:29.064Z
+close_reason: "Fixed: the dry-run branch now populates report.skippedPushes from pair.result.skippedPushes, matching the execute path, which also makes the skippedPushes term in the dry-run nothingToDo live rather than inert. 'fields not pushed N' added to the printSyncReport summary parts on both paths. Test: 'a dry run names a field it could not push, exactly as the execute path does'."
+resolution: null
+duplicate_of: null
 ---
 GH #265 diagnosis gap, confirmed. report.skippedPushes is populated at sync-engine.ts:1376-1377, in the execute path only. The dry-run branch returns at sync-engine.ts:1083 before reaching it.
 
