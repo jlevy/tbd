@@ -154,6 +154,91 @@ describe('the sync engine', () => {
     });
   }
 
+  it('a dry run names a field it could not push, exactly as the execute path does', async () => {
+    // The signal that explains a pair which reports work forever and never converges.
+    // It was recorded only on the execute path, so a dry run — the command an operator
+    // reaches for to ask "why is this stuck?" — was the one command that could not say
+    // (#265). An unmapped assignee cannot be pushed, so the field stays divergent.
+    const id = 'is-01hx5zzkbkactav9wevgemma78';
+    store.set(id, bead(id, { assignee: 'nobody-in-the-user-map' }));
+
+    await run([...store.values()]);
+    const executed = await run([...store.values()]);
+    const previewed = await run([...store.values()], POLICY, true);
+
+    expect(executed.skippedPushes).toEqual([{ beadId: 'ma78', field: 'assignee' }]);
+    // The whole point: the preview says the same thing the run says.
+    expect(previewed.skippedPushes).toEqual(executed.skippedPushes);
+  });
+
+  it('an inbound-only dry run reports outbound work as suppressed, never as a push', async () => {
+    // `--pull` announcing "would push 13" is what left an operator with three
+    // inconsistent numbers for one state (#265). The dry run must predict the run it
+    // previews: an inbound-only run performs no push, so it must not report one — while
+    // still saying that outbound work is pending, which is worth knowing.
+    const id = 'is-01hx5zzkbkactav9wevgemma79';
+    store.set(id, bead(id));
+    await run([...store.values()]);
+
+    // A local edit that would push on a full sync.
+    const linked = store.get(id)!;
+    store.set(id, { ...linked, title: 'Edited locally', updated_at: new Date().toISOString() });
+
+    const inbound = await runSync({
+      provider: 'linear',
+      adapter,
+      policy: POLICY,
+      dataSyncDir: dir,
+      allIssues: [...store.values()],
+      displayId: (beadId) => beadId.slice(-4),
+      mirrorLabels: 'none',
+      direction: 'inbound',
+      callbacks,
+      dryRun: true,
+      now: () => new Date().toISOString(),
+    });
+
+    expect(inbound.pushed).toEqual([]);
+    expect(inbound.suppressedPushes).toEqual(['ma79']);
+    // Pending outbound work is still work, so the run does not claim to be quiet.
+    expect(inbound.nothingToDo).toBe(false);
+  });
+
+  it('settles even while a standing mapping warning keeps being reported', async () => {
+    // The fourth write loop, and the one with no write in it at all. A mapping warning
+    // describes a condition tbd cannot fix from here — a Linear assignee absent from
+    // `user_map` is reported on every read of that issue, forever — but `warnings`
+    // was a term in `nothingToDo`, so a fully settled mirror could never say it was
+    // settled. On a live mirror that is indistinguishable from real pending work: the
+    // reporter of #265 saw `warnings 5` and no `nothing to do`, on every run.
+    //
+    // A warning is a diagnostic, not an item of work. It must keep being reported and
+    // must stop meaning "there is something to do".
+    const id = 'is-01hx5zzkbkactav9wevgemma77';
+    store.set(id, bead(id));
+
+    await run([...store.values()]);
+    const remote = [...server.issues.values()][0]!;
+    // An assignee no `user_map` can resolve: the exact condition behind the warning.
+    remote.assignee = {
+      id: 'user-unmapped',
+      name: 'Unmapped Person',
+      displayName: 'Unmapped Person',
+      email: 'unmapped@example.com',
+    };
+
+    await run([...store.values()]); // settle
+    const settled = await run([...store.values()]);
+
+    // The warning is still reported: it is real, and silencing it would be the worse bug.
+    expect(settled.warnings).toHaveLength(1);
+    expect(settled.warnings[0]!.message).toContain('user_map');
+    // ...but nothing was written, so there was nothing to do.
+    expect(settled.pushed).toEqual([]);
+    expect(settled.pulled).toEqual([]);
+    expect(settled.nothingToDo).toBe(true);
+  });
+
   it('settles when the managed block contains a link the tracker rewrites', async () => {
     // The third write loop found in this feature, and the one no other check could see.
     // tbd renders `Spec: [name](url)`; Linear stores `[name](<url>)`, which CommonMark
@@ -669,7 +754,11 @@ describe('the sync engine', () => {
         message: 'Unknown Linear workflow state type "custom_triage"; mapped to open.',
       },
     ]);
-    expect(result.nothingToDo).toBe(false);
+    // A warning is reported but is not work: this run wrote nothing, so it has nothing
+    // to do. It used to read `false` here, which is what let a standing warning keep a
+    // settled mirror from ever reporting itself settled (#265). Reporting the warning
+    // is this test's subject, and that is unchanged; whether it counts as work is not.
+    expect(result.nothingToDo).toBe(true);
   });
 
   it('creates an outbound parent before its child and preserves Linear hierarchy', async () => {
