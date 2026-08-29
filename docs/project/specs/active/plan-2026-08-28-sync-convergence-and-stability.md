@@ -140,10 +140,46 @@ dry-run `skippedPushes`), not more hypotheses.
 Live Linear was not available in the session that did this work: no `LINEAR_API_KEY` in
 the environment and no Linear connector, so every result above is mock-server evidence.
 
-**Found in passing, unfixed:** a `deferred` bead is silently reset to `open` by a sync,
-while the tracker still carries the `tbd:deferred` carrier label and nobody touched it
-(`tbd-g1bu`). It settles, which is what makes it worse than the convergence defects:
-silent, permanent local data loss with no report.
+**Found in passing:** what looked like silent `deferred` data loss (`tbd-g1bu`) turned
+out to be a defect in the test mock rather than in tbd.
+See the correction below.
+
+### 2026-08-28 correction: `tbd-g1bu` was a test artifact, not a defect
+
+Recorded because it changes what the evidence in this document is worth, not only what
+one bead says.
+
+The first pass reported that a sync silently reset a `deferred` bead to `open` while the
+tracker still carried `tbd:deferred`, and filed it as data loss.
+That reproduction was contaminated.
+The mock provider’s `issueCreate` applied title, description, priority, project,
+assignee, delegate, parent and `labelIds`, but silently ignored `stateId`, so every
+created issue landed in the mock’s default Todo state whatever the adapter asked for.
+`statusFromLinear` maps `unstarted` to `open` unconditionally, so a bead pushed as
+`deferred` read back as `open`.
+
+The adapter’s half was correct all along: capturing the create mutation shows it sends
+`stateId: state-backlog` for a `deferred` bead, which is exactly right, and real Linear
+honors it. With the mock corrected, all four statuses round-trip and settle immediately.
+
+The mock gap was itself real, and worth more than the bead it produced: it had silently
+defeated status round-trip coverage for three of the four statuses.
+Confirmed by reverting the fix and watching the new
+`round-trips %s through the tracker and settles` test fail for `in_progress`, `blocked`
+and `deferred`. Any earlier conclusion in this area that rested on a freshly created
+mock pair should be re-checked against the corrected mock.
+
+### 2026-08-28: the diagnostic shipped (`tbd-aypl`)
+
+`tbd integration sync --explain` names, per dirty pair, the field, the direction, and
+the `field_sync` rule that decided it.
+One shared recorder populates it on both the dry-run and execute paths, so a preview and
+a run give the same account — two copies would be two chances to drift, which is how the
+direction reporting drifted in the first place.
+
+This is the instrument for finishing #265: run
+`tbd --dry-run integration sync --explain` against the affected mirror and it names
+which field of which pair is moving.
 
 ### D3: dry-run and execute disagree about direction (confirmed)
 
@@ -212,7 +248,7 @@ one command that cannot report why it is stuck.
 repository is not yet confirmed, and changing reconciliation before it can be observed
 would be guessing.
 
-**1a. Make the run observable.** (`tbd-8gcz` done, `tbd-aypl` open)
+**1a. Make the run observable.** (`tbd-8gcz` and `tbd-aypl`, both done)
 
 - Populate `report.skippedPushes` in the dry-run branch, from the same
   `pair.result.skippedPushes` the execute path reads (`sync-engine.ts:1376`). This makes
