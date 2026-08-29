@@ -491,6 +491,8 @@ interface SyncOptions {
   yes?: boolean;
   push?: boolean;
   pull?: boolean;
+  /** Print, per dirty pair, which fields diverge and under which rule. */
+  explain?: boolean;
   /** Resolved from the direction flags; `inbound` is `--pull`. */
   direction?: 'both' | 'inbound';
   external?: string[];
@@ -530,7 +532,7 @@ class IntegrationSyncHandler extends BaseCommand {
 
     this.output.data(reports, () => {
       for (const report of reports) {
-        printSyncReport(report, dryRun);
+        printSyncReport(report, dryRun, options.explain === true);
       }
     });
     if (reports.some((report) => report.failures.length > 0)) {
@@ -539,7 +541,7 @@ class IntegrationSyncHandler extends BaseCommand {
   }
 }
 
-function printSyncReport(report: SyncRunReport, dryRun: boolean): void {
+function printSyncReport(report: SyncRunReport, dryRun: boolean, explain = false): void {
   const would = dryRun ? 'would ' : '';
   if (report.nothingToDo) {
     // Warnings no longer count as work (see sync-engine's nothingToDo), so a settled
@@ -587,6 +589,18 @@ function printSyncReport(report: SyncRunReport, dryRun: boolean): void {
   }
   for (const skipped of report.skippedPushes) {
     console.log(`  - ${skipped.beadId}: ${skipped.field} push unsupported; left divergent`);
+  }
+  // "push 13" says how many; this says which, and which field, and under which rule.
+  // Behind --explain because a healthy run does not need it and a large mirror would
+  // bury the summary, but it is the first thing to reach for when a pair reports work
+  // every run and never converges (#265).
+  if (explain) {
+    for (const divergence of report.divergences) {
+      console.log(
+        `  ? ${divergence.beadId}: ${divergence.field} ${divergence.direction} ` +
+          `(rule: ${divergence.rule})`,
+      );
+    }
   }
   for (const skipped of report.skippedOutbound) {
     console.log(`  - ${skipped.beadId}: ${skipped.reason}`);
@@ -864,6 +878,7 @@ export const integrationCommand = new Command('integration')
       .description('Synchronize with a configured tracker (both directions by default)')
       .option('--push', 'Outbound only: project selected beads to the tracker')
       .option('--pull', 'Inbound only: pull tracker changes into beads')
+      .option('--explain', 'Name the diverging fields for each pair the run would touch')
       .option('--external <refs...>', 'With --pull, import exactly these external references')
       .option('--force', 'With --pull --external, ignore a stale remote tbd link claim')
       .option('--provider <name>', 'Limit to one provider')

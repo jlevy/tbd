@@ -204,6 +204,66 @@ describe('the sync engine', () => {
     expect(inbound.nothingToDo).toBe(false);
   });
 
+  it.each(['open', 'in_progress', 'blocked', 'deferred'] as const)(
+    'round-trips %s through the tracker and settles',
+    async (status) => {
+      // `blocked` and `deferred` have no Linear state, so they ride a tbd-owned carrier
+      // label alongside the nearest state type: the round trip is only correct if the
+      // push picks the right state AND the pull reads the label back. Asserted for all
+      // four statuses because a status that does not survive its own round trip is the
+      // shape that makes a pair alternate forever (#265).
+      //
+      // This could not be tested before: the mock's issueCreate ignored `stateId`, so
+      // every created issue landed in Todo whatever the adapter asked for, and a
+      // `deferred` bead read back as `open`. That looked exactly like a product defect
+      // and was not one.
+      const id = 'is-01hx5zzkbkactav9wevgemma8x';
+      store.set(id, bead(id, { status }));
+      const policy = PolicyDefinitionSchema.parse({
+        outbound: {
+          kinds: ['epic'],
+          statuses: ['open', 'in_progress', 'blocked', 'deferred'],
+          specs: 'none',
+          linked: true,
+        },
+      });
+
+      await run([...store.values()], policy);
+      const settled = await run([...store.values()], policy);
+
+      expect(store.get(id)!.status).toBe(status);
+      expect(settled.nothingToDo).toBe(true);
+
+      // A third run still holds it: the value is stable, not merely slow to drift.
+      const again = await run([...store.values()], policy);
+      expect(store.get(id)!.status).toBe(status);
+      expect(again.nothingToDo).toBe(true);
+    },
+  );
+
+  it('names the diverging field and its rule, identically in preview and in the run', async () => {
+    // "push 13" says how many; nothing said WHICH field, so a pair that reports work
+    // every run and never converges could only be diagnosed by reading the bridge
+    // records by hand (#265). The preview and the run must give the same account, or
+    // the diagnostic inherits the very drift it exists to find.
+    const id = 'is-01hx5zzkbkactav9wevgemma80';
+    store.set(id, bead(id));
+    await run([...store.values()]);
+
+    // A tracker-side title edit: one field, inbound.
+    const remote = [...server.issues.values()][0]!;
+    remote.title = 'Edited on the tracker';
+    remote.updatedAt = new Date(Date.now() + 60_000).toISOString();
+
+    const previewed = await run([...store.values()], POLICY, true);
+    const executed = await run([...store.values()]);
+
+    expect(previewed.divergences).toEqual([
+      { beadId: 'ma80', field: 'title', direction: 'pull', rule: 'merge' },
+    ]);
+    expect(executed.divergences).toEqual(previewed.divergences);
+  });
+
   it('settles even while a standing mapping warning keeps being reported', async () => {
     // The fourth write loop, and the one with no write in it at all. A mapping warning
     // describes a condition tbd cannot fix from here — a Linear assignee absent from

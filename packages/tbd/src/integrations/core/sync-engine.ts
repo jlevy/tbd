@@ -184,6 +184,15 @@ export interface SyncRunReport {
    * rather than dropped because "there is outbound work pending" is worth knowing.
    */
   suppressedPushes: string[];
+  /**
+   * Why each dirty pair is dirty: one entry per field the run intends to move.
+   *
+   * The summary says "push 13"; this says which thirteen and which fields. Without it,
+   * a pair that reports work every run and never converges can only be diagnosed by
+   * reading `.tbd/data-sync/bridge/` by hand, which is what #265 had to do. Populated
+   * identically on both the dry-run and execute paths, so a preview explains the run.
+   */
+  divergences: { beadId: string; field: string; direction: 'push' | 'pull'; rule: string }[];
   conflicts: { beadId: string; field: string; winner: string }[];
   overwrites: { beadId: string; field: string; direction: string }[];
   skippedPushes: { beadId: string; field: string }[];
@@ -382,6 +391,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     pushed: [],
     pulled: [],
     suppressedPushes: [],
+    divergences: [],
     conflicts: [],
     overwrites: [],
     skippedPushes: [],
@@ -398,6 +408,25 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     failures: [],
     nothingToDo: false,
   };
+  /**
+   * Record why one pair is dirty, from the patches the matrix produced.
+   *
+   * One implementation for both the dry-run and execute paths on purpose: the whole
+   * point is that a preview and a run give the same account, and two copies of this
+   * would be two chances to drift (which is exactly how the direction reporting drifted
+   * in the first place).
+   */
+  const recordDivergence = (beadId: string, pair: PlannedPair): void => {
+    const ruleFor = (field: string): string =>
+      (policy.field_sync.fields as Record<string, string | undefined>)[field] ?? 'n/a';
+    for (const field of Object.keys(pair.result.externalPatch)) {
+      report.divergences.push({ beadId, field, direction: 'push', rule: ruleFor(field) });
+    }
+    for (const field of Object.keys(pair.result.beadPatch)) {
+      report.divergences.push({ beadId, field, direction: 'pull', rule: ruleFor(field) });
+    }
+  };
+
   const warningKeys = new Set<string>();
   const recordMappingWarnings = (issues: readonly ExternalIssue[]): void => {
     for (const issue of issues) {
@@ -1059,6 +1088,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       for (const skipped of pair.result.skippedPushes) {
         report.skippedPushes.push({ beadId: id, field: skipped.field });
       }
+      recordDivergence(id, pair);
       if (pair.parentOverwrite) {
         report.overwrites.push({ beadId: id, field: 'parent', direction: 'push' });
       }
@@ -1396,6 +1426,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       for (const skipped of pair.result.skippedPushes) {
         report.skippedPushes.push({ beadId: displayId, field: skipped.field });
       }
+      recordDivergence(displayId, pair);
 
       // Bead-side changes ride the normal write path via the caller.
       let stored = await callbacks.readBead(pair.bead.id);

@@ -181,6 +181,29 @@ describe('tbd integration, end to end via the built binary', () => {
     expect(settle.stdout).toContain('nothing to do');
   });
 
+  it('--explain names the diverging field for a pair the sync would touch', async () => {
+    // The answer to "why does this pair report work on every run?", which #265 could
+    // only get by reading .tbd/data-sync/bridge/ by hand.
+    expect((await cli(['create', 'Explain sentinel', '-t', 'epic'])).code).toBe(0);
+    const rows = JSON.parse((await cli(['list', '--json'])).stdout) as {
+      id: string;
+      title: string;
+    }[];
+    const sentinel = rows.find((row) => row.title === 'Explain sentinel')!;
+    expect((await cli(['integration', 'sync', '--push', '--bead', sentinel.id])).code).toBe(0);
+    expect((await cli(['integration', 'sync'])).code).toBe(0);
+
+    const remote = [...server.issues.values()].find((issue) => issue.title === 'Explain sentinel')!;
+    remote.title = 'Retitled on the tracker';
+    remote.updatedAt = new Date(Date.now() + 60_000).toISOString();
+
+    const explained = await cli(['--dry-run', 'integration', 'sync', '--explain']);
+
+    expect(explained.code).toBe(0);
+    expect(explained.stdout).toContain('title pull');
+    expect(explained.stdout).toContain('rule: merge');
+  });
+
   it('names the tracker surface on an ordinary tbd sync, without --verbose', async () => {
     // The silent failure behind #265. `tbd sync` documents itself as covering docs,
     // issues AND enabled trackers, but the tracker line went through `output.info`,

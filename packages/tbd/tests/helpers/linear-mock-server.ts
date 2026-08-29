@@ -629,6 +629,16 @@ export class LinearMockServer {
                 return parent ? { id: parent.id, identifier: parent.identifier } : null;
               })()
             : null,
+        // Real Linear applies stateId on create, and the IssueUpdate handler below
+        // already does. Ignoring it here parked every created issue in the default
+        // Todo state no matter what the adapter asked for, which silently defeated
+        // every inbound status test on a freshly created pair: a bead pushed as
+        // `deferred` (backlog + tbd:deferred) came back as `unstarted`, and
+        // statusFromLinear reads that as `open`. The round trip looked lossy when it
+        // was the mock, not the product. Same class as the labelIds gap below.
+        ...(typeof input.stateId === 'string' && this.states.some((s) => s.id === input.stateId)
+          ? { state: this.states.find((s) => s.id === input.stateId)! }
+          : {}),
         // Real Linear applies labelIds on create, and the IssueUpdate handler below
         // already does. Ignoring them here made a created issue come back unlabelled,
         // so anything asserting a label on create looked like it had failed to apply
