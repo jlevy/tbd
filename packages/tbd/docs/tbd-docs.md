@@ -278,7 +278,9 @@ Options:
 - `--spec <path>` - Filter by spec path (supports gradual matching: filename, partial
   path, or full path)
 - `--deferred` - Show only deferred issues
-- `--defer-before <date>` - Deferred before date
+- `--defer-before <date>` - Deferred strictly before this date.
+  Beads with no `deferred_until` are excluded, since they are not deferred before
+  anything
 - `--sort <field>` - Sort by: priority, created, updated (default: priority).
   Tiebreaker: internal ULID (chronological creation order)
 - `--limit <n>` - Limit number of results
@@ -457,7 +459,8 @@ per-command auto-sync, and the legacy no-op `--no-sync` flag has been removed.
 
 ### ready
 
-List issues ready to work on (open, unblocked, unassigned).
+List issues ready to work on: open, unblocked, unassigned, and not deferred into the
+future.
 
 ```bash
 tbd ready                                   # All ready issues
@@ -668,8 +671,9 @@ Serve a live, read-only view of the bead graph in a local browser.
 The page uses the same local bead state, filter semantics, readiness rules, hierarchy,
 and statistics as the CLI, and displays the equivalent `tbd list` or `tbd ready` command
 for the current view.
-The Ready checkbox is the exact `tbd ready` predicate—open, unassigned, and with no open
-blocker. A quiet unboxed row marker exposes that derived state while scanning; it is
+The Ready checkbox is the exact `tbd ready` predicate—open, unassigned, with no open
+blocker, and not deferred into the future.
+A quiet unboxed row marker exposes that derived state while scanning; it is
 intentionally distinct from user labels.
 Pretty is on by default and never changes when a column sort changes.
 In Pretty mode, the two-key sort moves only outermost visible parent groups.
@@ -828,7 +832,10 @@ An unknown `--bead` ID is an error rather than a silent wait.
 Label, spec, and status selections report a bead that matched *before or after*, so both
 entering and leaving the set count.
 `--ready` is edge-triggered: it reports only beads that were not ready before and are
-now, using the same definition as `tbd ready` (open, unassigned, no open blockers).
+now, using the same definition as `tbd ready` (open, unassigned, no open blockers, and
+not deferred into the future).
+A deferral that merely elapses does not wake the watcher: readiness is evaluated at one
+instant per comparison, so a bead becomes ready here only when an edit changes it.
 
 ### search
 

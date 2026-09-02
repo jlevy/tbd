@@ -37,12 +37,12 @@ function issue(id: string, overrides: Partial<Issue> = {}): Issue {
 
 describe('deferred_until and tbd ready', () => {
   it('does not offer a bead deferred into the future', () => {
-    const future = issue('1', { deferred_until: '2027-01-01T00:00:00.000Z' } as Partial<Issue>);
+    const future = issue('1', { deferred_until: '2027-01-01T00:00:00.000Z' });
     expect(readyIssueIds([future], NOW).has(future.id)).toBe(false);
   });
 
   it('offers a bead whose deferral has elapsed', () => {
-    const past = issue('2', { deferred_until: '2026-01-15T00:00:00.000Z' } as Partial<Issue>);
+    const past = issue('2', { deferred_until: '2026-01-15T00:00:00.000Z' });
     expect(readyIssueIds([past], NOW).has(past.id)).toBe(true);
   });
 
@@ -54,7 +54,7 @@ describe('deferred_until and tbd ready', () => {
   it('treats a deferral exactly at now as elapsed', () => {
     // The boundary has to fall on one side deliberately: a deferral "until now" has
     // arrived, so the work is available.
-    const boundary = issue('4', { deferred_until: '2026-06-01T00:00:00.000Z' } as Partial<Issue>);
+    const boundary = issue('4', { deferred_until: '2026-06-01T00:00:00.000Z' });
     expect(readyIssueIds([boundary], NOW).has(boundary.id)).toBe(true);
   });
 
@@ -63,7 +63,7 @@ describe('deferred_until and tbd ready', () => {
     const deferredAndClosed = issue('6', {
       status: 'closed',
       deferred_until: '2026-01-15T00:00:00.000Z',
-    } as Partial<Issue>);
+    });
     const ready = readyIssueIds([closed, deferredAndClosed], NOW);
     expect(ready.has(closed.id)).toBe(false);
     expect(ready.has(deferredAndClosed.id)).toBe(false);
@@ -73,20 +73,22 @@ describe('deferred_until and tbd ready', () => {
     // issue-changes.ts computes the ready set twice to diff two snapshots. If each
     // call read its own clock, a bead whose deferral elapsed between them would show
     // as a ready transition that no edit caused.
-    const bead = issue('7', { deferred_until: '2026-06-01T00:00:01.000Z' } as Partial<Issue>);
+    const bead = issue('7', { deferred_until: '2026-06-01T00:00:01.000Z' });
     expect(readyIssueIds([bead], NOW).has(bead.id)).toBe(false);
     expect(readyIssueIds([bead], NOW + 2000).has(bead.id)).toBe(true);
   });
 });
 
 describe('tbd list --defer-before', () => {
-  const deferred2027 = issue('1', { deferred_until: '2027-01-01T00:00:00.000Z' } as Partial<Issue>);
-  const deferred2026 = issue('2', { deferred_until: '2026-03-01T00:00:00.000Z' } as Partial<Issue>);
+  const deferred2027 = issue('1', { deferred_until: '2027-01-01T00:00:00.000Z' });
+  const deferred2026 = issue('2', { deferred_until: '2026-03-01T00:00:00.000Z' });
   const notDeferred = issue('3');
   const corpus = [deferred2027, deferred2026, notDeferred];
 
   function idsFor(deferBefore: string | null): string[] {
-    return selectIssues(corpus, { ...defaultIssueQuery(), deferBefore }).map((i) => i.id);
+    return selectIssues(corpus, { ...defaultIssueQuery(), deferBefore }, Date.now()).map(
+      (i) => i.id,
+    );
   }
 
   it('is off by default', () => {

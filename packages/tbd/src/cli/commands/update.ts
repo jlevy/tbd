@@ -59,15 +59,6 @@ interface UpdateOptions {
   ignoreMissing?: boolean;
 }
 
-/**
- * Read a date option into a full timestamp.
- *
- * The stored field is an ISO datetime, but nobody types one: `--due 2026-12-01` is what
- * a person writes, and rejecting it for want of a time of day is the tool being pedantic
- * about its own storage format. Anything `Date` can parse is accepted and normalized;
- * anything it cannot is refused by name, rather than reaching the schema and coming back
- * as "Invalid datetime".
- */
 class UpdateHandler extends BaseCommand {
   async run(ids: string[], options: UpdateOptions): Promise<void> {
     if (ids.length === 1) {

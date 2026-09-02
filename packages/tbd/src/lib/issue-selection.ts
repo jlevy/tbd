@@ -71,15 +71,15 @@ function deferralPending(issue: Issue, now: number): boolean {
  * to next year was offered as available work today and the field read as scheduling
  * while scheduling nothing.
  *
- * `now` is a parameter rather than a `Date.now()` read inside the filter because
- * `issue-changes.ts` computes this set twice to diff two snapshots: if each call took
- * its own clock, a bead whose deferral elapsed between them would surface as a ready
- * transition that no edit caused.
+ * `now` is a required parameter rather than a `Date.now()` read inside the filter
+ * because callers routinely evaluate readiness more than once for what must be a single
+ * instant: `issue-changes.ts` diffs two snapshots, and the web board marks rows and
+ * filters them in the same response. If each call took its own clock, a bead whose
+ * deferral elapsed in between would surface as a ready transition that no edit caused.
+ * It is required rather than defaulted because every such bug so far came from a caller
+ * silently accepting the default.
  */
-export function readyIssueIds(
-  issues: Iterable<Issue>,
-  now: number = Date.now(),
-): ReadonlySet<string> {
+export function readyIssueIds(issues: Iterable<Issue>, now: number): ReadonlySet<string> {
   const allIssues = Array.from(issues);
   const issueById = new Map(allIssues.map((issue) => [issue.id, issue]));
   const blockerIdsByTarget = new Map<string, string[]>();

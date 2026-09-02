@@ -407,6 +407,7 @@ Load the **General engineering** core, then only guidelines matching the task.
 | general-testing-rules | Rules for keeping test volume low while preserving broad evidence—rejecting vacuous tests, choosing portable black-box tests when they preserve coverage, keeping the inner loop fast, controlling nondeterminism, and never letting an empty or skipped selection look like a pass. |
 | golden-testing-guidelines | Guidelines for implementing golden/snapshot testing for complex systems |
 | release-engineering-rules | Language-neutral rules for turning a reviewed commit into artifacts users execute—one release identity, a pre-release gate that runs where publishing happens, least-privilege publishing authority, build-once-and-promote, packaging and checksums, smoke-testing the packaged artifact rather than the build output, multi-channel coordination, testable release logic, and incident preparation. Load for any release, alongside release-notes-guidelines and the language-specific release document. |
+| release-notes-guidelines | Rules for release notes that describe the published delta and exclude defects introduced and corrected before release from separate Fixes entries |
 | supply-chain-hardening | Strongly recommended for EVERY repo—apply it if a repo has not been hardened yet. Cross-ecosystem policy for installing dependencies safely (the 14-day cool-off, disabled install scripts, lockfile discipline, untrusted-repo handling). Use whenever a user mentions hardening, security, supply chain, or setting up a new repo; before adding/upgrading dependencies; when auditing for compromised packages; or when reviewing install/build/run commands across npm/pnpm, PyPI, Cargo, or Go. |
 
 ### TypeScript & JS ecosystem
@@ -416,7 +417,6 @@ Load the **General engineering** core, then only guidelines matching the task.
 | Name | Description |
 | --- | --- |
 | bun-monorepo-patterns | Modern patterns for Bun-based TypeScript monorepo architecture |
-| electron-app-development-patterns | Building a clean, minimal, standalone Electron app—process model, modern Vite-based build system, attaching a Node/Bun/Python backend, security baseline, packaging, code signing, and auto-update |
 | pnpm-monorepo-patterns | Modern patterns for pnpm-based TypeScript monorepo architecture |
 | typescript-cli-tool-rules | Rules for building CLI tools with Commander.js, picocolors, and TypeScript |
 | typescript-code-coverage | Best practices for code coverage in TypeScript with Vitest and v8 provider |
@@ -459,6 +459,16 @@ Load the **General engineering** core, then only guidelines matching the task.
 | convex-limits-best-practices | Comprehensive reference for Convex platform limits, workarounds, and performance best practices |
 | convex-rules | Guidelines and best practices for building Convex projects, including database schema design, queries, mutations, and real-world examples |
 
+### Desktop app frameworks
+
+*Select the document for the framework in use; do not load this whole group by default.*
+
+| Name | Description |
+| --- | --- |
+| electrobun-app-development-patterns | Building desktop apps with Electrobun—runtime and process model, typed RPC, project layout, packaging and the delta updater, plus an evidence-based maturity and security assessment |
+| electron-app-development-patterns | Building a clean, minimal, standalone Electron app—process model, modern Vite-based build system, attaching a Node/Bun/Python backend, security baseline, packaging, code signing, and auto-update |
+| tauri-app-development-patterns | Building desktop apps with Tauri 2—the Rust core and system webview model, capabilities and permissions, typed commands and IPC, attaching Rust or non-Rust backends, packaging, signing, and the signed updater |
+
 ### Docs, process & tooling
 
 | Name | Description |
@@ -466,9 +476,6 @@ Load the **General engineering** core, then only guidelines matching the task.
 | agent-session-bootstrap | When and how to make a repository install its own pinned toolchain at agent session start, for repos whose agents run in containers they do not control. Covers the fit test, the alternatives that are usually better, the install rules a bootstrap must follow, and the PATH and pin-drift traps that make one fail silently. Use when an agent session starts without the tools the repo requires, when writing or reviewing a SessionStart hook, or when deciding between a session hook and a provisioned image. |
 | cli-agent-skill-patterns | A concise decision guide for portable skills, CLI-backed skills, safe bundle installation, and agent integration |
 | common-doc-guidelines | Common cross-project standards for writing and organizing docs, code comments, and text files—how to organize, structure, write, and format documents, plus the guideline footer convention. Downstream of github.com/jlevy/practical-prose. Use whenever writing or editing any documentation, README, guideline, or design doc. |
-| electrobun-app-development-patterns | Building desktop apps with Electrobun—runtime and process model, typed RPC, project layout, packaging and the delta updater, plus an evidence-based maturity and security assessment |
-| release-notes-guidelines | Rules for release notes that describe the published delta and exclude defects introduced and corrected before release from separate Fixes entries |
-| tauri-app-development-patterns | Building desktop apps with Tauri 2—the Rust core and system webview model, capabilities and permissions, typed commands and IPC, attaching Rust or non-Rust backends, packaging, signing, and the signed updater |
 | tbd-sync-troubleshooting | Common issues and solutions for tbd sync and workspace operations |
 
 <!-- END SHORTCUT DIRECTORY -->

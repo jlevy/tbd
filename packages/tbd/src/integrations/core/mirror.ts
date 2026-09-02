@@ -44,10 +44,10 @@ export interface MirrorContext {
   allIssues: readonly Issue[];
   /**
    * The instant readiness is evaluated at, since a `deferred_until` in the future
-   * makes a bead not-ready. Supplied by callers so one mirror run cannot straddle
-   * two clock reads, and so tests can pin it; defaults to now.
+   * makes a bead not-ready. Required so one mirror run cannot straddle two clock
+   * reads, and so tests can pin it.
    */
-  readyAt?: number;
+  readyAt: number;
   /** The beads to mirror. */
   selected: readonly Issue[];
   /** Renders an internal id the way a user sees it. */
@@ -209,7 +209,7 @@ export function attachmentsFor(
 export function planMirror(context: MirrorContext): MirrorPlan {
   const byId = new Map(context.allIssues.map((issue) => [issue.id, issue]));
   const selectedIds = new Set(context.selected.map((issue) => issue.id));
-  const readyIds = readyIssueIds(context.allIssues, context.readyAt ?? Date.now());
+  const readyIds = readyIssueIds(context.allIssues, context.readyAt);
 
   const childrenOf = new Map<string, Issue[]>();
   for (const issue of context.allIssues) {

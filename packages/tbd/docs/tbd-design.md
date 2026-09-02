@@ -2761,7 +2761,8 @@ Options:
   --label <label>           Filter by label (repeatable)
   --parent=<id>             List children of parent
   --deferred                Show only deferred issues
-  --defer-before <date>     Deferred before date
+  --defer-before <date>     Deferred strictly before this date (beads with no
+                            deferred_until are excluded)
   --sort <field>            Sort by: priority, created, updated (default: priority)
                             (created/updated are shorthand for created_at/updated_at)
                             Tiebreaker: internal ULID (chronological creation order)

@@ -224,7 +224,7 @@ class ListHandler extends BaseCommand {
       sort: (options.sort ?? 'priority') as IssueSort,
       limit: null,
     };
-    return selectIssues(issues, query);
+    return selectIssues(issues, query, Date.now());
   }
 }
 

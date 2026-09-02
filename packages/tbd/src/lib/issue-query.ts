@@ -45,7 +45,10 @@ export interface IssueQuery {
    * anything and is excluded whenever this is set.
    */
   deferBefore: string | null;
-  /** `tbd ready` semantics: open, unassigned, and unblocked per `readyIssueIds`. */
+  /**
+   * `tbd ready` semantics per `readyIssueIds`: open, unassigned, unblocked, and not
+   * deferred into the future. Time-dependent, so the evaluation instant is passed in.
+   */
   ready: boolean;
   /** `--sort` */
   sort: IssueSort;
@@ -84,8 +87,8 @@ export function defaultIssueQuery(): IssueQuery {
  * the internal-ULID tiebreak (chronological and deterministic, unlike the random short
  * display ids).
  */
-export function selectIssues(issues: readonly Issue[], query: IssueQuery): Issue[] {
-  const filtered = filterIssues(issues, query);
+export function selectIssues(issues: readonly Issue[], query: IssueQuery, now: number): Issue[] {
+  const filtered = filterIssues(issues, query, now);
   const sorted = sortIssues(filtered, query.sort);
   return query.limit === null ? sorted : sorted.slice(0, query.limit);
 }
@@ -106,9 +109,15 @@ function deferredBefore(issue: Issue, cutoff: string): boolean {
   return Number.isFinite(until) && until < Date.parse(cutoff);
 }
 
-/** Apply shared CLI query predicates without paying for ordering when only facets need rows. */
-export function filterIssues(issues: readonly Issue[], query: IssueQuery): Issue[] {
-  const readyIds = query.ready ? readyIssueIds(issues) : null;
+/**
+ * Apply shared CLI query predicates without paying for ordering when only facets need rows.
+ *
+ * `now` is the instant readiness is evaluated at. Callers that also display readiness
+ * must pass the same instant they used there, or a deferral elapsing between the two
+ * reads makes the filter and the display disagree.
+ */
+export function filterIssues(issues: readonly Issue[], query: IssueQuery, now: number): Issue[] {
+  const readyIds = query.ready ? readyIssueIds(issues, now) : null;
 
   return issues.filter((issue) => {
     // By default, exclude closed issues unless --all or --status closed
@@ -204,6 +213,7 @@ export function describeQuery(
       query.parentId !== null ||
       query.spec !== null ||
       query.deferred ||
+      query.deferBefore !== null ||
       query.sort !== 'priority';
     return { command: parts.join(' '), exact: !unsupported };
   }
@@ -235,6 +245,9 @@ export function describeQuery(
   }
   if (query.deferred) {
     parts.push('--deferred');
+  }
+  if (query.deferBefore !== null) {
+    parts.push(`--defer-before ${query.deferBefore}`);
   }
   if (query.sort !== 'priority') {
     parts.push(`--sort ${query.sort}`);
