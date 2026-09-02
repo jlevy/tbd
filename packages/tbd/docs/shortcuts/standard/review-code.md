@@ -22,6 +22,10 @@ This shortcut supports three review scopes:
 | **Branch work** | All commits ahead of target + uncommitted | `git diff <target>...HEAD` + uncommitted |
 | **GitHub PR** | Changes in a pull request | `gh pr diff <PR>` |
 
+When the PR is one layer of a stack, `gh pr diff` shows only that layer’s changes,
+because the PR’s base is the branch below it rather than the trunk.
+That narrow diff is the correct review scope, not a sign the change is incomplete.
+
 For **GitHub PR** reviews with follow-up actions (commenting, CI checks), use
 `tbd shortcut review-github-pr` instead—it wraps this shortcut and adds GitHub workflow.
 

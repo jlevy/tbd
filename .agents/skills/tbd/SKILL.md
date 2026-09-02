@@ -370,6 +370,7 @@ Run `tbd shortcut <name>` to use any of these shortcuts:
 | revise-architecture-doc | Update an architecture document to reflect current codebase state |
 | setup-github-cli | Ensure GitHub CLI (gh) is installed and working |
 | setup-linear | Set up the Linear integration end to end—first-time configuration for a repository, or adding your own API key to a repository your team already configured |
+| stacked-prs | When to split work into a stack of dependent PRs, how stacks line up with beads, and how the PR shortcuts change when a branch is part of a stack |
 | suggest-upstream-improvements | Review local doc-fork customizations and contribute the generally useful changes back upstream |
 | sync-failure-recovery | Handle tbd sync failures by saving to workspace and recovering later |
 | update-specs-status | Reconcile active specs, the top-level work index (e.g. TODO.md), and tbd beads into one current status map |

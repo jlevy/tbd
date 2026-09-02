@@ -18,6 +18,12 @@ Create a to-do list with the following items then perform all of them:
      BRANCH=$(git rev-parse --abbrev-ref HEAD)
      REPO=$(git remote get-url origin | sed -E 's#.*/git/##; s#.*github.com[:/]##; s#\.git$##')
      ```
+   - Resolve the trunk instead of assuming `main`, since repos differ and a wrong base
+     makes the PR unreviewable:
+     ```
+     TRUNK=$(gh repo view $REPO --json defaultBranchRef -q .defaultBranchRef.name)
+     ```
+     (`gh repo view` takes the repo as a positional argument; it has no `--repo` flag.)
    - Use `--repo $REPO` on all gh commands (required for Claude Code Cloud)
 
 2. Check branch state: if this branch has uncommitted work, commit it first via
@@ -25,10 +31,15 @@ Create a to-do list with the following items then perform all of them:
    in-progress work); if the branch is behind its base with likely conflicts, run
    `tbd shortcut merge-upstream` first.
 
-3. Check if a PR already exists for this branch:
+3. Check if a PR already exists for this branch, and whether the branch is stacked:
    - Run: `gh pr view $BRANCH --repo $REPO --json number,url 2>/dev/null`
    - If it returns JSON, a PR exists (you’ll update it).
      If it errors, you’ll create one.
+   - Check for a stack: `gh stack view --json 2>/dev/null` Always pass `--json`; bare
+     `gh stack view` opens a TUI that blocks forever.
+     Exit 0 with a stack containing `$BRANCH` means step 6 takes the stacked path.
+     Exit 2 (`not part of a stack`) or a missing `gh stack` means the normal path
+     applies.
 
 4. Review all commits on this branch since it diverged from main:
    - Run `git log main..HEAD --oneline` to see commits
@@ -62,9 +73,15 @@ Create a to-do list with the following items then perform all of them:
    Link any related beads using their IDs.
 
 6. Create or update the PR:
-   - If creating:
-     `gh pr create --repo $REPO --head $BRANCH --base main --title "..." --body "..."`
-   - If updating: `gh pr edit $BRANCH --repo $REPO --title "..." --body "..."`
+   - **If the branch is part of a stack**, do not create the PR by hand, and never pass
+     `--base $TRUNK`. Targeting the trunk retargets the PR, shows the reviewer every
+     lower layer’s diff, and breaks the stack on GitHub.
+     Run `gh stack submit --auto`, then set the title and body with `gh pr edit`. See
+     `tbd shortcut stacked-prs`.
+   - If creating (not stacked):
+     `gh pr create --repo $REPO --head $BRANCH --base $TRUNK --title "..." --body "..."`
+   - If updating: `gh pr edit $BRANCH --repo $REPO --title "..." --body "..."` Do not
+     add `--base` here unless you actually intend to retarget the PR.
 
 7. Report the PR URL to the user, summarize the validation plan, and inform them you are
    now waiting for CI.

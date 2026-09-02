@@ -10,6 +10,12 @@ Run `tbd prime` for more on using tbd and current status.
 Merge upstream changes from origin/main into the current branch and leave the branch
 pushed with CI green.
 
+> **If this branch is part of a stack, stop and use `gh stack sync` instead.** A stacked
+> branch is kept current by rebasing the chain, not by merging the trunk into one layer.
+> A merge commit here rewrites the layer’s relationship to the one below it and breaks
+> the stack. Check with `gh stack view --json` (exit 2 means not stacked).
+> See `tbd shortcut stacked-prs`.
+
 ## Instructions
 
 Create a to-do list with the following items then perform all of them:

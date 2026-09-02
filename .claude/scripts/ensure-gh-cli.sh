@@ -8,6 +8,10 @@
 # that bypasses the cool-off window. To bump the pin, pick a release that is >=14
 # days old and copy its checksums from:
 #   https://github.com/cli/cli/releases/download/v<VERSION>/gh_<VERSION>_checksums.txt
+#
+# Presence is NOT sufficient: an already-installed gh is accepted only if it meets
+# GH_MIN_VERSION. A distro-packaged gh is routinely several minor versions behind,
+# which is exactly the case the pin exists to fix.
 
 set -euo pipefail
 
@@ -26,8 +30,31 @@ cleanup() {
 # Add common binary locations to PATH
 export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"
 
+# Stacked-PR tooling is opt-in. SessionStart runs this script with no arguments, so the
+# default path stays exactly as fast and quiet as before for users who never stack.
+WITH_STACK=0
+for arg in "$@"; do
+    case "$arg" in
+        --with-stack) WITH_STACK=1 ;;
+        -h|--help)
+            echo "Usage: ensure-gh-cli.sh [--with-stack]"
+            echo "  --with-stack  Also install the pinned gh-stack extension and its agent skill"
+            exit 0
+            ;;
+        *) echo "[gh] WARNING: ignoring unknown argument: $arg" ;;
+    esac
+done
+
 # Pinned gh release (>=14 days old per supply-chain cool-off) and its checksums.
-GH_VERSION="2.92.0"
+GH_VERSION="2.97.0"
+
+# Minimum acceptable gh version; an older gh is replaced with the pinned build.
+# The floor tracks the pin because v2.97.0 fixed four advisories, two on paths agents
+# use constantly: `gh auth status` printed part of the token in plaintext for ghs_*,
+# github_pat_* and ghu_* formats (GHSA-cg6r-mpgc-h9mm), and `gh api` / `gh pr diff`
+# emitted externally controlled content without neutralizing terminal escape
+# sequences (GHSA-3m3g-3wcr-px46). It also carries the mature `gh skill` commands.
+GH_MIN_VERSION="2.97.0"
 
 # GitHub hosts to exempt from a session HTTPS proxy when that proxy intercepts
 # GitHub (proxied remote sessions, e.g. Claude Code cloud). Scoped and additive:
@@ -50,22 +77,65 @@ run_bounded() {
     fi
 }
 
-# SHA-256 checksums from gh_2.92.0_checksums.txt, keyed by asset suffix.
+# SHA-256 checksums from gh_2.97.0_checksums.txt, keyed by asset suffix.
 checksum_for() {
     case "$1" in
-        linux_amd64.tar.gz) echo "b57848131bdf0c229cd35e1f2a51aa718199858b2e728410b37e89a428943ec4" ;;
-        linux_arm64.tar.gz) echo "c2248526dd0160c08d3fccca2332c3c1a07c15a78b23978e77735f1b5a18cfee" ;;
-        macOS_amd64.zip)    echo "ae9bb327ab0d91071bdada79f8f14034a2a0f19b0e001835a782eafa519d2af0" ;;
-        macOS_arm64.zip)    echo "b11c54f6bd7d15ed6590475079e5b2fcf36f45d3991a80041b29c9d0cc1f1d07" ;;
+        linux_amd64.tar.gz) echo "a2c9b8497e1f85b1ad0dfcb78b5a622e098801b8e461e459e88e1ee12f018112" ;;
+        linux_arm64.tar.gz) echo "73ea440ecad9c9e284429997ee6f93577bc6f7bc6fba357ef62c53ad8fb641a5" ;;
+        macOS_amd64.zip)    echo "63298c998cc2a924c9e254c6af6a1caad6ece281122687a91f079bc0a462700e" ;;
+        macOS_arm64.zip)    echo "a58b8fd77b417a38f47a0b54d1370c59b0fcdb324ccc9ca002b0998f7c4c999e" ;;
         *) echo "" ;;
     esac
 }
 
-# Check if gh is already installed
+# Compare dotted versions without sort -V (absent on stock macOS) or python.
+# Returns 0 when $1 >= $2. Any prerelease suffix is stripped before comparing, so
+# 2.97.0-rc1 compares equal to 2.97.0; gh ships no prereleases through this path.
+version_ge() {
+    local have="$1" want="$2" i have_part want_part
+    local -a have_parts want_parts
+    IFS='.' read -r -a have_parts <<< "${have%%-*}"
+    IFS='.' read -r -a want_parts <<< "${want%%-*}"
+    for i in 0 1 2; do
+        have_part=$(printf '%s' "${have_parts[i]:-0}" | tr -cd '0-9')
+        want_part=$(printf '%s' "${want_parts[i]:-0}" | tr -cd '0-9')
+        have_part=${have_part:-0}
+        want_part=${want_part:-0}
+        if [ "$((10#$have_part))" -gt "$((10#$want_part))" ]; then return 0; fi
+        if [ "$((10#$have_part))" -lt "$((10#$want_part))" ]; then return 1; fi
+    done
+    return 0
+}
+
+# `gh --version` prints "gh version 2.97.0 (2026-07-31)" on its first line.
+installed_gh_version() {
+    "$1" --version 2>/dev/null | awk 'NR==1 {print $3}'
+}
+
+# Decide whether to install. Presence alone is not enough: a distro-packaged gh is
+# routinely several minor versions behind, and accepting it silently is how the pin
+# fails to apply on exactly the machines that need it.
+NEED_INSTALL=0
 if command -v gh &> /dev/null; then
-    echo "[gh] CLI found at $(which gh)"
+    GH_PATH="$(command -v gh)"
+    GH_CURRENT="$(installed_gh_version "$GH_PATH")"
+    if [ -z "$GH_CURRENT" ]; then
+        echo "[gh] CLI at ${GH_PATH} does not report a usable version; installing pinned v${GH_VERSION}"
+        NEED_INSTALL=1
+    elif version_ge "$GH_CURRENT" "$GH_MIN_VERSION"; then
+        # Newer than the pin is fine and is left alone; this must never downgrade.
+        echo "[gh] CLI found at ${GH_PATH} (v${GH_CURRENT})"
+    else
+        echo "[gh] CLI at ${GH_PATH} is v${GH_CURRENT}, below the required v${GH_MIN_VERSION}"
+        echo "[gh] Installing pinned v${GH_VERSION} to ~/.local/bin (existing gh left in place)"
+        NEED_INSTALL=1
+    fi
 else
     echo "[gh] CLI not found, installing pinned v${GH_VERSION}..."
+    NEED_INSTALL=1
+fi
+
+if [ "$NEED_INSTALL" = "1" ]; then
 
     INSTALL_TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/tbd-gh.XXXXXX")
     trap cleanup EXIT
@@ -142,11 +212,25 @@ else
     echo "[gh] Installed to $HOME/.local/bin/gh"
 fi
 
-# Verify gh is now in PATH
+# Verify gh is now in PATH. Clear bash's command lookup cache first, otherwise a
+# freshly installed binary can be masked by the path resolved earlier in this shell.
+hash -r 2>/dev/null || true
 if ! command -v gh &> /dev/null; then
     echo "[gh] ERROR: gh CLI still not found in PATH after installation"
     echo "[gh] Ensure ~/.local/bin is in your PATH"
     exit 1
+fi
+
+# Confirm the gh that PATH actually resolves meets the floor. An older gh earlier in
+# PATH would otherwise shadow the pinned build we just installed.
+GH_RESOLVED="$(command -v gh)"
+GH_RESOLVED_VERSION="$(installed_gh_version "$GH_RESOLVED")"
+if [ -n "$GH_RESOLVED_VERSION" ] && ! version_ge "$GH_RESOLVED_VERSION" "$GH_MIN_VERSION"; then
+    echo "[gh] WARNING: PATH resolves gh to ${GH_RESOLVED} (v${GH_RESOLVED_VERSION}),"
+    echo "[gh] which is below the required v${GH_MIN_VERSION}. The pinned build is at"
+    echo "[gh] $HOME/.local/bin/gh — put ~/.local/bin ahead of ${GH_RESOLVED%/gh} in PATH."
+    echo "[gh] Older gh versions leak part of the auth token via 'gh auth status' and do"
+    echo "[gh] not neutralize terminal escape sequences in 'gh api'/'gh pr diff' output."
 fi
 
 # Check authentication status
@@ -193,9 +277,56 @@ if [ -n "${GH_TOKEN:-}" ]; then
             echo "[gh] Diagnosis: tbd shortcut setup-github-cli (Proxied Remote Sessions)"
         fi
     fi
+elif gh auth status &> /dev/null; then
+    # No GH_TOKEN, but gh is authenticated another way (keyring after `gh auth login`,
+    # or a host config). That is a fully working setup; saying "not set" here reads as a
+    # problem on a healthy machine, so report what is actually true.
+    echo "[gh] Authenticated (no GH_TOKEN; using stored gh credentials)"
 else
-    echo "[gh] NOTE: GH_TOKEN not set - some operations may require authentication"
+    echo "[gh] NOTE: GH_TOKEN not set and no stored gh credentials found"
+    echo "[gh] Run 'gh auth login', or set GH_TOKEN before starting the session."
     echo "[gh] See: tbd shortcut setup-github-cli"
+fi
+
+# Optional stacked-PR tooling (opt-in via --with-stack).
+#
+# Pinned per SUPPLY-CHAIN-SECURITY.md: gh-stack v0.1.0 was published 2026-07-29 and
+# clears the 14-day cool-off. Both `gh extension install` and `gh skill install` accept
+# --pin, so neither resolves "latest" at run time.
+#
+# Nothing here is fatal. Stacked PRs are one workflow among several, and a network
+# failure while fetching an optional extension must never block a session.
+GH_STACK_REPO="github/gh-stack"
+GH_STACK_VERSION="v0.1.0"
+GH_SKILL_AGENT="${GH_SKILL_AGENT:-claude-code}"
+
+if [ "$WITH_STACK" = "1" ]; then
+    if gh extension list 2>/dev/null | grep -q "gh stack"; then
+        echo "[gh] gh-stack extension already installed"
+    elif gh extension install "$GH_STACK_REPO" --pin "$GH_STACK_VERSION" 2>&1 | sed 's/^/[gh]   /'; then
+        echo "[gh] Installed ${GH_STACK_REPO} extension (pinned ${GH_STACK_VERSION})"
+    else
+        echo "[gh] WARNING: could not install the ${GH_STACK_REPO} extension"
+        echo "[gh] Stacked-PR commands will be unavailable; everything else still works."
+    fi
+
+    # The official agent skill teaches an agent to drive `gh stack` non-interactively,
+    # which matters because several subcommands open a blocking TUI under a PTY.
+    #
+    # User scope on purpose, for consistency: `gh extension install` above is already
+    # machine-global, so a per-repo skill would be incoherent with it, and project scope
+    # would write skill files into the user's repo. The opt-in gate is --with-stack, not
+    # the scope. Note `gh skill` has no uninstall command: removal means deleting the
+    # installed directory (see `gh skill list` for its location).
+    if gh skill list 2>/dev/null | grep -q "gh-stack"; then
+        echo "[gh] gh-stack agent skill already installed"
+    elif gh skill install "$GH_STACK_REPO" --pin "$GH_STACK_VERSION" \
+            --agent "$GH_SKILL_AGENT" --scope user --force 2>&1 | sed 's/^/[gh]   /'; then
+        echo "[gh] Installed the gh-stack agent skill (${GH_SKILL_AGENT}, user scope)"
+    else
+        echo "[gh] WARNING: could not install the gh-stack agent skill"
+        echo "[gh] The extension may still work; see: tbd shortcut stacked-prs"
+    fi
 fi
 
 exit 0
