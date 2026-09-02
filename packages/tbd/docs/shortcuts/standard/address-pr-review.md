@@ -63,13 +63,14 @@ Create a to-do list with the following items then perform all of them:
    - `gh pr checkout <PR_NUMBER> --repo $REPO`
    - If the base branch has moved substantially, run `tbd shortcut merge-upstream` first
      so fixes land on a current branch
-   - **If the PR is one layer of a stack** (`gh stack view --json`; exit 2 means it is
-     not), the checkout lands you mid-stack.
-     Two rules follow: land each fix on the layer that owns the code, never on whatever
-     layer is checked out; and after committing, run `gh stack rebase --upstack` so the
-     layers above pick up the change.
+   - **If the PR is one layer of a stack** (`gh stack view --json`; any non-zero exit,
+     whether 2 or a missing `gh stack`, means it is not), the checkout lands you
+     mid-stack. Two rules follow: land each fix on the layer that owns the code, never on
+     whatever layer is checked out; and after committing, run
+     `gh stack rebase --upstack` so the layers above pick up the change.
      CI on the upper PRs means nothing until that rebase happens.
-     Use `gh stack sync`, not `merge-upstream`, to refresh a stacked branch.
+     To refresh a stacked branch use `gh stack sync`, not `merge-upstream`, bearing in
+     mind it force-pushes (`--force-with-lease`) the whole chain.
 
 6. **Triage and address each finding, in severity order:**
 

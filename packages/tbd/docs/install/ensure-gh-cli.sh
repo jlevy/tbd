@@ -298,7 +298,21 @@ fi
 # failure while fetching an optional extension must never block a session.
 GH_STACK_REPO="github/gh-stack"
 GH_STACK_VERSION="v0.1.0"
+
+# The skill is pinned by commit SHA rather than the tag. A tag can be moved, and a skill
+# is not inert data: it is instructions loaded into every later agent session on this
+# machine, so it deserves the stricter pin. This is the commit v0.1.0 points at, which
+# `gh skill install` also prints when it resolves the tag.
+GH_STACK_SKILL_SHA="a1b4a3d4d0bcde9ec3a78ab99b2d63af121857a9"
 GH_SKILL_AGENT="${GH_SKILL_AGENT:-claude-code}"
+
+# Is the gh-stack skill present for this agent? Used both as the pre-check and as the
+# post-install verification, because `gh skill install` exit status cannot be trusted
+# (see below).
+gh_stack_skill_present() {
+    gh skill list --agent "$GH_SKILL_AGENT" --json skillName -q '.[].skillName' 2>/dev/null \
+        | grep -qx 'gh-stack'
+}
 
 if [ "$WITH_STACK" = "1" ]; then
     if gh extension list 2>/dev/null | grep -q "gh stack"; then
@@ -318,14 +332,25 @@ if [ "$WITH_STACK" = "1" ]; then
     # would write skill files into the user's repo. The opt-in gate is --with-stack, not
     # the scope. Note `gh skill` has no uninstall command: removal means deleting the
     # installed directory (see `gh skill list` for its location).
-    if gh skill list 2>/dev/null | grep -q "gh-stack"; then
+    #
+    # The skill NAME is required. Given only a repository, `gh skill install` prints the
+    # skills it found, installs nothing, and still exits 0, so a bare repo argument
+    # silently does nothing while looking like success. Verify the result rather than
+    # trusting the exit status.
+    if gh_stack_skill_present; then
         echo "[gh] gh-stack agent skill already installed"
-    elif gh skill install "$GH_STACK_REPO" --pin "$GH_STACK_VERSION" \
-            --agent "$GH_SKILL_AGENT" --scope user --force 2>&1 | sed 's/^/[gh]   /'; then
-        echo "[gh] Installed the gh-stack agent skill (${GH_SKILL_AGENT}, user scope)"
     else
-        echo "[gh] WARNING: could not install the gh-stack agent skill"
-        echo "[gh] The extension may still work; see: tbd shortcut stacked-prs"
+        gh skill install "$GH_STACK_REPO" gh-stack --pin "$GH_STACK_SKILL_SHA" \
+            --agent "$GH_SKILL_AGENT" --scope user --force 2>&1 | sed 's/^/[gh]   /' || true
+        if gh_stack_skill_present; then
+            echo "[gh] Installed the gh-stack agent skill (${GH_SKILL_AGENT}, user scope)"
+            echo "[gh] GitHub does not verify skills, and a skill is instructions that load"
+            echo "[gh] into later sessions. Review it before relying on it:"
+            echo "[gh]   gh skill preview ${GH_STACK_REPO} gh-stack@${GH_STACK_SKILL_SHA}"
+        else
+            echo "[gh] WARNING: the gh-stack agent skill did not install"
+            echo "[gh] The extension may still work; see: tbd shortcut stacked-prs"
+        fi
     fi
 fi
 

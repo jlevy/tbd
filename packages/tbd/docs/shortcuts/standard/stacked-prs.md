@@ -25,7 +25,8 @@ gh extension list | grep 'gh stack'   # expect: gh stack  github/gh-stack  v0.1.
 gh skill list | grep gh-stack         # expect: gh-stack
 ```
 
-If either is missing, install both pinned:
+If either is missing, install both pinned via the ensure script
+(`.claude/scripts/ensure-gh-cli.sh`, or `.codex/ensure-gh-cli.sh` under Codex):
 
 ```bash
 bash .claude/scripts/ensure-gh-cli.sh --with-stack
@@ -35,8 +36,10 @@ If the skill is unavailable and you must proceed anyway, the four rules that mat
 most, because breaking them hangs an agent session indefinitely:
 
 - `gh stack view --json`, never bare `gh stack view` (bare opens a blocking TUI).
-- `gh stack submit --auto`, never bare `submit` (bare prompts for every PR title).
-- `gh stack merge <target> --yes`. Plain `gh pr merge` cannot merge a stack.
+- `gh stack submit --auto --open`, never bare `submit` (bare prompts for every PR
+  title). `--auto` on its own opens the PRs as drafts, which `gh stack merge` refuses.
+- `gh stack merge <target> --yes`. Plain `gh pr merge` cannot merge a stack, and a bare
+  number is read as a stack number before a PR number.
 - Pass branch names to `init`, `add`, and `checkout`. Bare forms prompt.
 
 ## When to Stack
@@ -58,7 +61,8 @@ and accept the answer:
 - A refactor or extraction that a feature then builds on.
 - A schema, migration, or type change beneath the code that consumes it.
 - A dependency bump or config change that unblocks the real work.
-- Work already crossing roughly 400 lines or several unrelated concerns.
+- Work spanning several unrelated concerns, which a large diff often but not always
+  indicates.
 
 **Do not offer a stack** for a single-concern change, a small fix, work the user framed
 as one PR, or anything urgent enough that serialized review would hurt.
@@ -73,8 +77,7 @@ When a stack is warranted, the split has to earn the extra process:
 - **Foundations at the bottom.** Each layer depends only on layers below it.
 - **Every layer stands alone.** It should build, pass tests, and be independently
   revertible. A layer that only makes sense with the one above belongs merged into it.
-- **Order by dependency, not by chronology.** The order you wrote the code in is not
-  necessarily the order it should be reviewed in.
+- **Order by dependency, not by chronology.**
 - **Create the stack before writing the code** where you can.
   Splitting a finished branch afterwards is materially harder than starting with the
   layers.
@@ -93,18 +96,15 @@ A stack and a bead tree describe the same decomposition, so keep them aligned:
 - Record the branch name and PR number on each child bead as its layer lands.
 - Close a child when its layer merges, not when the whole stack merges.
 
-This keeps the work legible if the stack is handed to another agent mid-flight, which is
-the usual reason a stack outlives one session.
-
 ## How the Other Shortcuts Change
 
 | Shortcut | On a stacked branch |
 | --- | --- |
-| `create-or-update-pr-simple` / `-with-validation-plan` | Do **not** pass `--base main`. Use `gh stack submit --auto`, or set the base to the branch below. Passing the trunk retargets the PR and flattens the stack. |
-| `code-review-and-commit` | Commit to the layer that owns the change, then rebase the layers above. |
+| `create-or-update-pr-simple` / `-with-validation-plan` | Do **not** target the trunk. Use `gh stack submit --auto --open`, or set the base to the branch below. Targeting the trunk retargets the PR and flattens the stack. |
+| `code-review-and-commit` | Commit to the owning layer (see Layer Discipline), then rebase the layers above. |
 | `review-github-pr` | Review only that layer’s diff, which is what GitHub already shows. Name the layer in each finding. |
 | `address-pr-review` | Fix on the owning layer, then `gh stack rebase --upstack` before trusting CI on the upper PRs. |
-| `merge-upstream` | Do not merge the trunk into a stacked branch. Use `gh stack sync`, which rebases the chain. |
+| `merge-upstream` | Do not merge the trunk into a stacked branch. Use `gh stack sync`, which rebases and force-pushes (`--force-with-lease`) the whole chain. |
 
 ## Landing a Stack
 
@@ -114,6 +114,10 @@ Merge bottom to top, and let the tooling do it:
 gh stack merge <pr-number> --yes    # that PR and every unmerged PR below it
 gh stack sync --prune               # reconcile local state, drop merged branches
 ```
+
+A bare number is resolved as a **stack** number first and only then as a PR number, so
+on a repo where those ranges still overlap, confirm with `gh stack view --json` before
+merging.
 
 The merge is all-or-nothing: if any PR in the set cannot merge, none do.
 After a squash merge on the trunk, `gh stack sync` detects it and rebases the remaining

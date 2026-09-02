@@ -24,6 +24,10 @@ Create a to-do list with the following items then perform all of them:
      TRUNK=$(gh repo view $REPO --json defaultBranchRef -q .defaultBranchRef.name)
      ```
      (`gh repo view` takes the repo as a positional argument; it has no `--repo` flag.)
+     This needs network and auth.
+     If it comes back empty, fall back to `git symbolic-ref refs/remotes/origin/HEAD`
+     rather than proceeding with an empty base, which would make step 6 create the PR
+     against nothing.
    - Use `--repo $REPO` on all gh commands (required for Claude Code Cloud)
 
 2. Check branch state: if this branch has uncommitted work, commit it first via
@@ -41,9 +45,12 @@ Create a to-do list with the following items then perform all of them:
      Exit 2 (`not part of a stack`) or a missing `gh stack` means the normal path
      applies.
 
-4. Review all commits on this branch since it diverged from main:
-   - Run `git log main..HEAD --oneline` to see commits
-   - Run `git diff main...HEAD` to see all changes
+4. Review all commits on this branch since it diverged from its base:
+   - Run `git log $TRUNK..HEAD --oneline` to see commits
+   - Run `git diff $TRUNK...HEAD` to see all changes
+   - On a stacked branch, use the layer below instead of `$TRUNK` for both.
+     Against the trunk they enumerate every lower layer, so you would describe the whole
+     stack in a PR whose diff is one layer.
 
 5. Write a PR title and description:
    - Title should be concise and describe the change (e.g., “Add user authentication”)
@@ -58,8 +65,9 @@ Create a to-do list with the following items then perform all of them:
    - **If the branch is part of a stack**, do not create the PR by hand, and never pass
      `--base $TRUNK`. Targeting the trunk retargets the PR, shows the reviewer every
      lower layer’s diff, and breaks the stack on GitHub.
-     Run `gh stack submit --auto`, then set the title and body with `gh pr edit`. See
-     `tbd shortcut stacked-prs`.
+     Run `gh stack submit --auto --open`, then set the title and body with `gh pr edit`.
+     Without `--open` the PRs are created as drafts, which `gh stack merge` refuses to
+     merge. See `tbd shortcut stacked-prs`.
    - If creating (not stacked):
      `gh pr create --repo $REPO --head $BRANCH --base $TRUNK --title "..." --body "..."`
    - If updating: `gh pr edit $BRANCH --repo $REPO --title "..." --body "..."` Do not

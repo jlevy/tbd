@@ -55,7 +55,9 @@ See [Proxied Remote Sessions](#proxied-remote-sessions) first.
 Run these in order on a machine that has never had tbd or `gh` on it.
 Every step is idempotent, so re-running the whole sequence is safe.
 
-1. **Install and verify gh:**
+1. **Install and verify gh** with the ensure script (`.claude/scripts/ensure-gh-cli.sh`,
+   or `.codex/ensure-gh-cli.sh` under Codex; the two are byte-identical, and later steps
+   call it “the ensure script”):
    ```bash
    bash .claude/scripts/ensure-gh-cli.sh
    ```
@@ -89,6 +91,10 @@ Every step is idempotent, so re-running the whole sequence is safe.
 
    The skill installs at **user scope**, matching the extension, which `gh` also
    installs per machine rather than per repo.
+   The skill is pinned by commit SHA rather than tag, because a skill is instructions
+   loaded into later sessions rather than inert data.
+   GitHub does not verify skills, so review it before relying on it:
+   `gh skill preview github/gh-stack gh-stack@a1b4a3d4d0bcde9ec3a78ab99b2d63af121857a9`.
    Note that `gh skill` currently has no uninstall command: to remove it, delete the
    installed directory, whose location `gh skill list` reports.
    Override the target agent with `GH_SKILL_AGENT=codex` if you use a different one.

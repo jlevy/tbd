@@ -143,6 +143,15 @@ The script must never downgrade.
 | `gh stack --help` | exits 0 |
 
 3. Confirm the pin held: the extension row must read `v0.1.0`, not a later tag.
+   For the skill, confirm it is actually present rather than trusting the install
+   output:
+   ```bash
+   gh skill list --agent claude-code --json skillName -q '.[].skillName' | grep -x gh-stack
+   ```
+   **This check matters most in the whole playbook.** `gh skill install` exits 0 without
+   installing anything when it is given a repository but no skill name, so “it printed
+   success” is not evidence.
+   A review caught exactly that bug before this playbook was first run.
 4. Simulate failure by running `--with-stack` with no network.
    **Expected**: a warning, and exit 0. It must not block the session.
 
@@ -206,12 +215,9 @@ longer linked on GitHub.
    ```
    **Expected**: the second `--with-stack` run reports both the extension and the skill
    as already installed, and reinstalls neither.
-2. Confirm the three copies of the script are still byte-identical:
-   ```bash
-   diff packages/tbd/docs/install/ensure-gh-cli.sh .claude/scripts/ensure-gh-cli.sh
-   diff packages/tbd/docs/install/ensure-gh-cli.sh .codex/ensure-gh-cli.sh
-   ```
-   **Expected**: no output from either.
+   Byte-identity of the three script copies is already asserted by `setup-flows.test.ts`
+   (`installed script matches bundled ensure-gh-cli.sh` and the upgrade-path case), so
+   it needs no manual step here.
 
 ## Reporting
 
