@@ -16,7 +16,9 @@ const SCRIPT = join(import.meta.dirname, '..', 'docs', 'install', 'ensure-gh-cli
 async function extractFunction(name: string): Promise<string> {
   const source = await readFile(SCRIPT, 'utf8');
   const match = new RegExp(`^${name}\\(\\) \\{$.*?^\\}$`, 'ms').exec(source);
-  if (!match) {throw new Error(`${name}() not found in ${SCRIPT}`);}
+  if (!match) {
+    throw new Error(`${name}() not found in ${SCRIPT}`);
+  }
   return match[0];
 }
 
@@ -56,8 +58,8 @@ describe('ensure-gh-cli.sh', () => {
 
   it('pins the gh version, the floor, and a checksum for every supported platform', async () => {
     const source = await readFile(SCRIPT, 'utf8');
-    const version = (/^GH_VERSION="([^"]+)"$/m.exec(source))?.[1];
-    const floor = (/^GH_MIN_VERSION="([^"]+)"$/m.exec(source))?.[1];
+    const version = /^GH_VERSION="([^"]+)"$/m.exec(source)?.[1];
+    const floor = /^GH_MIN_VERSION="([^"]+)"$/m.exec(source)?.[1];
     expect(version).toBeTruthy();
     // A floor above the pinned build would reinstall on every run, forever.
     expect(floor).toBe(version);
