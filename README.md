@@ -626,6 +626,7 @@ tbd docs fork --all              # Or fork by name: tbd docs fork <name> [<name>
 |  | `create-or-update-pr-simple` | Basic PR creation |
 |  | `create-or-update-pr-with-validation-plan` | PR with a validation plan |
 |  | `merge-upstream` | Merge origin/main with conflict resolution |
+|  | `stacked-prs` | When to split work into a stack of dependent PRs, and how stacks change the PR shortcuts |
 | **Cleanup** | `code-cleanup-all` | Full code cleanup (duplicates, dead code, quality) |
 |  | `code-cleanup-tests` | Remove trivial/low-value tests |
 |  | `code-cleanup-docstrings` | Add docstrings to major functions |

@@ -35,6 +35,23 @@ Pre-commit reviews (`tbd shortcut precommit-process`) use `review-code` directly
 issues immediately—the publish and address stages apply to reviews of pushed PRs, where
 the review and the fix are separate pieces of work.
 
+## Stacked PRs
+
+When a PR is one layer of a stack, the lifecycle above still applies, one layer at a
+time, with three adjustments:
+
+- **Review scope is the layer.** GitHub shows only that layer’s diff, since the base is
+  the branch below it.
+  Review that, and say which layer a finding belongs to; a finding about lower-layer
+  code belongs on that lower PR.
+- **Fixes land on the owning layer**, then `gh stack rebase --upstack` so the layers
+  above pick up the change.
+  Until that rebase, CI on the upper PRs is stale.
+- **Verdicts are per layer.** A blocker on a lower layer blocks everything above it,
+  because `gh stack merge` is all-or-nothing.
+
+See `tbd shortcut stacked-prs` for when stacking is worth it.
+
 ## Review Channels
 
 A published review can live in any of these places.
