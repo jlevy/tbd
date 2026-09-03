@@ -552,7 +552,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
 
   // 2. Assemble the linked set and the remote view.
   const currentIssues = [...issuesById.values()];
-  const readyIds = readyIssueIds(currentIssues);
+  const readyIds = readyIssueIds(currentIssues, Date.now());
   const childrenByParent = new Map<string, Issue[]>();
   for (const issue of currentIssues) {
     if (!issue.parent_id) {

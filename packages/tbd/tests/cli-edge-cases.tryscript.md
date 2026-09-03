@@ -401,3 +401,43 @@ $ tbd list --deferred --json
 [..]
 ? 0
 ```
+
+# Test: Create accepts a bare date for --defer and normalizes it
+
+```console
+$ tbd create "Bare date defer" --defer=2099-06-15
+✓ Created test-[SHORTID]: Bare date defer
+? 0
+```
+
+# Test: A future-deferred bead is not offered as ready
+
+```console
+$ tbd ready --json | jq '[.[] | select(.title == "Deferred task")] | length'
+0
+? 0
+```
+
+# Test: --defer-before includes a bead deferred before the cutoff
+
+```console
+$ tbd list --defer-before 2100-01-01 --json | jq '[.[] | select(.title == "Deferred task")] | length'
+1
+? 0
+```
+
+# Test: --defer-before excludes everything before an early cutoff
+
+```console
+$ tbd list --defer-before 2000-01-01 --json | jq 'length'
+0
+? 0
+```
+
+# Test: --defer-before rejects an unparseable value by name
+
+```console
+$ tbd list --defer-before nope 2>&1
+Error: Invalid --defer-before value: nope. Expected a date or timestamp.
+? 2
+```

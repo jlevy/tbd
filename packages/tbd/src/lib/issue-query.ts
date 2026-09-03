@@ -38,7 +38,17 @@ export interface IssueQuery {
   spec: string | null;
   /** `--deferred` */
   deferred: boolean;
-  /** `tbd ready` semantics: open, unassigned, and unblocked per `readyIssueIds`. */
+  /**
+   * `--defer-before <date>`, already parsed to an ISO timestamp by the caller (as
+   * `priority` is): keep only beads whose `deferred_until` falls before this instant.
+   * Null means no filter. A bead with no `deferred_until` is not deferred before
+   * anything and is excluded whenever this is set.
+   */
+  deferBefore: string | null;
+  /**
+   * `tbd ready` semantics per `readyIssueIds`: open, unassigned, unblocked, and not
+   * deferred into the future. Time-dependent, so the evaluation instant is passed in.
+   */
   ready: boolean;
   /** `--sort` */
   sort: IssueSort;
@@ -61,6 +71,7 @@ export function defaultIssueQuery(): IssueQuery {
     parentId: null,
     spec: null,
     deferred: false,
+    deferBefore: null,
     ready: false,
     sort: 'priority',
     limit: null,
@@ -76,15 +87,37 @@ export function defaultIssueQuery(): IssueQuery {
  * the internal-ULID tiebreak (chronological and deterministic, unlike the random short
  * display ids).
  */
-export function selectIssues(issues: readonly Issue[], query: IssueQuery): Issue[] {
-  const filtered = filterIssues(issues, query);
+export function selectIssues(issues: readonly Issue[], query: IssueQuery, now: number): Issue[] {
+  const filtered = filterIssues(issues, query, now);
   const sorted = sortIssues(filtered, query.sort);
   return query.limit === null ? sorted : sorted.slice(0, query.limit);
 }
 
-/** Apply shared CLI query predicates without paying for ordering when only facets need rows. */
-export function filterIssues(issues: readonly Issue[], query: IssueQuery): Issue[] {
-  const readyIds = query.ready ? readyIssueIds(issues) : null;
+/**
+ * Whether a bead carries a `deferred_until` strictly before `cutoff`.
+ *
+ * A bead with no deferral is not "deferred before" any date, so it is excluded rather
+ * than treated as deferred since the beginning of time. `cutoff` is already-parsed
+ * per the field contract, so an unusable value is rejected at the CLI boundary rather
+ * than degrading into a filter that matches everything.
+ */
+function deferredBefore(issue: Issue, cutoff: string): boolean {
+  if (issue.deferred_until == null) {
+    return false;
+  }
+  const until = Date.parse(issue.deferred_until);
+  return Number.isFinite(until) && until < Date.parse(cutoff);
+}
+
+/**
+ * Apply shared CLI query predicates without paying for ordering when only facets need rows.
+ *
+ * `now` is the instant readiness is evaluated at. Callers that also display readiness
+ * must pass the same instant they used there, or a deferral elapsing between the two
+ * reads makes the filter and the display disagree.
+ */
+export function filterIssues(issues: readonly Issue[], query: IssueQuery, now: number): Issue[] {
+  const readyIds = query.ready ? readyIssueIds(issues, now) : null;
 
   return issues.filter((issue) => {
     // By default, exclude closed issues unless --all or --status closed
@@ -113,6 +146,9 @@ export function filterIssues(issues: readonly Issue[], query: IssueQuery): Issue
       return false;
     }
     if (query.deferred && issue.status !== 'deferred') {
+      return false;
+    }
+    if (query.deferBefore !== null && !deferredBefore(issue, query.deferBefore)) {
       return false;
     }
     if (readyIds !== null && !readyIds.has(issue.id)) {
@@ -177,6 +213,7 @@ export function describeQuery(
       query.parentId !== null ||
       query.spec !== null ||
       query.deferred ||
+      query.deferBefore !== null ||
       query.sort !== 'priority';
     return { command: parts.join(' '), exact: !unsupported };
   }
@@ -208,6 +245,9 @@ export function describeQuery(
   }
   if (query.deferred) {
     parts.push('--deferred');
+  }
+  if (query.deferBefore !== null) {
+    parts.push(`--defer-before ${query.deferBefore}`);
   }
   if (query.sort !== 'priority') {
     parts.push(`--sort ${query.sort}`);

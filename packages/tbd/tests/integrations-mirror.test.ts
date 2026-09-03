@@ -38,11 +38,15 @@ function issue(overrides: Partial<Issue> = {}): Issue {
 
 const displayId = (id: string): string => id.replace('is-', 'tbd-');
 
+/** One pinned instant for every plan, so readiness never depends on the wall clock. */
+const READY_AT = Date.parse('2026-08-10T00:00:00.000Z');
+
 describe('planMirror', () => {
   it('plans a create for a bead with no existing link', () => {
     const bead = issue({ id: 'is-a' });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -61,6 +65,7 @@ describe('planMirror', () => {
     const bead = issue({ id: 'is-a', assignee: 'josh' });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -78,6 +83,7 @@ describe('planMirror', () => {
     const bead = issue({ id: 'is-a', assignee: 'josh' });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -96,6 +102,7 @@ describe('planMirror', () => {
     });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -113,6 +120,7 @@ describe('planMirror', () => {
     });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -131,6 +139,7 @@ describe('planMirror', () => {
 
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [root, mid, deep],
       selected: [root, mid, deep],
       displayId,
@@ -155,6 +164,7 @@ describe('planMirror', () => {
 
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [root, mid, deep],
       selected: [root, mid, deep],
       displayId,
@@ -179,6 +189,7 @@ describe('planMirror', () => {
 
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [root, mid1, mid2, deep],
       selected: [root, mid1, mid2, deep],
       displayId,
@@ -197,6 +208,7 @@ describe('planMirror', () => {
 
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [unmirroredParent, child],
       // Only the child is selected, so it has no mirrored ancestor.
       selected: [child],
@@ -214,6 +226,7 @@ describe('planMirror', () => {
 
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [a, b],
       selected: [a, b],
       displayId,
@@ -238,6 +251,7 @@ describe('planMirror', () => {
 
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [epic, readyChild, blockedChild],
       selected: [epic],
       displayId,
@@ -255,6 +269,7 @@ describe('label mirroring', () => {
     const bead = issue({ id: 'is-a', labels: ['backend', 'ci', 'docs'] });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -270,6 +285,7 @@ describe('label mirroring', () => {
     const bead = issue({ id: 'is-a', labels: ['backend', 'ci'] });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -369,6 +385,7 @@ describe('applyMirror', () => {
     const bead = issue({ id: 'is-a', title: 'Mirror me' });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -388,6 +405,7 @@ describe('applyMirror', () => {
     const child = issue({ id: 'is-child', title: 'Child', parent_id: parent.id });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [child, parent],
       selected: [child, parent],
       displayId,
@@ -407,6 +425,7 @@ describe('applyMirror', () => {
     const bead = issue({ id: 'is-a' });
     const first = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -423,6 +442,7 @@ describe('applyMirror', () => {
 
     const second = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [relinked],
       selected: [relinked],
       displayId,
@@ -444,6 +464,7 @@ describe('applyMirror', () => {
 
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [good, bad],
       selected: [good, bad],
       displayId,
@@ -463,6 +484,7 @@ describe('applyMirror', () => {
 
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [root, mid, deep],
       selected: [root, mid, deep],
       displayId,
@@ -493,6 +515,7 @@ describe('applyMirror', () => {
     });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [root, mid1, mid2, deep],
       selected: [root, mid1, mid2, deep],
       displayId,
@@ -531,6 +554,7 @@ describe('applyMirror', () => {
 
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -559,6 +583,7 @@ describe('applyMirror', () => {
     const seen: { beadId: string; key?: string; url?: string }[] = [];
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -584,6 +609,7 @@ describe('applyMirror', () => {
     const bead = issue({ id: 'is-a', title: 'Described' });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,

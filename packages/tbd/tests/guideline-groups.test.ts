@@ -4,9 +4,11 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import type { CachedDoc } from '../src/file/doc-cache.js';
 import {
   ALWAYS_LOAD_GUIDELINES,
   EXPLICITLY_GROUPED_GUIDELINES,
+  generateShortcutDirectory,
   guidelineGroupFor,
 } from '../src/file/doc-cache.js';
 
@@ -102,6 +104,53 @@ describe('guidelineGroupFor', () => {
     }
   });
 
+  it('routes a declared category to its own group rather than the catch-all', async () => {
+    // The grouping matched on name prefixes while every bundled guideline already
+    // declares a category, and doc-categories.ts calls name inference retired. The
+    // two disagreed: `electron-app-development-patterns` matched the TypeScript
+    // prefix, while its siblings `electrobun-` and `tauri-` matched nothing and fell
+    // into "Docs, process & tooling", where an agent looking for desktop guidance
+    // will not find them. Assert on the declared field, for every category at once,
+    // so the next category added cannot land in the catch-all unnoticed.
+    const declared = new Map<string, string[]>();
+    for (const name of await bundledGuidelineNames()) {
+      const content = await readFile(join(GUIDELINES_DIR, `${name}.md`), 'utf8');
+      const category = /^category:\s*(\S+)/m.exec(content)?.[1];
+      if (category == null || category === 'general') {
+        continue; // `general` is the default and is routed by explicit membership.
+      }
+      declared.set(category, [...(declared.get(category) ?? []), name]);
+    }
+    expect(declared.size).toBeGreaterThan(0);
+
+    for (const [category, names] of declared) {
+      const headings = new Set(names.map((n) => guidelineGroupFor(n, category)));
+      expect(headings.size, `${category} split across headings: ${[...headings].join(', ')}`).toBe(
+        1,
+      );
+      const [heading] = headings;
+      expect(heading, `${category} (${names.join(', ')}) fell into the catch-all`).not.toBe(
+        'Docs, process & tooling',
+      );
+    }
+  });
+
+  it('keeps the desktop frameworks together under their own heading', () => {
+    for (const name of [
+      'electron-app-development-patterns',
+      'electrobun-app-development-patterns',
+      'tauri-app-development-patterns',
+    ]) {
+      expect(guidelineGroupFor(name, 'desktop'), name).toBe('Desktop app frameworks');
+    }
+  });
+
+  it('files release-notes-guidelines beside the release engineering rules', () => {
+    // publishing.md and release-engineering-rules both tell the reader to load these
+    // together; the catch-all heading hid one half of that pair.
+    expect(guidelineGroupFor('release-notes-guidelines')).toBe('Cross-cutting engineering topics');
+  });
+
   it('files every bundled guideline in a group whose heading is non-empty', async () => {
     const grouped = new Map<string, string[]>();
     for (const name of await bundledGuidelineNames()) {
@@ -114,5 +163,65 @@ describe('guidelineGroupFor', () => {
       (await bundledGuidelineNames()).filter((n) => n.startsWith('rust-')).sort(),
     );
     expect(grouped.get('Cross-cutting engineering topics')?.length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * The predicate being right is not enough: the directory is what agents actually read,
+ * and the bug this fixes was a value that was computed and then not passed on. Dropping
+ * the `category` argument at the `generateShortcutDirectory` call site leaves every
+ * predicate test green, so assert the rendered output too.
+ */
+describe('generateShortcutDirectory guideline routing', () => {
+  function doc(name: string, category?: string): CachedDoc {
+    return {
+      path: `/docs/guidelines/${name}.md`,
+      name,
+      frontmatter: category === undefined ? undefined : { category },
+      content: '',
+      sourceDir: 'guidelines',
+      sizeBytes: 0,
+    } as CachedDoc;
+  }
+
+  /** The heading a guideline is rendered under, or null if it is absent. */
+  function headingFor(directory: string, name: string): string | null {
+    let current: string | null = null;
+    for (const line of directory.split('\n')) {
+      const heading = /^### (.+)$/.exec(line);
+      if (heading) {
+        current = heading[1]!;
+        continue;
+      }
+      if (line.startsWith(`| ${name} `) || line.startsWith(`| ${name} |`)) {
+        return current;
+      }
+    }
+    return null;
+  }
+
+  it('renders a desktop guideline under its declared category, not the catch-all', () => {
+    const directory = generateShortcutDirectory(
+      [],
+      [
+        doc('tauri-app-development-patterns', 'desktop'),
+        doc('electrobun-app-development-patterns', 'desktop'),
+        doc('release-notes-guidelines', 'general'),
+      ],
+    );
+    expect(headingFor(directory, 'tauri-app-development-patterns')).toBe('Desktop app frameworks');
+    expect(headingFor(directory, 'electrobun-app-development-patterns')).toBe(
+      'Desktop app frameworks',
+    );
+    // Routed by explicit membership rather than category, so it must not be swept
+    // into the catch-all either.
+    expect(headingFor(directory, 'release-notes-guidelines')).toBe(
+      'Cross-cutting engineering topics',
+    );
+  });
+
+  it('falls back to the catch-all when a guideline declares no category', () => {
+    const directory = generateShortcutDirectory([], [doc('some-unknown-guideline')]);
+    expect(headingFor(directory, 'some-unknown-guideline')).toBe('Docs, process & tooling');
   });
 });

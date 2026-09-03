@@ -23,7 +23,7 @@ import type {
 import { now } from '../../utils/time-utils.js';
 import { resolveToInternalId, type IdMapping } from '../../file/id-mapping.js';
 import { resolveSpecArg, getPathErrorMessage } from '../../lib/project-paths.js';
-import { validateIssueTitle } from '../lib/issue-input-validation.js';
+import { parseDateOption, validateIssueTitle } from '../lib/issue-input-validation.js';
 import { checkParentAssignment, describeHierarchyProblem } from '../../lib/issue-hierarchy.js';
 import { withDataSyncContext } from '../lib/data-context.js';
 import {
@@ -57,23 +57,6 @@ interface UpdateOptions {
   spec?: string;
   childOrder?: string;
   ignoreMissing?: boolean;
-}
-
-/**
- * Read a date option into a full timestamp.
- *
- * The stored field is an ISO datetime, but nobody types one: `--due 2026-12-01` is what
- * a person writes, and rejecting it for want of a time of day is the tool being pedantic
- * about its own storage format. Anything `Date` can parse is accepted and normalized;
- * anything it cannot is refused by name, rather than reaching the schema and coming back
- * as "Invalid datetime".
- */
-function parseDateOption(value: string, flag: string): string {
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) {
-    throw new ValidationError(`Invalid ${flag} value: ${value}. Expected a date or timestamp.`);
-  }
-  return new Date(parsed).toISOString();
 }
 
 class UpdateHandler extends BaseCommand {

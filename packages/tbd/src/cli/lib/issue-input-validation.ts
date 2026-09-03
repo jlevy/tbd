@@ -35,3 +35,24 @@ export function validateIssueTitle(title: string, options: IssueTitleValidationO
 
   return title;
 }
+
+/**
+ * Parse a user-supplied date flag into a normalized ISO timestamp.
+ *
+ * The stored field is an ISO datetime, but nobody types one: `--due 2026-12-01` is what
+ * a person writes, and rejecting it for want of a time of day is the tool being pedantic
+ * about its own storage format. Anything `Date` can parse is accepted and normalized;
+ * anything it cannot is refused by name, rather than reaching the schema and coming back
+ * as "Invalid datetime".
+ *
+ * Shared by every date-valued flag so an unusable value fails loudly at the CLI
+ * boundary. A filter that silently accepts garbage and then matches everything is
+ * indistinguishable to the caller from a filter that did not run.
+ */
+export function parseDateOption(value: string, flag: string): string {
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    throw new ValidationError(`Invalid ${flag} value: ${value}. Expected a date or timestamp.`);
+  }
+  return new Date(parsed).toISOString();
+}
