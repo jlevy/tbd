@@ -38,18 +38,18 @@ Usage: tbd web [options] [path]
 Serve a live, read-only bead view on loopback
 
 Arguments:
-  path            Repository or subdirectory to view (default: current
-                  directory)
+  path                     Repository or subdirectory to view (default: current
+                           directory)
 
 Options:
-  --port <n>      Bind exactly this loopback port (default: search from 7777)
-  --open          Open the page in the default browser after HTTP readiness
-  -h, --help      display help for command
-
-Global Options:
-  --version       Show version number
-  --dry-run       Show what would be done without making changes
-  --verbose       Enable verbose output
+  --port <n>               Bind exactly this loopback port (default: search from
+                           7777)
+  --open                   Open the page in the default browser after HTTP
+                           readiness
+  --view <name>            Initial board view: list or workmap
+  --group-prefix <prefix>  Workmap grouping label prefix (e.g. area:) — any
+                           prefix:value convention your labels use
+  -h, --help               display help for command
 ? 0
 ```
 
