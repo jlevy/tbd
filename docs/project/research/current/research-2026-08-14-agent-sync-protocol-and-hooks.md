@@ -9,6 +9,20 @@ mock Linear server, plus a primary-source survey of agent hook surfaces)
 **Status:** Complete for the current-state audit and the platform survey.
 The design section proposes and recommends; it deliberately does not decide.
 
+> **Status review, 2026-09-06:** Retained as a v0.6.1 audit and investigation of hooks,
+> sync cost, human visibility, and traceability.
+> Measurements describe that version; the E1–E21 proposals are not a current
+> missing-feature inventory.
+> See
+> [September 6 coordination research](research-2026-09-06-bead-agent-coordination.md)
+> for current behavior.
+> In particular, the earlier blanket claim that any agent can sync safely does not cover
+> independent clones: local locks do not serialize them, and the newer probe
+> demonstrates duplicate external comment effects.
+> The active traceability plan owns implementation status; retain bounded completion
+> gates and best-effort session-end hooks as design constraints, not scheduler
+> guarantees.
+
 **Related:**
 
 - [Linear as a Task Surface for Beads and Agents](research-2026-08-09-linear-task-surfaces.md)
@@ -16,14 +30,14 @@ The design section proposes and recommends; it deliberately does not decide.
   announcing themselves in beads”, which this doc turns into a concrete protocol
 - [External Tracker Integrations](../../specs/active/plan-2026-08-10-external-tracker-integrations.md)
   — the shipped sync engine this doc audits
-- [How Coding Agents Listen On and Monitor Issues](research-2026-06-04-agent-issue-monitors.md)
+- [How Coding Agents Listen On and Monitor Issues](../archive/research-2026-06-04-agent-issue-monitors.md)
   — the trigger/dispatch taxonomy; this doc is its inverse, covering how an agent
   *reports* rather than how it is *woken*
 - [Modernize multi-agent skills and hooks setup](../../specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
   — the surface registry (`portable`, `agents-md`, `claude`, `codex`) this doc proposes
   extending
-- [Agent Coordination Kernel](research-agent-coordination-kernel.md) — durable truth vs.
-  live coordination
+- [Agent Coordination Kernel](../archive/research-agent-coordination-kernel.md) —
+  durable truth vs. live coordination
 
 * * *
 
@@ -819,6 +833,13 @@ addition to an established pattern.
 * * *
 
 ### 4.5 Many repositories, one Linear surface
+
+> **Implementation update, 2026-09-06:** The label-group proposal below is historical.
+> Shipped origin labels are flat: a bare `tbd` label and `repo:<name>`, as defined in
+> `packages/tbd/src/integrations/core/origin-labels.ts`. Do not configure `repo/<name>`
+> groups from this proposal.
+> Origin labels shipped; the origin-scoped inbound scan remains open under `tbd-3m0j`.
+> The dated F15/F16 probes are evidence of their original scenario, not of that guard.
 
 An important topology this brief had not yet examined: several repositories, each with
 its own bead store, all reporting into **one** Linear project a human reviews.
@@ -2003,8 +2024,8 @@ than they buy:
 - [Linear as a Task Surface for Beads and Agents](research-2026-08-09-linear-task-surfaces.md)
 - [External Tracker Integrations](../../specs/active/plan-2026-08-10-external-tracker-integrations.md)
 - [Modernize multi-agent skills and hooks setup](../../specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
-- [How Coding Agents Listen On and Monitor Issues](research-2026-06-04-agent-issue-monitors.md)
-- [Agent Coordination Kernel](research-agent-coordination-kernel.md)
+- [How Coding Agents Listen On and Monitor Issues](../archive/research-2026-06-04-agent-issue-monitors.md)
+- [Agent Coordination Kernel](../archive/research-agent-coordination-kernel.md)
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

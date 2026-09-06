@@ -12,7 +12,7 @@
   — Multi-agent orchestration ecosystem survey
 - [Claude Code Orchestration Interfaces and UIs](../archive/research-claude-code-orchestration-and-uis.md)
   — Control protocols, IDE surfaces, and external orchestration interfaces
-- [Agent Coordination Kernel](research-agent-coordination-kernel.md)
+- [Agent Coordination Kernel](../archive/research-agent-coordination-kernel.md)
 
 * * *
 
@@ -1777,5 +1777,9 @@ claude --model opus
 
 - [Running Claude Code Across Environments](../archive/research-running-claude-code.md)
   — Multi-agent orchestration landscape survey
-- [Agent Coordination Kernel](research-agent-coordination-kernel.md) — UNIX-like
-  primitives for agent coordination
+- [Agent Coordination Kernel](../archive/research-agent-coordination-kernel.md) —
+  UNIX-like primitives for agent coordination
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

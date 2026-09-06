@@ -5,12 +5,15 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Feature: External Tracker Integrations (Linear first, GitHub next)
 
-**Date:** 2026-08-10 (last updated 2026-08-13)
+**Date:** 2026-08-10 (reconciled 2026-09-06)
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Phases 1 and 2 are implemented on PR
-[#206](https://github.com/jlevy/tbd/pull/206), rebased onto the published v0.5.0 `main`.
+**Status:** Phases 1 and 2 shipped through PR
+[#206](https://github.com/jlevy/tbd/pull/206) and the 0.6.x releases; f08 subsequently
+updated configuration and metadata.
+The following paragraph records the original release validation, not an unbounded
+concurrency guarantee.
 The built CLI and disposable live Linear fixtures pass the 11-scenario API compatibility
 gate: explicit import, deferred claim replay, fields and comments in both directions,
 mapped assignees, provider-created hierarchy, project-scope isolation, forced conflict
@@ -25,10 +28,21 @@ enrichment preserve comments and future provider-namespace state.
 If the provider accepted a create but follow-up work failed before the first bridge
 record, reconciliation now uses the journal’s exact creation snapshot as the three-way
 base, so an intervening tracker edit still pulls or conflicts correctly.
-The pilot keeps `sync_on_tbd_sync: false` until PR review and hosted CI are final green;
-this is an operational rollout switch, not an unresolved design dependency.
+This repository still keeps `integrations.on_tbd_sync: off`; lifting that override is an
+open operational decision (`tbd-9cf9`, overlapping rollout task `tbd-zuos`), not a
+pending PR #206 release gate.
+This documentation review does not change provider policy.
 Phase 3 (GitHub issue sync plus read-only PR associations) and Phase 4 (external links
 in `tbd web`) are designed and tracked here, not built.
+
+**Reconciliation:** The
+[September coordination research](../../research/current/research-2026-09-06-bead-agent-coordination.md)
+adds reproduced comment preservation, alias, and cross-replica delivery defects.
+It does not replace this plan’s GitHub adapter, web projection, unified engine
+(`tbd-dqiq`), or generic extensions CLI (`tbd-z95g`). Native comments are a candidate
+durable source for the existing linked-bead projection and direction policy, not a
+selected migration. Current configuration and lifecycle policy are described in the
+[Linear integration reference](../../../../packages/tbd/docs/references/linear-integration-design.md).
 
 ## Overview
 
@@ -165,10 +179,17 @@ The dispositions are:
 
 ### Comments, Direction, and Concurrency
 
+**Evidence boundary, September 6:** The original passing scenarios below remain useful.
+They do not establish preservation through workspace/outbox recovery (`tbd-hqb9`),
+canonical alias union or same-ID content handling (`tbd-58nm`), or one external delivery
+when independent replicas mint different journal IDs for a shared pending comment
+(`tbd-6vg5`). Body caps are applied by comment-store normalization, not every Git merge
+boundary. Two-machine convergence also does not establish exclusive task claiming.
+
 | Case | Canonical contract and Linear disposition | Implementation | Automated and live evidence |
 | --- | --- | --- | --- |
 | Comment append | **Supported** in both directions as union by immutable provider id/local id and creation-time order | `core/comment-store.ts`; `core/sync-engine.ts` | Merge, engine, and built-CLI round trips; live bidirectional field/comment scenarios |
-| Comment replay | **Supported exactly once** with client UUIDs and identity recovery committed before journal cleanup | `core/intents.ts`; `LinearAdapter.createComment()` | Crash-after-write and duplicate-id tests; live `exact-once-settle` |
+| Comment replay | **Idempotent for a stable journal UUID** with identity recovery before cleanup; cross-replica intent identity remains defective | `core/intents.ts`; `LinearAdapter.createComment()` | Crash-after-write and duplicate-id tests; live `exact-once-settle`; September `tbd-6vg5` reproduction |
 | Comment modes | **Supported** for `two_way`, `inbound`, `outbound`, and `off`; `--pull` never writes a pending local comment | `core/policy.ts`; `core/sync-engine.ts` | Mode table and pull-then-full-sync tests |
 | Long discussions | **Supported** with complete provider pagination. All identities remain; only the newest 50 provider-held entries retain full local prose and bodies cap at 10 KiB. Pending outbound prose is never truncated | `LinearAdapter.listComments()`; `core/comment-store.ts` | 251-comment and cap/pending-body tests |
 | Comment edits, deletions, reactions, threads | **Unsupported**. Original entries remain append-only; threads flatten by creation time | Comment-store allow-list and sync union | No-update behavior tests; documented live observation |
@@ -497,9 +518,10 @@ payload schema and the merge rules live in the existing `lib/schemas.ts` and
 
 ### Post-v0.5 execution map
 
-This is the authoritative remaining-work map.
-Every row is a bead with its code seam and proof obligation; descriptions on the beads
-carry the full function-level test cases.
+This historical execution map retains each code seam and proof obligation.
+Many Linear rows are now closed; bead status and the implementation checklist
+distinguish shipped work from the remaining GitHub, web, engine, and integrity tasks.
+Descriptions on the beads carry the full function-level test cases.
 
 | Order | Bead | Files and functions | Completion proof |
 | --- | --- | --- | --- |
@@ -1585,6 +1607,11 @@ Phase 2 extends the same structure:
 
 ## Rollout Plan
 
+**Historical rollout:** Steps 1–3 describe the shipped Linear releases.
+Their validation evidence is retained below; the open inline-sync override decision and
+September defects are recorded above.
+Steps 4–5 remain the future GitHub and web work.
+
 1. ✅ Phase 1 landed with no *bead* format bump (links ride `extensions`) and a Node
    `>=22.12.0` runtime floor.
    On supported runtimes, repositories without an `integrations` block remain inert and
@@ -1596,8 +1623,9 @@ Phase 2 extends the same structure:
    team, through a staged rollout and a team move.
    Ongoing: keep mirroring as the epic set evolves.
 3. Phase 2 implementation and the bounded live pilot are complete.
-   Before this pilot removes its explicit `sync_on_tbd_sync: false` override and PR #206
-   receives its final Linear RC disposition:
+   The original PR #206 Linear RC gate required the following evidence.
+   The separately retained `on_tbd_sync: off` override is no longer evidence of an
+   unshipped core:
    - ✅ the reconcile matrix, crash replay, real-binary lifecycle, and upstream v0.5.0
      semantic-merge tests are green;
    - close the integrity beads in the [post-v0.5 execution map](#post-v05-execution-map)
@@ -1688,7 +1716,7 @@ semantics; the mock-server golden-test approach; and raw `fetch` over `@linear/s
 ## References
 
 - [research-2026-08-09-linear-task-surfaces.md](../../research/current/research-2026-08-09-linear-task-surfaces.md)
-- [plan-2026-08-10-tbd-web-live-bead-view.md](plan-2026-08-10-tbd-web-live-bead-view.md)
+- [plan-2026-08-10-tbd-web-live-bead-view.md](../done/plan-2026-08-10-tbd-web-live-bead-view.md)
 - [plan-2026-07-19-bead-watch-and-external-sync.md](plan-2026-07-19-bead-watch-and-external-sync.md)
 - PR [#205](https://github.com/jlevy/tbd/pull/205), PR
   [#197](https://github.com/jlevy/tbd/pull/197)
@@ -1697,3 +1725,7 @@ semantics; the mock-server golden-test approach; and raw `fetch` over `@linear/s
   [webhooks](https://linear.app/developers/webhooks) ·
   [agents](https://linear.app/developers/agents)
 - Node [`util.parseEnv`](https://nodejs.org/api/util.html#utilparseenvcontent)
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

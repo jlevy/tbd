@@ -5,6 +5,30 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Validation Plan: Bead Watch Release
 
+## Status as of 2026-09-06
+
+Watch infrastructure is delivered.
+This record retains its original runtime versions, results, and limits.
+The old Linear pilot was superseded by PR #206 and the
+[external-tracker plan](plan-2026-08-10-external-tracker-integrations.md).
+The tbd-t750 release campaign closed as superseded by later releases; closure is not
+evidence that unchecked manual validation passed.
+New release and runner checks use the
+[reusable watch QA playbook](../../../../tests/qa/watch-infrastructure-release.qa.md).
+This document remains at its current path as historical validation evidence.
+
+The
+[September coordination research](../../research/current/research-2026-09-06-bead-agent-coordination.md)
+qualifies the older scenarios: serialized notes handoff does not prove concurrent
+comment preservation, leases, or independent-storage recovery.
+Namespace-aware extensions and embedded provider comment append union have since
+shipped, with comment correctness defects tracked in that research.
+PR #264 also made readiness depend on `deferred_until` and the comparison clock.
+Stable output ordering remains, but elapsed time can change readiness; unchanged Git
+tips do not wake remote watch on expiry, and fresh board queries recompute readiness
+without an expiry-triggered refresh.
+None of the historical results below is evidence of those later behaviors.
+
 ## Overview
 
 This is the release-validation plan for PR #205’s opt-in watch infrastructure:
@@ -135,8 +159,11 @@ transport.
 
 ## Manual Validation Remaining
 
-The exact procedure and evidence checklist live in
-`tests/qa/watch-infrastructure-release.qa.md` and are tracked by tbd-t750.
+The exact procedure and evidence checklist live in the
+[reusable watch QA playbook](../../../../tests/qa/watch-infrastructure-release.qa.md).
+The unchecked items below remain evidence gaps in the historical tbd-t750 campaign,
+which is closed as superseded.
+They are not outstanding tasks in that closed campaign or proof of a failed release.
 
 ### Required Before Release Promotion
 
@@ -231,7 +258,10 @@ The release owner should answer these questions from the playbook evidence:
 
 ### Non-Gating Experiment Gate
 
-Linear experiments may start only after tbd-vm5s defines the revised pilot boundary.
+The following was the PR #205 experiment gate; tbd-vm5s and the old pilot are now
+superseded by the external-tracker plan.
+Under that historical gate, Linear experiments could start only after tbd-vm5s defined
+the revised pilot boundary.
 They should use extension-backed external IDs, module-owned state/checkpoints, one-way
 import plus status writeback, and injected failure/idempotency tests.
 They do not affect the merge or release decision for PR #205.
@@ -259,7 +289,8 @@ governed by the worker’s idempotency and provider-specific compensation policy
 
 ## Validation Record
 
-Record on tbd-t750:
+For the original campaign, the requested record on tbd-t750 was the following.
+New campaigns should attach this evidence to their own tracking item:
 
 - release version and Git SHA;
 - artifact checksum or path;

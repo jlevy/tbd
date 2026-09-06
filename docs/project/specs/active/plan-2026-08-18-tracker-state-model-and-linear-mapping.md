@@ -9,7 +9,22 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Draft
+**Status:** Core delivered; acceptance checklist reconciliation remains, 2026-09-06.
+
+The tracked core and phase beads are closed.
+Later closeouts include state ambiguity prompts (`tbd-2qlk`) and opt-in mapped-state
+reordering (`tbd-gfr6`), so the older `tbd-qdj4` residual note is not a current
+missing-feature list.
+The unchecked items below are original acceptance criteria, not all evidence of missing
+code. The shared-state carrier-label round trip still needs a precise evidence audit
+before marking every criterion complete; `tbd-f2kv` retains the cross-plan
+reconciliation task.
+
+The
+[September coordination research](../../research/current/research-2026-09-06-bead-agent-coordination.md)
+preserves this lifecycle/provisioning scope.
+It does not replace it with a comment or ownership design.
+The overview below describes the pre-implementation problem.
 
 **Tracked as:** epic `tbd-og20`.
 

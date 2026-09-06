@@ -585,7 +585,7 @@ tested-versus-inferred claims.
 | Merge probes | Alias duplication, first-input body choice, edge resurrection, parent cycle, two capped arrays merging to 100 full entries |
 | Workspace probe | Production save/import loses independent pending A; zero conflicts/empty attic; direct outbox import clears source |
 | Mock Linear probe | Real engine/adapter with two stores posts one logical comment twice; rerunning updated store posts zero |
-| Full checks | Lint/typecheck passed. Initial suite: 2462 passed, one fixture-setup timeout; isolated file passed 18/18. Full rerun with `--maxWorkers=4`: all 164 files and 2463 tests passed. |
+| Full checks | Lint/typecheck passed. Initial suite: 2462 passed, one fixture-setup timeout; isolated file passed 18/18. Full rerun with `--maxWorkers=4`: all 164 files and 2463 tests passed. After the PR #264 rebase, the full pre-push suite passed all 165 files and 2480 tests with four workers. |
 | Dependencies | Restored existing lockfile without upgrades/install scripts; 31 age checks passed. Audit: 34 development-tool findings, zero production findings; existing tbd-gx3a updated. |
 
 Workspace reproduction: seed one valid issue with common pending comment `base`. Make
@@ -604,9 +604,95 @@ This isolates delivery identity from Git timing.
 Historical watch validation includes real Claude and Codex sessions, but its serialized
 note handoff does not validate concurrent comments, leases, or crash recovery.
 tbd-ii8p and tbd-t750 were closed as superseded; closure does not prove every old manual
-checklist ran. The actor-axis spec says Draft despite substantial implementation, while
-runtime/session references remain proposed.
+checklist ran. The September 6 reconciliation corrects the actor-axis spec’s stale Draft
+status to delivered core with residual UX; runtime/session references remain proposed.
 Source and execution evidence take precedence over those document statuses.
+
+### Reconciliation with earlier work
+
+The follow-up review read the earlier coordination plans and research, checked their
+beads and close notes, and compared disputed implementation claims with source.
+It did not rerun dated vendor probes or fill unchecked manual tests by inference.
+The result is the ownership map below, corrected status notices in the governing
+documents, and archival of explicitly superseded research and the abandoned outbox
+proposal.
+
+## Relationship to Existing Plans and Research
+
+This research adds current evidence and compares candidates.
+It does not select, cancel, or complete the distinct plans below.
+Their open commitments remain in their governing specs; supporting research links
+supplement each bead’s `spec_path`.
+
+| Scope and existing owner | Commitments retained | Relationship to this research |
+| --- | --- | --- |
+| [Batch transactions](../../specs/active/plan-2026-01-19-transactional-mode-and-agent-registration.md), `tbd-df33` | Private tentative multi-bead changes; begin, review, commit, abort; crash/orphan recovery; immediate mode by default | Unimplemented proposal requiring refresh. Atomic comment files and current identity do not supply batch isolation or all-or-nothing publication. |
+| [Watch design](../../specs/active/plan-2026-07-19-bead-watch-and-external-sync.md) and its validation | Read-only committed-state observation, bounded reports, explicit cursor/rewrite behavior | Shipped contract and historical evidence. Superseded pilot/release checks are labeled; generic extension CLI remains `tbd-z95g` in the tracker plan. |
+| [Tracker integrations](../../specs/active/plan-2026-08-10-external-tracker-integrations.md), `tbd-gvju` | Linked-bead identity and direction policy, GitHub adapter/PR associations, web projection, unified engine, generic extension CLI | Native comments may become a durable source for these bridges. New delivery/recovery findings qualify the older passing scenarios. |
+| [Sync and traceability](../../specs/active/plan-2026-08-14-external-sync-and-traceability.md), `tbd-dzme` | Cheap quiet sync; honest freshness/errors; in-flight rollups and durable links; attention/inherited-spec selection; inbound gestures and origin/remap safety; bounded closing gates and host hooks | Watch/dispatch research does not replace these visibility and completion requirements. Keep the inline-sync override decision (`tbd-9cf9`, overlapping `tbd-zuos`) separate from comment policy. |
+| [Actor and identity](../../specs/active/plan-2026-08-18-actor-axis-and-identity.md), delivered `tbd-ncux`, residual `tbd-p0fe` | Human assignee/agent delegate split, provider-ID bindings, metadata privacy; remaining binding UX, migration, actor diagnostics, and explicit acceptance evidence | `tbd-6nmq` sharpens the plan’s existing session-precision question. Completed core and unfinished UX have separate owners. |
+| [Tracker state and Linear mapping](../../specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md), `tbd-og20` | Lifecycle projection, owned refinements, explicit provisioning, no prompts or unsolicited board changes during sync | Distinct sibling plan. Closed state epics do not prove every stale checkbox; shared-state carrier acceptance needs a focused audit. |
+| [Session refs and runtimes](../../specs/active/plan-2026-08-19-agent-session-refs-and-runtimes.md), `tbd-owa5` | Durable refs, volatile status/freshness, bridge projection; offline local authoring; event-first plus bounded reconciliation; optional adapters | Visibility is separate from dispatch. `tbd-i0de` must resolve URL-less reference identity, nested schema compatibility, and merge rules before implementation. |
+| [Workspace recovery](../../specs/done/plan-2026-01-30-workspace-sync-alt.md) and [automatic outbox workflow](../../specs/done/plan-2026-02-03-streamlined-outbox-workflow.md) | Durable backup, compatible merge, visible conflicts; explicit import clears after success, automatic sync retains the outbox until imported data is pushed or already synced | Selected successors to January’s abandoned write-through proposal. `tbd-hqb9` violates the intended preservation guarantee; it is not an intentional loss policy. |
+
+### Earlier ideas carried forward
+
+The [June monitor survey](../archive/research-2026-06-04-agent-issue-monitors.md)
+separates trigger eligibility and authorization, context assembly, execution, and
+reporting. Keep these contracts explicit: readable comments do not authorize execution,
+and starting a hosted job does not resume a local session.
+Repository Actions, hosted webhook listeners, and compiled repository workflows are
+possible adapters; `repository_dispatch` is one optional bridge seam.
+Reports can trigger other agents and return through another adapter, so suppression
+needs origin, correlation/causation, and delivery identities across channels, beyond the
+Linear bridge’s own echo checks.
+
+The [sync/hooks audit](research-2026-08-14-agent-sync-protocol-and-hooks.md) retains the
+portable lifecycle of orient, claim, checkpoint, land, and release.
+Context injection, deterministic blocking checks, and mechanical execution are different
+hook capabilities. Session-end hooks are best effort.
+Completion gates must be bounded and block inaction rather than trap a session on
+network failure. These hooks still need a host capable of waking a stopped runtime.
+
+The [identity research](research-2026-08-14-agent-and-session-identity.md) retains
+namespaced native aliases, lazy registration that is idempotent across lifecycle replay,
+and allowlisted metadata.
+Resume, compaction, and fork have different identity effects; bookkeeping identity is
+not authentication. The
+[runtime survey](research-2026-08-19-agent-runtimes-and-session-linkage.md) preserves a
+one-bead/many-session relation, durable links separate from observed status, timestamps
+and staleness, sticky terminal states, and reconciliation after missed events.
+Missing runtime data must not mean completion.
+
+The [Linear surfaces study](research-2026-08-09-linear-task-surfaces.md) retains dated
+API probes and distinct human-attention, hierarchy, and recurring-task analysis.
+Its conflict-visibility requirement is partly implemented for tracker field conflicts:
+archive the losing value and post a resolvable provider comment.
+Any native-comment or relationship conflict design must decide how to extend that
+lifecycle; transport alone does not implement it, and cross-clone effects still need
+stable delivery identity.
+Specs also need repository/ref/path links because beads outlive individual branches;
+define link updates after merge or branch deletion.
+Human-facing epic rollups and attention selection remain separate from transporting a
+high-volume agent protocol.
+
+The archived [kernel sketch](../archive/research-agent-coordination-kernel.md)
+contributes correlated task/session/run/artifact references, without selecting an event
+bus or new core services.
+The archived
+[Beads bootstrap survey](../archive/research-beads-bootstrapping-mechanisms.md) retains
+the separation of installation, initialization, context, and thin hook adapters; its old
+bootstrap commands are not current installation guidance.
+The identity, sync/hooks, runtime, and Linear studies remain current research references
+with dated baseline notices because this brief does not replace their distinct evidence.
+
+The
+[January outbox proposal](../../specs/archive/plan-2026-01-29-claude-code-session-sync.md)
+is archived as superseded by the selected workspace and streamlined outbox designs, not
+as an implemented specification.
+The watch plan and validation remain explicitly historical records at their existing
+paths; their superseded checks are not silently marked as passed.
+Moving a spec alone does not unlink an already-linked Linear bead.
 
 ## Follow-Up and Related Work
 
@@ -627,15 +713,16 @@ tbd-64aq (mapping identity).
 | tbd-7ybg (P2) | Concurrent relationship removal and graph validation |
 | tbd-zxg6 (P2) | Initial backlog drain and successful-claim checks |
 | tbd-q2w2 (P2) | Cross-agent and comment-candidate experiments before planning |
+| tbd-p0fe (P2) | Previously planned actor binding UX, migration, diagnostics, and remaining acceptance evidence |
 
 The load-sensitive fixture timeout is recorded under existing tbd-2pqp.
 
 Related internal documents:
 
-- [Coordination kernel exploration](research-agent-coordination-kernel.md): speculative
-  separation of durable task truth, presence, leases, mail, and runners.
-- [Agent issue monitors](research-2026-06-04-agent-issue-monitors.md): earlier
-  landscape.
+- [Coordination kernel exploration](../archive/research-agent-coordination-kernel.md):
+  speculative separation of durable task truth, presence, leases, mail, and runners.
+- [Agent issue monitors](../archive/research-2026-06-04-agent-issue-monitors.md):
+  earlier landscape.
 - [Identity](research-2026-08-14-agent-and-session-identity.md) and
   [sync/hooks](research-2026-08-14-agent-sync-protocol-and-hooks.md): traceability
   context.
