@@ -1,21 +1,44 @@
 # Plan Spec: Transactional Mode and Agent Registration
 
+**Status:** Unimplemented; design refresh required (reviewed 2026-09-06). Tracked by
+open bead `tbd-df33`. The transaction commands and branch strategy below remain
+proposals. Current `tbd whoami`/`tbd start` identity does not implement private batch
+transactions.
+
+**Related current work:**
+[Actor Axis and Identity Mapping](plan-2026-08-18-actor-axis-and-identity.md) owns the
+human/agent assignment model;
+[Agent Session Refs and Runtimes](plan-2026-08-19-agent-session-refs-and-runtimes.md)
+owns session linkage and freshness.
+[Bead Agent Coordination](../../research/current/research-2026-09-06-bead-agent-coordination.md)
+is an additive review of claims, comments, atomic visibility, and replica boundaries.
+It does not select a replacement or complete this plan.
+
+The distinct requirements remain private tentative multi-bead work, review before
+publication, explicit commit/abort, orphan recovery, and unchanged immediate mode.
+Before implementation, refresh session registration/provenance and the shared-worktree
+assumptions in §2.4; do not infer batch isolation from atomic file replacement or a
+future independent-comment format.
+
 ## Purpose
 
 This is a technical design doc for adding transactional workflow support and agent
 registration to tbd.
-These features enable agents to batch changes and commit them atomically, rather than
-syncing immediately after each operation.
+The proposal would let agents review and publish a whole batch, rather than exposing
+each mutation immediately in the shared local worktree.
 
 ## Background
 
-**Current State:**
+**Sync baseline:**
+
+The flow below describes immediate mode; transaction commands are not implemented.
+Current linked checkouts share the data worktree under the Git common directory.
 
 tbd operates in “immediate mode” - changes are written to the worktree and synced on
 demand via `tbd sync`. The sync flow is:
 
 1. Agent makes changes (create, update, close issues)
-2. Changes written to `.tbd/data-sync-worktree/` (worktree of `tbd-sync` branch)
+2. Changes written to `$GIT_COMMON_DIR/tbd/data-sync-worktree/` (worktree of `tbd-sync`)
 3. `tbd sync` commits worktree changes to local `tbd-sync` branch
 4. Push to `origin/tbd-sync`
 5. On push rejection, fetch + merge + retry
@@ -31,10 +54,13 @@ When an agent works on a feature branch for extended periods, it may want to:
 
 **Reference Documentation:**
 
-- [tbd-design.md §3.3](docs/tbd-design.md) - Current sync operations
-- [tbd-design.md §3.4](docs/tbd-design.md) - Conflict detection and resolution
-- [git.ts](packages/tbd/src/file/git.ts) - Core git utilities
-- [sync.ts](packages/tbd/src/cli/commands/sync.ts) - Sync command implementation
+- [tbd-design.md §3.3](../../../../packages/tbd/docs/tbd-design.md) - Current sync
+  operations
+- [tbd-design.md §3.4](../../../../packages/tbd/docs/tbd-design.md) - Conflict detection
+  and resolution
+- [git.ts](../../../../packages/tbd/src/file/git.ts) - Core git utilities
+- [sync.ts](../../../../packages/tbd/src/cli/commands/sync.ts) - Sync command
+  implementation
 
 ## Summary of Task
 
@@ -67,6 +93,13 @@ Implement two related features:
 ### 1.1 Feature Requirements
 
 #### Agent Registration
+
+The command names, `ag-{slug}-{ulid}` shape, and `.tbd/agent.yml` below are the original
+proposal, not current interfaces.
+Refresh them against the shipped `agid-{ulid}` checkout identity and separate display
+name before implementation.
+Define the transaction/session lifetime explicitly: two live sessions may share the
+current checkout identity, so it cannot by itself scope isolated tentative work.
 
 **Commands:**
 ```bash
@@ -291,8 +324,22 @@ base_commit: abc123...  # tbd-sync commit when tx started
 
 ### 2.4 Transaction Worktree Strategy
 
+**Refresh required before implementation.** The single-worktree branch switch below
+predates the shared data worktree at `$GIT_COMMON_DIR/tbd/data-sync-worktree/` and the
+common-dir lock used by linked checkouts.
+Specify what another local session may read or write during a transaction, how local
+observers avoid seeing tentative batches, and how abort/crash recovery preserves other
+writers’ work.
+A Git commit provides a snapshot boundary to Git readers; it does not make
+a sequence of filesystem replacements atomically visible to arbitrary readers.
+
+The original scope permits only one local transaction and excludes remote transaction
+coordination. Preserve that boundary unless a later design explicitly expands it.
+The following mechanism remains a candidate, not a current safety guarantee.
+
 **Approach: Single worktree, switch branches**
-- One worktree at `.tbd/data-sync-worktree/`
+- One shared data worktree; its current location is
+  `$GIT_COMMON_DIR/tbd/data-sync-worktree/`
 - On `tx begin`, checkout tx branch in worktree
 - On `tx commit/abort`, checkout tbd-sync back
 - Only one transaction active at a time (enforced)
@@ -305,8 +352,8 @@ base_commit: abc123...  # tbd-sync commit when tx started
 
 **Trade-off:** During a transaction, viewing “original” tbd-sync state requires
 `git show tbd-sync:path` rather than file reads.
-This is acceptable since it’s a rare need - agents typically want to see their pending
-changes.
+Whether this is acceptable must be resolved for all linked sessions and local observers,
+not just the agent that began the transaction.
 
 ### 2.5 Implementation Location
 
@@ -834,7 +881,12 @@ journal-based transactions with append-only event logs, enabling:
 
 ## References
 
-- [tbd-design.md](docs/tbd-design.md) - Current design specification
+- [tbd-design.md](../../../../packages/tbd/docs/tbd-design.md) - Current design
+  specification
 - [Git worktree documentation](https://git-scm.com/docs/git-worktree)
 - [Event sourcing patterns](https://martinfowler.com/eaaDev/EventSourcing.html) - Future
   enhancement reference
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

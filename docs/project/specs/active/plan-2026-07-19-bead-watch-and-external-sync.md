@@ -5,15 +5,34 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Feature: Bead Watch Infrastructure and External Sync Layering
 
-**Date:** 2026-07-19 (last updated 2026-08-09)
+**Date:** 2026-07-19 (last updated 2026-09-06)
 
 **Author:** Joshua Levy
 
-**Status:** Phase 1 (watch infrastructure) is implemented and release-smoke validated on
-PR #205, pending merge.
-Packed-artifact and credentialed-remote release QA is tracked by tbd-t750 and does not
-gate the PR merge. External sync architecture is fixed in the Integration Layer section;
-per-provider designs remain separate (tbd-vm5s).
+**Status (2026-09-06):** Watch infrastructure is delivered.
+The old Linear pilot was superseded by PR #206 and the
+[External Tracker Integrations plan](plan-2026-08-10-external-tracker-integrations.md).
+The tbd-t750 release campaign closed as superseded by later releases; its closure does
+not establish that every manual check ran.
+The validation records below retain their original results and unchecked evidence.
+Generic extensions CLI work remains open as tbd-z95g under the tracker plan.
+These three watch documents retain their current paths as the delivered design and
+historical validation records, with unfinished work assigned to the successors above.
+
+**Current contract qualification:** Watch compares endpoint snapshots and observes Git
+tip movement; it is not a durable message ledger and does not emit an initial backlog.
+PR #264 added clock-dependent `deferred_until` readiness.
+Both change snapshots use one comparison clock, so identical inputs at a fixed clock
+retain deterministic output, but readiness can differ at a later time.
+An unchanged remote tip does not cause a watch expiry notification; a fresh board query
+recomputes readiness without an expiry-triggered refresh.
+Workers therefore need startup and periodic readiness reconciliation as well as change
+wakes. The historical demonstrations did not test this later behavior.
+See the
+[September coordination research](../../research/current/research-2026-09-06-bead-agent-coordination.md)
+for current guarantees, comment defects, and follow-up owners, and the
+[reusable watch QA playbook](../../../../tests/qa/watch-infrastructure-release.qa.md)
+for new release or runner validation.
 
 ## Overview
 
@@ -80,11 +99,12 @@ reaction time.
 - Agents on every major platform already run “watch a GitHub issue, wake on change”
   loops; giving beads the same affordance makes the graph usable as a cross-agent
   message bus (agent A writes to a bead, agent B wakes).
-- Merge semantics constrain who may write what: `extensions` merges whole-object LWW and
-  `notes` is LWW-with-attic, so concurrent writers can shed a version to the attic.
-  Safe high-frequency writes therefore come from either a single-writer integration or a
-  conflict-free `comments` model (union-by-id), which remains a future option (see Open
-  Questions).
+- Merge semantics constrain who may write what: `notes` is replacement state with
+  LWW-with-attic conflict handling.
+  Namespace-aware `extensions` merging and embedded provider comment arrays with append
+  union have shipped. September probes found comment identity-alias, divergent-content,
+  retry, and recovery gaps; append union is not a complete conflict-free conversation
+  contract (see the status addendum and Open Questions).
 - Upstream beads (`bd`) ships a hardened, polled Linear bridge whose invariants are the
   relevant prior art: external-ref bindings (never title matching), fail-closed state
   maps, idempotency markers, field-narrowed comparison, scoped creation, and a single
@@ -339,6 +359,9 @@ Detailed provider designs are separate specs, written and revised against these 
 > relevant config schemas passthrough.
 > It supersedes this constraint for the promoted implementation; the bead-side
 > `extensions` rule remains in force.
+> As of 2026-09-06, f08 also preserves unknown top-level issue fields; the strip-mode
+> explanation below is historical, not a claim about all current schema objects.
+> Nested compatibility still requires inspection.
 
 2. **Integration experiments cannot touch `IssueSchema`, `ConfigSchema`, or
    `tbd_format`.** Both schemas parse in Zod strip mode, so an older CLI silently
@@ -350,13 +373,15 @@ Detailed provider designs are separate specs, written and revised against these 
    (watermarks, base snapshots, content hashes) in their own files, never in
    `.tbd/config.yml`.
 
-3. **Core grows only small, generic enablers, each justified on its own.** Currently
-   tracked:
+3. **Core grows only small, generic enablers, each justified on its own.** The original
+   enablers and their current dispositions are:
    - `extensions` merge fix: whole-object LWW → `deep_merge_by_key` per design doc §3.5,
      so concurrent writers to different namespaces cannot drop each other (tbd-le2l). A
-     bug fix against the written design, wanted with or without integrations.
+     bug fix against the written design, delivered; provider comment append union also
+     shipped, with the September defects qualified above.
    - Generic `extensions` read/write/display on the CLI, so integrations and third-party
-     tools can bind metadata with no schema change (tbd-z95g).
+     tools can bind metadata with no schema change (tbd-z95g, still open under the
+     external-tracker plan).
    - Only if attribution proves necessary in practice: an actor convention (extensions-
      or label-based) before any schema field.
 
@@ -428,10 +453,11 @@ split between error classes and change commands.
   remote observation) and §4.14 (change and watch commands); README and `development.md`
   point at both; the `watch-beads` shortcut keeps the recipes and platform notes instead
   of restating the contract.
-- [ ] Release-candidate manual QA (`tbd-t750`): exact-tag artifact rerun, credentialed
-  real remote, existing-workflow coexistence, network interruption, intended runner
-  permissions/idempotency, and representative platform shells.
-  This is a release promotion gate, not a PR or Linear gate.
+- Release-candidate manual QA (`tbd-t750`): closed as superseded by later releases.
+  This disposition does not mark the original exact-tag, real-remote, coexistence,
+  interruption, runner, or platform checks as passed.
+  Their unchecked evidence remains in the release validation record; new campaigns use
+  the reusable QA playbook.
 
 Validation records and platform limits: `valid-2026-07-19-bead-watch-phase-1.md`,
 `valid-2026-08-09-bead-watch-release.md`, and
@@ -443,12 +469,14 @@ None of these is a merge prerequisite for Phase 1. This branch’s versioned cha
 report, dynamic selections, and durable worker recipe are sufficient to run disposable
 Linear experiments end to end while provider bindings and state remain outside core.
 
-- [ ] `extensions` merge: `lww` → `deep_merge_by_key` per design doc §3.5 (tbd-le2l)
-- [ ] Generic `extensions` read/write/display on the CLI (tbd-z95g)
-- [ ] Rework the Linear pilot design to conform to the Integration Layer rules
-  (tbd-vm5s, blocking tbd-g305). The old implementation phases are deferred; their
-  detailed design on PR #197 is reference material, not current implementation
-  authority.
+- [x] Namespace-aware `extensions` merge (tbd-le2l): delivered.
+  Embedded provider comment append union also shipped; the September research records
+  its remaining correctness defects separately.
+- Generic `extensions` read/write/display on the CLI (tbd-z95g): still open, transferred
+  to the [external-tracker plan](plan-2026-08-10-external-tracker-integrations.md).
+- Linear pilot redesign (tbd-vm5s and tbd-g305): closed as superseded by the
+  external-tracker plan and PR #206, not delivered according to the old pilot design.
+  PR #197 remains historical reference material.
 
 ## Testing Strategy
 
@@ -466,13 +494,15 @@ idempotency, platform shells, operator output, cleanup, and evidence capture.
 
 ## Open Questions
 
-- Whether a conflict-free `comments` model (union-by-id) is needed before integrations
-  write high-frequency inbound events.
-  Until then, notes remain replaceable single-writer state; child beads or an external
-  comment system carry durable multi-writer events.
-- Where a proven integration module ultimately lives: a sibling package (keeps provider
-  SDK dependencies out of the base install) versus an isolated module in this repo.
-  Decided per provider at promotion time, not before.
+- Embedded provider comments now use append union.
+  Whether independent native comment documents should become the conversation store
+  remains a research question, with no storage design selected.
+  The September research tracks alias/content conflicts, independent-replica retry
+  duplication, and recovery preservation separately from the delivered merge feature.
+  Notes remain replacement state.
+- The original module-location question was resolved for the shipped Linear bridge:
+  provider-neutral core and Linear adapter modules live under
+  `packages/tbd/src/integrations/`. Further providers remain owned by the tracker plan.
 
 ## Addendum (2026-08-06): Extracted as the Watch-Infrastructure Plan of Record
 
@@ -532,3 +562,7 @@ Linear experimentation remains explicitly non-gating.
 - [beads Integration Charter](https://github.com/gastownhall/beads/blob/main/docs/INTEGRATION_CHARTER.md)
   and [beads#2829](https://github.com/gastownhall/beads/issues/2829) (the
   coordination/execution split)
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

@@ -1,5 +1,29 @@
 # Feature Validation: Bead Watch Phase 1
 
+## Status as of 2026-09-06
+
+Watch infrastructure is delivered.
+This record retains its original runtime versions, results, and limits.
+The old Linear pilot was superseded by PR #206 and the
+[external-tracker plan](plan-2026-08-10-external-tracker-integrations.md).
+The tbd-t750 release campaign closed as superseded by later releases; closure is not
+evidence that unchecked manual validation passed.
+New release and runner checks use the
+[reusable watch QA playbook](../../../../tests/qa/watch-infrastructure-release.qa.md).
+This document remains at its current path as historical validation evidence.
+
+The
+[September coordination research](../../research/current/research-2026-09-06-bead-agent-coordination.md)
+qualifies the older scenarios: serialized notes handoff does not prove concurrent
+comment preservation, leases, or independent-storage recovery.
+Namespace-aware extensions and embedded provider comment append union have since
+shipped, with comment correctness defects tracked in that research.
+PR #264 also made readiness depend on `deferred_until` and the comparison clock.
+Stable output ordering remains, but elapsed time can change readiness; unchanged Git
+tips do not wake remote watch on expiry, and fresh board queries recompute readiness
+without an expiry-triggered refresh.
+None of the historical results below is evidence of those later behaviors.
+
 ## Purpose
 
 Record the senior engineering review, automated validation, and live Claude Code and
@@ -335,3 +359,7 @@ in `valid-2026-08-09-bead-watch-release.md` and
 
 Linear/provider experiments remain separately tracked and are not a merge or release
 dependency for this infrastructure PR.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

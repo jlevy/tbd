@@ -9,7 +9,14 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Draft
+**Status:** Draft; unimplemented, with a schema and compatibility gate in `tbd-i0de`
+(reviewed 2026-09-06). All twelve session-ref implementation beads remain open.
+
+**Current review:**
+[Bead Agent Coordination](../../research/current/research-2026-09-06-bead-agent-coordination.md)
+adds findings about checkout identity, ownership, and observation boundaries.
+It does not replace this plan’s session reporting, freshness, or optional adapter scope,
+and it selects no comment-storage or dispatch design.
 
 **Research:**
 [research-2026-08-19-agent-runtimes-and-session-linkage.md](../../research/current/research-2026-08-19-agent-runtimes-and-session-linkage.md)
@@ -61,8 +68,11 @@ the runtime business.
 - **Driving agents.** This is reporting, not dispatch.
   Starting work from a tracker is the inbound problem covered by
   [plan-2026-08-14-external-sync-and-traceability.md](plan-2026-08-14-external-sync-and-traceability.md).
-- **Changing agent identity.** `resolveAgentIdentity` is the source of `actor` and is
-  unchanged.
+- **Replacing agent identity.** `resolveAgentIdentity` remains the source of the display
+  `actor`; it must not be used as a unique session key.
+  The September review reproduces Claude and Codex environment probes resolving the same
+  stored checkout identity; it did not run two live agents.
+  Session-id detection or minting below must distinguish invocations independently.
 
 ## Background
 
@@ -73,9 +83,10 @@ The audit in
 
 Phase 2 of the traceability spec fixed the local half by shipping `tbd start`,
 `tbd whoami`, and agent identity.
-The projection half is still open (`tbd-o6o6`, `tbd-9j5a`, `tbd-klgh`), and even when it
-lands it answers “who claimed this” rather than “is that still running, and where can I
-watch it”.
+The managed-block and attention-selection work remains open (`tbd-o6o6`, `tbd-9j5a`).
+Human assignment setup `tbd-klgh` is closed: directory bindings superseded the need to
+populate `user_map`, with live assignment verified in `tbd-uqaw`. Those features answer
+“who claimed this”; session refs add “is that still running, and where can I watch it”.
 
 One external check is worth stating before the design, because it is the closest thing
 to independent validation this spec has.
@@ -125,8 +136,8 @@ renders `stale`. That is the honest answer for a machine that cannot observe the
 
 ### The ref shape
 
-`refs` already exists on beads from `f08` with `union_by_key` merge semantics.
-A session is one more kind:
+`refs` already exists on beads from `f08`, currently with URL-keyed union semantics.
+The following session shape is proposed and requires the compatibility gate below:
 
 ```yaml
 refs:
@@ -214,18 +225,34 @@ New surface, all additive:
 - `tbd sessions` lists known sessions with status and age.
   `--json` for scripting.
 - `tbd sessions refresh [<id>]` polls adapters and updates local state.
-- `tbd prime` reports live sessions alongside claimed work, closing bead `tbd-zhel`.
+- `tbd prime` reports live sessions alongside claimed work, extending the broader
+  claimed-work and freshness contract tracked by `tbd-zhel`.
 
-No format bump. `refs` was designed for this in `f08`, which is the point of having done
-the schema work once.
+**Schema and compatibility gate (`tbd-i0de`).** The proposed ref is not already
+supported by the f08 schema.
+Current `IssueRef` requires `url`, preserves only `kind`, `url`, `title`, and `at`, and
+is not a passthrough object; `file/git.ts` merges refs by URL. An older reader can
+reject a URL-less local ref or strip its provider, id, actor, and start time even though
+the outer issue preserves unknown fields.
+
+Before implementation, choose the session entry’s stable identity and merge key, specify
+handling of two refs with the same identity but divergent content, and prove old-client
+read/write preservation or define the required format/migration boundary.
+A provider/session-id key and an optional URL are requirements to evaluate, not an
+already compatible extension.
+Tests must include local refs without URLs and two sessions whose link is absent or
+shared. Whether a format bump is needed remains open until those checks pass.
 
 ## Implementation Plan
 
 ### Phase 1: The ref, the local case, and the renderers
 
-Everything here is offline and needs no adapter, no network, and no runtime decision.
+Local ref creation, local status, and renderer tests need no network or runtime adapter.
+Publishing a rendered session line to Linear still requires a linked item, enabled
+integration policy, credentials, and a successful sync.
 
-- [ ] Add the `session` ref kind to the schema, with tests for `union_by_key` merge
+- [ ] Resolve the schema, stable merge identity, and old-client compatibility gate
+  (`tbd-i0de`), then add session refs with the corresponding merge tests
 - [ ] `tbd start` writes a `local` session ref: harness session id where detectable, a
   minted id where not, plus actor and `started_at`
 - [ ] Session status map in `.tbd/state.yml`, with the derived `stale` rule
@@ -234,8 +261,9 @@ Everything here is offline and needs no adapter, no network, and no runtime deci
 - [ ] Render the session row in `tbd web`
 - [ ] `tbd prime` reports live sessions (`tbd-zhel`)
 
-Phase 1 is shippable and useful on its own: a human watching Linear sees “running, 4m
-ago, claude-code@spud10” where today they see nothing.
+Phase 1 is useful locally without a provider.
+After a configured Linear sync, its managed block can show “running, 4m ago,
+claude-code@spud10”; offline creation alone does not update Linear.
 
 ### Phase 2: Adapters and the round trip
 
@@ -262,7 +290,9 @@ and none is on the default path.
 
 ## Testing Strategy
 
-- **Unit:** ref merge semantics under `union_by_key` including the two-agent case; the
+- **Compatibility:** URL-less local refs, nested-field preservation by older readers,
+  stable identity across URL changes, and same-ID divergent-content handling.
+- **Unit:** ref merge semantics under the chosen key including the two-agent case; the
   `stale` derivation at threshold boundaries; each adapter’s status mapping into the tbd
   vocabulary, driven by recorded provider payloads.
 - **Golden:** managed block and `tbd web` rendering with a session present, absent, and
@@ -276,8 +306,10 @@ and none is on the default path.
 
 ## Rollout Plan
 
-Phase 1 ships behind no flag: it writes a ref that is inert if nothing reads it, and the
-renderers degrade to today’s output when no session is present.
+Phase 1’s intended rollout is automatic local ref creation and renderers that degrade to
+today’s output when no session is present.
+That rollout depends on `tbd-i0de` establishing a compatible representation or an
+explicit format/migration boundary; new refs are not assumed inert to older writers.
 
 Adapters ship disabled.
 Each is opt-in through integration config, consistent with the existing

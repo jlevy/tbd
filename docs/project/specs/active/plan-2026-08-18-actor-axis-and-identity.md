@@ -9,7 +9,18 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Draft
+**Status:** Core delivered; residual identity UX unimplemented (reviewed 2026-09-06).
+Core epic `tbd-ncux` and its implementation phases are closed.
+`tbd-p0fe` owns the remaining binding prompts, setup migration, actor diagnostics, and
+acceptance-evidence reconciliation below; it does not reopen the core.
+The closed state-provisioning bead `tbd-qdj4` does not cover these identity UX items.
+
+**Current review:**
+[Bead Agent Coordination](../../research/current/research-2026-09-06-bead-agent-coordination.md)
+adds evidence about checkout identity, claims, and comment/coordination alternatives.
+It does not select a replacement for this plan.
+[Agent Session Refs and Runtimes](plan-2026-08-19-agent-session-refs-and-runtimes.md)
+owns session linkage and freshness separately.
 
 **Design discussion:** [#246](https://github.com/jlevy/tbd/issues/246) — the provider
 comparison and the measured evidence are argued there and are not re-argued here.
@@ -28,21 +39,20 @@ It does not restate the state design.
 
 ## Overview
 
-tbd has one actor field, `assignee: z.string()`. Linear has two — `assignee`
-(accountable) and `delegate` (acting) — and its entire agent platform hangs off the
-second. The collapse is silent, and in an agent-driven repository it makes the field
-unusable in either direction.
+tbd records the accountable human in `assignee` and the acting agent in `delegate`.
+`tbd start` writes the delegate while preserving the assignee.
+These axes also match Linear’s distinction between human assignment and agent
+delegation.
 
-This adds `delegate` beside `assignee` and replaces identity *configuration* with
-identity *resolution*:
+The delivered core resolves identity through two namespaces:
 
 - **Humans** resolve against the tracker’s own member directory and bind by provider
   user id, one binding per provider since a Linear UUID and a GitHub login are different
   identifiers. Adding a person to the team requires no tbd config change.
 - **Agents** carry the identity tbd already mints (`agid-{ulid}` plus a friendly name,
-  from `tbd start` / `tbd whoami`). Agents come and go per session; nothing about them
-  is registered anywhere, and they reach a shared tracker only through one explicit,
-  narrow binding for installed Linear agents.
+  from `tbd start` / `tbd whoami`). Current identity persists per checkout, so distinct
+  live sessions can share it; `delegate` stores the friendly name, not the `agid`.
+  Agents reach Linear only through an explicit mapping to an installed agent app user.
 
 Nobody maintains an alias table, and identities that must stay local stay local by
 construction.
@@ -50,7 +60,7 @@ construction.
 ## Goals
 
 - Record that a human is accountable while an agent executes, which is the normal case
-  in an agent-driven repository and is currently inexpressible.
+  in an agent-driven repository.
 - Keep agent identities out of a shared tracker **by construction**, not by remembering
   to omit them from a config table.
 - Add a person without touching config: resolve against the workspace directory, bind by
@@ -65,10 +75,12 @@ construction.
 
 ## Non-Goals
 
-- **Agent presence.** Which session is touching a bead right now is a TTL lease in a
-  database, not a bead field: heartbeat cadence is seconds, `extensions` merges as
-  whole-object last-writer-wins, and sync-branch commits are the wrong granularity.
-  `delegate` is the durable, low-frequency fact of who a unit of work is assigned to.
+- **Agent presence.** `delegate` is the durable, low-frequency assignment fact.
+  Session liveness, freshness, and any ownership lease remain separate work.
+  The session-ref plan proposes local volatile status; the coordination review leaves
+  ownership authority and delivery storage open.
+  Current extension namespaces merge by key, so the original whole-object LWW rationale
+  does not describe today’s merge behavior.
 - **Registering tbd as a Linear agent** (agent sessions, ACKs, typed activity streams).
   Setting `delegateId` is a plain field write that happens to create an AgentSession on
   Linear’s side; nothing here requires tbd to become an agent.
@@ -90,9 +102,9 @@ not expressible at all.
 tbd already mints agent identity, and the design below reuses it rather than inventing a
 parallel one:
 
-- `tbd whoami --ensure-id` mints `agid-{ulid}` once per working directory at session
-  start and stores it in machine-local state (`.tbd/state.yml`, gitignored — a committed
-  value would be wrong for every other checkout).
+- `tbd whoami --ensure-id` mints `agid-{ulid}` once per working directory when needed
+  and stores it in machine-local state (`.tbd/state.yml`, gitignored — a committed value
+  would be wrong for every other checkout).
 - A friendly name is joined onto the id, never concatenated into it; renaming an agent
   does not change who it is.
 - Resolution is total and layered: `--as` beats `$TBD_AGENT` beats session state beats
@@ -103,14 +115,18 @@ parallel one:
   one file per identity — not a flat union-merged map, whose duplicate-key hazard §5.4
   of that document records.
 
-One piece of that work is interim wiring this spec replaces: `tbd start` currently
-claims a bead by writing the agent name into `assignee` (`start.ts:142`), because
-`assignee` was the only actor field there was.
-That is precisely the overload this axis removes — the claim belongs on the acting axis.
+The delivered claim path writes the agent name into `delegate` and preserves the human
+`assignee`. Its collision checks compare delegate names; they do not provide exclusive
+ownership across independent clones.
+The September review records those limits separately from this actor model.
 
 ### The gates, and the observability gap
 
-One config gate holds `assignee` shut today, and it is subtler than it looks.
+The following records the original rollout diagnosis that motivated the implementation.
+Directory resolution and field-level skip reporting have since shipped; these source
+line references and the non-empty-`user_map` requirement describe the earlier code.
+
+One config gate held `assignee` shut, and it was subtler than it looked.
 The reconcile engine marks assignee `canPush: capabilities.assignee ?? false`, and the
 Linear adapter grants that capability only when `user_map` is non-empty and holds the
 alias (`linear/adapter.ts:198`). An unpushable assignee lands in the report’s
@@ -169,14 +185,13 @@ Resolution then runs the same ladder for every provider, first match wins:
 2. **Exact email match** against the directory, case-insensitively, where the provider
    exposes emails.
 3. **Exact login or display-name match**, case-insensitively.
-4. **Ambiguous or unknown — ask.** Interactively, show the candidates, let the user
-   choose, and persist the answer as a binding so it is asked once.
-   Non-interactively, skip the field, report it, and never guess — the same posture as
-   the sibling’s state resolver and the bulk guard.
+4. **Ambiguous or unknown — report and skip.** The shipped resolver never guesses.
+   Interactive candidate selection and persistence remain planned under `tbd-p0fe`; the
+   state resolver’s interactive prompt does not implement the actor prompt.
 
 Bindings are recorded by **provider user id**, so a display-name change, a login change,
-or an email change does not orphan the handle; `tbd doctor` reports drift between a
-binding and the live directory.
+or an email change does not orphan the handle.
+The proposed `tbd doctor` actor table and drift diagnostics remain unimplemented.
 This is the same resolve-by-name, bind-by-id pattern the sibling uses for workflow
 states.
 
@@ -185,18 +200,21 @@ provider’s bridge state, `bridge/<provider>/users/<provider-user-id>.yml`, hol
 provider user id, the tbd handle, and the display name at bind time — and no email by
 default. Bridge state already travels on the sync branch per provider, and
 one-file-per-identity sidesteps the union-merge duplicate-key hazard the identity
-research documents. Bindings are written only at an interactive confirmation or during
-setup, never silently during sync.
+research documents. Integration runs persist new unambiguous directory resolutions
+without an interactive prompt (`primeAdapterActors()` in
+`packages/tbd/src/cli/lib/integration-runner.ts`). The original setup-only binding rule
+was not the shipped behavior.
+Ambiguous or unknown matches do not create guessed bindings.
 
 **Inbound**, an assignee arrives as a provider user id.
-A known id maps through its binding; an unknown one is offered as a new binding
-interactively, and otherwise reported and left unsynced — today’s behavior, now with the
-report naming the user rather than skipping silently.
+A known id maps through its binding.
+Offering an unknown id as a new binding interactively, with useful reporting otherwise,
+remains a Phase 2 requirement under `tbd-p0fe`.
 
 **`user_map` stays as an override.** The existing `alias: email-or-uuid` form keeps
 parsing unchanged and wins over directory resolution where present, so no existing
-config breaks. `tbd integration setup` offers to convert entries into binding records,
-after which the map can be deleted.
+config breaks. Offering to convert these entries into binding records during
+`tbd integration setup` remains unimplemented; existing maps need not be removed.
 It stops being the mechanism; adding a person to the workspace needs no tbd change at
 all.
 
@@ -363,18 +381,25 @@ resolver-and-ask machinery; each phase is useful without the ones after it.
 ### Phase 2: Human identity binding
 
 - [x] Add `listMembers()` to the adapter interface; implement it for Linear
-- [x] Directory resolution ladder (binding, email, login or display name, ask), written
-  once against the adapter interface rather than inside the Linear adapter
+- [x] Directory resolution ladder (binding, email, login or display name), written once
+  against the adapter interface rather than inside the Linear adapter
+- [ ] Interactive selection for ambiguous or unknown handles (`tbd-p0fe`)
 - [x] Persist bindings by provider user id under `bridge/<provider>/users/`; never guess
   non-interactively
 - [ ] Inbound unknown assignee offers a binding interactively; reports otherwise
-- [x] `user_map` honored as an override; setup migrates entries to binding records
+- [x] `user_map` honored as an override
+- [ ] Setup migrates entries to binding records (`tbd-p0fe`)
 - [ ] `tbd doctor` prints the resolved actor table (handle, provider, user id, display
   name, bound-or-stale) offline, flags directory drift, and flags handles with no
   binding in any configured provider
-- [x] Tests: each ladder step; rename survival via id binding; ambiguity refuses
-  non-interactively; migration from `user_map`; a handle bound in one provider and not
-  another pushes to the first and reports a skip on the second
+- [x] Tests: non-interactive ladder steps, rename survival via id binding, and refusal
+  of ambiguous matches
+- [ ] Tests: setup migration from `user_map`; explicit acceptance audit for one handle
+  bound in one provider and not another, including the skip report
+
+`tbd-l529`’s close reason explicitly left the interactive prompt, setup migration, and
+actor doctor table unimplemented.
+The checked resolver coverage is not evidence that those workflows shipped.
 
 ### Phase 3: Publishing delegates
 
@@ -391,15 +416,19 @@ Shares the sibling’s Phase 5 gate rather than running a separate pass, because
 axes are only interesting together: a board that shows a human accountable and an agent
 acting is the thing being proven, and neither spec can show it alone.
 
-- [ ] Assign this work’s own epics to the accountable human by handle, resolved through
-  the workspace directory with **no `user_map` entry**, and confirm the binding is
-  written by provider user id and survives a display-name change.
+- [x] Resolve an accountable human by handle with **no `user_map` entry**, persist a
+  binding by provider user id, and verify a settled repeated push (`tbd-uqaw`)
+- [ ] Exercise a live display-name change and verify the same binding still works
 - [ ] Claim real beads with `tbd start` and confirm the agent lands in `delegate` while
   `assignee` stays the human, on both sides of the sync.
 - [ ] Confirm an agent identity never reaches Linear: no binding, a reported skip, and
   the workspace shows no agent as an assignee.
-- [ ] Migrate the beads this repository already claimed under the interim wiring, and
-  confirm doctor reports zero agent-shaped assignees afterward.
+- [x] Migrate the beads this repository already claimed under the interim wiring, and
+  confirm doctor reports zero agent-shaped assignees afterward (`tbd-wvsp`)
+
+The closed dogfood notes establish the checks named above.
+They do not establish every remaining combined end-to-end condition, such as a live
+mapped-app delegate round trip; those checks remain open pending evidence.
 
 ## Testing Strategy
 
@@ -423,7 +452,8 @@ Phase 1 is inert until a repository writes a `delegate`, and `tbd start`’s cha
 the claim on a field no sync path publishes by default.
 Opening `assignee` to Linear still requires the existing flow-rule gate, so no workspace
 starts receiving actor writes because of an upgrade.
-Phase 2 writes bindings only at interactive confirmation or setup.
+Phase 2 persists unambiguous directory bindings during integration runs.
+Interactive binding and setup migration remain residual work.
 Phase 3 publishes only names listed in `agent_map`.
 
 ## Open Questions
@@ -480,7 +510,7 @@ Settled:
 - [research-2026-08-14-agent-and-session-identity.md](../../research/current/research-2026-08-14-agent-and-session-identity.md)
   — agent id format, roster records, and the flat-map hazard
 - `packages/tbd/src/lib/agent-identity.ts`, `packages/tbd/src/cli/commands/start.ts` —
-  the shipped identity machinery and the interim claim wiring
+  the shipped identity machinery and delegate claim path
 - `packages/tbd/src/integrations/linear/adapter.ts`,
   `packages/tbd/src/integrations/core/reconcile.ts` — the gates and the skip reporting
 - Linear docs: [Assign and delegate issues](https://linear.app/docs/assigning-issues),

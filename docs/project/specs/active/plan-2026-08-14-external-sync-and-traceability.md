@@ -5,17 +5,18 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Feature: External Sync and Traceability
 
-**Date:** 2026-08-14 (last updated 2026-08-14)
+**Date:** 2026-08-14 (reconciled 2026-09-06)
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Status:** **Phase 2 complete; Phase 1 substantially complete.** `f08` is implemented
 end to end — bead schema passthrough, `docs`/`refs` with `union_by_key`, the integration
 config regroup, and the migration — along with `tbd start`, `tbd whoami`, and agent
-identity. The cut is planned in
+identity. The shipped release is documented in
 [plan-2026-08-15-f08-release-rollout.md](./plan-2026-08-15-f08-release-rollout.md).
-Phases 3 and 4 are additive to `f08` and need no further format work, which was the
-point of doing the schema bump once.
+Phases 3 and 4 retain open work.
+Each schema extension still needs compatibility and merge review; issue-level
+passthrough does not cover every nested record.
 Earlier: the five items needing no product decision shipped in
 [#227](https://github.com/jlevy/tbd/pull/227) (quiet-sync write guard, `--no-verify`
 push, surface honesty, docs reframing).
@@ -28,6 +29,18 @@ shippable on its own.
 designed there. This spec sequences that work; it does not re-argue it.
 
 **Tracked as:** epic `tbd-dzme`.
+
+**Current scope:** This plan still governs sync cost, traceability, inbound selection,
+and completion hooks.
+The
+[September coordination research](../../research/current/research-2026-09-06-bead-agent-coordination.md)
+adds source-backed watch, ownership, recovery, and comment-delivery findings; it does
+not replace these phases.
+The overview and measurements below describe the August 14 baseline, not today’s
+missing-feature inventory.
+Use the checked implementation items and their beads for delivered work.
+Current configuration is documented in the
+[Linear integration reference](../../../../packages/tbd/docs/references/linear-integration-design.md).
 
 ## Overview
 
@@ -59,8 +72,8 @@ The phases follow that order because each unblocks the next.
   to do should be about two provider requests, zero writes, zero commits, and no push.
 - **Make the tracker surface honest**: every `tbd sync` invocation either includes the
   tracker or says that it did not.
-- **Give beads durable room for external metadata**, in a way that a future addition
-  never needs another format bump.
+- **Give beads durable room for external metadata**, preserving unknown fields where
+  parsing and merge semantics explicitly support them.
 - **Support one governing doc plus any number of supporting docs** on a bead, and any
   number of external references (GitHub issues, PRs, dashboards).
 - **Make a Linear issue a complete entry point**: status, who is working, the docs, the
@@ -75,17 +88,20 @@ The phases follow that order because each unblocks the next.
   in scope; bidirectional convergence between beads and GitHub issues is a separate
   decision (see [§Where GitHub fits](#where-github-fits)).
 - **No background sync daemon.** Once a quiet sync is nearly free, calling it inline on
-  transitions is simpler than owning a process lifecycle, and it preserves the
-  git-serialized single-writer property that makes concurrent agents safe.
-- **No new presence namespace on beads.** `status` and `assignee` already carry claim
-  and actor, and they work precisely because they are single-writer.
+  transitions avoids owning a process lifecycle.
+  The shared-repository lock serializes cooperating local writers; it does not serialize
+  independent clones or fence remote effects.
+  Optional future wake adapters are a separate coordination decision.
+- **No new presence namespace on beads.** `status` and `delegate` carry cooperative
+  claim state; `assignee` records human accountability.
+  Eventual merge convergence does not provide exclusive ownership across clones.
 - **No webhook receiver.** Polling remains the reconciliation path.
 - **No hosted service** and no Linear `actor=app` agent identity.
 
 ## Background
 
 The full argument is in the research brief.
-The load-bearing measurements, restated so this spec stands alone:
+These historical August 14 measurements motivated the plan:
 
 | Measurement | Value |
 | --- | --- |
@@ -211,9 +227,12 @@ that this is a naming problem rather than a discipline problem: claiming appears
 exactly one table row of one doc tier, the closing protocol appears in all four surfaces
 and is obeyed, and zero of 1,681 beads have ever carried an assignee.
 
-Agent identity resolves in order — `--as <name>`, `$TBD_AGENT`, then a derived
-`<agent-kind>@<host>` — and stays non-person-identifying by default, consistent with the
-existing `user_map` stance.
+The original proposal resolved identity from `--as`, `$TBD_AGENT`, then a derived name.
+Current identity also has persisted checkout state; see the
+[actor plan](plan-2026-08-18-actor-axis-and-identity.md) for the shipped contract.
+The September review found that simultaneous harness sessions can share that checkout
+identity (`tbd-6nmq`). An explicit distinct name is needed for each cooperative worker
+today; a display name alone is not a distributed ownership credential.
 
 ### Phase 2 design: bead schema and format `f08`
 
@@ -245,8 +264,10 @@ Three layers must change, not one:
 
 `f08` should do for beads what `f07` did for config: **make the schema preserve unknown
 keys, and bump the format so that pre-`f08` clients fail closed instead of silently
-deleting metadata they do not understand.** After `f08`, an additive bead field never
-needs another bump.
+deleting metadata they do not understand.** Additive fields at verified passthrough
+paths may avoid another bump.
+Nested schemas, merge identity, new file types, and old-client round trips still require
+explicit review.
 
 The migration is **metadata-only** — a stamp, like `f05` and `f07`. No issue file is
 rewritten, so the upgrade is abortable by restoring `.tbd/config.yml` and deleting
@@ -318,16 +339,16 @@ bump, not two (moves inside the block are format-gated by the same rule that gat
 
 ```yaml
 integrations:
-  sync_on_tbd_sync: true
+  on_tbd_sync: auto
   linear:
     enabled: true
     target: { team_key: TBD, project: tbd } # WHERE
     policy: default # WHAT (absorbs max_nesting into policy.outbound)
     labels: # HOW marked
       origin: true # plain `tbd` label — default ON in every mode
-      repo: auto # `repo` group label: auto (git origin) | <name> | false
-      mirror: false # was mirror_labels
-      create: true # was create_labels
+      repo: auto # flat `repo:<name>` label: auto (git origin) | <name> | false
+      mirror: none # none | prefixed | verbatim
+      create: tbd # permit creation of tbd-owned labels; none | tbd | all
     identity: { user_map: {} } # WHO
 ```
 
@@ -423,21 +444,22 @@ keep human filtering uniform, and make a Mode 1 repository consolidation-ready; 
 repository opts out via `labels.origin: false`. Mode 2 is the topology they make
 first-class, and they are also the answer to the human-clutter concern:
 
-- **Origin labels.** Every mirrored issue gets a plain `tbd` label and a per-repository
-  label in a **Linear label group** named `repo` — the platform’s native namespace
-  convention (created as `repo/<name>`; only one label from a group per issue, which
-  matches one-repo-per-bead structurally).
+- **Origin labels.** Every mirrored issue gets a plain `tbd` label and a flat
+  `repo:<name>` label by default.
+  The earlier grouped `repo/<name>` proposal was superseded because group leaf-name
+  collisions make that shape unsuitable here.
   Verified: Linear views support “is not” label negation, so `label is not tbd` hides
-  all agent traffic and the `repo` group filter selects one repository.
-  The label names the **GitHub repository**: default is the repo name from the origin
-  remote via the existing `parseRepoSlug`, the sanitized `owner-name` form on collision,
-  `display.id_prefix` when there is no remote, and `integrations.linear.repo_label` to
-  override. Applied through the status-carrier machinery that already creates and
-  attaches labels regardless of `mirror_labels`.
-- **Origin-scoped inbound.** A candidate carrying another repo’s `repo` group label is
-  skipped silently — before the per-candidate claim check, so a shared scope neither
-  reports nor pays for a sibling’s traffic.
-  Untagged (human-authored) items still flow under the inbound policy.
+  marked traffic and a `repo:<name>` label filter selects one repository.
+  The default is the sanitized repository name from the origin remote, falling back to
+  `display.id_prefix` when unavailable.
+  Set `integrations.linear.labels.repo` explicitly to distinguish collisions; there is
+  no automatic owner-name collision fallback.
+  Origin labels are applied independently of `labels.mirror`.
+- **Origin-scoped inbound, planned (`tbd-3m0j`).** Skip a candidate carrying another
+  repository’s flat `repo:<name>` label before the per-candidate claim check, so a
+  shared scope neither reports nor pays for a sibling’s traffic.
+  Untagged items should still flow under inbound policy.
+  The helper exists, but the runtime guard is not wired.
 
 **Work must be able to enter tbd from Linear, by a gesture a human already makes.**
 Three routes exist; explicit import (`sync --pull --external FIN-123`) and
@@ -555,9 +577,9 @@ projection; `tbd sync --issues` states that the tracker was excluded;
 `tbd --dry-run sync` previews tracker work; `tbd sync --status` reports tracker state.
 
 **Schema:** `IssueSchema` gains `docs` and `refs` and preserves unknown keys;
-`FIELD_STRATEGIES` gains `docs: 'union'`, `refs: 'union'`, and a default for unknown
-keys; `IntegrationSelect` gains an attention clause and its schema (with the other
-nested integration clauses) starts preserving unknown keys.
+`FIELD_STRATEGIES` gains `docs: 'union_by_key'`, `refs: 'union_by_key'`, and a default
+for unknown keys; `IntegrationSelect` gains an attention clause and its schema (with the
+other nested integration clauses) starts preserving unknown keys.
 `LinkRecordSchema` is **unchanged** — `synced_at` is retained, and only the write is
 guarded (see the Phase 1 design).
 
@@ -576,8 +598,8 @@ client), the **config** (committed, read by every client), and the **bridge reco
 | --- | --- | --- |
 | Preserve unknown keys | parse mode: strip → passthrough | **The reason `f08` exists.** Verified by probe: an older client parse-and-write **deletes** any bead field it does not know |
 | Carry unknown keys through merge | `mergeIssues` builds from `{...base}` plus the fixed `FIELD_STRATEGIES` table | A key added on only one side is dropped even once parsing preserves it — both layers must change |
-| `docs` | `{path, role?, title?}[]`, optional | Additive; `docs: 'union'` on `path` |
-| `refs` | `{kind, url, title?, at}[]`, optional | Additive; `refs: 'union'` on `url` |
+| `docs` | `{path, role?, title?}[]`, optional | Additive; `docs: 'union_by_key'` on `path` |
+| `refs` | `{kind, url, title?, at}[]`, optional | Additive; `refs: 'union_by_key'` on `url` |
 | `spec_path` | **unchanged** | Load-bearing for selection, propagation, and `list --spec` |
 
 Serialization needs no change: `sortKeys` already iterates `Object.keys(obj)` and emits
@@ -595,12 +617,14 @@ new flat siblings.
 | `select` (legacy alias) | removed | Folds into `policy.outbound`, which the runtime resolver already does |
 | `mirror_labels`, `create_labels` | `labels: {mirror, create}` | Joined by `labels.origin` and `labels.repo` |
 | *(new)* | `labels.origin: true` | The `tbd` marker. **On by default in every integration mode**, per-key customizable |
-| *(new)* | `labels.repo: auto` | `repo`-group label; `auto` derives from the git origin |
+| *(new)* | `labels.repo: auto` | Flat `repo:<name>` label; `auto` derives from the git origin |
 | `user_map` | `identity: {user_map}` |  |
 | *(new)* | `policy.inbound.when: {labels, delegate, assignee}` | Today’s `inbound.labels` folds into `when.labels` |
 | *(new)* | `policy.inbound.kind_labels`, `.consume` |  |
 
-`sync_on_tbd_sync` stays where it is: it gates the whole block, not one provider.
+`integrations.on_tbd_sync` gates the whole block, not one provider.
+Its current values are `auto`, `guarded`, `report`, and `off`; `sync_on_tbd_sync` is a
+legacy boolean alias.
 
 **`f08` must also make the *nested* integration schemas preserve unknown keys.**
 `ConfigSchema` and the provider blocks are already passthrough, but the clauses inside
@@ -638,15 +662,16 @@ bead side.
 | Managed block | Adds docs, refs, in-flight children, actor, `synced` timestamp | 3 |
 | Claim attachment URL | `tbd://bead/<displayId>` may gain repo identity — it is also the upsert idempotency key, so any change must tolerate the old form | 3 (open question) |
 | `tbd web` routes | `#<bead-id>` deep link | 3 |
-| Linear labels | `tbd` (plain) + `repo/<name>` (group); human-applied `tbd-take` stays distinct | 3 |
+| Linear labels | `tbd` (plain) + `repo:<name>` (flat); human-applied creation gestures stay distinct | 3 |
 
 ### The compatibility rule this plan follows
 
-`f08` is the **last** bead-format bump additive metadata should need.
-After it, both the bead schema and the config preserve unknown keys, so a future field
-is either a value in an existing group or a new optional one — neither of which requires
-a bump. A bump remains necessary only for what the format rules already say: destructive
-changes, renames, and semantic changes to existing fields.
+`f08` preserves unknown top-level issue metadata and selected configuration paths.
+It does not prove compatibility for every nested object.
+For example, the current `IssueRef` requires `url`, strips unknown fields, and merges by
+URL; richer session refs need a decision under `tbd-i0de`. New comment documents also
+need storage, recovery, and old-client compatibility decisions.
+Destructive changes, renames, and changed semantics continue to require format review.
 
 * * *
 
@@ -681,8 +706,7 @@ when the phase starts.
 - [ ] `tbd-c4zl` — teach the claim step in all four instruction surfaces
 - [x] `tbd-czhw` — reframe the selection-size guidance against *open* work; document the
   `max_nesting` skip — [#227](https://github.com/jlevy/tbd/pull/227)
-- [ ] `tbd-9cf9` — decide on lifting this repository’s `sync_on_tbd_sync: false`
-  override
+- [ ] `tbd-9cf9` — decide on lifting this repository’s `on_tbd_sync: off` override
 
 **Exit criteria:** a settled mirror re-synced with no changes performs ~2 provider
 requests, writes zero bytes under `bridge/<provider>/links/`, creates no commit, and
@@ -723,8 +747,8 @@ anything.
 - [ ] `tbd-kt7z` — addressable beads in `tbd web` (`F13`)
 - [ ] `tbd-9j5a` — attention-based selection; narrow the standing set to epics
 - [ ] `tbd-i63z` — research and spec shortcuts create the tracking bead first
-- [ ] Origin and repo labels on every mirrored issue; origin-scoped inbound scan (F15,
-  F16)
+- [x] Origin and repo labels on mirrored issues (`tbd-3m0j`, delivered portion).
+- [ ] Origin-scoped inbound scan (`tbd-3m0j`, remaining portion; F15, F16).
 - [ ] Remap safety: team-mismatch detection in report and `doctor`, no cross-team state
   pushes, documented remap semantics (F17)
 - [ ] Multi-repo topologies documented in `setup-linear` (Mode 1 today, Mode 2 once
@@ -802,17 +826,19 @@ understand.
 Phases 3 and 4 are additive and ship independently.
 
 This repository is the pilot, as it was for the tracker integration.
-The `sync_on_tbd_sync: false` override stays until Phase 1’s exit criteria are met on
-hosted CI; lifting it is the signal that syncing constantly is actually free.
+The `on_tbd_sync: off` override stays until Phase 1’s exit criteria are met on hosted
+CI; lifting it is the signal that syncing constantly is actually free.
 
 ## Open Questions
 
-1. **Drop `synced_at`, or guard the write?** Dropping removes the failure mode; guarding
-   keeps a diagnostic that nothing currently reads.
-   This spec prefers dropping and should be challenged if the field has a consumer.
-2. **Does Linear always bump `Issue.updatedAt` on comment creation?** The delta-gated
-   comment fetch depends on it.
-   Live QA answers this; the fallback is a periodic full reconcile.
+1. **Resolved: retain `synced_at` and guard the write.** The field participates in
+   link-record merge ordering; the guard shipped in PR #227.
+2. **Observed, optimization still open: Linear advances `Issue.updatedAt` on comment
+   creation.** The August 16 live probe (`tbd-majw`, closed) established this behavior
+   and a settled repeat sync.
+   It does not prove all future change paths.
+   `tbd-iqgm` still owns delta-gated fetching with periodic full reconciliation as a
+   recovery path.
 3. **Should an inherited `spec_path` select a bead for mirroring?** It accounts for 79
    of 89 non-epic selections, and a single `tbd update --spec` on this spec’s epic added
    30 beads to the mirror.
