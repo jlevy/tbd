@@ -5,8 +5,11 @@ title: "Epic: External tracker integrations (Linear first, GitHub next)"
 kind: epic
 status: open
 priority: 1
-version: 30
+version: 31
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
+docs:
+  - path: docs/project/research/current/research-2026-09-06-bead-agent-coordination.md
+    role: research
 assignee: josh
 labels: []
 dependencies: []
@@ -36,7 +39,7 @@ child_order_hints:
   - is-01kzyh2066kdr5yymjef2k6nsx
   - is-01kzyh140ydwhzr4mt8r84gmgb
 created_at: 2026-08-10T05:38:39.414Z
-updated_at: 2026-08-19T04:55:15.508Z
+updated_at: 2026-09-06T17:33:16.741Z
 extensions:
   linear:
     id: 7202337e-d1ee-4192-bb6c-c6ae42b97469

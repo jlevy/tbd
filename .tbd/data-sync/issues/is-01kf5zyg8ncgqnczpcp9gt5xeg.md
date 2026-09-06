@@ -5,14 +5,17 @@ title: "Phase 24 Epic: Installation and Agent Integration"
 kind: epic
 status: closed
 priority: 1
-version: 6
+version: 8
+docs:
+  - path: docs/project/research/archive/research-beads-bootstrapping-mechanisms.md
+    role: research
 labels: []
 dependencies: []
 parent_id: null
 due_date: null
 deferred_until: null
 created_at: 2026-01-17T07:22:25.348Z
-updated_at: 2026-03-09T16:12:30.246Z
+updated_at: 2026-09-06T17:33:09.234Z
 closed_at: 2026-01-17T09:17:52.363Z
 close_reason: Implemented in Phase 22-24
 extensions:
@@ -30,4 +33,4 @@ Implement installation mechanisms and agent integration for tbd. Key components:
 6. **npm package verification** - Ensure npm package works for cloud auto-installation
 
 Reference: docs/project/architecture/current/tbd-design-v3.md section 6.4
-Research: docs/project/research/current/research-beads-bootstrapping-mechanisms.md
+Research: docs/project/research/archive/research-beads-bootstrapping-mechanisms.md

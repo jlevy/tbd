@@ -5,14 +5,17 @@ title: "Spec: Transactional Mode and Agent Registration"
 kind: epic
 status: open
 priority: 2
-version: 11
+version: 12
 spec_path: docs/project/specs/active/plan-2026-01-19-transactional-mode-and-agent-registration.md
+docs:
+  - path: docs/project/research/current/research-2026-09-06-bead-agent-coordination.md
+    role: research
 assignee: josh
 labels:
   - pause
 dependencies: []
 created_at: 2026-01-25T18:22:32.792Z
-updated_at: 2026-08-19T04:55:15.522Z
+updated_at: 2026-09-06T17:33:12.551Z
 extensions:
   linear:
     id: a44940fb-deaf-4294-8a2b-27cfa801aabe

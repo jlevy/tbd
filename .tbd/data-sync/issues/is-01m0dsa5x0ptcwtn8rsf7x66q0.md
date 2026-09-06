@@ -5,8 +5,11 @@ title: Add the session ref kind to the bead schema
 kind: feature
 status: open
 priority: 1
-version: 7
+version: 9
 spec_path: docs/project/specs/active/plan-2026-08-19-agent-session-refs-and-runtimes.md
+docs:
+  - path: docs/project/research/current/research-2026-09-06-bead-agent-coordination.md
+    role: research
 labels: []
 dependencies:
   - type: blocks
@@ -19,10 +22,10 @@ dependencies:
     target: is-01m0dsa7n1nr69wfbgytp55f9j
 parent_id: is-01m0drveqd06azafyxnbqx0e4h
 created_at: 2026-08-19T19:52:30.879Z
-updated_at: 2026-08-19T23:49:38.347Z
+updated_at: 2026-09-06T17:33:37.428Z
 extensions:
   linear:
     id: b7b629d1-3e7d-4801-9d01-28a98b9ace6a
     linked_at: 2026-08-19T23:49:38.347Z
 ---
-Add kind: session to the refs list with fields provider, id, url, actor, started_at. No format bump: refs already exists from f08 with union_by_key merge. Tests must cover the merge under union_by_key including two refs for the same bead from different agents.
+Add session references with provider, stable session id, optional URL, actor, and start time, after deciding schema compatibility and merge identity. September 6 source review corrects the old no-format-bump assumption: IssueRef currently requires URL, strips unknown nested fields, and merges by URL. Outer issue f08 passthrough does not protect this shape. Specify a stable namespaced session key, alias/URL changes, same-ID divergent content handling, and old-client behavior; prove preservation or define a format/migration boundary. Tests must cover URL-less local refs, two sessions with absent/shared URLs, old-reader read/write/merge/recovery, and different agents attaching refs to one bead. Coordinate invocation identity with tbd-6nmq. Governing runtime plan retains durable ref, volatile status, and bridge projection lifetimes; no runtime vendor decision is required.

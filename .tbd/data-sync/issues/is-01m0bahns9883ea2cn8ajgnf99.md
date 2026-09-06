@@ -5,8 +5,11 @@ title: "tracker: state model (resolution, hold, name-based Linear mapping)"
 kind: epic
 status: closed
 priority: 0
-version: 17
+version: 18
 spec_path: docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md
+docs:
+  - path: docs/project/research/current/research-2026-09-06-bead-agent-coordination.md
+    role: research
 assignee: josh
 labels: []
 dependencies:
@@ -22,7 +25,7 @@ due_date: null
 hold: null
 hold_until: null
 created_at: 2026-08-18T20:55:59.008Z
-updated_at: 2026-08-20T05:55:40.363Z
+updated_at: 2026-09-06T17:33:25.492Z
 closed_at: 2026-08-20T01:40:40.740Z
 close_reason: "All phases complete and dogfooded live against team OS. State: resolution/duplicate_of, hold/hold_until/started_at, slots in the reconcile engine with a zero-writes upgrade, name-based state resolution, board provisioning, offline doctor table. Actor: delegate field and claim verb, directory-resolved identity bound by provider user id, delegate publishing via agent_map. Plus OS-351, an assignee-clearing data-loss bug reported against the branch. Residuals recorded on tbd-qdj4."
 resolution: null

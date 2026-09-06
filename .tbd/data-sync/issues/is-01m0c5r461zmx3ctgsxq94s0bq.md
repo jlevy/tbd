@@ -5,8 +5,11 @@ title: "Actor axis: delegate field and identity that resolves itself"
 kind: epic
 status: closed
 priority: 2
-version: 8
+version: 9
 spec_path: docs/project/specs/active/plan-2026-08-18-actor-axis-and-identity.md
+docs:
+  - path: docs/project/research/current/research-2026-09-06-bead-agent-coordination.md
+    role: research
 assignee: josh
 labels: []
 dependencies: []
@@ -16,7 +19,7 @@ child_order_hints:
   - is-01m0c5rsgkvdv8ad02eaq7109k
   - is-01m0c8v94j74sqaj35ts5xrjjf
 created_at: 2026-08-19T04:51:21.920Z
-updated_at: 2026-08-20T01:40:40.751Z
+updated_at: 2026-09-06T17:33:22.616Z
 closed_at: 2026-08-20T01:40:40.751Z
 close_reason: "All phases complete and dogfooded live against team OS. State: resolution/duplicate_of, hold/hold_until/started_at, slots in the reconcile engine with a zero-writes upgrade, name-based state resolution, board provisioning, offline doctor table. Actor: delegate field and claim verb, directory-resolved identity bound by provider user id, delegate publishing via agent_map. Plus OS-351, an assignee-clearing data-loss bug reported against the branch. Residuals recorded on tbd-qdj4."
 resolution: null

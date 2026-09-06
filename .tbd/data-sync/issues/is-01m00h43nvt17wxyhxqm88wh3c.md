@@ -5,8 +5,11 @@ title: "[epic] External sync and traceability: prime, claim, checkpoint, Linear 
 kind: epic
 status: open
 priority: 1
-version: 65
+version: 66
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+docs:
+  - path: docs/project/research/current/research-2026-09-06-bead-agent-coordination.md
+    role: research
 assignee: josh
 labels: []
 dependencies: []
@@ -69,7 +72,7 @@ child_order_hints:
   - is-01m0623wddbwjvv9kwzekgg0e1
   - is-01m067b9z5bag3j86b3j7cjv5r
 created_at: 2026-08-14T16:19:15.771Z
-updated_at: 2026-08-19T04:55:15.515Z
+updated_at: 2026-09-06T17:33:20.124Z
 extensions:
   linear:
     id: 1ef43a0c-0cf8-4944-a374-327de127108c
