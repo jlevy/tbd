@@ -48,6 +48,9 @@ Project-specific specifications, architecture, and research docs:
 
 - @docs/project/research/—Research notes and technical investigations
 
+  - [Bead watching and cross-agent coordination](project/research/current/research-2026-09-06-bead-agent-coordination.md)
+    reviews watching, ownership, comments, Linear sync, and related agent tools.
+
 ### tbd CLI Documentation Commands
 
 In addition to these repository docs, tbd provides managed documentation via the
