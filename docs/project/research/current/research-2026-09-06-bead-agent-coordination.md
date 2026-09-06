@@ -6,6 +6,10 @@
 
 **Source baseline:** tbd v0.8.1, `c218e90b45c18114a26935dded8fa2cb3b044ede`.
 
+**Landing review:** rebased onto `c43e2d41` (PR #264); readiness changes are
+incorporated below. Earlier probe/test results remain attributed to the original
+baseline.
+
 **Tracking:** tbd-kvs3.
 
 ## Overview
@@ -113,10 +117,32 @@ command. An unattended scheduler would benefit from a separate claim-ready contr
 selects, revalidates, and claims under one authority.
 
 Readiness requires an open bead without a delegate or hold and without an unfinished
-blocker. Assignee is a separate human ownership axis.
+blocker. The landing change additionally excludes a future `deferred_until`; elapsed
+dates remove that exclusion while the other conditions still apply.
+Assignee is a separate human ownership axis.
 The predicate does not schedule a timer to release holds.
 `agid` identity exists, but `delegate` stores the friendly name, not a canonical session
 identifier. [Ready selection][t-selection] [Identity resolution][t-identity]
+
+PR #264 passes one evaluation clock through queries and both sides of a change report.
+Fresh readiness queries honor deferral dates, but time alone does not schedule a wake.
+Remote watch skips an unchanged Git tip; even after an unrelated commit, both snapshots
+use the same current time, so an unchanged deferral does not become a reported edge.
+The board recomputes readiness for each fresh response, but its local observer and idle
+page do not generate an expiry event.
+An unattended worker needs periodic ready reconciliation or a timer in addition to
+change-driven wakes.
+Explicit `deferred` status does not automatically become `open` when its date elapses.
+[Latest readiness](https://github.com/jlevy/tbd/blob/c43e2d41/packages/tbd/src/lib/issue-selection.ts#L37)
+[One-clock reports](https://github.com/jlevy/tbd/blob/c43e2d41/packages/tbd/src/lib/issue-changes.ts#L451)
+[Board refresh](https://github.com/jlevy/tbd/blob/c43e2d41/packages/tbd/src/cli/web/board.ts#L688)
+
+Ready-filtered reports now depend on the evaluation clock as well as commit endpoints,
+but the JSON report does not record that clock.
+A pure-source probe of the same endpoints with a cleared deferral reported one ready
+transition before the original expiry and zero afterward.
+Reproducible delivery diagnostics should capture the evaluation instant; an
+unchanged-snapshot query still emits no clock-only transition.
 
 Adoption also lags implementation: the managed skill calls
 `tbd update <id> --status in_progress` “Claim work,” and the implementation shortcut
@@ -551,6 +577,7 @@ tested-versus-inferred claims.
 | Evidence | Result and limit |
 | --- | --- |
 | Build | `pnpm build` passed |
+| Landing change | Rebuilt after PR #264; six focused readiness/watch/mirror/observer files passed all 97 tests. The expiry-wake limitation is source-derived, not a fresh live-agent experiment. |
 | Focused suites | 7 files/80 tests: issue-changes, bead-watch, cli-changes, cli-watch, watch-beads-shortcut, integrations-comments, agent-identity |
 | Ownership/local observer | 2 files/19 tests: actor-axis and web-local-observer; 99 focused tests total |
 | Release smoke | `pnpm --filter get-tbd qa:watch-release:built` passed on disposable real Git repositories; sandbox IPC restriction required fixture permissions |
