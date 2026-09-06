@@ -5,15 +5,18 @@ title: Fetch Linear comments only for pairs the delta moved (cost is 2+N request
 kind: bug
 status: open
 priority: 1
-version: 7
+version: 8
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+docs:
+  - path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
+    role: design
 labels:
   - sync-efficiency
   - phase-1
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:39:45.007Z
-updated_at: 2026-08-16T00:13:51.481Z
+updated_at: 2026-09-06T19:48:47.831Z
 extensions:
   linear:
     id: 07dd9f8a-24fe-4ccc-b567-230f29cdcd42

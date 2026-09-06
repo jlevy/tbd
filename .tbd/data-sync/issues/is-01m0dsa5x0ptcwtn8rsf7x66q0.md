@@ -5,11 +5,13 @@ title: Add the session ref kind to the bead schema
 kind: feature
 status: open
 priority: 1
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-08-19-agent-session-refs-and-runtimes.md
 docs:
   - path: docs/project/research/current/research-2026-09-06-bead-agent-coordination.md
     role: research
+  - path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
+    role: design
 labels: []
 dependencies:
   - type: blocks
@@ -22,7 +24,7 @@ dependencies:
     target: is-01m0dsa7n1nr69wfbgytp55f9j
 parent_id: is-01m0drveqd06azafyxnbqx0e4h
 created_at: 2026-08-19T19:52:30.879Z
-updated_at: 2026-09-06T17:33:37.428Z
+updated_at: 2026-09-06T19:49:00.447Z
 extensions:
   linear:
     id: b7b629d1-3e7d-4801-9d01-28a98b9ace6a

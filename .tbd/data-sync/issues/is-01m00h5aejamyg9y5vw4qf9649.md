@@ -5,14 +5,17 @@ title: tbd prime reports claimed work and sync freshness
 kind: feature
 status: open
 priority: 1
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+docs:
+  - path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
+    role: design
 labels:
   - phase-4
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:19:55.474Z
-updated_at: 2026-08-16T00:13:33.234Z
+updated_at: 2026-09-06T19:48:34.969Z
 extensions:
   linear:
     id: a6d862c7-f15a-4728-8cba-044190d989f8

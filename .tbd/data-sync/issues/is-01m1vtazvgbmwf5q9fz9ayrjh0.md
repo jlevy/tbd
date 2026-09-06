@@ -5,11 +5,13 @@ title: Drain initial ready backlog and validate claims in the watch worker recip
 kind: task
 status: open
 priority: 2
-version: 2
+version: 3
+spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 labels: []
 dependencies: []
+parent_id: is-01m1w3d1e63qg5e2wpz31qkmvn
 created_at: 2026-09-06T16:55:29.903Z
-updated_at: 2026-09-06T17:00:14.638Z
+updated_at: 2026-09-06T19:48:24.834Z
 ---
 watch --ready observes entry into readiness after its baseline, not initial ready backlog. The durable single-owner watch-beads recipe begins waiting without an initial scan. Add documented startup/restart reconciliation so existing ready tasks are considered, then revalidate and check start JSON claimed/skipped (foreign skip exits zero). Preserve single-owner checkpoint state and handle crash-after-processing replay idempotently. Test initial backlog, completion during downtime, lost claim, separate worker state names; coordinate claim instructions with existing tbd-c4zl. Research: docs/project/research/current/research-2026-09-06-bead-agent-coordination.md.
 

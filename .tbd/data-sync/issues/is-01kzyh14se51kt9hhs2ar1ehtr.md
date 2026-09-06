@@ -5,13 +5,16 @@ title: Malformed managed markers freeze all sync for a pair, including comments 
 kind: bug
 status: open
 priority: 2
-version: 7
+version: 8
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
+docs:
+  - path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
+    role: design
 labels: []
 dependencies: []
 parent_id: is-01kzn2w85qxpbp8cqtn7mkbvkg
 created_at: 2026-08-13T21:39:09.742Z
-updated_at: 2026-08-16T00:13:21.194Z
+updated_at: 2026-09-06T19:48:42.292Z
 extensions:
   linear:
     id: dcdabf81-26a9-4832-862e-2136f785208c

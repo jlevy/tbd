@@ -5,11 +5,13 @@ title: "Agent session refs: link live agent runs from beads, Linear, and tbd web
 kind: epic
 status: open
 priority: 1
-version: 17
+version: 18
 spec_path: docs/project/specs/active/plan-2026-08-19-agent-session-refs-and-runtimes.md
 docs:
   - path: docs/project/research/current/research-2026-09-06-bead-agent-coordination.md
     role: research
+  - path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
+    role: design
 labels: []
 dependencies: []
 child_order_hints:
@@ -25,7 +27,7 @@ child_order_hints:
   - is-01m0dsa91nkb3j5b4j4ky8y65p
   - is-01m0dsa9djn6h3k1fg60nqfgs4
 created_at: 2026-08-19T19:44:28.395Z
-updated_at: 2026-09-06T17:33:28.683Z
+updated_at: 2026-09-06T19:48:57.509Z
 extensions:
   linear:
     id: 4bb21605-477a-431c-92f3-27ad3250870b

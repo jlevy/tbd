@@ -5,14 +5,17 @@ title: Document pulled Linear comments as untrusted input
 kind: task
 status: open
 priority: 3
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
+docs:
+  - path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
+    role: design
 labels:
   - phase-4
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:20:56.535Z
-updated_at: 2026-08-16T00:13:49.917Z
+updated_at: 2026-09-06T19:48:50.794Z
 extensions:
   linear:
     id: 892fe7fe-48f1-456e-bf3f-4b6c19c7c35f

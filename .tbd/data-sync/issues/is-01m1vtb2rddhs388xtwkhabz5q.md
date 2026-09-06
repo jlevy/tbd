@@ -1,14 +1,16 @@
 ---
 type: is
 id: is-01m1vtb2rddhs388xtwkhabz5q
-title: Run cross-agent coordination and native-comment candidate experiments before planning
+title: Run phase-gated cross-agent coordination and native-comment experiments
 kind: task
 status: open
 priority: 2
-version: 1
+version: 2
+spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 labels: []
 dependencies: []
+parent_id: is-01m1w39s0rrg0dp4p90cb4gg67
 created_at: 2026-09-06T16:55:32.876Z
-updated_at: 2026-09-06T16:55:32.876Z
+updated_at: 2026-09-06T19:47:28.167Z
 ---
-Follow the experiment matrix in docs/project/research/current/research-2026-09-06-bead-agent-coordination.md before choosing implementation. Compare embedded versus independent native comments, Git snapshot versus durable delivery observation, same-repository versus independent-clone ownership, and actual Claude/Codex host continuation. Include Linear linked-only projection with existing comments two_way default, all direction modes, relink/backfill/disable behavior, and Agent Mail Rust v0.3.32 durable inbox/idempotency reference. Capture session/bead/message IDs, delivery keys, Git tips, claims, checkpoints, latency, duplicate work, recovery, API/Git cost. Initial research is complete; no storage or orchestration design selected, no real unattended deployment authorized by this issue.
+Execute the experiment matrix in docs/project/research/current/research-2026-09-06-bead-agent-coordination.md at the release gates in the September 6 phased coordination plan. The requested plan proposes independent append-only records; compare them with the repaired embedded baseline before freezing the Phase 2 format. Preserve the remaining Git snapshot versus durable discovery, same-store versus independent-clone ownership, actual Claude/Codex continuation, and linked-only Linear direction/relink/backfill/disable cases. Agent Mail Rust v0.3.32 is a reference for inbox/idempotency contracts, not an assumed throughput equivalent. Capture session/bead/message IDs, destination delivery keys, Git tips, claim outcomes, checkpoints, latency, duplicate work, recovery, API/Git cost, and unrun cases. Initial source research is complete; candidate/host/load experiments are not. This issue does not itself activate an unattended deployment.
