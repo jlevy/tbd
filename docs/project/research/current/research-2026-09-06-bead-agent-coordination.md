@@ -2,7 +2,11 @@
 
 **Date:** 2026-09-06
 
-**Status:** Research complete; design selection and operational experiments remain open.
+**Status:** Research complete.
+The subsequent
+[phased coordination plan](../../specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md)
+proposes implementation direction; candidate, operational, and real-agent experiments
+remain explicit release gates.
 
 **Source baseline:** tbd v0.8.1, `c218e90b45c18114a26935dded8fa2cb3b044ede`.
 
@@ -34,7 +38,9 @@ identity model. They still need explicit mutation, alias, recovery, delivery, an
 compatibility semantics.
 This research compares that candidate with embedded entries, immutable revision records,
 per-writer logs, and an external mailbox or relay.
-No implementation plan or storage design is selected here.
+The research preserves that comparison; the subsequent plan proposes independent
+append-only records subject to format and recovery experiments before activation.
+It also specifies Git-only publication/polling budgets and GitHub constraints.
 
 Linear already implements the proposed default-on policy:
 `integrations.linear.policy.field_sync.comments` defaults to `two_way`, with `inbound`,
@@ -562,10 +568,10 @@ outcomes, and checkpoints.
 Measure median/tail latency, missed/duplicate messages, recovery time, and Git/API
 traffic. A two-agent demonstration proves basic operation, not load or crash resilience.
 
-Before selecting a plan, decide which topology needs exclusive ownership; whether
-comments are shared discussion or addressed requests; whether edits/deletes matter;
-whether eventual discovery suffices; which host can restart agents under existing
-permissions; and how much Linear history should be mirrored, and when.
+The subsequent plan selects cooperative local claims, explicitly dispatched cloud work,
+shared append-only discussion, and eventual discovery.
+Format, provider migration, and actual host continuation remain release gates.
+Choosing that direction does not mark any unrun experiment complete.
 
 ## Validation and Evidence
 
@@ -696,8 +702,12 @@ Moving a spec alone does not unlink an already-linked Linear bead.
 
 ## Follow-Up and Related Work
 
-Repair verified preservation/delivery defects, then compare comment candidates and
-runtime workflows. This research makes no implementation selection.
+The
+[phased implementation plan](../../specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md)
+now owns rollout under `tbd-khi1`: stabilize, add native comments with manual exchange,
+automate Git transport, project to Linear, and integrate portable workers.
+Its tests and recovery gates preserve the unrun experiments below.
+Existing plan owners retain their distinct scope.
 
 Reuse existing tbd-c4zl (claim instructions), tbd-zhel (prime freshness), tbd-qxdb
 (stale claims), tbd-owa5/tbd-ppn1 (runtime/session refs), tbd-bexc (marker failure
@@ -712,7 +722,7 @@ tbd-64aq (mapping identity).
 | tbd-6nmq (P2) | Simultaneous agents sharing checkout identity |
 | tbd-7ybg (P2) | Concurrent relationship removal and graph validation |
 | tbd-zxg6 (P2) | Initial backlog drain and successful-claim checks |
-| tbd-q2w2 (P2) | Cross-agent and comment-candidate experiments before planning |
+| tbd-q2w2 (P2) | Cross-agent and comment-candidate experiments at the phased plan’s release gates |
 | tbd-p0fe (P2) | Previously planned actor binding UX, migration, diagnostics, and remaining acceptance evidence |
 
 The load-sensitive fixture timeout is recorded under existing tbd-2pqp.

@@ -43,6 +43,10 @@ Project-specific specifications, architecture, and research docs:
 
   - `paused/`—Temporarily paused specifications
 
+  - [Incremental bead coordination and native comments](project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md)
+    sequences stabilization, native storage, Git-only transport, linked Linear
+    conversation, and portable workers with separate release and recovery gates.
+
 - @docs/project/architecture/—System design references and long-lived architecture docs
   (templates and output go here)
 
@@ -53,7 +57,6 @@ Project-specific specifications, architecture, and research docs:
     earlier plans and research.
     Superseded research remains under `research/archive/` with successor links; distinct
     unfinished plans retain their own scope and owners.
-    reviews watching, ownership, comments, Linear sync, and related agent tools.
 
 ### tbd CLI Documentation Commands
 

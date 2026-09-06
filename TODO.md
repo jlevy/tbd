@@ -10,16 +10,24 @@ Beads are the source of truth.
 Coordination documentation was reconciled on 2026-09-06; unrelated release/backlog items
 were not re-audited.
 
-## Agent coordination research
+## Agent coordination rollout
 
 The
 [September research](./docs/project/research/current/research-2026-09-06-bead-agent-coordination.md)
 maps the existing plans to their owners and adds current watch, claim, comment,
 recovery, and Linear-delivery findings.
-It preserves the transaction, tracker, traceability, actor, state, and runtime plans
-without selecting a new architecture.
-Three superseded research briefs and January’s abandoned outbox proposal are archived
-with successor links.
+The
+[phased coordination plan](./docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md),
+tracked by `tbd-khi1`, sequences five independently useful releases: stabilize existing
+contracts, add native comments with manual Git exchange, automate Git transport, project
+to Linear, and integrate portable workers.
+Git transport and Linear projection can proceed independently after native comments; the
+mixed human pilot has its own gate.
+Each phase has acceptance and recovery criteria.
+Implementation has not started.
+Existing transaction, tracker, traceability, actor, state, and runtime scopes retain
+their owners. Three superseded research briefs and January’s abandoned outbox proposal
+are archived with successor links.
 Actor-core delivery is distinct from residual UX (`tbd-p0fe`); runtime refs require the
 explicit compatibility decision in `tbd-i0de`.
 
@@ -109,6 +117,8 @@ Selected epics from the original snapshot (query beads for current status):
 
 Plans under [docs/project/specs/active/](./docs/project/specs/active/) include:
 
+- [Incremental bead coordination and native comments](./docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md)
+  — stabilization through Git-only and human/agent coordination
 - `plan-2026-08-15-f08-release-rollout.md` — the release above
 - `plan-2026-08-14-external-sync-and-traceability.md` — the four-phase Linear plan
 - `plan-2026-08-19-agent-session-refs-and-runtimes.md` — session refs and the runtime
