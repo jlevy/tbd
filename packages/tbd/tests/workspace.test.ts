@@ -25,6 +25,7 @@ import {
   addIdMapping,
   type IdMapping,
 } from '../src/file/id-mapping.js';
+import type { Issue } from '../src/lib/types.js';
 
 // Helper to create empty mapping
 function createEmptyMapping(): IdMapping {
@@ -34,6 +35,37 @@ function createEmptyMapping(): IdMapping {
   };
 }
 import { createTestIssue, testId, TEST_ULIDS } from './test-helpers.js';
+
+const COMMON_COMMENT = {
+  id: 'comment-common',
+  at: '2026-09-08T10:00:00.000Z',
+  body: 'common',
+};
+
+function createIssueWithComment(
+  id: string,
+  version: number,
+  updatedAt: string,
+  commentId: string,
+): Issue {
+  return createTestIssue({
+    id,
+    title: 'Coordinate agents',
+    version,
+    updated_at: updatedAt,
+    extensions: {
+      linear: {
+        id: 'linear-1',
+        comments: [COMMON_COMMENT, { id: commentId, at: updatedAt, body: commentId }],
+      },
+    },
+  });
+}
+
+function linearCommentIds(issue: Issue | undefined): string[] {
+  const linear = issue?.extensions?.linear as { comments: { id: string }[] };
+  return linear.comments.map((comment) => comment.id);
+}
 
 describe('workspace operations', () => {
   let tempDir: string;
@@ -115,6 +147,113 @@ describe('workspace operations', () => {
 
       expect(result.saved).toBe(0);
       expect(result.conflicts).toBe(0);
+    });
+
+    it('preserves comments already in a workspace when saving a newer divergent copy', async () => {
+      const issueId = testId(TEST_ULIDS.ULID_1);
+      const workspaceDir = join(tempDir, '.tbd', 'workspaces', 'comment-recovery');
+      await mkdir(join(workspaceDir, 'issues'), { recursive: true });
+
+      const workspaceIssue = createIssueWithComment(
+        issueId,
+        2,
+        '2026-09-08T11:00:00.000Z',
+        'comment-workspace',
+      );
+      const worktreeIssue = createIssueWithComment(
+        issueId,
+        3,
+        '2026-09-08T12:00:00.000Z',
+        'comment-worktree',
+      );
+      await writeIssue(workspaceDir, workspaceIssue);
+      await writeIssue(dataSyncDir, worktreeIssue);
+
+      const result = await saveToWorkspace(tempDir, dataSyncDir, {
+        workspace: 'comment-recovery',
+      });
+
+      const [merged] = await listIssues(workspaceDir);
+      expect(linearCommentIds(merged)).toEqual([
+        'comment-common',
+        'comment-workspace',
+        'comment-worktree',
+      ]);
+      expect(result.conflicts).toBe(0);
+    });
+
+    it('unions divergent comments with equal timestamps without creating attic conflicts', async () => {
+      const issueId = testId(TEST_ULIDS.ULID_2);
+      const timestamp = '2026-09-08T12:00:00.000Z';
+      const workspaceDir = join(tempDir, '.tbd', 'workspaces', 'equal-time-comments');
+      await mkdir(join(workspaceDir, 'issues'), { recursive: true });
+      await writeIssue(
+        workspaceDir,
+        createIssueWithComment(issueId, 2, timestamp, 'comment-workspace'),
+      );
+      await writeIssue(
+        dataSyncDir,
+        createIssueWithComment(issueId, 2, timestamp, 'comment-worktree'),
+      );
+
+      const result = await saveToWorkspace(tempDir, dataSyncDir, {
+        workspace: 'equal-time-comments',
+      });
+
+      const [merged] = await listIssues(workspaceDir);
+      expect(linearCommentIds(merged)).toEqual([
+        'comment-common',
+        'comment-workspace',
+        'comment-worktree',
+      ]);
+      expect(result.conflicts).toBe(0);
+      expect(await readdir(join(workspaceDir, 'attic'))).toEqual([]);
+    });
+
+    it('keeps the newer version unchanged for a sequential comment append', async () => {
+      const issueId = testId(TEST_ULIDS.ULID_3);
+      const workspaceDir = join(tempDir, '.tbd', 'workspaces', 'sequential-comments');
+      await mkdir(join(workspaceDir, 'issues'), { recursive: true });
+      const workspaceIssue = createIssueWithComment(
+        issueId,
+        2,
+        '2026-09-08T11:00:00.000Z',
+        'comment-workspace',
+      );
+      const linear = workspaceIssue.extensions?.linear as { comments: Record<string, unknown>[] };
+      const worktreeIssue: Issue = {
+        ...workspaceIssue,
+        version: 3,
+        updated_at: '2026-09-08T12:00:00.000Z',
+        extensions: {
+          linear: {
+            ...(workspaceIssue.extensions?.linear as Record<string, unknown>),
+            comments: [
+              ...linear.comments,
+              {
+                id: 'comment-worktree',
+                at: '2026-09-08T12:00:00.000Z',
+                body: 'comment-worktree',
+              },
+            ],
+          },
+        },
+      };
+      await writeIssue(workspaceDir, workspaceIssue);
+      await writeIssue(dataSyncDir, worktreeIssue);
+
+      await saveToWorkspace(tempDir, dataSyncDir, { workspace: 'sequential-comments' });
+
+      const [merged] = await listIssues(workspaceDir);
+      expect(linearCommentIds(merged)).toEqual([
+        'comment-common',
+        'comment-workspace',
+        'comment-worktree',
+      ]);
+      expect(merged).toMatchObject({
+        version: 3,
+        updated_at: '2026-09-08T12:00:00.000Z',
+      });
     });
   });
 
@@ -482,6 +621,31 @@ describe('workspace operations', () => {
       await importFromWorkspace(tempDir, dataSyncDir, { outbox: true });
 
       // Outbox should be deleted
+      expect(await workspaceExists(tempDir, 'outbox')).toBe(false);
+    });
+
+    it('preserves older outbox comments when importing into a newer worktree before clearing', async () => {
+      const issueId = testId(TEST_ULIDS.ULID_1);
+      const outboxDir = join(tempDir, '.tbd', 'workspaces', 'outbox');
+      await mkdir(join(outboxDir, 'issues'), { recursive: true });
+      await writeIssue(
+        outboxDir,
+        createIssueWithComment(issueId, 2, '2026-09-08T11:00:00.000Z', 'comment-outbox'),
+      );
+      await writeIssue(
+        dataSyncDir,
+        createIssueWithComment(issueId, 3, '2026-09-08T12:00:00.000Z', 'comment-worktree'),
+      );
+
+      const result = await importFromWorkspace(tempDir, dataSyncDir, { outbox: true });
+
+      const [merged] = await listIssues(dataSyncDir);
+      expect(linearCommentIds(merged)).toEqual([
+        'comment-common',
+        'comment-outbox',
+        'comment-worktree',
+      ]);
+      expect(result).toMatchObject({ imported: 1, conflicts: 0, cleared: true });
       expect(await workspaceExists(tempDir, 'outbox')).toBe(false);
     });
 

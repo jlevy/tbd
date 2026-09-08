@@ -783,6 +783,51 @@ function omitComments(value: Record<string, unknown>): Record<string, unknown> {
   return rest;
 }
 
+/** Preserve append-only comments even when an approximate base makes one side look unchanged. */
+function preserveNamespaceComments(
+  resolvedValue: unknown,
+  localValue: unknown,
+  remoteValue: unknown,
+): unknown {
+  if (
+    !isPlainObject(resolvedValue) ||
+    !isPlainObject(localValue) ||
+    !isPlainObject(remoteValue) ||
+    (!Array.isArray(localValue.comments) && !Array.isArray(remoteValue.comments))
+  ) {
+    return resolvedValue;
+  }
+
+  const comments = unionCommentArrays(localValue.comments, remoteValue.comments);
+  return deepEqual(resolvedValue.comments, comments)
+    ? resolvedValue
+    : { ...resolvedValue, comments };
+}
+
+/** Enforce append-only comment union after the ordinary extensions merge. */
+function preserveExtensionComments(
+  resolvedValue: unknown,
+  localValue: unknown,
+  remoteValue: unknown,
+): unknown {
+  if (!isPlainObject(resolvedValue) || !isPlainObject(localValue) || !isPlainObject(remoteValue)) {
+    return resolvedValue;
+  }
+
+  let preserved = resolvedValue;
+  for (const namespace of new Set([...Object.keys(localValue), ...Object.keys(remoteValue)])) {
+    const namespaceValue = preserveNamespaceComments(
+      preserved[namespace],
+      localValue[namespace],
+      remoteValue[namespace],
+    );
+    if (!deepEqual(namespaceValue, preserved[namespace])) {
+      preserved = { ...preserved, [namespace]: namespaceValue };
+    }
+  }
+  return preserved;
+}
+
 /**
  * Merge `extensions` one top-level namespace at a time.
  *
@@ -1073,6 +1118,12 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
       }
     }
   }
+
+  merged.extensions = preserveExtensionComments(
+    merged.extensions,
+    local.extensions,
+    remote.extensions,
+  ) as Issue['extensions'];
 
   // Check if the merge produced any substantive changes compared to the
   // highest-versioned input. If not, return that input as-is to avoid
