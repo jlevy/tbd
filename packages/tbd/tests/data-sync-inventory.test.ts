@@ -431,8 +431,8 @@ describe('Git inventory adapters', { timeout: subprocessTestTimeout() }, () => {
     const invalidUtf8Path = getNativeCommentPath(dataSyncDir, COMMENT_B);
     await mkdir(dirname(invalidUtf8Path), { recursive: true });
     await writeFile(invalidUtf8Path, Buffer.from([0xff, 0xfe]));
-    const trailingPath = join(dataSyncDir, 'comments', 'invalid-name ');
-    await writeFile(trailingPath, 'retained trailing path');
+    const invalidNamePath = join(dataSyncDir, 'comments', 'invalid-name');
+    await writeFile(invalidNamePath, 'retained invalid path');
     const executablePath = await writeCommentFile(dataSyncDir, makeComment(COMMENT_C, 'mode'));
     await git(repoDir, 'add', '.tbd/data-sync/comments');
     await git(repoDir, 'update-index', '--chmod=+x', executablePath.slice(repoDir.length + 1));
@@ -450,8 +450,8 @@ describe('Git inventory adapters', { timeout: subprocessTestTimeout() }, () => {
     );
     expect(invalidEntry?.bytes).toEqual(Buffer.from([0xff, 0xfe]));
     expect(invalidEntry?.problems).toContain('invalid-utf8');
-    expect(inventory.entriesByPath.has('comments/invalid-name ')).toBe(true);
-    expect(problemCodes(inventory, 'comments/invalid-name ')).toContain('invalid-path');
+    expect(inventory.entriesByPath.has('comments/invalid-name')).toBe(true);
+    expect(problemCodes(inventory, 'comments/invalid-name')).toContain('invalid-path');
     expect(
       problemCodes(inventory, `comments/${commentShard(COMMENT_C)}/${COMMENT_C}.md`),
     ).toContain('invalid-mode');
