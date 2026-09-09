@@ -1,6 +1,6 @@
 /** Contract tests for bounded native-comment filesystem and Git inventories. */
 
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -80,6 +80,14 @@ async function git(repoDir: string, ...args: string[]): Promise<string> {
   return stdout.trim();
 }
 
+function gitWithInput(repoDir: string, input: string, ...args: string[]): string {
+  return execFileSync('git', ['-C', repoDir, ...args], {
+    encoding: 'utf8',
+    env: gitSafeEnv({ GIT_TERMINAL_PROMPT: '0' }),
+    input,
+  }).trim();
+}
+
 async function initializeRepository(repoDir: string): Promise<void> {
   await git(repoDir, 'init', '-b', 'main');
   await git(repoDir, 'config', 'user.name', 'Inventory Test');
@@ -95,6 +103,12 @@ async function writeTreeObject(repoDir: string, label: string, bytes: Buffer): P
   const inputPath = join(repoDir, `.tree-object-${label}`);
   await writeFile(inputPath, bytes);
   return git(repoDir, 'hash-object', '-t', 'tree', '-w', inputPath);
+}
+
+async function writeBlobObject(repoDir: string, label: string, bytes: Buffer): Promise<string> {
+  const inputPath = join(repoDir, `.blob-object-${label}`);
+  await writeFile(inputPath, bytes);
+  return git(repoDir, 'hash-object', '-w', inputPath);
 }
 
 async function writeCommentFile(
@@ -287,6 +301,31 @@ describe('readDataSyncInventoryFromFilesystem', () => {
     expect(inventory.commentsById.size).toBe(0);
   });
 
+  it('requires the selected data-sync root to be a real directory', async () => {
+    const parentDir = await mkdtemp(join(tmpdir(), 'tbd-inventory-root-'));
+    cleanupPaths.push(parentDir);
+
+    await expect(
+      readDataSyncInventoryFromFilesystem(join(parentDir, 'missing')),
+    ).rejects.toMatchObject({ code: 'ENOENT' });
+
+    const filePath = join(parentDir, 'file');
+    await writeFile(filePath, 'not a directory');
+    await expect(readDataSyncInventoryFromFilesystem(filePath)).rejects.toThrow(
+      'Path is not a real directory',
+    );
+
+    if (process.platform !== 'win32') {
+      const targetDir = join(parentDir, 'target');
+      const linkPath = join(parentDir, 'link');
+      await mkdir(targetDir);
+      await symlink(targetDir, linkPath);
+      await expect(readDataSyncInventoryFromFilesystem(linkPath)).rejects.toThrow(
+        'Path is not a real directory',
+      );
+    }
+  });
+
   it('walks shards deterministically and accepts only canonical files and an empty scaffold', async () => {
     const dataSyncDir = await mkdtemp(join(tmpdir(), 'tbd-inventory-files-'));
     cleanupPaths.push(dataSyncDir);
@@ -420,6 +459,107 @@ describe('Git inventory adapters', { timeout: subprocessTestTimeout() }, () => {
     expect(inventory.source).toEqual({ kind: 'git-ref', revision });
     expect(Array.from(inventory.entriesByPath.keys())).toEqual(['comments', 'comments/aa']);
     expect(inventory).toMatchObject({ coverage: 'full-tree', complete: true, problems: [] });
+  });
+
+  it('accepts a real Git data-sync tree with no comments directory', async () => {
+    const repoDir = await mkdtemp(join(tmpdir(), 'tbd-inventory-legacy-tree-'));
+    cleanupPaths.push(repoDir);
+    await initializeRepository(repoDir);
+    const dataSyncTree = await writeTreeObject(repoDir, 'legacy-data-sync', Buffer.alloc(0));
+    const tbdTree = await writeTreeObject(
+      repoDir,
+      'legacy-tbd',
+      rawTreeEntry('40000', 'data-sync', dataSyncTree),
+    );
+    const rootTree = await writeTreeObject(
+      repoDir,
+      'legacy-root',
+      rawTreeEntry('40000', '.tbd', tbdTree),
+    );
+    const revision = await git(repoDir, 'commit-tree', rootTree, '-m', 'legacy data-sync tree');
+
+    const inventory = await readDataSyncInventoryFromGitRef(repoDir, revision);
+
+    expect(inventory.source).toEqual({ kind: 'git-ref', revision });
+    expect(inventory).toMatchObject({ coverage: 'full-tree', complete: true, problems: [] });
+    expect(inventory.entriesByPath.size).toBe(0);
+  });
+
+  it('rejects missing and non-tree Git data-sync ancestors', async () => {
+    const repoDir = await mkdtemp(join(tmpdir(), 'tbd-inventory-invalid-ancestor-'));
+    cleanupPaths.push(repoDir);
+    await initializeRepository(repoDir);
+    const emptyTree = await writeTreeObject(repoDir, 'ancestor-empty', Buffer.alloc(0));
+    const targetBlob = await writeBlobObject(repoDir, 'ancestor-link', Buffer.from('elsewhere'));
+
+    const missingTbdRevision = await git(
+      repoDir,
+      'commit-tree',
+      emptyTree,
+      '-m',
+      'missing tbd root',
+    );
+    await expect(readDataSyncInventoryFromGitRef(repoDir, missingTbdRevision)).rejects.toThrow(
+      'Missing Git tree ancestor .tbd',
+    );
+
+    const linkedTbdRoot = await writeTreeObject(
+      repoDir,
+      'linked-tbd-root',
+      rawTreeEntry('120000', '.tbd', targetBlob),
+    );
+    const linkedTbdRevision = await git(
+      repoDir,
+      'commit-tree',
+      linkedTbdRoot,
+      '-m',
+      'linked tbd root',
+    );
+    await expect(readDataSyncInventoryFromGitRef(repoDir, linkedTbdRevision)).rejects.toThrow(
+      'Invalid Git tree ancestor .tbd',
+    );
+
+    const missingDataSyncTbd = await writeTreeObject(
+      repoDir,
+      'missing-data-sync-tbd',
+      Buffer.alloc(0),
+    );
+    const missingDataSyncRoot = await writeTreeObject(
+      repoDir,
+      'missing-data-sync-root',
+      rawTreeEntry('40000', '.tbd', missingDataSyncTbd),
+    );
+    const missingDataSyncRevision = await git(
+      repoDir,
+      'commit-tree',
+      missingDataSyncRoot,
+      '-m',
+      'missing data-sync root',
+    );
+    await expect(readDataSyncInventoryFromGitRef(repoDir, missingDataSyncRevision)).rejects.toThrow(
+      'Missing Git tree ancestor .tbd/data-sync',
+    );
+
+    const linkedDataSyncTbd = await writeTreeObject(
+      repoDir,
+      'linked-data-sync-tbd',
+      rawTreeEntry('120000', 'data-sync', targetBlob),
+    );
+    const linkedDataSyncRoot = await writeTreeObject(
+      repoDir,
+      'linked-data-sync-root',
+      rawTreeEntry('40000', '.tbd', linkedDataSyncTbd),
+    );
+    const linkedDataSyncRevision = await git(
+      repoDir,
+      'commit-tree',
+      linkedDataSyncRoot,
+      '-m',
+      'linked data-sync root',
+    );
+    await expect(readDataSyncInventoryFromGitRef(repoDir, linkedDataSyncRevision)).rejects.toThrow(
+      'Invalid Git tree ancestor .tbd/data-sync',
+    );
   });
 
   it('resolves a ref, reads exact raw blobs, and retains invalid names and UTF-8', async () => {
@@ -623,6 +763,66 @@ describe('Git inventory adapters', { timeout: subprocessTestTimeout() }, () => {
 
     expect(batchOutputLimit).toBeGreaterThan(bytes.length);
     expect(inventory.commentsById.get(COMMENT_A)?.bytes).toEqual(bytes);
+  });
+
+  it('accepts implicit index directories when no comments are staged', async () => {
+    const repoDir = await mkdtemp(join(tmpdir(), 'tbd-inventory-empty-index-'));
+    cleanupPaths.push(repoDir);
+    await initializeRepository(repoDir);
+    const scaffoldPath = join(repoDir, '.tbd', 'data-sync', 'issues', '.gitkeep');
+    await mkdir(dirname(scaffoldPath), { recursive: true });
+    await writeFile(scaffoldPath, '');
+    await git(repoDir, 'add', scaffoldPath.slice(repoDir.length + 1));
+
+    const inventories = await readDataSyncInventoriesFromGitIndex(repoDir);
+
+    for (const stage of [0, 1, 2, 3] as const) {
+      expect(inventories.get(stage)).toMatchObject({
+        coverage: 'sparse-paths',
+        complete: true,
+        problems: [],
+      });
+      expect(inventories.get(stage)?.entriesByPath.size).toBe(0);
+    }
+  });
+
+  it('rejects non-tree data-sync ancestors recorded in the index', async () => {
+    const repoDir = await mkdtemp(join(tmpdir(), 'tbd-inventory-invalid-index-'));
+    cleanupPaths.push(repoDir);
+    await initializeRepository(repoDir);
+    const targetBlob = await writeBlobObject(repoDir, 'index-link', Buffer.from('elsewhere'));
+
+    await git(repoDir, 'update-index', '--add', '--cacheinfo', `120000,${targetBlob},.tbd`);
+    await expect(readDataSyncInventoriesFromGitIndex(repoDir)).rejects.toThrow(
+      'Invalid Git index ancestor .tbd',
+    );
+
+    await git(repoDir, 'update-index', '--force-remove', '.tbd');
+    await git(
+      repoDir,
+      'update-index',
+      '--add',
+      '--cacheinfo',
+      `120000,${targetBlob},.tbd/data-sync`,
+    );
+    await expect(readDataSyncInventoriesFromGitIndex(repoDir)).rejects.toThrow(
+      'Invalid Git index ancestor .tbd/data-sync',
+    );
+
+    await git(repoDir, 'update-index', '--force-remove', '.tbd/data-sync');
+    gitWithInput(
+      repoDir,
+      [
+        `120000 ${targetBlob} 1\t.tbd`,
+        `100644 ${targetBlob} 2\t.tbd/data-sync/comments/aa/candidate.md`,
+        '',
+      ].join('\n'),
+      'update-index',
+      '--index-info',
+    );
+    await expect(readDataSyncInventoriesFromGitIndex(repoDir)).rejects.toThrow(
+      'Invalid Git index ancestor .tbd',
+    );
   });
 
   it('groups a real add/add conflict into independent index stages', async () => {

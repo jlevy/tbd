@@ -12,7 +12,11 @@ import { asInternalCommentId, validateCommentId } from '../lib/ids.js';
 import type { NativeComment } from '../lib/native-comment.js';
 import { gitSafeEnv } from '../lib/git-env.js';
 import { DATA_SYNC_DIR } from '../lib/paths.js';
-import { decodeUtf8Fatal, readBoundedRegularFileBytes } from './bounded-file.js';
+import {
+  assertRealDirectories,
+  decodeUtf8Fatal,
+  readBoundedRegularFileBytes,
+} from './bounded-file.js';
 import { parseNativeComment, serializeNativeComment } from './comment-parser.js';
 import { NATIVE_COMMENT_FILE_MAX_BYTES, commentShard } from './comment-storage.js';
 import { readGitObjectBuffers } from './git-object-reader.js';
@@ -716,6 +720,7 @@ export async function readDataSyncInventoryFromFilesystem(
   } = {},
 ): Promise<DataSyncInventory> {
   const limits = resolveLimits(options.limits);
+  await assertRealDirectories(dataSyncDir, []);
   const commentsRoot = join(dataSyncDir, 'comments');
   let rootMetadata: Awaited<ReturnType<typeof lstat>>;
   try {
@@ -1041,6 +1046,42 @@ function parseTreeListing(output: Buffer, revision: string): GitListedEntry[] {
   });
 }
 
+async function assertGitTreeAncestor(
+  repoDir: string,
+  revision: string,
+  path: string,
+  runGit: NonNullable<DataSyncGitReadDependencies['runGit']>,
+  maxBytes: number,
+): Promise<void> {
+  const output = await runGit(
+    repoDir,
+    ['ls-tree', '-z', '-l', '--full-tree', revision, '--', path],
+    maxBytes,
+  );
+  const entries = parseTreeListing(output, revision);
+  if (entries.length === 0) {
+    throw new Error(`Missing Git tree ancestor ${path} at ${revision}`);
+  }
+  const expectedPath = Buffer.from(path, 'ascii');
+  if (entries.length !== 1 || !entries[0]!.fullPathBytes.equals(expectedPath)) {
+    throw new Error(`Ambiguous Git tree ancestor ${path} at ${revision}`);
+  }
+  const [entry] = entries;
+  if (entry!.mode !== '040000' || entry!.objectType !== 'tree') {
+    throw new Error(`Invalid Git tree ancestor ${path} at ${revision}`);
+  }
+}
+
+async function assertGitTreeAncestors(
+  repoDir: string,
+  revision: string,
+  runGit: NonNullable<DataSyncGitReadDependencies['runGit']>,
+  maxBytes: number,
+): Promise<void> {
+  await assertGitTreeAncestor(repoDir, revision, '.tbd', runGit, maxBytes);
+  await assertGitTreeAncestor(repoDir, revision, GIT_DATA_SYNC_DIR, runGit, maxBytes);
+}
+
 function selectCommentsTreeEntries(
   entries: readonly GitListedEntry[],
   revision: string,
@@ -1084,6 +1125,37 @@ function parseIndexListing(output: Buffer): GitListedEntry[] {
       stage: Number(match[3]) as GitIndexStage,
     };
   });
+}
+
+async function assertNoGitIndexAncestorEntry(
+  repoDir: string,
+  path: string,
+  runGit: NonNullable<DataSyncGitReadDependencies['runGit']>,
+  maxBytes: number,
+): Promise<void> {
+  const output = await runGit(
+    repoDir,
+    ['ls-files', '--stage', '-z', '--', `:(top,literal)${path}`, `:(exclude,top,glob)${path}/**`],
+    maxBytes,
+  );
+  const entries = parseIndexListing(output);
+  if (entries.length === 0) {
+    return;
+  }
+  const expectedPath = Buffer.from(path, 'ascii');
+  if (entries.some((entry) => !entry.fullPathBytes.equals(expectedPath))) {
+    throw new Error(`Ambiguous Git index ancestor ${path}`);
+  }
+  throw new Error(`Invalid Git index ancestor ${path}`);
+}
+
+async function assertNoGitIndexAncestorEntries(
+  repoDir: string,
+  runGit: NonNullable<DataSyncGitReadDependencies['runGit']>,
+  maxBytes: number,
+): Promise<void> {
+  await assertNoGitIndexAncestorEntry(repoDir, '.tbd', runGit, maxBytes);
+  await assertNoGitIndexAncestorEntry(repoDir, GIT_DATA_SYNC_DIR, runGit, maxBytes);
 }
 
 interface GitObjectMetadata {
@@ -1231,7 +1303,11 @@ export async function readDataSyncInventoryFromGitRef(
     ['ls-tree', '-r', '-t', '-z', '-l', '--full-tree', revision, '--', GIT_COMMENTS_ROOT],
     limits.maxGitListingBytes,
   );
-  const listedEntries = selectCommentsTreeEntries(parseTreeListing(listing, revision), revision);
+  const parsedListing = parseTreeListing(listing, revision);
+  const listedEntries = selectCommentsTreeEntries(parsedListing, revision);
+  if (listedEntries.length === 0) {
+    await assertGitTreeAncestors(repoDir, revision, runGit, limits.maxGitListingBytes);
+  }
   const inputs = await materializeGitInputs(repoDir, listedEntries, limits, readObjects);
   return buildDataSyncInventory({ kind: 'git-ref', revision }, inputs, limits);
 }
@@ -1255,6 +1331,7 @@ export async function readDataSyncInventoriesFromGitIndex(
     limits.maxGitListingBytes,
   );
   const listedEntries = parseIndexListing(listing);
+  await assertNoGitIndexAncestorEntries(repoDir, runGit, limits.maxGitListingBytes);
   if (listedEntries.length > limits.maxEntries) {
     throw new DataSyncInventoryLimitError(
       'maxEntries',
