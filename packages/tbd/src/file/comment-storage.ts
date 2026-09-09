@@ -1,10 +1,7 @@
 /** Create-only filesystem storage for immutable native comment records. */
 
-import { createHash, randomBytes } from 'node:crypto';
-import { constants } from 'node:fs';
-import { link, lstat, mkdir, open, unlink } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { TextDecoder } from 'node:util';
+import { createHash } from 'node:crypto';
+import { join } from 'node:path';
 
 import { ZodError } from 'zod';
 
@@ -17,6 +14,15 @@ import {
 } from '../lib/native-comment.js';
 import { formatZodError } from '../utils/zod-error-utils.js';
 import {
+  BoundedFileError,
+  assertRealDirectories,
+  decodeUtf8Fatal,
+  ensureRealDirectories,
+  publishBytesCreateOnly,
+  readBoundedRegularFileBytes,
+  type CreateOnlyPublicationOptions,
+} from './bounded-file.js';
+import {
   canonicalizeNativeCommentBody,
   parseNativeComment,
   serializeNativeComment,
@@ -25,14 +31,8 @@ import {
 /** Maximum complete record allocation, including bounded frontmatter overhead. */
 export const NATIVE_COMMENT_FILE_MAX_BYTES = NATIVE_COMMENT_BODY_MAX_BYTES + 8 * 1024;
 
-/** Failure-injection seam for the two atomic publication boundaries. */
-export interface NativeCommentPublicationOptions {
-  /** @internal Used by failure-boundary tests; production callers should omit it. */
-  onPhase?: (
-    phase: 'after-temp-open' | 'after-temp-write' | 'after-temp-close' | 'after-link',
-    paths: { tempPath: string; finalPath: string },
-  ) => void | Promise<void>;
-}
+/** Failure-injection seam for native-comment create-only publication. */
+export type NativeCommentPublicationOptions = CreateOnlyPublicationOptions;
 
 /** Outcome of publishing a create-only native comment record. */
 export interface PublishNativeCommentResult {
@@ -54,14 +54,6 @@ export class NativeCommentIdConflictError extends Error {
       options,
     );
     this.name = 'NativeCommentIdConflictError';
-  }
-}
-
-/** Stored bytes are present but cannot represent a valid bounded native-comment file. */
-class InvalidNativeCommentFileError extends Error {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
-    this.name = 'InvalidNativeCommentFileError';
   }
 }
 
@@ -103,7 +95,7 @@ export async function readNativeComment(
 ): Promise<NativeComment> {
   const path = getNativeCommentPath(baseDir, id);
   await assertRealDirectories(baseDir, ['comments', commentShard(id)]);
-  const comment = parseNativeComment(await readBoundedRegularFile(path));
+  const comment = parseNativeComment(await readNativeCommentText(path));
   if (comment.id !== id) {
     throw new Error(`Native comment file ${id}.md contains record ${comment.id}`);
   }
@@ -124,196 +116,56 @@ function parseCandidate(comment: NativeComment): NativeComment {
   }
 }
 
-function hasErrorCode(error: unknown, code: string): boolean {
-  return (error as NodeJS.ErrnoException).code === code;
-}
-
-function asError(error: unknown): Error {
-  return error instanceof Error ? error : new Error(String(error));
-}
-
-interface CreateOnlyBytesResult {
-  status: 'created' | 'existing';
-}
-
-async function readBoundedRegularFile(path: string): Promise<string> {
-  const pathMetadata = await lstat(path);
-  if (!pathMetadata.isFile() || pathMetadata.isSymbolicLink()) {
-    throw new InvalidNativeCommentFileError(`Native comment path is not a regular file: ${path}`);
-  }
-  if (pathMetadata.size > NATIVE_COMMENT_FILE_MAX_BYTES) {
-    throw new InvalidNativeCommentFileError(
-      `Native comment file exceeds ${NATIVE_COMMENT_FILE_MAX_BYTES} bytes: ${path}`,
-    );
-  }
-
-  const noFollow = process.platform === 'win32' ? 0 : constants.O_NOFOLLOW;
-  const handle = await open(path, constants.O_RDONLY | noFollow);
+async function readNativeCommentFile(path: string): Promise<Uint8Array> {
   try {
-    const metadata = await handle.stat();
-    if (!metadata.isFile()) {
-      throw new InvalidNativeCommentFileError(`Native comment path is not a regular file: ${path}`);
+    return await readBoundedRegularFileBytes(path, NATIVE_COMMENT_FILE_MAX_BYTES);
+  } catch (error) {
+    if (!(error instanceof BoundedFileError)) {
+      throw error;
     }
-    if (metadata.dev !== pathMetadata.dev || metadata.ino !== pathMetadata.ino) {
-      throw new Error(`Native comment path changed while opening: ${path}`);
-    }
-    if (metadata.size > NATIVE_COMMENT_FILE_MAX_BYTES) {
-      throw new InvalidNativeCommentFileError(
-        `Native comment file exceeds ${NATIVE_COMMENT_FILE_MAX_BYTES} bytes: ${path}`,
-      );
-    }
-
-    const chunks: Buffer[] = [];
-    let total = 0;
-    while (true) {
-      const remaining = NATIVE_COMMENT_FILE_MAX_BYTES + 1 - total;
-      if (remaining <= 0) {
-        throw new InvalidNativeCommentFileError(
-          `Native comment file exceeds ${NATIVE_COMMENT_FILE_MAX_BYTES} bytes: ${path}`,
-        );
-      }
-      const buffer = Buffer.allocUnsafe(Math.min(8192, remaining));
-      const { bytesRead } = await handle.read(buffer, 0, buffer.length, null);
-      if (bytesRead === 0) {
-        break;
-      }
-      total += bytesRead;
-      if (total > NATIVE_COMMENT_FILE_MAX_BYTES) {
-        throw new InvalidNativeCommentFileError(
-          `Native comment file exceeds ${NATIVE_COMMENT_FILE_MAX_BYTES} bytes: ${path}`,
-        );
-      }
-      chunks.push(buffer.subarray(0, bytesRead));
-    }
-    try {
-      return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(
-        Buffer.concat(chunks, total),
-      );
-    } catch (error) {
-      throw new InvalidNativeCommentFileError(`Native comment file is not valid UTF-8: ${path}`, {
+    if (error.code === 'not-regular') {
+      throw new BoundedFileError(error.code, `Native comment path is not a regular file: ${path}`, {
         cause: error,
       });
     }
-  } finally {
-    await handle.close();
+    if (error.code === 'too-large') {
+      throw new BoundedFileError(
+        error.code,
+        `Native comment file exceeds ${NATIVE_COMMENT_FILE_MAX_BYTES} bytes: ${path}`,
+        { cause: error },
+      );
+    }
+    if (error.code === 'invalid-utf8') {
+      throw error;
+    }
+    throw new BoundedFileError(error.code, `Native comment path changed while opening: ${path}`, {
+      cause: error,
+    });
   }
 }
 
-async function assertRealDirectories(baseDir: string, segments: readonly string[]): Promise<void> {
-  let current = baseDir;
-  for (const segment of ['', ...segments]) {
-    current = segment === '' ? current : join(current, segment);
-    const metadata = await lstat(current);
-    if (!metadata.isDirectory() || metadata.isSymbolicLink()) {
-      throw new Error(`Native comment storage directory is not a real directory: ${current}`);
-    }
-  }
-}
-
-async function ensureRealDirectories(baseDir: string, segments: readonly string[]): Promise<void> {
-  await assertRealDirectories(baseDir, []);
-  let current = baseDir;
-  for (const segment of segments) {
-    current = join(current, segment);
-    try {
-      await mkdir(current);
-    } catch (error) {
-      if (!hasErrorCode(error, 'EEXIST')) {
-        throw asError(error);
-      }
-    }
-    const metadata = await lstat(current);
-    if (!metadata.isDirectory() || metadata.isSymbolicLink()) {
-      throw new Error(`Native comment storage directory is not a real directory: ${current}`);
-    }
-  }
-}
-
-/**
- * Make completed bytes visible at a path atomically, without replacement.
- *
- * The temporary and final paths share a filesystem. A hard link is the portable Node
- * primitive whose EEXIST outcome cannot replace another writer's completed file.
- */
-async function publishBytesCreateOnly(
-  finalPath: string,
-  content: string,
-  options: NativeCommentPublicationOptions = {},
-): Promise<CreateOnlyBytesResult> {
-  const parent = dirname(finalPath);
-  const suffix = randomBytes(12).toString('hex');
-  const tempPath = join(parent, `.${process.pid}.${suffix}.tmp`);
-  let tempCreated = false;
-  let outcome: CreateOnlyBytesResult | undefined;
-  let primaryError: Error | undefined;
-
+function decodeNativeCommentFile(bytes: Uint8Array, path: string): string {
   try {
-    const handle = await open(tempPath, 'wx', 0o666);
-    tempCreated = true;
-    let writeError: Error | undefined;
-    try {
-      await options.onPhase?.('after-temp-open', { tempPath, finalPath });
-      await handle.writeFile(content, 'utf8');
-      await options.onPhase?.('after-temp-write', { tempPath, finalPath });
-    } catch (error) {
-      writeError = asError(error);
-    }
-
-    try {
-      await handle.close();
-    } catch (closeError) {
-      if (writeError !== undefined) {
-        throw new AggregateError(
-          [writeError, asError(closeError)],
-          `Native comment temporary write and close both failed: ${tempPath}`,
-        );
-      }
-      throw asError(closeError);
-    }
-    if (writeError !== undefined) {
-      throw writeError;
-    }
-
-    await options.onPhase?.('after-temp-close', { tempPath, finalPath });
-    try {
-      await link(tempPath, finalPath);
-      outcome = { status: 'created' };
-    } catch (error) {
-      if (!hasErrorCode(error, 'EEXIST')) {
-        throw asError(error);
-      }
-      outcome = { status: 'existing' };
-    }
-    if (outcome.status === 'created') {
-      await options.onPhase?.('after-link', { tempPath, finalPath });
-    }
+    return decodeUtf8Fatal(bytes, `Native comment file ${path}`);
   } catch (error) {
-    primaryError = asError(error);
-  }
-
-  if (tempCreated) {
-    try {
-      await unlink(tempPath);
-    } catch (cleanupError) {
-      if (!hasErrorCode(cleanupError, 'ENOENT')) {
-        if (primaryError !== undefined) {
-          throw new AggregateError(
-            [primaryError, asError(cleanupError)],
-            `Native comment publication and temporary cleanup both failed: ${tempPath}`,
-          );
-        }
-        throw asError(cleanupError);
-      }
+    if (!(error instanceof BoundedFileError) || error.code !== 'invalid-utf8') {
+      throw error;
     }
+    throw new BoundedFileError(error.code, `Native comment file is not valid UTF-8: ${path}`, {
+      cause: error,
+    });
   }
+}
 
-  if (primaryError !== undefined) {
-    throw primaryError;
-  }
-  if (outcome === undefined) {
-    throw new Error(`Native comment publication ended without an outcome: ${finalPath}`);
-  }
-  return outcome;
+async function readNativeCommentText(path: string): Promise<string> {
+  return decodeNativeCommentFile(await readNativeCommentFile(path), path);
+}
+
+function isInvalidNativeCommentOccupant(error: unknown): boolean {
+  return (
+    error instanceof BoundedFileError &&
+    (error.code === 'not-regular' || error.code === 'too-large' || error.code === 'invalid-utf8')
+  );
 }
 
 /**
@@ -332,33 +184,34 @@ export async function publishNativeComment(
 ): Promise<PublishNativeCommentResult> {
   const validCandidate = parseCandidate(candidate);
   const content = serializeNativeComment(validCandidate);
-  const serializedBytes = Buffer.byteLength(content, 'utf8');
-  if (serializedBytes > NATIVE_COMMENT_FILE_MAX_BYTES) {
+  const contentBytes = Buffer.from(content, 'utf8');
+  if (contentBytes.byteLength > NATIVE_COMMENT_FILE_MAX_BYTES) {
     throw new Error(
-      `Native comment record is ${serializedBytes} bytes; maximum is ${NATIVE_COMMENT_FILE_MAX_BYTES}`,
+      `Native comment record is ${contentBytes.byteLength} bytes; maximum is ${NATIVE_COMMENT_FILE_MAX_BYTES}`,
     );
   }
   const canonicalCandidate = parseNativeComment(content);
   const id = canonicalCandidate.id as InternalCommentId;
   const path = getNativeCommentPath(baseDir, id);
   await ensureRealDirectories(baseDir, ['comments', commentShard(id)]);
-  const publication = await publishBytesCreateOnly(path, content, options);
+  const publication = await publishBytesCreateOnly(path, contentBytes, options);
 
   if (publication.status === 'created') {
     return { status: 'created', comment: canonicalCandidate, path };
   }
 
   await assertRealDirectories(baseDir, ['comments', commentShard(id)]);
-  let existingContent: string | undefined;
+  let existingBytes: Uint8Array | undefined;
   try {
-    existingContent = await readBoundedRegularFile(path);
+    existingBytes = await readNativeCommentFile(path);
+    decodeNativeCommentFile(existingBytes, path);
   } catch (error) {
-    if (!(error instanceof InvalidNativeCommentFileError)) {
-      throw asError(error);
+    if (!isInvalidNativeCommentOccupant(error)) {
+      throw error;
     }
   }
-  if (existingContent === content) {
-    return { status: 'existing', comment: parseNativeComment(existingContent), path };
+  if (existingBytes !== undefined && Buffer.compare(existingBytes, contentBytes) === 0) {
+    return { status: 'existing', comment: canonicalCandidate, path };
   }
 
   // Different, noncanonical, or malformed content is still immutable evidence. Preserve
@@ -366,18 +219,19 @@ export async function publishNativeComment(
   // canonical path.
   const preservedPath = getNativeCommentConflictPath(baseDir, id, content);
   await ensureRealDirectories(baseDir, ['attic', 'comment-conflicts', id]);
-  const preserved = await publishBytesCreateOnly(preservedPath, content);
+  const preserved = await publishBytesCreateOnly(preservedPath, contentBytes);
   if (preserved.status === 'existing') {
-    let preservedContent: string;
+    let preservedBytes: Uint8Array;
     try {
       await assertRealDirectories(baseDir, ['attic', 'comment-conflicts', id]);
-      preservedContent = await readBoundedRegularFile(preservedPath);
+      preservedBytes = await readNativeCommentFile(preservedPath);
+      decodeNativeCommentFile(preservedBytes, preservedPath);
     } catch (error) {
       throw new Error(`Cannot verify native comment conflict path ${preservedPath}`, {
         cause: error,
       });
     }
-    if (preservedContent !== content) {
+    if (Buffer.compare(preservedBytes, contentBytes) !== 0) {
       throw new Error(`Native comment conflict path collision at ${preservedPath}`);
     }
   }
