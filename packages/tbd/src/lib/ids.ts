@@ -39,6 +39,10 @@ const ulid = monotonicFactory();
 declare const InternalIssueIdBrand: unique symbol;
 export type InternalIssueId = string & { [InternalIssueIdBrand]: never };
 
+/** Branded `cm-{ulid}` identity for one immutable native comment. */
+declare const InternalCommentIdBrand: unique symbol;
+export type InternalCommentId = string & { [InternalCommentIdBrand]: never };
+
 /**
  * Branded type for display issue IDs ({prefix}-{short} format).
  *
@@ -62,6 +66,11 @@ export function asInternalId(id: string): InternalIssueId {
   return id as InternalIssueId;
 }
 
+/** Cast a validated `cm-{ulid}` string to its branded type. */
+export function asInternalCommentId(id: string): InternalCommentId {
+  return id as InternalCommentId;
+}
+
 /**
  * Cast a string to DisplayIssueId.
  * Use this when formatting an ID for display.
@@ -75,6 +84,9 @@ export function asDisplayId(id: string): DisplayIssueId {
  * All internal IDs are formatted as: {INTERNAL_ID_PREFIX}-{ulid}
  */
 export const INTERNAL_ID_PREFIX = 'is';
+
+/** Prefix for immutable native-comment IDs. */
+export const INTERNAL_COMMENT_ID_PREFIX = 'cm';
 
 /**
  * Length of internal ID prefix including the hyphen (e.g., "is-" = 3).
@@ -105,6 +117,20 @@ export function generateInternalId(): InternalIssueId {
   return makeInternalId(ulid());
 }
 
+/** Construct a native-comment ID from a ULID. */
+export function makeInternalCommentId(ulidValue: string): InternalCommentId {
+  const id = `${INTERNAL_COMMENT_ID_PREFIX}-${ulidValue.toLowerCase()}`;
+  if (!validateCommentId(id)) {
+    throw new Error(`Invalid ULID for native comment ID: ${ulidValue}`);
+  }
+  return id as InternalCommentId;
+}
+
+/** Generate an independently safe native-comment identity. */
+export function generateInternalCommentId(): InternalCommentId {
+  return makeInternalCommentId(ulid());
+}
+
 /**
  * Generate a short ID for external display.
  * Format: base36 characters (a-z, 0-9)
@@ -125,6 +151,10 @@ export function generateShortId(length = 4): string {
 // Regex pattern for validating internal IDs - built from prefix constant
 const INTERNAL_ID_PATTERN = new RegExp(`^${INTERNAL_ID_PREFIX}-[0-9a-z]{26}$`);
 
+const INTERNAL_COMMENT_ID_PATTERN = new RegExp(
+  `^${INTERNAL_COMMENT_ID_PREFIX}-[0-7][0-9a-hjkmnp-tv-z]{25}$`,
+);
+
 // Expected length of a full internal ID (prefix + hyphen + 26-char ULID)
 const INTERNAL_ID_LENGTH = INTERNAL_ID_PREFIX_LENGTH + 26;
 
@@ -134,6 +164,11 @@ const INTERNAL_ID_LENGTH = INTERNAL_ID_PREFIX_LENGTH + 26;
  */
 export function validateIssueId(id: string): boolean {
   return INTERNAL_ID_PATTERN.test(id);
+}
+
+/** Validate a lowercase, canonical Crockford Base32 ULID comment identity. */
+export function validateCommentId(id: string): boolean {
+  return INTERNAL_COMMENT_ID_PATTERN.test(id);
 }
 
 /**

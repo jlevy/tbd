@@ -50,6 +50,10 @@ Project-specific specifications, architecture, and research docs:
 - @docs/project/architecture/—System design references and long-lived architecture docs
   (templates and output go here)
 
+  - [Native comment record architecture](project/architecture/current/arch-native-comments.md)
+    defines immutable comment identity, hash-sharded storage, no-replace publication,
+    repair artifacts, and the explicit f09 activation boundary.
+
 - @docs/project/research/—Research notes and technical investigations
 
   - [Bead watching and cross-agent coordination](project/research/current/research-2026-09-06-bead-agent-coordination.md)

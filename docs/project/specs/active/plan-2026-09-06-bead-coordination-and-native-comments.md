@@ -553,6 +553,16 @@ integration-comment behavior is unchanged.
 This permits only dormant internal models, inventory helpers, and invariant tests ahead
 of the preservation increment; it does not claim that such an optional component exists.
 
+The candidate record and activation contracts are recorded in
+[Native Comment Record Architecture](../../architecture/current/arch-native-comments.md).
+Implementation is stacked in preservation order: model and create-only storage
+(`tbd-e1tu`); inventory and immutable transitions (`tbd-4r3w`); Git operation guards
+(`tbd-qo4d`); workspace and history recovery (`tbd-7ufa`); doctor, migration, and the
+f08 compatibility gate (`tbd-44kw`); then explicit f09 activation and bounded CLI
+discovery (`tbd-x6eo`). The four preservation layers belong to `tbd-76ad`. Existing
+repositories remain on f08 until the activation command produces a reviewed config
+change.
+
 - [ ] Compare independent records against the repaired embedded baseline using the
   selected `tbd-q2w2` append, collision, recovery, and scale experiments; record why the
   selected representation passes before freezing its format.
