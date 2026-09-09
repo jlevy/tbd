@@ -90,6 +90,9 @@ export const PRIMARY_CHECKOUT_DATA_SYNC_DIR = join(
 /** Issues directory */
 export const ISSUES_DIR = join(DATA_SYNC_DIR, 'issues');
 
+/** Hash-sharded immutable native comment records. */
+export const COMMENTS_DIR = join(DATA_SYNC_DIR, 'comments');
+
 /** Mappings directory */
 export const MAPPINGS_DIR = join(DATA_SYNC_DIR, 'mappings');
 
