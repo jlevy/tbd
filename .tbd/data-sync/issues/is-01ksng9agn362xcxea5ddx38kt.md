@@ -5,15 +5,15 @@ title: "H3: Implement tbd doctor --fix for layout.yml/config mismatch + surface 
 kind: task
 status: closed
 priority: 1
-version: 4
-spec_path: docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md
+version: 5
+spec_path: docs/project/specs/done/plan-2026-05-17-shared-common-dir-sync-worktree.md
 labels: []
 dependencies:
   - type: blocks
     target: is-01ksnga2my9rmrq6sre0c57p3j
 parent_id: is-01ksng8cqv1885jwvg3fagcfph
 created_at: 2026-05-27T19:58:48.341Z
-updated_at: 2026-05-28T04:02:23.238Z
+updated_at: 2026-09-10T17:49:42.168Z
 closed_at: 2026-05-28T04:02:23.237Z
 close_reason: null
 ---

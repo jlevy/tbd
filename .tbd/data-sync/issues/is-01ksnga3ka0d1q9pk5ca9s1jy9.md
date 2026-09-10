@@ -5,13 +5,13 @@ title: "H6: Decide stale-lock heartbeat policy (accept risk or implement heartbe
 kind: task
 status: closed
 priority: 3
-version: 3
-spec_path: docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md
+version: 4
+spec_path: docs/project/specs/done/plan-2026-05-17-shared-common-dir-sync-worktree.md
 labels: []
 dependencies: []
 parent_id: is-01ksng8cqv1885jwvg3fagcfph
 created_at: 2026-05-27T19:59:14.026Z
-updated_at: 2026-05-28T04:17:02.499Z
+updated_at: 2026-09-10T17:49:40.428Z
 closed_at: 2026-05-28T04:17:02.499Z
 close_reason: null
 ---

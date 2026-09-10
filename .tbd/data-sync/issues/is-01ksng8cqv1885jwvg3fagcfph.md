@@ -5,8 +5,8 @@ title: "Spec follow-up: Harden shared common-dir sync lock boundary (PR #121)"
 kind: epic
 status: closed
 priority: 1
-version: 9
-spec_path: docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md
+version: 10
+spec_path: docs/project/specs/done/plan-2026-05-17-shared-common-dir-sync-worktree.md
 labels: []
 dependencies: []
 child_order_hints:
@@ -18,7 +18,7 @@ child_order_hints:
   - is-01ksnga3ka0d1q9pk5ca9s1jy9
   - is-01ksngytzasy3g58vne5p5athg
 created_at: 2026-05-27T19:58:17.851Z
-updated_at: 2026-05-28T04:19:44.305Z
+updated_at: 2026-09-10T17:49:42.992Z
 closed_at: 2026-05-28T04:19:44.305Z
 close_reason: null
 ---

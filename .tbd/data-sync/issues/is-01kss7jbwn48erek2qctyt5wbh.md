@@ -5,15 +5,15 @@ title: git() wrapper/errors carry exitCode (structural)
 kind: task
 status: closed
 priority: 1
-version: 4
-spec_path: docs/project/specs/active/plan-2026-05-29-tbd-sync-unrelated-history-hardening.md
+version: 6
+spec_path: docs/project/specs/done/plan-2026-05-29-tbd-sync-unrelated-history-hardening.md
 labels: []
 dependencies:
   - type: blocks
     target: is-01kss7jcf02jsw39z45enh5wvv
 parent_id: is-01kss7hxvj9nxnhthv6efvehg0
 created_at: 2026-05-29T06:43:25.204Z
-updated_at: 2026-05-29T16:27:28.759Z
+updated_at: 2026-09-10T18:06:13.493Z
 closed_at: 2026-05-29T16:27:28.759Z
 close_reason: null
 ---

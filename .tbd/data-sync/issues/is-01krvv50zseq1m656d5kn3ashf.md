@@ -5,15 +5,15 @@ title: "Phase 6: Update setup, doctor, status, and uninstall for shared layout"
 kind: task
 status: closed
 priority: 2
-version: 3
-spec_path: docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md
+version: 5
+spec_path: docs/project/specs/done/plan-2026-05-17-shared-common-dir-sync-worktree.md
 labels: []
 dependencies:
   - type: blocks
     target: is-01krvv515z9w0eprhy15wrpqxf
 parent_id: is-01krvv3hm7d5gnfzw50qzpzph7
 created_at: 2026-05-17T20:48:26.616Z
-updated_at: 2026-05-17T21:56:36.329Z
+updated_at: 2026-09-10T17:49:46.100Z
 closed_at: 2026-05-17T21:56:36.328Z
 close_reason: Implemented shared Git common-dir sync worktree and validated with typecheck, lint, unit tests, and tryscripts
 ---

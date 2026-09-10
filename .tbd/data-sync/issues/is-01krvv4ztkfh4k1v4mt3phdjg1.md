@@ -5,8 +5,8 @@ title: "Phase 1: Add long-running shared data-sync lock profile"
 kind: task
 status: closed
 priority: 2
-version: 4
-spec_path: docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md
+version: 5
+spec_path: docs/project/specs/done/plan-2026-05-17-shared-common-dir-sync-worktree.md
 labels: []
 dependencies:
   - type: blocks
@@ -15,7 +15,7 @@ dependencies:
     target: is-01krvv50kfvh5r5251wdgh3r9x
 parent_id: is-01krvv3hm7d5gnfzw50qzpzph7
 created_at: 2026-05-17T20:48:25.426Z
-updated_at: 2026-05-17T21:56:34.594Z
+updated_at: 2026-09-10T17:49:32.329Z
 closed_at: 2026-05-17T21:56:34.593Z
 close_reason: Implemented shared Git common-dir sync worktree and validated with typecheck, lint, unit tests, and tryscripts
 ---

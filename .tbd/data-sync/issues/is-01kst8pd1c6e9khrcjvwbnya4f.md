@@ -5,13 +5,13 @@ title: "Phase 2 rescue tests: same-ULID divergence matrix + dirty-worktree preco
 kind: task
 status: closed
 priority: 1
-version: 3
-spec_path: docs/project/specs/active/plan-2026-05-29-tbd-sync-unrelated-history-hardening.md
+version: 5
+spec_path: docs/project/specs/done/plan-2026-05-29-tbd-sync-unrelated-history-hardening.md
 labels: []
 dependencies: []
 parent_id: is-01kss7hxvj9nxnhthv6efvehg0
 created_at: 2026-05-29T16:22:20.460Z
-updated_at: 2026-05-29T17:21:20.308Z
+updated_at: 2026-09-10T18:06:15.673Z
 closed_at: 2026-05-29T17:21:20.307Z
 close_reason: null
 ---

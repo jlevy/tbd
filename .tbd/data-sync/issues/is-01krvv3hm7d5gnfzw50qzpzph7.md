@@ -5,8 +5,8 @@ title: "Spec: Shared common-dir sync worktree implementation"
 kind: epic
 status: closed
 priority: 2
-version: 17
-spec_path: docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md
+version: 18
+spec_path: docs/project/specs/done/plan-2026-05-17-shared-common-dir-sync-worktree.md
 labels: []
 dependencies: []
 child_order_hints:
@@ -24,7 +24,7 @@ child_order_hints:
   - is-01krvv515z9w0eprhy15wrpqxf
   - is-01krvv51c86bs8q20g7gv89qsc
 created_at: 2026-05-17T20:47:38.119Z
-updated_at: 2026-05-17T21:56:36.950Z
+updated_at: 2026-09-10T17:49:45.317Z
 closed_at: 2026-05-17T21:56:36.949Z
 close_reason: Implemented shared Git common-dir sync worktree and validated with typecheck, lint, unit tests, and tryscripts
 ---

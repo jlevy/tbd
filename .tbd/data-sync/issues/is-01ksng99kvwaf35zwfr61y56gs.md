@@ -5,8 +5,8 @@ title: "H1: Make loadDataContext() read path truly read-only (no unlocked mutati
 kind: bug
 status: closed
 priority: 0
-version: 6
-spec_path: docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md
+version: 8
+spec_path: docs/project/specs/done/plan-2026-05-17-shared-common-dir-sync-worktree.md
 labels: []
 dependencies:
   - type: blocks
@@ -17,7 +17,7 @@ dependencies:
     target: is-01ksnga34m6xqq6msc4yp6asmx
 parent_id: is-01ksng8cqv1885jwvg3fagcfph
 created_at: 2026-05-27T19:58:47.419Z
-updated_at: 2026-05-28T03:47:53.093Z
+updated_at: 2026-09-10T17:49:46.439Z
 closed_at: 2026-05-28T03:47:53.092Z
 close_reason: null
 ---

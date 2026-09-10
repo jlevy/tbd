@@ -5,13 +5,13 @@ title: "H4: Lock-boundary and first-use concurrency regression tests"
 kind: task
 status: closed
 priority: 1
-version: 3
-spec_path: docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md
+version: 4
+spec_path: docs/project/specs/done/plan-2026-05-17-shared-common-dir-sync-worktree.md
 labels: []
 dependencies: []
 parent_id: is-01ksng8cqv1885jwvg3fagcfph
 created_at: 2026-05-27T19:59:13.054Z
-updated_at: 2026-05-28T04:10:38.361Z
+updated_at: 2026-09-10T17:49:37.756Z
 closed_at: 2026-05-28T04:10:38.361Z
 close_reason: null
 ---

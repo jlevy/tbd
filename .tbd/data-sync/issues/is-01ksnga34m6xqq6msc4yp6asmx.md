@@ -5,13 +5,13 @@ title: "H5: Cleanup - migrate orphaned changeset to release-notes, wire dead hel
 kind: task
 status: closed
 priority: 2
-version: 3
-spec_path: docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md
+version: 4
+spec_path: docs/project/specs/done/plan-2026-05-17-shared-common-dir-sync-worktree.md
 labels: []
 dependencies: []
 parent_id: is-01ksng8cqv1885jwvg3fagcfph
 created_at: 2026-05-27T19:59:13.556Z
-updated_at: 2026-05-28T04:13:48.476Z
+updated_at: 2026-09-10T17:49:31.453Z
 closed_at: 2026-05-28T04:13:48.475Z
 close_reason: null
 ---

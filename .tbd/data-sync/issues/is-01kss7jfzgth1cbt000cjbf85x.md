@@ -5,8 +5,8 @@ title: "rescueUnrelatedHistory: non-destructive issue-file-layer reconciliation 
 kind: feature
 status: closed
 priority: 1
-version: 5
-spec_path: docs/project/specs/active/plan-2026-05-29-tbd-sync-unrelated-history-hardening.md
+version: 7
+spec_path: docs/project/specs/done/plan-2026-05-29-tbd-sync-unrelated-history-hardening.md
 labels: []
 dependencies:
   - type: blocks
@@ -15,7 +15,7 @@ dependencies:
     target: is-01kst8pd1c6e9khrcjvwbnya4f
 parent_id: is-01kss7hxvj9nxnhthv6efvehg0
 created_at: 2026-05-29T06:43:29.392Z
-updated_at: 2026-05-29T17:07:36.590Z
+updated_at: 2026-09-10T18:06:15.040Z
 closed_at: 2026-05-29T17:07:36.590Z
 close_reason: null
 ---

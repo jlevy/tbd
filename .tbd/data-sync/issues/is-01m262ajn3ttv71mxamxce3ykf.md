@@ -1,0 +1,67 @@
+---
+type: is
+id: is-01m262ajn3ttv71mxamxce3ykf
+title: Reconcile main tbd design with dormant native-comment architecture
+kind: task
+status: in_progress
+priority: 1
+version: 49
+spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
+delegate: codex@spud10.local
+labels: []
+dependencies: []
+parent_id: is-01m1w3g0smx3ezvwz4g8mkmjy9
+child_order_hints:
+  - is-01m2641ar25xt01a10psn2ztfw
+  - is-01m2641h1472pgeprjs3ej5peq
+  - is-01m2641pvqpvegbq10bre7t5p2
+  - is-01m266femtm2e3n3a8sdh1jh4k
+  - is-01m266ff2n51vr5ra6y8w5kvrs
+  - is-01m266ffmfnhgb5pqk5wg1qeq5
+  - is-01m266px9kzwpg6ez543bxa4gt
+  - is-01m266pxp22cn5mr8gf2hev3d3
+  - is-01m266py31daq0y2dn0p8bs4qk
+  - is-01m266sdxpx7dmfrtxfmnnrphg
+  - is-01m266t89pk69fyfa6571v5xzb
+  - is-01m266v7hnc5vb5wxaw54pr5pq
+  - is-01m26793zb3d1vrhj56xav23zq
+  - is-01m267haz1m01b0ccpe6vyaxzp
+  - is-01m267hbc2947q8xz4nnnbd0za
+  - is-01m267hbrp064bewdb3e7xxg67
+  - is-01m267hc5ztjv3na99vf8mjpm7
+  - is-01m267hck8t6v674jt9s69tyqj
+  - is-01m267hmfd9b427fys9mj7s9vc
+  - is-01m267hmvyvs0gtx90hm19a4jg
+  - is-01m267hn8d0md06bwe36n2k2zd
+  - is-01m268aqvggghpg4yxtp8qe554
+  - is-01m268ardk0e4wt49c5690pwga
+  - is-01m26968ehq887mmzf2fkc42dx
+  - is-01m26968vmnspz6aecp3awyg1e
+  - is-01m269698f90hgzj8y6ty6wfhz
+  - is-01m26969mqaawevsjkjn0cjxrc
+  - is-01m2696a1m7k0xhhd16agx1vrg
+  - is-01m26a8v2vayd52pyvbdc8cjwj
+  - is-01m26a8vk0ryzskk25p8wztncx
+  - is-01m26a8w044kdzmya9setmfhtg
+  - is-01m26a8wg8c5bc9c3m8zh475w7
+  - is-01m26a8x4mdv9agmvrjpbe39ac
+  - is-01m26afwnp62by7qd62ff39vh0
+  - is-01m26cge9yff6389kpy7wdywrn
+  - is-01m26cgj508ep41cpz4aadykbb
+  - is-01m26cgqrpe9qjtnw1ax710kqs
+  - is-01m26cgw4et6de4esx00cvfts4
+  - is-01m26ch1ecmj6hyeaq4bpn2r55
+  - is-01m26ch6023bpvyjx4bnetc3es
+  - is-01m26cha1v3wmjgj7c7bdbnher
+  - is-01m26chemhq30f6aaxf34r29cm
+  - is-01m26chk3mqp4kx0ad92wq5fbf
+  - is-01m26erekp60wbvsng74y89mh2
+  - is-01m26ew458nxbhyydb8mh64d2y
+  - is-01m26ew8gjtbmhz6qfxk4d9n86
+hold: null
+hold_until: null
+created_at: 2026-09-10T16:27:29.314Z
+updated_at: 2026-09-10T20:06:51.665Z
+started_at: 2026-09-10T18:27:56.696Z
+---
+Update packages/tbd/docs/tbd-design.md so the authoritative product design summarizes the selected immutable native-comment record model, storage and Git preservation contracts, current f08 dormant boundary, watch and provider limitations, and activation gates. Reconcile stale messages/deferred/parity text, keep current repository layout distinct from the proposed f09 layout, validate links and Markdown, obtain independent review, and update PR #283 at its new exact head.

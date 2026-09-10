@@ -5,13 +5,13 @@ title: "tbd doctor: report unrelated histories as hard finding routing to --fix"
 kind: bug
 status: closed
 priority: 1
-version: 3
-spec_path: docs/project/specs/active/plan-2026-05-29-tbd-sync-unrelated-history-hardening.md
+version: 5
+spec_path: docs/project/specs/done/plan-2026-05-29-tbd-sync-unrelated-history-hardening.md
 labels: []
 dependencies: []
 parent_id: is-01kss7hxvj9nxnhthv6efvehg0
 created_at: 2026-05-29T06:43:27.573Z
-updated_at: 2026-05-29T16:44:27.321Z
+updated_at: 2026-09-10T18:06:14.716Z
 closed_at: 2026-05-29T16:44:27.321Z
 close_reason: null
 ---

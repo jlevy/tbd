@@ -5,13 +5,13 @@ title: "H7: tbd-sync internal commits must be signing-agnostic (gpgsign breaks w
 kind: bug
 status: closed
 priority: 0
-version: 5
-spec_path: docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md
+version: 7
+spec_path: docs/project/specs/done/plan-2026-05-17-shared-common-dir-sync-worktree.md
 labels: []
 dependencies: []
 parent_id: is-01ksng8cqv1885jwvg3fagcfph
 created_at: 2026-05-27T20:10:33.322Z
-updated_at: 2026-05-28T03:42:11.459Z
+updated_at: 2026-09-10T17:49:43.858Z
 closed_at: 2026-05-28T03:42:11.459Z
 close_reason: null
 ---

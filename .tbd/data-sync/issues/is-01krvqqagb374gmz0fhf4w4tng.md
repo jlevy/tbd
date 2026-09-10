@@ -5,8 +5,8 @@ title: "Phase 1: Spike shared Git common-dir attached sync worktree"
 kind: task
 status: closed
 priority: 2
-version: 6
-spec_path: docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md
+version: 7
+spec_path: docs/project/specs/done/plan-2026-05-17-shared-common-dir-sync-worktree.md
 labels: []
 dependencies:
   - type: blocks
@@ -15,7 +15,7 @@ dependencies:
     target: is-01krvtc0z4g8x93dmgrynqx3bd
 parent_id: is-01krvv3hm7d5gnfzw50qzpzph7
 created_at: 2026-05-17T19:48:31.882Z
-updated_at: 2026-05-17T21:56:34.174Z
+updated_at: 2026-09-10T17:49:28.026Z
 closed_at: 2026-05-17T21:56:34.173Z
 close_reason: Implemented shared Git common-dir sync worktree and validated with typecheck, lint, unit tests, and tryscripts
 ---
