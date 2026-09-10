@@ -14,7 +14,7 @@ remain explicit release gates.
 incorporated below. Earlier probe/test results remain attributed to the original
 baseline.
 
-**Tracking:** tbd-kvs3.
+**Tracking:** completed historical research task tbd-kvs3.
 
 ## Overview
 
@@ -182,7 +182,7 @@ The implementation has several valuable properties:
   timeout/no match (3).
 
 Focused tests and the real-Git release smoke confirm these strengths.
-[Polling and ref isolation][t-watch][]
+[Polling and ref isolation][t-watch]
 
 The report remains an endpoint diff.
 A value changed and reverted between baseline and tip leaves no net report.
@@ -375,6 +375,14 @@ identity-proof gating; these are not merely main-branch proposals.
 [Release send signature](https://github.com/Dicklesworthstone/mcp_agent_mail_rust/blob/46b06e31fd163052148893eac4581666017b5a2b/crates/mcp-agent-mail-tools/src/messaging.rs#L1807)
 [Release identity proof](https://github.com/Dicklesworthstone/mcp_agent_mail_rust/blob/46b06e31fd163052148893eac4581666017b5a2b/crates/mcp-agent-mail-tools/src/identity.rs#L2066)
 
+**Landing update, 2026-09-09:** Upstream v0.3.35 adds transport-specific lifecycle
+authorization that requires a registration token over HTTP, plus bounded tmux probes,
+fail-closed reservation checks, and database/archive recovery hardening.
+These changes reinforce this plan’s authentication and recovery boundaries without
+changing the selected architecture.
+The v0.3.32 analysis above remains a dated, pinned, reproducible snapshot.
+[v0.3.35 release][am-release-v035]
+
 Agents register identities, send addressed Markdown messages, share thread IDs,
 acknowledge messages, and reserve paths.
 Beads integration is a convention: keep task state in `br`, correlate mail through the
@@ -519,6 +527,16 @@ A new file type requires more than permissive issue parsing:
 - Index rebuilds, pagination, retention, and measured file-count/read costs.
 - Alias migration, stable delivery intents, and backfill of text no longer present in
   local stubs. A stub alone cannot reconstruct that text.
+
+A working-tree format check cannot fence an independent clone that has not incorporated
+the activation commit.
+The minimum safe rollout is therefore a still-f08 preservation release that recognizes
+and byte-preserves the future comment and evidence trees across every broad Git and
+recovery path, followed by a separately distributed f09 activation.
+The preservation binary must be tested from a stale source branch and config after
+another clone writes f09 records.
+A pre-preservation writer remains unsafe unless an authority every writer must consult
+enforces a capability marker; ordinary Git does not provide that fence.
 
 ### Relationships and ownership authority
 
@@ -745,7 +763,7 @@ Related internal documents:
 ## Source Snapshots
 
 Attic checkouts are ignored; pinned upstream references remain usable without them.
-Inspected 2026-09-06. Only tbd code was executed in this research.
+Primary snapshots inspected 2026-09-06. Only tbd code was executed in this research.
 
 | Source | Local checkout | Commit |
 | --- | --- | --- |
@@ -757,6 +775,10 @@ Inspected 2026-09-06. Only tbd code was executed in this research.
 | Agent Mail Rust v0.3.32 | same checkout, tag inspected | `46b06e31fd163052148893eac4581666017b5a2b` |
 | Gas Town | `attic/gastown` | `649b832b7672bc7a2dbef26f5983aba6198b819b` |
 | Gas City | `attic/gascity` | `2cc11e43ebabad90ee2213d7097a96b94cb462a3` |
+
+Landing addendum inspected 2026-09-09: Agent Mail Rust v0.3.35 release notes and tag,
+whose release source is `56bb26d747ebd87bbb233d5a19cf268ade522d82`. This supplements
+rather than replaces the pinned v0.3.32 source snapshot.
 
 [t-storage]: https://github.com/jlevy/tbd/blob/c218e90b45c18114a26935dded8fa2cb3b044ede/packages/tbd/src/file/storage.ts#L67
 [t-context]: https://github.com/jlevy/tbd/blob/c218e90b45c18114a26935dded8fa2cb3b044ede/packages/tbd/src/cli/lib/data-context.ts#L278
@@ -793,6 +815,7 @@ Inspected 2026-09-06. Only tbd code was executed in this research.
 [gc-mail]: https://github.com/gastownhall/gascity/blob/2cc11e43ebabad90ee2213d7097a96b94cb462a3/docs/reference/cli.md#L2538
 [gc-claim]: https://github.com/gastownhall/gascity/blob/2cc11e43ebabad90ee2213d7097a96b94cb462a3/internal/beads/beads.go#L176
 [am-release-events]: https://github.com/Dicklesworthstone/mcp_agent_mail_rust/blob/46b06e31fd163052148893eac4581666017b5a2b/crates/mcp-agent-mail-tools/src/messaging.rs#L4064
+[am-release-v035]: https://github.com/Dicklesworthstone/mcp_agent_mail_rust/releases/tag/v0.3.35
 [am-python-inbox]: https://github.com/Dicklesworthstone/mcp_agent_mail/blob/ac4966c64d7e39692a4fb9c707448a1718ab29db/src/mcp_agent_mail/app.py#L9592
 [am-readme]: https://github.com/Dicklesworthstone/mcp_agent_mail_rust/blob/7b805c4942c2d3a81873313593cd891336a0632d/README.md#L1739
 [am-beads]: https://github.com/Dicklesworthstone/mcp_agent_mail_rust/blob/7b805c4942c2d3a81873313593cd891336a0632d/README.md#L948

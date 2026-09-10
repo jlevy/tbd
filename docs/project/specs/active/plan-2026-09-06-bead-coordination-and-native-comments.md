@@ -12,7 +12,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 **Status:** Draft. Rollout direction follows the reviewed research and discussion;
 implementation and the phase acceptance tests have not started.
 
-**Tracking:** `tbd-khi1`; plan preparation `tbd-q90q`.
+**Tracking:** `tbd-khi1`; completed historical plan preparation `tbd-q90q`.
 
 **Research:**
 [Bead Watching, Comments, and Cross-Agent Coordination](../../research/current/research-2026-09-06-bead-agent-coordination.md).
@@ -50,6 +50,12 @@ gates pass.
 A phase can contain several small PRs.
 Closing a phase requires its complete release gate; merging a component is not evidence
 that the phase is usable end to end.
+An f08 release may contain unreachable internal model or inventory code and pure tests
+for future invariants when release checks prove that code has no runtime, public API,
+configuration, format, or generated-scaffold path.
+Do not advertise such a component as native-comment support.
+Phase 2 preservation wiring, usable native-comment behavior, f09 activation, native CLI
+surfaces, and provider conversion remain behind their own gates.
 The mixed human/agent adoption gate (`tbd-gtwx`) follows both Phases 4 and 5; it does
 not block the native-only Phase 5 release.
 
@@ -98,7 +104,13 @@ default interval is 30 seconds and its minimum is 10 seconds.
 The web observer combines native filesystem events with reconciliation.
 `tbd sync --issues` excludes docs and external integrations.
 Sync-branch commits and pushes already bypass source-code hooks; this repository’s
-push-triggered CI targets `main`.
+push-triggered CI targets `main`. That branch filter is repository-specific.
+An unfiltered `on: push` workflow can launch expensive CI for every `tbd-sync`
+publication, and server-side branch rules can reject the direct pushes that low-overhead
+coordination requires.
+Phase 3 must inspect both conditions before enabling a continuous cadence.
+See [workflow branch filters][github-actions-branch-filters] and
+[GitHub rulesets][github-rulesets].
 
 **GitHub constraints, checked 2026-09-06:** GitHub recommends at most six pushes per
 minute and fifteen Git read operations per second per repository.
@@ -189,12 +201,30 @@ record; there is no silent truncation of durable prose.
 
 ### Format, migration, and recovery
 
-Plan a new format boundary for native comment records.
+Reserve f09 as the candidate format boundary for native comment records, subject to the
+`tbd-z3ag` format-freeze gate.
 Existing readers enumerate only known entity paths in several sync and recovery
 operations; issue-level f08 passthrough does not make them safe native-comment clients.
-Allocate the actual format version during implementation and verify that released older
-clients refuse before mutating an upgraded repository.
-Adding a directory without this protection is not an acceptable rollout.
+
+Activation has two separately releasable steps:
+
+1. Ship an f08-compatible preservation release with no native writer and no format
+   activation. It must inventory and preserve the future comment and conflict-evidence
+   trees through broad staging, commits, fast-forwards, merges, push retries,
+   workspace/outbox movement, doctor repair, and unrelated-history rescue.
+2. Establish that preservation release as the minimum binary for every participating
+   writer, then ship a separately reviewed f09 activation.
+   Only an explicitly enabled f09 client may create native records.
+
+The preservation release must remain safe from an independent clone whose source branch
+and working-tree config have not incorporated the f09 activation commit.
+A local `tbd_format` check protects a client only after it sees that config.
+Ordinary Git cannot fence a pre-preservation clone that never incorporates the
+activation commit, so an unknown or older writer blocks activation.
+A deployment that requires hard refusal across uncontrolled writers needs a
+format/capability marker on an authority every writer must read before mutation, with
+enforcement that rejects writers that do not acknowledge it.
+Working-tree config alone cannot provide that guarantee.
 
 Before the first native write, schema validation, serialization, merge, doctor,
 workspace save/import, automatic outbox, and unrelated-history rescue must understand
@@ -281,7 +311,20 @@ time estimates or latency promises:
 | Local notification | Reuse the existing debounce/reconciliation approach; benchmark larger comment stores |
 | Coordination push allocation | Four attempts/minute across the declared participating writers, leaving nominal headroom for other repository activity |
 | Expected independent publishers | Explicit positive count for the GitHub profile; undercounting is visible as a configuration risk |
+| Sync-ref server policy | Normal direct, non-force pushes must be permitted without a PR or per-commit status-check loop |
+| Push-triggered CI | Exclude `tbd-sync` from expensive workflows, or measure every triggered run inside the supported capacity envelope |
 | Linear exchange | Independently configurable and bounded; not run on every fast Git tick |
+
+Before the first continuous push, the GitHub profile must inspect the configured sync
+ref’s branch protection/rulesets and inventory workflow branch filters.
+If API access cannot reveal a server rule, setup must report that uncertainty and
+require a controlled operator check.
+A broad push workflow is unsafe at the proposed cadence until either its expensive jobs
+exclude `tbd-sync` or a measured profile includes triggered runs, Actions minutes, and
+their checkout/fetch traffic.
+An unsupported ref policy or unmeasured CI amplification keeps continuous mode disabled
+and reports an actionable reason; it must not probe the remote with repeated failed
+pushes.
 
 For `N` continuously active publishers with a coordination allocation of `P` pushes per
 minute, a conservative equal-share interval is `60N/P` seconds per publisher.
@@ -302,7 +345,8 @@ rate-limit workaround.
 
 Multiplex local subscriptions into one `ls-remote` poll and fetch only changed tips.
 Measure tip checks, fetches, reconciliation fetches, successful pushes, failed attempts,
-bytes, lock wait, and time spent waiting for publication.
+bytes, lock wait, time spent waiting for publication, triggered workflow runs and
+Actions minutes, and CI checkout/fetch traffic attributable to the sync ref.
 Count source/CI activity as shared repository load when setting the operational
 envelope. Polling uses no REST API as an assumed unlimited substitute.
 
@@ -490,6 +534,13 @@ inspection.
 **Owner:** `tbd-raxf`. **Ship:** append/read/reply on unlinked or linked beads, with
 explicit manual Git synchronization and no required runtime or provider.
 
+Before any pre-capability f08 increment ships, its negative release gate must prove that
+`CURRENT_FORMAT` and fresh setup remain f08; no native-comment CLI, public export,
+runtime import, configuration, or generated scaffold is reachable; and existing
+integration-comment behavior is unchanged.
+This permits only dormant internal models, inventory helpers, and invariant tests ahead
+of the preservation increment; it does not claim that such an optional component exists.
+
 - [ ] Compare independent records against the repaired embedded baseline using the
   selected `tbd-q2w2` append, collision, recovery, and scale experiments; record why the
   selected representation passes before freezing its format.
@@ -497,10 +548,17 @@ explicit manual Git synchronization and no required runtime or provider.
   schema validation, and no-replace publication.
 - [ ] Implement native CLI reads/writes and comments-aware one-shot report/cursor
   contracts, including missing parents and late arrivals.
-- [ ] Extend every sync, recovery, doctor, and format path before enabling native
-  writes.
-- [ ] Ship the packed upgrade/refusal proof and restartable migration with a backup
-  inventory. Keep existing provider comments functional until Phase 4 cutover.
+- [ ] Complete the f08 preservation stack under umbrella `tbd-76ad`, in dependency
+  order: `tbd-4r3w` (completed), `tbd-qo4d`, `tbd-7ufa`, then the final `tbd-44kw`
+  release gate. Extend every sync, recovery, doctor, format, workspace/outbox, and rescue
+  path while native writes remain unavailable.
+- [ ] In `tbd-x6eo`, establish a positive inventory of participating writers at or above
+  that preservation release and record the old-client refusal evidence.
+  Unknown or pre-preservation writers block activation.
+- [ ] After the preservation floor and format evidence pass, ship the separately
+  reviewed f09 activation tracked by `tbd-x6eo`, with packed refusal proof and
+  restartable migration backed by an inventory.
+  Keep existing provider comments functional until Phase 4 cutover.
 
 **Acceptance:** Two independent clones add distinct comments to one bead while offline;
 manual sync retains both with one logical identity each.
@@ -510,7 +568,14 @@ Kill writers/importers at publication boundaries; restore from workspace/outbox/
 verify full native prose and stable IDs survive.
 Fast-forward deletion, delete/modify merge, and identity reparenting preserve or
 quarantine the observed record instead of silently erasing discussion.
-An older released client refuses the new format before writing.
+After one clone activates f09 and publishes native records, exercise an independent
+clone that still has its pre-activation source branch and f08 config but runs the
+preservation release.
+Issue mutation, sync/merge, workspace/outbox handling, doctor, and history rescue must
+preserve every comment and evidence byte.
+An f08 preservation client that has incorporated f09 config refuses before mutation.
+Record the writer inventory used for activation and state that a pre-preservation stale
+clone is outside the safe writer set because ordinary Git cannot fence it.
 Compare bounded-read cost and Git growth at increasing record counts; benchmark facts
 gate default sizes.
 
@@ -529,6 +594,9 @@ worker or active agent, including independent cloud clones with Git alone.
   read-only watch isolation and bounded lock acquisition.
 - [ ] Add foreground issue-only scheduling, batching, declared publisher allocation,
   idle/active polling, jitter, retry classification, and backoff.
+- [ ] Add setup preflight for sync-ref branch protection/rulesets and broad push
+  workflows. Exclude `tbd-sync` from expensive CI or require an explicitly measured
+  capacity profile before continuous mode can start.
 - [ ] Persist consumer progress with reset/rewrite recovery; perform startup and
   periodic readiness independently of Git movement.
 - [ ] Expose queue and publication/receipt status; share fetched objects safely and
@@ -548,7 +616,12 @@ without skipping outstanding records.
 Local models are not invoked for every poll.
 Retries stay inside the configured local allocation; aggregate observations disclose
 underdeclared writers and external repository traffic rather than claiming a global
-quota guarantee.
+quota guarantee. Exercise a disposable repository, or a faithful recorded configuration,
+with an unfiltered push workflow and with a server rule that rejects the sync ref.
+The accepted profile either excludes expensive jobs from `tbd-sync` or reports their
+runs, Actions minutes, and induced Git traffic inside the supported envelope.
+Unsafe CI cadence keeps continuous mode disabled with a capacity diagnostic; rejected
+ref policy preserves the outbox and reports the blocking rule without retry churn.
 
 **Disable/recovery:** Stop the foreground coordinator.
 Manual commands and all durable records remain usable.
@@ -682,22 +755,26 @@ capability, selected policy, scenario IDs, cleanup result, and untested cases.
 Measure local publication, successful remote acceptance, receiver discovery, model wake,
 and task response separately.
 Report median/tail latency, queue age, idle polls/model invocations, pushes and retries,
-bytes, cold/warm read cost, Git growth, duplicates, missing records, and recovery after
-interruption. Exercise one and multiple active publishers, many subscribers, long
-threads, and late arrivals.
-Choose supported capacity and latency defaults from these results; no fixed performance
-SLA is claimed here.
+bytes, cold/warm read cost, Git growth, triggered CI runs and Actions minutes, induced
+checkout/fetch traffic, duplicates, missing records, and recovery after interruption.
+Exercise one and multiple active publishers, many subscribers, long threads, and late
+arrivals. Choose supported capacity and latency defaults from these results; no fixed
+performance SLA is claimed here.
 
 ## Rollout Plan
 
 1. Land and ship focused Phase 1 fixes through the normal package process.
    Keep native comments and automation absent until their independent gates pass.
-2. Introduce Phase 2 with explicit format activation in disposable repositories, then a
-   bounded first-party pilot.
-   Document minimum compatible binaries and migration recovery before expanding use.
+2. Ship the f08 preservation release as its own Phase 2 increment and establish it as
+   the participating-writer floor.
+   Then introduce the separately reviewed f09 activation in disposable repositories and
+   a bounded first-party pilot.
+   Document minimum compatible binaries, the stale-clone limit, and migration recovery
+   before expanding use.
 3. Offer Phase 3 as an explicit foreground command.
-   Start with declared publishers and conservative GitHub budgets; manual operation
-   remains supported.
+   Start only after the sync-ref rules and push-triggered CI preflight passes, with
+   declared publishers and conservative GitHub budgets; manual operation remains
+   supported.
 4. Activate Phase 4 per configured provider/project after its migration preview and live
    gate. Preserve `two_way` as the comment default, existing field policies, explicit
    linking, and the current `on_tbd_sync` override decision.
@@ -725,7 +802,8 @@ These are bounded decisions owned by their phase, not reasons to postpone Phase 
 - **Phase 2:** Freeze ID/alias grammar, sharding, write-size bounds, cursor/reset shape,
   and format version after the comparison and old-client proofs.
 - **Phase 3:** Choose a documented publisher-count profile, fairness/backoff behavior,
-  idle polling, lock scope, and a measured capacity envelope.
+  idle polling, lock scope, supported sync-ref rules, push-triggered CI policy, and a
+  measured capacity envelope.
   A strict distributed budget or lower remote latency would require further design.
 - **Phase 4:** Select exact activation/frontier, old pending-intent, backfill,
   disable/re-enable, relink, and unsupported edit/delete presentation rules before
@@ -748,6 +826,8 @@ These are bounded decisions owned by their phase, not reasons to postpone Phase 
 
 [github-limits]: https://docs.github.com/en/repositories/creating-and-managing-repositories/repository-limits
 [github-api-limits]: https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api
+[github-actions-branch-filters]: https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#onpushpull_requestpull_request_targetbranchesbranches-ignore
+[github-rulesets]: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
