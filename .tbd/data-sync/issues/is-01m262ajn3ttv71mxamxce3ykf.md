@@ -5,7 +5,7 @@ title: Reconcile main tbd design with dormant native-comment architecture
 kind: task
 status: in_progress
 priority: 1
-version: 49
+version: 50
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 delegate: codex@spud10.local
 labels: []
@@ -58,10 +58,11 @@ child_order_hints:
   - is-01m26erekp60wbvsng74y89mh2
   - is-01m26ew458nxbhyydb8mh64d2y
   - is-01m26ew8gjtbmhz6qfxk4d9n86
+  - is-01m26mca0pcvxgstk7bhct6sx1
 hold: null
 hold_until: null
 created_at: 2026-09-10T16:27:29.314Z
-updated_at: 2026-09-10T20:06:51.665Z
+updated_at: 2026-09-10T21:43:00.373Z
 started_at: 2026-09-10T18:27:56.696Z
 ---
 Update packages/tbd/docs/tbd-design.md so the authoritative product design summarizes the selected immutable native-comment record model, storage and Git preservation contracts, current f08 dormant boundary, watch and provider limitations, and activation gates. Reconcile stale messages/deferred/parity text, keep current repository layout distinct from the proposed f09 layout, validate links and Markdown, obtain independent review, and update PR #283 at its new exact head.

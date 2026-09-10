@@ -5,7 +5,7 @@ title: Freeze the f09 native-comment format from Phase 2 evidence
 kind: task
 status: open
 priority: 1
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 delegate: codex-native-comment-format-gate
 labels: []
@@ -14,7 +14,7 @@ dependencies:
     target: is-01m220j40yd8fcw9n3yf4412dv
 parent_id: is-01m1w3g0smx3ezvwz4g8mkmjy9
 created_at: 2026-09-09T05:45:53.909Z
-updated_at: 2026-09-10T03:12:17.562Z
+updated_at: 2026-09-10T21:47:27.942Z
 ---
 Run and record the Phase 2 subset of tbd-q2w2 before f09 activation: compare independent immutable records with the repaired embedded-comment baseline; exercise equal retries, same-ID divergence, collision and publication failure, preservation recovery, directory distribution, bounded cold and warm reads, and Git growth. Record the selected representation, canonical-byte and shard decisions, measured default limits, and any rejected alternatives in the architecture decision. This task is the narrow format-freeze gate; the broader cross-phase coordination experiment remains open.
 
@@ -41,3 +41,12 @@ writer, its recorded evidence must include both deferred review suggestions:
 
 These are activation/freeze criteria, not changes required in the unreachable
 foundation layer shipped by PR #282.
+
+PR #283 Astra review scale evidence:
+https://github.com/jlevy/tbd/pull/283#issuecomment-5625831806
+
+- **ASTRA-283-01 - transition-classification scaling:** the pre-fix classifier
+  took 4,943 ms for 20,000 valid comments and 32,954 ms for 50,000 comments.
+  PR #283 now indexes invalid entries once per source inventory and includes a
+  50,000-record benchmark. Carry that benchmark and its accepted limit into the
+  f09 format evidence before activation.
