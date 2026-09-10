@@ -6687,6 +6687,13 @@ merge. Within a provider namespace, link writes replace only the allow-listed li
 and preserve already-durable siblings such as comments or future additive provider
 state. The writer never spreads new fields from a link input, so sibling preservation
 does not weaken the credential/raw-payload boundary.
+Embedded provider comments union by comment ID or `local_id` only within one link
+lineage: both namespaces must name the same nonempty provider issue ID, or both legacy
+namespaces must omit `id`. Different IDs, and known IDs paired with missing, empty, or
+malformed IDs, never exchange comments.
+Merge keeps the selected namespace and records the complete loser in the attic,
+including during approximate-base workspace and outbox recovery, before the source can
+be cleared.
 
 `TrackerAdapter` maps every provider into canonical tbd fields.
 Each canonicalized issue may carry safe mapping warnings.

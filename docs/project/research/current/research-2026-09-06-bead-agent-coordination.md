@@ -14,6 +14,14 @@ remain explicit release gates.
 incorporated below. Earlier probe/test results remain attributed to the original
 baseline.
 
+**Resolution update, 2026-09-09:** PR #279 completes `tbd-hqb9`. Existing embedded
+provider comments now survive ordinary, workspace, and outbox recovery when their
+provider-link lineage matches.
+Different known link IDs, and known IDs paired with missing or malformed IDs, do not
+exchange comments; recovery keeps the selected namespace and archives the complete
+loser. Both legacy namespaces may still union when both omit an ID. This resolves only
+the recovery finding below; Phase 1 and its owner `tbd-3eui` remain open.
+
 **Tracking:** completed historical research task tbd-kvs3.
 
 ## Overview
@@ -325,7 +333,7 @@ Contract boundaries should be documented separately from defects.
 
 | Finding | Evidence and impact | Follow-up |
 | --- | --- | --- |
-| High: workspace/outbox merge discards independent comments | Production filesystem APIs merge `[base,A]` and `[base,B]` into `[base,B]`, report zero conflicts, and leave an empty attic. Direct outbox import deletes the source holding A. An older current snapshot is treated as an ancestor, bypassing union. | Repair recovery merge; add save/import regressions. Historical tbd-p1lz/tbd-hg05 addressed a different aspect. |
+| Resolved high: workspace/outbox merge discarded independent comments | Production filesystem APIs merged `[base,A]` and `[base,B]` into `[base,B]`, reported zero conflicts, and left an empty attic. Direct outbox import deleted the source holding A. An older current snapshot was treated as an ancestor, bypassing union. | `tbd-hqb9` and PR #279 add same-lineage union to ordinary and approximate-base merges, a real automatic-outbox fixture, and fail-closed quarantine across incompatible destinations. |
 | High: one pending comment can be posted twice | Two independent engine stores with the same `local_id`, real Linear adapter, and local mock provider produce two external UUIDs and identical bodies. Sequential stale replicas suffice. | Make delivery identity stable across replicas, beyond the same-journal guarantee in closed tbd-5p9k. |
 | Medium: aliases and divergent bodies lack convergent resolution | A provider-only entry and its local-ID/provider-ID twin remain separate. Same-ID different bodies retain the first input; swapping sides changes the result without an archived conflict. | Canonicalize aliases and define conflicting-content handling. |
 | Medium: checkout identity aliases live sessions | Claude and Codex probes in one checkout return the same stored ID/name; claiming compares friendly names. | Separate agent, session/invocation, and display identity; connect to runtime research. |
@@ -337,9 +345,14 @@ Contract boundaries should be documented separately from defects.
 The workspace finding exercises `saveToWorkspace` and `importFromWorkspace`. Automatic
 sync retains the outbox until a later successful push, so deletion timing differs from
 direct import, but the merge operation is shared.
-Full sync CLI recovery was not exercised in that probe.
+Full sync CLI recovery was not exercised in that dated probe.
 Parent-cycle evidence is a pure merge/diagnostic probe, not a full two-clone sync.
 [Workspace merge][t-workspace] [Comment union][t-union]
+
+PR #279 adds the missing built-CLI automatic-outbox recovery test with pending
+`local_id` entries. It also covers direct outbox clearing with an incompatible old and
+new provider destination: the active namespace keeps only the new destination’s
+comments, while the attic retains the old link and pending prose.
 
 ## Landscape
 
@@ -608,6 +621,7 @@ tested-versus-inferred claims.
 | CLI probes | Identity alias; foreign skipped claim/exit 0; open delegation replacement; explicit start bypasses ready; dirty state invisible remotely; dual-clone claims; add/revert yields zero diff |
 | Merge probes | Alias duplication, first-input body choice, edge resurrection, parent cycle, two capped arrays merging to 100 full entries |
 | Workspace probe | Production save/import loses independent pending A; zero conflicts/empty attic; direct outbox import clears source |
+| Workspace resolution | PR #279 covers same-link ordinary and approximate-base union, different-link and known/missing refusal, both-missing legacy compatibility, complete-namespace attic preservation, and built-CLI automatic-outbox recovery with pending `local_id` entries |
 | Mock Linear probe | Real engine/adapter with two stores posts one logical comment twice; rerunning updated store posts zero |
 | Full checks | Lint/typecheck passed. Initial suite: 2462 passed, one fixture-setup timeout; isolated file passed 18/18. Full rerun with `--maxWorkers=4`: all 164 files and 2463 tests passed. After the PR #264 rebase, the full pre-push suite passed all 165 files and 2480 tests with four workers. |
 | Dependencies | Restored existing lockfile without upgrades/install scripts; 31 age checks passed. Audit: 34 development-tool findings, zero production findings; existing tbd-gx3a updated. |
@@ -657,7 +671,7 @@ supplement each bead’s `spec_path`.
 | [Actor and identity](../../specs/active/plan-2026-08-18-actor-axis-and-identity.md), delivered `tbd-ncux`, residual `tbd-p0fe` | Human assignee/agent delegate split, provider-ID bindings, metadata privacy; remaining binding UX, migration, actor diagnostics, and explicit acceptance evidence | `tbd-6nmq` sharpens the plan’s existing session-precision question. Completed core and unfinished UX have separate owners. |
 | [Tracker state and Linear mapping](../../specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md), `tbd-og20` | Lifecycle projection, owned refinements, explicit provisioning, no prompts or unsolicited board changes during sync | Distinct sibling plan. Closed state epics do not prove every stale checkbox; shared-state carrier acceptance needs a focused audit. |
 | [Session refs and runtimes](../../specs/active/plan-2026-08-19-agent-session-refs-and-runtimes.md), `tbd-owa5` | Durable refs, volatile status/freshness, bridge projection; offline local authoring; event-first plus bounded reconciliation; optional adapters | Visibility is separate from dispatch. `tbd-i0de` must resolve URL-less reference identity, nested schema compatibility, and merge rules before implementation. |
-| [Workspace recovery](../../specs/done/plan-2026-01-30-workspace-sync-alt.md) and [automatic outbox workflow](../../specs/done/plan-2026-02-03-streamlined-outbox-workflow.md) | Durable backup, compatible merge, visible conflicts; explicit import clears after success, automatic sync retains the outbox until imported data is pushed or already synced | Selected successors to January’s abandoned write-through proposal. `tbd-hqb9` violates the intended preservation guarantee; it is not an intentional loss policy. |
+| [Workspace recovery](../../specs/done/plan-2026-01-30-workspace-sync-alt.md) and [automatic outbox workflow](../../specs/done/plan-2026-02-03-streamlined-outbox-workflow.md) | Durable backup, compatible merge, visible conflicts; explicit import clears after success, automatic sync retains the outbox until imported data is pushed or already synced | Selected successors to January’s abandoned write-through proposal. PR #279 and completed `tbd-hqb9` restore same-lineage embedded provider-comment preservation and quarantine incompatible full namespaces. |
 
 ### Earlier ideas carried forward
 
@@ -734,7 +748,7 @@ tbd-64aq (mapping identity).
 
 | New bead | Follow-up |
 | --- | --- |
-| tbd-hqb9 (P1) | Pending-comment preservation in workspace/outbox recovery |
+| tbd-hqb9 (P1, complete) | Embedded provider-comment preservation in ordinary, workspace, and outbox recovery |
 | tbd-6vg5 (P1) | Stable Linear delivery identity across replicas |
 | tbd-58nm (P2) | Canonical aliases and same-ID content conflicts |
 | tbd-6nmq (P2) | Simultaneous agents sharing checkout identity |

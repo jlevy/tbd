@@ -60,7 +60,7 @@ function withComments(
   issue: Issue,
   version: number,
   updatedAt: string,
-  sideCommentId: string,
+  sideCommentLocalId: string,
 ): Issue {
   return {
     ...issue,
@@ -72,7 +72,7 @@ function withComments(
         id: 'linear-comment-recovery',
         comments: [
           { id: 'comment-common', at: '2099-01-01T00:00:00.000Z', body: 'common' },
-          { id: sideCommentId, at: updatedAt, body: sideCommentId },
+          { local_id: sideCommentLocalId, at: updatedAt, body: sideCommentLocalId },
         ],
       },
     },
@@ -134,8 +134,10 @@ describeUnlessWindows('automatic outbox comment recovery', () => {
         expect(interrupted.code, interrupted.stderr).toBe(0);
         expect(interrupted.stdout + interrupted.stderr).toContain('Outbox preserved');
         const [recovered] = await listIssues(dataSyncDir);
-        const linear = recovered?.extensions?.linear as { comments: { id: string }[] };
-        expect(linear.comments.map((comment) => comment.id)).toEqual([
+        const linear = recovered?.extensions?.linear as {
+          comments: { id?: string; local_id?: string }[];
+        };
+        expect(linear.comments.map((comment) => comment.id ?? comment.local_id)).toEqual([
           'comment-common',
           'comment-outbox',
           'comment-worktree',

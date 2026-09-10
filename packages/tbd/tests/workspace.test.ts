@@ -5,10 +5,11 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm, mkdir, readdir } from 'node:fs/promises';
+import { mkdtemp, rm, mkdir, readdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { writeFile } from 'atomically';
+import { parse as parseYaml } from 'yaml';
 
 import {
   saveToWorkspace,
@@ -647,6 +648,76 @@ describe('workspace operations', () => {
       ]);
       expect(result).toMatchObject({ imported: 1, conflicts: 0, cleared: true });
       expect(await workspaceExists(tempDir, 'outbox')).toBe(false);
+    });
+
+    it('quarantines pending comments from an older outbox link before clearing it', async () => {
+      const issueId = testId(TEST_ULIDS.ULID_2);
+      const outboxDir = join(tempDir, '.tbd', 'workspaces', 'outbox');
+      await mkdir(join(outboxDir, 'issues'), { recursive: true });
+      const outboxIssue = createTestIssue({
+        id: issueId,
+        title: 'Coordinate agents',
+        version: 2,
+        updated_at: '2026-09-08T11:00:00.000Z',
+        extensions: {
+          linear: {
+            id: 'linear-old',
+            key: 'TBD-OLD',
+            comments: [
+              {
+                local_id: 'pending-old-link',
+                at: '2026-09-08T11:00:00.000Z',
+                body: 'must never post to the new link',
+              },
+            ],
+          },
+        },
+      });
+      const worktreeIssue = createTestIssue({
+        id: issueId,
+        title: 'Coordinate agents',
+        version: 3,
+        updated_at: '2026-09-08T12:00:00.000Z',
+        extensions: {
+          linear: {
+            id: 'linear-new',
+            key: 'TBD-NEW',
+            comments: [
+              {
+                id: 'comment-new-link',
+                at: '2026-09-08T12:00:00.000Z',
+                body: 'belongs to the new link',
+              },
+            ],
+          },
+        },
+      });
+      await writeIssue(outboxDir, outboxIssue);
+      await writeIssue(dataSyncDir, worktreeIssue);
+
+      const result = await importFromWorkspace(tempDir, dataSyncDir, { outbox: true });
+
+      const [merged] = await listIssues(dataSyncDir);
+      expect(merged).toMatchObject({
+        version: worktreeIssue.version,
+        updated_at: worktreeIssue.updated_at,
+        extensions: worktreeIssue.extensions,
+      });
+      const activeLinear = merged?.extensions?.linear as {
+        id: string;
+        comments: { id?: string; local_id?: string }[];
+      };
+      expect(activeLinear.id).toBe('linear-new');
+      expect(activeLinear.comments.map((comment) => comment.id ?? comment.local_id)).toEqual([
+        'comment-new-link',
+      ]);
+      expect(result).toMatchObject({ imported: 1, conflicts: 1, cleared: true });
+      expect(await workspaceExists(tempDir, 'outbox')).toBe(false);
+      const atticFiles = await readdir(join(dataSyncDir, 'attic'));
+      expect(atticFiles).toHaveLength(1);
+      const attic = await readFile(join(dataSyncDir, 'attic', atticFiles[0]!), 'utf8');
+      const atticEntry = parseYaml(attic) as { lost_value: string };
+      expect(JSON.parse(atticEntry.lost_value)).toEqual(outboxIssue.extensions?.linear);
     });
 
     it('merges ID mappings from workspace into worktree', async () => {
