@@ -32,11 +32,17 @@ Before using tbd commands, ensure the CLI is installed:
 
 ```bash
 npm install -g get-tbd@latest
-tbd setup --auto
+tbd setup --auto --prefix=<name>  # Fresh repository; ask the user for the prefix
+tbd setup --auto                  # Existing tbd repository; reads its config
+tbd setup --from-beads            # Uninitialized repo: import and archive .beads/
 ```
 
 If `tbd` is not available, install it first.
-All commands below require the CLI.
+All commands below require the CLI. Setup installs all four agent surfaces by default;
+`--surfaces=<comma-list>` narrows only generated agent files, not initialization,
+migrations, or docs refresh.
+Verify a Beads import because setup can continue after a warning.
+Bare `tbd setup` displays help.
 
 ## Capabilities
 
@@ -55,11 +61,22 @@ All commands below require the CLI.
 tbd ready              # Find work ready to start
 tbd show <id1> [<id2> …]  # Issue details (several in one call)
 tbd create "title"     # Create new issue
+tbd start <id>         # Claim under the acting-agent identity
 tbd close <id>         # Mark complete
 tbd sync               # Sync with remote
 tbd web --open         # Open the live, read-only bead viewer
 tbd status             # Project status
 ```
+
+Before editing a bead, run `tbd sync --pull`, re-read it, use `tbd start <id>`, and run
+`tbd sync` so other replicas can see the claim.
+The guard is local and advisory; a stale clone can still race it.
+`start` preserves the accountable `assignee` and writes the acting name to `delegate`.
+That name resolves from `--as`, then `TBD_AGENT`, then the machine-local session
+identity, and finally `<harness>@<host>`; inspect it with `tbd whoami`. Top-level
+`sync --pull` updates issue Git only.
+Plain `tbd sync` also runs trackers according to `integrations.on_tbd_sync`; use
+`tbd integration status` for tracker health.
 
 ## Key Shortcuts
 
@@ -97,3 +114,7 @@ Before ending any session:
 3. Update issues: `tbd close <id>`
 4. Sync: `tbd sync`
 5. Confirm CI passed
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

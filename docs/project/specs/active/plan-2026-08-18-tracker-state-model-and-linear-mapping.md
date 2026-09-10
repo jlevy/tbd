@@ -9,16 +9,20 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Core delivered; acceptance checklist reconciliation remains, 2026-09-06.
+**Status:** The field model, slot reconciliation, refinement persistence, name-based
+state resolution, and configured-state provisioning are delivered.
+Full default-map setup, noninteractive ambiguity reporting, richer diagnostics, and live
+acceptance remain, reviewed 2026-09-10.
 
 The tracked core and phase beads are closed.
-Later closeouts include state ambiguity prompts (`tbd-2qlk`) and opt-in mapped-state
-reordering (`tbd-gfr6`), so the older `tbd-qdj4` residual note is not a current
-missing-feature list.
-The unchecked items below are original acceptance criteria, not all evidence of missing
-code. The shared-state carrier-label round trip still needs a precise evidence audit
-before marking every criterion complete; `tbd-f2kv` retains the cross-plan
-reconciliation task.
+Later closeouts include the interactive state-ambiguity prompt (`tbd-2qlk`) and opt-in
+mapped-state reordering (`tbd-gfr6`), so the older `tbd-qdj4` residual note is not a
+current missing-feature list.
+The runtime resolves provider state IDs from live team metadata rather than persisting
+general state-ID bindings, and doctor reports only the offline resolution plan.
+The unchecked items below identify residual UX and acceptance evidence.
+The shared-state carrier-label round trip still needs a precise evidence audit;
+`tbd-f2kv` retains the cross-plan reconciliation task.
 
 The
 [September coordination research](../../research/current/research-2026-09-06-bead-agent-coordination.md)
@@ -186,18 +190,24 @@ that `resolution` appears only on `closed`, `hold` only on non-terminal, and
 **Mapping** (`integrations/linear/mapping.ts`): the tables below.
 This file stays the only place Linear’s vocabulary appears.
 
-**State resolution** (`integrations/linear/adapter.ts`): replaces `stateIdsByType`,
-which keeps one id per type and breaks ties by lowest board position.
+**State resolution** (`integrations/linear/adapter.ts`): the delivered resolver fills a
+per-process state-ID map by configured name, a sole state of the type, or conventional
+name. It replaced the earlier lowest-board-position tie-break.
 
 **Reconcile engine** (`integrations/core/reconcile.ts`): the canonical status field
-widens from the five-value enum to the slot vocabulary.
-The matrix itself does not change.
+widened from the five-value enum to the slot vocabulary when both local and remote views
+provide one. The matrix itself does not change.
 
-**Provisioning** (`tbd integration setup`): the one place board states are created or
-repaired, always on confirmation.
+**Provisioning** (`tbd integration setup`): the one place configured board states are
+created or reordered.
+Writing `identity.state_map` and explicitly running setup are the consent; the only
+additional prompt resolves a genuinely ambiguous live state type.
 Sync never provisions.
 
-**Diagnostics** (`tbd doctor`): reports the resolved state for each slot offline.
+**Diagnostics** (`tbd doctor`): currently reports the offline configured,
+conventional-name, or unique-type resolution plan.
+It does not fetch or persist provider state IDs, verify live binding, or flag live
+ambiguity. The richer slot table remains planned below.
 
 ### Mapping
 
@@ -246,55 +256,55 @@ to be separate positions and would therefore destroy the `in_progress` they modi
 
 ### State resolution: names, not board position
 
-Today a state is chosen by `type`, with the lowest board `position` breaking ties.
-That is sound for unambiguous types and wrong as a contract: `paused` has no Linear
-*type* — it is a named state of type `started` — and position is the least stable handle
-available. A rename is deliberate and visible; dragging a row in the workflow editor is
-neither, and today it silently changes where work lands.
+The earlier resolver chose a state by `type`, with the lowest board `position` breaking
+ties. That was sound for unambiguous types and wrong as a contract: `paused` has no
+Linear *type* — it is a named state of type `started` — and position is the least stable
+handle available. A rename is deliberate and visible; dragging a row in the workflow
+editor is neither, and the former rule silently changed where work landed.
 One real team already had three `started` states (In Progress, In Review, Paused) before
 tbd provisioned anything; a resolver that picks by type has no defensible answer among
 them, and the provisioned board below widens the group further.
 
 Resolution order, first match wins:
 
-1. **Configured name** from `state_map` (keyed by slot; below).
-2. **Conventional name**, matched exactly and case-insensitively: `Backlog`, `Draft`,
-   `Todo`, `In Progress`, `Paused`, `Blocked`, `In Review`, `Done`, `Canceled`,
+1. **Configured name** from `identity.state_map` (keyed by Linear workflow state type;
+   below).
+2. **The only state of that type**, when the type is unambiguous.
+3. **Conventional name** among multiple states of the type, matched exactly and
+   case-insensitively: `Backlog`, `Todo`, `In Progress`, `Done`, `Canceled`,
    `Duplicate`.
-3. **The only state of that type**, when the type is unambiguous.
-   This covers every case except `started` on a stock team, and needs no lookup.
-4. **Ambiguous — ask.** Report the candidates and let the user choose, then write the
-   answer into `state_map` so it is asked once.
-   Non-interactively, refuse and name the config key rather than guessing, matching how
-   the bulk guard already handles an oversized run with no human present.
+4. **Ambiguous — ask during interactive setup.** `tbd integration setup` reports the
+   candidates, lets the user choose, and writes the selected name into `state_map`.
+   Other noninteractive paths do not guess, but explicit refusal and complete reporting
+   remain acceptance work below.
 
-Board position is not used to decide anything.
-Binding is to state **id** after first resolution, so renaming Draft to Planning does
-not break the projection; `tbd doctor` reports the name drift so the config can be
-updated to match.
+Board position is not used to decide state identity.
+The adapter resolves a state **id** from current live team metadata for each process; it
+does not persist a general state-ID binding.
+Renaming a configured state can therefore make its name stop resolving.
+Offline `tbd doctor` displays the configured resolution plan but cannot detect that live
+drift.
 
 ### `state_map` is optional, and omitting it changes nothing
 
 ```yaml
 integrations:
   linear:
-    state_map:            # optional; absent = exactly today's behavior
-      backlog: Backlog
-      draft: Draft
-      todo: Todo
-      in_progress: In Progress
-      paused: Paused
-      blocked: Blocked
-      in_review: In Review
-      done: Done
-      canceled: Canceled
-      duplicate: Duplicate
+    identity:
+      state_map:          # optional; absent = conventional-name resolution
+        backlog: Backlog
+        unstarted: Todo
+        started: In Progress
+        completed: Done
+        canceled: Canceled
+        duplicate: Duplicate
 ```
 
-Absent, tbd behaves as it does now: the stock states, no extra columns, nothing
-provisioned, no prompt.
-Present, it is an explicit statement of the board a repository wants, and tbd provisions
-**only** the states named there and only on confirmation.
+Absent, ordinary sync uses the conventional-or-sole-state resolver and setup provisions
+no map-requested columns.
+Interactive setup prompts only when the live board is genuinely ambiguous.
+Present, it selects one state name for each listed Linear state type, and
+`tbd integration setup` provisions **only** those named states.
 The config *is* the consent, so no later sync ever prompts.
 
 An optional key is also additive: older tbd ignores what it does not know, and `f08`
@@ -302,10 +312,11 @@ preserves unknown keys, so the config half of the format question answers itself
 The bead-field half (`resolution`, `hold`, and the sibling’s `delegate`) is separate and
 needs one answer covering both specs.
 
-One wrinkle the map cannot express: `backlog` and `draft` are the same band, and which
-one an issue sits in is an owned refinement (below).
-The map says where tbd *puts* work that it places; it does not license tbd to move an
-issue a person put in Draft.
+One wrinkle the type-keyed map cannot express: `backlog` and `draft` share Linear’s
+`backlog` type, while `in_progress`, `paused`, `blocked`, and `in_review` share its
+`started` type. Which named state an issue occupies is an owned refinement (below).
+The map selects the default state for a type; it does not license tbd to move an issue a
+person put in another state of that type.
 
 ### Derived position, owned refinement
 
@@ -397,24 +408,26 @@ between two states of the same type (In Progress → Paused) changes nothing can
 the matrix sees unchanged/unchanged and the placement survives.
 The design keeps that property and makes it deliberate.
 
-**The change is the canonical vocabulary, not the engine.** The status field the matrix
-compares widens from the five-value enum to the slot vocabulary:
+**The delivered Phase 3 change is the canonical vocabulary, not the engine.** The status
+field the matrix compares widens from the five-value enum to the slot vocabulary:
 
 - **Local slot** is computed by the precedence ladder above.
-- **Remote slot** is resolved from the state **name** through the resolver order.
-  A state whose name resolves to no slot is an **owned refinement**: for the matrix it
-  reads as its type’s band slot, and its exact state id is recorded so outbound writes
-  send it back verbatim.
+- **Remote slot** is resolved from the state type, known state names, and carrier
+  labels. A state whose name resolves to no slot is an **owned refinement**: for the
+  matrix it reads as its type’s band slot, and its exact state id is recorded so
+  outbound writes send it back verbatim.
   In Review and Draft are just the named cases of this rule; a team’s own “In QA” gets
   the same treatment for free.
 - **Applying a pull** decomposes the winning slot back onto the bead: `done`/`canceled`/
   `duplicate` set `status: closed` plus `resolution`; `paused`/`blocked` set
   `in_progress` plus `hold`; `todo`/`backlog` set `open`; `draft` and `in_review` set
   the band’s status plus the refinement record, never a status of their own.
-- **Applying a push** composes the slot’s mapped state id, falling down the ladder when
-  the team lacks the state: mapped state, else carrier label beside the band default
-  (`tbd:paused`, `tbd:blocked` — the mechanism `blocked`/`deferred` already use), else
-  the band default alone, reported once.
+- **Applying a push** prefers the slot’s named state when present, otherwise uses the
+  safely resolved state for its type plus any carrier label (`tbd:paused`, `tbd:blocked`
+  — the mechanism `blocked`/`deferred` already use).
+  If the type itself is ambiguous, it omits the state ID rather than guessing.
+  The current run does not separately report a named-state fallback; that residual UX is
+  listed below.
 
 The refinement record needs a durable home, and there are two candidates that both
 travel on the sync branch, so the trade-off is merge behavior rather than reach:
@@ -439,43 +452,48 @@ Without this, every linked pair would read as locally changed on upgrade and the
 sync would mass-push state writes — the bulk guard would catch the volume, but the
 correct number of writes is zero.
 
-### Provisioning: never required, offered, confirmed
+### Provisioning: never required, explicit setup
 
 1. **Never required.** Every mapping round-trips on stock states.
    Without a Paused state, `in_progress + paused` syncs as `started` + `tbd:paused` —
    the existing `blocked`/`deferred` carrier-label precedent.
-   Declining costs a board distinction, not data.
+   Skipping setup costs a board distinction, not data.
    No sync path may fail or nag because an optional state is absent.
-2. **Reuse defaults; never recreate them.** Linear ships Backlog, Todo, In Progress,
-   Done, Canceled, Duplicate, In Review in every team.
-   tbd must never create a state duplicating a default under another name, and never
-   rename, delete, or touch a state outside the map.
-3. **Offer, and ask.** A workflow state is team-wide and changes the board for people
-   who never run tbd — a larger footprint than anything tbd provisions today, and
-   `mirror_labels` already defaults off for a milder version of that concern.
-   The written `state_map` is the consent; creation happens in `tbd integration setup`
-   on confirmation, and re-runs no-op on states already bound.
+2. **Reuse exact configured names.** When a configured name already exists, setup binds
+   it rather than creating another.
+   It never renames, deletes, or touches a state outside the map.
+3. **Require explicit setup.** A workflow state is team-wide and changes the board for
+   people who never run tbd — a larger footprint than anything tbd provisions today, and
+   `labels.mirror` already defaults to `none` for a milder version of that concern.
+   The written `state_map` plus an explicit `tbd integration setup` invocation is the
+   consent; re-runs no-op on states already present and correctly ordered.
 
-Fresh setup proposes the full default map and shows its plan before doing anything:
-which slots bind to existing states by name (on a stock team: Backlog, Todo, In
-Progress, In Review, Done, Canceled, Duplicate), which states would be created (Draft,
-Paused, Blocked), and the explicit position each created state gets — inserted after the
-bound state of the preceding slot, so the board reads in lifecycle order.
-Confirming writes the `state_map` into config and creates the confirmed states;
-declining writes nothing and leaves legacy behavior.
+Current setup provisions only names already present in `state_map`, repairs lifecycle
+band order only for mapped states, and can add a selected name after an interactive
+ambiguity prompt. It does not synthesize a full default map, persist state IDs, or
+produce a live doctor table.
 
-Re-running setup on an existing integration is the re-config path, and it reconciles
-three things against the live team: slots in the map with no matching state (offer to
-create), states whose positions contradict the slot order (offer to reposition — the
-provisioned team above had terminal states sitting mid-board until exactly this repair),
-and map names that no longer resolve (bindings hold by id; doctor reports the drift).
+The remaining fresh-setup UX can propose the canonical type-keyed map shown above and
+preview which configured names already exist or would be created.
+The former criterion that one map provision Draft, Paused, and Blocked together is
+superseded: all three share types with other slots, while the current schema
+intentionally permits one default name per Linear state type.
+Provisioning several named states of one type would require a separate additive schema.
 
-Custom mappings are the same mechanism with different content: any subset of slots, any
-names. Omitted slots fall down the outbound ladder (carrier label, then band default).
-Two slots may name one state; inbound then disambiguates by carrier label and otherwise
-reads the plainer slot.
-`tbd doctor` prints the full resolved table — slot, state name, state id,
-bound-or-missing — offline, so the projection is inspectable without a sync.
+Current reconfiguration re-runs setup on an existing integration, creates configured
+names that are missing, and moves mapped states whose lifecycle type sits before a later
+earlier-band state. It never renames, deletes, or moves an unmapped state.
+Persisted ID binding, rename survival, and doctor drift reporting remain target
+behavior.
+
+Custom mappings may name one state for any subset of Linear state types.
+An omitted type uses the sole-state or conventional-name resolver.
+Within-type slots use known names, carrier labels, and stored refinements; `state_map`
+does not assign independent names to several slots of the same type.
+The target `tbd doctor` output is a full resolved table — slot, state name, state ID,
+and bound-or-missing.
+Current doctor prints only its offline name/type resolution plan, and the current CLI
+exposes no persisted or live slot-ID binding table.
 
 ## Implementation Plan
 
@@ -494,10 +512,14 @@ this repository’s own data and board.
   `duplicate` also creates the provider-side duplicate relation from the scalar.
 - [x] Map `canceled` and `duplicate` inbound to `closed` + resolution instead of
   collapsing them.
-- [x] Replace `stateIdsByType` with the four-step resolver; add `state_map` to config,
-  keyed by slot.
-- [ ] Prompt on ambiguity and persist the answer; refuse non-interactively.
-- [x] `tbd doctor` reports the resolved state per slot, and flags ambiguity.
+- [x] Replace position-based state selection with the four-step resolver that fills the
+  per-process `stateIdsByType`; add `identity.state_map` to config, keyed by Linear
+  workflow state type.
+- [x] Interactive `tbd integration setup` prompts on ambiguity and persists the selected
+  name in `identity.state_map`.
+- [ ] Noninteractive ambiguity produces an explicit refusal and complete report.
+- [x] `tbd doctor` reports the offline configured/conventional/type fallback plan.
+- [ ] Doctor reports live ambiguity or a slot/name/ID binding table.
 - [x] Tests: terminal round trip for each resolution; resolver precedence including the
   multi-`started` case; no `completedAt` on a canceled bead; `ready` and the blocked
   computation unchanged by a `duplicate_of` value; an `f08` client round-trips a bead
@@ -522,40 +544,43 @@ this repository’s own data and board.
 
 ### Phase 3: Slots in the engine
 
-- [ ] Widen the reconcile status field from the five-value enum to slots.
-  Legacy path (no `state_map`) keeps `statusToLinear` / `statusFromLinear`
-  byte-for-byte.
-- [ ] Local slot computation with the fixed precedence; pull decomposition back onto
+- [x] Widen reconciliation from the five-value status enum to slots when both sides
+  provide them; adapters without slots keep the legacy status path.
+- [x] Local slot computation with the fixed precedence; pull decomposition back onto
   bead fields.
-- [ ] Remote slot resolution by name; unmapped names become owned refinements (band slot
+- [x] Remote slot resolution by name; unmapped names become owned refinements (band slot
   for the matrix, exact state id preserved outbound).
-- [ ] Settle and implement the refinement record’s home (`extensions.<provider>` vs the
-  pair’s link record) with its concurrent-sync behavior tested.
-- [ ] Base migration on first slot run: statuses rewrite mechanically, zero writes on an
+- [x] Store refinement state ID and slot in the pair’s bridge record, with concurrent
+  merge behavior tested.
+- [x] Base migration on first slot run: statuses rewrite mechanically, zero writes on an
   unchanged repository — pinned by test.
-- [ ] Legacy-status beads compute slots by the legacy rule (`blocked` → `blocked`,
+- [x] Legacy-status beads compute slots by the legacy rule (`blocked` → `blocked`,
   `deferred` → `backlog`) in a `state_map` repository; pinned by test.
-- [ ] Outbound ladder: mapped state, else carrier label + band default, else band
-  default; reported once per slot.
+- [x] Outbound ladder: named state when present; otherwise the resolved state for its
+  type plus any carrier label.
+  If the type has no safe resolution, omit the state ID rather than guess.
+- [ ] Report each named-state fallback explicitly rather than degrading silently.
 
 ### Phase 4: Setup, provisioning, and re-config
 
-- [ ] `state_map` optional — absent reproduces today’s behavior with no extra states and
-  no prompt; the written config is the consent.
-- [x] Fresh setup proposes the default map: bind by name, create Draft/Paused/Blocked on
-  confirmation, explicit positions in slot order.
-- [ ] Re-run reconciles map vs live team: missing states (offer create), order
-  contradictions (offer reposition), renames (id bindings hold; doctor reports drift).
-- [x] Validate against real team states before mutating; fail closed naming what is
-  missing; never rename, delete, or touch states outside the map.
-- [ ] Two-slots-one-state allowed; inbound disambiguates by carrier label, else the
-  plainer slot.
-- [x] `tbd doctor` prints the resolved slot table (slot, name, id, bound-or-missing)
-  offline.
-- [ ] Tests: every projection row round-trips on a provisioned team and degrades
-  correctly on a stock one; the no-fight property (same-type column moves produce no
-  patch); an unmapped custom state survives a full sync cycle; setup idempotence and
-  position placement.
+- [x] `state_map` optional — absent sync uses conventional/sole-state resolution and
+  setup provisions no map-requested states.
+- [ ] Fresh setup proposes and previews the canonical type-keyed default map.
+- [x] Setup provisions missing names already declared in `identity.state_map` and does
+  not provision unlisted states.
+- [x] Re-run creates missing configured states and repairs lifecycle-band order for
+  mapped states only.
+- [ ] Persist state-ID bindings so renames survive and doctor can report drift.
+- [x] Read live team state before mutating; report missing configured names in dry-run;
+  create or reorder only mapped states, and never rename, delete, or touch an unmapped
+  state.
+- [x] Keep `state_map` type-keyed: one configured default per Linear state type;
+  within-type slots use named states, carrier labels, or stored refinements.
+- [ ] `tbd doctor` prints the resolved slot table (slot, name, ID, bound-or-missing).
+- [x] Focused tests cover slot round trips, the same-band no-fight property,
+  custom-state refinement recovery, base migration, setup idempotence, and position
+  placement.
+- [ ] Complete the provisioned-team live matrix and stock-team degradation evidence.
 
 ### Phase 5: Dogfood the whole model on this repository
 
@@ -578,11 +603,11 @@ defect in those phases rather than work of its own.
   Confirm an older tbd can still read a bead carrying `resolution`, `hold`, and
   `delegate` without stripping them — the `f08` passthrough claim, verified against a
   real checkout.
-- [ ] **Provision the board and see the columns.** Run `tbd integration setup` against
-  the tbd Linear project, accept the proposed `state_map`, and confirm the created
-  states land in lifecycle order with terminal columns last.
-  Then confirm the resolved slot table from `tbd doctor` matches what the board actually
-  shows.
+- [ ] **Provision the board and see the columns.** Write the intended type-keyed
+  `state_map`, run `tbd integration setup` against the tbd Linear project, and confirm
+  configured states are created or reordered without touching unmapped columns.
+  Compare the board with the offline doctor plan; repeat with the planned live slot
+  table once that diagnostic lands.
 - [ ] **Map this work as an epic on that board.** The actor and state axes are tracked
   as epics (`tbd-og20`, `tbd-ncux`) with their phase children; mirror them, assign the
   epics to the accountable human rather than to an agent, and confirm the assignment
@@ -617,8 +642,10 @@ and each fallback. Round-trip tests through the existing Linear adapter fixtures
 every terminal resolution and for paused in both provisioned and unprovisioned teams.
 A migration test asserting that beads with no `resolution` read as `completed` and that
 no existing consumer of `status` changes behavior.
-Board projection is table-driven: each row set locally, pushed, read back, asserted
-unchanged, on both a provisioned team and a stock one.
+Focused tests cover slot computation and mapping, coarse-base migration, custom-column
+refinement, no-fight behavior, and configured-state provisioning.
+The complete live projection matrix on both a provisioned team and a stock team remains
+Phase 5 evidence.
 
 ## Rollout Plan
 
@@ -630,9 +657,11 @@ Decide before merge and, if one is needed, fold it into the next planned bump ra
 than cutting a format for this alone; the sibling’s `delegate` field belongs in the same
 decision.
 
-Phases 2 and 3 ship behind no flag: without a `state_map` nothing changes for existing
-users. Phase 4 changes what a board looks like and is therefore opt-in per repository
-through `state_map` plus confirmed provisioning.
+Phases 2 and 3 ship behind no flag.
+Absent new bead fields, legacy meanings remain, and the coarse-base migration prevents a
+first slot-aware sync from inventing within-band writes.
+Phase 4 changes what a board looks like and is therefore opt-in per repository through
+`state_map` plus an explicit setup invocation.
 A team that provisions nothing sees exactly what it sees today.
 
 ## Open Questions
@@ -640,10 +669,6 @@ A team that provisions nothing sees exactly what it sees today.
 Nothing here blocks Phase 1. Each question names the phase that has to answer it, so
 implementation can start without resolving them all first.
 
-- **Refinement record home** (Phase 3). `extensions.<provider>` on the bead
-  (whole-object last-writer-wins on merge) or the pair’s link record (written only by
-  sync runs)? Both travel on the sync branch; the concurrent-sync behavior differs and
-  the choice should be settled by testing two clones against one team, not by argument.
 - **`blocked` and `deferred` migrating onto `hold`** (after Phase 2, from use).
   A follow-on by design.
   The open part is what happens to the two carrier labels already in the wild, which is
@@ -655,6 +680,10 @@ implementation can start without resolving them all first.
 
 Settled:
 
+- **Refinement records live in bridge state.** Each pair’s link record stores
+  `refinement_state_id` beside `refinement_slot`; the focused concurrent-merge test
+  chose this over whole-object bead extensions and verifies the record survives
+  convergence.
 - **Format bump: assume none, prove it.** `f08` preserves unknown keys, so a client that
   predates these fields should round-trip a bead carrying `resolution` or `hold` without
   stripping them. Phase 1 pins that with a test rather than assuming it.
@@ -688,8 +717,8 @@ Settled:
   — the sibling spec
 - [plan-2026-08-14-external-sync-and-traceability.md](./plan-2026-08-14-external-sync-and-traceability.md)
 - `packages/tbd/src/integrations/linear/mapping.ts` — the current tables
-- `packages/tbd/src/integrations/linear/adapter.ts` — `stateIdsByType` and the position
-  tiebreak
+- `packages/tbd/src/integrations/linear/adapter.ts` — live name/type state resolution,
+  slot projection, and configured-state provisioning
 - `packages/tbd/src/integrations/core/reconcile.ts` — the three-way matrix and ownership
   rules
 

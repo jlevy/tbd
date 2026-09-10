@@ -47,6 +47,7 @@ runtime dispatch belong to later phases.
 - [Incremental Bead Coordination and Native Comments](../../specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md)
 - [Bead Watching and Cross-Agent Coordination](../../research/current/research-2026-09-06-bead-agent-coordination.md)
 - [Actor Axis and Identity Mapping](../../specs/active/plan-2026-08-18-actor-axis-and-identity.md)
+- [tbd On-Disk Format Versioning](../../../tbd-format-versioning.md)
 - [tbd design](../../../../packages/tbd/docs/tbd-design.md)
 
 ## Core Invariants
@@ -317,10 +318,10 @@ all required evidence before replacing or restoring a path.
 Raw alternatives use content-addressed paths below `attic/comment-conflicts/<cm-id>/` or
 `attic/comment-conflicts/_unattributed/`. Each preservable transition-plan observation
 also gets an immutable manifest at `<scope>/observations/<manifest-sha256>.yml`. The
-manifest records the violation, resolved source revision or stable local label, a safe
-relative source path or diagnostic, base64 original path bytes when required, mode, Git
-object ID, canonical and candidate digests, and normalized problem codes.
-A deletion has a manifest and no candidate blob.
+manifest records the violation, a resolved source revision when available or a stable
+source descriptor, a safe relative source path or diagnostic, base64 original path bytes
+when required, mode, Git object ID, canonical and candidate digests, and normalized
+problem codes. A deletion has a manifest and no candidate blob.
 An unmaterialized or over-bound observation that cannot produce a complete artifact
 instead blocks mutation without publishing partial evidence.
 Before a public CLI writer is enabled, its immediate `EEXIST` conflict path must publish

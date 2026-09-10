@@ -156,8 +156,8 @@ The dispositions are:
 | Status | **Supported** through stable Linear state `type`; blocked/deferred use exclusive `tbd:` carrier labels | `linear/mapping.ts`; `LinearAdapter.applyChanges()` | Mapping and stale-carrier tests; live bidirectional field scenarios |
 | Unknown Linear state type | **Bounded**: canonicalize to `open` and report the unknown type; never crash or invent a tbd status | `linear/mapping.ts`; sync report boundary | Adapter fixture and sync-report regression |
 | Priority | **Supported** with an explicit non-bijection: Linear unset → P2; P4 and P3 are equivalent after push | `linear/mapping.ts`; reconcile equivalences | Mapping and no-oscillation engine tests; live bidirectional field scenarios |
-| Labels | **Supported when `mirror_labels` is enabled**; exact tbd labels use a `tbd:` prefix and status carriers remain provider-owned metadata | `core/mirror.ts`; `linear/adapter.ts` | Mirror/status-carrier tests; paginated-label adapter tests |
-| Assignee | **Supported only through non-empty `user_map`**. UUID/email resolves to a canonical alias on initial import and linked sync. Unknown local aliases remain visible as skipped pushes; unknown provider identities freeze the field and its prior bridge base with a safe warning and no raw identity persistence, so local divergence survives until mapping recovers | `ExternalIssue.assigneeSyncable`; `TrackerAdapter.canPushAssignee()`; `core/reconcile.ts`; `importExternal()`; `linear/adapter.ts` | Adapter privacy test; linked freeze/recovery engine test; import and bidirectional live scenarios |
+| Labels | **Supported when `labels.mirror` is `prefixed` or `verbatim`**; the former prefixes exact tbd labels with `tbd:`, `labels.create` controls which missing labels may be created, and status carriers remain provider-owned metadata | `core/mirror.ts`; `linear/adapter.ts` | Mirror/status-carrier tests; paginated-label adapter tests |
+| Assignee | **Supported outbound through either an `identity.user_map` override or an unambiguous Linear member-directory match**. Directory matches persist a safe provider-ID binding for later outbound runs. Unknown or ambiguous local handles remain visible as skipped pushes. Inbound aliases currently resolve only through `identity.user_map`; any other provider identity freezes the field and its prior bridge base with a safe warning and no raw identity persistence, so local divergence survives until mapping recovers | `ExternalIssue.assigneeSyncable`; `TrackerAdapter.canPushAssignee()`; `primeAdapterActors()`; `core/reconcile.ts`; `importExternal()`; `linear/adapter.ts` | Adapter privacy and directory-resolution tests; linked freeze/recovery engine test; import and bidirectional live scenarios |
 | Kind, spec, dependencies, counts | **Supported as read-only projection**, not native Linear workflow fields | `core/managed-block.ts`; `core/mirror.ts` attachments | Managed-block, attachment, and package tests |
 | Notes | **Unsupported** and local-only | Selection of canonical synced fields | Schema/reconcile field-list tests |
 
@@ -173,7 +173,7 @@ The dispositions are:
 | Inbound sub-issue | **Supported**, parent must already be linked or import in the same batch; never flatten silently | `orderInboundCandidates()`; runner `createBead()` | Engine and built-CLI parent/spec/order-hint tests; live `provider-created-hierarchy` |
 | Reparenting | **Supported with tbd ownership** for linked pairs; pull-only reports no unapplied overwrite and the next full sync restores the local parent | `core/sync-engine.ts` parent reconciliation | Engine reparent and direction tests |
 | Cycles and missing parents | **Supported fail-closed** with a per-item error; no unbounded walk | `lib/issue-hierarchy.ts`; inbound ordering | Hierarchy unit, engine, doctor, and CLI tests |
-| Nesting depth | **Bounded** for new outbound projection by `max_nesting`; inbound and already-linked relationships retain their true parents | `depthWithinSelection()`; `skippedOutbound` | Mirror/engine depth tests |
+| Nesting depth | **Bounded** for new outbound projection by `policy.outbound.max_nesting`; inbound and already-linked relationships retain their true parents | `depthWithinSelection()`; `skippedOutbound` | Mirror/engine depth tests |
 | Remote archive/delete | **Supported as orphan detection**; never delete or close the bead automatically | `core/sync-engine.ts` liveness fetch | Quiet-archive engine test and live `orphan-detection` |
 | Local close/delete | Close is **supported** as a status change; provider deletion is **unsupported**. A missing local bead cancels stale intents rather than deleting external data | Reconcile/status mapping; replay safety filter | Status, unlink, and stale-intent tests |
 | Link/unlink/relink | **Supported** with explicit stance for ambiguous first links and cancellation-first unlink | `cli/commands/integration.ts`; `core/intents.ts` | Built-CLI stance, unlink, crash, and replay tests |
@@ -199,7 +199,7 @@ Two-machine convergence also does not establish exclusive task claiming.
 | Author identity | **Supported as display text only**; emails, avatars, and raw user payloads are excluded | `ExternalComment`; `LinearAdapter.listComments()` | Serialization/privacy tests and live bead inspection |
 | Direction flags | **Supported**: bare is both, `--push` writes provider only, `--pull` writes local only and may defer provider intents | CLI and `SyncEngineOptions.direction` | Built-CLI direction and deferred-intent tests |
 | Three-way conflict | **Supported** per field; archive the exact loser before applying, post one resolvable provider comment, then converge | `core/reconcile.ts`; `core/sync-engine.ts`; `core/intents.ts` | Full matrix, failure injection, replay, and live `concurrent-conflict-recovery` |
-| Two machines | **Supported** through per-link bridge files, git merge rules, repo-scoped local locks, and idempotent provider writes | `core/bridge-state.ts`; `file/git.ts`; `core/intents.ts` | Divergent-history merge and two-clone live soak |
+| Two machines | **Supported for coordination-state convergence** through per-link bridge files and Git merge rules; independent replicas can still duplicate one pending provider comment until `tbd-6vg5` lands | `core/bridge-state.ts`; `file/git.ts`; `core/intents.ts` | Divergent-history merge and two-clone live soak; September stale-replica reproduction |
 | Partial provider failure | **Supported** with per-pair containment and durable retries; completed pairs are not replayed as duplicates | Sync engine and intent journal | Failure-injection and built-CLI degraded-run tests |
 | Rate limits and pagination | **Supported** with bounded retry of Linear’s HTTP 400 `RATELIMITED`; all correctness-sensitive connections paginate | `linear/client.ts`; `linear/adapter.ts`; `linear/queries.ts` | Transport plus comments/labels/attachments pagination tests |
 | Bulk mutation | **Bounded**: over 20 creates or 40 updates requires an interactive confirmation or explicit `--yes` | `core/bulk-guard.ts` | Unit and built-CLI refusal tests |
@@ -404,32 +404,35 @@ unlinked work on both sides (create outbound, create or report inbound).
 `--push` selectors and `--pull --external` are the targeted, manual forms of its two
 halves. `status` is the read-only preview of exactly the same computation.
 
-### Command vocabulary: one set of words across every surface
+### Command vocabulary: shared directions with explicit surfaces
 
-`tbd sync` already established the vocabulary for moving data: **bare is both
-directions, `--push` is outbound only, `--pull` is inbound only, `--status` reports
-without writing**, and `--docs` / `--issues` select surfaces.
-External trackers reuse that vocabulary exactly rather than inventing a parallel one:
+The direction vocabulary is consistent: **bare is both directions, `--push` is outbound
+only, and `--pull` is inbound only**. Surface selection is separate.
+A direction flag on top-level `tbd sync` selects Git issue transport and excludes
+integrations unless `--integrations` is also explicit.
+The tracker command uses the same directions within the tracker surface:
 
 | Surface | Both directions | Outbound only | Inbound only | Report |
 | --- | --- | --- | --- | --- |
 | Issues (git) | `tbd sync --issues` | `--issues --push` | `--issues --pull` | `tbd sync --status` |
 | Docs | `tbd sync --docs` | — (no remote) | — | `tbd sync --docs --status` |
 | Trackers | `tbd integration sync` | `tbd integration sync --push [selectors]` | `tbd integration sync --pull [--external <ref...>]` | `tbd integration status` |
-| Everything | `tbd sync` | `tbd sync --push` | `tbd sync --pull` | `tbd sync --status` |
+| Top-level default | `tbd sync` (docs, issues, and integrations whose fold mode runs) | `tbd sync --push` (issues only); add `--integrations` to select tracker projection, subject to `on_tbd_sync` | `tbd sync --pull` (issues only); add `--integrations` to select tracker inbound sync, subject to `on_tbd_sync` | `tbd sync --status` for docs/issues; `tbd integration status` for trackers |
 
 This replaces the earlier `mirror` and `import` verbs, which named a mechanism rather
 than a direction and left `sync` ambiguous about how much it covered.
-A reader who knows `tbd sync --pull` now knows what `tbd integration sync --pull` does,
-and `sync` means full synchronization everywhere it appears.
+A reader who knows `tbd sync --pull` still knows the direction of
+`tbd integration sync --pull`; the command path or explicit surface flags determine
+which systems participate.
 
 `--push` on a tracker remains the *projection* (selected beads out, attachments and the
 managed block refreshed, nothing read back for merging) because that is what a one-way
 outbound run should do.
-`tbd sync --push` invokes that same projection while the data-sync lock is held, then
-commits and pushes its bead/link writes with the issue surface.
-It never substitutes a full bidirectional tracker reconciliation merely because tracker
-sync is folded into the top-level command.
+Top-level `tbd sync --push` does not invoke that projection.
+The deliberate combined form is `tbd sync --push --integrations`: it selects the
+outbound projection, still subject to `on_tbd_sync`, while the data-sync lock is held,
+then commits and pushes its bead, bridge, and issue writes when the configured fold mode
+runs. It never substitutes a full bidirectional tracker reconciliation.
 `--pull` performs **no external write, including journal replay**. Every inbound-created
 bead journals its attachment claim before the provider is touched.
 A full sync deletes that intent only after the idempotent upsert succeeds; a pull-only
@@ -438,9 +441,10 @@ The bare form runs the complete reconciling engine.
 
 ### Sync surfaces: one default, independent failures
 
-**Plain `tbd sync` covers every surface** — docs, issues, and enabled trackers — so an
-agent closing a session runs one command and the whole repository is current.
-Selectors narrow it: `--docs`, `--issues`, `--integrations`.
+**Plain `tbd sync` selects every surface** — docs, issues, and integrations — so an
+agent closing a session runs one command.
+`on_tbd_sync` still decides whether the selected integration fold runs, reports only, or
+stays off. Selectors narrow it: `--docs`, `--issues`, `--integrations`.
 
 **Surfaces run independently and failures roll up.** A missing or expired tracker
 credential must not stop docs or issues from syncing, and vice versa: each surface is
@@ -463,10 +467,12 @@ Ordering is deliberate rather than arbitrary:
    Its writes are still committed to the sync branch, so the next successful push
    carries them — a git problem delays tracker work, never loses it.
 
-`sync_on_tbd_sync` therefore defaults to **true**: enabling an integration is already
-the explicit opt-in, and a second flag only creates a state where a configured tracker
-silently drifts. Setting it false keeps the integration configured but excluded from
+`on_tbd_sync` therefore defaults to **`guarded`**: enabling an integration opts into the
+fold, while an oversized run is refused unless someone reviews and explicitly affirms
+it. Setting the mode to `off` keeps the integration configured but excluded from
 `tbd sync`, for repositories that want to run `tbd integration sync` by hand.
+The retired pre-f08 `sync_on_tbd_sync` boolean remains readable for migration only:
+`true` maps to `auto` and `false` maps to `off`.
 
 ### Naming
 
@@ -535,12 +541,12 @@ Descriptions on the beads carry the full function-level test cases.
 | Journal integrity | `tbd-bd8z` | `core/intents.ts` `listIntentFiles()` / `replayIntents()` | A missing journal directory is empty; unreadable, malformed, or schema-invalid journal files fail closed with their filename before any provider mutation, preserving create client UUIDs and preventing duplicates |
 | Intent replay integrity | `tbd-5p9k`, `tbd-ufu3`, `tbd-eqp5`, `tbd-n8b3`, `tbd-8npr`, `tbd-a1hv`, `tbd-huhy`, `tbd-swh3` | `core/intents.ts` per-operation bead identity, `discardIntentOps()`, and `replayIntents()` recovery/cancellation; `core/sync-engine.ts` live-link guard, provisional-create journal classification and creation-snapshot base, and recovered working set; `core/link-store.ts` `writeLink()` sibling preservation; `integration.ts` `IntegrationUnlinkHandler`; `comment-store.ts` comment recovery | A crash after provider acceptance reuses and records the same UUID; every replayed write still requires the same bead/provider identity; a confirmed-absent pending create is not orphaned while an already-live item still reconciles from its journaled creation base before a bridge exists; enrichment preserves comments and future sibling state; unlink cancels before clearing identity and remains retryable; stale journals are consumed without provider I/O once their claim no longer exists |
 | Folded sync integrity | `tbd-yp81`, `tbd-dc77` | `cli/commands/sync.ts` `assertIntegrationReportsHealthy()`, surface rollup, and config preflight | Thrown and per-item tracker failures both let independent docs/issues finish but force a non-zero aggregate result; malformed config never turns integrations silently inert |
-| Conflict durability | `tbd-l50w`, `tbd-ofwz`, `tbd-jemr` | `file/attic-entry.ts`; `SyncCallbacks.archiveConflict()`; `intents.ts` `post_conflict`; `sync-engine.ts` archive-before-journal-before-write ordering | The exact losing prose is archived before either side changes; crash and inbound-only deferral reuse the same archive/comment UUID and settle exactly once |
+| Conflict durability | `tbd-l50w`, `tbd-ofwz`, `tbd-jemr` | `file/attic-entry.ts`; `SyncCallbacks.archiveConflict()`; `intents.ts` `post_conflict`; `sync-engine.ts` archive-before-journal-before-write ordering | The exact losing prose is archived before either side changes; crash and inbound-only deferral reuse the same archive/comment UUID, so replay of that journal is idempotent |
 | Attic recovery | `tbd-anx3`, `tbd-z7n8`, `tbd-vzt1`, `tbd-y45b` | `attic.ts` `parseAtticFilename()`, `resolveAtticIssueId()`, `decodeAtticTextValue()`, `buildRestorationAtticEntry()` | Real ULID filenames and display IDs work; JSON/legacy/null values restore exactly; the displaced winner is reverse-archived first |
 | Link liveness | `tbd-q0yh` | Linear `ISSUES_BY_ID_QUERY`; `sync-engine.ts` linked-item liveness fetch and orphan transition | Quiet archive/delete is detected outside the watermark; no bead is deleted or closed; repair remains explicit |
 | Source hygiene | `tbd-sl7f`, `tbd-xu8f` | `cli/commands/attic.ts` optional-field restoration; `lib/comment-union.ts` canonical key separator | Static optional-field deletion satisfies type-domain lint; source contains an escaped NUL spelling rather than a literal binary byte while runtime keys remain unchanged |
 | Linear live gate | `tbd-40el` | Built CLI plus `tests/qa/linear-integration.qa.md`; bridge link and intent records | Link/take/unlink/relink, comments, deliberate conflict, and two-clone convergence pass against the pilot |
-| Comment compatibility | `tbd-b6mv`, `tbd-ridy`, `tbd-n8th`, `tbd-ckek`, `tbd-xypz` | `core/comment-store.ts`; `core/sync-engine.ts`; Linear comment query; built CLI comment command | Empty input fails; dry-run reports real work; all pages are read; pending prose remains intact; every direction mode converges exactly once |
+| Comment compatibility | `tbd-b6mv`, `tbd-ridy`, `tbd-n8th`, `tbd-ckek`, `tbd-xypz` | `core/comment-store.ts`; `core/sync-engine.ts`; Linear comment query; built CLI comment command | Empty input fails; dry-run reports real work; all pages are read; pending prose remains intact; each direction mode settles from one coordinated store; cross-replica delivery identity remains `tbd-6vg5` |
 | Hierarchy and identity compatibility | `tbd-4ztt`, `tbd-u09d`, `tbd-kvf7`, `tbd-b4jt`, `tbd-s7t7` | `core/{mirror,sync-engine,reconcile,types}.ts`; `linear/{adapter,queries,mapping}.ts`; runner import callback | Parent-first create/import/reparent behavior, mapped assignees, complete pagination, project-scoped discovery, and visible unknown-state fallback pass focused and built-CLI tests |
 | Compatibility contract and API gate | `tbd-96kk`, `tbd-bazn`, `tbd-xcu2`, `tbd-ynf7`, `tbd-dsl2` | This matrix; import-safe `scripts/provider-live-qa-contract.ts`; `scripts/validate-linear-integration-live.ts`; `tests/qa/linear-integration.qa.md`; packaged docs and skills | Every applicable case has a disposition and code/test seam; provider drivers reuse one completion-enforced scenario contract; the documented command passes all stable live scenarios and proves fixture cleanup |
 | Linear RC decision | `tbd-jud3` | Package, docs, installed skills, PR #206 review and hosted checks | All local and hosted release gates are final green with an explicit RC disposition |
@@ -639,8 +645,6 @@ It is **not** a new top-level field, and that difference is not cosmetic.
 extensions:
   linear:
     id: 9cbb48f8-7a2e-4b9d-9f3e-0c1d2e3f4a5b   # provider UUID, the canonical key
-    key: FIN-123                                # human identifier, display only
-    url: https://linear.app/acme/issue/FIN-123
     linked_at: 2026-08-10T18:00:00Z
 ```
 
@@ -659,8 +663,10 @@ mirrored, so the next mirror creates a **duplicate** external issue and orphans 
 original.
 
 The provider namespace also owns append-only comments and may gain other additive state.
-`writeLink()` therefore replaces only the allow-listed link keys (`id`, `key`, `url`,
-`linked_at`) while preserving pre-existing non-link siblings.
+`writeLink()` owns the four historical link keys but persists only `id` and `linked_at`;
+it strips legacy `key` and `url` values on rewrite while preserving pre-existing
+non-link siblings. Mutable provider display values live as `external_key` and
+`external_url` on the bridge record, where each sync can refresh them.
 It never spreads fields from the supplied link entry, so credentials or future raw
 response fields cannot begin persisting accidentally; preserving already-durable opaque
 siblings is the same mixed-version contract that makes `extensions` safe in the first
@@ -778,19 +784,21 @@ with one word and customizes only when it outgrows it:
 
 ```yaml
 integrations:
-  sync_on_tbd_sync: false    # run enabled integrations inside plain `tbd sync`
+  on_tbd_sync: off           # this repository's deliberate manual pilot override
   linear:
     enabled: true
-    team_key: TBD
-    project: tbd             # optional; scopes creates and the inbound scan
+    target:
+      team_key: TBD
+      project: tbd           # optional; scopes creates and the inbound scan
     policy: default          # preset name — or the inline form below
-    mirror_labels: false     # push bead labels as `tbd:`-prefixed Linear labels
-    create_labels: true      # create missing labels when mirror_labels is on
-    max_nesting: 2           # levels of sub-epic mirrored
-    user_map: {}             # tbd assignee -> Linear user, needed before assignee sync
+    labels:
+      mirror: none           # none | prefixed | verbatim
+      create: tbd            # none | tbd | all; default creates infrastructure labels
+    identity:
+      user_map: {}           # optional outbound override; current inbound alias map
   # github:
   #   enabled: true
-  #   repo: owner/name
+  #   target: { repo: owner/name }
 ```
 
 The inline form, shown with the values the `default` preset expands to:
@@ -803,6 +811,7 @@ The inline form, shown with the values the `default` preset expands to:
         labels: []
         specs: active        # none | active | any — beads whose spec is in specs/active/
         linked: true         # already-linked beads always participate
+        max_nesting: 2       # maximum depth for new outbound projection
       inbound:               # when a tracker issue should create a bead
         mode: report         # off | report | auto
         labels: []           # only items carrying one of these labels (empty: any)
@@ -846,10 +855,13 @@ Clause semantics:
   the next sync — **reported, never silent**. `remote` is the reverse.
   Defaults: content and triage fields merge, per the principle that **linked pairs
   converge**; `labels` stays local because pulling a team’s label taxonomy into beads
-  imports noise; `assignee` stays local because tracker assignees are people
-  (names/emails), and nothing person-identifying lands in beads without an explicit
-  `user_map` and an explicit `assignee: merge`. The `comments` mode governs the
-  append-only comment sequences described in
+  imports noise; `assignee` stays local so the accountable human recorded by tbd owns
+  that field by default.
+  Outbound publishability comes from `identity.user_map` or an unambiguous
+  member-directory match.
+  An inbound reassignment flows only with explicit `assignee: merge`, and the current
+  adapter can canonicalize it only through `identity.user_map`. The `comments` mode
+  governs the append-only comment sequences described in
   [Comments](#comments-append-only-sequences-not-merged-fields).
 
 **Bulk-change guard.** Any run that would create more than **20** items or update more
@@ -861,9 +873,10 @@ Interactive runs prompt; non-interactive runs **refuse with exit 1** and name th
 full sync. The thresholds exist because the failure mode is real: an early pilot run
 pushed 112 bead labels into a shared team namespace.)
 
-**Nested epics** are supported in tbd but mirrored at most `max_nesting` levels deep,
-because Linear’s data model nests arbitrarily while its *views* flatten past about two
-levels. Deeper structure stays in beads where `tbd dep` and `tbd web` render it.
+**Nested epics** are supported in tbd but mirrored at most `policy.outbound.max_nesting`
+levels deep, because Linear’s data model nests arbitrarily while its *views* flatten
+past about two levels.
+Deeper structure stays in beads where `tbd dep` and `tbd web` render it.
 The `parent_id` cycle/depth guard (Phase 1) ensures a cycle cannot hang the mirror.
 
 #### 7. Field mapping (`linear/mapping.ts`, pure functions)
@@ -945,20 +958,21 @@ export async function applyMirror(options: ApplyOptions): Promise<MirrorReport>;
 ```
 
 Ordering per bead: for a create, journal the client UUID and persist it as a provisional
-link before provider I/O; then create (duplicate-id error treated as success), upsert
-attachments, splice the managed block, and enrich the same link with `key`/`url` after
-the item verifiably exists.
+`{id, linked_at}` bead link before provider I/O; then create (duplicate-id error treated
+as success), upsert attachments, splice the managed block, and record the verified
+`external_key`/`external_url` in bridge state.
 Updates reuse the established link.
 Parents mirror before children so `parentId` can be set.
 Re-running with no changes is a no-op.
 
-On every update the adapter re-reads the item’s `key`/`url` and refreshes the stored
-link when they changed — Linear identifiers are team-scoped (`FIN-11` becomes `TBD-4` on
-a team move), and the pilot’s team move exercised exactly this: 0 creates, 80 updates,
-every key refreshed, because links are keyed on the immutable UUID.
+On every update the adapter re-reads the item’s `key`/`url` and refreshes the bridge
+record when they changed.
+Linear identifiers are team-scoped (`FIN-11` becomes `TBD-4` on a team move), and the
+pilot’s team move exercised exactly this: 0 creates, 80 updates, every bridge key
+refreshed, while bead links remained keyed on the immutable UUID.
 
-The `patch` **omits `labels` entirely** unless `mirror_labels` is on: sending `[]` would
-strip labels a human applied in the tracker, which is not ours to remove.
+The `patch` **omits bead labels entirely** when `labels.mirror` is `none`: sending `[]`
+would strip labels a human applied in the tracker, which is not ours to remove.
 
 Cost envelope: ~84 items × ~4 calls ≈ 340 requests on a full run, far under 2,500/hour;
 steady-state runs are mostly no-ops.
@@ -1030,9 +1044,9 @@ Design points, in decreasing order of importance:
   Implemented as a new record type in the existing merge dispatch in `file/git.ts` — the
   same machinery that merges issues, not a second merge system.
 - **The bead carries identity; the bridge carries dynamics.** The bead’s
-  `extensions.linear` holds only `{id, key, url, linked_at}` (the Phase 1 allow-list).
-  The base tuple, watermarks, and journal churn on every sync and belong on the sync
-  branch, not in bead history.
+  `extensions.linear` holds only `{id, linked_at}`. Mutable `external_key` and
+  `external_url` values live with the base tuple, watermarks, and journal on the sync
+  branch, where they can change without rewriting bead history.
 - **Scalars verbatim, prose hashed.** The base stores small canonical fields directly
   but only a **normalized hash** of the description.
   Change detection needs equality, not content; the conflict path has both live values
@@ -1103,8 +1117,6 @@ the immutable comment ids alongside the issue UUID, and the entries carry the co
 extensions:
   linear:
     id: 9cbb48f8-…                    # issue UUID (Phase 1)
-    key: TBD-12
-    url: https://linear.app/…
     linked_at: 2026-08-10T18:00:00Z
     comments:                         # append-only, ordered by `at`
       - id: 41f2c3d4-…               # Linear's immutable comment UUID
@@ -1145,9 +1157,10 @@ extensions:
 - **Flow.** `field_sync.comments: two_way` (default) pulls new external comments and
   pushes local-authored ones each sync; `inbound` / `outbound` restrict direction; `off`
   disables. Local authoring: `tbd integration comment <bead> "text"` appends an entry and
-  works offline — it pushes on the next sync.
-  The conflict-report comments from the field engine ride this same rail (they are
-  simply comments authored by tbd, with their resolve lifecycle tracked in the bridge).
+  works offline: it queues the operation, and a later permitted full sync attempts
+  delivery. The conflict-report comments from the field engine ride this same rail (they
+  are simply comments authored by tbd, with their resolve lifecycle tracked in the
+  bridge).
 - **Bounds.** For entries with a provider `id`, a body over 10,000 JavaScript UTF-16
   code units becomes its first 10,000 units plus a truncation marker.
   Only the newest 50 provider-ID entries retain a body, possibly truncated; older
@@ -1215,7 +1228,7 @@ Replay safety is per-operation, verified against the mock server:
 
 | Operation | Replay behavior |
 | --- | --- |
-| `issueCreate` (client UUID) | journal carries bead id; provisional link must still name the UUID; duplicate-id error ⇒ treat as success, fetch by id, enrich the link |
+| `issueCreate` (client UUID) | journal carries bead id; provisional link must still name the UUID; duplicate-id error ⇒ treat as success, fetch by id, and record mutable key/URL in bridge state |
 | `issueUpdate` | journal carries bead id; exact link must still exist; then idempotent (same values) |
 | `attachmentCreate` | journal carries bead id; exact link must still exist; then true upsert on `url` |
 | managed-description splice | journal carries bead id; exact link must still exist; then idempotent on block content |
@@ -1230,7 +1243,7 @@ Replay safety is per-operation, verified against the mock server:
   all-`remote` pull, independent of the configured inbound selector.
   The bead gets canonical fields only — title, mapped status and priority, description
   (managed-block-stripped), `as_kind` from the policy, and an assignee alias only when
-  `user_map` proves its identity.
+  `identity.user_map` proves its identity.
   No labels, unmapped assignee, email, or raw payload.
   Base := the imported values.
 - **`link <bead> <ref>`** (both exist — the only ambiguous case): equal fields converge
@@ -1280,7 +1293,7 @@ Replay safety is per-operation, verified against the mock server:
 
 The Phase 1 security rules extend to the new surfaces, each backed by a test:
 
-- Into **beads**: canonical fields via the mapping tables, the four-key link payload,
+- Into **beads**: canonical fields via the mapping tables, the `{id, linked_at}` link,
   and allow-listed comment entries (id, timestamp, author display name, capped body) —
   never raw API responses, emails, or workspace metadata.
 - Into **bridge records** (committed to git): the shape above and nothing else — ids,
@@ -1472,7 +1485,7 @@ bulk-guard refusal exercised, and a team move (0 creates, 80 updates, all keys r
 - [x] `core/selection.ts`, `core/managed-block.ts`, `core/permalink.ts`,
   `core/bulk-guard.ts`.
 - [x] `planMirror`/`applyMirror`; `sync --push` with selectors, `--dry-run`, `--yes`,
-  `--json`; key/url refresh on update.
+  `--json`; bridge `external_key`/`external_url` refresh on update.
 - [x] Phase 1 documentation.
 
 Carried into Phase 2 (deliberately, not oversights): `link`/`unlink`/explicit inbound
@@ -1512,7 +1525,8 @@ before anything touches the network.
   array inside a provider namespace, with incompatible full namespaces sent to the
   attic; pull/push inside `sync` per `field_sync.comments`;
   `tbd integration comment <bead> "text"`; body/count caps with stub collapse; replay
-  dedup per open question 7.
+  dedup when reusing one journal UUID per open question 7. Stable delivery identity
+  across independent replicas remains `tbd-6vg5`.
 - [x] **Link / unlink / explicit inbound selection** (`tbd-az29`, hardened by `tbd-pr5e`
   and `tbd-utuy`) — link stance (`--take`, interactive diff, non-interactive refusal);
   one-source guard via reverse index, all local bead links, and a `tbd://bead/`
@@ -1521,10 +1535,11 @@ before anything touches the network.
 - [x] **`status` additions** — linked / pending-outbound / importable / drifted /
   conflicted / orphaned counts; unresolved conflict comments; `--offline` degrades to
   base-vs-local drift only.
-- [x] **Fold into `tbd sync`** behind `sync_on_tbd_sync` (default true once a provider
-  is explicitly enabled): runs after git pull/merge and before push; degraded external
-  state never blocks or corrupts git sync.
-  The pilot explicitly sets it false until the live rollout gates pass.
+- [x] **Fold into `tbd sync`** behind `on_tbd_sync` (default `guarded` once a provider
+  is explicitly enabled): runs after git pull/merge and before push; an oversized run is
+  refused rather than implicitly affirmed, and degraded external state never blocks or
+  corrupts git sync. The pilot explicitly sets it to `off` until the live rollout gates
+  pass.
 - [x] **End-to-end coverage against the mock server** (`tbd-uu08`) — delivered as a
   vitest suite spawning the REAL built binary in a real repository (status, push,
   sync-settle, tracker-edit pull, comment round-trip, one-source refusal, `--take`
@@ -1729,8 +1744,10 @@ semantics; the mock-server golden-test approach; and raw `fetch` over `@linear/s
    yes.** The created comment’s id IS the client id; a duplicate is rejected with
    `INPUT_ERROR` “already exists” — arriving on HTTP **200** with an errors array,
    unlike `issueCreate`’s 400 — and exactly one comment results.
-   Conflict-comment replay is therefore exactly-once, and the mock encodes this
-   verbatim.
+   Replaying one conflict-comment journal UUID is therefore idempotent, and the mock
+   encodes this verbatim.
+   This result does not prove that independent replicas choose the same UUID for one
+   logical provider comment; `tbd-6vg5` tracks that gap.
 
 ## References
 

@@ -13,7 +13,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 end to end — bead schema passthrough, `docs`/`refs` with `union_by_key`, the integration
 config regroup, and the migration — along with `tbd start`, `tbd whoami`, and agent
 identity. The shipped release is documented in
-[plan-2026-08-15-f08-release-rollout.md](./plan-2026-08-15-f08-release-rollout.md).
+[plan-2026-08-15-f08-release-rollout.md](../done/plan-2026-08-15-f08-release-rollout.md).
 Phases 3 and 4 retain open work.
 Each schema extension still needs compatibility and merge review; issue-level
 passthrough does not cover every nested record.
@@ -215,10 +215,11 @@ no parent-repo hooks.**
 
 ### Phase 1 design: honest surfaces and habitual claiming
 
-**Every `tbd sync` form must be honest about the tracker.** Today `--issues` silently
-excludes it, `--push` silently performs the outbound-only projection that `setup-linear`
-warns joiners never to run, `--dry-run` never previews tracker work even though
-`tbd --dry-run integration sync` does, and `--status` never reports tracker state.
+**Every `tbd sync` form must be honest about the tracker.** At the August baseline,
+`--issues` silently excluded it, `--push` silently performed the outbound-only
+projection that `setup-linear` warns joiners never to run, `--dry-run` did not preview
+tracker work even though `tbd --dry-run integration sync` did, and `--status` did not
+report tracker state.
 A natural-looking flag must not be the dangerous one.
 
 **Claiming must become one verb.** `tbd start <ids...>` sets `in_progress` and the
@@ -339,7 +340,7 @@ bump, not two (moves inside the block are format-gated by the same rule that gat
 
 ```yaml
 integrations:
-  on_tbd_sync: auto
+  on_tbd_sync: guarded
   linear:
     enabled: true
     target: { team_key: TBD, project: tbd } # WHERE
@@ -573,8 +574,10 @@ PR *visibility* in both Linear and beads is delivered by Phases 2 and 3 without 
 `tbd closing --check`.
 
 **Changed behavior:** `tbd sync --push` no longer performs an unguarded outbound-only
-projection; `tbd sync --issues` states that the tracker was excluded;
-`tbd --dry-run sync` previews tracker work; `tbd sync --status` reports tracker state.
+projection; `tbd sync --issues` states that the tracker was excluded.
+Tracker preview under top-level `--dry-run` and tracker reporting under top-level
+`--status` remain open (`tbd-42u4`); use `tbd --dry-run integration sync` and
+`tbd integration status` for those surfaces today.
 
 **Schema:** `IssueSchema` gains `docs` and `refs` and preserves unknown keys;
 `FIELD_STRATEGIES` gains `docs: 'union_by_key'`, `refs: 'union_by_key'`, and a default
@@ -601,9 +604,13 @@ client), the **config** (committed, read by every client), and the **bridge reco
 | `docs` | `{path, role?, title?}[]`, optional | Additive; `docs: 'union_by_key'` on `path` |
 | `refs` | `{kind, url, title?, at}[]`, optional | Additive; `refs: 'union_by_key'` on `url` |
 | `spec_path` | **unchanged** | Load-bearing for selection, propagation, and `list --spec` |
+| Provider link | `extensions.<provider>: {id, linked_at}` | Existing additive namespace; `writeLink()` strips legacy `key` and `url` when it rewrites a link |
 
 Serialization needs no change: `sortKeys` already iterates `Object.keys(obj)` and emits
 whatever it is handed.
+Mutable provider display data lives in bridge records as `external_key` and
+`external_url`, where each sync can refresh it without leaving stale values in bead
+history.
 
 ### Integration config (`IntegrationsConfigSchema`) — Phase 2, same `f08`
 
@@ -625,6 +632,9 @@ new flat siblings.
 `integrations.on_tbd_sync` gates the whole block, not one provider.
 Its current values are `auto`, `guarded`, `report`, and `off`; `sync_on_tbd_sync` is a
 legacy boolean alias.
+The unset default and the example above use `guarded`, which folds ordinary runs into
+`tbd sync` but refuses an oversized noninteractive run.
+`auto` is an explicit override that affirms the bulk thresholds.
 
 **`f08` must also make the *nested* integration schemas preserve unknown keys.**
 `ConfigSchema` and the provider blocks are already passthrough, but the clauses inside
@@ -649,6 +659,7 @@ Only local fact is serialized; `doctor` infers cross-repo risk from observed lab
 | --- | --- |
 | Write only when a field other than `synced_at` differs | Shipped. The record shape is unchanged |
 | `synced_at` **retained** | An earlier draft proposed dropping it. It is a merge tiebreaker in `pickNewestLinkRecord`, so it is load-bearing; only its role as a *write trigger* was wrong |
+| `external_key` and `external_url` retained | Mutable provider display values belong here rather than in the bead link |
 
 Bridge records are machine-written and regenerable, so shape changes here are cheap —
 which is exactly why the `f09`-free fix belongs on this side of the line rather than the
@@ -669,8 +680,13 @@ bead side.
 `f08` preserves unknown top-level issue metadata and selected configuration paths.
 It does not prove compatibility for every nested object.
 For example, the current `IssueRef` requires `url`, strips unknown fields, and merges by
-URL; richer session refs need a decision under `tbd-i0de`. New comment documents also
-need storage, recovery, and old-client compatibility decisions.
+URL; richer session refs need a decision under `tbd-i0de`. The
+[native comment architecture](../../architecture/current/arch-native-comments.md) now
+selects immutable `cm-` records and sharded storage, and PRs #282/#283 implement the
+internal record/storage and inventory/transition foundations.
+Git-operation guards, workspace and history recovery, diagnostics, old-client
+preservation, format freeze, and explicit activation remain open under the
+[September coordination plan](plan-2026-09-06-bead-coordination-and-native-comments.md).
 Destructive changes, renames, and changed semantics continue to require format review.
 
 * * *
@@ -703,7 +719,9 @@ when the phase starts.
 - [x] `tbd-mnci` — `tbd start`, the claim primitive — refuses to steal a live claim
 - [x] `tbd-f39i` — agent identity resolution and `tbd whoami` — `agid-{ulid}`, minted
   idempotently by the SessionStart launcher
-- [ ] `tbd-c4zl` — teach the claim step in all four instruction surfaces
+- [x] `tbd-c4zl` — teach the claim step in all four instruction surfaces — PR #283; uses
+  `tbd start`, identifies `delegate` as the acting axis, and publishes the advisory
+  claim before work begins
 - [x] `tbd-czhw` — reframe the selection-size guidance against *open* work; document the
   `max_nesting` skip — [#227](https://github.com/jlevy/tbd/pull/227)
 - [ ] `tbd-9cf9` — decide on lifting this repository’s `on_tbd_sync: off` override
@@ -866,7 +884,7 @@ CI; lifting it is the signal that syncing constantly is actually free.
 10. **Is team-per-repo (Mode 1) acceptable ceremony?** It is the only structurally
     isolated multi-repo topology and works today, but Linear teams carry membership and
     configuration a small repo may not merit.
-11. **Should `mirror_labels: false` come with bulk label removal?** The schema promises
+11. **Should `labels.mirror: none` come with bulk label removal?** The schema promises
     prefixed labels are removable in bulk, and no command does it.
 
 ## References

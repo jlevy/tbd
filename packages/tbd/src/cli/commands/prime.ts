@@ -94,6 +94,7 @@ const BRIEF_SKILL_CONTENT = `## Core Workflow
 
 - Track all task work as issues using tbd
 - Check \`tbd ready\` for available work
+- Before editing a bead: \`tbd sync --pull\`, re-read it, \`tbd start <id>\`, then \`tbd sync\`
 - Run \`tbd sync\` at session end
 
 ## SESSION CLOSING (REQUIRED)
@@ -109,6 +110,7 @@ const BRIEF_SKILL_CONTENT = `## Core Workflow
 tbd ready              Show issues ready to work
 tbd show <id>          View issue details
 tbd create "title"     Create new issue
+tbd start <id>         Claim work under the acting-agent identity
 tbd close <ids...>     Mark complete (bulk: pass all IDs in one call, never loop)
 tbd sync               Sync with remote
 tbd shortcut setup-linear  Configure shared Linear setup or add a personal Linear key
@@ -402,7 +404,8 @@ class PrimeHandler extends BaseCommand {
       // .beads/ exists - warn the agent
       return `⚠️  WARNING: A .beads/ directory was detected alongside .tbd/
    When asked to use beads, use \`tbd\` commands, NOT \`bd\` commands.
-   To complete migration: tbd setup beads --disable --confirm`;
+   Verify the imported tbd state before manually archiving the old .beads/ directory;
+   there is no post-initialization tbd command that disables Beads.`;
     } catch {
       // No .beads/ directory, no warning needed
       return null;

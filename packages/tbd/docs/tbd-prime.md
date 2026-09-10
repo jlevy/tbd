@@ -1,7 +1,8 @@
 # tbd Workflow Context
 
 > **Context Recovery**: Run `tbd prime` after compaction, clear, or new session.
-> Hooks auto-call this in Claude Code when .tbd/ detected.
+> Installed Claude and Codex hooks call it at session start and before compaction when
+> `.tbd/` is detected.
 
 # SESSION CLOSE PROTOCOL
 
@@ -50,9 +51,10 @@ Every session must end with tbd in a clean state:
 
 ### Finding Work
 
-- `tbd ready` - Show issues ready to work (no blockers)
+- `tbd ready` - Show issues ready to work (open; no delegate, hold, future deferral, or
+  non-closed blocker)
 - `tbd list --status open` - All open issues
-- `tbd list --status in_progress` - Your active work
+- `tbd list --status in_progress` - All in-progress work
 - `tbd show <id1> [<id2> …]` - Detailed issue view with dependencies (several in one
   call; `--max-lines <n>` caps output per issue)
   - Auto-displays parent context for child issues (use `--no-parent` to suppress)
@@ -62,7 +64,7 @@ Every session must end with tbd in a clean state:
 - `tbd create "title" --type task|bug|feature --priority 2` - New issue
   - Priority: 0-4 (0=critical, 2=medium, 4=backlog).
     Do NOT use "high"/"medium"/"low"
-- `tbd update <id> --status in_progress` - Claim work
+- `tbd start <id>` - Claim work
 - `tbd update <id> --assignee username` - Assign to someone
 - `tbd close <id>` - Mark complete
 - `tbd close <id> --reason "explanation"` - Close with reason
@@ -76,6 +78,18 @@ Every session must end with tbd in a clean state:
   by shared mutation and make one call per group
 - **Tip**: When creating multiple issues, use parallel subagents for efficiency
 
+Use `tbd start`, not a raw status update, to claim work.
+It records the acting agent in `delegate`. On an already in-progress bead, it reports a
+different visible delegate instead of overwriting that claim.
+It does not require readiness or coordinate with a stale clone.
+Before editing, run `tbd sync --pull`, re-read the bead, use `tbd start <id>`, and run
+`tbd sync` so other replicas can see the accepted claim.
+`assignee` remains the person accountable for the work.
+The acting name resolves from `start --as`, then `TBD_AGENT`, then the machine-local
+session identity, and finally a derived `<harness>@<host>` fallback.
+Use `tbd whoami` to inspect it; setup hooks call `tbd whoami --ensure-id` idempotently
+to persist a local ID and friendly name.
+
 ### Dependencies and Blocking
 
 - `tbd dep add <issue> <depends-on...>` - Add dependencies (issue depends on each; one
@@ -86,7 +100,7 @@ Every session must end with tbd in a clean state:
 ### Sync and Collaboration
 
 - `tbd sync` - Sync with git remote (run at session end)
-- `tbd sync --status` - Check sync status without syncing
+- `tbd sync --status` - Check docs and issue Git status without syncing
 - `tbd web --open` - Live, read-only browser view for the user (share the URL and keep
   the process running; make bead changes via normal tbd commands)
 - `tbd watch --ready --json` - Block until a bead newly becomes ready (see
@@ -106,9 +120,11 @@ It also reconciles any enabled external tracker (e.g. Linear); to connect one, u
 **Starting work:**
 
 ```bash
+tbd sync --pull                        # Refresh shared state
 tbd ready                              # Find available work
-tbd show <id>                          # Review issue details
-tbd update <id> --status in_progress   # Claim it
+tbd show <id>                          # Review current issue details
+tbd start <id>                         # Claim it
+tbd sync                               # Publish the claim
 ```
 
 **Completing work:**
@@ -129,15 +145,25 @@ tbd dep add <tests-id> <feature-id>   # Tests depend on feature
 
 ## Setup Commands
 
-- `tbd setup --auto` - Non-interactive setup with smart defaults (for agents/scripts)
-- `tbd setup --from-beads` - Migrate from Beads to tbd
+- `tbd setup --auto --prefix=<name>` - Initialize a fresh repository; never guess the
+  prefix
+- `tbd setup --auto` - Refresh an existing tbd repository using its configured prefix
+- `tbd setup --from-beads` - In an uninitialized repository, import
+  `.beads/issues.jsonl` and rename `.beads/` to `.beads-disabled/`; verify the import
+- `tbd setup --auto --surfaces=<list>` - Generate a comma-separated subset of
+  `portable`, `agents-md`, `claude`, and `codex`; omission installs all four
+
+The surface selector controls only agent files; initialization, config and format
+migrations, and docs refresh still run.
+Bare `tbd setup` displays help.
 
 ## Quick Reference
 
 - **Priority levels**: 0=critical, 1=high, 2=medium (default), 3=low, 4=backlog
-- **Issue types**: task, bug, feature, epic
-- **Status values**: open, in_progress, closed
-- **JSON output**: Add `--json` to any command for machine-readable output
+- **Issue types**: task, bug, feature, epic, chore
+- **Status values**: open, in_progress, blocked, deferred, closed
+- **JSON output**: Data-oriented commands honor `--json`; raw document commands such as
+  `readme`, `prime`, `skill`, and `closing` remain text
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

@@ -106,7 +106,8 @@ function printStatus(status: IntegrationStatus): void {
     console.log('  integrations:');
     console.log('    linear:');
     console.log('      enabled: true');
-    console.log('      team_key: FIN');
+    console.log('      target:');
+    console.log('        team_key: FIN');
     console.log('');
     console.log(`Then set ${CREDENTIAL_ENV_VARS.linear} in your environment or a gitignored .env.`);
     console.log('For guided setup: tbd shortcut setup-linear');
@@ -588,7 +589,7 @@ function printSyncReport(report: SyncRunReport, dryRun: boolean): void {
   }
 }
 
-/** `tbd integration comment` — author a comment offline; sync pushes it. */
+/** `tbd integration comment` — queue a provider comment offline for integration sync. */
 class IntegrationCommentHandler extends BaseCommand {
   async run(beadRef: string, text: string, options: { provider?: string }): Promise<void> {
     if (text.trim().length === 0) {
@@ -611,7 +612,7 @@ class IntegrationCommentHandler extends BaseCommand {
       issue.updated_at = now();
       await writeIssue(context.dataSyncDir, issue);
       this.output.success(
-        `Comment recorded on ${formatDisplayId(internalId, context.mapping, config.display.id_prefix)}; the next \`tbd integration sync\` posts it.`,
+        `Comment queued on ${formatDisplayId(internalId, context.mapping, config.display.id_prefix)}; the next \`tbd integration sync\` attempts delivery when provider policy permits.`,
       );
     });
   }
@@ -893,7 +894,7 @@ export const integrationCommand = new Command('integration')
   )
   .addCommand(
     new Command('comment')
-      .description('Author a comment on a linked bead; the next sync posts it')
+      .description('Queue a provider comment on a linked bead for integration sync')
       .argument('<bead>', 'Bead ID')
       .argument('<text>', 'Comment text')
       .option('--provider <name>', 'Provider the bead is linked to (default: linear)')

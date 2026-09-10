@@ -28,12 +28,23 @@ Do not sync implicitly.
 tbd ready              # Find beads ready to start
 tbd show <id1> [<id2> …]  # View bead details (several in one call, never a loop)
 tbd create "title"     # Create new bead
+tbd start <id>         # Claim under the acting-agent identity
 tbd close <id>         # Mark complete
 tbd close <id1> <id2>  # Close several at once (one call, never a loop)
 tbd list --spec <path> # Where things stand on a spec
 tbd sync               # Sync with remote
 tbd web --open         # Open the live, read-only bead viewer
 ```
+
+Before editing a bead, run `tbd sync --pull`, re-read it, use `tbd start <id>`, and run
+`tbd sync` so other replicas can see the claim.
+The guard is local and advisory; a stale clone can still race it.
+`start` preserves the accountable `assignee` and writes the acting name to `delegate`.
+That name resolves from `--as`, then `TBD_AGENT`, then the machine-local session
+identity, and finally `<harness>@<host>`; inspect it with `tbd whoami`. Top-level
+`sync --pull` updates issue Git only.
+Plain `tbd sync` also runs trackers according to `integrations.on_tbd_sync`; use
+`tbd integration status` for tracker health.
 
 ## Quick Actions
 
@@ -57,3 +68,7 @@ tbd web --open         # Open the live, read-only bead viewer
    loop)
 4. Sync: `tbd sync`
 5. Confirm CI passed before declaring “done”
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

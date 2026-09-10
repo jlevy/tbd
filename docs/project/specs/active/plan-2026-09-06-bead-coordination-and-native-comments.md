@@ -528,8 +528,19 @@ sync and current integration comments remain usable.
 - [ ] Add the opt-in atomic eligible-work claim (`tbd-mzsw`) under the shared mutation
   lock. Preserve ordinary `start`; a prior `ready` result is not authorization after
   intervening state changes.
-- [ ] Correct claim instructions (`tbd-c4zl`) and the worker recipe’s initial backlog,
-  periodic readiness, and successful-claim handling (`tbd-zxg6`).
+- [x] Correct claim instructions across every generated and packaged agent surface
+  (`tbd-c4zl`, PR #283).
+- [ ] Make the worker recipe handle the initial backlog, periodic readiness, and
+  successful claims directly (`tbd-zxg6`). Until then, its docs require explicit startup
+  and periodic `tbd ready` scans.
+- [ ] Make fixed-commit `--ready` reports replayable by pinning or persisting their
+  readiness evaluation instant (`tbd-obw9`). Until then, identical commit endpoints can
+  report a different ready edge after `deferred_until` elapses.
+- [ ] Abort corrupted-worktree repair before removal when its backup cannot be
+  materialized (`tbd-dmkd`, release blocker).
+  A reported backup path must exist.
+- [ ] Stop `tbd search` from recording a freshness checkpoint when it has performed no
+  pull (`tbd-iwup`), or make the documented refresh real.
 - [ ] Specify concurrent dependency removal and validate merged parent/dependency graphs
   before automated scheduling; preserve conflicts and report invalid affected work
   instead of silently selecting an arbitrary graph (`tbd-7ybg`).
@@ -538,8 +549,9 @@ sync and current integration comments remain usable.
 their repair and pass afterward.
 Add real filesystem/CLI recovery cases, including the automatic outbox path not executed
 by the original probe.
-Contested local claims allow one eligible worker to proceed; independent-clone tests
-demonstrate and label the unsupported exclusivity case.
+Forced backup failure leaves a corrupted shared worktree untouched and reports no
+nonexistent backup. Contested local claims allow one eligible worker to proceed;
+independent-clone tests demonstrate and label the unsupported exclusivity case.
 Test changes to blockers, hold, deferral, and delegation between discovery and
 conditional claim.
 Existing manual watch, integration directions, and packed CLI behavior
@@ -866,6 +878,7 @@ These are bounded decisions owned by their phase, not reasons to postpone Phase 
 - [Coordination research and prior-plan ownership map](../../research/current/research-2026-09-06-bead-agent-coordination.md)
 - [Watch plan and historical evidence](plan-2026-07-19-bead-watch-and-external-sync.md)
 - [Linear integration contract](../../../../packages/tbd/docs/references/linear-integration-design.md)
+- [On-disk format versioning](../../../tbd-format-versioning.md)
 - [tbd design](../../../../packages/tbd/docs/tbd-design.md)
 - [GitHub repository limits][github-limits] and [REST API limits][github-api-limits]
 

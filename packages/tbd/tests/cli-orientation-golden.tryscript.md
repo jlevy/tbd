@@ -59,7 +59,7 @@ INTEGRATIONS
   ✗ AGENTS.md (./AGENTS.md)
   ✗ Codex hooks (./.codex/hooks.json)
 
-Run tbd setup auto to configure detected agents
+Run tbd setup --auto to configure detected agents
 
 Worktree: [PATH] (healthy)
 

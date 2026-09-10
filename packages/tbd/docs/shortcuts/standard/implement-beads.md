@@ -20,7 +20,10 @@ Create a to-do list with the following items then perform all of them:
    `tbd ready` to find work, and `tbd close` when done.
 
 3. Implement beads specified by the user, highest priority first.
-   If the user did not specify which beads, check all open beads with `tbd ready`.
+   If the user did not specify which beads, check currently available beads with
+   `tbd ready`. Before the first edit for each bead, run `tbd sync --pull`, re-read
+   current state, claim it with `tbd start <id>`, and run `tbd sync` so other replicas
+   can see the claim.
    - Beads are usually linked to specs so be sure to find specs that are relevant (for
      that bead or an umbrella bead) for each if possible and review those specs.
    - Follow `tbd shortcut precommit-process` and `tbd sync` changes after each bead.

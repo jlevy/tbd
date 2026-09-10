@@ -47,9 +47,10 @@ success.
 
 - No change to the on-disk storage format (`f04`) or the `git-common-dir-v1` layout.
 - No new interactive merge UI.
-- No change to the unrelated-history rescue flow
-  (`plan-2026-05-29-tbd-sync-unrelated-history-hardening.md`); that path already
-  preserves every losing side to `attic/conflicts/` and is reused as-is.
+- No change to the
+  [unrelated-history rescue flow](../done/plan-2026-05-29-tbd-sync-unrelated-history-hardening.md);
+  that path already preserves every losing side to `attic/conflicts/` and is reused
+  as-is.
 - Not introducing a git custom merge **driver** for issue files (see Open Questions for
   why the post-merge resolution approach is preferred for tbd’s ephemeral-clone use
   case).
@@ -355,8 +356,9 @@ markers from git refs).
 - `packages/tbd/src/file/workspace.ts` — save/import merges (337-412, 463-499).
 - `packages/tbd/docs/tbd-design.md` §3.5 Merge Rules (2224+), `child_order_hints` rule
   (2293).
-- Prior art: `plan-2026-05-29-tbd-sync-unrelated-history-hardening.md` (rescue path that
-  reuses `mergeIssues` + attic preservation).
+- Prior art:
+  [unrelated-history hardening](../done/plan-2026-05-29-tbd-sync-unrelated-history-hardening.md)
+  (rescue path that reuses `mergeIssues` + attic preservation).
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

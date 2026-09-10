@@ -287,8 +287,9 @@ const IssueDeclaredShape = BaseEntity.extend({
    * Who is acting on the work, when that differs from who is accountable for it.
    *
    * `assignee` answers "whose plate is this on"; an agent in that slot destroys the
-   * answer. Absent reads as "same as assignee". Linear renders this as `delegate`,
-   * which is the field its agent platform hangs off.
+   * answer. Absent means no acting agent is recorded; it does not inherit `assignee`
+   * for readiness or provider projection. Linear renders this as `delegate`, which is
+   * the field its agent platform hangs off.
    */
   delegate: z.string().nullable().optional(),
   labels: z.array(z.string()).default([]),
@@ -993,12 +994,11 @@ export const GithubIntegrationSchema = z
  * precisely because a mis-set selector turns "a couple of epics" into "every
  * bead in the repo". There was no way to ask for the fold and keep the guard.
  *
- * - `auto` — fold in and affirm the bulk thresholds. The old `true`, and still
- *   the default: a settled mirror runs small, and prompting a non-interactive
- *   run is not an option anyway.
- * - `guarded` — fold in, but let the bulk guard refuse an oversized run and
- *   report it. The run is non-interactive, so the guard refuses rather than
- *   prompting, leaving `tbd integration sync` for the reviewed pass.
+ * - `auto` — fold in and affirm the bulk thresholds. This preserves the old
+ *   `true` behavior but is not the default.
+ * - `guarded` — the default; fold in, but let the bulk guard refuse an oversized
+ *   run and report it. The run is non-interactive, so the guard refuses rather
+ *   than prompting, leaving `tbd integration sync` for the reviewed pass.
  * - `report` — plan and print, write nothing. What a pilot actually wants, and
  *   what a repo that set `false` for cost reasons was approximating badly.
  * - `off` — providers stay configured but out of `tbd sync`. The old `false`.
@@ -1010,11 +1010,11 @@ export const IntegrationsConfigSchema = z
     /**
      * How enabled integrations participate in plain `tbd sync` (f08+).
      *
-     * Enabling an integration IS the opt-in, so this resolves to `auto` rather
-     * than to a second off-switch that would let a configured tracker silently
-     * drift — but the default lives in `resolveSyncFoldMode`, NOT here.
+     * Enabling an integration opts into the fold, and an unset mode resolves to
+     * `guarded` so it does not also waive the bulk thresholds. The default lives
+     * in `resolveSyncFoldMode`, NOT here.
      *
-     * With `.default('auto')` on the schema, Zod materializes this key on every
+     * With `.default('guarded')` on the schema, Zod materializes this key on every
      * read, so it is never `undefined` and the legacy `sync_on_tbd_sync` branch
      * below becomes unreachable. A repository that had set the old boolean to
      * `false` would silently start syncing to its tracker on upgrade. Same trap
