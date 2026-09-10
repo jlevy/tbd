@@ -173,8 +173,10 @@ They are not outstanding tasks in that closed campaign or proof of a failed rele
   CI covers the built candidate under Node.js 22.12.0 and Node.js 24 on Linux.
 - [ ] Run one selected wake over a disposable private GitHub remote using the same
   SSH/HTTPS credential path as the intended operator.
-- [ ] Confirm the remote-tracking ref, local sync ref, `FETCH_HEAD`, caller worktree,
-  hidden worktree, lock, and private refs remain unchanged until an explicit pull.
+- [ ] Confirm the configured remote-tracking ref, local sync ref, `FETCH_HEAD`, caller
+  worktree, hidden worktree, and lock remain unchanged.
+  Confirm the watcher creates only its per-process private ref and removes it on exit,
+  and stale-ref cleanup touches only dead watchers’ private namespace.
 - [ ] Run existing `create`, `update`, `list`, `ready`, `show`, and `sync` workflows
   while a watcher is active and after it exits.
 - [ ] Review human, JSON, quiet, timeout, usage-error, and operational-error output for

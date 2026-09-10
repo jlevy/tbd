@@ -1060,7 +1060,7 @@ describe('the sync engine', () => {
     expect(result.pushed).toEqual([]);
     expect(result.pulled).toEqual([]);
     expect(result.warnings.map((warning) => warning.message)).toContain(
-      'Linear assignee is not present in user_map; assignee synchronization skipped.',
+      'Linear assignee is not present in identity.user_map; assignee synchronization skipped.',
     );
     expect(store.get(epic.id)?.assignee).toBe('riley');
     expect(record?.base.assignee).toBe('josh');

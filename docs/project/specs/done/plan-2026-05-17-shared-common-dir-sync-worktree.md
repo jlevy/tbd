@@ -4,23 +4,28 @@
 
 **Author:** Codex with Joshua Levy
 
-**Status:** Implemented; post-review hardening in progress (see Post-Review Hardening
-(PR #121 Follow-up))
+**Status:** Implemented and archived; the implementation and post-review hardening
+shipped through PR #121 and its follow-ups
+
+> **Historical context:** The problem statements below describe the pre-f04
+> checkout-local layout.
+> Current f08 clients use the shared Git common-directory layout recorded under
+> Implementation Result.
 
 ## Overview
 
-`tbd` currently stores its hidden `tbd-sync` checkout under each working tree at
-`.tbd/data-sync-worktree/`. That works for a single checkout, but it breaks down when
+Before f04, `tbd` stored its hidden `tbd-sync` checkout under each working tree at
+`.tbd/data-sync-worktree/`. That worked for a single checkout, but it broke down when
 tools like Codex alternate between the user’s main checkout and new Git worktrees
 created for agent sessions.
 The immediate pain point is simple: Codex should be able to create and sync beads from
 either location without Git reporting that `tbd-sync` is already used by another
 worktree, and without losing or stranding bead data.
 
-This spec explores Design B: move the local sync machinery out of each checkout and into
+This spec selected Design B: move the local sync machinery out of each checkout and into
 the repository’s Git common directory, then serialize access with the existing
 mkdir-based lock pattern.
-Every linked worktree of the same repository would use one shared local sync worktree.
+Every linked worktree of the same repository now uses one shared local sync worktree.
 
 ## Implementation Result
 
@@ -835,3 +840,7 @@ Release notes should warn:
 - Git LFS repository-local storage:
   https://github.com/git-lfs/git-lfs/blob/main/docs/spec.md
 - git-annex repository-local storage: https://git-annex.branchable.com/
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

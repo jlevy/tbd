@@ -24,9 +24,13 @@ tbd watch --all --json
 
 Pick the narrowest selection that still catches the work you care about.
 A `--bead` watch is the right default for “tell me when this one thing moves.”
-`--ready` is the right default for a worker that picks up whatever becomes available,
-because it fires only on the transition into the ready set and will not re-fire while a
-bead sits there. `--all` is for bridges and mirrors that must see everything.
+`--ready` reports a bead only when a remote Git change moves it into the ready set, and
+it will not re-fire while that bead remains ready.
+It does not return work that was already ready at the baseline, and the passage of
+`deferred_until` alone creates no Git change to wake it.
+A general worker must run `tbd sync --pull` and `tbd ready` on startup and restart, then
+repeat that readiness scan on a timer as well as after watch reports (`tbd-zxg6`).
+`--all` is for bridges and mirrors that must see every issue change.
 
 Two habits keep a long-lived watcher honest: pass the previous report’s `tip` back as
 `--since` so nothing slips through between runs, and treat exit 3 as “keep going” rather
@@ -34,14 +38,16 @@ than as failure.
 
 ## Watch, Then Spawn an Agent
 
-This is the default unattended pattern.
+This is the remote-change wake pattern.
 It consumes no agent tokens while the remote tip is idle and catches changes that land
 while the agent is working.
 The pending report is durable and processed at least once: a failed worker or final sync
 leaves it in place for the next start, and the checkpoint advances only after both
 succeed. Use a unique `state_name` for each selection, run only one owner for that name,
 and make worker actions idempotent because a crash after an external side effect can
-replay the report.
+replay the report. It is not by itself a complete unattended ready-work scheduler:
+perform the startup and periodic readiness scans described above so an existing backlog
+or a clock-only deferral expiry cannot wait forever.
 
 ```bash
 set -euo pipefail
@@ -185,8 +191,12 @@ instead. It runs against the local sync branch with no network access:
 tbd changes --since <commit> --all --json
 ```
 
-This is the debugging tool for a watcher that behaved unexpectedly: replay the same
-`since` and `tip` from its report and you get the identical report back.
+This is the debugging tool for a watcher that behaved unexpectedly: replay its `since`
+against the reported `tip` after making that tip the local sync ref.
+Every selector except `--ready` then has identical membership.
+`--ready` also evaluates `deferred_until` at the invocation time, which the report does
+not persist, so a deferral that elapses between replays can change ready-edge membership
+(`tbd-obw9`).
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

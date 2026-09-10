@@ -283,7 +283,7 @@ describe('Linear client and adapter', () => {
       expect(issue?.assignee).toBeNull();
       expect(issue?.assigneeSyncable).toBe(false);
       expect(issue?.mappingWarnings).toContain(
-        'Linear assignee is not present in user_map; assignee synchronization skipped.',
+        'Linear assignee is not present in identity.user_map; assignee synchronization skipped.',
       );
       expect(JSON.stringify(issue)).not.toContain('Outside Person');
       expect(JSON.stringify(issue)).not.toContain('outside@example.com');

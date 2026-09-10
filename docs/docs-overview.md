@@ -57,6 +57,10 @@ Project-specific specifications, architecture, and research docs:
     command, public package surface, active runtime caller, or activation path is
     available.
 
+  - [On-disk format versioning](tbd-format-versioning.md) defines the current f08
+    compatibility and migration contract, plus the explicit-activation rules that must
+    be implemented before a candidate f09 repository can create native comments.
+
 - @docs/project/research/—Research notes and technical investigations
 
   - [Bead watching and cross-agent coordination](project/research/current/research-2026-09-06-bead-agent-coordination.md)
@@ -70,6 +74,8 @@ Project-specific specifications, architecture, and research docs:
 In addition to these repository docs, tbd provides managed documentation via the
 `tbd docs` group and per-kind readers:
 
+- [`tbd design`](../packages/tbd/docs/tbd-design.md)—Read the packaged main design
+  specification, including the current f08 boundary and candidate native-comment model
 - `tbd docs`—Status overview of managed docs; `tbd docs list` shows every doc across
   kinds with `[forked]`/`[customized]`/`[local]` markers
 - `tbd docs show <name>`—Read any doc by name; `tbd docs show tbd-docs` is the CLI

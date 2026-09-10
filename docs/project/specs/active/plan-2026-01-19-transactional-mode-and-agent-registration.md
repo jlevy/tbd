@@ -159,7 +159,7 @@ tbd tx begin --name "auth-refactor-attempt"
 # Agent works, tracking progress in issues
 tbd create "Refactor auth middleware" --type task
 tbd create "Update session handling" --type task
-tbd update bd-xyz --status in_progress
+tbd start bd-xyz
 tbd update bd-xyz --notes "Tried approach A, hitting issues..."
 
 # Approach didn't work - abort everything
@@ -290,7 +290,7 @@ main branch                    tbd-sync branch              tx branch (temporary
    → Detects active transaction
    → Writes to tx branch worktree instead of tbd-sync worktree
 
-4. tbd update bd-123 --status in_progress
+4. tbd start bd-123
    → Writes to tx branch worktree
 
 5. tbd tx commit --message "Complete auth feature"
@@ -542,7 +542,7 @@ fails, all changes are discarded:
 ​```bash
 tbd tx begin --name "auth-refactor-attempt"
 tbd create "Refactor auth middleware" --type task
-tbd update bd-xyz --status in_progress
+tbd start bd-xyz
 tbd update bd-xyz --notes "Tried approach A, hitting issues..."
 
 # Approach didn't work - abort everything
@@ -608,7 +608,7 @@ Transactional mode provides atomic batch commits using git branches.
 **Architecture:**
 
 ​```
-.tbd/data-sync-worktree/
+$GIT_COMMON_DIR/tbd/data-sync-worktree/
     │
     ├── normally checked out to: tbd-sync
     │
@@ -765,7 +765,8 @@ Run 'tbd tx begin' to start one.
 ​```
 
 > **Note:** For detailed content diffs, use `git diff` directly in the worktree
-> (`.tbd/data-sync-worktree/`). tbd doesn't wrap git diff - it's already available.
+> (`$GIT_COMMON_DIR/tbd/data-sync-worktree/`). tbd doesn't wrap git diff - it's already
+> available.
 
 #### Commit
 

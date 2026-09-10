@@ -7,7 +7,7 @@ Historical detail moves to [TODO.archive.md](./TODO.archive.md).
 Beads are the source of truth.
 `tbd list --status open`, `tbd show <id>`. The release snapshot below dates to
 2026-08-16; it is historical, not the current shipping gate.
-Coordination documentation was reconciled on 2026-09-06; unrelated release/backlog items
+Coordination documentation was reconciled on 2026-09-10; unrelated release/backlog items
 were not re-audited.
 
 ## Agent coordination rollout
@@ -24,17 +24,22 @@ to Linear, and integrate portable workers.
 Git transport and Linear projection can proceed independently after native comments; the
 mixed human pilot has its own gate.
 Each phase has acceptance and recovery criteria.
-Implementation has not started.
-Existing transaction, tracker, traceability, actor, state, and runtime scopes retain
-their owners. Three superseded research briefs and January’s abandoned outbox proposal
-are archived with successor links.
+Implementation is underway: provider-comment recovery has landed in the stack, and the
+native record/storage plus inventory/transition foundations are implemented in PRs #282
+and #283. Those native modules remain internal and dormant in f08; Git-operation guards,
+recovery integration, format activation, commands, and comment-aware watch reporting are
+still open.
+Existing transaction, tracker, traceability, actor, state, and runtime scopes
+retain their owners.
+Three superseded research briefs and January’s abandoned outbox proposal are archived
+with successor links.
 Actor-core delivery is distinct from residual UX (`tbd-p0fe`); runtime refs require the
 explicit compatibility decision in `tbd-i0de`.
 
 ## Historical release snapshot: get-tbd 0.7.0 (the f08 release)
 
 Plan:
-[plan-2026-08-15-f08-release-rollout.md](./docs/project/specs/active/plan-2026-08-15-f08-release-rollout.md).
+[plan-2026-08-15-f08-release-rollout.md](./docs/project/specs/done/plan-2026-08-15-f08-release-rollout.md).
 That document owns the mechanics; this is the status.
 
 **Ready.** Everything is merged and CI is green on `main`. Two independent checks pass:
@@ -119,7 +124,6 @@ Plans under [docs/project/specs/active/](./docs/project/specs/active/) include:
 
 - [Incremental bead coordination and native comments](./docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md)
   — stabilization through Git-only and human/agent coordination
-- `plan-2026-08-15-f08-release-rollout.md` — the release above
 - `plan-2026-08-14-external-sync-and-traceability.md` — the four-phase Linear plan
 - `plan-2026-08-19-agent-session-refs-and-runtimes.md` — session refs and the runtime
   adapters, from the 2026-08-19 runtime survey

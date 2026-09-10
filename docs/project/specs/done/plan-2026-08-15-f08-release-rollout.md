@@ -9,13 +9,14 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Proposed.
+**Status:** Completed and archived.
+f08 shipped in get-tbd 0.7.0; the repository has since released 0.7.1, 0.8.0, and 0.8.1.
 Phase 1 and Phase 2 of
-[plan-2026-08-14-external-sync-and-traceability.md](./plan-2026-08-14-external-sync-and-traceability.md)
-are implemented; this plans the cut.
+[plan-2026-08-14-external-sync-and-traceability.md](../active/plan-2026-08-14-external-sync-and-traceability.md)
+were the input to this completed cut.
 
-**Governs:** the release described by [docs/publishing.md](../../publishing.md), which
-owns the mechanics.
+**Governs:** the release described by [docs/publishing.md](../../../publishing.md),
+which owns the mechanics.
 This document owns only what is specific to shipping a *format* bump.
 
 ## Why this needs its own plan
@@ -121,27 +122,27 @@ gate is there.
 
 Beyond the standard steps in `docs/publishing.md`:
 
-- [ ] Open the release bead for 0.7.0 (publishing.md Step 0 requires one train, one
+- [x] Open the release bead for 0.7.0 (publishing.md Step 0 requires one train, one
   bead)
-- [ ] `pnpm precommit` green on the merge commit — **and `pnpm test:coverage`**, which
+- [x] `pnpm precommit` green on the merge commit — **and `pnpm test:coverage`**, which
   is the only thing that runs the `tryscript` golden CLI tests.
   `precommit` is vitest-only, so a change to any CLI output passes locally and fails in
   the Coverage & Lint job.
   This bit once already: the f08 bump moved ten golden cases across six files
-- [ ] Update the two goldens that this release *un*-breaks.
+- [x] Update the two goldens that this release *un*-breaks.
   Once the tagged version supports f08, `tbd_fallback_version` names a build that can
   read the repository, so the doctor’s `Launcher fallback` warning disappears from
   `cli-orientation-golden.tryscript.md`. In the same way, `validate-upgrade-package.mjs`
   regains a genuine same-format baseline: add 0.7.0 as the `expectOldClientToWork: true`
   scenario, which no published version can be today
-- [ ] Confirm `FORMAT_HISTORY.f08.introduced` equals the version being tagged
-- [ ] Migrate a scratch clone from `f07` and confirm: config regroups with no key left
+- [x] Confirm `FORMAT_HISTORY.f08.introduced` equals the version being tagged
+- [x] Migrate a scratch clone from `f07` and confirm: config regroups with no key left
   in both spellings, `tbd doctor` warns about the fallback pin, `tbd setup --auto`
   clears it
-- [ ] Confirm a 0.6.x client refuses an f08 repository with the upgrade message
-- [ ] Release notes lead with the two operational facts: pre-0.7.0 clients stop working
+- [x] Confirm a 0.6.x client refuses an f08 repository with the upgrade message
+- [x] Release notes lead with the two operational facts: pre-0.7.0 clients stop working
   against upgraded repositories, and `tbd setup --auto` is required after upgrading
-- [ ] Release notes state that the config file changes shape and that the change is
+- [x] Release notes state that the config file changes shape and that the change is
   mechanical, lossless, and idempotent
 
 ## Known behavior worth stating in the notes
@@ -158,3 +159,7 @@ default will not reach this repository.
 That is worth one line in the notes so nobody discovers it by surprise, and it is the
 argument for keeping preset names (`policy: default`) rather than inline definitions
 where a repository has no strong opinion.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

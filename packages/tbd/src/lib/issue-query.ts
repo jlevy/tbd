@@ -46,8 +46,9 @@ export interface IssueQuery {
    */
   deferBefore: string | null;
   /**
-   * `tbd ready` semantics per `readyIssueIds`: open, unassigned, unblocked, and not
-   * deferred into the future. Time-dependent, so the evaluation instant is passed in.
+   * `tbd ready` semantics per `readyIssueIds`: open, undelegated, unheld, unblocked,
+   * and not deferred into the future. `assignee` does not affect readiness.
+   * Time-dependent, so the evaluation instant is passed in.
    */
   ready: boolean;
   /** `--sort` */

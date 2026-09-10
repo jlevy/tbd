@@ -1335,9 +1335,10 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         report.archived.push(displayId);
       }
 
-      // Conflict artifacts: a comment per conflicted field, exactly-once. An
-      // inbound-only run writes nothing outward, so it reports the conflict
-      // without posting; the next full sync posts it.
+      // Conflict artifacts: one comment per conflicted field in a journal. Replaying
+      // that journal reuses its client UUID. An inbound-only run writes nothing
+      // outward, so it reports the conflict without posting; the next full sync
+      // attempts delivery.
       for (const [index, conflict] of pair.result.conflicts.entries()) {
         if (inboundOnly) {
           report.conflicts.push({

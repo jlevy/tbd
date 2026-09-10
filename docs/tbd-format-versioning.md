@@ -10,8 +10,8 @@ users. It documents how to evolve tbd’s own on-disk format (`fNN` IDs in
 `.tbd/config.yml` and `$GIT_COMMON_DIR/tbd/layout.yml`) without breaking older clients
 or corrupting older repos.
 
-tbd uses two synchronized format markers to gate compatibility between clients of
-different versions and a repository’s on-disk state:
+tbd currently uses two synchronized format markers to gate compatibility between clients
+of different versions and a repository’s on-disk state:
 
 - `.tbd/config.yml` → `tbd_format` (the branch-visible format marker for the checkout
   config).
@@ -19,9 +19,13 @@ different versions and a repository’s on-disk state:
   for the shared common-dir sync machinery).
 
 [packages/tbd/src/lib/tbd-format.ts](../packages/tbd/src/lib/tbd-format.ts) is the
-SINGLE SOURCE OF TRUTH: `CURRENT_FORMAT`, `FORMAT_HISTORY`, the per-step migrations, and
-`formatUpgradeMessage` all live there.
-When bumping `fNN` → `fNN+1` follow the rules below.
+current single source of truth: `CURRENT_FORMAT`, `FORMAT_HISTORY`, the per-step
+migrations, and `formatUpgradeMessage` all live there.
+`CURRENT_FORMAT` is f08 and currently acts as the maximum readable format, automatic
+migration target, and fresh-repository default.
+The common-dir layout mirrors the active config marker.
+When bumping `fNN` → `fNN+1`, follow the rules below and first decide whether the change
+is universal or explicitly activated.
 
 Generated session and closing launchers are content-managed artifacts, not additional
 on-disk format markers.
@@ -41,6 +45,11 @@ Do not bump `tbd_format` merely for a compatible implementation change to a
 content-managed script.
 Do bump when repository data or a format-stamped managed surface becomes incompatible
 with older clients.
+
+`AGENT_INTEGRATION_FORMAT` currently aliases `CURRENT_FORMAT`, so a repository-format
+bump also changes generated integration markers.
+That coupling is valid for universal migrations but must be separated or explicitly
+retained when a future format is opt in.
 
 ## When a Config Schema Change Needs a Bump
 
@@ -68,6 +77,53 @@ The stamp locks out every unpublished-from client immediately, including agent s
 that install `get-tbd@latest` at startup, and the upgrade message it prints cannot be
 satisfied until the release is on npm.
 Land the bump, publish, then let repositories stamp.
+
+## Explicit Activation for Additive Data Collections
+
+Some future collections are additive on disk but unsafe for an older writer to ignore.
+Native comments are the first such case: an f08 client can transfer an unknown
+`comments/` path, yet its broad stage, recovery, and source-clearing operations do not
+validate immutability or guarantee preservation.
+Treating the collection as “just files” would make an old client appear compatible while
+it could delete or rewrite durable records.
+
+The candidate f09 native-comment format is therefore a narrow exception to the normal
+automatic migration rule.
+Changing `CURRENT_FORMAT` alone would make every existing repository migrate and every
+fresh repository start on f09 before users had inventoried their writers or elected to
+enable comments. Before f09 is implemented, split these roles in code even if the final
+constant names differ:
+
+- **Readable ceiling:** newest repository format the binary can parse and preserve
+- **Automatic migration target:** format reached by ordinary setup or first write
+- **Fresh-repository default:** format stamped by a new initialization
+- **Active repository format:** committed `tbd_format` selected for one repository
+- **Common-dir layout format:** local marker that must agree with the active repository
+- **Generated integration format:** compatibility marker for managed agent surfaces
+
+Supporting f09 and activating f09 are separate events.
+The required sequence is:
+
+1. Ship an f08-compatible preservation release that guards every comments and quarantine
+   path during sync, workspace/outbox handling, import, repair, and history recovery.
+2. Establish that release as the minimum binary for every known writer and complete the
+   format-evidence gate.
+3. Release a binary whose readable ceiling includes f09 while its automatic migration
+   target and fresh default remain f08.
+4. Run an explicit enable command that verifies writer inventory, writes the complete
+   candidate layout, and commits the f09 config stamp only after local state is valid.
+5. Distribute that commit before any native record is created; every writer rechecks the
+   active format while holding the shared lock.
+
+Git cannot fence a pre-preservation binary working from a stale clone that has not seen
+the activation commit.
+The enable command must report this limit and require bounded writer-inventory evidence;
+the format marker is a compatibility gate, not a distributed lock.
+
+The exact candidate contract and open gates are maintained in the
+[native comment architecture](project/architecture/current/arch-native-comments.md).
+Until those gates close, f08 remains the readable ceiling, migration target, and fresh
+default in released code.
 
 ## Old Client in a Newer Repo: Fail Closed, Never Silently Downgrade
 
@@ -145,7 +201,7 @@ contract:
 
 ## Required Pieces When Adding a New Format
 
-When bumping from `fNN` to `fNN+1`:
+For a universal migration from `fNN` to `fNN+1`:
 
 1. Add the new format to `FORMAT_HISTORY` in `packages/tbd/src/lib/tbd-format.ts`.
 2. Add a `migrate_fNN_to_fNN+1()` migration function.
@@ -160,11 +216,23 @@ When bumping from `fNN` to `fNN+1`:
    release time from commits): “every machine that touches this repo must upgrade tbd to
    the new version, older clients will fail closed.”
 
+For an explicitly activated format, complete the same history, compatibility,
+diagnostic, and release-note work, but do not point ordinary migration or fresh setup at
+the new format. Instead, add tests that prove:
+
+1. A supporting binary reads both the prior default and the activated format.
+2. Ordinary setup, first write, and fresh initialization remain on the prior default.
+3. The explicit activation path publishes local layout state before the config stamp.
+4. A writer rechecks the active format under the shared lock.
+5. A prior client fails closed after it observes the activation commit.
+6. The preservation-floor client carries the new collection unchanged before activation,
+   including through every broad Git and recovery path.
+
 ## Reference Design
 
 Implementation reference: the `f03` → `f04` migration that introduced the shared
 common-dir sync worktree
-([docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md](project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md),
+([docs/project/specs/done/plan-2026-05-17-shared-common-dir-sync-worktree.md](project/specs/done/plan-2026-05-17-shared-common-dir-sync-worktree.md),
 §Format And Layout Versioning, §Migration And Compatibility, §Post-Review Hardening).
 
 <!-- This document follows common-doc-guidelines.md.

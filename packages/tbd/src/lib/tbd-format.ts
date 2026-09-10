@@ -16,7 +16,12 @@
  *   CLI by probing this repository format at runtime.
  * - Do NOT bump for a purely additive top-level config block, or a key inside an
  *   explicitly passthrough schema, once the repository is on f07.
- * - Do NOT bump for additive changes that don't affect config.yml (new directories, etc.)
+ * - Do NOT bump for an additive path only when every supported older writer preserves
+ *   that path through staging, merge, recovery, and cleanup.
+ * - An additive durable collection that older writers can lose or mutate requires a
+ *   compatibility boundary. If activation must remain opt in, follow the explicit
+ *   activation workflow in docs/tbd-format-versioning.md rather than advancing every
+ *   repository through CURRENT_FORMAT automatically.
  *
  * HOW TO ADD A NEW FORMAT VERSION:
  * 1. Add entry to FORMAT_HISTORY with detailed description

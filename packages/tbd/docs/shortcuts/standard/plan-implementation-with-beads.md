@@ -44,8 +44,9 @@ If unclear, ask the user if they want you to create a spec first using
 
 4. **Summarize the bead breakdown** for the user.
    If the user has already asked you to implement the beads too, use
-   `tbd shortcut implement-beads`. Otherwise confirm with the user if you should use
-   this shortcut next.
+   `tbd shortcut implement-beads`; before editing each bead, that workflow pulls and
+   re-reads current state, claims it with `tbd start <id>`, and syncs the claim.
+   Otherwise confirm with the user if you should use this shortcut next.
 
 ## Dependency Types
 

@@ -1,27 +1,52 @@
 # Research: Keeping Agent Sessions Synchronized — Prime, Claim, Sync, and Linear
 
-**Date:** 2026-08-14 (last updated 2026-08-14)
+**Date:** 2026-08-14 (current-state correction 2026-09-10)
 
 **Author:** Research brief (AI-assisted; audit of the shipped v0.6.1 code and this
 repository’s live bead store, a measured probe of the sync engine against the bundled
 mock Linear server, plus a primary-source survey of agent hook surfaces)
 
-**Status:** Complete for the current-state audit and the platform survey.
-The design section proposes and recommends; it deliberately does not decide.
+**Status:** Complete as a dated v0.6.1 audit and platform survey, with the f08
+correction below. The design section records proposals and recommendations from that
+snapshot; it does not define current implementation status.
 
-> **Status review, 2026-09-06:** Retained as a v0.6.1 audit and investigation of hooks,
-> sync cost, human visibility, and traceability.
-> Measurements describe that version; the E1–E21 proposals are not a current
-> missing-feature inventory.
-> See
-> [September 6 coordination research](research-2026-09-06-bead-agent-coordination.md)
-> for current behavior.
-> In particular, the earlier blanket claim that any agent can sync safely does not cover
-> independent clones: local locks do not serialize them, and the newer probe
-> demonstrates duplicate external comment effects.
-> The active traceability plan owns implementation status; retain bounded completion
-> gates and best-effort session-end hooks as design constraints, not scheduler
-> guarantees.
+### Current-state correction (2026-09-10)
+
+This document remains current because its measured v0.6.1 sync costs, platform-hook
+survey, and traceability analysis are still useful evidence.
+It is not a current runtime reference.
+Unless a passage carries a later correction, its words “today,” “current,” and
+“shipped,” its source line numbers, and its E1–E21 inventory refer to the audited
+2026-08-14 snapshot.
+
+The relevant f08 behavior now differs in four ways:
+
+- Agents claim work with `tbd start`, which records the acting identity in `delegate`
+  and applies a repository-local advisory guard.
+  The raw `update --status in_progress` examples below are historical.
+- Integration configuration uses `integrations.on_tbd_sync` with `auto`, `guarded`,
+  `report`, and `off` modes, plus grouped `target`, `policy`, `labels`, and `identity`
+  keys. An absent mode resolves to `guarded`. The pre-f08 boolean quoted below remains
+  readable only as a migration fallback: `true` maps to `auto`, `false` maps to `off`,
+  and the f08 key wins when both exist.
+- Plain `tbd sync` selects docs, issues, and eligible integrations.
+  A direction flag by itself now selects only the Git issue surface.
+  Adding `--integrations` deliberately selects inbound provider work with `--pull` or
+  outbound-only projection with `--push`. `--status` and a global dry run do not run
+  provider I/O. The fold mode still governs integrations selected through `tbd sync`;
+  `tbd integration sync` is the explicit provider command outside that posture.
+- Repository-local locking does not serialize independent clones.
+  The earlier blanket statement that concurrent agents can always sync safely is
+  therefore too broad, and later testing found duplicate external-comment effects across
+  stale replicas.
+
+This repository now expresses its continuing pilot opt-out as
+`integrations.on_tbd_sync: off`. See
+[September 6 coordination research](research-2026-09-06-bead-agent-coordination.md) for
+the current coordination analysis and `tbd shortcut setup-linear` for copyable f08
+configuration. The active traceability plan owns implementation status; retain bounded
+completion gates and best-effort session-end hooks as design constraints rather than
+scheduler guarantees.
 
 **Related:**
 
@@ -29,7 +54,8 @@ The design section proposes and recommends; it deliberately does not decide.
   — the verified Linear API facts, the topology option space, and §7b.4 “agents
   announcing themselves in beads”, which this doc turns into a concrete protocol
 - [External Tracker Integrations](../../specs/active/plan-2026-08-10-external-tracker-integrations.md)
-  — the shipped sync engine this doc audits
+  — the implementation plan whose v0.6.1 state this document audited and whose current
+  status supersedes implementation claims below
 - [How Coding Agents Listen On and Monitor Issues](../archive/research-2026-06-04-agent-issue-monitors.md)
   — the trigger/dispatch taxonomy; this doc is its inverse, covering how an agent
   *reports* rather than how it is *woken*
@@ -95,12 +121,12 @@ None of them requires new distributed-systems machinery.
 Everything the user wants reduces to a five-link chain.
 Each link exists; three of them are unreliable.
 
-| # | Link | Mechanism today | Verdict |
+| # | Link | v0.6.1 mechanism | Snapshot verdict |
 | --- | --- | --- | --- |
 | 1 | Agent learns tbd exists and what to work on | `SessionStart` hook runs `tbd prime` | **Broken here** — the shipped hook script exits 1 in this environment and fails silently ([§1.4](#14-finding-the-sessionstart-hook-fails-open-and-fails-here)) |
 | 2 | Agent picks work | `tbd ready` | Works |
 | 3 | Agent marks what it is working on | `tbd update <id> --status in_progress` | **Never happens** — one table row in one doc tier; 0 assignees repo-wide ([§1.5](#15-finding-nothing-in-the-shipped-guidance-tells-an-agent-to-claim)) |
-| 4 | The change reaches Linear | `tbd sync`, on by default via `sync_on_tbd_sync` | Correct, but **not cheap enough to run often** (F9, F10) — and off in this repo, and instructed only at session end ([§1.2](#12-is-linear-included-in-plain-tbd-sync-yes--the-matrix), [§1.7](#17-is-plain-tbd-sync-cheap-enough-to-run-often-measured)) |
+| 4 | The change reaches Linear | `tbd sync`, on by default through the pre-f08 boolean fold key | Correct in the snapshot, but **not cheap enough to run often** (F9, F10) — and off in this repo, and instructed only at session end ([§1.2](#12-linear-in-plain-tbd-sync-the-v061-matrix), [§1.7](#17-is-plain-tbd-sync-cheap-enough-to-run-often-measured)) |
 | 5 | Linear shows who and what | Managed block + attachment | Shows status; carries no actor and no in-flight detail ([§1.6](#16-finding-linear-receives-status-but-not-actor-or-in-flight-detail)) |
 
 Links 1, 3, and 5 are the work.
@@ -108,16 +134,18 @@ Link 4 works but needs to get cheap before anything can lean on it.
 
 * * *
 
-## 1. What ships today, audited
+## 1. What shipped in v0.6.1, audited
 
-### 1.1 The sync path is real and already safe to call from any agent
+### 1.1 The v0.6.1 sync path
 
-`tbd sync` runs three independent surfaces — docs, issues, external trackers — and
-contains each one’s failure so a bad Linear key never blocks a git push
-(`sync.ts:220-305`). When `integrations.sync_on_tbd_sync` is true (the schema default,
-`schemas.ts:581`), the tracker run is folded *inside* `fullSync`, after the pull/merge
-and before the push, so reconciliation sees other machines’ bead changes and the records
-it writes ride the same push out (`integration-runner.ts:1-11`).
+In the audited snapshot, `tbd sync` ran three independent surfaces — docs, issues, and
+external trackers — and contained each one’s failure so a bad Linear key did not block a
+Git push (`sync.ts:220-305`). When the pre-f08 boolean fold key was true, then the
+schema default, the tracker ran *inside* `fullSync`, after the pull/merge and before the
+push.
+Reconciliation therefore saw other machines’ bead changes, and the records it wrote
+rode the same push out (`integration-runner.ts:1-11`). The current selector and fold
+semantics are stated in the dated correction above.
 
 The engine underneath (`sync-engine.ts:1-23`) is the “opportunistic single-writer”
 design that
@@ -143,14 +171,13 @@ There are, however, three concrete *cost* defects that make frequent syncing pai
 today, all measured in [§1.7](#17-is-plain-tbd-sync-cheap-enough-to-run-often-measured)
 and all fixable.
 
-### 1.2 Is Linear included in plain `tbd sync`? Yes — the matrix
+### 1.2 Linear in plain `tbd sync`: the v0.6.1 matrix
 
-Worth stating plainly, because it is the first thing to check before building any
-frequent-sync habit on top of it.
-**`integrations.sync_on_tbd_sync` defaults to `true`** (`schemas.ts:581`), and the fold
-site tests `!== false` (`sync.ts:1163-1167`), so *enabling a provider is itself the
-opt-in*: a repository that configures Linear gets it in plain `tbd sync` with no second
-switch. That is the right default and it is already systematic.
+This section records the 2026-08-14 behavior; it is not the f08 invocation contract.
+The pre-f08 boolean fold key defaulted to true (`schemas.ts:581`), and the fold site
+tested `!== false` (`sync.ts:1163-1167`). Enabling a provider was therefore itself the
+opt-in: a repository that configured Linear got it in plain `tbd sync` with no second
+switch.
 
 What is *not* uniform is which invocations carry it, and in which direction:
 
@@ -164,6 +191,14 @@ What is *not* uniform is which invocations carry it, and in which direction:
 | `tbd sync --docs` | ✓ | — | ✗ | — |
 | `tbd sync --status` | ✓ | ✓ | **✗ never reported** | — |
 | `tbd --dry-run sync` | ✓ | ✓ | **✗ never previewed** | — |
+
+**Current f08 disposition:** F6 and F8 below are resolved.
+A direction flag no longer selects integrations implicitly, and the fold comments
+describe the current guarded default.
+F7’s observable behavior remains: global dry-run `tbd sync` skips the provider surface
+rather than previewing it.
+Repositories that want a persistent plan-only fold can set
+`integrations.on_tbd_sync: report`.
 
 Three of those rows are defects rather than design:
 
@@ -251,11 +286,12 @@ assignee. `tbd ready` defines “ready” as *open, unblocked, and unclaimed*
 to filter. Two agents working this repository concurrently today would both see the same
 `tbd ready` list and could pick the same bead.
 
-One more piece of local context: this repository sets
-`integrations.sync_on_tbd_sync: false` (`.tbd/config.yml`), a deliberate pilot override
-recorded in the tracker spec.
-**So today, in this repo, plain `tbd sync` does not touch Linear at all.** Everything
-below assumes that override is lifted once the pilot completes.
+One more piece of snapshot context: on 2026-08-14, this repository set the pre-f08
+boolean fold key to false, a deliberate pilot override recorded in the tracker spec.
+The f08 migration retained that effective posture as `integrations.on_tbd_sync: off`,
+which is still the repository’s configuration on 2026-09-10. Plain `tbd sync` therefore
+does not touch Linear in this repository while that explicit opt-out remains.
+Everything below originally assumed the pilot override would later be lifted.
 
 ### 1.4 Finding: the SessionStart hook fails open, and fails here
 
@@ -989,9 +1025,11 @@ The mode analysis above surfaces a deeper risk than any single missing feature:
 more flat key on the provider block, and the block is already a mixture of five
 different concerns grown one key at a time:
 
+The following is the audited pre-f08 shape, not copyable current configuration:
+
 ```yaml
 integrations:
-  sync_on_tbd_sync: true # operation
+  sync_on_tbd_sync: true # historical boolean fold control
   linear:
     enabled: true # operation
     team_key: TBD # where
@@ -1014,9 +1052,13 @@ questions, so that variation lives in values rather than in structure.
 exactly one of *where*, *what*, *how marked*, or *who* — plus the two operational
 booleans that gate the whole thing:
 
+The August proposal below still used the historical boolean fold control.
+The grouped provider shape subsequently shipped, while f08 replaced that boolean with
+the four-valued top-level `on_tbd_sync` posture described in the dated correction.
+
 ```yaml
 integrations:
-  sync_on_tbd_sync: true
+  sync_on_tbd_sync: true # historical proposal; f08 uses on_tbd_sync
   linear:
     enabled: true
     target: # WHERE the mirror lives
@@ -1859,7 +1901,9 @@ rather than ceremonially.
    tracker; `--push` silently does the dangerous outbound-only projection; `--dry-run`
    never previews it; `--status` never reports it; and the fold-site comment claims the
    feature is off by default when it is on.
-8. Decide whether to lift this repository’s `sync_on_tbd_sync: false` pilot override.
+8. Decide whether to lift the repository’s pre-f08 boolean pilot override.
+   The decision remains open operationally; f08 preserves the opt-out as
+   `on_tbd_sync: off`.
 
 ### Phase 2 — the claim protocol and the links
 
@@ -2012,7 +2056,9 @@ than they buy:
 - `packages/tbd/src/integrations/core/managed-block.ts` — `renderManagedBlock`
 - `packages/tbd/src/integrations/core/sync-engine.ts` — the seven-step run
 - `packages/tbd/src/cli/lib/integration-runner.ts` — folding into `tbd sync`
-- `packages/tbd/src/cli/commands/sync.ts` — surface independence, `sync_on_tbd_sync`
+- `packages/tbd/src/cli/commands/sync.ts` — current surface selection and fold placement
+- `packages/tbd/src/integrations/core/provider-settings.ts` — f08 `on_tbd_sync` modes
+  and the pre-f08 boolean compatibility fallback
 - `packages/tbd/src/cli/commands/prime.ts` — the orientation payload
 - `packages/tbd/src/integrations/linear/adapter.ts` — `ensureMeta` caching,
   `fetchUpdatedSince`

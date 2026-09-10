@@ -1,10 +1,15 @@
 # Feature: tbd-sync unrelated-history detection, prevention, and rescue
 
-**Date:** 2026-05-29 (last updated 2026-05-29)
+**Date:** 2026-05-29 (last updated 2026-09-10)
 
 **Author:** Joshua Levy (with agent assistance)
 
 **Status:** Implemented (PR #143, epic tbd-55sk + 12 children closed)
+
+**Lifecycle:** Archived under `specs/done/` on 2026-09-10 after a documentation audit
+confirmed that every implementation phase was complete.
+The unresolved backup-retention question is optional policy work, not an incomplete
+delivery phase.
 
 ## Overview
 
@@ -443,7 +448,7 @@ are recovered by upgrading and running `tbd doctor --fix`.
   `packages/tbd/src/cli/lib/data-context.ts`, `packages/tbd/src/lib/paths.ts`
   (`resolveDataSyncDir`).
 - Prior art: `plan-2026-01-28-sync-worktree-recovery-and-hardening.md`,
-  `plan-2026-05-17-shared-common-dir-sync-worktree.md`.
+  [`plan-2026-05-17-shared-common-dir-sync-worktree.md`](../done/plan-2026-05-17-shared-common-dir-sync-worktree.md).
 - Guideline: `tbd-sync-troubleshooting`.
 
 <!-- This document follows common-doc-guidelines.md.

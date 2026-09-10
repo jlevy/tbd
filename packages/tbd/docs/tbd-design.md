@@ -5,9 +5,11 @@ agents.
 
 **Author:** Joshua Levy (github.com/jlevy) and various LLMs
 
-**Status**: Draft
+**Status**: Living design; each section labels current and candidate behavior
 
-**Date**: January 2025
+**First drafted**: January 2025
+
+**Last updated**: 2026-09-10
 
 * * *
 
@@ -30,16 +32,18 @@ agents.
       - [Atomic File Writes](#atomic-file-writes)
     - [2.2 Directory Structure](#22-directory-structure)
       - [On Main Branch (all working branches)](#on-main-branch-all-working-branches)
+      - [In `$GIT_COMMON_DIR/tbd/` (local, shared by linked worktrees)](#in-git_common_dirtbd-local-shared-by-linked-worktrees)
       - [On `tbd-sync` Branch](#on-tbd-sync-branch)
     - [2.3 Hidden Worktree Model](#23-hidden-worktree-model)
       - [Worktree Setup](#worktree-setup)
       - [Worktree Gitignore](#worktree-gitignore)
+      - [.tbd/.gitattributes Contents](#tbdgitattributes-contents)
       - [Accessing Issues via Worktree](#accessing-issues-via-worktree)
       - [Worktree Lifecycle](#worktree-lifecycle)
       - [Worktree Initialization Decision Tree](#worktree-initialization-decision-tree)
       - [Worktree Health States](#worktree-health-states)
       - [Path Terminology and Resolution](#path-terminology-and-resolution)
-      - [Worktree Error Classes](#worktree-error-classes)
+      - [Worktree Errors](#worktree-errors)
     - [2.4 Workspaces](#24-workspaces)
       - [Workspace Structure](#workspace-structure)
       - [Commands](#commands)
@@ -72,12 +76,16 @@ agents.
       - [2.8.6 Future Dependency Types](#286-future-dependency-types)
       - [2.8.7 Future: Transitive Blocking Option](#287-future-transitive-blocking-option)
     - [2.9 Managed Docs: Copies, Forks, and Synchronization](#29-managed-docs-copies-forks-and-synchronization)
+    - [2.10 Native Comment Records (Dormant Foundation)](#210-native-comment-records-dormant-foundation)
+      - [2.10.1 Record and Relationship Model](#2101-record-and-relationship-model)
+      - [2.10.2 Storage, Publication, and Repair](#2102-storage-publication-and-repair)
+      - [2.10.3 Git, Watch, and Provider Boundaries](#2103-git-watch-and-provider-boundaries)
+      - [2.10.4 Compatibility and Activation](#2104-compatibility-and-activation)
   - [3. Git Layer](#3-git-layer)
     - [3.1 Overview](#31-overview)
     - [3.2 Sync Branch Architecture](#32-sync-branch-architecture)
-      - [Files Tracked on Main Branch](#files-tracked-on-main-branch)
-      - [.tbd/.gitignore Contents](#tbdgitignore-contents)
-      - [.tbd/.gitattributes Contents](#tbdgitattributes-contents)
+      - [Files Committed on Main Branch](#files-committed-on-main-branch)
+      - [Files Gitignored (local only)](#files-gitignored-local-only)
       - [Files Tracked on tbd-sync Branch](#files-tracked-on-tbd-sync-branch)
     - [3.3 Sync Operations](#33-sync-operations)
       - [3.3.1 Reading from Sync Branch](#331-reading-from-sync-branch)
@@ -87,9 +95,11 @@ agents.
       - [When Conflicts Occur](#when-conflicts-occur)
       - [Detection](#detection)
       - [Resolution Flow](#resolution-flow)
+      - [No-Common-Base Reconciliation](#no-common-base-reconciliation)
     - [3.5 Merge Rules](#35-merge-rules)
       - [BaseEntity Merge Rules](#baseentity-merge-rules)
       - [Issue Merge Rules](#issue-merge-rules)
+      - [Native-Comment Preservation Boundary](#native-comment-preservation-boundary)
     - [3.6 Attic Structure](#36-attic-structure)
     - [3.7 Read-Only Remote Observation](#37-read-only-remote-observation)
   - [4. CLI Layer](#4-cli-layer)
@@ -101,9 +111,11 @@ agents.
       - [Create](#create)
       - [List](#list)
       - [Show](#show)
+      - [Start](#start)
       - [Update](#update)
       - [Close](#close)
       - [Reopen](#reopen)
+      - [Pause and Resume](#pause-and-resume)
       - [Ready](#ready)
       - [Blocked](#blocked)
       - [Stale](#stale)
@@ -131,16 +143,11 @@ agents.
       - [Concurrency and Snapshot Safety](#concurrency-and-snapshot-safety)
   - [5. Beads Compatibility](#5-beads-compatibility)
     - [5.1 Import Strategy](#51-import-strategy)
-      - [5.1.1 Import Command](#511-import-command)
-      - [5.1.2 Multi-Source Import (--from-beads)](#512-multi-source-import---from-beads)
-      - [5.1.3 Multi-Source Merge Algorithm](#513-multi-source-merge-algorithm)
-      - [5.1.4 ID Mapping and Preservation](#514-id-mapping-and-preservation)
-      - [5.1.5 Import Algorithm](#515-import-algorithm)
-      - [5.1.6 Merge Behavior on Re-Import](#516-merge-behavior-on-re-import)
-      - [5.1.7 Handling Deletions and Tombstones](#517-handling-deletions-and-tombstones)
-      - [5.1.8 Dependency ID Translation](#518-dependency-id-translation)
-      - [5.1.9 Import Output](#519-import-output)
-      - [5.1.10 Migration Workflow](#5110-migration-workflow)
+      - [5.1.1 One-Step Beads Migration](#511-one-step-beads-migration)
+      - [5.1.2 Explicit JSONL and Workspace Import](#512-explicit-jsonl-and-workspace-import)
+      - [5.1.3 ID Mapping and Re-Import](#513-id-mapping-and-re-import)
+      - [5.1.4 Field and Relationship Conversion](#514-field-and-relationship-conversion)
+      - [5.1.5 Migration Workflow](#515-migration-workflow)
     - [5.2 Command Mapping](#52-command-mapping)
     - [5.3 Field Mapping](#53-field-mapping)
     - [5.4 Status Mapping](#54-status-mapping)
@@ -174,8 +181,8 @@ agents.
       - [Additional Dependency Types (High Priority)](#additional-dependency-types-high-priority)
       - [Ripgrep-Based Search (Performance)](#ripgrep-based-search-performance)
       - [Agent Registry](#agent-registry)
-      - [Comments/Messages](#commentsmessages)
-      - [GitHub Bridge](#github-bridge)
+      - [Native Comments and Messaging](#native-comments-and-messaging)
+      - [External Tracker Bridges](#external-tracker-bridges)
       - [Real-time Coordination](#real-time-coordination)
       - [Workflow Automation](#workflow-automation)
       - [Time Tracking](#time-tracking)
@@ -186,9 +193,9 @@ agents.
       - [A.2.1 Issue Commands (Full Parity)](#a21-issue-commands-full-parity)
       - [A.2.2 Label Commands (Full Parity)](#a22-label-commands-full-parity)
       - [A.2.3 Dependency Commands (Partial - blocks only)](#a23-dependency-commands-partial---blocks-only)
-      - [A.2.4 Sync Commands (Full Parity)](#a24-sync-commands-full-parity)
+      - [A.2.4 Sync Commands](#a24-sync-commands)
       - [A.2.5 Maintenance Commands (Full Parity)](#a25-maintenance-commands-full-parity)
-      - [A.2.6 Global Options (Full Parity)](#a26-global-options-full-parity)
+      - [A.2.6 Global Options](#a26-global-options)
     - [A.3 Data Model Mapping](#a3-data-model-mapping)
       - [A.3.1 Issue Schema](#a31-issue-schema)
       - [A.3.2 Status Values](#a32-status-values)
@@ -216,10 +223,10 @@ agents.
     - [B.9 Other Commands](#b9-other-commands)
     - [B.10 Global Flags Not Supported](#b10-global-flags-not-supported)
     - [B.11 Issue Types/Statuses Not Supported](#b11-issue-typesstatuses-not-supported)
-  - [8. Open Questions](#8-open-questions)
+  - [8. Cross-Cutting Decisions and Open Questions](#8-cross-cutting-decisions-and-open-questions)
     - [8.1 Actor System Design](#81-actor-system-design)
     - [8.2 Git Operations](#82-git-operations)
-    - [8.2 Timestamp and Ordering](#82-timestamp-and-ordering)
+      - [8.2.1 Timestamp and Ordering](#821-timestamp-and-ordering)
     - [8.3 Mapping File Structure](#83-mapping-file-structure)
     - [8.4 ID Length](#84-id-length)
     - [8.5 Future Extension Points](#85-future-extension-points)
@@ -450,8 +457,8 @@ tbd addresses specific requirements:
 
 6. **Cross-platform**: macOS, Linux, Windows without platform-specific code
 
-7. **Easy migration**: `tbd import <beads-export.jsonl>` or `tbd import --from-beads`
-   converts existing Beads databases
+7. **Easy migration**: `tbd setup --from-beads` performs repository migration, while
+   `tbd import <beads-export.jsonl>` imports a controlled snapshot into initialized tbd
 
 ### 1.5 Design Principles
 
@@ -484,7 +491,8 @@ Explicitly deferred to future versions:
 - General TUI/GUI interfaces beyond the optional, loopback-only, read-only `tbd web`
   view (§4.15)
 
-- Agent messaging beyond issue comments
+- Activation of the candidate bead-attached native-comment surface in §2.10, plus any
+  direct inbox, presence, or broader agent messaging
 
 - Workflow automation
 
@@ -558,12 +566,13 @@ Issue files use the standard front matter pattern:
 ---
 type: is
 id: is-01hx5zzkbkactav9wevgemmvrz
-version: 3
-kind: bug
 title: Fix authentication timeout
+kind: bug
 status: in_progress
 priority: 1
-assignee: claude
+version: 3
+assignee: alice
+delegate: claude
 labels:
   - backend
   - security
@@ -571,13 +580,13 @@ dependencies:
   - target: is-01hx5zzkbkbctav9wevgemmvrz
     type: blocks
 parent_id: null
-created_at: 2025-01-07T10:00:00Z
-updated_at: 2025-01-08T14:30:00Z
-created_by: alice
-closed_at: null
-close_reason: null
 due_date: 2025-01-15T00:00:00Z
 deferred_until: null
+created_by: alice
+created_at: 2025-01-07T10:00:00Z
+updated_at: 2025-01-08T14:30:00Z
+closed_at: null
+close_reason: null
 extensions: {}
 ---
 
@@ -604,9 +613,8 @@ Found the issue in session.ts line 42. Working on fix.
 
 - `## Notes` section separates working notes from description
 
-> **Note:** The example above shows fields in a human-friendly logical order for
-> readability. Actual files use canonical serialization (alphabetical key ordering) as
-> specified below.
+> **Note:** The example above uses the same logical top-level field order as the current
+> serializer. Fields unknown to this version follow the declared fields.
 
 #### Canonical Serialization
 
@@ -615,31 +623,32 @@ serialization:
 
 **YAML front matter rules:**
 
-- Keys sorted alphabetically at each level
+- Known top-level issue keys follow the explicit `ISSUE_FIELD_ORDER` in `schemas.ts`.
+  Unknown keys follow them in their existing object-enumeration order.
 
-- Block style for arrays/objects (no flow style)
+- Nested object keys preserve insertion order; the serializer does not recursively sort
+  them.
 
-- Arrays sorted by defined rules (labels: lexicographic, dependencies: by target)
+- Arrays preserve input order.
+  The serializer does not sort labels, dependencies, or other arrays.
 
-- Timestamps in ISO8601 with Z suffix (UTC)
+- Block style is used for arrays and objects.
 
-- Null values explicit (not omitted)
+- Present `null` values are written as `null`; absent optional or `undefined` fields are
+  omitted.
 
-- Empty objects/arrays explicit (`extensions: {}`, `labels: []`)
+- Values supplied by schema defaults, such as `labels: []` and `dependencies: []`, are
+  normally explicit after a parsed issue is serialized.
 
-- No trailing whitespace
-
-- LF line endings (not CRLF)
+- Structural separators use LF and the serializer appends one final newline.
 
 **Body rules:**
 
-- Trim leading/trailing whitespace from description and notes
+- Trim leading and trailing whitespace from description and notes.
 
-- Normalize multiple blank lines to single blank line
+- Preserve internal blank lines, indentation, and line breaks in those fields.
 
-- Single newline at end of file
-
-- LF line endings
+- Join the front matter and body with LF separators and append one final newline.
 
 **Recommended `.gitattributes` for canonical issue and metadata surfaces:**
 
@@ -732,15 +741,15 @@ async function atomicWrite(path: string, content: string): Promise<void> {
 
 - Implementations should use a well-tested atomic-write library when available
 
-**Cleanup:** On startup, remove orphaned `.tmp.*` files in tbd directories that are
-**older than 1 hour**. This threshold prevents race conditions where one process creates
-a temp file while another is cleaning up.
-Alternatively, include `node_id` in temp file names and only cleanup files matching the
-current node’s prefix.
+The atomic-write helper cleans up the temporary file owned by the current operation on
+success and failure.
+There is no startup age-based temporary-file sweeper.
+`tbd doctor` detects stranded `.tmp` files so an operator can inspect and repair them
+explicitly.
 
 ### 2.2 Directory Structure
 
-tbd uses four directory locations:
+The current f08 implementation uses four directory locations:
 
 - **`.tbd/`** on main branch: Configuration (tracked) + installed docs (gitignored)
 
@@ -786,7 +795,7 @@ tbd uses four directory locations:
 
 ```
 $GIT_COMMON_DIR/tbd/
-├── layout.yml              # Local layout metadata; uses the same f04 format ID
+├── layout.yml              # Local layout metadata; uses the same f08 format ID
 ├── data-sync.epoch         # Local active/quiescent writer epoch for snapshot readers
 ├── locks/
 │   └── data-sync.lock/     # mkdir-based repo-scoped lock
@@ -802,25 +811,41 @@ $GIT_COMMON_DIR/tbd/
 
 #### On `tbd-sync` Branch
 
+This is the current f08 tree.
+It intentionally excludes the candidate native-comment paths in §2.10; current setup
+does not create them.
+
 ```
 .tbd/
 └── data-sync/
-    ├── issues/                 # Issue entities (Markdown)
-    │   ├── is-01hx5zzkbkactav9wevgemmvrz.md
-    │   └── is-01hx5zzkbkbctav9wevgemmvrz.md
-    ├── attic/                  # Conflict archive
+    ├── issues/                          # Issue entities (Markdown)
+    │   ├── .gitkeep                     # Initial scaffold
+    │   └── is-01hx5zzkbkactav9wevgemmvrz.md
+    ├── mappings/                        # ID mappings
+    │   ├── .gitkeep                     # Initial scaffold
+    │   ├── .gitattributes               # ids.yml merge=union
+    │   └── ids.yml                      # Short ID → ULID mapping, once populated
+    ├── attic/                           # Created when conflict evidence exists
+    │   ├── is-..._<timestamp>_<field>.yml
     │   └── conflicts/
-    │       └── is-01hx5zzkbkactav9wevgemmvrz/
-    │           └── 2025-01-07T10-30-00Z_description.md
-    ├── mappings/               # ID mappings
-    │   └── ids.yml            # Short ID → ULID mapping (includes preserved import IDs)
-    └── meta.yml               # Metadata (schema version)
+    │       └── is-...__<timestamp>.md   # Unrelated-history losing issue snapshot
+    ├── bridge/                          # Created only for configured integrations
+    │   └── <provider>/
+    │       ├── links/<bead-id>.yml
+    │       ├── intents/<run-id>.yml
+    │       └── users/<provider-user-id>.yml
+    └── meta.yml                         # Required schema-version scaffold
 ```
+
+Only `meta.yml`, `issues/.gitkeep`, `mappings/.gitkeep`, and `mappings/.gitattributes`
+are guaranteed in a fresh sync-branch scaffold.
+The issue, mapping, attic, and bridge examples appear as their features are used.
 
 > **Future: Simple Mode**—For users who don’t need multi-machine sync, tbd could support
 > a “simple mode” where `data-sync/` is committed directly to main instead of using a
 > worktree. This would be enabled by removing `data-sync` from `.tbd/.gitignore`. Not
-> implemented in V1, but the naming structure supports this future option.
+> implemented in the current f08 runtime, but the naming structure supports this future
+> option.
 
 **Why this structure?**
 
@@ -855,7 +880,9 @@ worktrees. This provides:
 
 #### Worktree Setup
 
-Created automatically by `tbd init` or first `tbd sync`:
+`tbd init` creates the shared worktree.
+In an initialized clone where it is missing or prunable, the first ordinary command that
+opens the data store materializes it under the shared lock:
 
 ```bash
 # Create hidden worktree (done by tbd internally)
@@ -870,8 +897,8 @@ git worktree add --orphan -b tbd-sync "$(git rev-parse --path-format=absolute --
 - **Attached to sync branch**: Worktree is checked out to `tbd-sync` branch so commits
   update the branch ref.
   This ensures `git push` operations can detect new commits.
-  If the worktree becomes detached (from old tbd versions), it’s automatically repaired
-  before commits.
+  A detached or wrong-branch checkout is classified as corrupted.
+  Ordinary commands reject it and direct the user to `tbd doctor --fix`.
 
 - **Hidden location**: Inside Git’s common directory, not inside any single checkout
 
@@ -959,38 +986,43 @@ ls "$WORKTREE/.tbd/data-sync/issues/"
 
 | Operation | Worktree Action |
 | --- | --- |
-| `tbd init` | Create worktree if tbd-sync exists |
+| `tbd init` | Attach an existing local/remote `tbd-sync`, or create and best-effort publish a fresh orphan when the remote branch is confirmed absent |
+| Ordinary data command | Auto-materialize a missing or prunable worktree under the shared lock; reject a corrupted worktree with `tbd doctor --fix` guidance |
 | `tbd sync --pull` | Fetch and merge through the shared worktree |
-| `tbd sync --push` | Update worktree after successful push |
-| `tbd doctor` | Verify worktree health, repair if needed |
-| Repo clone | Worktree created on first tbd command |
+| `tbd sync --push` | Commit and push directly from the attached shared worktree |
+| `tbd doctor` | Report worktree health; `--fix` initializes missing state and repairs prunable or corrupted state. The current corrupted-worktree backup defect below is a release blocker |
+| Repo clone | Worktree created on the first ordinary data command |
 
 **Invariant:** The hidden worktree at `$GIT_COMMON_DIR/tbd/data-sync-worktree/` always
 reflects the current state of the `tbd-sync` branch after sync operations.
 
 #### Worktree Initialization Decision Tree
 
-When any `tbd` command runs, it must ensure the worktree is initialized.
-The logic depends on the repository state:
+When an ordinary `tbd` data command needs the store, it ensures the worktree is
+initialized. The logic depends on the repository state:
 
 ```
-START: Any tbd command
+START: Ordinary tbd data command
     │
     ├─ Does .tbd/ directory exist?
     │   ├─ NO → Run `tbd init` first (error: "Not a tbd repository")
     │   └─ YES ↓
     │
-    ├─ Does $GIT_COMMON_DIR/tbd/data-sync-worktree/ exist and contain valid checkout?
-    │   ├─ YES → Worktree ready, proceed with command
-    │   └─ NO ↓
+    ├─ What does checkWorktreeHealth() report?
+    │   ├─ VALID → Ensure the data-sync scaffold, then proceed
+    │   ├─ CORRUPTED → Fail without removing anything; run `tbd doctor --fix`
+    │   └─ MISSING or PRUNABLE ↓
     │
-    ├─ Does tbd-sync branch exist (local or remote)?
+    ├─ Acquire the shared data-sync lock; prune stale worktree registration
+    │
+    ├─ Does tbd-sync exist locally or remotely?
     │   ├─ YES (local) → git worktree add $GIT_COMMON_DIR/tbd/data-sync-worktree tbd-sync
-    │   ├─ YES (remote only) → git fetch origin tbd-sync
-    │   │                      git worktree add $GIT_COMMON_DIR/tbd/data-sync-worktree tbd-sync
-    │   └─ NO → This is a fresh tbd init, create orphan worktree:
-    │           git worktree add --orphan -b tbd-sync $GIT_COMMON_DIR/tbd/data-sync-worktree
-    │           (Initialize .tbd/data-sync/ structure in worktree)
+    │   ├─ YES (remote only) → fetch explicitly into origin/tbd-sync
+    │   │                      git worktree add -b tbd-sync ... origin/tbd-sync
+    │   ├─ REMOTE CHECK FAILED → fail; do not create a divergent orphan
+    │   └─ CONFIRMED ABSENT → Create and scaffold a fresh orphan worktree
+    │           (Best-effort push when a remote is configured; adopt the winner if
+    │            another initializer won the race, or fail loudly if adoption is unsafe)
     │
     └─ Worktree ready, proceed with command
 ```
@@ -999,9 +1031,10 @@ START: Any tbd command
 
 | Repository State | Worktree Action |
 | --- | --- |
-| Fresh `tbd init` | Create orphan worktree with empty .tbd/data-sync/ |
-| Clone of existing tbd repo | Fetch remote, create worktree from origin/tbd-sync |
-| Existing local worktree corrupted | `tbd doctor --fix` removes and recreates |
+| Fresh `tbd init` | Create and scaffold an orphan worktree; immediately attempt to publish it when a remote is configured |
+| Clone with a missing worktree | The first ordinary data command fetches and creates the worktree automatically |
+| Registered worktree whose directory was removed | The first ordinary data command prunes and recreates it automatically |
+| Existing local worktree corrupted | Ordinary commands fail closed; `tbd doctor --fix` attempts a backup, removes it, and recreates it. See the release blocker below |
 | Worktree exists but stale | `tbd sync` updates to latest commit |
 
 #### Worktree Health States
@@ -1010,55 +1043,28 @@ The worktree can be in one of four states, detected by `checkWorktreeHealth()`:
 
 | State | Description | Detection | Recovery |
 | --- | --- | --- | --- |
-| `valid` | Healthy, ready to use | Directory exists, `.git` file valid, not prunable | None needed |
-| `missing` | Directory doesn’t exist | `!exists($GIT_COMMON_DIR/tbd/data-sync-worktree/)` | Create from local or remote branch |
-| `prunable` | Directory deleted but git still tracks it | `git worktree list --porcelain` shows prunable | `git worktree prune`, then recreate |
-| `corrupted` | Directory exists but invalid | Missing `.git` file, invalid gitdir pointer, or wrong branch | **Backup to $GIT_COMMON_DIR/tbd/backups/**, then recreate |
+| `valid` | Healthy, ready to use | Directory has a live registration, a valid `.git` link, and an attached `HEAD` on the configured sync branch | None needed |
+| `missing` | Directory doesn’t exist and Git has no live registration | Filesystem and worktree-registry checks | Auto-create from the local or remote branch on the next ordinary data command |
+| `prunable` | Directory was deleted but Git still tracks it | `git worktree list --porcelain` shows prunable | Auto-prune and recreate on the next ordinary data command |
+| `corrupted` | Directory exists but is unregistered, invalid, detached, or on the wrong branch | Filesystem, `.git`, registry, `HEAD`, and branch checks | Fail closed; `tbd doctor --fix` attempts a backup, then removes and recreates the directory. See the release blocker below |
 
-**Safety: Backup before removal**
+**Release blocker: backup before removal (`tbd-dmkd`).** A corrupted worktree may still
+contain uncommitted issue data.
+The required behavior is to finish a verified backup in
+`$GIT_COMMON_DIR/tbd/backups/corrupted-worktree-backup-<timestamp>/` before removing the
+occupant.
 
-A corrupted worktree may still contain uncommitted issue data.
-Before removing, ALWAYS back it up to prevent data loss:
+The shipped `tbd doctor --fix` implementation attempts that copy, but catches a copy
+failure, continues with recursive removal, and still reports the intended backup path.
+It therefore does not currently guarantee backup-before-delete or prevent data loss.
+`tbd-dmkd` is a P0 release blocker for that guarantee.
 
-```bash
-# Backup corrupted worktree before removal
-COMMON="$(git rev-parse --path-format=absolute --git-common-dir)"
-mv "$COMMON/tbd/data-sync-worktree" "$COMMON/tbd/backups/corrupted-worktree-backup-$(date +%Y%m%d-%H%M%S)"
-```
-
-The backup is placed in `$GIT_COMMON_DIR/tbd/backups/`, preserving the data for manual
-recovery while not polluting the repository.
-
-**Detection algorithm:**
-
-```typescript
-async function checkWorktreeHealth(baseDir: string): Promise<{
-  healthy: boolean;
-  status: 'valid' | 'missing' | 'prunable' | 'corrupted';
-  details?: string;
-}> {
-  const { sharedWorktreePath: worktreePath } = await resolveSharedTbdPaths(baseDir);
-
-  // Check directory exists
-  if (!(await pathExists(worktreePath))) {
-    return { healthy: false, status: 'missing' };
-  }
-
-  // Check .git file exists and is valid
-  const gitFile = join(worktreePath, '.git');
-  if (!(await pathExists(gitFile))) {
-    return { healthy: false, status: 'corrupted', details: 'Missing .git file' };
-  }
-
-  // Check git worktree list for prunable status
-  const worktreeList = await git('worktree', 'list', '--porcelain');
-  if (worktreeList.includes('prunable')) {
-    return { healthy: false, status: 'prunable', details: 'Git reports prunable' };
-  }
-
-  return { healthy: true, status: 'valid' };
-}
-```
+**Detection algorithm:** `checkWorktreeHealth()` first inspects the worktree registry so
+it can distinguish a missing checkout from a prunable registration.
+A directory that exists without a matching registration is corrupted.
+For a registered checkout, it validates the `.git` link, resolves `HEAD`, and requires
+the configured sync branch; detached or wrong-branch checkouts are corrupted rather than
+silently repurposed.
 
 #### Path Terminology and Resolution
 
@@ -1075,68 +1081,41 @@ The direct path exists ONLY for test fixtures that don’t use git.
 **Path resolution semantics:**
 
 ```typescript
-async function resolveDataSyncDir(
-  baseDir: string,
-  options?: { allowFallback?: boolean; repair?: boolean },
-): Promise<string> {
-  const worktreePath = (await resolveSharedTbdPaths(baseDir)).sharedDataSyncDir;
+withDataSyncContext(tbdRoot, { lock }, async (context) => {
+  // The context probe validates config, common-dir layout, worktree health,
+  // and the data-sync scaffold before exposing context.dataSyncDir.
+});
 
-  // Check if worktree exists
-  if (await pathExists(worktreePath)) {
-    return worktreePath;
-  }
-
-  // Attempt repair if requested
-  if (options?.repair) {
-    const result = await initWorktree(baseDir);
-    if (result.success) {
-      return worktreePath;
-    }
-  }
-
-  // Only allow fallback in test mode
-  if (options?.allowFallback) {
-    return join(baseDir, '.tbd/data-sync');
-  }
-
-  // Fail with clear error — NEVER silently fall back in production
-  throw new WorktreeMissingError(
-    'Shared worktree not found under $GIT_COMMON_DIR/tbd/data-sync-worktree/. ' +
-      'Run `tbd doctor --fix` to repair.',
-  );
+// Inside context preparation, under the shared lock when repair is needed:
+if (health.status === 'missing' || health.status === 'prunable') {
+  await repairWorktree(tbdRoot, health.status, remote, syncBranch);
+} else if (health.status === 'corrupted') {
+  throw new Error("Run 'tbd doctor --fix' to repair");
 }
+
+const dataSyncDir = await resolveDataSyncDir(tbdRoot, { allowFallback: false });
 ```
 
 **Rules:**
 
-1. Production code MUST call `resolveDataSyncDir()` without `allowFallback`
-2. Only test code may use `allowFallback: true`
-3. If `.tbd/data-sync/issues/` contains data on main branch, this indicates a bug—data
-   was written to wrong location due to missing worktree
+1. Ordinary commands enter through `withDataSyncContext()`; writers always hold the
+   shared lock, while readers take it only when initialization, migration, or repair is
+   required.
+2. Production path resolution uses `allowFallback: false` after context preparation.
+   Only tests and diagnostics may use the direct-path fallback.
+3. A missing or prunable worktree is ordinary recoverable state.
+   A corrupted worktree requires explicit `tbd doctor --fix` because it may contain
+   uncommitted data.
+4. If `.tbd/data-sync/issues/` contains data on the main branch, this indicates a bug:
+   data was written to the wrong location because the worktree was missing.
 
-#### Worktree Error Classes
+#### Worktree Errors
 
-```typescript
-// packages/tbd/src/lib/errors.ts
-
-export class WorktreeMissingError extends TbdError {
-  constructor(message: string = 'Worktree not found') {
-    super(message, 'WORKTREE_MISSING');
-  }
-}
-
-export class WorktreeCorruptedError extends TbdError {
-  constructor(message: string = 'Worktree is corrupted') {
-    super(message, 'WORKTREE_CORRUPTED');
-  }
-}
-
-export class SyncBranchError extends TbdError {
-  constructor(message: string) {
-    super(message, 'SYNC_BRANCH_ERROR');
-  }
-}
-```
+`resolveDataSyncDir(..., {allowFallback: false})` retains a narrow
+`WorktreeMissingError` for callers that bypass context preparation.
+Ordinary command paths repair missing and prunable states before resolution.
+Corruption is reported by the context layer with `tbd doctor --fix` guidance, without a
+destructive automatic repair.
 
 ### 2.4 Workspaces
 
@@ -1199,31 +1178,33 @@ See `tbd shortcut sync-failure-recovery` for detailed workflow documentation.
 
 ### 2.5 Entity Collection Pattern
 
-tbd has **one core entity type**: Issues
-
-Future phases may add: agents, messages, workflows, templates
+The current f08 repository format has one public entity type: issues.
+The codebase also contains an internal native-comment model and preservation-planning
+foundation, but no current command or repository setup activates it.
+Section 2.10 defines that candidate collection and its rollout boundary.
+Agent registries, workflows, and templates remain future entity types.
 
 #### Directory Layout
 
-| Collection | Directory | Extension | ID Prefix | Purpose |
+| Collection | Directory | Extension | ID Prefix | Status |
 | --- | --- | --- | --- | --- |
-| Issues | `.tbd/data-sync/issues/` | `.md` | `is-` | Task tracking (synced) |
+| Issues | `.tbd/data-sync/issues/` | `.md` | `is-` | Active in f08 |
+| Native comments | `.tbd/data-sync/comments/<shard>/` | `.md` | `cm-` | Candidate f09; internal and dormant |
 
 #### Adding New Entity Types (Future)
 
-To add a new entity type:
+Adding an entity type requires more than a schema and directory:
 
-1. Create directory: `.tbd/data-sync/messages/` (on sync branch)
+1. Define its identity, schema, canonical bytes, and storage paths.
+2. Specify whether records are mutable and how concurrent Git histories reconcile.
+3. Preserve every accepted and invalid record through sync, workspace, outbox, import,
+   repair, and unrelated-history paths.
+4. Add bounded readers, diagnostics, commands, and tests.
+5. Gate older clients before any newly meaningful path can be created.
 
-2. Define schema: `MessageSchema` in Zod
-
-3. Define ID prefix: `ms-`
-
-4. Define merge rules
-
-5. Add CLI commands
-
-No sync algorithm changes needed—sync operates on files, not schemas.
+Git can transfer unknown files without understanding their schemas, but tbd operations
+that copy, stage, merge, repair, or clear a data-sync tree must explicitly preserve a
+new collection. Section 2.10 shows this requirement for native comments.
 
 ### 2.6 ID Generation
 
@@ -1238,10 +1219,12 @@ human usability (short, memorable):
 **Internal IDs** use [ULID](https://github.com/ulid/spec) (Universally Unique
 Lexicographically Sortable Identifier):
 
-- **Fixed prefix**: Entity type discriminator (`is-` for issues, `ms-` for messages)
+- **Fixed prefix**: Entity type discriminator (`is-` for issues and `cm-` for candidate
+  native comments)
 - **ULID body**: 26 lowercase characters (48-bit timestamp + 80-bit randomness)
 - **Lexicographic sorting**: IDs sort chronologically by creation time
-- **No collisions**: Monotonic generation within millisecond prevents duplicates
+- **Collision resistance**: A process-local monotonic factory orders IDs minted in the
+  same millisecond; 80 random bits make independent-writer collisions negligible
 
 **External IDs** use short alphanumeric codes mapped to internal IDs:
 
@@ -1256,7 +1239,8 @@ Lexicographically Sortable Identifier):
   or dashes
   - Imported issues: Preserve original short ID (e.g., `100` from `tbd-100`)
   - New issues: Generate random 4-char base36
-- **Immutable mapping**: Once assigned, never changes
+- **Append-oriented mapping**: Normal writes retain existing assignments, while
+  deterministic collision repair can reassign a displaced issue’s public short ID
 - **No prefix matching**: Users type the full short ID, always
 
 #### ID Generation Algorithm
@@ -1285,7 +1269,9 @@ function generateShortId(): string {
 **Properties:**
 
 - **Time-ordered**: ULIDs encode creation timestamp, enabling chronological sort by ID
-- **No collisions**: ULID spec guarantees monotonic generation within same millisecond
+- **Process-local monotonicity**: One process generates strictly increasing ULIDs within
+  a millisecond; separate processes rely on the random component for collision
+  resistance
 - **Human-friendly**: Short IDs are easy to type, say, and remember
 - **Deterministic sorting**: Alphabetical sort = chronological order
 
@@ -1311,11 +1297,21 @@ b3m9: 01hx5zzkbkeetav9wevgemmvrz
 **Mapping properties:**
 
 - **Synced**: File lives on sync branch, shared across all machines
-- **Immutable entries**: Once a mapping exists, it never changes
+- **Append-oriented entries**: Normal writes keep existing rows.
+  Collision recovery can replace the public short ID of a displaced ULID
 - **ID preservation**: Imports preserve original short IDs (no separate beads.yml
-  needed)
-- **Merge strategy**: Union (no conflicts since short IDs are unique)
-- **Collision handling**: On short ID collision (rare for imports), regenerate and retry
+  needed) when that short ID is available
+- **Merge strategy**: Git’s union driver preserves rows, including duplicate YAML keys
+  created when independent writers allocate the same short ID
+- **Merged collision handling**: At load time the lexicographically smallest ULID keeps
+  a contested short ID; each displaced ULID receives a deterministic replacement, which
+  is saved on the next write
+- **Orphan mapping-row collision handling**: If the desired short ID is present only in
+  the mapping file and its issue file is absent, explicit import allocates a new short
+  ID for the incoming issue
+- **Occupied issue defect**: If a loaded unrelated issue owns the desired short ID, the
+  importer currently reuses that issue’s ULID and can overwrite its file.
+  This is the `tbd-0oz8` release-safety blocker described in §5.1.3
 
 #### ID Resolution (CLI)
 
@@ -1337,10 +1333,11 @@ async function resolveId(input: string, storage: Storage): Promise<string> {
 }
 ```
 
-**No prefix matching**: Unlike git refs, issue IDs are permanent references that appear
-in documentation, commit messages, and external systems.
+**No prefix matching**: Unlike abbreviated git object names, tbd display IDs are written
+in full in documentation, commit messages, and external systems.
 Prefix matching would cause ambiguity as more issues are created.
-Users always type the full short ID.
+Users always type the full display ID. The internal ULID is stable, but deterministic
+collision repair can reassign the rare displaced public short ID as described in §2.6.
 
 #### File Naming
 
@@ -1455,10 +1452,10 @@ const ExternalIssueIdInput = z.string().regex(
 );
 
 // Edit counter - incremented on every local change
-// IMPORTANT: Version is NOT used for conflict detection (Git push rejection is used).
+// IMPORTANT: Version is NOT used for conflict detection (Git history is used).
 // Version is informational only, used for:
 // - Debugging: track how many times an entity was edited
-// - Merge result ordering: max(local, remote) + 1
+// - Merge bookkeeping: bump max(local, remote) + 1 only for a substantive merge result
 // - Display: show edit count to users
 const Version = z.number().int().nonnegative();
 
@@ -1468,10 +1465,14 @@ const EntityType = z.literal('is');
 
 > **Version Field Clarification:** The `version` field is **purely informational**. It
 > is incremented on every local change but is NOT used to detect conflicts.
-> Conflict detection uses **Git push rejection** (see §3.4). This avoids the classic
-> distributed systems problem where version numbers can diverge when two nodes edit
-> independently. The version is useful for debugging ("how many times was this edited?")
-> and is set to `max(local, remote) + 1` after merges.
+> Conflict detection uses **Git history and ref comparison** (see §3.4), with push
+> rejection closing the race in which the remote advances after fetch.
+> This avoids the distributed systems problem where version numbers can diverge when two
+> nodes edit independently.
+> The version is useful for debugging ("how many times was this edited?") and is set to
+> `max(local, remote) + 1` only when the merge produces substantive state different from
+> the highest-version input.
+> Otherwise that input and its version are retained unchanged.
 
 #### 2.7.2 BaseEntity
 
@@ -1510,54 +1511,85 @@ const BaseEntity = z.object({
 
 ```typescript
 const IssueStatus = z.enum(['open', 'in_progress', 'blocked', 'deferred', 'closed']);
+const IssueResolution = z.enum(['completed', 'canceled', 'duplicate']);
+const IssueHold = z.enum(['blocked', 'paused']);
 const IssueKind = z.enum(['bug', 'feature', 'task', 'epic', 'chore']);
 const Priority = z.number().int().min(0).max(4);
 
-// Dependency types - using enum for extensibility (future: 'related', 'discovered-from')
-const DependencyType = z.enum(['blocks']); // Currently only "blocks" supported
-
 const Dependency = z.object({
-  type: DependencyType,
+  type: z.literal('blocks'),
   target: IssueId,
 });
 
-const IssueSchema = BaseEntity.extend({
+const IssueDoc = z.object({
+  path: z.string().min(1),
+  role: z.string().min(1).nullable().optional(),
+  title: z.string().min(1).nullable().optional(),
+});
+
+const IssueRef = z.object({
+  kind: z.string().min(1),
+  url: z.string().min(1),
+  title: z.string().min(1).nullable().optional(),
+  at: Timestamp.nullable().optional(),
+});
+
+const IssueDeclaredShape = BaseEntity.extend({
   type: z.literal('is'),
 
   title: z.string().min(1).max(500),
-  description: z.string().max(50000).optional(),
-  notes: z.string().max(50000).optional(), // Working notes (Beads parity)
+  description: z.string().max(50000).nullable().optional(),
+  notes: z.string().max(50000).nullable().optional(),
 
   kind: IssueKind.default('task'),
   status: IssueStatus.default('open'),
   priority: Priority.default(2),
 
-  assignee: z.string().optional(),
+  // Linkages
+  spec_path: z.string().nullable().optional(),
+  docs: z.array(IssueDoc).optional(),
+  refs: z.array(IssueRef).optional(),
+
+  // Accountability and current actor are separate axes
+  assignee: z.string().nullable().optional(),
+  delegate: z.string().nullable().optional(),
   labels: z.array(z.string()).default([]),
   dependencies: z.array(Dependency).default([]),
 
-  // Hierarchical issues
-  parent_id: IssueId.optional(),
-
-  // Child ordering hints - soft ordering for children under this parent.
-  // Array of internal IssueIds in preferred display order.
-  // May contain stale IDs; display logic filters for actual children.
+  parent_id: IssueId.nullable().optional(),
   child_order_hints: z.array(IssueId).nullable().optional(),
 
-  // Spec linking - path to related spec/doc (relative to repo root)
-  spec_path: z.string().optional(),
+  // Scheduling and holds
+  due_date: Timestamp.nullable().optional(),
+  deferred_until: Timestamp.nullable().optional(),
+  hold: IssueHold.nullable().optional(),
+  hold_until: Timestamp.nullable().optional(),
 
-  // Beads compatibility
-  due_date: Timestamp.optional(),
-  deferred_until: Timestamp.optional(),
+  // Provenance and lifecycle
+  created_by: z.string().nullable().optional(),
+  started_at: Timestamp.nullable().optional(),
+  closed_at: Timestamp.nullable().optional(),
+  close_reason: z.string().nullable().optional(),
+  resolution: IssueResolution.nullable().optional(),
+  duplicate_of: IssueId.nullable().optional(),
+}).passthrough();
 
-  created_by: z.string().optional(),
-  closed_at: Timestamp.optional(),
-  close_reason: z.string().optional(),
+const IssueSchema = IssueDeclaredShape.superRefine((issue, ctx) => {
+  // resolution is valid only on closed work
+  // duplicate requires duplicate_of, and duplicate_of requires duplicate
+  // hold is invalid on closed work
+  // hold_until is valid only with hold: paused
 });
 
 type Issue = z.infer<typeof IssueSchema>;
 ```
+
+The source schema’s `superRefine` contains the four stated lifecycle checks and produces
+field-specific validation errors.
+The abbreviated body above omits only that repetitive error construction.
+`.passthrough()` is load-bearing in f08: it preserves fields from a newer compatible
+writer. The merge engine applies a documented LWW fallback to those unknown keys rather
+than dropping them.
 
 **Design notes:**
 
@@ -1570,6 +1602,19 @@ type Issue = z.infer<typeof IssueSchema>;
 - `priority`: 0 (highest/critical) to 4 (lowest), matching Beads
 
 - `notes`: Working notes field for agents to track progress (Beads parity)
+
+- `assignee` and `delegate`: `assignee` records who is accountable; `delegate` records
+  who is currently acting.
+  `tbd start` writes `delegate` without changing `assignee`.
+
+- `docs` and `refs`: Supporting repository documents union by `path`; external
+  references union by `url`. They are independent of the singular, inherited `spec_path`
+  and of provider identity under `extensions`.
+
+- `hold` / `hold_until`, `started_at`, `resolution` / `duplicate_of`: Separate current
+  lifecycle position from why nonterminal work is waiting, when work first began, and
+  why terminal work ended.
+  The schema rejects contradictory combinations.
 
 - `spec_path`: Optional path to related specification/documentation file (relative to
   repo root). Supports gradual path matching for flexible lookups - queries can match by
@@ -1644,16 +1689,17 @@ Project configuration stored in `.tbd/config.yml`:
 
 ```yaml
 # .tbd/config.yml
-tbd_format: f07
-tbd_version: '3.0.0'
-tbd_fallback_version: '3.0.0'
+tbd_format: f08
+tbd_version: '0.8.1'
+tbd_fallback_version: '0.8.1'
 tbd_upgrades:
-  - version: '3.0.0'
-    at: '2026-01-01T00:00:00.000Z'
+  - version: '0.8.1'
+    at: '2026-09-10T00:00:00.000Z'
 
 sync:
   branch: tbd-sync # Branch name for synced data
   remote: origin # Remote repository
+  storage: git-common-dir-v1
 
 # Display settings
 display:
@@ -1662,7 +1708,10 @@ display:
 # Runtime settings
 settings:
   auto_sync: false # Reserved; not applied to issue writes (they stage locally; run `tbd sync`)
-  index_enabled: true # Enable search indexing
+  doc_auto_sync_hours: 24
+  use_gh_cli: true
+
+# Optional docs_cache and integrations blocks may follow.
 ```
 
 ```typescript
@@ -1675,6 +1724,7 @@ const ConfigSchema = z.object({
     .object({
       branch: z.string().default('tbd-sync'),
       remote: z.string().default('origin'),
+      storage: SyncStorage.default('git-common-dir-v1'),
     })
     .default({}),
   display: z.object({
@@ -1683,14 +1733,19 @@ const ConfigSchema = z.object({
   settings: z
     .object({
       auto_sync: z.boolean().default(false), // reserved; issue writes stage locally
-      index_enabled: z.boolean().default(true),
+      doc_auto_sync_hours: z.number().default(24),
+      use_gh_cli: z.boolean().default(true),
     })
     .default({}),
+  docs_cache: DocsCacheSchema.optional(),
+  integrations: IntegrationsConfigSchema.optional(),
 }).passthrough();
 ```
 
 > **Forward Compatibility Policy:** As of repository format `f07`, `ConfigSchema` uses
 > Zod’s `passthrough()` mode at the top level.
+> Current repositories use f08; f07 identifies when this config-preservation guarantee
+> first became mandatory.
 > The `integrations` block and its provider objects are passthrough too.
 > Unknown keys in those locations therefore survive an older f07-or-later client
 > rewriting `config.yml`.
@@ -1726,10 +1781,17 @@ const MetaSchema = z.object({
 });
 ```
 
-> **Note**: `last_sync_at` is intentionally NOT stored in `meta.yml`. Syncing this file
-> would create a conflict hotspot—every node updates it on every sync, causing constant
-> merge conflicts. Instead, sync timestamps are tracked locally in `.tbd/state.yml`
-> (gitignored).
+**Current scaffold/schema mismatch (`tbd-1cn1`).** `MetaSchema` requires both fields,
+but fresh worktree scaffolding currently writes only `schema_version: 1`. The current
+runtime does not validate that scaffold through `MetaSchema`, so repositories operate
+with the shorter file.
+`tbd-1cn1` tracks aligning the scaffold and schema; this document does not promise a
+synthesized `created_at` until that defect is fixed.
+
+> **Note**: Machine-specific timing markers do not belong in synced `meta.yml`, where
+> routine updates would create a conflict hotspot.
+> `.tbd/state.yml` is the gitignored local store, but its current `last_sync_at`
+> producer is defective as described below.
 
 #### 2.7.6 LocalStateSchema
 
@@ -1738,14 +1800,21 @@ Each machine maintains its own local state:
 
 ```typescript
 const LocalStateSchema = z.object({
-  last_sync_at: Timestamp.optional(), // When this node last synced successfully
+  last_sync_at: Timestamp.optional(),
+  last_doc_sync_at: Timestamp.optional(),
+  welcome_seen: z.boolean().optional(),
+  agent_id: z.string().optional(),
+  agent_name: z.string().optional(),
 });
 ```
 
-> **Why local?** The `last_sync_at` timestamp is inherently per-node.
-> Storing it in synced state would cause every sync to modify the same file, creating a
-> guaranteed conflict generator.
-> Keeping it local eliminates this hotspot.
+These fields are machine-local session and timing state.
+Keeping them out of the sync branch avoids a shared write hotspot.
+
+`last_sync_at` does not currently prove that Git synchronization succeeded.
+The search command writes it when its five-minute freshness check fires without fetching
+or pulling anything.
+`tbd-iwup` tracks replacing that false freshness signal with real observation.
 
 > **Future extensions:** Additional fields like `node_id`, `last_synced_commit` (for
 > incremental sync), or separate `last_push`/`last_pull` timestamps may be added as
@@ -1759,8 +1828,8 @@ Preserved conflict losers:
 const AtticEntrySchema = z.object({
   entity_id: IssueId,
   timestamp: Timestamp,
-  field: z.string().optional(), // Specific field or full entity
-  lost_value: z.unknown(),
+  field: z.string(),
+  lost_value: z.string(),
   winner_source: z.enum(['local', 'remote']),
   loser_source: z.enum(['local', 'remote']),
   context: z.object({
@@ -1909,7 +1978,7 @@ Each relationship type has dedicated visualization:
 | `tbd list --pretty` | Parent-child hierarchy tree | `parent_id` field |
 | `tbd list --parent <id>` | Children of a specific issue | `parent_id` field |
 | `tbd blocked` | Issues blocked + their blockers | `dependencies[].type: blocks` |
-| `tbd ready` | Unblocked, unassigned issues | Excludes blocked issues |
+| `tbd ready` | Open, unheld, undelegated work whose deferral elapsed | Excludes work with a non-closed blocker |
 | `tbd dep tree <id>` | Blocking dependency chain | `dependencies[].type: blocks` (future) |
 | `tbd list --format dot` | Full graph (Graphviz) | All relationships |
 
@@ -2121,6 +2190,194 @@ Repo”; the state matrix, update decision table, and drift scenarios are pinned
 `fork-manifest`/`fork-update`/`doc-fork` unit tests and the `cli-docs-fork`/
 `cli-docs-update` golden tryscripts.
 
+### 2.10 Native Comment Records (Dormant Foundation)
+
+tbd’s selected native-comment design gives every bead a durable conversation without
+requiring a Linear issue, GitHub issue, pull request, or hosted mailbox.
+Each comment is an independent immutable Markdown document, so two agents can append to
+one bead by creating different paths instead of rewriting the bead or a shared log.
+
+This is a candidate repository contract, not a current user feature.
+At the f08 boundary, the codebase contains internal record, storage, inventory,
+transition-planning, and quarantine modules.
+It has no native-comment CLI route, public package export, active runtime caller,
+generated scaffold, format migration, Git guard, workspace integration, watch support,
+or provider projection.
+Current setup and upgrades remain on f08 and do not create a `comments/` directory.
+
+The complete edge-case contract and code map live in the
+[native comment architecture](https://github.com/jlevy/tbd/blob/main/docs/project/architecture/current/arch-native-comments.md).
+The
+[coordination rollout plan](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md)
+owns sequencing and release gates.
+
+#### 2.10.1 Record and Relationship Model
+
+A candidate record has this shape:
+
+```yaml
+---
+type: cm
+id: cm-01m220hjjpx5nv44za5c8jbp6a
+issue_id: is-01m1w3g0smx3ezvwz4g8mkmjy9
+author:
+  kind: agent
+  display_name: codex@worker-3
+  agent_id: agid-01m220j40yd8fcw9n3yf4412dv
+  provenance:
+    harness: codex
+    model: gpt-6
+created_at: 2026-09-08T20:00:00.000Z
+reply_to: cm-01m220htdx8tv5k1mpjavfpsca
+---
+The parser work is complete. I am starting the recovery tests next.
+```
+
+The `cm-` ID names one record forever.
+`issue_id` is the immutable internal bead ID, and `reply_to` is an optional comment ID.
+A missing reply target is allowed because comments can arrive in either order; readers
+must report a known cross-bead reply instead of silently reparenting it.
+Authorship is an immutable display snapshot with an optional tbd agent ID and
+allowlisted harness/model provenance.
+Provider IDs and delivery state do not belong in this record.
+
+The Markdown body must be nonempty, valid Unicode, and at most 65,536 UTF-8 bytes.
+The complete encoded record is bounded at 73,728 bytes.
+Unknown durable fields fail validation until the format explicitly defines them.
+There is no update, edit, delete, or reparent operation in the initial model.
+
+The bead does not store an array of comment IDs.
+Readers derive the inverse relation by selecting records whose `issue_id` matches the
+bead. This avoids a shared append hotspot and permits a comment to arrive without an
+issue-file edit.
+
+#### 2.10.2 Storage, Publication, and Repair
+
+The candidate paths are separate from the current f08 tree:
+
+```text
+.tbd/data-sync/
+├── comments/
+│   └── <sha256-first-byte>/
+│       └── cm-<ulid>.md
+└── attic/
+    └── comment-conflicts/
+        ├── _unattributed/
+        └── cm-<ulid>/
+            ├── <sha256-of-candidate-bytes>.md
+            └── observations/
+                └── <sha256-of-manifest>.yml
+```
+
+The shard is the first byte of SHA-256 over the comment ID, encoded as two lowercase hex
+digits. This distributes time-adjacent ULIDs without introducing a registry.
+Accepted files must have the exact path, ID, shard, mode, UTF-8, schema, and canonical
+bytes required by the format.
+Managed Git attributes must disable line-ending, encoding, identity, and filter
+transformations on comments and their evidence.
+
+Local publication is create only.
+The writer serializes and bounds the complete record, writes and closes a temporary file
+on the same filesystem, and hard-links it to the final path.
+An identical retry succeeds by comparing exact canonical bytes.
+A different occupant is never overwritten; the candidate bytes are preserved under the
+content-addressed conflict path before the operation reports an identity conflict.
+
+The internal inventory adapters retain bounded raw entries as well as accepted records.
+They can read a filesystem tree, a resolved Git commit, or one Git index stage.
+Filesystem and commit inventories are complete trees.
+Index stages are sparse views, so transition planning refuses to treat an absent stage
+entry as a deletion.
+A known but unmaterialized or oversized record remains visible as an incomplete entry.
+An overlong canonical UTF-8 path remains visible as an invalid entry, while a non-UTF-8
+or unsafe path uses a digest-bearing diagnostic and retains its exact bytes separately.
+Entry-count, Git-listing, and aggregate-byte ceilings abort without returning a partial
+inventory; filesystem enumeration, metadata, and bounded-read failures do the same.
+
+Immutable transition planning is a pure operation over complete candidate trees.
+When a common parent contains an ID, its exact bytes remain authoritative; deletion,
+modification, or changed `issue_id` is a violation.
+With unrelated histories and no parent record, one unique valid digest is accepted.
+If several valid digests claim the ID, the lexicographically smallest SHA-256 digest is
+the deterministic winner and every alternative is retained.
+Invalid materialized alternatives can be quarantined and repaired when one valid
+canonical observation exists.
+An invalid parent, an incomplete source, an identity without any valid canonical
+observation, or evidence that cannot be preserved blocks automatic repair.
+
+When candidate bytes are materialized, quarantine publication writes and verifies the
+raw content before its immutable provenance manifest becomes visible.
+A deletion has a manifest without a raw blob; an unmaterialized or over-bound
+observation blocks mutation rather than publishing partial evidence.
+The manifest records a resolved source revision when available or a stable source
+descriptor, safe or base64 path identity, mode, Git object ID, digests, and normalized
+problem codes. It excludes wall-clock time, absolute local paths, and parser exception
+prose so the same observation has the same path in every clone.
+
+#### 2.10.3 Git, Watch, and Provider Boundaries
+
+Independent comment additions normally merge as disjoint files, but Git transport alone
+does not enforce immutability.
+Before activation, every broad stage, commit, merge, fast-forward pull, push,
+workspace/outbox operation, migration, repair, and unrelated-history rescue must use the
+inventory and transition contract.
+All complete alternatives and manifests must be published before a canonical path is
+restored or replaced, and the staged modes and bytes must match the approved plan before
+commit. Current broad `git add -A` and force-scaffold paths may carry manually placed
+files by accident; that is not supported native-comment preservation.
+
+Current `tbd changes` and `tbd watch` compare issue snapshots only.
+A remote commit that changes only a candidate comment produces an empty issue report;
+`tbd watch` advances its baseline and continues waiting.
+Phase 2 must add fixed-commit comment-ID discovery to the same report before a writer is
+enabled.
+Timestamps and ULIDs are ordering aids, not delivery cursors; callers checkpoint
+the commit endpoint and discovered identities.
+Phase 3 may add one shared bounded remote poller and coalesced publication, with backoff
+and rate-limit controls, without requiring a GitHub issue or pull request per message.
+
+Existing Linear comments use the separate embedded `extensions.<provider>.comments`
+representation described in §8.7. They remain supported while native comments are
+dormant. In Phase 4, a bridge may project native comments only for explicitly linked
+beads and store provider aliases, destination lineage, and delivery intents separately.
+Provider retention caps must never truncate native prose.
+
+Comment bodies and provider metadata are untrusted input.
+Readers and agent runtimes must not execute or adopt Markdown, YAML tags, shell text, or
+provider payloads as instructions merely because Git authentication delivered them.
+Git transport authenticates access; it does not sign the author snapshot.
+
+#### 2.10.4 Compatibility and Activation
+
+The rollout is incremental, and a component landing does not make its phase usable:
+
+| Phase | Usable result | Current state |
+| --- | --- | --- |
+| 1. Stabilize existing coordination | Embedded provider comments survive recovery; retries and advisory claims have explicit contracts | In progress |
+| 2. Native comments | Any bead has append-only discussion, bounded reads, and complete manual Git exchange | Record/storage and inventory/transition internals implemented; preservation, commands, and activation open |
+| 3. Continuous Git coordination | Nearby and cloud workers discover and publish records through one bounded poller | Planned after Phase 2 |
+| 4. Human conversation | Native and Linear comments converge on explicitly linked beads | Planned after Phase 2; independent of Phase 3 |
+| 5. Portable workers | Opt-in Claude and Codex workers catch up, claim work, act, and recover | Planned after Phase 3 |
+
+The candidate f09 activation sequence is:
+
+1. Complete Git-operation guards, workspace/history recovery, diagnostics, attributes,
+   and packed old-client preservation tests.
+2. Ship those protections in an f08-compatible release and establish that release as the
+   minimum version for every participating writer.
+3. Run the format and failure experiment matrix, settle the remaining durable grammar,
+   and freeze the required f09 contract.
+4. Separate the readable format ceiling from the automatic migration target, fresh-repo
+   default, common-directory marker, and generated integration marker.
+5. Add an explicit activation command whose reviewed config change is committed and
+   distributed before any native comment is created.
+6. Recheck the active format while holding the shared writer lock before publishing a
+   record.
+
+Git cannot retroactively fence an old writer working from a stale clone.
+Activation therefore requires an explicit writer inventory and an honest bound on that
+limitation; it is not a distributed lock.
+
 * * *
 
 ## 3. Git Layer
@@ -2128,30 +2385,30 @@ Repo”; the state matrix, update decision table, and drift scenarios are pinned
 ### 3.1 Overview
 
 The Git Layer defines synchronization using standard git commands.
-It operates on files without interpreting entity schemas beyond what’s needed for
-merging.
+Mutating operations use the shared hidden worktree, while read-only observation reads
+commit objects and private refs without checking them out.
+Git transfers files; tbd validates and reconciles each managed collection according to
+that collection’s schema and preservation rules.
 
 **Key properties:**
 
-- **Schema-agnostic sync**: File transfer via standard git push/pull
+- **Dedicated hidden worktree**: Mutating sync never checks the coordination branch out
+  in the user’s worktree
 
-- **Schema-aware merge**: When push rejected, merge rules are applied per-entity-type
+- **Schema-aware reconciliation**: Issues merge by field; immutable collections require
+  exact parent-edge validation and repair evidence
 
 - **Standard git**: All operations use git CLI
 
 - **Dedicated sync branch**: `tbd-sync` branch never pollutes main
 
-- **Git-based conflict detection**: Push rejection triggers fetch and field-level merge
+- **Git-based conflict detection**: A pre-push fetch and ancestry comparison finds
+  published work; push rejection closes the concurrent-publication race
 
-**Critical Invariant:** tbd MUST NEVER modify the user’s git index or staging area.
-All git plumbing operations that write to the sync branch MUST use an isolated index
-file via `GIT_INDEX_FILE` environment variable.
-This ensures that a developer’s staged changes are never corrupted by tbd operations.
-
-```bash
-# Example: all sync branch writes use isolated index
-export GIT_INDEX_FILE="$(git rev-parse --git-dir)/tbd-index"
-```
+**Critical invariant:** tbd must never modify the user’s checkout, Git index, or staging
+area. Ordinary data commands and sync mutate the separate worktree at
+`$GIT_COMMON_DIR/tbd/data-sync-worktree/` while holding the shared writer lock.
+Observers use private refs and commit-object reads as described in §3.7.
 
 ### 3.2 Sync Branch Architecture
 
@@ -2160,15 +2417,21 @@ main branch:                    tbd-sync branch:
 ├── src/                        └── .tbd/
 ├── tests/                          └── data-sync/
 ├── README.md                           ├── issues/
-├── .tbd/                               ├── attic/
-│   ├── config.yml      (committed)     └── meta.yml
-│   ├── .gitignore      (committed)
-│   ├── .gitattributes  (committed)
+├── .tbd/                               ├── mappings/
+│   ├── config.yml      (committed)     ├── attic/
+│   ├── .gitignore      (committed)     ├── bridge/       (when configured)
+│   ├── .gitattributes  (committed)     └── meta.yml
 │   ├── workspaces/     (committed)
-│   ├── state.yml   (gitignored)
-│   ├── docs/       (gitignored)
-│   └── data-sync-worktree/ (gitignored)
+│   ├── state.yml       (gitignored)
+│   └── docs/           (gitignored)
 └── ...
+
+$GIT_COMMON_DIR/tbd/            # Local machinery shared by linked worktrees
+├── layout.yml
+├── data-sync.epoch
+├── locks/data-sync.lock/
+├── backups/
+└── data-sync-worktree/         # Checkout of tbd-sync
 ```
 
 **Why separate branches?**
@@ -2211,53 +2474,49 @@ $GIT_COMMON_DIR/tbd/        # Shared local sync worktree, locks, backups
 .tbd/data-sync/attic/      # Conflict archive
 .tbd/data-sync/mappings/   # ID mappings
   ids.yml                  # Short ID → ULID mapping (includes preserved import IDs)
+.tbd/data-sync/bridge/     # Provider link, intent, and actor-binding state when configured
 .tbd/data-sync/meta.yml    # Metadata
 ```
 
 ### 3.3 Sync Operations
 
-Sync uses standard git commands to read/write the sync branch without checking it out.
+Ordinary sync reads and writes the dedicated hidden worktree checked out on the sync
+branch. It never switches the user’s worktree to that branch.
 
 #### 3.3.1 Reading from Sync Branch
 
-```bash
-# Read a file from sync branch without checkout
-git show tbd-sync:.tbd/data-sync/issues/is-a1b2.md
-
-# List files in issues directory
-git ls-tree tbd-sync .tbd/data-sync/issues/
-```
+Issue commands read the resolved data-sync directory under the shared worktree.
+Commands that compare fixed commits, including `tbd changes` and `tbd watch`, use
+`git ls-tree` and bounded `git cat-file --batch` reads instead (§3.7).
 
 #### 3.3.2 Writing to Sync Branch
 
-All write operations use an isolated index to protect user’s staged changes:
+All writes acquire the shared data-sync lock and use the hidden worktree’s own index:
 
 ```bash
-# Setup isolated index
-export GIT_INDEX_FILE="$(git rev-parse --git-dir)/tbd-index"
+# 1. Preserve pending coordination changes before integrating remote history
+git -C "$GIT_COMMON_DIR/tbd/data-sync-worktree" add -A
+git -c commit.gpgsign=false -C "$GIT_COMMON_DIR/tbd/data-sync-worktree" \
+  commit -m "tbd sync: ..."
 
-# 1. Fetch latest
-git fetch origin tbd-sync
+# 2. Fetch explicitly into the remote-tracking ref
+git fetch origin \
+  refs/heads/tbd-sync:refs/remotes/origin/tbd-sync
 
-# 2. Read current sync branch state into isolated index
-git read-tree tbd-sync
+# 3. Merge the remote-tracking ref into the hidden worktree
+git -C "$GIT_COMMON_DIR/tbd/data-sync-worktree" \
+  merge origin/tbd-sync -m "tbd sync: merge remote changes"
 
-# 3. Update index with local changes
-#    (issue files from .tbd/data-sync/issues/ are added to the tree)
-git update-index --add --cacheinfo 100644,<blob-sha>,".tbd/data-sync/issues/is-a1b2c3.md"
-
-# 4. Write tree from isolated index
-TREE=$(git write-tree)
-
-# 5. Create commit on sync branch
-COMMIT=$(git commit-tree $TREE -p tbd-sync -m "tbd sync: $(date -Iseconds)")
-
-# 6. Update sync branch ref
-git update-ref refs/heads/tbd-sync $COMMIT
-
-# 7. Push to remote
-git push origin tbd-sync
+# 4. Push the sync branch with an explicit source and destination
+git push --no-verify origin \
+  refs/heads/tbd-sync:refs/heads/tbd-sync
 ```
+
+The actual flow handles a missing remote, local pending work, non-fast-forward retry,
+provider journals, validation, and recovery around these operations.
+Machine-generated commits disable ambient signing.
+Sync pushes pass `--no-verify` so repository pre-push hooks do not block or mutate the
+coordination branch.
 
 **Push Retry Algorithm (V2-005):**
 
@@ -2267,17 +2526,16 @@ If push is rejected (non-fast-forward), retry with merge:
 MAX_RETRIES = 3
 
 for attempt in 1..MAX_RETRIES:
-  1. git fetch origin tbd-sync
-  2. Compute diff between prepared_commit and origin/tbd-sync
-  3. For each conflicting file:
-     - Load both versions as JSON
-     - Apply merge rules (section 3.5)
-     - Write merged result, save losers to attic
-  4. Create new tree with merged files
-  5. Create new commit with both parents (merge commit)
-  6. git push origin tbd-sync
+  1. git fetch origin refs/heads/tbd-sync:refs/remotes/origin/tbd-sync
+  2. Merge origin/tbd-sync into the hidden worktree
+  3. Resolve issue, ID-mapping, and provider-bridge conflicts by their schemas
+  4. Reject staged conflict markers, validate all resulting bead files, and stage the
+     resolved paths; this is not a whole-store validator for dormant comments or every
+     provider artifact
+  5. Commit the merge in the hidden worktree
+  6. git push origin refs/heads/tbd-sync:refs/heads/tbd-sync
   7. If push succeeds: done
-  8. If push rejected: continue to next attempt
+  8. If push is rejected: continue to the next attempt
 
 If all attempts fail:
   - Exit with error code 1
@@ -2292,20 +2550,23 @@ High-level sync flow:
 ```
 SYNC(options):
   0. PREREQUISITE: Acquire $GIT_COMMON_DIR/tbd/locks/data-sync.lock
-  1. Verify shared worktree health (see §2.3.4)
-     - If missing/prunable: repair shared worktree
-     - If corrupted: throw WorktreeCorruptedError and route to doctor --fix
+  1. Verify shared worktree health (see [Worktree Lifecycle](#worktree-lifecycle))
+     - If missing/prunable: auto-materialize the shared worktree
+     - If corrupted: fail closed and route to doctor --fix
   2. Resolve data path via resolveDataSyncDir() — uses worktree path
-  3. Fetch remote sync branch
-  4. Update worktree to remote state (preserving local uncommitted changes)
-  5. Commit worktree changes to sync branch
-  6. Push to remote
-  7. If push rejected (non-fast-forward): retry with merge (see 3.3.2)
+  3. Stage and commit pending worktree changes to preserve the local side
+  4. Fetch the remote branch explicitly into its remote-tracking ref
+  5. Detect unrelated history; merge the remote-tracking ref when it is ahead
+  6. Run the enabled provider fold after merge and before publication
+  7. Push to remote
+  8. If push is rejected (non-fast-forward): fetch explicitly and retry with merge
+     (see 3.3.2)
 ```
 
-**Critical Invariant:** All operations in steps 1-6 MUST use the resolved `dataSyncDir`
-path consistently. Never read from or write to `.tbd/data-sync/` directly—always go
-through the shared worktree at `$GIT_COMMON_DIR/tbd/data-sync-worktree/.tbd/data-sync/`.
+**Critical Invariant:** All data operations in steps 1-7 MUST use the resolved
+`dataSyncDir` path consistently.
+Never read from or write to `.tbd/data-sync/` directly—always go through the shared
+worktree at `$GIT_COMMON_DIR/tbd/data-sync-worktree/.tbd/data-sync/`.
 
 **Why most syncs are trivial (no merge needed):**
 
@@ -2338,40 +2599,49 @@ two places before sync:
 
 #### Detection
 
-Conflict detection uses **Git’s standard push mechanics**:
+Conflict detection uses Git history and standard merge mechanics.
+A normal full sync first commits pending local coordination changes, then fetches the
+configured remote branch into `refs/remotes/<remote>/<sync-branch>` and compares that
+fetched tip with the local sync branch:
 
 ```
-git push fails with non-fast-forward → merge needed
+remote-tracking tip is ahead → merge needed
+git push fails with non-fast-forward → remote advanced after fetch; fetch and merge again
 ```
 
-When a push is rejected because the remote has changes, tbd:
-
-1. Fetches the remote sync branch
-2. For each local issue, checks if a remote version exists via `git show`
-3. If remote version exists and differs, triggers the merge algorithm
+This pre-push fetch handles already-published remote work without manufacturing a failed
+push.
+Push rejection remains the race detector when another writer publishes between that
+fetch and this writer’s push.
 
 The `version` field is purely informational (edit counter) and is NOT used for conflict
 detection. This avoids the distributed systems problem where version numbers diverge
 independently.
 
-> **Why Git-based detection?** Git’s push rejection is reliable, well-tested
-> infrastructure. By letting Git handle conflict detection at the transport level, tbd
-> keeps its implementation simple and focuses on field-level merge resolution.
+> **Why Git-based detection?** Git’s ancestry checks, merge state, and push rejection
+> are reliable, well-tested infrastructure.
+> tbd uses them to identify transport-level concurrency and focuses its own logic on
+> schema-aware resolution.
 
 #### Resolution Flow
 
 ```
-1. Detect: git push rejected (non-fast-forward)
-2. Fetch remote changes
-3. For each local issue:
-   a. Try to read remote version via git show
-   b. If remote exists and differs, parse both as YAML+Markdown
-   c. Apply merge rules (field-level, from section 3.5)
-   d. Increment version: max(local, remote) + 1
-   e. Write merged result to worktree
-   f. Save loser values to attic (for LWW fields that differed)
-4. Commit merged changes to sync branch
-5. Retry push (up to 3 attempts)
+1. Commit pending hidden-worktree changes before any fetch.
+2. Fetch refs/heads/<sync-branch> explicitly into
+   refs/remotes/<remote>/<sync-branch>.
+3. Reject unrelated histories and route them to `tbd doctor --fix` rescue.
+4. If the fetched tip is ahead, merge it into the hidden worktree.
+5. If Git reports file conflicts:
+   a. For each conflicted issue, read ours, theirs, and the merge base from Git objects.
+   b. Parse the complete records as YAML+Markdown and apply the §3.5 field rules.
+   c. If the substantive result differs from the highest-version input, set version to
+      max(local, remote) + 1 and updated_at to merge time; otherwise retain that input.
+   d. Write the visible result and save discarded values to the attic.
+   e. Reconcile ID mappings and bridge records by their own rules.
+6. Reject unresolved markers or invalid resulting beads, then commit the merge.
+7. Run the enabled provider fold and push the explicit branch refspec.
+8. If push is rejected as non-fast-forward, repeat the explicit fetch and merge, for up
+   to three push attempts.
 ```
 
 > **Note on Attic Entries**: Attic entries are created only when a merge strategy
@@ -2380,35 +2650,45 @@ independently.
 > not create attic entries since no data is lost.
 > This ensures the attic remains focused on actual data loss, not routine merges.
 
+#### No-Common-Base Reconciliation
+
+Unrelated-history rescue can encounter the same issue ID without a trustworthy Git
+ancestor. `mergeIssues(null, local, remote)` distinguishes two cases:
+
+- Equal `created_at` values mean the records descend from the same original creation.
+  The lower-version input becomes an approximate base and the ordinary field strategies
+  produce the visible result.
+- Different `created_at` values mean independent creations claimed one ID. The
+  earlier-created complete issue wins as a unit, and the other issue is a `whole_issue`
+  conflict.
+
+Because an approximate base cannot prove which fields were independently edited,
+unrelated-history rescue also preserves every substantively different input that the
+visible result does not retain as a complete Markdown issue under `attic/conflicts/`.
+That outer preservation step applies even when the field merge itself reports no
+conflict.
+
 ### 3.5 Merge Rules
 
 Field-level merge strategies:
 
 | Strategy | Behavior | Used For |
 | --- | --- | --- |
-| `immutable` | Error if different | `type`, `id` |
-| `lww` | Last-write-wins by timestamp | Scalars (title, status, priority) |
-| `lww_with_attic` | LWW, preserve loser in attic | Long text (description) |
-| `union` | Combine arrays, dedupe, sort | Labels |
-| `merge_by_id` | Merge arrays by item ID, sort | Dependencies |
-| `max_plus_one` | `max(local, remote) + 1` | `version` |
-| `recalculate` | Fresh timestamp | `updated_at` |
-| `preserve_oldest` | Keep earliest value | `created_at`, `created_by` |
-| `deep_merge_by_key` | Union keys, LWW per key | `extensions` |
+| `immutable` | Common one-side-changed handling accepts that side; if both sides differ, retain the base | `type`, `id`, `created_at`, `created_by` |
+| `lww` | Later issue `updated_at` wins; local wins an equal timestamp; archive a differing loser | Scalar fields and unknown f08 keys |
+| `union` | Local-first deep-equality union, without sorting | `labels`, `dependencies`, `child_order_hints` |
+| `union_by_key` | Local-first union by identity key; local wins a same-key collision | `docs` by `path`, `refs` by `url` |
+| `max` | Keep the larger input | `version`, `updated_at` during field resolution |
+| `min_timestamp` | Keep the earliest present timestamp | `started_at` |
+| `namespace_merge` | Merge top-level namespaces independently; accept one-sided edits and deletions, retain an edit over a concurrent deletion, union same-lineage comments, then use LWW for remaining conflicts | `extensions` |
 
 **LWW Tie-Breaker Rule:**
 
-When `updated_at` timestamps are equal, use this deterministic tie-breaker:
-
-1. Prefer remote over local (convention: remote is “more shared”)
-
-2. If still ambiguous (e.g., same node), prefer lexically greater content hash
-
-3. Always preserve losing value in attic
-
-> **Rationale:** Equal timestamps are common with coarse clocks, imports, or identical
-> writes. A deterministic tie-breaker prevents oscillation and ensures consistent merges
-> across nodes.
+When `updated_at` timestamps are equal, the merge engine chooses the value passed as
+local and preserves a differing remote value in the attic.
+It does not compare content hashes.
+Direction therefore matters for an equal-timestamp conflict; callers must keep their
+local/remote roles stable.
 
 #### BaseEntity Merge Rules
 
@@ -2418,10 +2698,10 @@ All entities share these base field merge rules:
 const baseEntityMergeRules = {
   type: { strategy: 'immutable' },
   id: { strategy: 'immutable' },
-  version: { strategy: 'max_plus_one' },
-  created_at: { strategy: 'preserve_oldest' },
-  updated_at: { strategy: 'recalculate' }, // Always set to merge time
-  extensions: { strategy: 'deep_merge_by_key' },
+  created_at: { strategy: 'immutable' },
+  version: { strategy: 'max' },
+  updated_at: { strategy: 'max' },
+  extensions: { strategy: 'namespace_merge' },
 };
 ```
 
@@ -2435,42 +2715,68 @@ const issueMergeRules: MergeRules<Issue> = {
   // Issue-specific fields
   kind: { strategy: 'lww' },
   title: { strategy: 'lww' },
-  description: { strategy: 'lww_with_attic' },
-  notes: { strategy: 'lww_with_attic' },
+  description: { strategy: 'lww' },
+  notes: { strategy: 'lww' },
   status: { strategy: 'lww' },
   priority: { strategy: 'lww' },
   assignee: { strategy: 'lww' },
+  delegate: { strategy: 'lww' },
   labels: { strategy: 'union' },
-  dependencies: { strategy: 'merge_by_id', key: (d) => d.target },
+  dependencies: { strategy: 'union' },
   parent_id: { strategy: 'lww' },
+  child_order_hints: { strategy: 'union' },
   spec_path: { strategy: 'lww' },
+  docs: { strategy: 'union_by_key', key: 'path' },
+  refs: { strategy: 'union_by_key', key: 'url' },
   due_date: { strategy: 'lww' },
   deferred_until: { strategy: 'lww' },
-  created_by: { strategy: 'preserve_oldest' },
-  closed_at: { strategy: 'lww' }, // See status/closed_at rules below
+  hold: { strategy: 'lww' },
+  hold_until: { strategy: 'lww' },
+  created_by: { strategy: 'immutable' },
+  started_at: { strategy: 'min_timestamp' },
+  closed_at: { strategy: 'lww' },
   close_reason: { strategy: 'lww' },
-  child_order_hints: { strategy: 'union' }, // Append-only set of child IDs; union (dedupe)
+  resolution: { strategy: 'lww' },
+  duplicate_of: { strategy: 'lww' },
 };
 ```
 
-**Status and closed_at Interaction:**
+Every differing LWW value records its loser in the attic.
+Unknown f08 issue keys also use LWW with attic evidence, which preserves data from a
+newer compatible writer.
+Provider namespaces under `extensions` merge independently; embedded provider comments
+then receive the lineage-scoped append-union described in §8.7. If the merged issue is
+substantively different from the highest-version input, `version` becomes
+`max(local, remote) + 1` and `updated_at` becomes the merge time.
+Otherwise the highest-version input is returned unchanged to avoid a gratuitous edit.
 
-- If merged `status` becomes `closed` and `closed_at` is not set, set it to merge time
+**Lifecycle-field interaction:** `status`, `closed_at`, `close_reason`, `resolution`,
+and `duplicate_of` each use LWW in the merge engine.
+The `close` and `reopen` commands write coherent tuples, and schema validation rejects a
+`resolution` on non-closed work or a mismatched `duplicate_of`; the merge layer does not
+invent or clear timestamps as a separate repair step.
 
-- If merged `status` changes from `closed` to another status (reopen), clear `closed_at`
-
-- `close_reason` follows LWW independently
-
-**Extensions Deep Merge:**
+**Extensions Namespace Merge:**
 
 The `extensions` field uses per-namespace merging to preserve third-party data:
+
+- A namespace changed on one side takes that change, including deletion.
+- Agreement carries through unchanged, including when both sides delete the namespace.
+- A concurrent edit wins over a deletion regardless of timestamp; the discarded deletion
+  is recorded in the attic so the unlink is visible and can be repeated.
+- Two present namespaces from the same provider-link lineage union their embedded
+  comments by comment identity.
+  Their remaining metadata uses the issue-level LWW direction, and any differing losing
+  metadata is archived.
+- Other both-changed namespace conflicts use issue-level LWW and archive the complete
+  losing namespace.
 
 ```typescript
 // Example: merging extensions
 local.extensions = { github: { issue: 123 }, slack: { channel: 'dev' } };
 remote.extensions = { github: { pr: 456 }, jira: { key: 'PROJ-1' } };
 
-// Result: union of keys, per-key LWW for conflicts
+// Result when remote.updated_at is later: union of namespaces, LWW per conflict
 merged.extensions = {
   github: { pr: 456 }, // remote wins (LWW on github namespace)
   slack: { channel: 'dev' }, // preserved from local
@@ -2480,17 +2786,36 @@ merged.extensions = {
 // The losing github namespace is preserved in attic
 ```
 
+#### Native-Comment Preservation Boundary
+
+The candidate native-comment collection in §2.10 does not use issue field-merge rules.
+Different IDs are independent additions.
+For one ID, an authoritative parent’s exact bytes cannot be deleted, modified, or
+reparented; a same-ID add/add divergence in unrelated histories requires a deterministic
+winner and complete preservation of every alternative.
+
+The internal f08 inventory and transition modules can classify these cases, but no
+current sync, commit, merge, fast-forward, push, workspace, outbox, rescue, migration,
+or repair path calls them.
+Before activation, each path must publish all required raw and manifest evidence before
+it mutates the tree, then verify the staged paths, bytes, and modes against the plan.
+Current broad `git add -A` and force-add scaffold steps are therefore preservation work
+to complete, not evidence that manually placed native-comment files are supported.
+
 ### 3.6 Attic Structure
 
 The attic preserves data lost in conflicts:
 
 ```
 .tbd/data-sync/attic/
+├── is-a1b2_2025-01-07T10-30-00Z_description.yml
 └── conflicts/
-    └── is-a1b2/
-        ├── 2025-01-07T10-30-00Z_description.yml
-        └── 2025-01-07T11-45-00Z_full.yml
+    └── is-a1b2__2025-01-07T11-45-00Z.md
 ```
+
+The root YAML files are field-conflict records.
+The Markdown files under `attic/conflicts/` are complete losing issue snapshots retained
+during unrelated-history rescue.
 
 **Attic entry format:**
 
@@ -2513,15 +2838,18 @@ The attic preserves data lost in conflicts:
 
 ### 3.7 Read-Only Remote Observation
 
-Sync (§3.3) is the only operation that writes issue state.
-A second, narrower Git-layer operation exists so that a process can learn *that* state
-changed without changing anything itself: the observation path behind `tbd changes` and
+Ordinary mutation commands write issue state in the local hidden worktree; `tbd sync` is
+the explicit exchange that fetches, merges, and publishes that state.
+A narrower Git-layer operation lets a process learn *that remote committed state
+changed* without mutating bead data: the observation path behind `tbd changes` and
 `tbd watch` (§4.14).
 
-**Invariant:** observation MUST NOT write any state another process can see.
-Concretely, it never takes the data-sync lock, never touches the hidden worktree, never
-updates the local sync branch or its remote-tracking ref, and never writes `FETCH_HEAD`.
-This is what makes it safe to run several watchers beside ordinary `tbd sync` in one
+**Invariant:** observation does not mutate functional shared state.
+It never takes the data-sync lock, touches the hidden worktree, updates the local sync
+branch or its configured remote-tracking ref, or writes `FETCH_HEAD`. `tbd watch` does
+create and delete repository-scoped private refs, including stale-ref cleanup; those
+refs are visible to Git-aware processes but carry no canonical bead state.
+This narrower guarantee makes several watchers safe beside ordinary `tbd sync` in one
 checkout.
 
 **Reading committed snapshots.** Both commands read issues straight out of commit
@@ -2538,8 +2866,23 @@ the repository. Each snapshot is validated on read: file names must match the is
 inside, issue files must not be nested, and every issue must have a row in `ids.yml`. An
 unparseable snapshot fails the command rather than silently reporting a partial diff.
 
-Because the baseline and tip are commits, a change report is a pure function of two
-commit IDs: the same pair always yields the same report.
+For every selector except `--ready`, the baseline and tip commits fully determine report
+membership, and the same pair yields the same report.
+`--ready` also evaluates `deferred_until` at one wall-clock instant shared by both
+snapshots. The current caller chooses that instant for each invocation and does not
+include it in the report, so the same commit pair can yield different ready-edge
+membership after a deferral elapses.
+Report ordering and field order remain deterministic in every mode.
+`tbd-obw9` tracks pinning or persisting the readiness evaluation instant for exact
+replay.
+
+**Current entity boundary.** f08 observation reads issue files and the ID mapping only.
+A remote commit that changes only a candidate native comment produces an empty report;
+`tbd watch` advances its baseline to that commit and continues waiting.
+This is valid for the current issue-only interface, but it is not native-comment
+delivery. Before a comment writer is activated, fixed-commit comment-ID discovery must
+join the same snapshot and report contract so advancing the baseline cannot skip a
+comment.
 
 **Observing the remote.** `tbd watch` learns the remote tip with
 `git ls-remote --exit-code <remote> refs/heads/<sync-branch>`, which transfers no
@@ -2591,57 +2934,17 @@ The CLI Layer provides a Beads-compatible command interface.
 
 ### 4.1.1 Initialization Requirements
 
-All tbd commands require the repository to be initialized, except:
+`tbd init`, `tbd setup`, and `tbd status` are the primary commands designed to run
+before initialization.
+`tbd setup --from-beads` performs the one-step Beads migration; `tbd import <file>`
+requires an initialized repository and handles an explicit JSONL file or workspace.
+Top-level help, version, and documentation discovery have their own non-mutating
+behavior outside a repository.
 
-- `tbd init`—Creates a new tbd repository
-- `tbd import --from-beads`—Can initialize and import in one step (auto-runs init if
-  needed)
-
-**Behavior when not initialized:**
-
-If `.tbd/config.yml` does not exist or is invalid, commands exit with an error:
-
-- **Exit code**: 1
-- **Error message**:
-  `Error: Not a tbd repository (run 'tbd init' or 'tbd import --from-beads' first)`
-
-**Detection logic:**
-
-1. Check for `.tbd/config.yml` existence
-2. Validate the config and require its `tbd_format` to be compatible (`tbd_version` is
-   informational)
-3. If either check fails → error with initialization instructions
-
-**Commands and their initialization requirements:**
-
-| Command | Requires Init | Behavior if Not Initialized |
-| --- | --- | --- |
-| `init` | No | Creates `.tbd/` directory and sync branch |
-| `status` | No | Shows detection results and guidance (see §4.9) |
-| `import --from-beads` | No | Auto-initializes, then imports |
-| `import <file>` | Yes | Error: “Not a tbd repository” |
-| `list`, `show`, `stats` | Yes | Error: “Not a tbd repository” |
-| `create`, `update`, `close`, `reopen` | Yes | Error: “Not a tbd repository” |
-| `ready`, `blocked`, `stale` | Yes | Error: “Not a tbd repository” |
-| `label`, `dep` | Yes | Error: “Not a tbd repository” |
-| `sync`, `search`, `doctor`, `config` | Yes | Error: “Not a tbd repository” |
-| `attic list/show/restore` | Yes | Error: “Not a tbd repository” |
-| All other commands | Yes | Error: “Not a tbd repository” |
-
-**`import --from-beads` auto-initialization:**
-
-When `--from-beads` is used and `.tbd/` doesn’t exist:
-
-1. Auto-run equivalent of `tbd init` silently
-2. Proceed with import from Beads repository
-3. Report: “Initialized tbd and imported N issues from Beads”
-
-This enables a one-step migration workflow:
-
-```bash
-# In a repo with .beads/ directory
-tbd import --from-beads    # Initializes AND imports in one command
-```
+Commands that operate on repository state locate and validate `.tbd/config.yml`,
+including its `tbd_format`, before opening the data store.
+Their exact error guidance is not a compatibility surface; `tbd status` is the stable
+orientation command for choosing between setup, migration, and surgical initialization.
 
 ### 4.2 Command Structure
 
@@ -2663,8 +2966,8 @@ Options:
   --remote=<name>       Remote name (default: origin)
 ```
 
-The `--prefix` option is **required** unless you’re importing from an existing beads
-repository (which automatically detects and uses the beads prefix).
+The `--prefix` option is required for `tbd init`. Beads prefix detection belongs to
+`tbd setup --from-beads`.
 
 **Prefix validation rules:**
 
@@ -2677,29 +2980,40 @@ repository (which automatically detects and uses the beads prefix).
 
 **What it does:**
 
-1. Creates `.tbd/` directory with `config.yml` (including display.id_prefix),
-   `.gitignore`, and `.gitattributes` (merge=union for ids.yml)
+1. Requires a Git repository and resolves its root.
 
-2. Creates `.tbd/docs/` directories for shortcuts, guidelines, templates (gitignored)
+2. Creates `.tbd/` with `config.yml` (including `display.id_prefix`) and `.gitignore`.
+   The broader `tbd setup` flow installs or refreshes `.tbd/.gitattributes`.
 
-3. Creates `tbd-sync` branch with `.tbd/data-sync/` structure
+3. Creates gitignored `.tbd/docs/` directories for shortcuts, guidelines, and templates.
 
-4. Pushes sync branch to origin (if remote exists)
+4. Under the shared data-sync lock, attaches an existing local sync branch; otherwise it
+   explicitly fetches an existing remote branch into its remote-tracking ref; otherwise,
+   after confirming absence, it creates and scaffolds an orphan branch.
 
-5. Returns to original branch
+5. For a fresh orphan with a configured remote, immediately attempts best-effort
+   publication and adopts a competing initializer’s winner when that race is safe to
+   reconcile.
 
-6. Outputs instructions to commit config
+The user’s checkout never switches branches because all sync-branch work happens in the
+separate hidden worktree.
+
+**Current initialization caveat.** A worktree creation or remote-check failure is logged
+only at debug level and `tbd init` still reports repository initialization success.
+The local `.tbd/` files exist, but the data store may be unavailable until the
+underlying Git problem is fixed and the worktree is materialized.
+Also, `--sync-branch` and `--remote` are passed to this initial worktree operation,
+while the newly written config currently retains the default `tbd-sync` and `origin`
+values.
 
 **Output:**
 
 ```
-Initialized tbd in /path/to/repo
-Created sync branch: tbd-sync
-Pushed sync branch to origin
+✓ Initialized tbd repository (prefix: proj)
 
-To complete setup, commit the config files:
-  git add .tbd/config.yml .tbd/.gitignore .tbd/.gitattributes
-  git commit -m "Initialize tbd"
+Next steps:
+  git add .tbd/ && git commit -m "Initialize tbd"
+  tbd setup --auto   # Optional: configure agent integrations
 ```
 
 ### 4.4 Issue Commands
@@ -2715,7 +3029,8 @@ Options:
   --priority <0-4>          Priority (0=critical, 4=lowest, default: 2)
   --description <text>      Description ("-" reads stdin)
   --file <path>             Read description from file ("-" reads stdin)
-  --assignee <name>         Assignee
+  --assignee <name>         Assignee: who is accountable
+  --delegate <name>         Delegate: who is acting
   --due <date>              Due date (ISO8601)
   --defer <date>            Defer until date (ISO8601)
   --parent=<id>             Parent issue ID
@@ -2736,6 +3051,7 @@ Options:
 ```bash
 tbd create "Fix authentication bug" --type=bug --priority=P1
 tbd create "Add OAuth" --type=feature --label=backend --label=security
+tbd create "Review OAuth" --assignee=alice --delegate=review-agent
 tbd create "Write tests" --parent proj-a1b2
 tbd create "API docs" --file design.md
 
@@ -2827,7 +3143,7 @@ characters.
 ```
 proj-1875  P1  ✓ closed  epic  Phase 24 Epic: Installation and Agent Integration
 ├── proj-1876  P1  ✓ closed  task  Implement tbd prime command
-└── proj-1877  P1  ✓ closed  task  Implement tbd setup claude command
+└── proj-1877  P1  ✓ closed  task  Configure Claude Code setup surface
 proj-a1b2  P1  ◐ in_progress  bug  Fix authentication bug
 proj-f14c  P2  ○ open  feature  Add OAuth support
 ├── proj-c3d4  P2  ● blocked  task  Write OAuth tests
@@ -3007,6 +3323,27 @@ tbd update proj-a1b2 --from-file issue.md
 > Notes are intended for agent/developer working notes, while the description is the
 > issue’s canonical description.
 
+#### Start
+
+```bash
+tbd start <ids...> [--as <name>]
+tbd whoami [--as <name>] [--ensure-id]
+```
+
+For each accepted claim, `start` sets `status: in_progress`, records the resolved
+friendly identity in `delegate`, initializes `started_at` once, clears `hold` and
+`hold_until`, and leaves `assignee` unchanged.
+It skips closed beads, a different nonempty delegate on an already in-progress bead, and
+an identical visible claim.
+It holds the local data lock across a multi-ID invocation, but the batch is not an
+all-or-nothing transaction.
+
+The guard is advisory and local.
+It does not test blockers or future deferral, and stale clones can both claim before
+exchanging state. Pull and re-read first, then sync an accepted claim promptly.
+Raw `update --status=in_progress`, `update --delegate`, and `create --delegate` remain
+administrative writes and bypass this guard.
+
 #### Update
 
 ```bash
@@ -3018,7 +3355,9 @@ Options:
   --status <status>         Set status (single ID)
   --type <type>             Set type
   --priority <0-4>          Set priority
-  --assignee <name>         Set assignee
+  --assignee <name>         Set assignee: who is accountable
+  --delegate <name>         Set delegate: who is acting
+  --hold <state>            Set hold: blocked, paused, or none
   --description <text>      Set description ("-" reads stdin; single ID)
   --notes <text>            Set working notes ("-" reads stdin; single ID)
   --notes-file <path>       Set notes from file ("-" reads stdin; single ID)
@@ -3027,18 +3366,21 @@ Options:
   --add-label <label>       Add label
   --remove-label <label>    Remove label
   --parent=<id>             Set parent (single ID)
+  --spec <path>             Set or clear spec path (single ID)
   --child-order <ids>       Set child ordering hints (comma-separated; single ID)
   --ignore-missing          Skip unknown IDs instead of failing (bulk)
 ```
 
 With two or more IDs, only shared fields apply (`--type`, `--priority`, `--assignee`,
-`--add-label`, `--remove-label`, `--due`, `--defer`); per-ID and lifecycle flags are
-rejected. Use `tbd close`/`tbd reopen` for lifecycle changes.
+`--delegate`, `--hold`, `--add-label`, `--remove-label`, `--due`, `--defer`); per-ID and
+lifecycle flags are rejected.
+Use `tbd start` for guarded claiming and `tbd close`/`tbd reopen` for terminal lifecycle
+changes.
 
 **Examples:**
 
 ```bash
-tbd update proj-a1b2 --status=in_progress
+tbd update proj-a1b2 --status=in_progress  # Direct status edit; not a guarded claim
 tbd update proj-a1b2 --title "New issue title"
 tbd update proj-a1b2 --add-label urgent --priority=P0
 tbd update proj-a1b2 --defer 2025-02-01
@@ -3073,6 +3415,8 @@ tbd close <ids...> [options]
 Options:
   --reason <text>           Close reason ("-" reads stdin)
   --reason-file <path>      Read close reason from a file ("-" reads stdin)
+  --as <resolution>         completed, canceled, or duplicate
+  --duplicate-of <id>       Required with --as duplicate
   --ignore-missing          Skip unknown IDs instead of failing (bulk)
 ```
 
@@ -3095,9 +3439,25 @@ Options:
   --ignore-missing          Skip unknown IDs instead of failing (bulk)
 ```
 
+Reopen clears `closed_at`, `close_reason`, `resolution`, and `duplicate_of` and returns
+the bead to `status: open`; `started_at` remains historical.
+
+#### Pause and Resume
+
+```bash
+tbd pause <ids...> [--until <when>] [--reason <text>] [--ignore-missing]
+tbd resume <ids...> [--reason <text>] [--ignore-missing]
+```
+
+Pause records `hold: paused` and optional `hold_until` without erasing `status` or
+`started_at`; resume clears the hold.
+Both skip closed work.
+A passing `hold_until` does not clear the stored hold automatically, so an explicit
+resume remains necessary.
+
 #### Ready
 
-List issues ready to work on (open, unblocked, unclaimed):
+List issues ready to work on:
 
 ```bash
 tbd ready [options]
@@ -3110,15 +3470,20 @@ Options:
 
 **Algorithm:**
 
-- Status = `open`
+- `status` is `open`
 
-- No `assignee` set
+- No `delegate` is acting on it; `assignee` records accountability and does not remove a
+  bead from the ready set
 
-- No blocking dependencies (where dependency.status != ‘closed’)
+- No `hold` is set
 
-> **Performance note:** The `ready` command uses the query index when enabled to avoid
-> loading all issues. Dependency target status is checked via index lookup.
-> Without index, dependency targets are loaded on-demand.
+- `deferred_until` is absent or has elapsed
+
+- Every bead with a `blocks` dependency targeting it is closed
+
+> **Performance note:** No query index is implemented.
+> `tbd ready` currently loads and scans all issues, builds the blocking-target set in
+> memory, filters by the predicate above, sorts the result, and applies the limit.
 
 #### Blocked
 
@@ -3240,103 +3605,116 @@ Future: `related`, `discovered-from`.
 ### 4.7 Sync Commands
 
 ```bash
-# Full sync (pull then push)
+# Full repository sync
 tbd sync
 
-# Pull only
-tbd sync --pull
+# Narrow to one or more surfaces
+tbd sync --issues
+tbd sync --docs
+tbd sync --integrations
 
-# Push only
+# Directional issue sync
+tbd sync --pull
 tbd sync --push
 
 # Show sync status
 tbd sync --status
 
-# Force sync (overwrite conflicts)
+# Compatibility flags
 tbd sync --force
-
-# Repair worktree before syncing
 tbd sync --fix
+
+# Recovery controls
+tbd sync --no-auto-save
+tbd sync --no-outbox
 ```
+
+With no surface or direction selector, `tbd sync` runs docs, issues, and enabled
+external trackers. Docs run first.
+The issue phase then:
+
+1. Commits pending local worktree changes before any fetch.
+2. Fetches `refs/heads/<sync-branch>` explicitly into its configured remote-tracking
+   ref.
+3. Rejects unrelated histories or merges the fetched ref into the attached local branch.
+4. Runs the configured provider fold after the Git merge and before publication.
+5. Commits provider and merge results and pushes the local sync branch.
+
+Surface selectors narrow the run.
+`--issues`, `--docs`, and `--integrations` can be combined, but a direction flag cannot
+be combined with `--docs` because docs have no remote direction.
+
+Direction flags always select the Git issue surface.
+`tbd sync --pull` fetches and merges the Git issue branch without running a tracker.
+`tbd sync --push` commits and pushes the Git issue branch without running a tracker.
+Naming both a direction and the integration surface is deliberate:
+`tbd sync --pull --integrations` also performs inbound tracker reconciliation, while
+`tbd sync --push --integrations` performs outbound tracker projection before committing
+and pushing. The provider-specific outbound command is `tbd integration sync --push`.
+
+`--status` reports docs and Git issue status and does not run tracker I/O.
+
+**Inert compatibility flags.** `--fix` is accepted, but ordinary data-context setup
+already auto-repairs missing and prunable worktrees; corrupted worktrees still require
+`tbd doctor --fix`. `--force` is also registered and passed into the full-sync options,
+but no current sync path reads it.
+It does not overwrite or otherwise change conflict resolution.
+`tbd-s18s` tracks either implementing or removing this inert flag.
 
 **Worktree Health Requirement:**
 
-Before performing any sync operation, `tbd sync` MUST verify worktree health:
+Before performing an issue sync, `tbd sync` enters the same shared data context as other
+data commands:
 
 ```typescript
 async run(options: SyncOptions): Promise<void> {
-  // FIRST: Ensure worktree exists and is healthy
-  const worktreeStatus = await checkWorktreeHealth(tbdRoot);
-  if (!worktreeStatus.healthy) {
-    if (options.fix) {
-      await this.repairWorktree(tbdRoot);
-    } else {
-      throw new WorktreeError(
-        `Worktree is ${worktreeStatus.status}. ` +
-        `Run 'tbd sync --fix' or 'tbd doctor --fix' to repair.`
-      );
-    }
-  }
-
-  // Now safe to resolve path - worktree guaranteed to exist
-  this.dataSyncDir = await resolveDataSyncDir(tbdRoot);
-
-  // ... rest of sync operations
+  await withDataSyncContext(tbdRoot, { lock: true }, async (context) => {
+    // Missing and prunable worktrees were auto-materialized under this lock.
+    // Corruption failed before this callback with `tbd doctor --fix` guidance.
+    await syncIssues(context.dataSyncDir, options);
+  });
 }
 ```
+
+The shared context repairs missing and prunable worktrees for ordinary commands.
+It never removes a corrupted worktree; only explicit `tbd doctor --fix` attempts that
+repair, subject to the `tbd-dmkd` P0 backup defect in §2.3.
 
 **Path Consistency Invariant:** All sync operations MUST use the resolved `dataSyncDir`
 path consistently.
 Never mix `resolveDataSyncDir()` results with hardcoded `WORKTREE_DIR`
 or `DATA_SYNC_DIR` constants.
 
-**Output (sync):**
+**Output (sync that auto-materializes a missing worktree):**
 
 ```
-Pulled 3 issues, pushed 2 issues
-No conflicts
+• tbd-sync worktree was missing; auto-materialized it (fresh clone, or the worktree was removed).
 ```
 
-**Output (sync --status):**
+**Output (sync with a corrupted worktree):**
 
 ```
-Local changes (not yet pushed):
-  modified: is-a1b2.md
-  new:      is-f14c.md
-
-Remote changes (not yet pulled):
-  modified: is-x1y2.md
-```
-
-**Output (sync with unhealthy worktree):**
-
-```
-Error: Worktree is missing. Run 'tbd sync --fix' or 'tbd doctor --fix' to repair.
+Error: Shared data-sync worktree is corrupted. Run 'tbd doctor --fix' to repair.
 ```
 
 ### 4.8 Search Commands
 
-tbd provides integrated search via the hidden worktree, enabling text search across all
-issues. (The worktree also enables manual use of ripgrep/grep if needed.)
+tbd searches the issues visible in the local hidden worktree.
+The worktree also supports manual `rg` or `grep` queries when file-level search is
+useful.
 
 ```bash
 # Search issue content
 tbd search <pattern> [options]
 
 Options:
-  --field <field>           Search only in specific field (title, description, notes, labels)
+  --field <field>           Search one field: title, description, notes, labels, or id
   --status <status>         Filter by status
   --case-sensitive          Case-sensitive search (default: case-insensitive)
   --limit <n>               Limit results
-  --no-refresh              Skip worktree refresh
-  --json                    JSON output
+  --no-refresh              Skip the current freshness bookkeeping
 
-# Future options (not yet implemented):
-#   --type <type>           Filter by issue type
-#   --label <label>         Filter by label
-#   --context <n>           Show n lines of context
-#   --files-only            Only show matching file paths
-#   --count                 Show match count only
+# --json is a global option and may appear before or after the command.
 ```
 
 **Examples:**
@@ -3358,74 +3736,59 @@ tbd search "error" --limit 10
 **Output (default):**
 
 ```
-proj-a1b2: Fix authentication timeout
-  description (line 5): ...users experiencing authentication timeout after 5 minutes...
+Found 2 results:
 
-proj-f14c: Add OAuth support
-  notes (line 2): ...need to handle timeout during OAuth callback...
+proj-a1b2 ○ Fix authentication timeout
+  [description] ...users experiencing authentication timeout after 5 minutes...
 
-Found 2 issues with 2 matches
+proj-f14c ○ Add OAuth support
+  [notes] ...need to handle timeout during OAuth callback...
 ```
 
 **Output (--json):**
 
 ```json
-{
-  "matches": [
-    {
-      "issue_id": "is-a1b2c3",
-      "display_id": "proj-a1b2",
-      "field": "description",
-      "line": 5,
-      "content": "users experiencing authentication timeout after 5 minutes",
-      "context_before": ["The session expires and"],
-      "context_after": ["This affects all users"]
-    }
-  ],
-  "total_issues": 2,
-  "total_matches": 2
-}
+[
+  {
+    "id": "proj-a1b2",
+    "priority": 2,
+    "status": "open",
+    "kind": "bug",
+    "title": "Fix authentication timeout",
+    "matchField": "description",
+    "match": "...users experiencing authentication timeout after 5 minutes..."
+  }
+]
 ```
 
 #### Implementation Notes
 
 Search is currently implemented as an **in-memory scan**:
 
-1. Load all issues from the hidden worktree directory
-2. Filter issues by searching fields with string matching
-3. Apply additional filters (status, type, label)
+1. Load every issue from the local hidden worktree.
+2. Apply the optional status filter.
+3. Search the selected field, or `title`, `description`, `notes`, `labels`, then display
+   `id`, stopping at the first matching field for each issue.
+4. Apply the result limit and format the resulting issue-level matches.
 
-**Search algorithm:**
+There are no current type, label-selection, line-context, files-only, or count options.
 
-```
-SEARCH(pattern, options):
-  1. Ensure worktree is initialized and up-to-date
-     - If stale (>5 minutes since last fetch), refresh: tbd sync --pull
-
-  2. Load all issues from worktree into memory
-
-  3. For each issue, search specified fields:
-     - title, description, notes, labels (default: all)
-     - Case-insensitive by default
-
-  4. Apply additional filters (type, status, label)
-
-  5. Format output according to options
-```
-
-**Worktree staleness:**
-
-The search command checks worktree freshness.
-If the worktree is stale (last fetch was more than 5 minutes ago), search will
-automatically pull before searching to ensure results are current.
-This can be disabled with `--no-refresh`.
+**False freshness defect (`tbd-iwup`).** Unless `--no-refresh` is present, the command
+checks machine-local `last_sync_at`. When that value is missing or older than five
+minutes, it prints `Refreshing worktree...` and advances the timestamp, but performs no
+Git fetch, pull, or other remote observation.
+No successful sync path currently writes this marker.
+Search therefore reads only the local hidden worktree and may return stale results even
+after claiming to refresh.
+`--no-refresh` suppresses this bookkeeping; it does not change the underlying Git state.
+`tbd-iwup` tracks the runtime fix.
 
 > **Future Enhancement:** For improved performance on large repositories (10K+ issues),
 > search could be optimized to use ripgrep (`rg`) against the worktree files directly.
 > See §7.2 Future Enhancements for details.
 
 ```bash
-# Search without refreshing (faster but potentially stale)
+# Search local state without freshness bookkeeping
 tbd search "pattern" --no-refresh
 ```
 
@@ -3441,10 +3804,8 @@ of initialization state and helps users understand where they are.
 > Use `tbd stats` for issue counts.
 
 ```bash
-tbd status [options]
-
-Options:
-  --json                    JSON output
+tbd status
+tbd --json status          # --json is global and may also follow the command
 ```
 
 **Behavior when NOT initialized:**
@@ -3459,83 +3820,82 @@ Detected:
   ✗ tbd not initialized
 
 To get started:
-  tbd import --from-beads   # Migrate from Beads (recommended)
-  tbd init                  # Start fresh
+  tbd setup --auto          # Migrate from Beads (recommended)
+  tbd init --prefix=X       # Surgical init only
 ```
+
+Without a detected `.beads/` directory, the first suggestion is
+`tbd setup --auto --prefix=<name>`.
 
 **Behavior when initialized:**
 
 ```
 $ tbd status
-tbd repository: /path/to/repo
+tbd v0.8.1
+Repository: /path/to/repo
+  ✓ Initialized (.tbd/)
+  ✓ Git repository (main)
+  ✓ Git 2.42.0
 
-tbd Version: 3.0.0
-Sync Branch: tbd-sync
+Sync branch: tbd-sync
 Remote: origin
-Display Prefix: bd
+ID prefix: proj-
 
-Sync Status:
-  Local:  2 changes (not pushed)
-  Remote: 1 change (not pulled)
-  Last sync: 5 minutes ago
-
-Issues:
-  Ready: 12 (use 'tbd ready' to see them)
-  In progress: 3
-  Blocked: 2
-  Total: 127
-
-Integrations:
-  ✓ Claude Code hooks installed (./.claude/settings.json)
-  ✗ Codex AGENTS.md not installed
+INTEGRATIONS
+  ✓ Portable Agent Skill (./.agents/skills/tbd/SKILL.md)
+  ✓ Claude Code hooks (./.claude/settings.json)
+  ✓ AGENTS.md (./AGENTS.md)
+  ✓ Codex hooks (./.codex/hooks.json)
 
 Worktree: /path/to/repo/.git/tbd/data-sync-worktree (healthy)
+
+Use 'tbd stats' for issue statistics, 'tbd doctor' for health checks.
 ```
+
+The exact human output adds a Beads coexistence warning when relevant, a docs-drift line
+when managed forks exist, and a `WORKSPACES` section when workspaces exist.
+It does not calculate sync divergence, last-sync time, or issue counts; use
+`tbd sync --status` and `tbd stats` for those separate views.
 
 **Output (--json) when initialized:**
 
 ```json
 {
   "initialized": true,
-  "tbd_version": "3.0.0",
-  "sync_branch": "tbd-sync",
-  "remote": "origin",
-  "display_prefix": "bd",
-  "worktree_path": "/path/to/repo/.git/tbd/data-sync-worktree",
-  "worktree_healthy": true,
-  "last_sync": "2025-01-10T10:00:00Z",
-  "last_synced_commit": "abc123def456",
-  "sync_status": {
-    "local_changes": 2,
-    "remote_changes": 1
-  },
-  "issues": {
-    "ready": 12,
-    "in_progress": 3,
-    "blocked": 2,
-    "total": 127
-  },
-  "integrations": {
-    "claude_code": true,
-    "cursor": false,
-    "codex": false
-  },
-  "beads_detected": false
-}
-```
-
-**Output (--json) when NOT initialized:**
-
-```json
-{
-  "initialized": false,
+  "tbd_version": "0.8.1",
+  "working_directory": "/path/to/repo",
   "git_repository": true,
   "git_branch": "main",
-  "beads_detected": true,
-  "beads_issue_count": 142,
-  "suggestion": "Run 'tbd import --from-beads' to migrate"
+  "git_version": "2.42.0",
+  "git_version_supported": true,
+  "beads_detected": false,
+  "beads_issue_count": null,
+  "sync_branch": "tbd-sync",
+  "remote": "origin",
+  "display_prefix": "proj",
+  "worktree_path": "/path/to/repo/.git/tbd/data-sync-worktree",
+  "worktree_healthy": true,
+  "worktree_status": "valid",
+  "workspaces": [],
+  "docs_drift": null,
+  "integrations": {
+    "portable_skill": true,
+    "portable_skill_path": "./.agents/skills/tbd/SKILL.md",
+    "claude_code": true,
+    "claude_code_path": "./.claude/settings.json",
+    "codex": true,
+    "codex_path": "./AGENTS.md",
+    "codex_hooks": true,
+    "codex_hooks_path": "./.codex/hooks.json"
+  }
 }
 ```
+
+The uninitialized JSON form uses the same object shape.
+It sets `initialized` to `false`, reports Git, Beads, version, working-directory, and
+integration detection, and emits `null` or empty values for repository-only fields.
+It has no `suggestion`, cursor, sync-status, or issue-count summary beyond
+`beads_issue_count`.
 
 #### Stats
 
@@ -3585,9 +3945,13 @@ The doctor command performs comprehensive health checks organized into categorie
 
 | Check | Severity | Auto-fixable | Detection |
 | --- | --- | --- | --- |
-| Worktree missing | error | yes | Directory doesn’t exist |
+| Worktree missing | ok (`not created yet`) | yes, with `--fix`; otherwise the next data command initializes it | Directory and live registration are absent |
 | Worktree prunable | error | yes | `git worktree list` shows prunable |
-| Worktree corrupted | error | yes | Missing `.git` file or invalid gitdir |
+| Worktree corrupted | error | yes, only through explicit `doctor --fix` | Unregistered occupant, missing or invalid `.git`, detached `HEAD`, or wrong branch |
+
+An ordinary data command also repairs a missing or prunable worktree under the shared
+lock. Doctor keeps the prunable state visible when run without `--fix`, while a missing
+worktree is a valid not-yet-initialized state.
 
 **2. Sync Branch Health Check**
 
@@ -3647,15 +4011,15 @@ Run `tbd doctor --fix` to auto-fix 2 issue(s)
 The `--fix` flag performs repairs in this order:
 
 1. If worktree corrupted:
-   - **Backup to
-     `$GIT_COMMON_DIR/tbd/backups/corrupted-worktree-backup-YYYYMMDD-HHMMSS/`**
-     (prevents data loss)
+   - Attempt to copy it to
+     `$GIT_COMMON_DIR/tbd/backups/corrupted-worktree-backup-YYYYMMDD-HHMMSS/`
    - Remove the corrupted worktree directory
 2. If worktree prunable: `git worktree prune`
 3. If worktree missing (or was just removed):
    - If local tbd-sync exists:
      `git worktree add $GIT_COMMON_DIR/tbd/data-sync-worktree tbd-sync`
-   - Else if remote exists: `git fetch && git worktree add ... tbd-sync`
+   - Else if remote exists: fetch `refs/heads/tbd-sync:refs/remotes/<remote>/tbd-sync`,
+     then create the local branch and worktree from that remote-tracking ref
    - Else: `git worktree add --orphan tbd-sync ...`
 4. If data in wrong location (`.tbd/data-sync/`):
    - Backup to `$GIT_COMMON_DIR/tbd/backups/tbd-data-sync-backup-YYYYMMDD-HHMMSS/`
@@ -3670,6 +4034,9 @@ The `--fix` flag performs repairs in this order:
 > legacy compatibility but is no longer the active write location.
 > Users can manually inspect backups in either location to recover any data that wasn’t
 > committed before the worktree became corrupted.
+> The current copy failure is swallowed before deletion and the intended path is still
+> reported. This is the `tbd-dmkd` P0 release blocker described under Worktree Lifecycle;
+> do not rely on the backup until that defect is fixed.
 
 #### Compact (Future)
 
@@ -3703,21 +4070,20 @@ tbd config set display.id_prefix cd
 
 ### 4.10 Global Options
 
-Available on all commands:
+The root command registers these global options:
 
 ```bash
---help                      Show help
---version                   Show version
---db <path>                 Custom .tbd directory path (Beads compat alias)
---dir <path>                Custom .tbd directory path (preferred)
---json                      JSON output
---color <when>              Colorize output: auto, always, never (default: auto)
---actor <name>              Override actor name (not yet implemented)
 --dry-run                   Show what would be done without making changes
 --verbose                   Enable verbose output
 --quiet                     Suppress non-essential output
+--json                      Output as JSON
+--color <when>              Colorize output: auto, always, never (default: auto)
 --debug                     Show internal IDs alongside public IDs for debugging
 ```
+
+The root also provides built-in `--help` and `--version`. There are no global `--db`,
+`--dir`, or `--actor` options.
+`--dir` is local to workspace import/save operations.
 
 **Exit Codes:**
 
@@ -3747,28 +4113,12 @@ The `--color` option controls ANSI color output consistently across all commands
 
 This follows the same convention as `git`, `ls`, `grep`, and other Unix tools.
 
-**Actor Resolution Order:**
-
-> **Implementation note:** The `--actor` flag and `TBD_ACTOR` environment variable are
-> not yet implemented.
-> Currently, actor defaults to git user.email or system username.
-> Full actor system design is tracked as future work.
-
-The actor name (used for `created_by` and recorded in sync commits) is resolved in this
-order:
-
-1. `--actor <name>` CLI flag (highest priority)—*not yet implemented*
-
-2. `TBD_ACTOR` environment variable—*not yet implemented*
-
-3. Git user.email from git config
-
-4. System username and hostname (fallback)
-
-Example: `TBD_ACTOR=claude-agent-1 tbd create "Fix bug"`
-
-> **Note:** `--db` is retained for Beads compatibility.
-> Prefer `--dir` for new usage.
+**Actor identity:** Claim-oriented commands resolve the acting name from their command
+specific `--as` option, `TBD_AGENT`, machine-local session identity, then a derived
+`<harness>@<host>` fallback.
+This identity populates `delegate` for guarded ownership operations such as `tbd start`;
+it is not a global flag, does not automatically fill `created_by`, and is not attached
+to sync commits. Section 8.1 defines the current claim contract.
 
 **Agent/Automation Flags:**
 
@@ -3788,13 +4138,16 @@ Example agent workflow:
 
 ```bash
 # CI pipeline: create issue with JSON output
-CI=1 tbd create "Deploy failed" --kind bug --priority=P2 --json
+CI=1 tbd create "Deploy failed" --type bug --priority=2 --json
 
-# Agent: preview changes before committing
-tbd update td-abc1 --status done --dry-run --json
+# Agent: preview an administrative field change
+tbd update proj-abc1 --priority=1 --dry-run --json
+
+# Agent: use the guarded ownership command to claim work
+tbd start proj-abc1 --as build-agent
 
 # Batch script: close multiple issues
-tbd close td-abc1 td-abc2 td-abc3 --quiet
+tbd close proj-abc1 proj-abc2 proj-abc3 --quiet
 ```
 
 ### 4.11 Attic Commands
@@ -3957,10 +4310,11 @@ revertible; git is the undo.
 ### 4.14 Change and Watch Commands
 
 Two commands expose the observation path of §3.7. They share one selector grammar and
-one report format, and neither mutates anything.
+one report format. Neither mutates bead data or canonical sync refs; `tbd watch`
+temporarily manages the private refs described there.
 
 ```bash
-tbd changes --since <commit> [selectors] [--json]     # one-shot, local, pure diff
+tbd changes --since <commit> [selectors] [--json]     # one-shot local commit diff
 tbd watch <selector> [--since <commit>] [--json] \    # block until a matching change
   [--interval <seconds>] [--timeout <seconds>]
 ```
@@ -3968,13 +4322,21 @@ tbd watch <selector> [--since <commit>] [--json] \    # block until a matching c
 `tbd changes` answers “what moved since this commit?”
 against the local sync branch.
 `tbd watch` answers “tell me when something moves” against the remote sync branch.
+At f08, “moves” means an issue record changes.
+The commands do not select or report candidate native comments; §3.7 describes why a
+comment-only commit is treated as unrelated movement and what must change before
+activation.
 
 Watch reports one change and exits rather than streaming.
 That keeps the no-daemon property (§7.1, Decision 2), makes a wake composable with
 ordinary process control (a shell loop, a background task, a spawned agent), and gives
 the caller an explicit resume point instead of an open connection to babysit.
-Delivery is therefore **at least once**: a caller that acts on a report and then dies
-sees it again on restart, so worker actions must be idempotent.
+Raw `tbd watch` persists no cursor.
+Without `--since`, a restarted invocation uses the then-current remote tip as its
+baseline and can skip a report the caller lost.
+At-least-once processing requires the caller to persist the prior baseline and report,
+advance the checkpoint only after successful handling, and make actions idempotent.
+The shipped `watch-beads` shortcut demonstrates that protocol.
 
 #### 4.14.1 Baseline Commits
 
@@ -3997,6 +4359,11 @@ The tip differs by command:
 In practice a baseline comes from a previous report: every report carries the full
 resolved `since` and `tip` commit IDs it used, and passing that `tip` back as `--since`
 closes the gap between invocations.
+For `--ready`, that commit checkpoint does not reproduce the earlier selection after
+wall-clock time advances because the report does not yet persist its readiness
+evaluation instant.
+Callers that require at-least-once processing must persist and finish
+handling the emitted report before advancing its checkpoint.
 Without a previous report, any sync-branch commit works, for example
 `git rev-parse tbd-sync`.
 
@@ -4034,8 +4401,17 @@ Matching rules:
   leaving the set both wake.
 
 - **`--ready`.** A bead is reported only when it matches after and did not match before.
-  Ready means open, unassigned, and free of open blockers, the same predicate
-  `tbd ready` uses (§4.4).
+  Ready means open, without a delegate or hold, past any `deferred_until`, and free of
+  non-closed blockers, the same predicate `tbd ready` uses (§4.4). `assignee` records
+  accountability and does not affect readiness.
+  Both endpoint snapshots use one evaluation instant, which prevents a deferral from
+  expiring between the two predicate calls.
+  That instant is selected anew for each command invocation, so fixed commits alone do
+  not currently reproduce ready-edge membership across retries.
+  This edge trigger does not return beads already ready at the baseline, and the passage
+  of `deferred_until` alone creates no Git commit to observe.
+  A general worker therefore scans `tbd ready` at startup, after every pull, and
+  periodically; `tbd watch --ready` supplies remote-change wake-ups between those scans.
 
 #### 4.14.3 Change Report Format
 
@@ -4063,9 +4439,11 @@ Both commands emit the same document.
   The report is command output rather than repository state, so `tbd_format` (§2.7.4)
   does not describe it and there is no separate report version to check.
 
-- Output is deterministic: changes sort by internal ID, and fields follow one fixed
-  order. The field-order record is compile-time exhaustive, so adding a substantive
+- Output order is deterministic: changes sort by internal ID, and fields follow one
+  fixed order. The field-order record is compile-time exhaustive, so adding a substantive
   `Issue` field is a type error until its report position is chosen.
+  Membership is commit-deterministic except for the invocation-time readiness boundary
+  described above.
 
 - `change` is `created`, `updated`, or `deleted`. `fields` covers every substantive
   issue field; `id`, `type`, `version`, and `updated_at` are excluded as bookkeeping.
@@ -4133,8 +4511,10 @@ Board queries run against one in-memory snapshot and call the shared `selectIssu
 `describeQuery` functions.
 Responses include the equivalent CLI invocation and carry light rows only; descriptions
 and notes are fetched per bead when expanded.
-Ready retains one definition on every surface: open, unassigned, and without an open
-blocker. The checkbox selects that exact `tbd ready` set.
+Ready retains one definition on every surface: open, without a delegate or hold, past
+any `deferred_until`, and without a non-closed blocker.
+`assignee` does not affect it.
+The checkbox selects that exact `tbd ready` set.
 Rows expose the derived state as quiet unboxed text after their real labels; it is
 useful scan information, but is neither a lifecycle status nor a user label and must not
 be styled as either.
@@ -4493,531 +4873,159 @@ authentication, concurrency, and security review.
 
 ### 5.1 Import Strategy
 
-The import command is designed to be **idempotent and safe to re-run**. This enables
-workflows where:
+Current tbd has two import entry points with different responsibilities:
 
-- Initial migration from Beads to tbd
+- `tbd setup --from-beads` initializes a repository, imports the current Beads JSONL
+  file, disables the Beads directory, and installs selected agent surfaces.
+- `tbd import <file>` imports an explicit JSONL file into an already initialized
+  repository. The same command also imports tbd workspaces and the outbox.
 
-- Ongoing sync if some agents still use Beads temporarily
+Neither path scans Git branches or merges several Beads snapshots.
+If the working copy and a Beads sync branch differ, reconcile them with Beads or export
+the intended snapshot before migration.
 
-- Recovery if work was accidentally done in Beads
-
-#### 5.1.1 Import Command
-
-The import command supports two modes: **explicit file** and **repository auto-detect**.
+#### 5.1.1 One-Step Beads Migration
 
 ```bash
-# Mode 1: Explicit file (e.g., from `bd export`)
-tbd import <file> [options]
-
-# Mode 2: Auto-detect from Beads repository
-tbd import --from-beads [path] [options]
+tbd setup --from-beads [options]
 
 Options:
-  --format beads          Import format (default: beads)
-  --from-beads [path]     Auto-detect from .beads/ directory (default: current dir)
-  --branch <name>         Specific branch to import from (default: both main + sync)
-  --dry-run               Show what would be imported without making changes
-  --verbose               Show detailed import progress
+  --prefix <name>       Override the prefix read from Beads
+  --force               Allow a non-recommended but valid prefix
+  --no-gh-cli           Disable the GitHub CLI setup hook
+  --surfaces <list>     portable,agents-md,claude,codex,all (default: all)
 ```
 
-**Examples:**
+`--from-beads` implies noninteractive `--auto` mode and requires a `.beads/` directory
+at the Git root. The migration:
+
+1. Reads the Beads prefix, unless `--prefix` supplies one.
+2. Initializes `.tbd/` and the hidden sync worktree.
+3. Imports only the working-tree `.beads/issues.jsonl`, when present.
+4. Moves `.beads/` to `.beads-disabled/`.
+5. Synchronizes managed docs and installs every selected agent surface.
+
+Use `--surfaces=claude` for only Claude Code hooks, `--surfaces=agents-md` for only
+`AGENTS.md`, or combine comma-separated names.
+`codex` selects Codex hooks; `portable` selects the portable Agent Skill.
+Omitting `--surfaces`, or selecting `all`, installs all four.
+
+**Migration data-safety defect (`tbd-lgtd`).** The current setup handler catches an
+exception from the JSONL import, prints a warning, and proceeds to disable `.beads/`. A
+missing JSONL file is also skipped before that move.
+Within the importer, individual issue-write failures are counted before the write and
+are only reported in verbose mode, so setup can also continue without an outer
+exception. The shipped flow is therefore not fail-closed and must not be described as a
+verified safe cutover.
+`tbd-lgtd` tracks requiring a complete import before disabling Beads.
+
+#### 5.1.2 Explicit JSONL and Workspace Import
 
 ```bash
-# Explicit file import (recommended for controlled migration)
-bd export > beads-export.jsonl
-tbd import beads-export.jsonl
+# Initialized repository: import a Beads-compatible JSONL snapshot
+tbd import <file> [--merge] [--verbose]
 
-# Re-import after more Beads work (safe to re-run)
-bd export > beads-export.jsonl
-tbd import beads-export.jsonl  # Updates existing, adds new, no duplicates
+# Compare an existing import with a Beads directory
+tbd import --validate [--beads-dir <path>] [--verbose]
 
-# Preview changes before importing
-tbd import beads-export.jsonl --dry-run
-
-# Auto-detect from repository (imports from both main and sync branch)
-tbd import --from-beads
-
-# Auto-detect from specific path
-tbd import --from-beads /path/to/repo
-
-# Import only from main branch
-tbd import --from-beads --branch main
-
-# Import only from sync branch
-tbd import --from-beads --branch beads-sync
+# Import saved tbd state
+tbd import --workspace=<name> [--clear-on-success]
+tbd import --dir=<path> [--clear-on-success]
+tbd import --outbox
 ```
 
-**Auto-initialization with `--from-beads`:**
+`--dry-run` and `--json` are global options.
+There is no `--format`, `--from-beads`, `--branch`, `--include-tombstones`, or
+`--skip-tombstones` option on `tbd import`.
 
-When using `--from-beads` in a repository that has not been initialized with `tbd init`,
-the import command will automatically initialize tbd first.
-This enables a one-step migration workflow:
+The file importer parses nonempty JSONL lines, skips malformed rows, and accepts rows
+that have both `id` and `title`. It detects the most common display prefix among the
+first ten accepted rows and may update `display.id_prefix` before writing issues.
 
-```bash
-# One-step migration (no prior tbd init needed)
-tbd import --from-beads
-# Output: "Initialized tbd and imported 142 issues from Beads"
-```
+#### 5.1.3 ID Mapping and Re-Import
 
-This auto-initialization only applies to `--from-beads` mode.
-Explicit file import (`tbd import <file>`) still requires prior initialization with
-`tbd init`. See §4.1.1 for full initialization requirements.
-
-#### 5.1.2 Multi-Source Import (--from-beads)
-
-When using `--from-beads`, tbd reads directly from the Beads repository structure
-instead of an exported file.
-This is useful when you want to import without running `bd export` first, or when you
-need to capture changes from both main and sync branches.
-
-**Beads Repository Structure:**
-
-Beads stores issues in two potential locations that may contain different data:
-
-```
-.beads/
-├── issues.jsonl          # JSONL on current branch (may be main or feature branch)
-├── beads.db              # SQLite cache (gitignored, not imported)
-└── config.yml           # Contains sync.branch setting
-
-# If sync.branch is configured (e.g., "beads-sync"):
-# The sync branch also has .beads/issues.jsonl
-```
-
-**Why both branches matter:**
-
-1. **Sync branch** (`beads-sync`): Where daemon commits changes automatically
-
-2. **Main branch**: Where sync branch is periodically merged
-
-These can diverge when:
-
-- Daemon has committed to sync branch but not yet pushed/merged to main
-
-- Agent work happened on sync branch after last merge to main
-
-- Different machines have committed to different branches
-
-**Auto-Detection Algorithm:**
-
-```
-DETECT_BEADS_SOURCES(path):
-  1. Find .beads/ directory at path (or current directory)
-  2. Read .beads/config.yaml to get sync.branch setting
-  3. Collect JSONL sources:
-
-     sources = []
-
-     # Check current branch / working directory
-     if exists(.beads/issues.jsonl):
-       sources.append({
-         branch: "working-copy",
-         path: .beads/issues.jsonl
-       })
-
-     # Check main branch (via git show)
-     main_branch = detect_default_branch()  # main or master
-     if git_file_exists(main_branch, ".beads/issues.jsonl"):
-       sources.append({
-         branch: main_branch,
-         content: git_show(main_branch + ":.beads/issues.jsonl")
-       })
-
-     # Check sync branch if configured
-     if sync_branch = config.yaml["sync.branch"]:
-       if git_file_exists(sync_branch, ".beads/issues.jsonl"):
-         sources.append({
-           branch: sync_branch,
-           content: git_show(sync_branch + ":.beads/issues.jsonl")
-         })
-
-  4. Return sources (may be 1-3 depending on configuration)
-```
-
-**Reading from Git Branches Without Checkout:**
-
-```bash
-# Read JSONL from a specific branch without checking it out
-git show beads-sync:.beads/issues.jsonl
-
-# Check if file exists on branch
-git cat-file -e beads-sync:.beads/issues.jsonl 2>/dev/null && echo "exists"
-```
-
-#### 5.1.3 Multi-Source Merge Algorithm
-
-When importing from multiple sources (e.g., main and sync branches), issues are merged
-using **Last-Write-Wins (LWW)** based on `updated_at` timestamp, matching Beads’ own
-merge behavior.
-
-```
-MERGE_JSONL_SOURCES(sources):
-  merged = {}  # beads_id -> issue
-
-  for source in sources:
-    for line in source.content:
-      issue = parse_json(line)
-      beads_id = issue.id
-
-      if beads_id not in merged:
-        # First occurrence
-        merged[beads_id] = issue
-        merged[beads_id]._source = source.branch
-      else:
-        existing = merged[beads_id]
-        # LWW: newer updated_at wins
-        if issue.updated_at > existing.updated_at:
-          merged[beads_id] = issue
-          merged[beads_id]._source = source.branch
-        # If timestamps equal, prefer sync branch over main
-        # (sync branch has the "true" latest state)
-        elif issue.updated_at == existing.updated_at:
-          if source.branch == sync_branch:
-            merged[beads_id] = issue
-            merged[beads_id]._source = source.branch
-
-  return merged.values()
-```
-
-**Priority Order (when timestamps are equal):**
-
-1. Sync branch (most authoritative for Beads data)
-
-2. Working copy (uncommitted changes)
-
-3. Main branch (last merged state)
-
-**Attic preservation during import:** When multiple sources have conflicting values for
-the same Beads issue, the losing version is preserved in the attic with source
-information. This maintains the “no data loss” invariant even during import merges.
-
-**Example Scenario:**
-
-```
-Main branch .beads/issues.jsonl:
-  bd-a1b2: title="Fix bug", updated_at="2025-01-10T10:00:00Z"
-  bd-c3d4: title="Add feature", updated_at="2025-01-09T08:00:00Z"
-
-Sync branch .beads/issues.jsonl:
-  bd-a1b2: title="Fix bug (WIP)", updated_at="2025-01-10T14:00:00Z"  # Newer!
-  bd-c3d4: title="Add feature", updated_at="2025-01-09T08:00:00Z"    # Same
-  bd-e5f6: title="New task", updated_at="2025-01-10T12:00:00Z"       # New!
-
-Merged result:
-  bd-a1b2: title="Fix bug (WIP)" (from sync, newer)
-  bd-c3d4: title="Add feature" (from sync, same timestamp, sync preferred)
-  bd-e5f6: title="New task" (from sync, only exists there)
-```
-
-**Import Output with Multi-Source:**
-
-```bash
-$ tbd import --from-beads --verbose
-
-Detecting Beads sources...
-  ✓ Working copy: .beads/issues.jsonl (23 issues)
-  ✓ Main branch: main:.beads/issues.jsonl (21 issues)
-  ✓ Sync branch: beads-sync:.beads/issues.jsonl (25 issues)
-
-Merging 3 sources...
-  Merged: 27 unique issues
-  Conflicts resolved: 4 (LWW by updated_at)
-    bd-a1b2: sync > main (14:00 > 10:00)
-    bd-x7y8: working > sync (16:00 > 15:00)
-    ...
-
-Importing merged issues...
-  New issues:      5
-  Updated:         3
-  Unchanged:       19
-
-Import complete.
-```
-
-#### 5.1.4 ID Mapping and Preservation
-
-The key to idempotent import is **stable ID mapping with ID preservation**. Imported
-issues retain their original short IDs, ensuring:
-
-- The same Beads issue always maps to the same tbd issue
-- Users don’t need to learn new IDs after migration
-- Commit messages, documentation, and external references remain valid
-
-**ID preservation algorithm:**
-
-When importing `tbd-100`, extract the short part (`100`) and use it directly:
-
-```
-Beads ID:       tbd-100
-Short ID:       100        (extracted, preserved)
-Internal ID:    is-01hx5zzkbkactav9wevgemmvrz  (generated ULID)
-Display ID:     bd-100     (or tbd-100 with display.id_prefix: tbd)
-```
-
-**Mapping storage:**
-
-All short IDs (imported and new) are stored in the unified mapping file:
-
-```yaml
-# .tbd/data-sync/mappings/ids.yml
-# Imported issues preserve original short IDs:
-100: 01hx5zzkbkactav9wevgemmvrz # was tbd-100
-101: 01hx5zzkbkbctav9wevgemmvrz # was tbd-101
-1823: 01hx5zzkbkcdtav9wevgemmvrz # was tbd-1823
-# New issues get random 4-char base36:
-a7k2: 01hx5zzkbkdetav9wevgemmvrz
-```
-
-**No separate beads.yml needed:** Since the original short ID is preserved in `ids.yml`,
-there’s no need for a separate mapping file.
-The `extensions.beads` field stores metadata about the import for debugging:
+Every imported issue receives an internal `is-{ulid}` identity.
+When available, the short portion of the Beads ID is retained in
+`.tbd/data-sync/mappings/ids.yml`, and provenance is stored on the issue:
 
 ```yaml
 extensions:
   beads:
-    original_id: tbd-100 # Full original ID (for reference)
-    imported_at: 2025-01-10T10:00:00Z
+    original_id: tbd-100
+    imported_at: 2026-09-10T10:00:00.000Z
 ```
 
-**Properties:**
+On a later import, `extensions.beads.original_id` is the primary identity match.
+Without `--merge`, a source row whose `updated_at` is not newer than the existing issue
+is skipped; a newer row is converted again and replaces the imported fields while
+advancing the issue version.
+`--merge` forces that replacement regardless of timestamp.
+This is not the field-wise Git merge algorithm and it does not archive per-field losers.
 
-- **ID preserved**: `tbd-100` becomes `bd-100` (same short ID, configurable prefix)
-- **Synced**: Mapping file lives on sync branch, shared across all machines
-- **Immutable entries**: Once a short ID is mapped, it never changes
-- **Collision handling**: If a short ID already exists (rare), skip import of that issue
-  and warn—this indicates the issue was already imported
+An occupied mapping row with no loaded issue causes the importer to allocate a new
+internal and short ID. A different, unsafe case exists when an unrelated loaded issue
+already owns the desired short ID: the current code reuses that issue internal ID and
+can overwrite its file rather than allocate a replacement.
+`tbd-0oz8` tracks this destructive import-collision defect as a release-safety blocker.
 
-**Mapping recovery:** If `ids.yml` is corrupted or lost, it can be reconstructed by
-scanning all issue files.
-Each issue’s internal ID provides the ULID, and the `extensions.beads.original_id`
-provides the short ID for imported issues.
-Run `tbd doctor --fix` to rebuild.
+Normal sync-merge collisions follow the separate deterministic repair in §2.6: the
+smallest ULID keeps the contested short ID and displaced ULIDs receive derived
+replacements.
 
-#### 5.1.5 Import Algorithm
+#### 5.1.4 Field and Relationship Conversion
 
-```
-IMPORT_BEADS(jsonl_file):
-  1. Load existing ID mapping from .tbd/data-sync/mappings/ids.yml
-     (create empty {} if not exists)
+The importer maps recognized statuses and kinds through the tables in §§5.3–5.4. An
+unknown status becomes `open`, an unknown kind becomes `task`, and an invalid priority
+becomes 2. Beads `tombstone` maps directly to `closed`; no tombstone selection flags or
+automatic deletion label exist.
 
-  2. For each line in jsonl_file:
-     a. Parse Beads issue JSON
-     b. beads_id = issue.id (e.g., "tbd-100")
-     c. short_id = extract_short_id(beads_id)  # "100" from "tbd-100"
+The first pass allocates identities for all accepted rows.
+The second pass translates `blocks` dependency targets and `parent` through that map.
+Missing targets are omitted.
+Although `blocked_by` is recognized while reading, the current converter does not add
+its inverse edge, so that relationship is dropped.
 
-     d. Look up short_id in id_mapping:
-        - If found: This issue was already imported
-          tbd_id = "is-" + id_mapping[short_id]
-          Load existing tbd issue for merge
-        - If not found: New import
-          tbd_id = generate_new_ulid("is-")
-          Add id_mapping[short_id] = tbd_id.ulid_part
-          # Preserves original short ID!
+#### 5.1.5 Migration Workflow
 
-     e. Convert Beads fields to tbd format (see Field Mapping)
-
-     f. Set extensions.beads.original_id = beads_id
-        Set extensions.beads.imported_at = now()
-
-     g. If existing tbd issue:
-        - Compare updated_at timestamps
-        - If Beads is newer: apply merge using standard rules
-        - If tbd is newer: skip (tbd changes preserved)
-        - If same: no-op (already imported)
-     h. If new issue:
-        - Write new tbd issue file
-
-  3. Save updated ids.yml mapping file
-
-  4. Report: N new, M updated, K unchanged, J skipped (tbd newer)
-
-  5. Stage locally (publish later with `tbd sync`)
-
-extract_short_id(beads_id):
-  # "tbd-100" → "100"
-  # "bd-a1b2" → "a1b2"
-  return beads_id.replace(/^[a-z]+-/, "")
-```
-
-#### 5.1.6 Merge Behavior on Re-Import
-
-When re-importing an issue that already exists in tbd:
-
-| Scenario | Behavior |
-| --- | --- |
-| Beads unchanged, tbd unchanged | No-op |
-| Beads updated, tbd unchanged | Update tbd with Beads changes |
-| Beads unchanged, tbd updated | Keep tbd changes (skip) |
-| Both updated | Merge using LWW rules, loser to attic |
-
-**Merge uses standard issue merge rules:**
-
-- `updated_at` determines winner for scalar fields
-
-- Labels use union (both additions preserved)
-
-- Description/notes use LWW with attic preservation
-
-**Example re-import scenario:**
-
-```
-Time 0: Import bd-a1b2 → is-x1y2 (initial import)
-Time 1: Agent updates bd-a1b2 in Beads (adds label "urgent")
-Time 2: Human updates is-x1y2 in tbd (changes priority to 1)
-Time 3: Re-import bd-a1b2
-
-Result: is-x1y2 has both changes:
-  - Label "urgent" (from Beads, union merge)
-  - Priority 1 (from tbd, more recent updated_at wins)
-```
-
-#### 5.1.7 Handling Deletions and Tombstones
-
-> **Scope:** This section specifies tombstone and deletion handling.
-> See also: §2.5.3 (Notes on tombstone status), §5.4 (Status Mapping), §5.5 (Migration
-> Gotchas).
-
-Beads uses `tombstone` status for soft-deleted issues.
-On import:
-
-| Beads Status | tbd Behavior | Rationale |
-| --- | --- | --- |
-| `tombstone` (first import) | Skip by default | Don’t import deleted issues |
-| `tombstone` (re-import) | Set `status: closed`, add label `deleted-in-beads` | Preserve history |
-
-**Options:**
+For the supported one-step cutover:
 
 ```bash
-tbd import beads.jsonl --include-tombstones  # Import tombstones as closed
-tbd import beads.jsonl --skip-tombstones     # Skip tombstones (default)
-```
+# First make the working-tree .beads/issues.jsonl the intended source snapshot.
+bd sync
 
-#### 5.1.8 Dependency ID Translation
+# Preview all setup effects, including selected surfaces.
+tbd --dry-run setup --from-beads --surfaces=all
 
-Beads dependencies reference Beads IDs.
-On import, these must be translated:
-
-```
-Beads: { "type": "blocks", "target": "bd-m5n6" }
-tbd: { "type": "blocks", "target": "is-d4e5f6" }  # Looked up from mapping
-```
-
-**Algorithm:**
-
-1. Import all issues first (build complete mapping)
-
-2. Second pass: translate dependency target IDs
-
-3. If target not in mapping: log warning, skip dependency (orphan reference)
-
-#### 5.1.9 Import Output
-
-```bash
-$ tbd import beads-export.jsonl
-
-Importing from beads-export.jsonl...
-  New issues:      23
-  Updated:         5
-  Unchanged:       142
-  Skipped (newer): 2
-  Tombstones:      3 (skipped)
-
-Dependency translation:
-  Translated: 45
-  Orphaned:   1 (bd-z9a0 not found, skipped)
-
-Import complete. Run 'tbd sync' to push changes.
-```
-
-**With --dry-run:**
-
-```bash
-$ tbd import beads-export.jsonl --dry-run
-
-DRY RUN - no changes will be made
-
-Would import from beads-export.jsonl:
-  New issues:      23
-    bd-a1b2 → is-??? "Fix authentication bug"
-    bd-c3d4 → is-??? "Add OAuth support"
-    ...
-  Would update:    5
-    bd-x7y8 (is-m1n2) - Beads newer by 2 hours
-    ...
-  Unchanged:       142
-  Would skip:      2
-    bd-p1q2 (is-g7h8) - tbd newer by 1 day
-```
-
-#### 5.1.10 Migration Workflow
-
-**One-step migration (recommended):**
-
-```bash
-# In a repo with .beads/ directory - simplest approach
-tbd import --from-beads
-git add .tbd/
-git commit -m "Initialize tbd and import from beads"
+# Migrate, then verify the result before relying on .beads-disabled/.
+tbd setup --from-beads --surfaces=all
+tbd stats
+tbd import --validate --beads-dir=.beads-disabled --verbose
 tbd sync
 ```
 
-This auto-initializes tbd and imports all issues in a single command.
-
-**Two-step migration (explicit file):**
-
-```bash
-# In Beads repo
-bd export > beads-export.jsonl
-
-# In target repo (may be same repo)
-tbd init
-tbd import beads-export.jsonl
-git add .tbd/
-git commit -m "Initialize tbd and import from beads"
-tbd sync
-```
-
-**Ongoing sync (transition period):**
-
-```bash
-# If agents are still using Beads occasionally
-bd export > beads-export.jsonl
-tbd import beads-export.jsonl  # Safe to re-run
-
-# After import, tbd is authoritative
-# New work should use tbd commands
-```
-
-**Recovery (accidental Beads usage):**
-
-```bash
-# Agent accidentally used Beads commands
-# Recover that work into tbd
-bd export > beads-export.jsonl
-tbd import beads-export.jsonl
-tbd sync
-# Agent's work is now in tbd
-```
+Because of `tbd-lgtd`, retain an independent Beads backup and inspect validation output
+until the setup cutover is fail-closed.
+For a controlled explicit snapshot, initialize with `tbd init --prefix=<name>` and run
+`tbd import <file>`; explicit file import does not disable Beads.
 
 ### 5.2 Command Mapping
 
 | Beads Command | tbd Equivalent | Status | Notes |
 | --- | --- | --- | --- |
-| `bd init` | `tbd init` | ✅ Full | Identical behavior |
-| `bd create` | `tbd create` | ✅ Full | All options supported |
-| `bd list` | `tbd list` | ✅ Full | All filters supported |
-| `bd show` | `tbd show` | ✅ Full | Same output format |
-| `bd update` | `tbd update` | ✅ Full | All options supported |
+| `bd init` | `tbd init --prefix=<name>` | ✅ Partial | Different Git storage and setup flow |
+| `bd create` | `tbd create` | ✅ Partial | Core fields; use tbd help for current options |
+| `bd list` | `tbd list` | ✅ Partial | Core queries; filters differ |
+| `bd show` | `tbd show` | ✅ Partial | Equivalent lookup; output differs |
+| `bd update` | `tbd update` | ✅ Partial | Core fields plus tbd ownership fields; flags differ |
 | `bd close` | `tbd close` | ✅ Full | With `--reason` |
-| `bd ready` | `tbd ready` | ✅ Full | Same algorithm |
+| `bd ready` | `tbd ready` | ✅ Partial | tbd also evaluates delegate, hold, deferral, and blockers |
 | `bd blocked` | `tbd blocked` | ✅ Full | Shows blocking issues |
 | `bd label add` | `tbd label add` | ✅ Full | Identical |
 | `bd label remove` | `tbd label remove` | ✅ Full | Identical |
 | `bd label list` | `tbd label list` | ✅ Full | Lists all labels |
 | `bd dep add` | `tbd dep add` | ✅ Full | Only “blocks” type |
 | `bd dep tree` | `tbd dep tree` | 🔄 Future | Visualize dependencies |
-| `bd sync` | `tbd sync` | ✅ Full | Different mechanism, same UX |
+| `bd sync` | `tbd sync` | ✅ Partial | Dedicated branch, docs, and optional provider fold |
 | `bd stats` | `tbd stats` | ✅ Full | Same statistics |
 | `bd doctor` | `tbd doctor` | ✅ Full | Different checks |
 | `bd info` | `tbd status` | ⚡ Enhanced | Renamed; works pre-init, shows integrations |
@@ -5026,8 +5034,9 @@ tbd sync
 | `bd compact` | `tbd compact` | 🔄 Future | Deferred |
 | `bd prime` | `tbd prime` | ⚡ Partial | No --mcp/--full flags; always outputs full context |
 | `bd diagnose` | `tbd doctor` | ✅ Partial | Subset of diagnostics |
-| `bd import` | `tbd import` | ✅ Full | Beads JSONL import |
-| `bd export` | `tbd export` | 🔄 Future | Can export as JSON |
+| Beads migration | `tbd setup --from-beads` | ✅ Partial | One working-tree JSONL source; see `tbd-lgtd` |
+| `bd import` | `tbd import <file>` | ✅ Partial | Explicit Beads-compatible JSONL into initialized tbd |
+| `bd export` | — | 🔄 Future | No current tbd export command |
 
 **Legend:**
 
@@ -5070,18 +5079,11 @@ tbd sync
 | `blocked` | `blocked` | Direct mapping |
 | `deferred` | `deferred` | Direct mapping |
 | `closed` | `closed` | Direct mapping |
-| `tombstone` | *(deleted)* | Skip on import or move to attic |
+| `done` | `closed` | Direct mapping |
+| `tombstone` | `closed` | Direct mapping |
 
-**Tombstone handling:**
-
-Beads uses `tombstone` for soft-deleted issues.
-tbd options:
-
-1. **Skip on import**: Don’t import tombstoned issues (default)
-
-2. **Import as closed**: Convert to `closed` with label `tombstone`
-
-3. **Import to attic**: Store in `.tbd/data-sync/attic/deleted/`
+The current importer does not skip tombstones, add a tombstone label, or move them to
+the attic. It converts them to ordinary closed issues.
 
 ### 5.5 Compatibility Notes
 
@@ -5111,7 +5113,8 @@ tbd options:
 
 - Beads: SQLite cache
 
-- tbd: Optional index, rebuildable from files
+- tbd: Direct scans of file-per-issue YAML and Markdown records; the index in §6.1 is a
+  candidate optimization
 
 **Daemon:**
 
@@ -5155,20 +5158,12 @@ CLI output.
 - Change report schema from `tbd changes` and `tbd watch` (§4.14.3), under the same
   additive-only rule as other JSON output
 
-- Initialization error: Commands in uninitialized repos exit with code 1 and message
-  `Error: Not a tbd repository (run 'tbd init' or 'tbd import --from-beads' first)`
+- Command names and primary flags identified as current in this spec
 
-- Command names and primary flags listed in this spec
-
-- External ID format: `{prefix}-{4-5 base36 chars}` (e.g., `proj-a7k2`)
+- External ID format: `{prefix}-{short}` (for example, `proj-a7k2`); new short IDs begin
+  as base36 and imports may preserve a wider legacy grammar
 
 - Internal ID format: `is-{26 char ulid}` (e.g., `is-01hx5zzkbkactav9wevgemmvrz`)
-
-**Stable with deprecation warnings:**
-
-- Flag aliases (e.g., `--db` → `--dir`)
-
-- Field renames in JSON output (old name continues to work)
 
 **Not guaranteed stable:**
 
@@ -5178,32 +5173,32 @@ CLI output.
 
 - Timing of sync operations
 
-- Internal file formats (index.json structure)
+- Candidate internal cache formats, including the future index in §6.1
 
 **Beads compatibility aliases:**
 
-These flags/behaviors are maintained for Beads script compatibility:
+These behaviors support familiar Beads workflows without claiming flag-for-flag
+compatibility:
 
-- `--db <path>` → `--dir <path>`
-
-- `--type <kind>` → maps to `kind` field (not `type`)
+- `--type <kind>` on issue commands maps to the issue `kind` field
 
 - Display prefix (e.g., `proj-`) set via `display.id_prefix` during init or import
 
 #### Migration Gotchas
 
-1. **IDs are preserved**: Beads `tbd-100` becomes `bd-100` (same short ID!)
+1. **IDs are preserved when available**: Beads `tbd-100` normally keeps short ID `100`.
    - Internal ID is ULID-based: `is-01hx5zzkbk...`
    - Short ID is preserved: `100`
    - Set `display.id_prefix: tbd` to keep exact same display format
-   - Commit messages and documentation references remain valid
+   - A collision can change the display ID; see the deterministic merge repair and the
+     `tbd-0oz8` import blocker
 
 2. **No daemon**: Background sync must be manual or cron-based
 
 3. **No auto-flush**: Beads auto-syncs on write
    - tbd publishes issues on `tbd sync` (per-command auto-sync is not currently enabled)
 
-4. **Tombstone issues**: Decide import behavior (skip/convert/attic)
+4. **Tombstone issues**: Current import converts them to `closed`
 
 * * *
 
@@ -5274,9 +5269,9 @@ fi
 
 - Incremental update: <100ms for typical sync (10-50 changed files)
 
-**Incremental operations:** Common operations like `tbd list`, `tbd ready`, and
-`tbd sync --status` use the index and diff-based updates to meet performance targets
-even at scale.
+If this candidate ships, common queries could use the index and diff-based updates.
+Current `tbd list` and `tbd ready` scan issue files directly, while `tbd sync --status`
+asks Git for worktree and ref state.
 
 #### File I/O Optimization
 
@@ -5284,7 +5279,7 @@ even at scale.
 
 - Atomic writes: temp file + rename
 
-- Lazy loading: only parse JSON when needed
+- Lazy loading candidate: parse issue YAML and Markdown records only when needed
 
 - Streaming for large operations
 
@@ -5330,53 +5325,30 @@ even at scale.
 
 ### 6.3 Migration Path
 
-**Beads → tbd migration workflow:**
+The supported Beads migration is the setup flow from §5.1:
 
 ```bash
-# 1. Final Beads sync (stop daemon first)
+# 1. Make the working-tree JSONL the intended source snapshot.
 bd sync
 
-# 2. Import issues to tbd (auto-initializes if needed)
-tbd import --from-beads --verbose
+# 2. Preview the migration and selected agent surfaces.
+tbd --dry-run setup --from-beads --surfaces=all
 
-# 3. Disable Beads (moves files to .beads-disabled/)
-tbd setup beads --disable               # Preview what will be moved
-tbd setup beads --disable --confirm     # Actually disable
+# 3. Initialize, import .beads/issues.jsonl, move .beads to
+#    .beads-disabled, and install the selected surfaces.
+tbd setup --from-beads --surfaces=all
 
-# 4. Install tbd integrations
-tbd setup claude                        # Claude Code hooks
-tbd setup codex                         # AGENTS.md (for Codex, Cursor, etc.)
-
-# 5. Verify and commit
+# 4. Verify before relying on the disabled source, then publish tbd data.
 tbd stats
-git add .tbd/ && git commit -m "Migrate from Beads to tbd"
-git push origin tbd-sync
+tbd import --validate --beads-dir=.beads-disabled --verbose
+tbd sync
 ```
 
-**What `tbd setup beads --disable` does:**
-
-The command safely moves all Beads files to `.beads-disabled/` for potential rollback:
-
-| Source | Destination | Description |
-| --- | --- | --- |
-| `.beads/` | `.beads-disabled/.beads/` | Beads data and config |
-| `.beads-hooks/` | `.beads-disabled/.beads-hooks/` | Beads git hooks |
-| `.cursor/rules/beads.mdc` | `.beads-disabled/.cursor/rules/beads.mdc` | Cursor rules |
-| `.claude/settings.local.json` | `.beads-disabled/.claude/settings.local.json` | Backup (bd hooks removed) |
-| `AGENTS.md` | `.beads-disabled/AGENTS.md` | Backup (Beads section removed) |
-| `.gitattributes` | `.beads-disabled/.gitattributes` | Backup (beads merge driver lines removed) |
-
-To restore Beads, move files back from `.beads-disabled/`.
-
-**Gradual rollout alternative:**
-
-- Keep Beads running alongside tbd initially (don’t run `tbd setup beads --disable`)
-
-- Compare outputs (`bd list` vs `tbd list`)
-
-- Migrate one team/agent at a time
-
-- Run `tbd setup beads --disable --confirm` for full cutover when confident
+There is no separate `setup beads --disable` preview or confirmation command.
+Setup renames the entire `.beads/` directory to `.beads-disabled/`; it does not move the
+other paths listed by older drafts of this design.
+Because `tbd-lgtd` allows that rename after an incomplete import, preserve an
+independent backup until the runtime fix ships.
 
 ### 6.4 Installation and Agent Integration
 
@@ -5459,6 +5431,7 @@ therefore update the central pin without rewriting the script.
 ```bash
 tbd setup --auto --prefix=myapp   # Fresh project: initialize + configure hooks
 tbd setup --auto                  # Existing project: update hooks and skill files
+tbd setup --auto --surfaces=claude # Install or refresh only Claude Code hooks
 ```
 
 Setup requires a git repository.
@@ -5512,7 +5485,9 @@ exists. This creates a “just works” experience without breaking non-tbd proj
 **Cursor IDE and AGENTS.md-compatible tools:**
 
 Cursor (v1.6+) and other AGENTS.md-compatible tools read the `AGENTS.md` file
-automatically. Run `tbd setup codex` to create/update AGENTS.md with tbd instructions.
+automatically. Run `tbd setup --auto --surfaces=agents-md` to create or update
+`AGENTS.md` with tbd instructions.
+Use `--surfaces=codex` for Codex hooks; these are separate selectable surfaces.
 
 **Generic (any editor):**
 
@@ -5525,7 +5500,7 @@ This project uses tbd for issue tracking:
 
 - Find work: `tbd ready`
 - Create issues: `tbd create "title" --type=task`
-- Claim work: `tbd update <id> --status=in_progress`
+- Claim work: `tbd start <id>`
 - Complete: `tbd close <id>`
 - Sync: `tbd sync`
 ```
@@ -5638,11 +5613,13 @@ Use npm unless you have specific requirements.
 
 - **Time-ordered sorting**: ULIDs sort chronologically, useful for debugging and
   listings
-- **No collisions**: ULID’s 80-bit randomness eliminates collision retry logic
+- **Collision resistance**: A process-local monotonic factory plus 80 random bits makes
+  duplicate internal IDs negligible without a distributed allocator
 - **Cross-project merging**: Multiple projects can merge their issues without internal
   ID collisions (external IDs may need different prefixes)
 - **Human-friendly**: Short base36 IDs (4-5 chars) are easy to type and remember
-- **Permanent references**: External IDs are stable for docs, commits, external systems
+- **Short references**: External IDs are convenient for docs, commits, and external
+  systems; deterministic collision repair can reassign a displaced short ID
 - **Beads compatibility**: Configurable display prefix (`bd-`) for migration
 
 **Tradeoffs**:
@@ -5775,12 +5752,15 @@ checkout.
 
 - Worktree directory added to `.tbd/.gitignore`
 
-- `tbd init` creates worktree automatically
+- `tbd init` creates the worktree; the first ordinary data command also materializes a
+  missing or prunable worktree in an initialized clone
 
 - Worktree kept in sync via `tbd sync` commands
 
-- **No silent fallback**: If worktree is missing, commands error with repair
-  instructions (see §2.3.5 Path Terminology and Resolution)
+- **No silent direct-path fallback**: Ordinary commands auto-materialize missing and
+  prunable worktrees under the shared lock; corrupted worktrees fail with
+  `tbd doctor --fix` guidance (see
+  [Path Terminology and Resolution](#path-terminology-and-resolution))
 
 **Tradeoffs**:
 
@@ -5794,15 +5774,19 @@ checkout.
 
 **Mitigations**:
 
-- Search commands auto-refresh if worktree is stale
+- `tbd search` reads the local worktree.
+  Its current freshness message does not fetch; `tbd-iwup` tracks that defect
 
-- `tbd doctor` detects and repairs worktree issues (see §4.9)
+- Ordinary data commands heal missing and prunable worktrees at the point of use
 
-- `tbd sync --fix` repairs worktree before syncing
+- `tbd doctor --fix` attempts to back up and repair corrupted worktrees.
+  The backup-before-delete failure in `tbd-dmkd` is a P0 release blocker
+
+- The direct `.tbd/data-sync/` fallback remains limited to tests and diagnostics
 
 - Space overhead is minimal (issues are small files)
 
-- Clear error messages guide users to repair commands
+- Clear error messages route destructive repair through `tbd doctor --fix`
 
 ### 7.2 Future Enhancements
 
@@ -5870,37 +5854,30 @@ Post-process results to:
 
 - Heartbeats and presence (ephemeral)
 
-#### Comments/Messages
+#### Native Comments and Messaging
 
-**Entities**: `messages/` collection on sync branch
+The selected candidate is the immutable `comments/` collection with `cm-` IDs described
+in §2.10. Its record/storage and inventory/transition foundations are internal and
+dormant in f08; the Git guards, recovery paths, format activation, and public commands
+remain future work.
 
-**Use cases**:
+The initial product surface is shared, bead-attached discussion with optional reply
+references. Arbitrary direct messages, addressed inboxes, read receipts, presence, and
+private mailboxes are separate capabilities that require their own identity, delivery,
+and retention contracts.
 
-- Comments on issues
+#### External Tracker Bridges
 
-- Agent-to-agent messaging
+Linear is the current external-tracker implementation (§8.7). It runs during explicit
+CLI sync, uses durable write-ahead intents for provider writes, and stores bounded
+provider comments inside the linked bead’s provider namespace.
+It has no webhook or background process.
+GitHub issues are the next planned adapter; pull requests remain read-only associations.
 
-- Threaded discussions
-
-#### GitHub Bridge
-
-**Architecture**:
-
-- Optional bridge process
-
-- Webhook-driven sync
-
-- Outbox/inbox pattern
-
-- Rate limit aware
-
-**Use cases**:
-
-- Mirror issues to GitHub for visibility
-
-- Sync comments bidirectionally
-
-- Trigger workflows on issue changes
+Future native-comment projection is limited to explicitly linked beads.
+It must keep mutable provider aliases, destination lineage, and delivery state outside
+the immutable native record, apply provider rate limits, and cut over idempotently from
+the current embedded representation.
 
 #### Real-time Coordination
 
@@ -5950,37 +5927,60 @@ daemon. What it does not provide:
 
 ### 7.3 File Structure Reference
 
-**Complete file tree after `tbd init`:**
+**Current f08 storage layout:**
 
+This tree intentionally omits the candidate `comments/` and `attic/comment-conflicts/`
+paths shown in §2.10. Current setup does not create or protect those paths.
+Entries marked “when used” are absent from a fresh `tbd init` scaffold.
+
+**Checkout on the main branch:**
+
+```text
+.tbd/
+├── config.yml                   # Committed project config
+├── .gitignore                   # Committed ignore rules
+├── .gitattributes               # Committed by setup; protects workspace mappings
+├── workspaces/                  # Committed outbox and named state, when used
+├── state.yml                    # Gitignored local state, when used
+├── docs/                        # Gitignored installed documentation
+├── backups/                     # Gitignored legacy local backups, when used
+├── data-sync-worktree/          # Gitignored legacy path; current clients do not create it
+└── data-sync/                   # Gitignored reserved simple-mode path
 ```
-repo/
-├── .git/
-├── .tbd/                         # On main branch
-│   │
-│   │ Committed to the repo:
-│   ├── config.yml                  # Project config
-│   ├── .gitignore                  # Controls what's gitignored below
-│   ├── .gitattributes              # Merge strategies (merge=union for ids.yml)
-│   ├── workspaces/                 # Persistent state (outbox, named workspaces)
-│   │
-│   │ Gitignored (local only):
-│   ├── state.yml                   # Local state (sync timestamps)
-│   ├── docs/                       # Installed documentation (regenerated on setup)
-│   └── data-sync-worktree/         # Worktree checkout of tbd-sync
-│
-└── (on tbd-sync branch)
-    └── .tbd/
-        └── data-sync/
-            ├── issues/                 # Issue entities (ULID-named files)
-            │   ├── is-01hx5zzkbkactav9wevgemmvrz.md
-            │   └── is-01hx5zzkbkbctav9wevgemmvrz.md
-            ├── mappings/               # ID mappings
-            │   └── ids.yml            # short → ULID (preserves import IDs)
-            ├── attic/                  # Conflict archive
-            │   └── conflicts/
-            │       └── is-01hx5zzkbkactav9wevgemmvrz/
-            │           └── 2025-01-07T10-30-00Z_description.yml
-            └── meta.yml               # Metadata
+
+**Git common directory, shared by every linked worktree:**
+
+```text
+$GIT_COMMON_DIR/tbd/
+├── layout.yml                   # Local layout metadata
+├── data-sync.epoch              # Writer epoch, after the first data operation
+├── locks/
+│   └── data-sync.lock/          # Transient mkdir lock while a writer is active
+├── backups/                     # Repair and migration backups, when needed
+└── data-sync-worktree/          # Active hidden checkout of tbd-sync
+```
+
+**Tracked on the `tbd-sync` branch:**
+
+```text
+.tbd/data-sync/
+├── issues/
+│   ├── .gitkeep                 # Fresh scaffold
+│   └── is-01hx5zzkbkactav9wevgemmvrz.md
+├── mappings/
+│   ├── .gitkeep                 # Fresh scaffold
+│   ├── .gitattributes           # ids.yml merge=union
+│   └── ids.yml                  # Short ID → ULID mapping, when used
+├── attic/                       # Conflict evidence, when needed
+│   ├── is-01hx5zzkbkactav9wevgemmvrz_2025-01-07T10-30-00Z_description.yml
+│   └── conflicts/
+│       └── is-01hx5zzkbkactav9wevgemmvrz__2025-01-07T11-45-00Z.md
+├── bridge/                      # External-tracker state, when configured
+│   └── <provider>/
+│       ├── links/<bead-id>.yml
+│       ├── intents/<run-id>.yml
+│       └── users/<provider-user-id>.yml
+└── meta.yml                     # Fresh scaffold; data schema version
 ```
 
 **File counts (example with 1,000 issues):**
@@ -6009,8 +6009,8 @@ simplifying the architecture:
 | Data locations | 4 (SQLite, local JSONL, sync branch, main) | 2 (files on sync branch, config on main) |
 | Storage | SQLite + JSONL | Markdown + YAML (file-per-entity) |
 | Daemon | Required (recommended) | Not required |
-| Agent coordination | External daemon | `tbd watch` wake-ups; atomic claims deferred |
-| Comments | Embedded in issue | Deferred |
+| Agent coordination | External daemon | Issue-only `tbd watch` wake-ups; atomic claims deferred |
+| Comments | Embedded in issue | Linked-provider comments supported; native records internal and dormant |
 | Conflict resolution | 3-way merge | Git-based detection + field-level LWW + attic |
 
 **Core finding:** All essential Beads issue-tracking workflows have direct CLI
@@ -6084,45 +6084,47 @@ Also available via update: `tbd update <id> --add-label X` and `--remove-label X
 This is sufficient for the `ready` command algorithm.
 `related` and `discovered-from` are planned for the future.
 
-#### A.2.4 Sync Commands (Full Parity)
+#### A.2.4 Sync Commands
 
 | Beads Command | tbd Command | Status | Notes |
 | --- | --- | --- | --- |
-| `bd sync` | `tbd sync` | ✅ Full | Pull then push |
-| `bd sync --pull` | `tbd sync --pull` | ✅ Full | Pull only |
-| `bd sync --push` | `tbd sync --push` | ✅ Full | Push only |
+| `bd sync` | `tbd sync` | ✅ Partial | Commit local, fetch/merge, fold enabled trackers, then push; docs also sync |
+| `bd sync --pull` | `tbd sync --pull` | ✅ Partial | Git issue pull only unless `--integrations` is explicit |
+| `bd sync --push` | `tbd sync --push` | ✅ Partial | Git issue push only unless `--integrations` is explicit |
 | *(no equivalent)* | `tbd sync --status` | ✅ New | Show pending changes |
 
 #### A.2.5 Maintenance Commands (Full Parity)
 
 | Beads Command | tbd Command | Status | Notes |
 | --- | --- | --- | --- |
-| `bd init` | `tbd init` | ✅ Full | Identical |
+| `bd init` | `tbd init --prefix=<name>` | ✅ Partial | Dedicated hidden worktree and sync branch |
 | `bd info` | `tbd status` | ⚡ Enhanced | Renamed; works pre-init, shows integrations |
 | `bd status` | `tbd stats` | ⚡ Different | Beads aliases status=stats; tbd separates them |
 | *(no equivalent)* | `tbd status` | ✅ New | Works pre-init, detects beads, shows integrations |
 | `bd doctor` | `tbd doctor` | ✅ Full | Health checks |
-| `bd doctor --fix` | `tbd doctor --fix` | ✅ Full | Auto-fix |
+| `bd doctor --fix` | `tbd doctor --fix` | ⚠️ Current defect | `tbd-dmkd` blocks backup-before-delete safety |
 | `bd stats` | `tbd stats` | ✅ Full | Issue statistics |
-| `bd import` | `tbd import <file>` | ✅ Full | Beads JSONL import |
+| Beads migration | `tbd setup --from-beads` | ⚠️ Current defect | One-source setup flow; see `tbd-lgtd` |
+| `bd import` | `tbd import <file>` | ✅ Partial | Explicit Beads-compatible JSONL import |
 | `bd export` | *(not yet)* | ⏳ Future | Files are the format |
 | `bd config` | `tbd config` | ✅ Full | YAML config |
 | `bd compact` | *(not yet)* | ⏳ Future | Memory decay |
 
-#### A.2.6 Global Options (Full Parity)
+#### A.2.6 Global Options
 
 | Beads Option | tbd Option | Status | Notes |
 | --- | --- | --- | --- |
 | `--json` | `--json` | ✅ Full | JSON output |
 | `--help` | `--help` | ✅ Full | Help text |
 | `--version` | `--version` | ✅ Full | Version info |
-| `--db <path>` | `--db <path>` | ✅ Full | Custom .tbd path |
+| `--db <path>` | *(not supported)* | ❌ Dropped | No global repository-path override |
 | `--no-sync` | *(n/a)* | ❌ Dropped | Removed; issue writes always stage locally (run `tbd sync` to publish) |
-| `--actor <name>` | `--actor <name>` | 🔄 Future | Override actor |
+| `--actor <name>` | *(not supported globally)* | ❌ Dropped | Claim commands use command-specific `--as` and `TBD_AGENT` |
 | *(n/a)* | `--dry-run` | ✅ tbd | Preview changes |
 | *(n/a)* | `--verbose` | ✅ tbd | Debug output |
 | *(n/a)* | `--quiet` | ✅ tbd | Minimal output |
 | *(n/a)* | `--color <when>` | ✅ tbd | Color control |
+| *(n/a)* | `--debug` | ✅ tbd | Show internal IDs beside public IDs |
 
 ### A.3 Data Model Mapping
 
@@ -6151,7 +6153,7 @@ This is sufficient for the `ready` command algorithm.
 | `defer` | `deferred_until` | ✅ | Renamed |
 | *(implicit)* | `version` | ✅ | New: conflict resolution |
 | *(implicit)* | `type` | ✅ | New: entity discriminator ("is") |
-| `comments` | *(future)* | ⏳ | Separate messages entity |
+| `comments` | Candidate `cm-` records | ⏳ | Internal foundation only; no public command or activated format |
 
 #### A.3.2 Status Values
 
@@ -6162,9 +6164,10 @@ This is sufficient for the `ready` command algorithm.
 | `blocked` | `blocked` | ✅ Direct |
 | `deferred` | `deferred` | ✅ Direct |
 | `closed` | `closed` | ✅ Direct |
-| `tombstone` | *(deleted)* | ✅ Skip or move to attic |
-| `pinned` | *(label)* | ✅ Convert to label on import |
-| `hooked` | *(label)* | ✅ Convert to label on import |
+| `done` | `closed` | ✅ Direct |
+| `tombstone` | `closed` | ✅ Direct |
+| `pinned` | `open` | ⚠️ Unknown status fallback; no automatic label |
+| `hooked` | `open` | ⚠️ Unknown status fallback; no automatic label |
 
 #### A.3.3 Issue Types/Kinds
 
@@ -6175,12 +6178,12 @@ This is sufficient for the `ready` command algorithm.
 | `task` | `task` | ✅ |
 | `epic` | `epic` | ✅ |
 | `chore` | `chore` | ✅ |
-| `message` | *(future)* | ⏳ Separate entity |
+| `message` | *(no issue kind)* | ⏳ Direct messaging deferred; bead comments use candidate `cm-` records |
 | `agent` | *(future)* | ⏳ Separate entity |
 
 #### A.3.4 Dependency Types
 
-> **See also:** [§2.7 Relationship Types](#27-relationship-types) for detailed
+> **See also:** [§2.8 Relationship Types](#28-relationship-types) for detailed
 > documentation of tbd’s relationship model, including rationale for differences from
 > Beads.
 
@@ -6203,7 +6206,7 @@ This is sufficient for the `ready` command algorithm.
 
 This is intentional—tbd’s simpler model avoids hidden transitive effects while still
 allowing organizational hierarchy.
-See [§2.7.7](#277-future-transitive-blocking-option) for discussion of adding opt-in
+See [§2.8.7](#287-future-transitive-blocking-option) for discussion of adding opt-in
 transitive blocking in the future.
 
 ### A.4 Architecture Comparison
@@ -6224,7 +6227,7 @@ transitive blocking in the future.
 | --- | --- | --- |
 | Mechanism | SQLite ↔ JSONL ↔ git | Files ↔ git |
 | Branch | Main or sync branch | Sync branch only |
-| Conflict detection | 3-way (base, local, remote) | Git push rejection |
+| Conflict detection | 3-way (base, local, remote) | Git ancestry plus push rejection |
 | Conflict resolution | LWW + union | LWW + union (same strategies) |
 | Conflict preservation | Partial | Full (attic) |
 | Daemon required | Yes (recommended) | No |
@@ -6247,14 +6250,16 @@ bd sync                       # Sync
 
 ```bash
 tbd ready --json            # Find work
-tbd update <id> --status=in_progress  # Claim (advisory)
+tbd start <id>              # Guarded local advisory claim
 # ... work ...
 tbd close <id> --reason "Done"  # Complete
 tbd sync                    # Sync
 ```
 
-**Assessment:** ✅ Identical workflow.
-Claims are advisory in both (no enforcement).
+**Assessment:** The loop shape is compatible, but tbd’s claim verb additionally records
+`delegate` and rejects a different visible in-progress delegate under the local data
+lock. It remains advisory across independent stale clones and becomes visible there only
+after `tbd sync`.
 
 #### A.5.2 Creating Linked Work (Partial Parity)
 
@@ -6278,19 +6283,16 @@ Use `--parent` or wait for a future version.
 #### A.5.3 Migration Workflow
 
 ```bash
-# Export from Beads
-bd export -o beads-export.jsonl
-
-# In target repo
-tbd init
-tbd import beads-export.jsonl  # Converts format
-git add .tbd/
-git commit -m "Initialize tbd from beads"
+# In the Beads repo, reconcile the working-tree JSONL first.
+bd sync
+tbd setup --from-beads --surfaces=all
+tbd import --validate --beads-dir=.beads-disabled --verbose
 tbd sync
-
-# Configure display prefix for familiarity
-tbd config display.id_prefix bd
 ```
+
+For an explicit exported snapshot, initialize with `tbd init --prefix=<name>`, import
+the file with `tbd import <file>`, and set a different prefix with
+`tbd config set display.id_prefix bd` when needed.
 
 ### A.6 Parity Summary
 
@@ -6301,14 +6303,14 @@ tbd config display.id_prefix bd
 | Dependencies | ⚠️ Partial | Only `blocks` type |
 | Sync | ✅ Full | Pull, push, status |
 | Maintenance | ✅ Full | Init, doctor, stats, config |
-| Import | ✅ Full | Beads JSONL + multi-source |
+| Import | ⚠️ Partial | Working-tree setup migration or explicit JSONL; no multi-source scan; see `tbd-lgtd` and `tbd-0oz8` |
 
 ### A.7 Deferred Features
 
 | Category | Priority | Notes |
 | --- | --- | --- |
 | Agent registry | High | Built-in coordination |
-| Comments/Messages | High | Separate entity type |
+| Native comments | High | Record/storage and inventory/transition internals exist; Git preservation, activation, and commands remain deferred |
 | `related` deps | Medium | Additional dep type |
 | `discovered-from` deps | Medium | Additional dep type |
 | Daemon | Medium | Optional background sync |
@@ -6319,8 +6321,8 @@ tbd config display.id_prefix bd
 
 - **CLI:** 95%+ compatible for core workflows
 
-- **Data:** Full import from Beads JSONL (including multi-source from main + sync
-  branch)
+- **Data:** Import from the working-tree Beads JSONL during setup, or from one explicit
+  JSONL file; no current main-plus-sync multi-source import
 
 - **Display:** Configurable ID prefix (`bd-xxxx` vs `cd-xxxx`)
 
@@ -6393,27 +6395,29 @@ Real-time agent coordination is deferred:
 
 ### B.5 Comment Commands
 
-Comments will be a separate entity type in the future:
+The selected candidate uses immutable `cm-` records in a separate `comments/` collection
+(§2.10). Its internal foundation does not expose a current user command or activate a
+repository format.
 
 | Beads Command | Why Not Included |
 | --- | --- |
-| `bd comment add` | Comments entity - future |
-| `bd comment list` | Comments entity - future |
-| `bd comments show` | Comments entity - future |
+| `bd comment add` | Native writer and format activation remain future |
+| `bd comment list` | Bounded native reader remains future |
+| `bd comments show` | Bounded native reader remains future |
 
 ### B.6 Editor Integration Commands
 
 | Beads Command | tbd Equivalent | Status |
 | --- | --- | --- |
-| `bd setup claude` | `tbd setup claude` | ✅ Implemented |
-| `bd setup cursor` | `tbd setup cursor` | ✅ Implemented |
+| `bd setup claude` | `tbd setup --auto --surfaces=claude` | ✅ Implemented |
+| `bd setup cursor` | `tbd setup --auto --surfaces=agents-md` | ✅ Via AGENTS.md |
 | `bd setup aider` | *(not implemented)* | Not planned |
-| `bd setup factory` | `tbd setup codex` | ✅ Implemented (renamed) |
+| `bd setup factory` | `tbd setup --auto --surfaces=codex` | ✅ Codex hooks |
 | `bd edit` | *(not implemented)* | Not planned (use `tbd show` + editor) |
 
 ### B.7 Additional Dependency Types
 
-> **See also:** [§2.7 Relationship Types](#27-relationship-types) for tbd’s complete
+> **See also:** [§2.8 Relationship Types](#28-relationship-types) for tbd’s complete
 > relationship model.
 
 Currently only `blocks` is supported.
@@ -6431,7 +6435,7 @@ Based on real-world Beads usage data:
 **Note:** In Beads, `parent-child` enables transitive blocking (if parent is blocked,
 children inherit that blockage), while tbd’s `parent_id` is purely organizational with
 no blocking effects.
-See [§2.7.5](#275-comparison-with-beads) for details.
+See [§2.8.5](#285-comparison-with-beads) for details.
 
 ### B.8 State Label Commands
 
@@ -6465,91 +6469,88 @@ See [§2.7.5](#275-comparison-with-beads) for details.
 
 | Beads Value | Why Not Included |
 | --- | --- |
-| `issue_type: message` | Messages are future |
+| `issue_type: message` | Direct messaging is future; bead comments use a separate candidate record |
 | `issue_type: agent` | Agent registry is future |
 | `issue_type: role` | Advanced orchestration |
 | `issue_type: convoy` | Advanced orchestration |
 | `issue_type: molecule` | Workflow templates |
 | `issue_type: gate` | Async gates |
 | `issue_type: merge-request` | External integration |
-| `status: pinned` | Convert to label on import |
-| `status: hooked` | Convert to label on import |
+| `status: pinned` | Unknown import status falls back to `open`; no automatic label |
+| `status: hooked` | Unknown import status falls back to `open`; no automatic label |
 
 * * *
 
-## 8. Open Questions
+## 8. Cross-Cutting Decisions and Open Questions
 
-These items from the design review need further discussion before implementation.
-See `tbd-design-v2-phase1-tracking.md` for full context.
+This section records cross-cutting decisions, current behavior, and remaining design
+questions. Each subsection labels what has shipped and what remains open.
 
 ### 8.1 Actor System Design
 
-**Status:** Partially designed, not implemented.
-
-The actor system tracks who creates and modifies issues.
-Current implementation status:
+**Status:** Advisory claim identity is implemented; durable actor history and a
+cross-replica claim protocol remain open.
 
 **Implemented:**
 
-- Schema fields: `created_by` and `assignee` exist in IssueSchema
-- CLI option: `--assignee` can be set when creating/updating issues
-- Display: `assignee` shown in list and show commands
+- The schema separates `assignee` (accountability) from `delegate` (the current actor)
+  and records the first `started_at` timestamp.
+- `tbd start <ids...> [--as <name>]` resolves an agent identity, takes the repository
+  data lock, refuses to steal a different delegate’s visible in-progress claim, sets
+  `status: in_progress`, records `delegate`, records `started_at` once, and clears a
+  stale hold. Repeating the same actor’s claim is a reported no-op.
+- `tbd whoami` explains the resolved identity.
+  `tbd whoami --ensure-id` mints one machine-local `agid-<ulid>` for the working
+  directory; setup hooks call it on session start when available.
+- Friendly-name resolution is explicit `--as`, then `TBD_AGENT`, then machine-local
+  session state, then a non-person-identifying `<harness>@<host>` fallback.
+  Harness and model detection are best effort.
+- `tbd ready` tests `delegate`, not `assignee`, so recording a responsible human does
+  not hide every bead from agents seeking work.
+  Linear can project `delegate` only through an explicit agent mapping.
 
-**NOT Implemented:**
+**Current limits:**
 
-- `created_by` field is never populated when creating issues
-- `--actor` CLI flag does not exist
-- `TBD_ACTOR` environment variable not checked
-- No git user.email fallback for actor resolution
-- No system username fallback
+- The claim guard is atomic only within one repository’s current local snapshot.
+  Two stale clones can both claim before either sees the other; ordinary sync merge
+  rules choose a visible result and archive a loser, but do not provide distributed
+  mutual exclusion.
+- Issue records carry the friendly `delegate` value, not the machine-local agent ULID.
+  There is no shared agent registry, lease, heartbeat, or automatic stale-claim expiry.
+- `created_by` remains optional and is not populated automatically.
+  Git retains file history, but tbd does not yet record the actor for every mutation or
+  attribute sync commits to that actor.
 
-**Design Questions:**
+**Open decisions:**
 
-1. **Actor vs Assignee distinction:**
-   - `created_by`: Who created the issue (tracked automatically)
-   - `assignee`: Who is working on it (set explicitly)
-   - Should these always use the same resolution?
-
-2. **Multi-agent workflows:**
-   - Should agents be assigned random ULID-based actor IDs?
-   - How should agents claim/release issues?
-   - Is advisory claiming sufficient or do we need atomic claims?
-
-3. **Actor resolution order:**
-   - Design doc specifies: `--actor` > `TBD_ACTOR` > git user.email > username+hostname
-   - Is this order correct?
-     Should git user.name be considered?
-
-4. **Sync commit authorship:**
-   - Should sync commits use the actor name?
-   - How does this interact with git commit signing?
-
-**Recommendation:** Defer full implementation until multi-agent coordination patterns
-are better understood.
-Current fallback to git user.email is sufficient for single-user and simple multi-agent
-scenarios.
+1. Whether high-contention work needs a remote compare-and-set claim, a bounded lease,
+   or remains advisory with revalidation after every pull.
+2. Whether claims should persist stable agent IDs beside display names, and how a
+   portable registry handles renames and privacy.
+3. Whether `created_by`, mutation authorship, and sync-commit authorship should share an
+   identity record or remain distinct provenance layers.
+4. Which explicit release and stale-claim recovery operations portable workers need.
 
 ### 8.2 Git Operations
 
-**V2-004: Remote vs local branch reference ambiguity**
+**V2-004: Remote vs local branch reference ambiguity—resolved**
 
-After `git fetch origin tbd-sync`, should reads use `origin/tbd-sync` (remote tracking)
-or local `tbd-sync`? Current spec uses `tbd-sync:` in examples, which may read stale
-data if not updated after fetch.
+Mutating sync fetches the configured branch with an explicit destination refspec:
 
-**Options:**
+```bash
+git fetch <remote> \
+  refs/heads/<sync-branch>:refs/remotes/<remote>/<sync-branch>
+```
 
-1. Always read from `origin/tbd-sync` after fetch
+Ahead/behind checks and merges then read `refs/remotes/<remote>/<sync-branch>`. The
+local `refs/heads/<sync-branch>` advances only through the hidden worktree’s committed
+merge; sync never assumes that a destination-less fetch updated the tracking ref.
 
-2. Update local `tbd-sync` ref after fetch, then read from it
+Read-only observation deliberately uses a separate rule.
+`tbd watch` fetches into a private `refs/tbd/watch/...` ref and reads that, leaving both
+the local branch and its configured remote-tracking ref untouched (§3.7).
 
-3. Document both patterns with guidance on when to use each
-
-This is settled for read-only observation, which takes a fourth option: `tbd watch`
-fetches into a private ref and reads that, leaving both `tbd-sync` and `origin/tbd-sync`
-untouched (§3.7). The question remains open for sync itself.
-
-### 8.2 Timestamp and Ordering
+#### 8.2.1 Timestamp and Ordering
 
 **V2-012: Clock skew assumptions**
 
@@ -6571,15 +6572,22 @@ The attic preserves losers, but UX may suffer if the “wrong” version consist
 
 **RESOLVED**: The unified `.tbd/data-sync/mappings/ids.yml` file handles all short ID
 mappings (both imported and newly created).
-Conflicts are resolved via union merge—since short IDs are unique, adding new mappings
-never conflicts with existing ones.
+Git union merge preserves both sides, but independent writers can allocate the same
+short ID to different ULIDs and leave duplicate YAML keys.
+On load, the lexicographically smallest ULID keeps the contested short ID and displaced
+ULIDs receive deterministic derived replacements.
+The corrected mapping is persisted on the next save.
 
-Concurrent imports with the same source would produce identical mappings (idempotent).
-Concurrent imports from different sources have distinct short IDs (no conflict).
+Imports are idempotent only after a prior imported issue can be matched by its persisted
+`extensions.beads.original_id`. Independent first imports generate different ULIDs and
+can collide on their preserved short IDs.
+Explicit import also has the destructive occupied-ID defect tracked by `tbd-0oz8`
+(§5.1.3).
 
 **Additional protection** (added in response to
 [#99](https://github.com/jlevy/tbd/issues/99)): `.tbd/.gitattributes` configures
-`merge=union` for all `ids.yml` files, preventing git from deleting rows during merge.
+`merge=union` for mapping files, preventing Git from deleting nonconflicting rows during
+merge while deliberately leaving same-key duplicates for schema-aware repair.
 The sync code also includes `reconcileMappings()` which detects missing mappings after
 merge and recovers original short IDs from git history before falling back to new random
 IDs. The `doctor --fix` command provides a manual recovery path.
@@ -6590,12 +6598,13 @@ and recovery (reconcileMappings), and manual repair (doctor).
 
 **RESOLVED**: Adopted ULID-based internal IDs.
 
-Internal IDs now use full 26-character ULIDs (128 bits: 48-bit timestamp + 80-bit
+Internal IDs now use full 26-character ULIDs (128 bits: 48-bit timestamp and 80-bit
 randomness). This provides:
 
-- Effectively unlimited ID space (no collision concerns even across merged projects)
-- Time-ordered sorting as a bonus
-- Human interaction uses short 4-5 character base36 external IDs
+- Strong cross-writer collision resistance without a central allocator
+- Time-ordered sorting, with process-local monotonic generation in one millisecond
+- Human interaction through short external IDs; new IDs begin as four-character base36
+  and may lengthen, while imports can preserve a wider legacy grammar
 
 The original concern about 6-hex-char limitations is moot with the dual ID system.
 
@@ -6676,31 +6685,47 @@ Each bead has at most one issue link per provider under the existing opaque name
 extensions:
   linear:
     id: 7202337e-d1ee-4192-bb6c-c6ae42b97469 # stable provider identity
-    key: TBD-3 # display only; may change
-    url: https://linear.app/example/issue/TBD-3/example
     linked_at: 2026-08-10T19:34:32.065Z
 ```
 
-The bead side needs no schema change or format bump: `extensions` is an existing field
-whose contents are opaque, so older tbd versions round-trip a link untouched.
-The **config** side is the opposite and is why the repository format is `f07`.
-`integrations` is a new top-level config key, and every tbd released before 0.6.0 parses
-config in strip mode, so it silently drops the block the first time it rewrites
+The corresponding bridge record owns mutable provider presentation data.
+Its identity and display subset is:
+
+```yaml
+# .tbd/data-sync/bridge/linear/links/<bead-id>.yml
+type: lk
+bead_id: is-01hx5zzkbkactav9wevgemmvrz
+external_id: 7202337e-d1ee-4192-bb6c-c6ae42b97469
+external_key: TBD-3
+external_url: https://linear.app/example/issue/TBD-3/example
+# base, remote_updated_at, synced_at, and state follow the bridge schema
+```
+
+The bead side needed no schema change or format bump: `extensions` was already an opaque
+field, so compatible writers round-trip a link untouched.
+The **config** side caused the historical f07 boundary.
+`integrations` added a top-level config key, while every tbd released before 0.6.0
+parsed config in strip mode and silently dropped that block the first time it rewrote
 `config.yml`—observed three times during the pilot.
-Those clients cannot be fixed retroactively, so f07 makes them fail closed with the
-upgrade message instead.
-From f07 on, `ConfigSchema` and the `integrations` block preserve unknown keys, so a
-later additive config key needs no further bump.
+Those clients could not be fixed retroactively, so f07 made them fail closed with an
+upgrade message. From f07 onward, `ConfigSchema` and the `integrations` block preserve
+unknown keys. The current repository format is f08, whose separate issue-record
+preservation boundary is described in §2.7.3 and `docs/tbd-format-versioning.md`.
 `tbd doctor` reports a block that is committed but missing locally, which is the exact
 signature of a pre-f07 client having stripped it.
 The persisted payload is an allow-list; credentials, raw API responses, emails, and
 workspace metadata never enter a bead.
+The bead link persists only stable provider `id` and `linked_at` fields.
+Human keys and URLs can change when a Linear team is renamed or an issue moves, so
+`external_key` and `external_url` live in the per-link bridge record and refresh on
+sync. Rewriting a bead link removes legacy bead-level `key` and `url` fields.
 Different extension namespaces merge independently.
 A namespace deletion is an edit, so unlink is not silently resurrected by a concurrent
-merge. Within a provider namespace, link writes replace only the allow-listed link keys
-and preserve already-durable siblings such as comments or future additive provider
-state. The writer never spreads new fields from a link input, so sibling preservation
-does not weaken the credential/raw-payload boundary.
+merge. Within a provider namespace, link writes replace the owned stable link fields,
+remove the two legacy display fields, and preserve already-durable siblings such as
+comments or future additive provider state.
+The writer never spreads new fields from a link input, so sibling preservation does not
+weaken the credential/raw-payload boundary.
 Embedded provider comments union by comment ID or `local_id` only within one link
 lineage: both namespaces must name the same nonempty provider issue ID, or both legacy
 namespaces must omit `id`. Different IDs, and known IDs paired with missing, empty, or
@@ -6718,6 +6743,8 @@ to `open` while remaining visible instead of aborting or silently fabricating a 
 `sync` uses a per-link base record on the sync branch for true field-wise three-way
 reconciliation. Write-ahead intents are committed before provider writes and replayed
 idempotently after a crash.
+That guarantee applies to replay of the same committed journal and client UUID; it is
+not a cross-replica logical-comment deduplication claim.
 Description projection has one authoritative writer delimiter pair in
 `core/managed-block.ts`: `⟦tbd⟧` and `⟦/tbd⟧`. These visible plain-text delimiters have
 no Markdown or HTML semantics.
@@ -6745,21 +6772,53 @@ A confirmed absence is pending rather than orphaned—even during pull-only runs
 intentionally defer replay.
 Unlink or relink makes an old journal successful cancellation, not work that may touch
 the former provider item.
-Append-only comments union by immutable identity.
-Provider comment connections paginate completely.
-Every identity is retained for deduplication.
+Independent embedded comments union by `local_id` when present, otherwise by provider
+`id`, and provider comment connections paginate completely.
+Two current boundaries remain:
+
+- Separate stale replicas can plan delivery of one pending local comment with different
+  client UUIDs and create duplicate provider comments.
+  `tbd-6vg5` tracks stable, destination-scoped delivery identity across replicas and
+  uncertain responses.
+- A pushed `{local_id, id}` entry and an independently pulled `{id}` entry do not yet
+  canonicalize as aliases.
+  When entries with one chosen identity carry divergent content, union chooses one
+  observation without preserving or reporting the other.
+  `tbd-58nm` tracks alias canonicalization and same-ID divergence preservation.
+
+The current merge-retention guarantee therefore covers disjoint comment identities, and
+replay of one journal identity is idempotent.
+It does not yet cover those two cross-replica cases.
 For entries with a provider `id`, a body over 10,000 JavaScript UTF-16 code units
 becomes its first 10,000 units plus a truncation marker.
 Only the newest 50 provider-ID entries retain a body, possibly truncated; older entries
-retain all identity and metadata fields, including `local_id` when present, with
-`body: ''`. Pending `local_id`-only entries remain full and outside both limits until a
-provider ID lands.
+retain their stored identity and metadata fields, including `local_id` when present,
+with `body: ''`. Pending `local_id`-only entries remain full and outside both limits
+until a provider ID lands.
+
+These are current embedded provider comments, not native bead comments.
+They exist only inside an explicitly linked provider namespace, and
+`tbd integration comment` queues this representation for that destination.
+The repository policy controls direction with `two_way`, `inbound`, `outbound`, or
+`off`; `two_way` is the default.
+The internal native-comment modules in §2.10 do not read, write, project, or replace
+this state, and no current native/provider synchronization path exists.
+
+Phase 4 makes complete native prose the provider-independent authority.
+Mutable provider aliases, destination lineage, missing-body stubs, and delivery intents
+remain bridge state.
+Activation requires an explicit, idempotent inventory and cutover of existing bodies,
+pending writes, aliases, and stubs; unavailable text must be fetched deliberately before
+native publication. Writes use stable destination-scoped delivery keys, relinking starts
+a new lineage, and historical backfill requires preview and explicit selection.
+Provider retention limits may compact bridge state but must never truncate a native
+record.
 
 When both sides change a merge-owned field differently, the configured winner is kept,
 the loser is archived before either side is overwritten, and the archive path plus a
 client-UUID conflict comment are journaled together.
-Replay reuses both, making the resolution visible exactly once without ever advertising
-a missing archive.
+Replay of that journal reuses both, so it does not duplicate the resolution and never
+advertises a missing archive.
 
 Bare `integration sync` reconciles every linked pair.
 Outbound selectors are accepted only with `--push`; using `--bead`, `--type`,
@@ -6774,18 +6833,29 @@ idempotent claim upsert lands.
 Provider-created hierarchy is imported parent-first.
 A child is accepted only when its parent is already linked or belongs to the same import
 batch; otherwise it fails closed instead of flattening.
-`max_nesting` limits only creation of new outbound projection; inbound and
-already-linked items retain their true parent.
+`linear.policy.outbound.max_nesting` limits only creation of new outbound projection;
+inbound and already-linked items retain their true parent.
 
-Linear `project` configuration scopes both outbound creation and automatic inbound
-discovery. Explicit `--pull --external` is identity-directed and intentionally bypasses
-that scan scope. Assignee writes are enabled only by a non-empty `user_map`: local beads
-persist canonical aliases, configured email/UUID targets resolve at runtime, safely
-mapped aliases seed inbound-created beads, and an unknown provider identity freezes that
-field with a safe warning until it is mapped.
+Linear `target.project` configuration scopes both outbound creation and automatic
+inbound discovery. Explicit `--pull --external` is identity-directed and intentionally
+bypasses that scan scope.
+Outbound assignee writes accept an explicit `identity.user_map` override, an existing
+stable actor binding, or one unique case-insensitive exact match for the local handle
+against an active directory member’s email, login, or display name.
+The explicit map wins; a new directory match persists a binding by provider user ID, and
+an existing binding can continue to resolve a deactivated member.
+Directory failure, no match, or an ambiguous match skips that outbound field with a
+visible reason. Inbound assignee mapping remains `identity.user_map`-only: the remote
+provider ID or email must reverse-map to a canonical local alias.
+Safely mapped aliases seed inbound-created beads, while an unknown provider identity
+freezes that field with a safe warning until it is mapped.
 The bridge retains its prior canonical base during that freeze, so concurrent local
 edits remain divergent and recoverable.
-Provider display names and emails never cross the persistence boundary.
+Provider emails are runtime lookup inputs and are not persisted.
+Provider display names do cross the persistence boundary in the allowlisted
+`display_name` of actor-binding records and the `author` field of embedded provider
+comments. The bead assignee remains the configured canonical local alias rather than an
+email address.
 
 One external item must never have multiple bead writers.
 `link` and inbound creation prevent creating that state with both local reverse indexes
@@ -6818,21 +6888,28 @@ and permit duplication.
 
 Plain `tbd sync` runs enabled trackers after git pull/merge and before push, alongside
 docs and issues. Surface failures roll up without discarding successful work.
-`tbd sync --push` calls the same outbound projection as `tbd integration sync --push`
-while holding the data-sync lock, then commits its writes before the git push; it never
-invokes inbound reconciliation.
+`tbd sync --push` selects only the Git issue surface and skips trackers.
+The deliberate combined form `tbd sync --push --integrations` performs outbound provider
+projection while holding the data-sync lock, then commits those writes before the Git
+push; it does not invoke inbound reconciliation.
+`tbd integration sync --push` is the provider-specific outbound command.
 Provider reports with contained item failures and invalid integration config both fail
 the tracker surface closed and produce a non-zero aggregate result, while independent
 surfaces still complete.
-An explicit `integrations.sync_on_tbd_sync: false` keeps a configured tracker manual.
-There are no webhooks or background provider polling; remote exchange is always an
-ordinary explicit tbd command.
+The unset `integrations.on_tbd_sync` mode resolves to `guarded`, which folds enabled
+trackers into plain sync but refuses an oversized run.
+An explicit `integrations.on_tbd_sync: off` keeps a configured tracker manual.
+The retired pre-f08 boolean `sync_on_tbd_sync` remains readable only for migration
+compatibility. There are no webhooks or background provider polling; remote exchange is
+always an ordinary explicit tbd command.
 
-GitHub pull requests have a narrower role than GitHub issues.
-Issues implement the full adapter lifecycle.
-PRs are read-only implementation associations: tbd may store, show, refresh, link,
-unlink, and attach their identity, but it does not rewrite PR title, body, review state,
-merge state, or branches.
+**Candidate GitHub adapter.** The current runtime implements the full tracker lifecycle
+only for Linear. GitHub has config-schema and provider-registry scaffolding, but
+`buildAdapter()` rejects it because no GitHub adapter exists.
+Generic bead `refs` can persist GitHub issue or pull-request URLs as ordinary external
+references; tbd does not currently fetch, refresh, link, unlink, claim, or mutate those
+GitHub objects. The issue adapter and a read-only pull-request association lifecycle
+remain candidate behavior.
 
 The live browser remains a viewer.
 It may project allow-listed provider keys and URLs, offer shared provider filters, and

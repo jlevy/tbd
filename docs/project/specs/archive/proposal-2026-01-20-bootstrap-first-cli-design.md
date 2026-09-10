@@ -1,5 +1,16 @@
 # tbd CLI UX: Prime-First Design
 
+**Status:** Archived as superseded, 2026-09-10; this proposal was not retained as the
+current CLI contract.
+
+The selected no-argument behavior is documented in
+[plan-2026-02-03-tbd-no-args-help-behavior.md](../done/plan-2026-02-03-tbd-no-args-help-behavior.md).
+For current setup commands and generated agent surfaces, use the
+[CLI manual](../../../../packages/tbd/docs/tbd-docs.md#setup).
+The command and output examples below preserve the January 2026 proposal for historical
+context; positional forms such as `tbd setup claude`, `tbd setup cursor`, and
+`tbd setup codex` are not current commands.
+
 ## Summary
 
 Make `tbd prime` the default no-args experience.
@@ -283,7 +294,7 @@ Commands:
   skill            Output AI agent skill file
 
   list [filters]   List issues (--status, --type, --priority)
-  ready            Show unblocked issues ready to work
+  ready            Show issues that satisfy the readiness predicate
   blocked          Show blocked issues
   show <id>        Show issue details
 
@@ -306,7 +317,7 @@ Global Options:
 Examples:
   tbd                                    # Project orientation (same as prime)
   tbd create "Fix bug" --type bug        # Create bug issue
-  tbd update ar-123 --status in_progress # Start working on issue
+  tbd start ar-123                       # Claim and start working on issue
   tbd skill > skill.md                   # Export skill file
 ```
 
@@ -431,3 +442,7 @@ This shows installation status, project overview, and quick start guide.
 - **`--help`** = standard CLI convention for command reference
 - **`--brief` consistency** = `prime --brief` and `skill --brief` share the same
   condensed skill content, so users get consistent output regardless of which they use
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->
