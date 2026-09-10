@@ -4,7 +4,18 @@
 
 **Author:** Claude (with Joshua Levy)
 
-**Status:** Draft
+**Status:** Archived as superseded, 2026-09-06; this proposal was not implemented as
+written.
+
+The selected successors are the
+[January 30 workspace design](../done/plan-2026-01-30-workspace-sync-alt.md) and
+[February 3 automatic outbox workflow](../done/plan-2026-02-03-streamlined-outbox-workflow.md).
+They preserve the recovery goals while changing the mechanism.
+The
+[September coordination research](../../research/current/research-2026-09-06-bead-agent-coordination.md)
+reviews the shipped behavior and records a pending-comment preservation defect
+(`tbd-hqb9`). The historical design below is not current implementation guidance or a
+replacement for the separate, still-unimplemented batch transaction plan.
 
 ## Overview
 
@@ -1407,3 +1418,7 @@ session. Key findings:
 2. HTTP 403 or similar errors occur when push is forbidden
 3. The outbox provides a safety net for preserving data in these scenarios
 4. Data recovery happens when branches merge and sync eventually succeeds
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

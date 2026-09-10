@@ -4,6 +4,16 @@
 
 **Status**: Complete
 
+> **Archived research, 2026-09-06:** This January initialization study is historical;
+> see
+> [Bead Watching, Comments, and Cross-Agent Coordination](../current/research-2026-09-06-bead-agent-coordination.md)
+> for the current Beads landscape and tbd coordination baseline.
+> The SQLite/JSONL architecture and proposed tbd bootstrap are superseded.
+> Layered installation, initialization, context injection, and thin hook adapters remain
+> useful lessons. The unpinned download/install examples and Go-install advice are not
+> current tbd setup instructions; follow the repository’s current setup and supply-chain
+> guidance. Local attic links below are historical pointers, not pinned source evidence.
+
 **Related**:
 
 - [attic/beads/](attic/beads/) - Beads source code
@@ -590,3 +600,7 @@ Commit proceeds with JSONL changes included
 **Note**: Claude Code runs scripts from both `.claude/hooks/` and `.claude/scripts/` on
 SessionStart. The `.claude/scripts/` location appears to be used by some community
 solutions but is not documented by Beads itself.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

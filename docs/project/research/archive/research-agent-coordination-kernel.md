@@ -1,5 +1,13 @@
 # Agent Coordination Kernel
 
+> **Archived research, 2026-09-06:** This undated conceptual sketch is superseded by
+> [Bead Watching, Comments, and Cross-Agent Coordination](../current/research-2026-09-06-bead-agent-coordination.md).
+> It is retained as historical context for separating durable state, messaging, and
+> execution. The successor replaces its speculative stream/CLI design and unsafe
+> assumptions that append-only records, unique IDs, or an optional relay alone provide
+> multi-writer safety or exclusive ownership.
+> The examples below are not current tbd commands or implementation guidance.
+
 I’m going to answer this the way I’d approach it if I were trying to invent a
 “coordination kernel” that could survive multiple model ecosystems, multiple UI
 surfaces, multiple execution substrates, and still feel UNIX-y instead of like a
@@ -530,3 +538,7 @@ If you want, I can sketch a concrete event type taxonomy (`work.*`, `msg.*`, `le
 `run.*`, `agent.*`) and a minimal CLI UX that maps cleanly onto those primitives, while
 staying backward-compatible with TBD commands (so “agents can just use `tbd`” and
 “orchestrators can use the bus”).
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

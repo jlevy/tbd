@@ -6,7 +6,11 @@
 
 **Status:** Done
 
-**Status:** Draft
+**Current limitation, 2026-09-06:** The automatic workflow is delivered.
+Its recovery path inherits the pending-comment preservation defect (`tbd-hqb9`)
+reproduced in the
+[coordination research](../../research/current/research-2026-09-06-bead-agent-coordination.md).
+Preserve the recovery and clear-after-success goals while repairing that path.
 
 ## Overview
 
@@ -451,9 +455,9 @@ tbd sync
 
 | File | Purpose |
 | --- | --- |
-| [sync.ts](packages/tbd/src/cli/commands/sync.ts) | Main sync command - add auto-import and auto-save |
-| [workspace.ts](packages/tbd/src/file/workspace.ts) | Workspace operations - already has `saveToWorkspace()` and `importFromWorkspace()` |
-| [errors.ts](packages/tbd/src/cli/lib/errors.ts) | Error classes - add error classification utility |
+| [sync.ts](../../../../packages/tbd/src/cli/commands/sync.ts) | Main sync command - add auto-import and auto-save |
+| [workspace.ts](../../../../packages/tbd/src/file/workspace.ts) | Workspace operations - already has `saveToWorkspace()` and `importFromWorkspace()` |
+| [errors.ts](../../../../packages/tbd/src/cli/lib/errors.ts) | Error classes - add error classification utility |
 
 **Insertion points in sync.ts:**
 
@@ -469,11 +473,13 @@ tbd sync
    - Add command-line options
 
 **Existing functions to reuse:**
-- `saveToWorkspace()` from [workspace.ts:260](packages/tbd/src/file/workspace.ts#L260)
+- `saveToWorkspace()` from
+  [workspace.ts:260](../../../../packages/tbd/src/file/workspace.ts#L260)
 - `importFromWorkspace()` from
-  [workspace.ts:386](packages/tbd/src/file/workspace.ts#L386)
+  [workspace.ts:386](../../../../packages/tbd/src/file/workspace.ts#L386)
 - `listIssues()` from file operations
-- `workspaceExists()` from [workspace.ts:609](packages/tbd/src/file/workspace.ts#L609)
+- `workspaceExists()` from
+  [workspace.ts:609](../../../../packages/tbd/src/file/workspace.ts#L609)
 
 #### Error Classification Function
 
@@ -630,7 +636,8 @@ async function handlePermanentFailure(
 
 ### Phase 1: Error Classification
 
-**File:** [packages/tbd/src/cli/lib/errors.ts](packages/tbd/src/cli/lib/errors.ts)
+**File:**
+[packages/tbd/src/cli/lib/errors.ts](../../../../packages/tbd/src/cli/lib/errors.ts)
 
 | Task | Description |
 | --- | --- |
@@ -644,7 +651,8 @@ async function handlePermanentFailure(
 
 ### Phase 2: Auto-Save on Permanent Failure
 
-**File:** [packages/tbd/src/cli/commands/sync.ts](packages/tbd/src/cli/commands/sync.ts)
+**File:**
+[packages/tbd/src/cli/commands/sync.ts](../../../../packages/tbd/src/cli/commands/sync.ts)
 
 | Task | Description |
 | --- | --- |
@@ -663,7 +671,8 @@ async function handlePermanentFailure(
 
 ### Phase 3: Auto-Import on Success
 
-**File:** [packages/tbd/src/cli/commands/sync.ts](packages/tbd/src/cli/commands/sync.ts)
+**File:**
+[packages/tbd/src/cli/commands/sync.ts](../../../../packages/tbd/src/cli/commands/sync.ts)
 
 | Task | Description |
 | --- | --- |
@@ -1060,3 +1069,7 @@ describe('end-to-end recovery', () => {
 - Related spec: plan-2026-01-30-workspace-sync-alt.md
 - Related shortcut: sync-failure-recovery
 - Related guideline: tbd-sync-troubleshooting
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

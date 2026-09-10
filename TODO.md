@@ -5,9 +5,33 @@ in flight. Everything actionable lives in beads; this file is the map, not the b
 Historical detail moves to [TODO.archive.md](./TODO.archive.md).
 
 Beads are the source of truth.
-`tbd list --status open`, `tbd show <id>`. Last reviewed: 2026-08-16.
+`tbd list --status open`, `tbd show <id>`. The release snapshot below dates to
+2026-08-16; it is historical, not the current shipping gate.
+Coordination documentation was reconciled on 2026-09-06; unrelated release/backlog items
+were not re-audited.
 
-## Shipping next: get-tbd 0.7.0 (the f08 release)
+## Agent coordination rollout
+
+The
+[September research](./docs/project/research/current/research-2026-09-06-bead-agent-coordination.md)
+maps the existing plans to their owners and adds current watch, claim, comment,
+recovery, and Linear-delivery findings.
+The
+[phased coordination plan](./docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md),
+tracked by `tbd-khi1`, sequences five independently useful releases: stabilize existing
+contracts, add native comments with manual Git exchange, automate Git transport, project
+to Linear, and integrate portable workers.
+Git transport and Linear projection can proceed independently after native comments; the
+mixed human pilot has its own gate.
+Each phase has acceptance and recovery criteria.
+Implementation has not started.
+Existing transaction, tracker, traceability, actor, state, and runtime scopes retain
+their owners. Three superseded research briefs and January’s abandoned outbox proposal
+are archived with successor links.
+Actor-core delivery is distinct from residual UX (`tbd-p0fe`); runtime refs require the
+explicit compatibility decision in `tbd-i0de`.
+
+## Historical release snapshot: get-tbd 0.7.0 (the f08 release)
 
 Plan:
 [plan-2026-08-15-f08-release-rollout.md](./docs/project/specs/active/plan-2026-08-15-f08-release-rollout.md).
@@ -51,10 +75,10 @@ These cannot be closed by writing code.
 - **`tbd-b7cy`** — whether to create the shared “filter out agent traffic” Linear view,
   and whether labels should be workspace-scoped rather than team-scoped.
   Both are decisions about someone’s workspace, not gaps in the code.
-- **`tbd-klgh`** — `identity.user_map` is empty, so assignee sync is skipped and every
-  sync ends with two warnings.
-  Either map the Linear users or decide assignee stays local-only and downgrade the
-  message.
+
+The former `tbd-klgh` user-map blocker is closed: actor-directory resolution supports
+assignment without a populated legacy map.
+Remaining actor UX is tracked in `tbd-p0fe`.
 
 ## Known loose ends
 
@@ -68,12 +92,11 @@ Real, tracked, and not blocking the release.
 | `tbd-iqgm` | Comment fetching is not delta-gated, so cost is `2+N` per sync rather than `2+changed` |
 | `tbd-fbr6` | `repoUrl` and `prUrls` are rendering code with no data behind them |
 | `tbd-1emr` | Sync’s duplicate-link failure names a UUID where doctor names the issue key |
-| `tbd-t9hi` | Research and active-plan docs describe the pre-f08 label scheme. The shipped shape is a bare `tbd` marker plus `repo:<name>`; in-code and reference docs are current |
 | `tbd-j3q1` | Flaky tryscript: `cli-edge-cases` “Non-existent short ID” collides with did-you-mean suggestions |
 
 ## Open epics
 
-Sixteen open. The ones with active work:
+Selected epics from the original snapshot (query beads for current status):
 
 - **`tbd-dzme`** — External sync and traceability (prime, claim, checkpoint, Linear
   visibility). Phases 1–2 shipped; phase 3 is the current front
@@ -92,9 +115,10 @@ Sixteen open. The ones with active work:
 
 ## Active plan specs
 
-Twenty under [docs/project/specs/active/](./docs/project/specs/active/). The ones
-governing current work:
+Plans under [docs/project/specs/active/](./docs/project/specs/active/) include:
 
+- [Incremental bead coordination and native comments](./docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md)
+  — stabilization through Git-only and human/agent coordination
 - `plan-2026-08-15-f08-release-rollout.md` — the release above
 - `plan-2026-08-14-external-sync-and-traceability.md` — the four-phase Linear plan
 - `plan-2026-08-19-agent-session-refs-and-runtimes.md` — session refs and the runtime
@@ -102,8 +126,11 @@ governing current work:
 - `plan-2026-08-10-external-tracker-integrations.md` — the integration design it feeds
 - `plan-2026-06-13-agent-cli-ergonomics.md` — bulk ops and the output contract
 
-Specs archived out of `active/` stop being mirrored to Linear, which is the intended
-signal that they are done.
+Moving a spec out of `active/` can change an unlinked bead’s eligibility under a
+`specs: active` selector.
+Already-linked beads remain included for reconciliation; archival alone neither unlinks
+them nor signals completion.
+Completed work and superseded designs have distinct document statuses.
 
 ## Reference
 
@@ -112,3 +139,7 @@ signal that they are done.
   Every rule is paired with the Linear behavior that forces it
 - `tbd docs show setup-linear` — connecting a repository
 - [docs/publishing.md](./docs/publishing.md) — release mechanics
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->
