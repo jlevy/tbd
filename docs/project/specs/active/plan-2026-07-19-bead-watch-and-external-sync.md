@@ -494,11 +494,14 @@ idempotency, platform shells, operator output, cleanup, and evidence capture.
 
 ## Open Questions
 
-- Embedded provider comments now use append union.
-  Whether independent native comment documents should become the conversation store
-  remains a research question, with no storage design selected.
-  The September research tracks alias/content conflicts, independent-replica retry
-  duplication, and recovery preservation separately from the delivered merge feature.
+- Embedded provider comment append union has shipped.
+  PR #282 implements a dormant candidate foundation for independent native-comment
+  records and create-only local storage, documented in the
+  [native comment architecture](../../architecture/current/arch-native-comments.md).
+  Its format is not frozen, and Git preservation, CLI activation, and provider
+  projection remain gated by the
+  [September rollout plan](plan-2026-09-06-bead-coordination-and-native-comments.md) and
+  [research](../../research/current/research-2026-09-06-bead-agent-coordination.md).
   Notes remain replacement state.
 - The original module-location question was resolved for the shipped Linear bridge:
   provider-neutral core and Linear adapter modules live under

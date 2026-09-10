@@ -50,6 +50,12 @@ Project-specific specifications, architecture, and research docs:
 - @docs/project/architecture/—System design references and long-lived architecture docs
   (templates and output go here)
 
+  - [Candidate native comment record architecture](project/architecture/current/arch-native-comments.md)
+    documents the dormant internal record/storage foundation and a proposed future f09
+    activation boundary.
+    Current and freshly initialized repositories remain on f08; no native-comment
+    command or activation path is available.
+
 - @docs/project/research/—Research notes and technical investigations
 
   - [Bead watching and cross-agent coordination](project/research/current/research-2026-09-06-bead-agent-coordination.md)

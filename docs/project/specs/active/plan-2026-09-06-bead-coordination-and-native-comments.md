@@ -10,8 +10,13 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Status:** Active. Phase 1 is in progress.
-The embedded provider-comment recovery slice (`tbd-hqb9`, PR #279) is complete; the
-Phase 1 owner (`tbd-3eui`) and every other phase remain open.
+The embedded provider-comment recovery slice (`tbd-hqb9`, PR #279) and the dormant
+native-comment record/storage foundation (`tbd-e1tu`, PR #282) are implemented.
+PR #282 does not change the current f08 format or expose public behavior.
+The Phase 1 owner (`tbd-3eui`) and Phase 2 owner (`tbd-raxf`) remain open.
+The inventory implementation under `tbd-4r3w` appears only in stacked PR #283; no layer
+after `tbd-e1tu` is present at the PR #282 boundary, and the later preservation, format,
+and activation gates remain open.
 
 **Tracking:** `tbd-khi1`; completed historical plan preparation `tbd-q90q`.
 
@@ -487,6 +492,7 @@ implementation.
 
 | Surface | Intended contract | Phase |
 | --- | --- | --- |
+| `tbd comment enable` | Proposed reviewed activation from f08 to the format selected by `tbd-z3ag`; unavailable until the preservation and writer-inventory gates pass | 2 |
 | `tbd comment add/list/show` | Any bead; stable retry identity; full native storage; bounded text/JSON reads; reply references | 2 |
 | Comments-aware one-shot changes | Newly discoverable native records, explicit report version, late-arrival and reset behavior | 2 |
 | `tbd watch --local` | Read-only local wait; comments and task changes; explicit initial catch-up policy | 3 |
@@ -551,19 +557,34 @@ Before any pre-capability f08 increment ships, its negative release gate must pr
 runtime import, configuration, or generated scaffold is reachable; and existing
 integration-comment behavior is unchanged.
 This permits only dormant internal models, inventory helpers, and invariant tests ahead
-of the preservation increment; it does not claim that such an optional component exists.
+of the preservation increment.
+At the PR #282 boundary, only the internal record and storage foundation under
+`tbd-e1tu` exists; it is not native-comment support.
 
-- [ ] Compare independent records against the repaired embedded baseline using the
-  selected `tbd-q2w2` append, collision, recovery, and scale experiments; record why the
-  selected representation passes before freezing its format.
-- [ ] Finalize IDs, authorship, provider-alias representation, sharding, size limits,
-  schema validation, and no-replace publication.
-- [ ] Implement native CLI reads/writes and comments-aware one-shot report/cursor
-  contracts, including missing parents and late arrivals.
+The candidate record and activation contracts are recorded in
+[Native Comment Record Architecture](../../architecture/current/arch-native-comments.md).
+Implementation is stacked in preservation order.
+PR #282 contains the model and create-only storage (`tbd-e1tu`). Later branches add
+inventory and immutable transitions (`tbd-4r3w`), Git operation guards (`tbd-qo4d`),
+workspace and history recovery (`tbd-7ufa`), doctor and the f08 compatibility gate
+(`tbd-44kw`), and finally candidate f09 activation and bounded CLI discovery
+(`tbd-x6eo`). The four preservation layers belong to `tbd-76ad`. At this boundary
+`CURRENT_FORMAT` and fresh setup remain f08, and no `tbd comment enable` or
+native-comment command exists.
+
+- [x] Implement the internal candidate IDs, authorship snapshot, sharding, size limits,
+  strict schema, and no-replace storage primitive without a public export, CLI route, or
+  format change (`tbd-e1tu`, PR #282).
 - [ ] Complete the f08 preservation stack under umbrella `tbd-76ad`, in dependency
-  order: `tbd-4r3w` (completed), `tbd-qo4d`, `tbd-7ufa`, then the final `tbd-44kw`
-  release gate. Extend every sync, recovery, doctor, format, workspace/outbox, and rescue
-  path while native writes remain unavailable.
+  order: `tbd-4r3w`, `tbd-qo4d`, `tbd-7ufa`, then the final `tbd-44kw` release gate.
+  Extend every sync, recovery, doctor, format, workspace/outbox, and rescue path while
+  native writes remain unavailable.
+  None of these layers is included at the PR #282 boundary.
+- [ ] After the preservation evidence exists, run the Phase 2 subset of the broader
+  `tbd-q2w2` experiments, address S282-01 and S282-02, and record the selected
+  representation and durable grammar before freezing the candidate format (`tbd-z3ag`).
+- [ ] Implement native CLI reads/writes and comments-aware one-shot report/cursor
+  contracts, including missing parents and late arrivals (`tbd-x6eo`).
 - [ ] In `tbd-x6eo`, establish a positive inventory of participating writers at or above
   that preservation release and record the old-client refusal evidence.
   Unknown or pre-preservation writers block activation.
@@ -776,7 +797,8 @@ performance SLA is claimed here.
 ## Rollout Plan
 
 1. Land and ship focused Phase 1 fixes through the normal package process.
-   Keep native comments and automation absent until their independent gates pass.
+   Keep native-comment behavior, format activation, and automation absent until their
+   independent gates pass.
 2. Ship the f08 preservation release as its own Phase 2 increment and establish it as
    the participating-writer floor.
    Then introduce the separately reviewed f09 activation in disposable repositories and
