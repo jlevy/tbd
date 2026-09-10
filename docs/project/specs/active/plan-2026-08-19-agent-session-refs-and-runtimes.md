@@ -5,7 +5,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Feature: Agent Session Refs and Runtimes
 
-**Date:** 2026-08-19 (last updated 2026-08-19)
+**Date:** 2026-08-19 (last updated 2026-09-09)
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
@@ -15,8 +15,14 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 **Current review:**
 [Bead Agent Coordination](../../research/current/research-2026-09-06-bead-agent-coordination.md)
 adds findings about checkout identity, ownership, and observation boundaries.
-It does not replace this plan’s session reporting, freshness, or optional adapter scope,
-and it selects no comment-storage or dispatch design.
+That research did not itself select a comment-storage or dispatch design.
+The subsequent
+[September rollout plan](plan-2026-09-06-bead-coordination-and-native-comments.md) and
+[native comment architecture](../../architecture/current/arch-native-comments.md) select
+the independent-record candidate; stacked PRs #282 and #283 implement dormant
+record/storage and inventory groundwork without public behavior.
+Those documents do not replace this plan’s session reporting, freshness, or optional
+adapter scope. Dispatch remains unselected and unimplemented here.
 
 **Research:**
 [research-2026-08-19-agent-runtimes-and-session-linkage.md](../../research/current/research-2026-08-19-agent-runtimes-and-session-linkage.md)
