@@ -2,7 +2,11 @@ import { createHash } from 'node:crypto';
 
 import { describe, expect, it } from 'vitest';
 
-import { buildDataSyncInventory } from '../src/file/data-sync-inventory.js';
+import {
+  buildDataSyncInventory,
+  type DataSyncInventory,
+  type DataSyncInventoryEntry,
+} from '../src/file/data-sync-inventory.js';
 import { serializeNativeComment } from '../src/file/comment-parser.js';
 import { commentShard } from '../src/file/comment-storage.js';
 import {
@@ -52,6 +56,23 @@ function canonicalPath(id: string): string {
 
 function inventory(source: InventorySource, inputs: readonly InventoryInput[]) {
   return buildDataSyncInventory(source, inputs);
+}
+
+class CountingEntriesMap extends Map<string, DataSyncInventoryEntry> {
+  valueIterations = 0;
+
+  override values() {
+    this.valueIterations += 1;
+    return super.values();
+  }
+}
+
+function withCountingEntries(snapshot: DataSyncInventory): {
+  inventory: DataSyncInventory;
+  entries: CountingEntriesMap;
+} {
+  const entries = new CountingEntriesMap(snapshot.entriesByPath);
+  return { inventory: { ...snapshot, entriesByPath: entries }, entries };
 }
 
 function digest(bytes: Uint8Array): string {
@@ -412,6 +433,23 @@ describe('classifyNativeCommentTransitions', () => {
       { id: COMMENT_A, status: 'accepted-existing' },
       { id: COMMENT_B, status: 'accepted-add' },
     ]);
+  });
+
+  it('indexes invalid entries once per inventory instead of rescanning for each identity', () => {
+    const inputs = [canonicalInput(makeComment(COMMENT_A)), canonicalInput(makeComment(COMMENT_B))];
+    const base = withCountingEntries(inventory({ kind: 'git-ref', revision: REVISION_A }, inputs));
+    const candidate = withCountingEntries(
+      inventory({ kind: 'git-ref', revision: REVISION_B }, inputs),
+    );
+
+    const plan = classifyNativeCommentTransitions({
+      base: base.inventory,
+      candidates: [candidate.inventory],
+    });
+
+    expect(plan.status).toBe('clean');
+    expect(base.entries.valueIterations).toBe(1);
+    expect(candidate.entries.valueIterations).toBe(1);
   });
 
   it('requires at least one candidate snapshot', () => {

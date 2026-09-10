@@ -559,6 +559,11 @@ The inventory and transition tests additionally pin bounded raw Git object frami
 filesystem and Git-root validation, exact canonical bytes, raw-path preservation,
 aggregate limits, sparse-index refusal, deterministic N-way decisions, and idempotent
 raw-before-manifest quarantine publication.
+Transition classification indexes invalid entries once per source inventory; a
+structural regression test pins one full traversal per inventory, and the repository
+benchmark reports classification time for 50,000 valid records against a two-second
+target. This addresses ASTRA-283-01 from the
+[exact-head review](https://github.com/jlevy/tbd/pull/283#issuecomment-5625831806).
 FABLE-283-01 was reported in the
 [senior review](https://github.com/jlevy/tbd/pull/283#issuecomment-5597942066) and
 closed with fail-closed filesystem/Git/index ancestor validation; the
