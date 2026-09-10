@@ -238,7 +238,10 @@ actions rather than telling them to run commands.
 - Run \`tbd prime\` to load current project state and the full tbd workflow.
 - Run \`tbd skill\` for the complete reusable tbd skill instructions.
 - Run \`tbd shortcut --list\` and \`tbd guidelines --list\` for on-demand resources.
-- Track all work as beads: \`tbd create\`, \`tbd ready\`, \`tbd close\`, and \`tbd sync\`.
+- Track all work as beads: \`tbd create\`, \`tbd ready\`, \`tbd start\`, \`tbd close\`, and
+  \`tbd sync\`.
+- Before editing a bead, pull and re-read it, run \`tbd start <id>\`, then run \`tbd sync\`
+  so other replicas can see the claim.
 `;
   return `${CODEX_BEGIN_LINE}\n${body}\n${CODEX_END_MARKER}\n`;
 }

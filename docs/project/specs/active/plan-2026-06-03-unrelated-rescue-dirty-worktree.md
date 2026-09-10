@@ -238,8 +238,9 @@ re-running `tbd doctor --fix`.
 - `packages/tbd/src/cli/commands/sync.ts` — up-front unrelated detection + throw,
   push-failure fall-through.
   `packages/tbd/src/cli/lib/errors.ts` — `UnrelatedHistoriesError`.
-- Prior art: `plan-2026-05-29-tbd-sync-unrelated-history-hardening.md` (introduced the
-  rescue and the up-front detection).
+- Prior art:
+  [unrelated-history hardening](../done/plan-2026-05-29-tbd-sync-unrelated-history-hardening.md)
+  (introduced the rescue and the up-front detection).
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

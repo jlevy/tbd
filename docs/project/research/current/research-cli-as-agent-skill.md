@@ -20,10 +20,10 @@
 
 **Related**:
 
-- [tbd Design Doc](../../tbd-design.md)
-- [Modernize Multi-Agent Skills and Hooks Setup Spec](../specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
-- [Streamlined Init/Setup Spec](../specs/active/plan-2026-01-20-streamlined-init-setup-design.md)
-- [Agent Orientation Experience Spec](../specs/active/plan-2026-01-25-agent-orientation-experience.md)
+- [tbd Design Doc](../../../../packages/tbd/docs/tbd-design.md)
+- [Modernize Multi-Agent Skills and Hooks Setup Spec](../../specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
+- [Streamlined Init/Setup Spec](../../specs/done/plan-2026-01-20-streamlined-init-setup-design.md)
+- [Agent Orientation Experience Spec](../../specs/done/plan-2026-01-25-agent-orientation-experience.md)
 - [Unix Philosophy for Agents](./research-unix-philosophy-for-agents.md)
 - [Agent Skills Standard Paths](./research-agent-skills-standard-paths.md)
 
@@ -479,10 +479,11 @@ The help output should include a “Getting Started” section:
 
 ```
 Getting Started:
-  npm install -g get-tbd@latest && tbd setup --auto
+  npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>
 
   This initializes tbd and configures your coding agents automatically.
-  For interactive setup: tbd setup --interactive
+  To select generated agent files: tbd setup --auto --surfaces=<list>
+  To migrate Beads: tbd setup --from-beads
   For manual control: tbd init --help
 
 For more on tbd, see: https://github.com/jlevy/tbd
@@ -495,10 +496,11 @@ export function createHelpEpilog(colorOption: ColorOption = 'auto'): string {
   const colors = pc.createColors(shouldColorize(colorOption));
   const lines = [
     colors.bold('Getting Started:'),
-    `  ${colors.green('npm install -g get-tbd@latest && tbd setup --auto')}`,
+    `  ${colors.green('npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>')}`,
     '',
     '  This initializes tbd and configures your coding agents automatically.',
-    `  For interactive setup: ${colors.dim('tbd setup --interactive')}`,
+    `  To select generated agent files: ${colors.dim('tbd setup --auto --surfaces=<list>')}`,
+    `  To migrate Beads: ${colors.dim('tbd setup --from-beads')}`,
     `  For manual control: ${colors.dim('tbd init --help')}`,
     '',
     colors.blue('For more on tbd, see: https://github.com/jlevy/tbd'),
@@ -524,8 +526,8 @@ Implement two levels of setup commands:
 
 | Command | Purpose | Audience |
 | --- | --- | --- |
-| `tbd setup --auto` | Full setup with auto-detection | Agents, scripts |
-| `tbd setup --interactive` | Prompted setup | Humans |
+| `tbd setup --auto` | Full non-interactive setup with auto-detection | Humans, agents, scripts |
+| `tbd setup --from-beads` | Require and migrate an existing `.beads/` directory | Humans, agents, scripts |
 | `tbd init --prefix=X` | Surgical initialization only | Advanced users |
 
 **Decision Tree**:
@@ -553,23 +555,23 @@ Always require explicit mode selection for setup commands:
 
 ```bash
 tbd setup              # Shows help, requires mode flag
-tbd setup --auto       # Non-interactive (for agents)
-tbd setup --interactive # Interactive (for humans)
+tbd setup --auto       # Full non-interactive setup
+tbd setup --from-beads # Explicit Beads migration; implies --auto
 ```
 
 **Why This Matters**:
 
 - Prevents agents from getting stuck in interactive prompts
-- Ensures humans get guided experience when they want it
-- Explicit is better than implicit for setup operations
+- Separates ordinary setup from a required Beads migration
+- Makes the selected setup operation explicit
 
 **Agent Instructions**:
 
 ```markdown
 **IMPORTANT FOR AGENTS:** Always use `--auto` flag.
 The command `tbd setup` without flags shows help and requires a mode flag.
-Use `--interactive` for humans, `--auto` for agents.
-Agents should ALWAYS run `tbd setup --auto`.
+Use `tbd setup --from-beads` only when migrating a detected `.beads/` repository;
+it implies `--auto`. Otherwise run `tbd setup --auto`.
 ```
 
 * * *
@@ -1215,8 +1217,9 @@ Issues will appear as `<prefix>-a1b2`."
 ```
 
 **Implementation**:
-- `setup --interactive`: Prompts for preferences
-- `setup --auto --prefix=X`: Requires explicit preference values
+- `setup --auto --prefix=X`: Requires explicit preference values for a fresh repository
+- `setup --auto --surfaces=<list>`: Selects generated agent files when the default set
+  is not wanted
 - Never silently infer preference values
 
 **Assessment**: Respecting user preferences builds trust.
@@ -1498,7 +1501,7 @@ npx skills add <owner/repo>
 competing. Skills give agents capabilities; CLI resources give agents domain knowledge.
 A project might use `npx skills add` for capabilities AND `tbd source add` for domain
 knowledge. See the
-[external docs repos spec](../../specs/active/plan-2026-02-02-external-docs-repos.md)
+[external docs repos spec](../../specs/done/plan-2026-02-02-external-docs-repos.md)
 appendix for detailed analysis.
 
 * * *
@@ -2043,7 +2046,8 @@ skill self-contained. Use sparingly—most CLI interactions should be text-based
 ### Setup Flows
 
 18. **Two-tier command structure**: High-level (`setup`) and surgical (`init`)
-19. **Require explicit mode flags**: `--auto` for agents, `--interactive` for humans
+19. **Require explicit mode flags**: `--auto` for full setup and `--from-beads` for a
+    required Beads migration
 20. **Never guess user preferences**: For taste-based config (prefixes), always ask
 21. **Support multi-contributor onboarding**: Detect already-initialized projects
 
@@ -2477,3 +2481,7 @@ This minimal implementation demonstrates: value-first orientation, informational
 commands, and context management—the core patterns that make CLIs effective agent
 skills.
 ````
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

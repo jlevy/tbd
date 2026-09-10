@@ -318,9 +318,10 @@ export interface TrackerAdapter {
   spliceDescription(id: string, block: string): Promise<{ updatedAt: string } | null>;
 
   /**
-   * Post a conflict report where a human will see it. `clientId` makes replay
-   * exactly-once: the provider honors client-generated comment ids and rejects
-   * duplicates (verified live), which the adapter converts to success.
+   * Post a conflict report where a human will see it. Reusing `clientId` makes
+   * replay of that operation idempotent: the provider honors client-generated
+   * comment ids and rejects duplicates (verified live), which the adapter converts
+   * to success.
    */
   postConflict(
     id: string,

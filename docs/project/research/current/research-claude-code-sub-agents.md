@@ -1515,7 +1515,7 @@ for i in $(seq 1 $MAX_ITERATIONS); do
   CHILD_ID=$(tbd create "Iteration $i of: $(tbd show $PARENT_BEAD --json | jq -r '.title')" \
     --type task --priority P2 --json | jq -r '.id')
   tbd dep add "$CHILD_ID" "$PARENT_BEAD"
-  tbd update "$CHILD_ID" --status in_progress
+  tbd start "$CHILD_ID"
 
   PROMPT="You are iteration $i of up to $MAX_ITERATIONS.
 

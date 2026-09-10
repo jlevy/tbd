@@ -46,16 +46,19 @@ delegation.
 
 The delivered core resolves identity through two namespaces:
 
-- **Humans** resolve against the tracker’s own member directory and bind by provider
-  user id, one binding per provider since a Linear UUID and a GitHub login are different
-  identifiers. Adding a person to the team requires no tbd config change.
+- **Humans, outbound** resolve against the tracker’s own member directory and bind by
+  provider user id, one binding per provider since a Linear UUID and a GitHub login are
+  different identifiers.
+  Adding a person to the team requires no tbd config change for outbound assignment.
+  Current inbound aliasing still uses `identity.user_map`.
 - **Agents** carry the identity tbd already mints (`agid-{ulid}` plus a friendly name,
   from `tbd start` / `tbd whoami`). Current identity persists per checkout, so distinct
   live sessions can share it; `delegate` stores the friendly name, not the `agid`.
   Agents reach Linear only through an explicit mapping to an installed agent app user.
 
-Nobody maintains an alias table, and identities that must stay local stay local by
-construction.
+The directory removes the need to maintain an alias table for ordinary outbound
+assignment. `identity.user_map` remains an override and the current inbound alias map;
+identities that must stay local stay local by construction.
 
 ## Goals
 
@@ -166,7 +169,7 @@ One field beside the existing one:
 
 ```
 assignee:  <handle>    # accountable: a human. Existing field, restored to that meaning.
-delegate:  <name>      # acting. Absent reads as "same as assignee".
+delegate:  <name>      # acting. Absent means no acting agent is recorded.
 ```
 
 And no identity table.
@@ -192,8 +195,8 @@ Resolution then runs the same ladder for every provider, first match wins:
 Bindings are recorded by **provider user id**, so a display-name change, a login change,
 or an email change does not orphan the handle.
 The proposed `tbd doctor` actor table and drift diagnostics remain unimplemented.
-This is the same resolve-by-name, bind-by-id pattern the sibling uses for workflow
-states.
+Workflow-state resolution differs: it resolves IDs from live team metadata in each
+process and does not persist general state-ID bindings.
 
 **Binding records are managed data, not config.** One file per identity under the
 provider’s bridge state, `bridge/<provider>/users/<provider-user-id>.yml`, holding the
@@ -207,16 +210,17 @@ was not the shipped behavior.
 Ambiguous or unknown matches do not create guessed bindings.
 
 **Inbound**, an assignee arrives as a provider user id.
-A known id maps through its binding.
-Offering an unknown id as a new binding interactively, with useful reporting otherwise,
-remains a Phase 2 requirement under `tbd-p0fe`.
+The current adapter reverse-maps only identities declared in `identity.user_map`.
+Teaching inbound canonicalization to consume persisted bindings, and offering an unknown
+id as a new binding interactively, remain Phase 2 requirements under `tbd-p0fe`.
 
 **`user_map` stays as an override.** The existing `alias: email-or-uuid` form keeps
 parsing unchanged and wins over directory resolution where present, so no existing
 config breaks. Offering to convert these entries into binding records during
 `tbd integration setup` remains unimplemented; existing maps need not be removed.
-It stops being the mechanism; adding a person to the workspace needs no tbd change at
-all.
+It is no longer the primary outbound mechanism.
+Adding a person to the workspace needs no tbd change for outbound assignment, while
+current inbound aliasing still depends on the map.
 
 ### Identity is per provider, and the handle is the join key
 
@@ -231,7 +235,9 @@ live under `bridge/<provider>/users/`, so a person with accounts in two trackers
 binding records, one per provider directory, both naming the same handle.
 The handle is the join key; nothing else is shared between them.
 
-What falls out, without any additional mechanism:
+The provider-neutral shape supports the outcomes below.
+Today only outbound Linear resolution is wired; inbound use of binding records,
+interactive binding, and a second provider adapter remain Phase 2 or later work.
 
 - **Partial coverage is normal, not an error.** A handle bound in Linear and not in
   GitHub pushes to Linear and produces a reported skip on GitHub.
@@ -240,16 +246,18 @@ What falls out, without any additional mechanism:
 - **One bead mirrored to two providers** pushes the same handle to two different ids,
   each resolved independently by its own adapter.
 - **Inbound from either provider converges** on the same handle when both bindings
-  exist. When only one does, the other provider’s inbound offers a new binding for a
-  handle that already exists, which is the ordinary bind prompt rather than a conflict.
+  exist, once adapters consume them on inbound.
+  When only one does, the target interaction offers a new binding for a handle that
+  already exists rather than treating it as a conflict.
 - **Unbinding or rebinding in one provider leaves the other untouched**, because no
   record spans providers.
 
 The handle namespace is flat, tbd-local, and unregistered — the same posture as agent
-names.
-Its integrity check is diagnostic rather than structural: a handle that appears on
-a bead but has no binding in any configured provider is either a typo or a person nobody
-has bound yet, and `tbd doctor` reports it alongside the resolved actor table.
+names. Its planned integrity check is diagnostic rather than structural: a handle that
+appears on a bead but has no binding in any configured provider is either a typo or a
+person nobody has bound yet.
+The current `tbd doctor` reports agent-shaped assignees only; the resolved actor table
+and missing-binding diagnostics remain under `tbd-p0fe`.
 
 A central person record (`people/<handle>.yml` holding every provider id at once) was
 considered and set aside.
@@ -260,9 +268,10 @@ The join costs nothing either way, since the handle is the key.
 The point to revisit is if a person ever needs provider-independent attributes — a
 canonical display name, a timezone — which nothing here requires.
 
-The agent side is already per provider for the same reason: `agent_map` sits under
-`integrations.linear`, and a GitHub agent binding would get its own key under its own
-provider. Same shape, same reasoning.
+The agent side is already per provider for the same reason: `agent_map` sits at
+`integrations.linear.identity.agent_map`, and a GitHub agent binding would get its own
+key under its own provider.
+Same shape, same reasoning.
 
 ### Agents are tbd identities
 
@@ -285,8 +294,9 @@ belongs in config:
 ```yaml
 integrations:
   linear:
-    agent_map:
-      cyrus: <linear-app-user-id>   # the one identity mapping this design needs in config
+    identity:
+      agent_map:
+        cyrus: <linear-app-user-id> # the one identity mapping this design needs in config
 ```
 
 `kind` from the original #246 proposal disappears: the namespace carries it.
@@ -299,7 +309,7 @@ that is both.
 The claim verb is where the two axes meet, and rewiring it settles a question the first
 draft left open: a claim **is** a delegation, so `tbd start`:
 
-- sets `delegate` to the resolved agent name (today it sets `assignee`, `start.ts:142`);
+- sets `delegate` to the resolved agent name;
 - leaves `assignee` alone — the accountable human, or empty;
 - moves the collision checks to `delegate` (“already claimed by X” compares the acting
   axis);
@@ -311,8 +321,9 @@ and stays out of beads entirely.
 
 **Migration:** beads claimed under the interim wiring hold agent names in `assignee`.
 The shapes are recognizable (roster names, `agid-` ids, the derived `<harness>@<host>`
-form), the feature is days old, and the population is small: `tbd doctor` reports them,
-and setup offers to move each to `delegate`.
+form), the feature is days old, and the population is small.
+`tbd doctor` reports them; the setup-assisted move to `delegate` remains under
+`tbd-p0fe`.
 
 ### Mapping
 
@@ -336,9 +347,10 @@ that was never eligible:
 - The summary gains a field-level line for `skippedPushes`, and `--verbose` names each
   excluded field with its reason (`assignee: no binding for <handle>`,
   `assignee: not eligible (flow=local)`).
-- Writing a value that can never publish under current config — an agent identity in
-  `assignee` on a mirrored repository, a `delegate` with no `agent_map` entry — warns at
-  write time instead of failing silently at sync time.
+- The remaining write-time UX should warn when a value cannot publish under current
+  config: an agent identity in `assignee` on a mirrored repository, or a `delegate` with
+  no `agent_map` entry.
+  Today these cases remain local and appear in sync-time skip reporting.
 
 ## Backward Compatibility
 
@@ -348,16 +360,18 @@ that was never eligible:
   its type and meaning; `delegate` is new and optional.
 - **Library APIs**: KEEP DEPRECATED. New field is optional on every create/update path.
 - **Server APIs**: N/A.
-- **File formats**: SUPPORT BOTH. `delegate` is optional; absent reads as “same as
-  assignee”. `f08` preserves unknown keys; whether the new bead fields need a format bump
-  is one decision shared with the sibling.
+- **File formats**: SUPPORT BOTH. `delegate` is optional; absent means no acting agent
+  is recorded. Legacy agent-shaped `assignee` values are diagnosed for explicit migration
+  rather than treated as delegates.
+  `f08` preserves unknown keys; whether the new bead fields need a format bump is one
+  decision shared with the sibling.
 - **Config**: NO CHANGE to `user_map` — the existing string form keeps parsing and keeps
   winning. `agent_map` is additive.
 - **Data**: binding records and agent records are additive files under existing bridge
   and sync-branch layouts, and are per provider, so adding a second integration adds
   records rather than reshaping existing ones.
-  The only migration is moving agent-shaped `assignee` values to `delegate`, reported by
-  doctor and applied on confirmation.
+  The only planned migration is moving agent-shaped `assignee` values to `delegate`.
+  Doctor reports candidates; setup-assisted confirmation remains unimplemented.
 
 ## Implementation Plan
 
@@ -366,17 +380,20 @@ resolver-and-ask machinery; each phase is useful without the ones after it.
 
 ### Phase 1: The delegate field and the claim verb
 
-- [x] Add `delegate` to the bead schema; absent reads as “same as assignee”
+- [x] Add optional `delegate` to the bead schema; absence means no acting agent is
+  recorded
 - [x] `--delegate` on `tbd create` / `tbd update`, including the bulk path
 - [x] `tbd start` sets `delegate` instead of `assignee`; collision checks move with it
-- [x] Doctor reports agent-shaped `assignee` values; setup offers the move to `delegate`
+- [x] Doctor reports agent-shaped `assignee` values
+- [ ] Setup offers the move to `delegate` (`tbd-p0fe`)
 - [x] Field-level skip line in the sync summary; `--verbose` names each excluded field
-  with its reason; write-time warning for values that can never publish
+  with its reason
+- [ ] Write-time warning for values that can never publish (`tbd-p0fe`)
 - [x] Tests: claim sets delegate and preserves assignee; collision on delegate; the
-  red-proof observability cases (a push whose `--verbose` output omits an excluded field
-  fails; an unpublishable write that emits no warning fails); an `f08` client
-  round-trips a bead carrying `delegate` without stripping it (the format-bump test,
-  shared with the sibling)
+  red-proof sync observability case (a push whose `--verbose` output omits an excluded
+  field fails); an `f08` client round-trips a bead carrying `delegate` without stripping
+  it (the format-bump test, shared with the sibling)
+- [ ] Tests: an unpublishable create or update emits the planned write-time warning
 
 ### Phase 2: Human identity binding
 
@@ -386,7 +403,10 @@ resolver-and-ask machinery; each phase is useful without the ones after it.
 - [ ] Interactive selection for ambiguous or unknown handles (`tbd-p0fe`)
 - [x] Persist bindings by provider user id under `bridge/<provider>/users/`; never guess
   non-interactively
-- [ ] Inbound unknown assignee offers a binding interactively; reports otherwise
+- [x] Current inbound mapping resolves only `identity.user_map`; an unknown identity
+  freezes the assignee field and prior base and emits a warning
+- [ ] Teach inbound mapping to consume persisted bindings and offer an unknown identity
+  as a new binding interactively (`tbd-p0fe`)
 - [x] `user_map` honored as an override
 - [ ] Setup migrates entries to binding records (`tbd-p0fe`)
 - [ ] `tbd doctor` prints the resolved actor table (handle, provider, user id, display
@@ -475,8 +495,9 @@ implementation can start without resolving them all first.
   alone cannot distinguish them; whether a bead needs to is the question.
 - **Agent as assignee** (after Phase 1, from use).
   Reject at write time on tracker-mirrored repositories, or allow and never publish?
-  Phase 1 implements the permissive default — allow, warn, never publish — because it
-  keeps tbd usable for repositories that do not mirror.
+  The current runtime allows the value and reports an unsupported push during sync; the
+  planned write-time warning remains open.
+  A permissive default keeps tbd usable for repositories that do not mirror.
   Tightening later is a one-line change; loosening after people have relied on rejection
   is not.
 - **Central person record** (revisit only if needed).

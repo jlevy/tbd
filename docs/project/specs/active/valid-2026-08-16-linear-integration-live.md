@@ -166,7 +166,9 @@ tbd integration sync                      # expect: nothing to do
 ```
 
 **Expect**: the comment on the Linear issue, and the settle run silent.
-A second copy on either side means the exactly-once path regressed.
+A second copy on either side means same-journal replay regressed.
+This single-checkout scenario does not prove delivery deduplication across independent
+stale replicas; `tbd-6vg5` owns that separate gate.
 
 ## Phase 6: Cost and settling
 
@@ -193,7 +195,8 @@ Only if you can reach a failure safely — a workspace issue cap is the natural 
 - the journal survives, and the whole backlog converges on the first sync after the
   blocker clears, with the journal directory then empty
 
-Verify the journal at `.tbd/data-sync-worktree/.tbd/data-sync/bridge/linear/intents/`.
+Verify the journal at
+`$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/bridge/linear/intents/`.
 
 ## Phase 8: Cleanup
 
@@ -224,3 +227,7 @@ Remove probe artifacts so the next run starts clean:
 Defects this playbook has caught, all now fixed: project not provisioned; `max_nesting`
 ignored by the full sync; spec permalinks naming the working branch; sync-time dates on
 mirrored issues; batch-failure amplification; the managed-block write loop.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

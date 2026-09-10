@@ -16,10 +16,12 @@ verbose/debug logging, and progress indicators.
 
 **Related Documents:**
 
-- [plan-2026-01-17-cli-output-design-system.md](../../specs/active/plan-2026-01-17-cli-output-design-system.md)
+- [plan-2026-01-17-cli-output-design-system.md](../../specs/done/plan-2026-01-17-cli-output-design-system.md)
   \- Implementation plan
-- [output.ts](packages/tbd/src/cli/lib/output.ts) - OutputManager implementation
-- [context.ts](packages/tbd/src/cli/lib/context.ts) - Command context and modes
+- [output.ts](../../../../packages/tbd/src/cli/lib/output.ts) - OutputManager
+  implementation
+- [context.ts](../../../../packages/tbd/src/cli/lib/context.ts) - Command context and
+  modes
 
 ## Terminology
 
@@ -347,9 +349,9 @@ CONFIGURATION
 
 INTEGRATIONS
 
-  ✓ Claude Code skill
-  ⚠ Cursor rules - not installed
-      Run: tbd setup cursor
+  ✓ Portable Agent Skill
+  ⚠ Claude Code hooks - not installed
+      Run: tbd setup --auto --surfaces=claude
 
 HEALTH CHECKS
 
@@ -453,7 +455,8 @@ Examples:
   Check your network connection and try again.
 
 ✗ Not a tbd repository
-  Run 'tbd init' or 'tbd import --from-beads' first.
+  Run 'tbd setup --auto --prefix=<name>' for a new repository,
+  or 'tbd setup --from-beads' when a .beads/ directory is present.
 ```
 
 ### Warning Messages
@@ -492,7 +495,7 @@ Examples:
 [debug] {Internal operation details}
 
 Examples:
-[debug] Loading 42 issues from .tbd/data-sync-worktree
+[debug] Loading 42 issues from /path/to/repo/.git/tbd/data-sync-worktree
 [debug] Cache miss for bd-a1b2, reading from disk
 [debug] Git command: git fetch origin tbd-sync
 [debug] Resolved bd-a1b2 -> is-01hx5zzkbkactav9wevgemmvrz
@@ -872,7 +875,7 @@ The `--pretty` flag displays issues in a tree format showing parent-child relati
 ```
 bd-1875  P1  ✓ closed  [epic] Phase 24 Epic: Installation and Agent Integration
 ├── bd-1876  P1  ✓ closed  [task] Implement tbd prime command
-└── bd-1877  P1  ✓ closed  [task] Implement tbd setup claude command
+└── bd-1877  P1  ✓ closed  [task] Implement Claude agent surface
 bd-a1b2  P1  ◐ in_progress  [bug] Fix authentication bug
 bd-f14c  P2  ○ open  [feature] Add OAuth support
 ├── bd-c3d4  P2  ● blocked  [task] Write OAuth tests
@@ -1070,7 +1073,7 @@ Shows **internal state** for troubleshooting:
 ```bash
 $ tbd show bd-a1b2 --debug
 [debug] Resolved bd-a1b2 -> is-01hx5zzkbkactav9wevgemmvrz
-[debug] Reading /path/to/.tbd/data-sync-worktree/.tbd/data-sync/issues/is-01hx5zzkbkactav9wevgemmvrz.md
+[debug] Reading /path/to/repo/.git/tbd/data-sync-worktree/.tbd/data-sync/issues/is-01hx5zzkbkactav9wevgemmvrz.md
 [debug] Cache hit, using memoized issue
 ---
 id: bd-a1b2 (is-01hx5zzkbkactav9wevgemmvrz)
@@ -1646,3 +1649,7 @@ console.log(colors.blue('✓'));   // Success should be green
 - [12 Factor CLI Apps](https://medium.com/@jdxcode/12-factor-cli-apps-dd3c227a0e46) -
   CLI best practices
 - [NO_COLOR](https://no-color.org/) - Color disable standard
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

@@ -99,7 +99,7 @@ instructions.
 ```bash
 tbd ready                                  # What's available to work on?
 tbd show proj-1847                           # Review the issue details
-tbd update proj-1847 --status=in_progress    # Claim it
+tbd start proj-1847                          # Claim under the resolved agent identity
 ```
 
 ### Complete work
@@ -156,21 +156,30 @@ blocked/deferred
 The recommended way to initialize tbd and configure agent integrations.
 
 ```bash
-tbd setup --auto                  # Full setup with auto-detection (recommended)
-tbd setup --from-beads            # Migrate from existing Beads setup
+tbd setup --auto --prefix=proj    # Fresh repository; prefix is required
+tbd setup --auto                  # Existing tbd repository; refresh and migrate
+tbd setup --from-beads            # Migrate an uninitialized repository from Beads
+tbd setup --auto --surfaces=portable,agents-md  # Install selected agent surfaces
 ```
 
 Options:
-- `--auto` - Automatic mode: auto-detect prefix, migrate beads if present
-- `--from-beads` - Migrate issues from existing Beads setup
-- `--prefix <name>` - Override auto-detected prefix
+- `--auto` - Non-interactive setup mode.
+  Fresh repositories require `--prefix`; an existing `.tbd/config.yml` supplies it.
+  If an uninitialized repository contains `.beads/`, setup reads the Beads prefix and
+  migrates it.
+- `--from-beads` - Require `.beads/` and run the Beads migration; implies `--auto`
+- `--prefix <name>` - Project prefix.
+  Required for a fresh repository unless Beads supplies it
+- `--force` - Permit a valid but non-recommended prefix outside the 2-8-letter form
+- `--no-gh-cli` - Disable the generated GitHub CLI installation hook
+- `--surfaces <list>` - Comma-separated agent surfaces: `portable`, `agents-md`,
+  `claude`, `codex`, or `all`. Omitting the flag installs all four
 
-Subcommands for specific integrations:
-```bash
-tbd setup claude                  # Install Claude Code hooks
-tbd setup codex                   # Install Codex AGENTS.md (also used by Cursor)
-tbd setup beads --disable         # Disable coexisting Beads
-```
+`--surfaces` controls only generated agent integration files.
+Setup still initializes or migrates configuration, refreshes the docs cache, and cleans
+recognized legacy tbd hooks.
+Bare `tbd setup` displays help; the old positional `setup claude`, `setup codex`,
+`setup auto`, and `setup beads` forms are not commands.
 
 ### init
 
@@ -189,7 +198,9 @@ Options:
 - `--remote <name>` - Remote name (default: origin)
 
 Note: For most users, `tbd setup --auto` is recommended instead.
-It auto-detects the prefix and configures agent integrations.
+On a fresh repository it requires an explicit prefix; on an existing tbd repository it
+reads the configured prefix.
+It installs all four agent surfaces unless `--surfaces` narrows the set.
 
 ### create
 
@@ -214,6 +225,9 @@ tbd create "Fix mobile layout" --label=frontend --label=urgent
 # With assignee and due date
 tbd create "Security audit" --assignee=alice --due=2025-02-01
 
+# With separate accountable and acting identities
+tbd create "Review OAuth" --assignee=alice --delegate=review-agent
+
 # From YAML file
 tbd create --from-file=issue.yml
 ```
@@ -224,7 +238,9 @@ Options:
   (default: 2)
 - `--description <text>` - Issue description
 - `--file <path>` - Read description from file
-- `--assignee <name>` - Assign to someone
+- `--assignee <name>` - Set who is accountable
+- `--delegate <name>` - Set who is acting; this administrative write bypasses the
+  guarded claim behavior of `tbd start`
 - `--due <date>` - Due date (ISO8601 format)
 - `--defer <date>` - Defer until date
 - `--parent <id>` - Parent issue ID (for sub-issues).
@@ -318,12 +334,34 @@ For dependency-direction checks, prefer `tbd dep list <id>`. For child issues, t
 parent’s details (ID, title, status, priority, description) are automatically displayed
 below the child for context.
 
+### start
+
+Claim one or more beads under the acting-agent identity:
+
+```bash
+tbd start proj-a7k2
+tbd start proj-a7k2 proj-b3m9 --as review-agent
+tbd whoami                                  # Preview the resolved identity
+```
+
+An accepted claim sets `status: in_progress`, preserves `assignee`, records the resolved
+friendly name in `delegate`, initializes `started_at` once, and clears
+`hold`/`hold_until`. A closed bead is skipped.
+A bead already in progress under a different nonempty delegate is reported and left
+alone; repeating the same visible claim is a no-op.
+
+This is an advisory local guard.
+It does not check blockers or a future deferral, and it cannot compare-and-set against a
+stale remote clone. Pull and re-read before claiming, then run `tbd sync` to publish the
+result. Direct `update --status=in_progress`, `update --delegate`, and
+`create --delegate` are administrative writes that bypass the claim guard.
+
 ### update
 
 Modify an existing issue.
 
 ```bash
-tbd update proj-a7k2 --status=in_progress    # Start working
+tbd update proj-a7k2 --status=in_progress    # Direct status edit; not a guarded claim
 tbd update proj-a7k2 --status=blocked        # Mark as blocked
 tbd update proj-a7k2 --priority=P0            # Escalate priority
 tbd update proj-a7k2 --assignee=bob          # Reassign
@@ -347,7 +385,10 @@ Options:
 - `--status <status>` - Set status
 - `--type <type>` - Set type
 - `--priority <0-4>` - Set priority
-- `--assignee <name>` - Set assignee
+- `--assignee <name>` - Set who is accountable
+- `--delegate <name>` - Set who is acting; this administrative write bypasses the
+  `start` collision check
+- `--hold <state>` - Set `blocked`, `paused`, or `none`
 - `--description <text>` - Set description
 - `--notes <text>` - Set working notes
 - `--notes-file <path>` - Set notes from file
@@ -391,6 +432,9 @@ tbd close proj-a7k2 --reason="Fixed in PR #42"
 Options:
 - `--reason <text>` - Reason for closing (`-` reads stdin)
 - `--reason-file <path>` - Read the close reason from a file (`-` reads stdin)
+- `--as <resolution>` - `completed`, `canceled`, or `duplicate`; ordinary close omits
+  the stored value and reads as completed
+- `--duplicate-of <id>` - Required with `--as duplicate`
 - `--ignore-missing` - Skip unknown IDs instead of failing the batch
 
 ### reopen
@@ -407,6 +451,25 @@ Options:
 - `--reason <text>` - Reason for reopening (`-` reads stdin)
 - `--reason-file <path>` - Read the reopen reason from a file (`-` reads stdin)
 - `--ignore-missing` - Skip unknown IDs instead of failing the batch
+
+Reopen clears `closed_at`, `close_reason`, `resolution`, and `duplicate_of` while
+retaining the historical `started_at`.
+
+### pause and resume
+
+Set work down without erasing that it started, or lift that hold:
+
+```bash
+tbd pause proj-a7k2 --until=2026-09-12 --reason="Waiting for access"
+tbd resume proj-a7k2 --reason="Access restored"
+```
+
+`pause` records `hold: paused`, optional `hold_until`, and an optional note while
+leaving `status` and `started_at` intact.
+`resume` clears the hold and its deadline.
+Both commands accept multiple IDs and `--ignore-missing`; closed beads are reported and
+skipped. Passing `hold_until` does not automatically clear a pause, so resume remains
+explicit.
 
 ### Bulk operations and the output contract
 
@@ -459,8 +522,9 @@ per-command auto-sync, and the legacy no-op `--no-sync` flag has been removed.
 
 ### ready
 
-List issues ready to work on: open, unblocked, unassigned, and not deferred into the
-future.
+List issues ready to work on: `status` is open, no `delegate` or `hold` is set, any
+`deferred_until` has elapsed, and no non-closed blocker targets the bead.
+`assignee` records accountability and does not affect readiness.
 
 ```bash
 tbd ready                                   # All ready issues
@@ -552,21 +616,41 @@ means the shown issue blocks the target.
 
 ### sync
 
-Synchronize issues with remote repository.
+Synchronize the docs, issue Git, and enabled external-tracker surfaces.
 
 ```bash
 tbd sync                                    # Full sync (pull + push)
-tbd sync --status                           # Check sync status
-tbd sync --pull                             # Pull only
-tbd sync --push                             # Push only
-tbd sync --force                            # Force sync (overwrite conflicts)
+tbd sync --status                           # Check docs and issue Git status
+tbd sync --pull                             # Pull the issue sync branch only
+tbd sync --push                             # Push the issue sync branch only
+tbd sync --integrations --pull              # Pull issues plus enabled trackers
+tbd sync --integrations --push              # Push issues plus enabled trackers
+tbd sync --force                            # Accepted compatibility flag; currently inert
 ```
 
 Options:
-- `--push` - Push local changes only
-- `--pull` - Pull remote changes only
-- `--status` - Show sync status without syncing
-- `--force` - Force sync, overwriting conflicts
+- `--issues` - Sync only the issue Git surface
+- `--docs` - Sync only the local docs cache
+- `--integrations` - Sync only enabled external trackers, unless combined with a
+  direction flag (which also selects issues)
+- `--push` - Push local issue changes only unless `--integrations` is also explicit
+- `--pull` - Pull remote issue changes only unless `--integrations` is also explicit
+- `--status` - Show docs and issue sync status without syncing.
+  It never runs or checks external trackers; use `tbd integration status` for those
+- `--force` - Accepted for compatibility but currently has no effect; it does not
+  overwrite conflicts (`tbd-s18s` tracks implementing or removing it)
+- `--fix` - Attempt to repair an unhealthy issue worktree before syncing
+- `--no-auto-save` - Do not copy issue state to the outbox after a permanent push
+  failure
+- `--no-outbox` - Do not import a pending outbox after a successful issue push
+
+With no surface or direction flag, `tbd sync` runs docs, issues, and enabled trackers.
+Any `--push` or `--pull` selects issues and excludes trackers unless `--integrations` is
+also present. Direction flags cannot be combined with `--docs`.
+`tbd sync --integrations --status` currently selects no status surface, so use the
+standalone integration status command instead.
+The global `--dry-run` also suppresses the folded tracker run; preview tracker work with
+`tbd --dry-run integration sync`.
 
 ### changes
 
@@ -592,10 +676,12 @@ Options:
 
 Exit 0 means matching changes were reported, exit 3 means none matched.
 
-Because both endpoints are commits, the result is a pure function of the pair: the same
-`since` and `tip` always produce the same report.
-The tip is the local sync branch, which advances at `tbd sync`, so local bead edits made
-since the last sync are not visible here.
+For every selector except `--ready`, the resolved endpoint commits determine report
+membership. `--ready` also evaluates `deferred_until` at the current invocation time,
+which is not stored in the report; identical endpoints can therefore report a different
+ready edge after a deferral elapses (`tbd-obw9`). The tip is the local sync branch,
+which advances at `tbd sync`, so local bead edits made since the last sync are not
+visible here.
 
 #### Baseline commits
 
@@ -656,9 +742,18 @@ Operational behavior worth relying on:
   interval, capped at 30 seconds), so a hung Git transport exits 1 instead of hanging.
 - **Outages.** An established watch rides out a bounded run of failed polls before
   exiting 1, so a brief network blip does not end an unattended watch.
+- **Ready workers.** `--ready` reports only a remote Git transition into readiness.
+  It does not return beads already ready at the baseline, and a `deferred_until`
+  deadline passing creates no Git event.
+  A general worker also runs `tbd sync --pull` and `tbd ready` at startup and restart,
+  then repeats that scan periodically.
 
-Delivery is at least once: a caller that acts on a report and then crashes sees it again
-on restart, so make worker actions idempotent.
+Raw watch does not persist a cursor and does not by itself promise at-least-once
+delivery. Without `--since`, a restart takes the current remote tip as its new baseline
+and can skip a lost report.
+A caller that needs at-least-once processing persists the prior baseline and pending
+report, advances its checkpoint only after successful handling, and makes actions
+idempotent; the worker shortcut implements that pattern.
 A watch report is a wake signal, not a license to act on stale state.
 Pull and re-read current state before writing.
 
@@ -671,8 +766,9 @@ Serve a live, read-only view of the bead graph in a local browser.
 The page uses the same local bead state, filter semantics, readiness rules, hierarchy,
 and statistics as the CLI, and displays the equivalent `tbd list` or `tbd ready` command
 for the current view.
-The Ready checkbox is the exact `tbd ready` predicate—open, unassigned, with no open
-blocker, and not deferred into the future.
+The Ready checkbox is the exact `tbd ready` predicate—open, without a delegate or hold,
+with no non-closed blocker, and not deferred into the future.
+`assignee` records accountability and does not affect readiness.
 A quiet unboxed row marker exposes that derived state while scanning; it is
 intentionally distinct from user labels.
 Pretty is on by default and never changes when a column sort changes.
@@ -832,14 +928,16 @@ An unknown `--bead` ID is an error rather than a silent wait.
 Label, spec, and status selections report a bead that matched *before or after*, so both
 entering and leaving the set count.
 `--ready` is edge-triggered: it reports only beads that were not ready before and are
-now, using the same definition as `tbd ready` (open, unassigned, no open blockers, and
-not deferred into the future).
+now, using the same definition as `tbd ready` (open, without a delegate or hold, no
+non-closed blockers, and not deferred into the future).
+`assignee` does not affect readiness.
 A deferral that merely elapses does not wake the watcher: readiness is evaluated at one
 instant per comparison, so a bead becomes ready here only when an edit changes it.
 
 ### search
 
-Search issues by text content.
+Search issue text and display IDs.
+The default search includes open and closed issues; use `--status` to narrow it.
 
 ```bash
 tbd search "login"                          # Search all fields
@@ -857,6 +955,13 @@ Options:
 - `--limit <n>` - Limit results
 - `--no-refresh` - Skip worktree refresh
 - `--case-sensitive` - Case-sensitive search
+
+Each issue appears at most once.
+With no `--field`, fields are checked in this order: title, description, notes, labels,
+then display ID. A bare ID query matches the random short-ID portion; a query containing
+a dash anchors at the start of the full display ID. ID matching is case-insensitive even
+with `--case-sensitive`. `--json` returns an array with the matching field and excerpt;
+no matches return `[]` with exit 0.
 
 ### stats
 
@@ -932,31 +1037,37 @@ tbd import issues.jsonl --verbose           # Show detailed progress
 Options:
 - `--merge` - Merge with existing issues instead of skipping duplicates
 - `--verbose` - Show detailed import progress
-
-> **Note:** `tbd import --from-beads` is deprecated.
-> Use `tbd setup --auto` or `tbd setup --from-beads` instead for migrating from Beads.
-
 - `--validate` - Validate existing import against Beads source
+- `--beads-dir <path>` - Beads source directory used by `--validate`
+- `--workspace <name>` - Import a named directory under `.tbd/workspaces/`
+- `--dir <path>` - Import an arbitrary workspace-shaped directory
+- `--outbox` - Import the `outbox` workspace and clear it after success
+- `--clear-on-success` - Delete the selected workspace after a successful import
 
-### beads
+There is no `tbd import --from-beads` flag.
+Use `tbd setup --from-beads` for the repository migration flow.
 
-Beads migration utilities.
+### Beads migration
+
+Run the migration before initializing tbd in the repository:
 
 ```bash
-tbd setup beads                             # Show usage
-tbd setup beads --disable                   # Preview what will be moved
-tbd setup beads --disable --confirm         # Actually disable Beads
+tbd --dry-run setup --from-beads            # Preview; writes nothing
+tbd setup --from-beads                      # Initialize, import, and install surfaces
+tbd stats                                   # Verify imported totals
+tbd list --all                              # Inspect imported beads
 ```
 
-The `--disable` option safely moves all Beads files to `.beads-disabled/`:
-- `.beads/` → `.beads-disabled/beads/`
-- `.beads-hooks/` → `.beads-disabled/beads-hooks/`
-- `.cursor/rules/beads.mdc` → `.beads-disabled/cursor-rules-beads.mdc`
-- Removes `bd` hooks from `.claude/settings.local.json` (with backup)
-- Removes Beads section from `AGENTS.md` (with backup)
+The command reads the prefix from Beads unless `--prefix` overrides it, imports
+`.beads/issues.jsonl` when present, and renames the complete `.beads/` directory to
+`.beads-disabled/`. The retained directory is the rollback source and is also accepted
+by `tbd import --validate --beads-dir .beads-disabled`.
 
-This preserves all data for potential rollback.
-To restore Beads, move files back from `.beads-disabled/`.
+Migration does not remove `.beads-hooks/`, Cursor rules, Claude settings, or Beads text
+from `AGENTS.md`; review those separately after validating the import.
+It also continues after reporting a missing JSONL file or a partial import warning, so
+read the import output and verify `stats` and `list --all` before treating migration as
+complete. The removed positional `tbd setup beads` command is not available.
 
 ### status
 
@@ -968,7 +1079,12 @@ tbd status                                  # Show repo status
 tbd status --json                           # JSON output
 ```
 
-Displays: initialization state, sync status, issue counts, detected integrations.
+For an initialized repository, text output shows repository and Git information, the
+configured sync branch and remote, installed agent surfaces, hidden-worktree health,
+named workspaces, and forked-doc drift when applicable.
+It does not show issue counts; use `tbd stats` for those.
+Before initialization, it also detects `.beads/` and counts its JSONL records when
+readable. `--json` returns the same orientation fields as one object.
 
 When not initialized, detects Beads and suggests migration:
 ```
@@ -994,43 +1110,33 @@ tbd prime --export                          # Output default (ignores PRIME.md)
 ```
 
 Behavior:
-- Silent exit (code 0) if not in a tbd project
+- If the repository is not initialized, prints setup instructions and exits 0
 - Custom output: create `.tbd/PRIME.md` to override default content
+- `--brief` emits an abbreviated orientation
 
-### setup (subcommands)
+### setup surfaces
 
-Configure specific editor and agent integrations.
-
-```bash
-tbd setup claude                            # Install Claude Code hooks
-tbd setup claude --check                    # Verify installation status
-tbd setup claude --remove                   # Remove tbd hooks
-
-tbd setup codex                             # Create/update AGENTS.md
-tbd setup codex --check                     # Verify AGENTS.md
-tbd setup codex --remove                    # Remove tbd section from AGENTS.md
-
-tbd setup auto                              # Auto-detect and configure all integrations
-tbd setup beads --disable                   # Disable Beads (for migration)
-```
-
-#### setup auto
-
-The `tbd setup --auto` command (or `tbd setup auto`) detects which coding agents are
-available and configures integrations automatically:
-
-- **Claude Code**: Checks for `~/.claude/` directory, installs SessionStart hooks
-- **Codex/AGENTS.md**: Checks for `AGENTS.md`, adds tbd integration section (also used
-  by Cursor v1.6+)
-
-This is the recommended way to set up tbd:
+Setup installs project-local agent surfaces.
+It installs every surface by default; it does not probe for an agent before writing that
+agent’s surface.
 
 ```bash
-tbd setup --auto                            # Full setup: init + integrations
+tbd setup --auto                            # All four surfaces
+tbd setup --auto --surfaces=portable        # .agents/skills/tbd/SKILL.md
+tbd setup --auto --surfaces=agents-md       # Managed block in AGENTS.md
+tbd setup --auto --surfaces=claude          # Claude skill mirror, hooks, and scripts
+tbd setup --auto --surfaces=codex           # Codex hooks and scripts
+tbd setup --auto --surfaces=portable,claude # A comma-separated subset
 ```
 
-For already-configured integrations, `setup --auto` reports them as “Already configured”
-and skips reinstallation.
+Use `all` for the full set.
+The selector governs only these generated files: setup still refreshes cached docs and
+applies any config/layout migration.
+Existing managed content is refreshed, surrounding `AGENTS.md` content and unrelated
+hook entries are preserved, and a surface stamped by a newer integration format is not
+overwritten.
+A portable or Claude skill file without tbd’s ownership marker is treated as
+user-owned and setup stops rather than replacing it.
 
 ### Documentation Commands
 
@@ -1165,7 +1271,8 @@ Options:
 
 ## Global Options
 
-These options work with any command:
+The parser accepts these global options with every command, but each option has an
+effect only where that command implements the corresponding output or mutation path:
 
 ```bash
 tbd list --json                             # JSON output
@@ -1178,10 +1285,13 @@ tbd list --color=never                      # Disable colors
 
 Options:
 - `--version` - Show version number
-- `--dry-run` - Show what would be done without making changes
+- `--dry-run` - Preview supported mutations; read-only and raw-document commands may
+  ignore it
 - `--verbose` - Enable verbose output
 - `--quiet` - Suppress non-essential output
-- `--json` - Output as JSON
+- `--json` - Request structured output from data-oriented commands.
+  Raw document commands such as `readme`, `prime`, `skill`, and `closing` still emit
+  text
 - `--color <when>` - Colorize output: auto, always, never
 - `--debug` - Show internal IDs alongside display IDs
 
@@ -1194,13 +1304,13 @@ directly:
 | --- | --- |
 | 0 | Success |
 | 1 | Operational error, such as a failed Git operation or health check |
-| 2 | Usage error: a bad flag, argument, or selector |
+| 2 | A domain validation error, such as an invalid selector value |
 | 3 | Nothing matched: `tbd changes` found no changes, or `tbd watch --timeout` elapsed |
 | 130 | Interrupted with Ctrl-C (SIGINT) |
 
-Code 3 is the only “nothing happened” result and is deliberately distinct from both
-failure codes: a recipe can retry exit 3 indefinitely while still failing fast on a
-usage error.
+Commander-level parse failures, including an unknown flag or missing required positional
+argument, currently exit 1. Code 3 is reserved for no matching Git change or a watch
+timeout; an empty `search` result still exits 0.
 
 ## For AI Agents
 
@@ -1211,7 +1321,7 @@ This section covers agent-specific patterns.
 
 ```bash
 tbd ready --json                            # Find available work
-tbd update proj-xxxx --status=in_progress     # Claim it (advisory)
+tbd start proj-xxxx                          # Guarded local advisory claim
 # ... do the work ...
 tbd close proj-xxxx --reason="Fixed in commit abc123"
 # Finished several beads? Close them in ONE call — never a shell loop:
@@ -1227,29 +1337,40 @@ tbd sync                                    # Push changes
 | `--dry-run` | Preview changes before applying |
 | `--quiet` | Suppress informational output |
 
-### Actor Resolution
+### Acting-agent identity
 
-The actor name (for `created_by` field) is resolved in order:
+`tbd start` resolves the friendly name stored in `delegate` in this order:
 
-1. `--actor <name>` flag
-2. `TBD_ACTOR` environment variable
-3. Git `user.email` from config
-4. System username
+1. Its `--as <name>` option
+2. A nonempty `TBD_AGENT` environment variable
+3. The machine-local session name in `.tbd/state.yml`
+4. A derived `<harness>@<host>` name
 
 ```bash
-TBD_ACTOR=claude-agent tbd create "Fix bug" --type=bug
+tbd whoami                                  # Inspect the resolved identity
+tbd whoami --ensure-id                      # Mint and persist a machine-local ID once
+TBD_AGENT=claude-agent tbd start proj-a7k2
+tbd start proj-b3m9 --as review-agent       # Per-command override
 ```
+
+`whoami --ensure-id` stores an ID and, when needed, the resolved friendly name in the
+local state file. Setup’s session-start hooks call this idempotently.
+The ID and session name are local to the checkout; `start` writes only the friendly
+`delegate` name on the bead and leaves `assignee` unchanged.
 
 ### Claude Code Integration
 
-Install hooks for automatic context injection:
+Install the Claude surface, or let the default setup install all four surfaces:
 
 ```bash
-tbd setup claude                            # One-time global setup
+tbd setup --auto --surfaces=claude          # Claude files only
+tbd setup --auto                            # Existing project; all agent surfaces
 ```
 
-This runs `tbd prime` at session start and before context compaction, ensuring the agent
-remembers the tbd workflow.
+The Claude surface installs project-local hooks that run `tbd prime` at session start
+and before context compaction, initialize the machine-local agent identity, and emit the
+closing reminder after tool use.
+It can also install the GitHub CLI helper unless `--no-gh-cli` is given.
 
 ### Bulk Close, Update, and Reopen
 
@@ -1280,7 +1401,7 @@ See [Bulk operations and the output contract](#bulk-operations-and-the-output-co
 ```bash
 cd my-project
 git init
-tbd init
+tbd setup --auto --prefix=myproj
 tbd create "Initial setup" --type=chore
 ```
 
@@ -1291,8 +1412,8 @@ tbd create "Initial setup" --type=chore
 tbd sync
 tbd ready
 
-# Pick up an issue
-tbd update proj-a7k2 --status=in_progress --assignee=myname
+# Pick up an issue; assignee remains the accountable person
+tbd start proj-a7k2
 
 # Work on it...
 
@@ -1396,31 +1517,21 @@ tbd search "review" --status=open
 ### Migration from Beads
 
 ```bash
-# Recommended: one-step migration
-tbd setup --auto                        # Auto-detects beads, imports, sets up integrations
-
-# Or explicit migration
-tbd setup --from-beads                  # Migrate from beads with prompts
-
-# Manual step-by-step migration
-bd sync                                 # Final Beads sync
-tbd init --prefix=myproj                # Initialize tbd
-tbd import issues.jsonl                 # Import from exported JSONL
-tbd setup beads --disable --confirm     # Disable Beads
-
-# Verify migration
+tbd --dry-run setup --from-beads        # Preview the one-step migration
+tbd setup --from-beads                  # Read prefix, initialize, import, install surfaces
 tbd stats
 tbd list --all
 ```
 
-The `tbd setup beads --disable` command safely moves all Beads files to
-`.beads-disabled/` for potential rollback, including:
-
-- `.beads/` directory (data and config)
-- `.beads-hooks/` directory (git hooks)
-- `.cursor/rules/beads.mdc` (Cursor rules)
-- `bd` hooks from `.claude/settings.local.json`
-- Beads section from `AGENTS.md`
+Run this while the repository is uninitialized and `.beads/` still exists.
+The command reads the Beads prefix unless `--prefix` overrides it, imports
+`.beads/issues.jsonl` if present, and renames the whole `.beads/` directory to
+`.beads-disabled/` for rollback.
+It is non-interactive and can continue after a missing JSONL file or import warning, so
+verify the totals and records before treating it as complete.
+It does not remove `.beads-hooks/`, Cursor rules, Claude settings, or Beads text in
+`AGENTS.md`; review those separately.
+The old positional `tbd setup beads` command does not exist.
 
 ## File Structure
 
@@ -1597,33 +1708,60 @@ untouched.
 ```yaml
 # .tbd/config.yml
 integrations:
+  on_tbd_sync: guarded # default; refuses an oversized folded run
   linear:
     enabled: true
-    team_key: FIN
-    project: tbd # optional: scope creates and automatic inbound discovery
-    user_map: # optional: the only identities tbd may push as assignees
-      jlevy: josh@example.com # UUIDs are accepted too
+    target:
+      team_key: FIN
+      project: tbd # optional: scope creates and automatic inbound discovery
+    identity:
+      user_map: # optional: explicit alias override for assignee identity
+        jlevy: josh@example.com # UUIDs are accepted too
+      state_map: # optional: choose among ambiguous Linear workflow states by type
+        started: In Progress
+      agent_map: # optional: delegates allowed to appear as installed Linear agents
+        cyrus: 00000000-0000-4000-8000-000000000000
     policy: default # or an inline policy; see below
 ```
 
-The `team_key` and `project` values are plain config: an agent asked to point a
-repository at a different Linear team or project edits `.tbd/config.yml` and runs
-`tbd integration status` to verify.
-When `project` is set, new outbound issues are filed there and automatic inbound scans
-are limited to that project.
+The `linear.target.team_key` and `linear.target.project` values are plain config: an
+agent asked to point a repository at a different Linear team or project edits
+`.tbd/config.yml` and runs `tbd integration status` to verify.
+When `linear.target.project` is set, new outbound issues are filed there and automatic
+inbound scans are limited to that project.
 Explicit `sync --pull --external` remains an intentional override and can import a named
 team issue from outside it.
-`user_map` is deliberately closed: a bead stores the stable alias (`jlevy` above), the
-adapter resolves its configured email or UUID at runtime, and neither the email nor a
-raw Linear user enters bead or bridge data.
-Unmapped local assignees remain unchanged and are reported as skipped pushes; inbound
-mapped users become the alias, including when an assigned Linear issue first becomes a
-bead.
-If Linear names a user outside `user_map`, sync leaves the bead assignee unchanged,
-emits a safe warning, retains the prior canonical bridge base so local edits stay
-pending, and stores neither the display name nor email in the bead or bridge.
+`linear.identity.user_map` is an explicit alias override: a bead stores the stable alias
+(`jlevy` above), and the adapter resolves its configured email or UUID at runtime.
+For outbound work without an override, the adapter can reuse a stable bridge binding or
+match the local handle exactly against one active Linear member by email, login, or
+display name. A unique match persists only the handle, provider user ID, display name,
+and binding time; raw member responses and emails do not enter bridge state.
+An ambiguous or missing outbound match is reported and skipped.
+Inbound identity remains closed: only a provider user represented in
+`linear.identity.user_map` becomes a bead alias.
+Otherwise sync leaves the bead assignee unchanged, emits a safe warning, and retains the
+prior canonical bridge base so local edits stay pending.
 (`select:`, the older spelling of the policy’s outbound clause, still parses and is
 folded in.)
+
+`linear.identity.agent_map` maps a tbd delegate name to an installed Linear app-user
+UUID. Only a mapped delegate is published to Linear or read back as a bead delegate;
+ordinary session delegates remain local and are reported as skipped.
+The field write can create a Linear Agent Session, but tbd does not register an agent.
+
+`linear.identity.state_map` maps a Linear workflow-state type (`backlog`, `unstarted`,
+`started`, `completed`, `canceled`, or `duplicate`) to the state name this repository
+uses.
+Without an entry, tbd chooses the conventional state name or the sole state of that
+type; it refuses to guess among ambiguous candidates.
+Interactive `tbd integration setup` asks about ambiguities and persists the choices,
+while a non-interactive or dry-run setup leaves them unresolved.
+`tbd doctor` only reports the offline resolution plan; it neither calls Linear nor
+persists a choice. During an applied integration setup, entries in this map are also
+explicit consent to create a missing team-wide state and reorder only mapped states into
+the correct type bands; without entries, setup never changes the board’s workflow
+states.
 
 **Mixing tbd versions.** Configuring an integration requires tbd 0.6.0 or later on every
 machine that runs tbd in the repository.
@@ -1772,21 +1910,24 @@ never carry two of either.
 
 If a mirrored issue moves to another team, Linear renumbers it (identifiers are
 team-scoped, so `FIN-11` becomes `TBD-4`). The link survives because it is keyed on the
-issue UUID, and the next mirror run refreshes the stored identifier and URL. Specs live
-on the branch that authored them, so a link built from the bare path would 404 depending
-on who follows it.
+issue UUID. The bead continues to store only that UUID and `linked_at`; the next mirror
+run refreshes `external_key` and `external_url` in the provider bridge record.
+Specs live on the branch that authored them, so a link built from the bare path would
+404 depending on who follows it.
 
 **Bead labels are not pushed as tracker labels by default.** A repository can carry a
 hundred-plus distinct bead labels, and creating one Linear label for each pollutes a
 team namespace that other projects and people share.
-The labels are mirrored as structured data in the bead attachment regardless, so
-enabling `mirror_labels: true` only buys the ability to filter by them inside Linear;
-when enabled, they are prefixed `tbd:` so they stay identifiable and can be removed in
-bulk. tbd’s own status carriers (`tbd:blocked`, `tbd:deferred`) are always pushed,
-because they encode status Linear has no workflow state for.
+The labels are mirrored as structured data in the bead attachment regardless, so setting
+`linear.labels.mirror: prefixed` only buys the ability to filter by them inside Linear;
+this form prefixes them with `tbd:` so they stay identifiable and can be removed in
+bulk. Set `linear.labels.create: all` as well if tbd may create missing mirrored labels.
+Its safer `tbd` default creates only tbd-owned infrastructure labels.
+tbd’s own status carriers (`tbd:paused`, `tbd:blocked`, `tbd:deferred`) are always
+pushed, because they encode status Linear has no workflow state for.
 
-New outbound sub-issues are mirrored to `max_nesting` levels (2 by default) and deeper
-new beads are skipped and reported.
+New outbound sub-issues are mirrored to `linear.policy.outbound.max_nesting` levels
+(effective default 2), and deeper new beads are skipped and reported.
 Existing links and inbound Linear sub-issues always retain their true parent
 relationship; the presentation limit never flattens source data.
 Linear’s data model nests without limit, but its views flatten past about two levels, so
@@ -1817,9 +1958,10 @@ policy:
     tie_break: newest # both-sides-changed fallback: newest | local | remote
 ```
 
-The policy is only a default — explicit `sync --push` selectors,
-`sync --pull --external`, and `link` always override it — and linking is separate from
-syncing: once a pair is linked, `sync` reconciles it until it is unlinked.
+The policy is only a default — explicit `integration sync --push` selectors,
+`integration sync --pull --external`, and `integration link` always override it — and
+linking is separate from syncing: once a pair is linked, integration sync reconciles it
+until it is unlinked.
 
 ### Full synchronization
 
@@ -1832,14 +1974,15 @@ tbd integration sync --pull --external FIN-123 # Create one bead, regardless of 
 tbd integration sync --yes       # Affirm a run over the bulk thresholds
 ```
 
-The flags mean what they mean everywhere else in tbd: **bare is both directions,
-`--push` is outbound only, `--pull` is inbound only** — the same shape as
-`tbd sync --push` / `--pull` for issues.
-`--pull` performs **no external writes at all**, including replay of a pending outbound
-journal, so it is the safe way to take tracker changes without touching the tracker.
+Within `tbd integration sync`, **bare is both directions, `--push` is outbound only, and
+`--pull` is inbound only**. `--pull` performs **no external writes at all**, including
+replay of a pending outbound journal, so it is the safe way to take tracker changes
+without touching the tracker.
 A suppressed outbound change stays pending and the next full sync pushes it.
-Top-level `tbd sync --push` uses this same outbound-only projection before it commits
-and pushes the sync branch; it does not pull tracker fields or replay the bidirectional
+Top-level `tbd sync --push` and `--pull` select the issue Git surface and exclude
+trackers unless `--integrations` is also explicit.
+Thus `tbd sync --integrations --push` performs the outbound-only tracker projection as
+well as the issue push; it does not pull tracker fields or replay the bidirectional
 engine. Every inbound attachment claim is journaled before provider I/O; a full sync
 removes the intent only after the upsert succeeds.
 Under `--pull`, attachment claims and conflict notices remain local until the next full
@@ -1889,7 +2032,8 @@ tbd sync                  # Docs, issues, and trackers
 tbd sync --docs           # Only docs
 tbd sync --issues         # Only issues
 tbd sync --integrations   # Only trackers
-tbd sync --push           # Outbound only, for the network surfaces
+tbd sync --push           # Push issues only
+tbd sync --integrations --push # Push issues plus enabled trackers
 ```
 
 **Surfaces run independently and their failures roll up.** An expired tracker credential
@@ -1975,21 +2119,35 @@ If cancellation cannot complete, the link remains intact and a repeated unlink c
 safely finish; stale journals merged from another machine are consumed without touching
 the former provider item.
 
-`comment` works offline: the entry is recorded on the bead immediately and posted on the
-next sync, exactly once.
-Inbound comments are folded into the bead the same way — append-only, identified by the
-tracker’s immutable comment id, author recorded as a display name only.
-Comment union is scoped to the provider issue named by the namespace’s nonempty `id`.
-Two legacy namespaces that both omit `id` may union for compatibility.
+`integration comment` works offline: the entry is queued immediately inside the linked
+provider namespace on the bead.
+The next `tbd integration sync` attempts delivery.
+Replaying the same durable journal intent is idempotent, but independent stale replicas
+do not yet share a destination-scoped delivery key and can duplicate a provider post
+(`tbd-6vg5`). Inbound comments are folded into the bead the same way — append-only,
+identified by the tracker’s immutable comment id, author recorded as a display name
+only. Comment union is scoped to the provider issue named by the namespace’s nonempty
+`id`. Two legacy namespaces that both omit `id` may union for compatibility.
 A different ID, or a known ID paired with a missing, empty, or malformed ID, keeps the
 selected namespace and archives the complete loser; a pending comment from an old link
 cannot be posted to its replacement.
-Bodies over 10 KB are truncated with a marker.
-Every provider comment identity remains for deduplication, while only the newest 50
-provider-held entries keep full local prose and older ones collapse to id-only stubs.
-An unpushed local comment is never truncated or collapsed before its provider id is
-recorded; the tracker remains the system of record for long threads.
+For entries with a provider `id`, a body over 10,000 JavaScript UTF-16 code units
+becomes its first 10,000 units plus a truncation marker.
+Only the newest 50 provider-ID entries retain a body, possibly truncated; older entries
+retain all identity and metadata fields, including `local_id` when present, with
+`body: ''`. Pending `local_id`-only entries remain full and outside both limits until a
+provider ID lands; the tracker remains the system of record for long threads.
 Comment edits, deletion, reactions, and thread shape are not synchronized.
+
+This is provider-link storage, not a native comment on an arbitrary bead.
+Current f08 releases do not provide `tbd comment add`, `list`, or `show`, and setup does
+not create a native `comments/` tree.
+The candidate native model has internal, dormant record/storage and inventory/transition
+foundations, but its Git guards, recovery paths, format activation, commands, and
+provider cutover remain future work.
+See the
+[native comment architecture](https://github.com/jlevy/tbd/blob/main/docs/project/architecture/current/arch-native-comments.md)
+for the exact boundary.
 
 The authoritative support/boundary matrix and its code/test traceability live in the
 active external-tracker integration plan.
@@ -2032,15 +2190,15 @@ tbd --dry-run integration sync         # Preview
 tbd sync                               # Pull beads, reconcile Linear, then push
 ```
 
-Do **not** re-run first-time setup here: editing `team_key` or `project` points this
-clone at a different place than the rest of the team.
-Do not reach for `sync --push` either—the links already exist, so the full `sync` is
-both correct and safer.
+Do **not** re-run first-time setup here: editing `linear.target.team_key` or
+`linear.target.project` points this clone at a different place than the rest of the
+team. Do not reach for `sync --push` either—the links already exist, so the full `sync`
+is both correct and safer.
 Plain `tbd sync` first pulls the current team bead state, reconciles the tracker in
 place, and publishes the resulting state rather than projecting stale local values over
-Linear. If the shared config deliberately has `integrations.sync_on_tbd_sync: false`,
-preserve it: run `tbd sync` to update bead state, preview and run
-`tbd integration sync`, then run `tbd sync` again to publish the result.
+Linear. If the shared config deliberately has `integrations.on_tbd_sync: off`, preserve
+it: run `tbd sync` to update bead state, preview and run `tbd integration sync`, then
+run `tbd sync` again to publish the result.
 Do not change a team-level override merely to simplify one contributor’s setup.
 
 #### First-time setup for a repository
@@ -2067,13 +2225,10 @@ Re-running any of these is safe: mirroring is idempotent and sync converges to
 ### Sync Issues
 
 ```bash
-# Check sync status
+# Check docs and issue Git status
 tbd sync --status
 
-# Force sync if conflicts
-tbd sync --force
-
-# Run diagnostics
+# Diagnose and repair sync state (`--force` is currently an inert compatibility flag)
 tbd doctor
 tbd doctor --fix
 ```

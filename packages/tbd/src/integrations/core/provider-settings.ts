@@ -147,6 +147,9 @@ export function resolveProviderSettings(config: ProviderConfigSlice): ProviderSe
     ...((config.identity?.state_map ?? config.state_map)
       ? { stateMap: config.identity?.state_map ?? config.state_map }
       : {}),
+    ...((config.identity?.agent_map ?? config.agent_map)
+      ? { agentMap: config.identity?.agent_map ?? config.agent_map }
+      : {}),
   };
 }
 

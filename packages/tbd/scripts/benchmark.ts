@@ -5,6 +5,7 @@
  * Measures:
  * 1. Startup time (--version, --help) - pure CLI initialization cost
  * 2. Command performance with 5K issues - tests scaling behavior
+ * 3. Native-comment transition classification with 50K valid records
  *
  * For detailed profiling analysis, see:
  * docs/project/research/current/research-cli-startup-performance.md
@@ -19,12 +20,21 @@ import { join } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
+import { buildDataSyncInventory } from '../src/file/data-sync-inventory.js';
+import { serializeNativeComment } from '../src/file/comment-parser.js';
+import { commentShard } from '../src/file/comment-storage.js';
+import { classifyNativeCommentTransitions } from '../src/file/native-comment-transition.js';
+import { asInternalCommentId } from '../src/lib/ids.js';
+import type { NativeComment } from '../src/lib/native-comment.js';
+
 const execFileAsync = promisify(execFile);
 
 // Configuration
 const ISSUE_COUNT = 5000;
+const NATIVE_COMMENT_COUNT = 50_000;
 const STARTUP_TARGET_MS = 100; // Target for --version, --help
 const COMMAND_TARGET_MS = 500; // Target for commands with 5K issues
+const NATIVE_COMMENT_TRANSITION_TARGET_MS = 2000;
 
 interface BenchResult {
   name: string;
@@ -150,6 +160,42 @@ async function runBenchmark(
   };
 }
 
+function runNativeCommentTransitionBenchmark(): BenchResult {
+  const inputs = Array.from({ length: NATIVE_COMMENT_COUNT }, (_, index) => {
+    const id = asInternalCommentId(`cm-${index.toString().padStart(26, '0')}`);
+    const comment: NativeComment = {
+      type: 'cm',
+      id,
+      issue_id: 'is-01aaaaaaaaaaaaaaaaaaaaaa03',
+      author: { kind: 'human', display_name: 'Benchmark' },
+      created_at: '2026-09-08T12:00:00.000Z',
+      body: 'Valid comment',
+    };
+    const bytes = Buffer.from(serializeNativeComment(comment));
+    return {
+      path: `comments/${commentShard(id)}/${id}.md`,
+      mode: '100644',
+      size: bytes.length,
+      bytes,
+    };
+  });
+  const snapshot = buildDataSyncInventory({ kind: 'filesystem', label: 'benchmark' }, inputs);
+
+  const startedAt = performance.now();
+  const plan = classifyNativeCommentTransitions({ base: snapshot, candidates: [snapshot] });
+  const duration = performance.now() - startedAt;
+  if (plan.status !== 'clean' || plan.decisions.size !== NATIVE_COMMENT_COUNT) {
+    throw new Error('Native-comment transition benchmark produced an invalid plan');
+  }
+
+  return {
+    name: `comments (${NATIVE_COMMENT_COUNT.toLocaleString('en-US')})`,
+    duration,
+    target: NATIVE_COMMENT_TRANSITION_TARGET_MS,
+    passed: duration < NATIVE_COMMENT_TRANSITION_TARGET_MS,
+  };
+}
+
 async function main(): Promise<void> {
   console.log('tbd Performance Benchmark');
   console.log('='.repeat(50));
@@ -205,6 +251,13 @@ async function main(): Promise<void> {
     results.push(await runBenchmark('stats', tempDir, ['stats'], COMMAND_TARGET_MS));
     results.push(await runBenchmark('status', tempDir, ['status'], COMMAND_TARGET_MS));
     results.push(await runBenchmark('doctor', tempDir, ['doctor'], COMMAND_TARGET_MS));
+    console.log();
+
+    console.log(
+      `Native comments (${NATIVE_COMMENT_COUNT.toLocaleString('en-US')} records, ` +
+        `target: <${NATIVE_COMMENT_TRANSITION_TARGET_MS}ms):`,
+    );
+    results.push(runNativeCommentTransitionBenchmark());
 
     // Print results
     console.log();

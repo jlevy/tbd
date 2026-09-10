@@ -12,11 +12,13 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 **Status:** Active. Phase 1 is in progress.
 The embedded provider-comment recovery slice (`tbd-hqb9`, PR #279) and the dormant
 native-comment record/storage foundation (`tbd-e1tu`, PR #282) are implemented.
-PR #282 does not change the current f08 format or expose public behavior.
+The stacked inventory and immutable-transition foundation (`tbd-4r3w`, PR #283) is also
+implemented and dormant.
+PRs #282 and #283 do not change the current f08 format or expose public behavior.
 The Phase 1 owner (`tbd-3eui`) and Phase 2 owner (`tbd-raxf`) remain open.
-The inventory implementation under `tbd-4r3w` appears only in stacked PR #283; no layer
-after `tbd-e1tu` is present at the PR #282 boundary, and the later preservation, format,
-and activation gates remain open.
+Within the Phase 2 stack, only `tbd-e1tu` and `tbd-4r3w` are complete; the Git guards,
+recovery, compatibility, format, command, polling, and provider-projection gates remain
+open.
 
 **Tracking:** `tbd-khi1`; completed historical plan preparation `tbd-q90q`.
 
@@ -470,9 +472,10 @@ library/file code and integration adapters.
 Reuse the existing mutation lock and sync algorithms rather than creating a second
 writer for the sync branch.
 
-| Component | Existing source seams | Planned addition |
+| Component | Existing source seams | Current state or planned addition |
 | --- | --- | --- |
-| Records and validation | `src/lib/schemas.ts`, `src/lib/paths.ts`, `src/file/storage.ts` | Native comment schema, sharded storage, conditional publication, diagnostics |
+| Records and validation | `src/lib/{ids,native-comment,paths}.ts`, `src/file/{parser,comment-parser,comment-storage}.ts` | PR #282 implements the dormant record and create-only storage foundation; public commands and activation remain proposed |
+| Inventory and transition planning | `src/file/{bounded-file,data-sync-inventory,git-object-reader,native-comment-transition,native-comment-quarantine}.ts` | PR #283 extracts shared bounded-file primitives and implements dormant bounded inventory, pure immutable-transition decisions, and individual quarantine artifacts; active Git/recovery callers remain proposed |
 | Merge and recovery | `src/file/git.ts`, `src/file/workspace.ts`, `src/lib/comment-union.ts` | Shared preservation/alias rules across ordinary merge and recovery |
 | Claims | `src/cli/commands/start.ts`, `src/lib/agent-identity.ts`, `src/cli/lib/data-context.ts` | Session distinction and conditional eligible-work claim |
 | Observation | `src/file/bead-watch.ts`, `src/file/sync-branch-changes.ts`, `src/cli/web/local-observer.ts` | Comments-aware one-shot reports, local subscriptions, shared remote polling, cursor recovery |
@@ -525,8 +528,19 @@ sync and current integration comments remain usable.
 - [ ] Add the opt-in atomic eligible-work claim (`tbd-mzsw`) under the shared mutation
   lock. Preserve ordinary `start`; a prior `ready` result is not authorization after
   intervening state changes.
-- [ ] Correct claim instructions (`tbd-c4zl`) and the worker recipe’s initial backlog,
-  periodic readiness, and successful-claim handling (`tbd-zxg6`).
+- [x] Correct claim instructions across every generated and packaged agent surface
+  (`tbd-c4zl`, PR #283).
+- [ ] Make the worker recipe handle the initial backlog, periodic readiness, and
+  successful claims directly (`tbd-zxg6`). Until then, its docs require explicit startup
+  and periodic `tbd ready` scans.
+- [ ] Make fixed-commit `--ready` reports replayable by pinning or persisting their
+  readiness evaluation instant (`tbd-obw9`). Until then, identical commit endpoints can
+  report a different ready edge after `deferred_until` elapses.
+- [ ] Abort corrupted-worktree repair before removal when its backup cannot be
+  materialized (`tbd-dmkd`, release blocker).
+  A reported backup path must exist.
+- [ ] Stop `tbd search` from recording a freshness checkpoint when it has performed no
+  pull (`tbd-iwup`), or make the documented refresh real.
 - [ ] Specify concurrent dependency removal and validate merged parent/dependency graphs
   before automated scheduling; preserve conflicts and report invalid affected work
   instead of silently selecting an arbitrary graph (`tbd-7ybg`).
@@ -535,8 +549,9 @@ sync and current integration comments remain usable.
 their repair and pass afterward.
 Add real filesystem/CLI recovery cases, including the automatic outbox path not executed
 by the original probe.
-Contested local claims allow one eligible worker to proceed; independent-clone tests
-demonstrate and label the unsupported exclusivity case.
+Forced backup failure leaves a corrupted shared worktree untouched and reports no
+nonexistent backup. Contested local claims allow one eligible worker to proceed;
+independent-clone tests demonstrate and label the unsupported exclusivity case.
 Test changes to blockers, hold, deferral, and delegation between discovery and
 conditional claim.
 Existing manual watch, integration directions, and packed CLI behavior
@@ -558,33 +573,41 @@ runtime import, configuration, or generated scaffold is reachable; and existing
 integration-comment behavior is unchanged.
 This permits only dormant internal models, inventory helpers, and invariant tests ahead
 of the preservation increment.
-At the PR #282 boundary, only the internal record and storage foundation under
-`tbd-e1tu` exists; it is not native-comment support.
+At the PR #283 boundary, the internal record/storage foundation under `tbd-e1tu` and the
+inventory/transition foundation under `tbd-4r3w` exist.
+Neither is native-comment support.
 
 The candidate record and activation contracts are recorded in
 [Native Comment Record Architecture](../../architecture/current/arch-native-comments.md).
 Implementation is stacked in preservation order.
-PR #282 contains the model and create-only storage (`tbd-e1tu`). Later branches add
-inventory and immutable transitions (`tbd-4r3w`), Git operation guards (`tbd-qo4d`),
-workspace and history recovery (`tbd-7ufa`), doctor and the f08 compatibility gate
-(`tbd-44kw`), and finally candidate f09 activation and bounded CLI discovery
-(`tbd-x6eo`). The four preservation layers belong to `tbd-76ad`. At this boundary
-`CURRENT_FORMAT` and fresh setup remain f08, and no `tbd comment enable` or
+PR #282 contains the model and create-only storage (`tbd-e1tu`), and PR #283 adds
+inventory and immutable transitions (`tbd-4r3w`). Later branches add Git operation
+guards (`tbd-qo4d`), workspace and history recovery (`tbd-7ufa`), doctor and the f08
+compatibility gate (`tbd-44kw`), and finally candidate f09 activation and bounded CLI
+discovery (`tbd-x6eo`). The four preservation layers belong to `tbd-76ad`. At this
+boundary `CURRENT_FORMAT` and fresh setup remain f08, and no `tbd comment enable` or
 native-comment command exists.
 
 - [x] Implement the internal candidate IDs, authorship snapshot, sharding, size limits,
   strict schema, and no-replace storage primitive without a public export, CLI route, or
   format change (`tbd-e1tu`, PR #282).
-- [ ] Complete the f08 preservation stack under umbrella `tbd-76ad`, in dependency
-  order: `tbd-4r3w`, `tbd-qo4d`, `tbd-7ufa`, then the final `tbd-44kw` release gate.
+- [x] Implement bounded filesystem, Git-ref, and sparse Git-index inventories, pure
+  immutable-transition classification, and individual content-addressed quarantine
+  artifacts without wiring any active mutation path (`tbd-4r3w`, PR #283).
+- [ ] Complete the remaining f08 preservation stack under umbrella `tbd-76ad`, in
+  dependency order: `tbd-qo4d`, `tbd-7ufa`, then the final `tbd-44kw` release gate.
   Extend every sync, recovery, doctor, format, workspace/outbox, and rescue path while
   native writes remain unavailable.
-  None of these layers is included at the PR #282 boundary.
 - [ ] After the preservation evidence exists, run the Phase 2 subset of the broader
   `tbd-q2w2` experiments, address S282-01 and S282-02, and record the selected
   representation and durable grammar before freezing the candidate format (`tbd-z3ag`).
 - [ ] Implement native CLI reads/writes and comments-aware one-shot report/cursor
   contracts, including missing parents and late arrivals (`tbd-x6eo`).
+- [ ] In `tbd-x6eo`, split maximum-readable support from the new-repository default and
+  ordinary migration target.
+  Keep f08 as both defaults until explicit enablement, and decide shared
+  common-directory layout and generated integration-marker semantics before activating
+  f09.
 - [ ] In `tbd-x6eo`, establish a positive inventory of participating writers at or above
   that preservation release and record the old-client refusal evidence.
   Unknown or pre-preservation writers block activation.
@@ -855,6 +878,7 @@ These are bounded decisions owned by their phase, not reasons to postpone Phase 
 - [Coordination research and prior-plan ownership map](../../research/current/research-2026-09-06-bead-agent-coordination.md)
 - [Watch plan and historical evidence](plan-2026-07-19-bead-watch-and-external-sync.md)
 - [Linear integration contract](../../../../packages/tbd/docs/references/linear-integration-design.md)
+- [On-disk format versioning](../../../tbd-format-versioning.md)
 - [tbd design](../../../../packages/tbd/docs/tbd-design.md)
 - [GitHub repository limits][github-limits] and [REST API limits][github-api-limits]
 
