@@ -9,8 +9,9 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Draft. Rollout direction follows the reviewed research and discussion;
-implementation and the phase acceptance tests have not started.
+**Status:** Active. Phase 1 is in progress.
+The embedded provider-comment recovery slice (`tbd-hqb9`, PR #279) is complete; the
+Phase 1 owner (`tbd-3eui`) and every other phase remain open.
 
 **Tracking:** `tbd-khi1`; completed historical plan preparation `tbd-q90q`.
 
@@ -92,8 +93,10 @@ not block the native-only Phase 5 release.
 
 The reviewed tbd v0.8.1 baseline already has immutable bead IDs, dependencies,
 assignee/delegate fields, locked local claims, isolated remote watching, and Linear
-comment exchange. It also has reproduced comment loss in recovery, duplicate external
-posts across replicas, identity-alias conflicts, and shared-checkout identity ambiguity.
+comment exchange. The dated baseline reproduced embedded provider-comment loss in
+recovery, duplicate external posts across replicas, identity-alias conflicts, and
+shared-checkout identity ambiguity.
+PR #279 repairs the first defect while leaving the other Phase 1 work open.
 The current watcher observes committed endpoint differences, not a durable message
 queue. It does not drain an initial backlog, and elapsed deferral dates do not produce
 Git changes by themselves.
@@ -244,6 +247,14 @@ Direct import clears its source only after successful preservation; automatic sy
 retains its outbox until imported data is pushed or already synchronized.
 Lossy or ambiguous preservation must leave recoverable source data, even when some other
 records were imported successfully.
+
+The existing embedded provider comments now union during issue, workspace, and outbox
+recovery only when both namespaces name the same nonempty provider issue ID or both
+legacy namespaces omit the ID. A different ID, or a known ID paired with a missing or
+malformed ID, keeps the selected namespace unchanged and archives the complete losing
+namespace before a source can be cleared.
+This is an f08-compatible repair to existing integration state; it does not activate
+native comment records, f09, a native comment CLI, or a public API.
 
 ### Discovery, checkpoints, and ownership
 
@@ -496,8 +507,9 @@ because the process returned zero.
 **Owner:** `tbd-3eui`. **Ship:** repairs to the existing release’s contracts; manual
 sync and current integration comments remain usable.
 
-- [ ] Preserve independent pending comments in save/import, automatic outbox, and
-  ordinary merge; prove source-clear behavior (`tbd-hqb9`).
+- [x] Preserve independent pending embedded provider comments in save/import, automatic
+  outbox, and ordinary merge when provider-link lineage matches; quarantine an
+  incompatible complete namespace before source clearing (`tbd-hqb9`, PR #279).
 - [ ] Reuse one destination-scoped delivery identity across replicas and retries,
   including uncertain provider responses (`tbd-6vg5`).
 - [ ] Canonicalize identity aliases and preserve/report same-ID divergent content

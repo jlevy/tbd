@@ -1979,6 +1979,11 @@ the former provider item.
 next sync, exactly once.
 Inbound comments are folded into the bead the same way — append-only, identified by the
 tracker’s immutable comment id, author recorded as a display name only.
+Comment union is scoped to the provider issue named by the namespace’s nonempty `id`.
+Two legacy namespaces that both omit `id` may union for compatibility.
+A different ID, or a known ID paired with a missing, empty, or malformed ID, keeps the
+selected namespace and archives the complete loser; a pending comment from an old link
+cannot be posted to its replacement.
 Bodies over 10 KB are truncated with a marker.
 Every provider comment identity remains for deduplication, while only the newest 50
 provider-held entries keep full local prose and older ones collapse to id-only stubs.

@@ -6,11 +6,12 @@
 
 **Status:** Done
 
-**Current limitation, 2026-09-06:** The automatic workflow is delivered.
-Its recovery path inherits the pending-comment preservation defect (`tbd-hqb9`)
-reproduced in the
-[coordination research](../../research/current/research-2026-09-06-bead-agent-coordination.md).
-Preserve the recovery and clear-after-success goals while repairing that path.
+**Resolution, 2026-09-09:** The automatic workflow is delivered.
+The
+[coordination research](../../research/current/research-2026-09-06-bead-agent-coordination.md)
+reproduced its embedded provider-comment preservation defect.
+`tbd-hqb9` and PR #279 repair same-link union, quarantine incompatible full namespaces,
+and verify that pending outbox comments are preserved before the source is cleared.
 
 ## Overview
 

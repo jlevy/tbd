@@ -685,6 +685,32 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * Whether two comment-bearing namespaces identify the same provider issue.
+ *
+ * A non-empty `id` is the immutable provider-link identity. Legacy namespaces
+ * that both omit `id` may still merge with each other, but a known ID must never
+ * be treated as the same lineage as a missing, empty, malformed, or different ID.
+ */
+function commentsShareLinkLineage(
+  left: Record<string, unknown>,
+  right: Record<string, unknown>,
+): boolean {
+  const leftHasId = Object.hasOwn(left, 'id');
+  const rightHasId = Object.hasOwn(right, 'id');
+  if (!leftHasId && !rightHasId) {
+    return true;
+  }
+
+  return (
+    typeof left.id === 'string' &&
+    left.id.length > 0 &&
+    typeof right.id === 'string' &&
+    right.id.length > 0 &&
+    left.id === right.id
+  );
+}
+
+/**
  * Merge `extensions` one top-level namespace at a time.
  *
  * Namespaces are independent: two writers touching `github` and `linear` must
@@ -749,15 +775,15 @@ function resolveNamespace(
     return { present: true, value: survivor };
   }
 
-  // Both sides are objects and at least one carries a `comments` array: the
-  // sequences are append-only, so they union by identity instead of one side
-  // losing. Two machines appending different comments is the NORMAL case for
-  // comment sync, not a conflict — only divergence beyond `comments` is.
+  // Both sides are objects and at least one carries a `comments` array: comments
+  // from the same provider-link lineage are append-only and union by identity.
+  // A different or uncertain lineage falls through to namespace LWW below so a
+  // pending comment can never be transplanted to another provider issue.
   const localNs = local[namespace];
   const remoteNs = remote[namespace];
   if (isPlainObject(localNs) && isPlainObject(remoteNs)) {
     const hasComments = Array.isArray(localNs.comments) || Array.isArray(remoteNs.comments);
-    if (hasComments) {
+    if (hasComments && commentsShareLinkLineage(localNs, remoteNs)) {
       const winnerNs = localWins ? localNs : remoteNs;
       const loserNs = localWins ? remoteNs : localNs;
       const value = {
@@ -785,9 +811,11 @@ function omitComments(value: Record<string, unknown>): Record<string, unknown> {
 
 /** Preserve append-only comments even when an approximate base makes one side look unchanged. */
 function preserveNamespaceComments(
+  namespace: string,
   resolvedValue: unknown,
   localValue: unknown,
   remoteValue: unknown,
+  onConflict: (namespace: string, lost: unknown, winner: unknown) => void,
 ): unknown {
   if (
     !isPlainObject(resolvedValue) ||
@@ -795,6 +823,25 @@ function preserveNamespaceComments(
     !isPlainObject(remoteValue) ||
     (!Array.isArray(localValue.comments) && !Array.isArray(remoteValue.comments))
   ) {
+    return resolvedValue;
+  }
+
+  if (!commentsShareLinkLineage(localValue, remoteValue)) {
+    const resolvedMatchesLocal = commentsShareLinkLineage(resolvedValue, localValue);
+    const resolvedMatchesRemote = commentsShareLinkLineage(resolvedValue, remoteValue);
+
+    if (resolvedMatchesLocal && !resolvedMatchesRemote) {
+      onConflict(namespace, remoteValue, resolvedValue);
+    } else if (resolvedMatchesRemote && !resolvedMatchesLocal) {
+      onConflict(namespace, localValue, resolvedValue);
+    } else {
+      // Defensive fallback for a future merge strategy that synthesizes a third
+      // lineage: preserve every source namespace that the result no longer names.
+      onConflict(namespace, localValue, resolvedValue);
+      if (!deepEqual(localValue, remoteValue)) {
+        onConflict(namespace, remoteValue, resolvedValue);
+      }
+    }
     return resolvedValue;
   }
 
@@ -809,6 +856,7 @@ function preserveExtensionComments(
   resolvedValue: unknown,
   localValue: unknown,
   remoteValue: unknown,
+  onConflict: (namespace: string, lost: unknown, winner: unknown) => void,
 ): unknown {
   if (!isPlainObject(resolvedValue) || !isPlainObject(localValue) || !isPlainObject(remoteValue)) {
     return resolvedValue;
@@ -817,9 +865,11 @@ function preserveExtensionComments(
   let preserved = resolvedValue;
   for (const namespace of new Set([...Object.keys(localValue), ...Object.keys(remoteValue)])) {
     const namespaceValue = preserveNamespaceComments(
+      namespace,
       preserved[namespace],
       localValue[namespace],
       remoteValue[namespace],
+      onConflict,
     );
     if (!deepEqual(namespaceValue, preserved[namespace])) {
       preserved = { ...preserved, [namespace]: namespaceValue };
@@ -970,6 +1020,37 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
   // Field-by-field merge
   const merged = { ...base } as Issue;
 
+  // The ordinary namespace merge and the approximate-base postcondition both
+  // inspect comment lineage. Record the full losing namespace once even when
+  // both paths detect the same conflict.
+  const recordNamespaceConflict = (
+    field: string,
+    namespace: string,
+    lost: unknown,
+    winner: unknown,
+  ): void => {
+    const fieldPath = `${field}.${namespace}`;
+    const duplicate = conflicts.some(
+      (conflict) =>
+        conflict.field === fieldPath &&
+        deepEqual(conflict.lost_value, lost) &&
+        deepEqual(conflict.winner_value, winner),
+    );
+    if (!duplicate) {
+      conflicts.push(
+        createConflictEntry(
+          local.id,
+          fieldPath,
+          lost,
+          winner,
+          local.version,
+          remote.version,
+          'lww',
+        ),
+      );
+    }
+  };
+
   // Unknown keys (f08+) merge by the same rules, with a default strategy. Building the
   // pair list this way — rather than iterating FIELD_STRATEGIES alone — is what stops a
   // field a newer tbd added from being dropped here after the schema preserved it.
@@ -1100,17 +1181,7 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
           localVal,
           remoteVal,
           (namespace, lost, winner) => {
-            conflicts.push(
-              createConflictEntry(
-                local.id,
-                `${field}.${namespace}`,
-                lost,
-                winner,
-                local.version,
-                remote.version,
-                'lww',
-              ),
-            );
+            recordNamespaceConflict(field, namespace, lost, winner);
           },
           nsLocalTime >= nsRemoteTime,
         );
@@ -1123,6 +1194,9 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
     merged.extensions,
     local.extensions,
     remote.extensions,
+    (namespace, lost, winner) => {
+      recordNamespaceConflict('extensions', namespace, lost, winner);
+    },
   ) as Issue['extensions'];
 
   // Check if the merge produced any substantive changes compared to the

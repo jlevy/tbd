@@ -179,16 +179,18 @@ The dispositions are:
 
 ### Comments, Direction, and Concurrency
 
-**Evidence boundary, September 6:** The original passing scenarios below remain useful.
-They do not establish preservation through workspace/outbox recovery (`tbd-hqb9`),
-canonical alias union or same-ID content handling (`tbd-58nm`), or one external delivery
-when independent replicas mint different journal IDs for a shared pending comment
-(`tbd-6vg5`). Body caps are applied by comment-store normalization, not every Git merge
-boundary. Two-machine convergence also does not establish exclusive task claiming.
+**Evidence boundary, September 9:** The original passing scenarios below remain useful.
+PR #279 and `tbd-hqb9` add ordinary, workspace, and outbox preservation within one
+provider-link lineage and full-namespace quarantine across incompatible lineages.
+They do not establish canonical alias union or same-ID content handling (`tbd-58nm`), or
+one external delivery when independent replicas mint different journal IDs for a shared
+pending comment (`tbd-6vg5`). Body caps are applied by comment-store normalization, not
+every Git merge boundary.
+Two-machine convergence also does not establish exclusive task claiming.
 
 | Case | Canonical contract and Linear disposition | Implementation | Automated and live evidence |
 | --- | --- | --- | --- |
-| Comment append | **Supported** in both directions as union by immutable provider id/local id and creation-time order | `core/comment-store.ts`; `core/sync-engine.ts` | Merge, engine, and built-CLI round trips; live bidirectional field/comment scenarios |
+| Comment append | **Supported** in both directions as union by immutable provider ID/local ID and creation-time order within one provider-link lineage; incompatible full namespaces go to the attic | `core/comment-store.ts`; `core/sync-engine.ts`; `file/git.ts` | Merge, workspace, outbox, engine, and built-CLI round trips; live bidirectional field/comment scenarios |
 | Comment replay | **Idempotent for a stable journal UUID** with identity recovery before cleanup; cross-replica intent identity remains defective | `core/intents.ts`; `LinearAdapter.createComment()` | Crash-after-write and duplicate-id tests; live `exact-once-settle`; September `tbd-6vg5` reproduction |
 | Comment modes | **Supported** for `two_way`, `inbound`, `outbound`, and `off`; `--pull` never writes a pending local comment | `core/policy.ts`; `core/sync-engine.ts` | Mode table and pull-then-full-sync tests |
 | Long discussions | **Supported** with complete provider pagination. All identities remain; only the newest 50 provider-held entries retain full local prose and bodies cap at 10 KiB. Pending outbound prose is never truncated | `LinearAdapter.listComments()`; `core/comment-store.ts` | 251-comment and cap/pending-body tests |
@@ -1085,12 +1087,13 @@ pre-sync bead—so a remote-winning change and its managed summary converge in o
 
 <a id="comments-append-only-sequences-not-merged-fields"></a>
 
-Comments are the one kind of content whose synchronization is *easier* than fields, and
-the design leans on why: **a posted comment is immutable and has a stable id**, so both
-sides are append-only sequences.
-Synchronizing two append-only sequences needs no base, no three-way, and no conflict
-handling — the merged state is the **union by id, ordered by creation time**. Each
-comment is handled individually, in sequence.
+Within one linked provider issue, comments are simpler to synchronize than mutable
+fields: **a posted comment is immutable and has a stable ID**, so both sides are
+append-only sequences.
+Synchronizing those sequences needs no comment-level base; the merged state is the
+**union by ID, ordered by creation time**. The provider issue ID is the lineage
+boundary. A relink or uncertain identity requires namespace-level conflict handling
+before any comment can move.
 
 Storage rides the link namespace the bead already carries — the external payload lists
 the immutable comment ids alongside the issue UUID, and the entries carry the content:
@@ -1128,9 +1131,14 @@ extensions:
   bead has superseded the journal; the stale operation is consumed without a provider
   call.
 - **Merge.** The `comments` array inside a provider namespace merges by **union on
-  id/`local_id`** — the one array-typed key in the namespace with union semantics, a
+  ID/`local_id`** only when both namespaces carry the same nonempty provider issue ID or
+  both legacy namespaces omit `id`. A different ID, or a known ID paired with a missing,
+  empty, or malformed ID, retains the selected namespace and archives the complete
+  loser. This prevents a pending comment from an old link from being posted to its
+  replacement. It is the one array-typed key in the namespace with union semantics, a
   bounded extension of the per-namespace merge.
-  Namespace deletion (unlink) still wins as absence.
+  Namespace deletion (unlink) wins against an unchanged peer.
+  A concurrent namespace edit survives and records the discarded deletion as a conflict.
   Two machines appending different comments both survive; the same comment arriving
   twice dedupes on its id.
 - **Flow.** `field_sync.comments: two_way` (default) pulls new external comments and
@@ -1490,8 +1498,9 @@ before anything touches the network.
   intent cleanup, committed) → policy scan (create outbound-new, create inbound or
   report inbound per mode) → honest report.
   `--dry-run`, `--yes` (guard in both directions), `--json`.
-- [x] **Comment sequences** — union-by-id merge for the `comments` array inside a
-  provider namespace; pull/push inside `sync` per `field_sync.comments`;
+- [x] **Comment sequences** — same-provider-link union-by-ID merge for the `comments`
+  array inside a provider namespace, with incompatible full namespaces sent to the
+  attic; pull/push inside `sync` per `field_sync.comments`;
   `tbd integration comment <bead> "text"`; body/count caps with stub collapse; replay
   dedup per open question 7.
 - [x] **Link / unlink / explicit inbound selection** (`tbd-az29`, hardened by `tbd-pr5e`
