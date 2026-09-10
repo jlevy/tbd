@@ -2295,6 +2295,8 @@ Entry-count, Git-listing, and aggregate-byte ceilings abort without returning a 
 inventory; filesystem enumeration, metadata, and bounded-read failures do the same.
 
 Immutable transition planning is a pure operation over complete candidate trees.
+It indexes invalid entries once per source inventory, so classification does not rescan
+the full tree for every comment identity.
 When a common parent contains an ID, its exact bytes remain authoritative; deletion,
 modification, or changed `issue_id` is a violation.
 With unrelated histories and no parent record, one unique valid digest is accepted.

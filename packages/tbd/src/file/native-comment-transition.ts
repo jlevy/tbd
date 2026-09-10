@@ -110,10 +110,6 @@ function primaryEntryCommentId(entry: DataSyncInventoryEntry): InternalCommentId
   return entry.pathCommentId ?? entry.embeddedCommentId;
 }
 
-function entryClaimsId(entry: DataSyncInventoryEntry, id: InternalCommentId): boolean {
-  return entry.pathCommentId === id || entry.embeddedCommentId === id;
-}
-
 function entryArtifact(
   inventory: DataSyncInventory,
   entry: DataSyncInventoryEntry,
@@ -221,15 +217,42 @@ function deletionViolation(
   };
 }
 
-function invalidEntries(inventory: DataSyncInventory): DataSyncInventoryEntry[] {
-  return Array.from(inventory.entriesByPath.values()).filter((entry) => entry.problems.length > 0);
+interface InvalidEntryIndex {
+  all: readonly DataSyncInventoryEntry[];
+  byClaimedId: ReadonlyMap<InternalCommentId, readonly DataSyncInventoryEntry[]>;
+}
+
+function indexInvalidEntries(inventory: DataSyncInventory): InvalidEntryIndex {
+  const all: DataSyncInventoryEntry[] = [];
+  const byClaimedId = new Map<InternalCommentId, DataSyncInventoryEntry[]>();
+
+  for (const entry of inventory.entriesByPath.values()) {
+    if (entry.problems.length === 0) {
+      continue;
+    }
+    all.push(entry);
+    const claimedIds = new Set<InternalCommentId>();
+    if (entry.pathCommentId !== undefined) {
+      claimedIds.add(entry.pathCommentId);
+    }
+    if (entry.embeddedCommentId !== undefined) {
+      claimedIds.add(entry.embeddedCommentId);
+    }
+    for (const id of claimedIds) {
+      const entries = byClaimedId.get(id) ?? [];
+      entries.push(entry);
+      byClaimedId.set(id, entries);
+    }
+  }
+
+  return { all, byClaimedId };
 }
 
 function invalidEntriesForId(
-  inventory: DataSyncInventory,
+  index: InvalidEntryIndex,
   id: InternalCommentId,
-): DataSyncInventoryEntry[] {
-  return invalidEntries(inventory).filter((entry) => entryClaimsId(entry, id));
+): readonly DataSyncInventoryEntry[] {
+  return index.byClaimedId.get(id) ?? [];
 }
 
 function violationKey(violation: NativeCommentTransitionViolation): string {
@@ -306,6 +329,19 @@ export function classifyNativeCommentTransitions(
     assertFullTreeInventory(candidate, 'candidate');
   }
   const candidates = [...input.candidates].sort(compareSources);
+  const invalidEntryIndexes = new Map<DataSyncInventory, InvalidEntryIndex>();
+  for (const inventory of [input.base, ...candidates]) {
+    if (inventory !== null && !invalidEntryIndexes.has(inventory)) {
+      invalidEntryIndexes.set(inventory, indexInvalidEntries(inventory));
+    }
+  }
+  const invalidEntryIndexFor = (inventory: DataSyncInventory): InvalidEntryIndex => {
+    const index = invalidEntryIndexes.get(inventory);
+    if (index === undefined) {
+      throw new Error('Native-comment transition classifier lost an inventory index');
+    }
+    return index;
+  };
   const ids = new Set<InternalCommentId>();
   for (const inventory of [input.base, ...candidates]) {
     if (inventory === null) {
@@ -314,7 +350,7 @@ export function classifyNativeCommentTransitions(
     for (const id of inventory.commentsById.keys()) {
       ids.add(id);
     }
-    for (const entry of invalidEntries(inventory)) {
+    for (const entry of invalidEntryIndexFor(inventory).all) {
       if (entry.pathCommentId !== undefined) {
         ids.add(entry.pathCommentId);
       }
@@ -330,7 +366,8 @@ export function classifyNativeCommentTransitions(
   for (const id of Array.from(ids).sort(compareStrings)) {
     const violations: NativeCommentTransitionViolation[] = [];
     const baseRecord = input.base?.commentsById.get(id);
-    const baseInvalid = input.base === null ? [] : invalidEntriesForId(input.base, id);
+    const baseInvalid =
+      input.base === null ? [] : invalidEntriesForId(invalidEntryIndexFor(input.base), id);
 
     if (input.base !== null && (baseInvalid.length > 0 || !input.base.complete)) {
       for (const entry of baseInvalid) {
@@ -344,7 +381,7 @@ export function classifyNativeCommentTransitions(
     if (baseRecord !== undefined && baseInvalid.length === 0 && input.base?.complete) {
       for (const candidate of candidates) {
         const record = candidate.commentsById.get(id);
-        const candidateInvalid = invalidEntriesForId(candidate, id);
+        const candidateInvalid = invalidEntriesForId(invalidEntryIndexFor(candidate), id);
 
         if (record !== undefined) {
           if (!record.bytes.equals(baseRecord.bytes)) {
@@ -382,7 +419,7 @@ export function classifyNativeCommentTransitions(
 
     if (input.base !== null && (baseInvalid.length > 0 || !input.base.complete)) {
       for (const candidate of candidates) {
-        for (const entry of invalidEntriesForId(candidate, id)) {
+        for (const entry of invalidEntriesForId(invalidEntryIndexFor(candidate), id)) {
           violations.push(violationFromEntry(candidate, entry, undefined, true, id));
         }
       }
@@ -409,7 +446,7 @@ export function classifyNativeCommentTransitions(
       }
     }
     for (const candidate of candidates) {
-      for (const entry of invalidEntriesForId(candidate, id)) {
+      for (const entry of invalidEntriesForId(invalidEntryIndexFor(candidate), id)) {
         violations.push(
           violationFromEntry(candidate, entry, canonical?.sha256, canonical === undefined, id),
         );
@@ -437,7 +474,7 @@ export function classifyNativeCommentTransitions(
     if (inventory === null) {
       continue;
     }
-    for (const entry of invalidEntries(inventory)) {
+    for (const entry of invalidEntryIndexFor(inventory).all) {
       if (entry.pathCommentId === undefined && entry.embeddedCommentId === undefined) {
         unscopedViolations.push(
           violationFromEntry(inventory, entry, undefined, inventory === input.base),
