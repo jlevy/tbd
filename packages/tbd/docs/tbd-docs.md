@@ -1984,11 +1984,12 @@ Two legacy namespaces that both omit `id` may union for compatibility.
 A different ID, or a known ID paired with a missing, empty, or malformed ID, keeps the
 selected namespace and archives the complete loser; a pending comment from an old link
 cannot be posted to its replacement.
-Bodies over 10 KB are truncated with a marker.
-Every provider comment identity remains for deduplication, while only the newest 50
-provider-held entries keep full local prose and older ones collapse to id-only stubs.
-An unpushed local comment is never truncated or collapsed before its provider id is
-recorded; the tracker remains the system of record for long threads.
+For entries with a provider `id`, a body over 10,000 JavaScript UTF-16 code units
+becomes its first 10,000 units plus a truncation marker.
+Only the newest 50 provider-ID entries retain a body, possibly truncated; older entries
+retain all identity and metadata fields, including `local_id` when present, with
+`body: ''`. Pending `local_id`-only entries remain full and outside both limits until a
+provider ID lands; the tracker remains the system of record for long threads.
 Comment edits, deletion, reactions, and thread shape are not synchronized.
 
 The authoritative support/boundary matrix and its code/test traceability live in the

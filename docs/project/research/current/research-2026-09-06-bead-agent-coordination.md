@@ -22,6 +22,18 @@ exchange comments; recovery keeps the selected namespace and archives the comple
 loser. Both legacy namespaces may still union when both omit an ID. This resolves only
 the recovery finding below; Phase 1 and its owner `tbd-3eui` remain open.
 
+**Modeling update, 2026-09-10:** Stacked PR #282 completes `tbd-e1tu`, the candidate
+immutable record and create-only local-storage foundation.
+PR #283 completes `tbd-4r3w`, the bounded filesystem/Git inventory, pure
+immutable-transition, and individual content-addressed quarantine-artifact foundation.
+The PR #283 review also caught and fixed a root-validation gap so missing or non-tree
+data-sync ancestors cannot appear as a valid empty f08 source.
+Both layers remain internal and dormant: they have no CLI, public package export, active
+runtime caller, sync/workspace/provider integration, configuration, migration, or
+generated scaffold. Current and fresh repositories remain on f08, the existing embedded
+Linear/provider comment model is unchanged, and f09 remains a candidate behind the
+remaining preservation, compatibility, format-evidence, and activation gates.
+
 **Tracking:** completed historical research task tbd-kvs3.
 
 ## Overview
@@ -271,9 +283,12 @@ Current limits matter for agent use:
 - The model is append-only.
   Already-seen IDs are skipped, so edits and deletions are not synchronized.
   Reply topology and recipients are not a native local message contract.
-- Provider-held text is capped at 10,000 characters and 50 full entries; older entries
-  become ID/time stubs.
-  Pending local prose is preserved until pushed.
+- For entries with a provider `id`, a body over 10,000 JavaScript UTF-16 code units
+  becomes its first 10,000 units plus a truncation marker.
+  Only the newest 50 provider-ID entries retain a body, possibly truncated; older
+  entries retain all identity and metadata fields, including `local_id` when present,
+  with `body: ''`. Pending `local_id`-only entries remain full and outside both limits
+  until a provider ID lands.
   This assumes the tracker retains full text.
   It bounds neither all retained IDs nor all pending comments, and merge itself does not
   enforce the 50-body cap.
@@ -666,7 +681,7 @@ supplement each bead’s `spec_path`.
 | --- | --- | --- |
 | [Batch transactions](../../specs/active/plan-2026-01-19-transactional-mode-and-agent-registration.md), `tbd-df33` | Private tentative multi-bead changes; begin, review, commit, abort; crash/orphan recovery; immediate mode by default | Unimplemented proposal requiring refresh. Atomic comment files and current identity do not supply batch isolation or all-or-nothing publication. |
 | [Watch design](../../specs/active/plan-2026-07-19-bead-watch-and-external-sync.md) and its validation | Read-only committed-state observation, bounded reports, explicit cursor/rewrite behavior | Shipped contract and historical evidence. Superseded pilot/release checks are labeled; generic extension CLI remains `tbd-z95g` in the tracker plan. |
-| [Tracker integrations](../../specs/active/plan-2026-08-10-external-tracker-integrations.md), `tbd-gvju` | Linked-bead identity and direction policy, GitHub adapter/PR associations, web projection, unified engine, generic extension CLI | Native comments may become a durable source for these bridges. New delivery/recovery findings qualify the older passing scenarios. |
+| [Tracker integrations](../../specs/active/plan-2026-08-10-external-tracker-integrations.md), `tbd-gvju` | Linked-bead identity and direction policy, GitHub adapter/PR associations, web projection, unified engine, generic extension CLI | Native comments may become a durable source for these bridges. PRs #282 and #283 neither select that migration nor alter current provider behavior. New delivery/recovery findings qualify the older passing scenarios. |
 | [Sync and traceability](../../specs/active/plan-2026-08-14-external-sync-and-traceability.md), `tbd-dzme` | Cheap quiet sync; honest freshness/errors; in-flight rollups and durable links; attention/inherited-spec selection; inbound gestures and origin/remap safety; bounded closing gates and host hooks | Watch/dispatch research does not replace these visibility and completion requirements. Keep the inline-sync override decision (`tbd-9cf9`, overlapping `tbd-zuos`) separate from comment policy. |
 | [Actor and identity](../../specs/active/plan-2026-08-18-actor-axis-and-identity.md), delivered `tbd-ncux`, residual `tbd-p0fe` | Human assignee/agent delegate split, provider-ID bindings, metadata privacy; remaining binding UX, migration, actor diagnostics, and explicit acceptance evidence | `tbd-6nmq` sharpens the plan’s existing session-precision question. Completed core and unfinished UX have separate owners. |
 | [Tracker state and Linear mapping](../../specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md), `tbd-og20` | Lifecycle projection, owned refinements, explicit provisioning, no prompts or unsolicited board changes during sync | Distinct sibling plan. Closed state epics do not prove every stale checkbox; shared-state carrier acceptance needs a focused audit. |
@@ -749,6 +764,8 @@ tbd-64aq (mapping identity).
 | New bead | Follow-up |
 | --- | --- |
 | tbd-hqb9 (P1, complete) | Embedded provider-comment preservation in ordinary, workspace, and outbox recovery |
+| tbd-e1tu (P1, complete) | Dormant immutable native-comment record and create-only storage foundation |
+| tbd-4r3w (P1, complete) | Dormant bounded inventory, immutable-transition planning, and quarantine-artifact foundation |
 | tbd-6vg5 (P1) | Stable Linear delivery identity across replicas |
 | tbd-58nm (P2) | Canonical aliases and same-ID content conflicts |
 | tbd-6nmq (P2) | Simultaneous agents sharing checkout identity |

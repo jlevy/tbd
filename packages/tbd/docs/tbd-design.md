@@ -641,13 +641,27 @@ serialization:
 
 - LF line endings
 
-**Recommended `.gitattributes`:**
+**Recommended `.gitattributes` for canonical issue and metadata surfaces:**
 
 ```
-.tbd/data-sync/** text eol=lf
+.tbd/data-sync/issues/** text eol=lf
+.tbd/data-sync/mappings/** text eol=lf
+.tbd/data-sync/meta.yml text eol=lf
 ```
+
+Do not apply blanket text normalization to `.tbd/data-sync/**`. Candidate native
+comments and their content-addressed conflict evidence require exact bytes.
+Before activation, `tbd-44kw` owns the tested non-transforming attributes for
+`.tbd/data-sync/comments/**` and `.tbd/data-sync/attic/comment-conflicts/**`, including
+autocrlf, clean-filter, and encoding cases.
+See the
+[native comment architecture](https://github.com/jlevy/tbd/blob/main/docs/project/architecture/current/arch-native-comments.md).
 
 **Required `.tbd/.gitattributes`** (created by `tbd setup`):
+
+Current f08 setup installs only the mapping rule shown below.
+It does not yet install native-comment or conflict-evidence non-transforming rules;
+those remain `tbd-44kw`.
 
 ```gitattributes
 # Protect ID mappings from merge deletion (always keep all rows)
@@ -6733,9 +6747,14 @@ Unlink or relink makes an old journal successful cancellation, not work that may
 the former provider item.
 Append-only comments union by immutable identity.
 Provider comment connections paginate completely.
-Every identity is retained for deduplication, while storage bounds only provider-held
-prose (newest 50 entries, 10 KiB per body); pending local prose is never collapsed
-before its provider identity lands.
+Every identity is retained for deduplication.
+For entries with a provider `id`, a body over 10,000 JavaScript UTF-16 code units
+becomes its first 10,000 units plus a truncation marker.
+Only the newest 50 provider-ID entries retain a body, possibly truncated; older entries
+retain all identity and metadata fields, including `local_id` when present, with
+`body: ''`. Pending `local_id`-only entries remain full and outside both limits until a
+provider ID lands.
+
 When both sides change a merge-owned field differently, the configured winner is kept,
 the loser is archived before either side is overwritten, and the archive path plus a
 client-UUID conflict comment are journaled together.

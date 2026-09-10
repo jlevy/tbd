@@ -5,7 +5,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Feature: Bead Watch Infrastructure and External Sync Layering
 
-**Date:** 2026-07-19 (last updated 2026-09-06)
+**Date:** 2026-07-19 (last updated 2026-09-10)
 
 **Author:** Joshua Levy
 
@@ -470,8 +470,9 @@ report, dynamic selections, and durable worker recipe are sufficient to run disp
 Linear experiments end to end while provider bindings and state remain outside core.
 
 - [x] Namespace-aware `extensions` merge (tbd-le2l): delivered.
-  Embedded provider comment append union also shipped; the September research records
-  its remaining correctness defects separately.
+  Embedded provider-comment append union also shipped.
+  PR #279 confines recovery union to the same compatible provider-link lineage and
+  archives an incompatible complete namespace before its source can be cleared.
 - Generic `extensions` read/write/display on the CLI (tbd-z95g): still open, transferred
   to the [external-tracker plan](plan-2026-08-10-external-tracker-integrations.md).
 - Linear pilot redesign (tbd-vm5s and tbd-g305): closed as superseded by the
@@ -495,10 +496,12 @@ idempotency, platform shells, operator output, cleanup, and evidence capture.
 ## Open Questions
 
 - Embedded provider comment append union has shipped.
-  PR #282 implements a dormant candidate foundation for independent native-comment
-  records and create-only local storage, documented in the
+  PRs #282 and #283 implement dormant candidate foundations for independent
+  native-comment records, create-only local storage, bounded source inventories,
+  immutable-transition planning, and individual quarantine artifacts, documented in the
   [native comment architecture](../../architecture/current/arch-native-comments.md).
-  Its format is not frozen, and Git preservation, CLI activation, and provider
+  These modules have no watch/runtime caller or public surface.
+  The format is not frozen, and active Git preservation, CLI activation, and provider
   projection remain gated by the
   [September rollout plan](plan-2026-09-06-bead-coordination-and-native-comments.md) and
   [research](../../research/current/research-2026-09-06-bead-agent-coordination.md).

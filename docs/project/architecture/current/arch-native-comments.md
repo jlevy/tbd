@@ -5,15 +5,18 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Native Comment Record Architecture
 
-Last updated: 2026-09-09
+Last updated: 2026-09-10
 
 **Status:** Candidate internal foundation.
 PR #282 implements record validation, serialization, bounded reads, deterministic paths,
-and create-only local publication under `tbd-e1tu`. The implementation is not reachable
-from the CLI or public package entry points, and current and freshly initialized
-repositories remain on format `f08`. Format `f09`, `tbd comment enable`, native-comment
-commands, and Git preservation remain proposed Phase 2 work.
-Provider projection remains proposed Phase 4 work.
+and create-only local publication under `tbd-e1tu`. PR #283 implements bounded
+filesystem, Git-ref, and Git-index inventories, pure immutable-transition planning, and
+create-only quarantine evidence under `tbd-4r3w`. Both layers are internal and dormant:
+they have no CLI route, public package export, active runtime caller, sync/workspace
+integration, provider integration, or generated scaffold.
+Current and freshly initialized repositories remain on format `f08`. Format `f09`,
+native-comment commands, Git preservation, and provider projection remain proposed work
+behind the gates below.
 
 Maintenance: When revising this doc you must follow instructions in
 @shortcut-revise-architecture-doc.md.
@@ -26,9 +29,9 @@ Under this model, each comment is an immutable Markdown document.
 Independent comments use separate paths and can therefore merge without rewriting the
 parent bead or each other.
 
-This document specifies the implemented internal record and storage foundation and the
-proposed contracts around it.
-The preservation layers under `tbd-76ad` must pass first.
+This document specifies the implemented internal record/storage and inventory/transition
+foundations and the proposed contracts around them.
+The remaining preservation layers under `tbd-76ad` must pass first.
 Then `tbd-z3ag` must record the required Phase 2 subset of the broader `tbd-q2w2`
 experiment and close the format-freeze gate before `tbd-x6eo` can add a CLI writer or
 activate a new repository format.
@@ -50,6 +53,8 @@ runtime dispatch belong to later phases.
 
 These are invariants for the complete candidate design.
 PR #282 enforces the record, identity, serialization, and local publication subset.
+PR #283 can inventory and classify candidate trees and construct quarantine artifacts,
+but no production mutation path calls those helpers yet.
 
 | Invariant | Consequence |
 | --- | --- |
@@ -148,8 +153,14 @@ external side effects and replay those bytes on retry.
 │       └── cm-<ulid>.md
 └── attic/
     └── comment-conflicts/
+        ├── _unattributed/
+        │   ├── <sha256-of-candidate-bytes>.md
+        │   └── observations/
+        │       └── <sha256-of-manifest>.yml
         └── cm-<ulid>/
-            └── <sha256-of-candidate-bytes>.md
+            ├── <sha256-of-candidate-bytes>.md
+            └── observations/
+                └── <sha256-of-manifest>.yml
 ```
 
 The shard is the first byte of `sha256(comment_id)`, rendered as two lowercase hex
@@ -200,12 +211,148 @@ quarantine these names before every broad Git stage.
 A `.gitignore` rule alone is insufficient because scaffold repair sometimes force-adds
 the managed data directory.
 
+## Inventory Contract
+
+Every future preservation path will consume the same `DataSyncInventory` shape.
+PR #283 can build an inventory from a filesystem tree, a resolved Git commit, or one Git
+index stage. It retains every bounded raw entry as well as the smaller map of accepted
+comments, so a malformed file cannot disappear merely because parsing failed.
+Filesystem and commit inventories have `full-tree` coverage.
+Raw index stages have `sparse-paths` coverage because absence from a stage does not mean
+deletion.
+
+A comment is accepted only when all of these conditions hold:
+
+- Its path is exactly `comments/<two lowercase hex>/<cm-id>.md`.
+- The filename, hash shard, and embedded ID agree.
+- Its Git mode is `100644`; filesystem records are regular, non-symlink files and are
+  nonexecutable on POSIX.
+- Its bytes are valid UTF-8, parse as the strict record schema, stay within the
+  per-record limit, and equal the canonical serialization byte for byte.
+- No other entry claims the same identity.
+
+An invalid filename/content mismatch retains both identity claims.
+The filename identity owns the occupied path and quarantine scope; the embedded identity
+also participates in transition decisions, so neither identity can be accepted while the
+conflict is hidden under the other.
+
+The only nonrecord file admitted under the comments root is an empty, regular
+`comments/.gitkeep` scaffold.
+Empty canonical shard directories are harmless local residue.
+The inventory identifies a publisher temporary file only when its name matches the exact
+private temporary grammar; every other extra path is invalid.
+
+Missing `comments/` means a complete empty legacy inventory only after the adapter has
+proved that the selected data-sync root is valid.
+The filesystem adapter requires the selected root to be a real directory before it
+examines the optional child.
+The Git-ref adapter proves `.tbd` and `.tbd/data-sync` are trees when no comments entry
+is present. The index adapter rejects exact non-tree ancestor entries while allowing
+Git’s implicit directories.
+These checks are the fix for FABLE-283-01; a missing, file, or static symlink root
+cannot be reported as a valid empty f08 source.
+
+A known but unmaterialized or oversized entry remains visible as an incomplete problem
+rather than an empty snapshot.
+An overlong canonical UTF-8 path retains its decoded path and is marked invalid; because
+the decoded path reproduces the exact bytes, it normally does not need `rawPathBase64`.
+A non-UTF-8 path, or a decoded path that is unsafe for quarantine, uses a digest-bearing
+diagnostic placeholder and retains its exact bytes in `rawPathBase64`. Exceeding the
+entry-count, Git listing, or aggregate-byte ceiling aborts the inventory without
+returning a partial result.
+Filesystem enumeration, metadata, or bounded-read failure also aborts without returning
+a partial inventory.
+The initial internal safety ceilings are injectable and remain separate from future CLI
+page limits; `tbd-z3ag` will calibrate activation defaults.
+
+Git adapters never check out a source to inspect it.
+They resolve symbolic refs to commit IDs, parse NUL-delimited tree and index listings as
+raw bytes, and read blobs with bounded `git cat-file --batch` subprocesses.
+All object reads disable local Git replacement refs, so validation observes the objects
+that an ordinary push transfers.
+They do not disable partial-clone or promisor-remote lazy fetch: `ls-tree -l` or
+`cat-file` can fetch a missing object before the local listing and record bounds reject
+it. The current ceilings therefore bound retained local output, not remote transfer or
+object-store growth.
+Before activation, `tbd-qo4d` must either disable lazy fetch or explicitly materialize
+and measure it, with a partial-clone test.
+Index conflicts produce separate stage 1, 2, and 3 inventories, preserving add/add and
+deletion evidence. All four raw index stages remain explicitly sparse.
+A later Git guard must read complete side commits or construct and validate a full
+logical overlay before asking the transition engine to infer deletion.
+
+## Immutable Transition Plans
+
+`classifyNativeCommentTransitions()` is a pure N-way engine.
+Its input is an authoritative full-tree common-parent inventory, when one exists, and
+one or more full-tree candidate inventories.
+It refuses sparse inputs rather than treating their omissions as deletion.
+Its output chooses canonical records, classifies violations, and prepares quarantine
+evidence; it does not edit, stage, merge, or commit a tree.
+
+When a parent already contains an identity, its exact bytes remain canonical.
+An absent candidate is a deletion, a different `issue_id` is reparenting, and any other
+byte change is a modification.
+A corrupt occupant at the canonical path is classified from the retained invalid entry
+instead of being mistaken for a deletion.
+A record moved to a wrong shard produces both the missing canonical record and the
+invalid alternative.
+
+With unrelated histories and no authoritative parent, absence means only that one source
+never observed the identity.
+One unique valid digest is accepted.
+If multiple valid digests claim an ID, the lexicographically smallest SHA-256 digest
+wins deterministically and every other digest is retained.
+Reordering input sources cannot change the plan.
+An invalid parent, an incomplete source, or an identity without any valid canonical
+observation blocks automatic repair.
+
+Plans distinguish accepted additions, byte-identical existing records, repairable
+violations, and blocked violations.
+A later Git guard may apply only a complete clean or repairable plan and must publish
+all required evidence before replacing or restoring a path.
+
+## Quarantine Evidence
+
+Raw alternatives use content-addressed paths below `attic/comment-conflicts/<cm-id>/` or
+`attic/comment-conflicts/_unattributed/`. Each preservable transition-plan observation
+also gets an immutable manifest at `<scope>/observations/<manifest-sha256>.yml`. The
+manifest records the violation, resolved source revision or stable local label, a safe
+relative source path or diagnostic, base64 original path bytes when required, mode, Git
+object ID, canonical and candidate digests, and normalized problem codes.
+A deletion has a manifest and no candidate blob.
+An unmaterialized or over-bound observation that cannot produce a complete artifact
+instead blocks mutation without publishing partial evidence.
+Before a public CLI writer is enabled, its immediate `EEXIST` conflict path must publish
+the same manifest after preserving the raw candidate.
+
+Raw bytes are create-only published and verified before a referring manifest becomes
+visible.
+Both names are content addressed and reject occupied bytes that do not match; on
+POSIX they also reject executability that would produce a different Git mode.
+The publisher does not validate an index mode; the later Git guard owns that check.
+Manifests omit wall-clock time, absolute filesystem paths, parser exception prose, and
+symbolic Git refs. The same candidate bytes can therefore share one raw artifact while
+distinct durable provenance tuples retain distinct manifests without merge hotspots.
+
+The quarantine tree is protected immutable state, not expendable diagnostics.
+PR #283 constructs and publishes individual bounded artifacts but does not inventory or
+guard the quarantine tree as a whole.
+Before a later Git guard can apply a plan, it must validate artifact paths, modes,
+digests, schemas, and references and reject deletion or modification across every parent
+edge. Managed data-sync attributes must disable text, encoding, identity, and filter
+transformations for comment and quarantine paths.
+After every broad stage, the guard must compare the exact index blobs with the planned
+bytes before committing.
+
 ## Git and Provider Boundaries
 
 The candidate layout gives distinct comments distinct files, so a later Git integration
 can join independent additions without a custom merge driver.
-PR #282 does not integrate the comments tree with Git: it does not stage, Git-merge,
-recover, commit, or publish the tree to a remote.
+PRs #282 and #283 add no comment-aware staging, Git merge, recovery, commit, or remote
+publication path. Existing broad Git operations such as `git add -A` can incidentally
+carry manually placed comment-shaped files, but that carriage is unsupported and does
+not validate immutability or guarantee preservation.
 A same-ID add/add conflict, modification, reparent, or deletion violates immutability.
 The preservation layer must keep one canonical record, retain every complete alternative
 in the attic, and report the condition.
@@ -268,10 +415,11 @@ every bead.
 
 ### Current f08 Boundary
 
-At the PR #282 boundary, `CURRENT_FORMAT` is `f08`, and fresh setup writes `f08`. The
+At the PR #283 boundary, `CURRENT_FORMAT` is `f08`, and fresh setup writes `f08`. The
 binary has no readable or writable `f09` mode, native-comment configuration, format
 migration, `tbd comment enable` command, or `tbd comment add/list/show` commands.
-The record and storage modules have no public package export or runtime caller.
+The record, storage, inventory, transition, and quarantine modules have no public
+package export or active runtime caller.
 Standard setup, sync, workspace, recovery, and provider operations do not recognize,
 validate, or guarantee preservation of a native comments tree.
 
@@ -280,18 +428,26 @@ that configuration. This refusal does not protect native records from a stale cl
 has not incorporated a future activation commit, and the current binary has none of the
 planned comments-tree preservation behavior.
 
+Today `CURRENT_FORMAT` couples the readable-format ceiling, migration target, fresh
+repository default, shared common-directory layout validation, and generated agent
+integration marker. Merely changing it to `f09` would therefore make existing
+repositories auto-migrate and fresh repositories start on f09, bypassing the proposed
+opt-in activation. Before activation, `tbd-x6eo` must separate the readable ceiling from
+the default and migration target and explicitly decide the common-layout and integration
+marker semantics.
+
 ### Candidate f09 Sequence
 
 The plan names `f09` as the candidate native-comment format, subject to the `tbd-z3ag`
-format-freeze gate. No f09 constant or behavior is implemented by PR #282. The proposed
+format-freeze gate. No f09 constant or behavior is implemented by PR #283. The proposed
 `tbd comment enable` spelling belongs to `tbd-x6eo` and remains subject to that bead’s
 review.
 
 The proposed activation sequence is:
 
-1. Complete `tbd-4r3w`, `tbd-qo4d`, `tbd-7ufa`, and `tbd-44kw`, then ship an
-   f08-compatible preservation release that keeps future comments and evidence intact
-   through every copy, merge, repair, and stage path.
+1. Complete the remaining preservation layers `tbd-qo4d`, `tbd-7ufa`, and `tbd-44kw`,
+   then ship an f08-compatible preservation release that keeps future comments and
+   evidence intact through every copy, merge, repair, and stage path.
 2. Establish that preservation release as the minimum binary for every participating
    writer and close the `tbd-z3ag` format-evidence gate.
 3. Add the reviewed activation command in `tbd-x6eo`; have it produce an explicit
@@ -300,16 +456,17 @@ The proposed activation sequence is:
 5. Permit the future comment writer only after it rechecks the active format while
    holding the shared writer lock.
 
-Git cannot retroactively fence a client on a stale branch.
+Git cannot retroactively fence a pre-preservation client on a stale branch.
+An unknown writer or one below the preservation floor blocks activation.
 The writer inventory and stale-clone proof in `tbd-x6eo` must bound this limitation
 rather than claim a distributed lock that Git does not provide.
 
 ## Implementation Layers
 
-| Layer | Bead | State at PR #282 | Contract | Public behavior at this boundary |
+| Layer | Bead | State at PR #283 | Contract | Public behavior at this boundary |
 | --- | --- | --- | --- | --- |
 | Record and storage foundation | `tbd-e1tu` | Implemented; internal and dormant | ID, schema, parser, bounded create-only storage, and this architecture | None; no CLI writer, public export, or format activation |
-| Inventory and transitions | `tbd-4r3w` | Absent from #282; implemented only in stacked PR #283 | Bounded filesystem/Git inventory, immutable transition classification, and content-addressed quarantine | None |
+| Inventory and transitions | `tbd-4r3w` | Implemented; internal and dormant | Bounded filesystem/Git inventory, immutable transition classification, and content-addressed quarantine artifacts | None; no active Git guard, recovery caller, public export, or format activation |
 | Git operation guards | `tbd-qo4d` | Open | Validate every broad stage, commit, merge, fast-forward, and push parent edge | None |
 | Workspace and history recovery | `tbd-7ufa` | Open | Preserve comments through workspace/outbox, unrelated histories, migrations, repairs, and source clearing | None |
 | Diagnostics and compatibility | `tbd-44kw` | Open | Doctor and attic surfaces, scaffold and sync metadata validation, and packed old-client refusal | None |
@@ -317,15 +474,21 @@ rather than claim a distributed lock that Git does not provide.
 | Activation and commands | `tbd-x6eo` | Open; blocked by the earlier gates | Explicit format enablement, add/list/show/changes, writer inventory, and two-clone proof | None |
 
 All four children of preservation epic `tbd-76ad` must land before the activation layer
-can expose a write. The tracker records `tbd-4r3w` complete in stacked PR #283, but that
-implementation is not present in #282. The Phase 1 epic `tbd-3eui`, the Phase 2 epic
-`tbd-raxf`, and the later preservation, format, and activation gates remain open.
+can expose a write. At this boundary only `tbd-4r3w` is complete within that epic.
+The Phase 1 epic `tbd-3eui`, the Phase 2 epic `tbd-raxf`, and the remaining
+preservation, format, and activation gates remain open.
 
 ## Pre-Freeze Review Debt
 
 `tbd-z3ag` owns two pre-freeze follow-ups from the independent PR #282 review.
 They are mandatory before the candidate format can be frozen and before `tbd-x6eo` can
 expose a writer:
+
+The
+[initial senior review](https://github.com/jlevy/tbd/pull/282#issuecomment-5612012547),
+[disposition](https://github.com/jlevy/tbd/pull/282#issuecomment-5612094616), and
+[final-head verification](https://github.com/jlevy/tbd/pull/282#issuecomment-5614315337)
+record the evidence and the remaining boundaries.
 
 - **S282-01, create-only storage failures:** deterministically exercise the remaining
   `open`, write/close, `link`, cleanup close/unlink, and aggregate-error branches.
@@ -372,6 +535,11 @@ benchmark records their read cost and Git growth.
 | Generic frontmatter envelope | `packages/tbd/src/file/parser.ts` |
 | Comment canonicalization and serialization | `packages/tbd/src/file/comment-parser.ts` |
 | Sharding, bounded reads, publication, and local conflict preservation | `packages/tbd/src/file/comment-storage.ts` |
+| Shared bounded filesystem primitives | `packages/tbd/src/file/bounded-file.ts` |
+| Binary-safe bounded Git blob reads | `packages/tbd/src/file/git-object-reader.ts` |
+| Filesystem, Git-ref, and index-stage inventory | `packages/tbd/src/file/data-sync-inventory.ts` |
+| Pure immutable-transition classification | `packages/tbd/src/file/native-comment-transition.ts` |
+| Raw alternatives and provenance manifests | `packages/tbd/src/file/native-comment-quarantine.ts` |
 | Sync-tree path constants | `packages/tbd/src/lib/paths.ts` |
 
 ## Validation
@@ -386,9 +554,20 @@ The foundation tests pin:
 - phase-hook failures before and after the atomic link, including retryability after the
   final path becomes visible
 
+The inventory and transition tests additionally pin bounded raw Git object framing,
+filesystem and Git-root validation, exact canonical bytes, raw-path preservation,
+aggregate limits, sparse-index refusal, deterministic N-way decisions, and idempotent
+raw-before-manifest quarantine publication.
+FABLE-283-01 was reported in the
+[senior review](https://github.com/jlevy/tbd/pull/283#issuecomment-5597942066) and
+closed with fail-closed filesystem/Git/index ancestor validation; the
+[disposition](https://github.com/jlevy/tbd/pull/283#issuecomment-5598438633) records its
+focused evidence.
+
 `tbd-z3ag` owns the remaining syscall-error tests listed under
 [Pre-Freeze Review Debt](#pre-freeze-review-debt).
-Later layers add two-clone Git exchange, merge/delete/reparent quarantine, workspace and
+Later layers add delayed-parent and cross-bead reply diagnostics, two-clone Git
+exchange, active merge/delete/reparent repair, quarantine-tree integrity, workspace and
 outbox failures, unrelated-history rescue, old-client refusal, fixed-endpoint discovery,
 and measured scale evidence.
 
