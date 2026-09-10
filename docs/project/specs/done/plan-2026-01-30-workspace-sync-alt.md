@@ -6,12 +6,13 @@
 
 **Status:** Done
 
-**Current limitation, 2026-09-06:** This is the selected historical workspace design.
+**Resolution, 2026-09-09:** This is the selected historical workspace design.
 The
 [coordination research](../../research/current/research-2026-09-06-bead-agent-coordination.md)
-reproduces loss of independent pending comments in save/import (`tbd-hqb9`). That is a
-defect against the compatible-merge and conflict-visibility goals below, not proof that
-every recovery path currently preserves concurrent additions.
+reproduced loss of independent embedded provider comments in save/import.
+`tbd-hqb9` and PR #279 repair same-link comment preservation and archive the complete
+losing namespace when link identity is incompatible.
+The remaining Phase 1 work is tracked by `tbd-3eui`.
 
 ## Overview
 

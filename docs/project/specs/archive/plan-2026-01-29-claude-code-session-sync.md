@@ -13,9 +13,11 @@ The selected successors are the
 They preserve the recovery goals while changing the mechanism.
 The
 [September coordination research](../../research/current/research-2026-09-06-bead-agent-coordination.md)
-reviews the shipped behavior and records a pending-comment preservation defect
-(`tbd-hqb9`). The historical design below is not current implementation guidance or a
-replacement for the separate, still-unimplemented batch transaction plan.
+reviews the shipped behavior and records the embedded provider-comment preservation
+defect repaired by `tbd-hqb9` and PR #279. Same-link comments now survive recovery;
+incompatible link identities preserve the full losing namespace in the attic.
+The historical design below is not current implementation guidance or a replacement for
+the separate, still-unimplemented batch transaction plan.
 
 ## Overview
 
