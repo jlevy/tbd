@@ -51,10 +51,11 @@ Project-specific specifications, architecture, and research docs:
   (templates and output go here)
 
   - [Candidate native comment record architecture](project/architecture/current/arch-native-comments.md)
-    documents the dormant internal record/storage foundation and a proposed future f09
-    activation boundary.
+    documents the dormant internal record/storage and inventory/transition foundations
+    and a proposed future f09 activation boundary.
     Current and freshly initialized repositories remain on f08; no native-comment
-    command or activation path is available.
+    command, public package surface, active runtime caller, or activation path is
+    available.
 
 - @docs/project/research/—Research notes and technical investigations
 

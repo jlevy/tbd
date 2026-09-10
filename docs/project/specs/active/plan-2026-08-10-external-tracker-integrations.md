@@ -5,7 +5,8 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Feature: External Tracker Integrations (Linear first, GitHub next)
 
-**Date:** 2026-08-10 (reconciled 2026-09-06)
+**Date:** 2026-08-10 (reconciled 2026-09-06; native-comment boundary clarified
+2026-09-10)
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
@@ -193,7 +194,7 @@ Two-machine convergence also does not establish exclusive task claiming.
 | Comment append | **Supported** in both directions as union by immutable provider ID/local ID and creation-time order within one provider-link lineage; incompatible full namespaces go to the attic | `core/comment-store.ts`; `core/sync-engine.ts`; `file/git.ts` | Merge, workspace, outbox, engine, and built-CLI round trips; live bidirectional field/comment scenarios |
 | Comment replay | **Idempotent for a stable journal UUID** with identity recovery before cleanup; cross-replica intent identity remains defective | `core/intents.ts`; `LinearAdapter.createComment()` | Crash-after-write and duplicate-id tests; live `exact-once-settle`; September `tbd-6vg5` reproduction |
 | Comment modes | **Supported** for `two_way`, `inbound`, `outbound`, and `off`; `--pull` never writes a pending local comment | `core/policy.ts`; `core/sync-engine.ts` | Mode table and pull-then-full-sync tests |
-| Long discussions | **Supported** with complete provider pagination. All identities remain; only the newest 50 provider-held entries retain full local prose and bodies cap at 10 KiB. Pending outbound prose is never truncated | `LinearAdapter.listComments()`; `core/comment-store.ts` | 251-comment and cap/pending-body tests |
+| Long discussions | **Supported** with complete provider pagination. For entries with a provider `id`, a body over 10,000 JavaScript UTF-16 code units becomes its first 10,000 units plus a truncation marker. Only the newest 50 provider-ID entries retain a body, possibly truncated; older entries retain all identity and metadata fields, including `local_id` when present, with `body: ''`. Pending `local_id`-only entries remain full and outside both limits until a provider ID lands | `LinearAdapter.listComments()`; `core/comment-store.ts` | 251-comment and cap/pending-body tests |
 | Comment edits, deletions, reactions, threads | **Unsupported**. Original entries remain append-only; threads flatten by creation time | Comment-store allow-list and sync union | No-update behavior tests; documented live observation |
 | Author identity | **Supported as display text only**; emails, avatars, and raw user payloads are excluded | `ExternalComment`; `LinearAdapter.listComments()` | Serialization/privacy tests and live bead inspection |
 | Direction flags | **Supported**: bare is both, `--push` writes provider only, `--pull` writes local only and may defer provider intents | CLI and `SyncEngineOptions.direction` | Built-CLI direction and deferred-intent tests |
@@ -1147,9 +1148,12 @@ extensions:
   works offline — it pushes on the next sync.
   The conflict-report comments from the field engine ride this same rail (they are
   simply comments authored by tbd, with their resolve lifecycle tracked in the bridge).
-- **Bounds.** Stored bodies are capped (10 KB per comment, 50 comments per bead; older
-  entries collapse to `{id, at, author}` stubs with a “full text in Linear” pointer) so
-  a chatty tracker thread cannot bloat a bead file.
+- **Bounds.** For entries with a provider `id`, a body over 10,000 JavaScript UTF-16
+  code units becomes its first 10,000 units plus a truncation marker.
+  Only the newest 50 provider-ID entries retain a body, possibly truncated; older
+  entries retain all identity and metadata fields, including `local_id` when present,
+  with `body: ''`. Pending `local_id`-only entries remain full and outside both limits
+  until a provider ID lands, so outbound prose is not lost before delivery.
   Caps are constants first, config only if someone actually needs different ones.
 - **What does not sync**: edits and deletions (append-only means the sequence keeps the
   original; a Linear-side edit is ignored, documented), reactions, and threading (Linear
@@ -1162,8 +1166,14 @@ extensions:
   normal bead write path, never interpreted as instructions.
 
 This deliberately reuses the Phase 1 storage philosophy: comments live in `extensions`
-now, additively and with no format bump, and can be promoted to a first-class `comments`
-field later if they earn it.
+today, additively and with no format bump.
+
+The dormant native-comment foundations in PRs #282 and #283 do not alter this embedded
+provider store, Linear direction policy, link-lineage merge rule, delivery intents, or
+`tbd integration comment` behavior.
+They also do not select or begin a provider migration into independent native-comment
+records. The September coordination plan keeps that cutover behind a separate Phase 4
+inventory, replay, and live-provider gate.
 
 ##### Applying: intents, idempotency, and honest completion
 

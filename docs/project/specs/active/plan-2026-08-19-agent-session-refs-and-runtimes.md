@@ -5,7 +5,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Feature: Agent Session Refs and Runtimes
 
-**Date:** 2026-08-19 (last updated 2026-09-09)
+**Date:** 2026-08-19 (last updated 2026-09-10)
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
@@ -20,7 +20,8 @@ The subsequent
 [September rollout plan](plan-2026-09-06-bead-coordination-and-native-comments.md) and
 [native comment architecture](../../architecture/current/arch-native-comments.md) select
 the independent-record candidate; stacked PRs #282 and #283 implement dormant
-record/storage and inventory groundwork without public behavior.
+record/storage, bounded inventory, immutable-transition, and quarantine-artifact
+groundwork without public behavior.
 Those documents do not replace this plan’s session reporting, freshness, or optional
 adapter scope. Dispatch remains unselected and unimplemented here.
 
