@@ -50,9 +50,11 @@ Project-specific specifications, architecture, and research docs:
 - @docs/project/architecture/—System design references and long-lived architecture docs
   (templates and output go here)
 
-  - [Native comment record architecture](project/architecture/current/arch-native-comments.md)
-    defines immutable comment identity, hash-sharded storage, no-replace publication,
-    repair artifacts, and the explicit f09 activation boundary.
+  - [Candidate native comment record architecture](project/architecture/current/arch-native-comments.md)
+    documents the dormant internal record/storage foundation and a proposed future f09
+    activation boundary.
+    Current and freshly initialized repositories remain on f08; no native-comment
+    command or activation path is available.
 
 - @docs/project/research/—Research notes and technical investigations
 
