@@ -5,13 +5,13 @@ title: "Linear mirror alternates push/pull on 13 agreeing pairs: mechanism not y
 kind: bug
 status: open
 priority: 0
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
 parent_id: is-01m14yzbwwg92e5k7z7d4kyn00
 created_at: 2026-08-28T19:54:42.823Z
-updated_at: 2026-08-28T20:29:49.168Z
+updated_at: 2026-09-13T23:18:35.311Z
 ---
 GH #265 defect 2. The reachable code path is confirmed; that labels (rather than assignee or description) are the stuck field in the reporter's 13 pairs is NOT yet confirmed.
 
@@ -24,6 +24,8 @@ The drop happens inside the adapter, below the reporting layer, so the pair is c
 Fix (order matters): land the diagnostic first (see sibling bead), then make resolveLabelIds return what it dropped and have the engine record it as a skipped push rather than counting the pair in report.pushed. Whether the drop should stop being a drop (create the label, or refuse the push) is a policy question the diagnostic should answer first; recording it honestly is correct regardless and is what ends the loop's silence.
 
 Red-green: tests/helpers/linear-mock-server.ts already models a fixed team label set (Bug, Feature; linear-mock-server.ts:106-108), which is exactly the condition that triggers the drop. Failing test: link a bead carrying a label absent from the mock team with labels: local, sync twice over unchanged data, assert the second run reports nothing to do.
+
+Revision 2026-09-13 (stability sprint plan review, plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md): Mechanism identified from code: linked, open, not-ready beads alternate backlog/todo because the outbound path writes open (Todo) for slot backlog and slotToLinear is never called; tie_break plays no part. Fix is tbd-od0z; confirmation on the reporter's mirror is tbd-xn8m.
 
 ## Notes
 

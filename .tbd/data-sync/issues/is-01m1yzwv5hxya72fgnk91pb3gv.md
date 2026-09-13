@@ -1,17 +1,17 @@
 ---
 type: is
 id: is-01m1yzwv5hxya72fgnk91pb3gv
-title: "Run integration sync --explain on the #265 mirror and record the named field on tbd-u9eg"
+title: "Confirm the #265 mechanism on the reporter's mirror: the 13 pairs are linked open beads without a hold that tbd ready omits"
 kind: task
 status: open
 priority: 1
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 labels:
   - phase-0
 dependencies: []
 parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 created_at: 2026-09-07T22:30:21.103Z
-updated_at: 2026-09-07T22:31:39.129Z
+updated_at: 2026-09-13T23:17:24.796Z
 ---
-Human step; the data is private. Run tbd --dry-run integration sync --explain on the mirror from GH #265. Expected answer per the plan's root cause 4: field slot, on pairs whose Linear column is a refinement (In Review, Draft) or whose state type is ambiguous on the team; tbd integration setup prints ambiguous types (integration.ts:261-269). A --verbose --json dry run shows whether the same ids carry a slot patch in pushed on one run and appear in pulled on the next. Record the result on tbd-u9eg; if it is labels (tbd-vpje) or an unmapped assignee, the exclusion contract ends the loop; anything else is a new bead with a reproduction.
+Human step (private data), no new build needed. List the linked open beads without a hold that `tbd ready` omits and confirm they are exactly the 13 alternating pairs and sit in Linear's Todo column. After tbd-bdkj lands, `tbd --dry-run integration sync --explain` should show status flipping between backlog and todo on those pairs. Record the result on tbd-u9eg. If the pairs are something else, file a new bead with a reproduction; tbd-od0z stands on its own code evidence.

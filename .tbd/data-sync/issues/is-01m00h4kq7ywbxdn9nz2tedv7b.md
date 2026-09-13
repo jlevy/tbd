@@ -5,14 +5,14 @@ title: Fix tbd-session.sh PATH order and make hook failure visible
 kind: bug
 status: open
 priority: 1
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-1
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:19:32.199Z
-updated_at: 2026-08-16T00:13:28.493Z
+updated_at: 2026-09-13T23:18:32.134Z
 extensions:
   linear:
     id: dc4bbd81-49ba-4668-bf0a-ed5a04e23a86
@@ -23,3 +23,5 @@ tbd-session.sh (and the .codex twin) does: export PATH="$HOME/.local/bin:$HOME/b
 Fix: append rather than prepend the fallback locations; prefer local resolution (node_modules/.bin, then global tbd) before npx; emit {"systemMessage": "..."} on failure so a broken hook is visible.
 
 Research: research-2026-08-14-agent-sync-protocol-and-hooks.md §1.3, E7
+
+Revision 2026-09-13 (stability sprint plan review, plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md): Compare against Node 22.12, not the major version (22.0-22.11 fail the engines gate). Run the probe before the npx fallback too: tbd_local_can_read_repository returns early when tbd is missing, so the no-local-tbd, old-Node case from the #254 follow-up comment is otherwise uncovered.

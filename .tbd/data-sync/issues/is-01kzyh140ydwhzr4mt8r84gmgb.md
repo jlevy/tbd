@@ -5,13 +5,13 @@ title: "Consolidate --push onto the sync engine: two engines behind one flag voc
 kind: task
 status: open
 priority: 1
-version: 7
+version: 8
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels: []
 dependencies: []
 parent_id: is-01kzn2w85qxpbp8cqtn7mkbvkg
 created_at: 2026-08-13T21:39:08.958Z
-updated_at: 2026-08-16T00:13:19.729Z
+updated_at: 2026-09-13T23:18:33.902Z
 extensions:
   linear:
     id: 6258fc73-21ec-44cd-89c0-89ec690ae6b2
@@ -28,6 +28,8 @@ Fix (pick one):
 (b) Keep both engines, document the divergence honestly, stop recommending --push as the onboarding default.
 
 The doc half of (b) landed in the review branch. (a) is the real fix.
+
+Revision 2026-09-13 (stability sprint plan review, plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md): Scheduled as Phase 1B of the stability sprint plan: tbd-6md1 (one planner, direction as a filter), tbd-8x2a (selectors in every mode), tbd-9tj0 (port mirror-only behavior), tbd-1hdt (--take local|remote), tbd-qeug (retire the mirror; closes this bead). The plan evaluates push-only use cases; only restoring Linear after a bad Linear-side edit needs an overwrite, and that becomes --take local.
 
 ## Notes
 

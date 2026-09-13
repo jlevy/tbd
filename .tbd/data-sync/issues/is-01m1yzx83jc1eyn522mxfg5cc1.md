@@ -1,17 +1,29 @@
 ---
 type: is
 id: is-01m1yzx83jc1eyn522mxfg5cc1
-title: "Slot alternation: same-band refinement agreement; unresolvable state push is a skipped push, never a silent success"
+title: "Every slot round-trips: write slots through slotToLinear, compare in both vocabularies, never report an unresolved state push"
 kind: bug
 status: open
 priority: 1
-version: 2
+version: 6
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 labels:
   - phase-1
-dependencies: []
+dependencies:
+  - type: blocks
+    target: is-01m1yzx6mfhcc6px4p5xdnvxch
+  - type: blocks
+    target: is-01m2egwv3n7dkwa53568vrsgfc
+  - type: blocks
+    target: is-01m2egwz6r0qgbtvzh2nkevjdb
 parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 created_at: 2026-09-07T22:30:34.353Z
-updated_at: 2026-09-07T22:31:40.852Z
+updated_at: 2026-09-13T23:18:37.675Z
 ---
-GH #265 remainder (tbd-u9eg). Confirmed from code: computeSlot has one caller (localViewOf, sync-engine.ts:209-231) and never receives a refinement; the pull path discards the decomposed refinement (:745-751 applies status/hold/resolution only). For a pair whose Linear column is In Review (slotFromLinear, mapping.ts:365-367), once the link record carries an exact slot: run n pulls in_review (bead written, base := in_review), run n+1 recomputes in_progress and pushes it back. The refinement replay (:795-801) fires only when the recorded refinement slot equals the outbound slot, which can only ever be in_progress. tie_break newest then alternates the winner every run. The loop is permanent when the state push is a silent no-op: adapter.ts:1030-1032 sets input.stateId only if (stateId), no else, and stateIdsByType[type] is unset for an ambiguous type (adapter.ts:796-803). Fix: (1) in the matrix, same-band slots agree when the local side cannot express the remote refinement; the bead is written only when the band changes; the refinement is still recorded for replay. (2) an unresolvable state is a skipped field push with a reason, classified excluded. Tests: extend tests/integrations-sync-engine.test.ts:938-964 to a third run after the record carries an exact slot; a slots round-trip test without passing refinement back in (tests/slots.test.ts:105-118 passes it, which production never does). Needs the mock stateId fix from the stability branch.
+GH #265 (the alternation) and the In Review drag. Plan 1a.
+
+Confirmed from code: localViewOf computes backlog for an open, not-ready bead (sync-engine.ts:209-231; readyIssueIds excludes delegated, held, future-deferred, and open-blocker beads). The outbound path decomposes the slot back into bead fields (sync-engine.ts:781-785, decomposeSlot slots.ts:158-178), collapsing backlog and todo into open; statusToLinear maps open to unstarted (Todo); Todo reads back as todo (slotFromLinear). slotToLinear (mapping.ts:394) has no caller. Once the link record holds an exact slot the pair alternates pull/push forever while the column never moves. tie_break plays no part. In Review is pulled then pushed back as in_progress, which resolves to In Progress by name (mapping.ts:295-298): a one-time drag, not a loop. adapter.ts:1030-1032 sets stateId only if resolved, with no else, so an unresolvable state push counts as pushed.
+
+Fix: CanonicalPatch carries the slot and the adapter writes it via slotToLinear (named state, else type default plus carrier label; backlog to Backlog, duplicate to the duplicate type). Before the matrix, project local through the team's write mapping and remote through the bead's decomposition; agreement in either projection means no write; the base records the agreed slot in the remote's terms. Unresolvable state is a skipped field with a reason (excluded under 1b). Correct state-model spec line 551 (at PR #283's head) which marks band-level refinement comparison done.
+
+Tests, red first: open epic blocked by an open bead synced five times, runs 3-5 quiet; In Review stays over four runs; team with only Doing and In Review started states reports a skipped field; pure property test that slotFromLinear(write(slot)) returns the slot or a declared tolerated one for a default team and a team with no optional states (tests/slots.test.ts:105-118 passes the refinement back in, which production never does); Paused settles after one pull (guard).
