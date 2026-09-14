@@ -5,7 +5,7 @@ title: Guard comment integrity across sync-branch Git operations
 kind: task
 status: open
 priority: 1
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 delegate: codex-native-comment-git-guards
 labels: []
@@ -14,9 +14,11 @@ dependencies:
     target: is-01m222yt5xq4580v776dnxj8p8
 parent_id: is-01m220htdx8tv5k1mpjavfpsca
 created_at: 2026-09-09T03:21:33.500Z
-updated_at: 2026-09-10T07:35:09.174Z
+updated_at: 2026-09-14T02:12:27.921Z
 ---
 Apply the shared immutable transition guard before all broad staging, commits, fast-forwards, merges, and push retries in sync.ts, file/git.ts, and integration-runner.ts. Separate merge execution from validation, use no-commit/no-ff where reconciliation is required, prevent invariant errors from being swallowed as first-sync or provider-journal failures, and verify every pushed parent edge. Treat attic/comment-conflicts as protected immutable state: inventory and validate raw artifacts and manifests, reject evidence modification or deletion, ignore local Git replacement refs, require non-transforming attributes, and compare exact staged blobs with every planned comment and evidence byte before commit. Cover clean and conflicting mutations, deletions, evidence modify/delete/add-add, add-then-delete history, comment-only first-init races, custom clean filters and autocrlf, and pre-push ancestry.
+
+2026-09-14 (stage C of the merge, release, and format upgrade map in plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md (PR #277)): tbd-ajq2 (tbd sync attic writes, a Release 1 gate) and tbd-f99c (fold commit tally) change the same Git sync code this bead guards and are planned to land first; guard their writes. Also decide partial-clone lazy fetch for inventory reads (per the PR #283 Fable review).
 
 ## Notes
 

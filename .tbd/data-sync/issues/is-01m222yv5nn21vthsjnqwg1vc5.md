@@ -5,16 +5,18 @@ title: Add native-comment doctor migration and compatibility gates
 kind: task
 status: open
 priority: 1
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 delegate: codex-native-comment-compat
 labels: []
 dependencies: []
 parent_id: is-01m220htdx8tv5k1mpjavfpsca
 created_at: 2026-09-09T03:21:35.665Z
-updated_at: 2026-09-09T06:12:14.603Z
+updated_at: 2026-09-14T02:12:27.224Z
 ---
 Add read-only-first doctor diagnostics and deterministic repair/quarantine surfaces for native comments; make misplaced-data migration, scaffold readiness/repair, and sync metadata comment-aware; install and validate data-sync attributes that disable text, encoding, identity, and filter transformations for comment and quarantine paths; disable all doctor fixes under unreadable or future format state; and extend packed previous-client and stale-branch upgrade tests to snapshot raw comment and evidence trees. This is the f08-compatible preservation release gate before f09 activation.
+
+2026-09-14 (stage C of the merge, release, and format upgrade map in plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md (PR #277)): extend packages/tbd/scripts/validate-upgrade-package.mjs with a scenario that plants a comments tree and proves it survives every preserved path under the candidate, and record that the previous release (Release 1, 0.8.x) does not preserve it. The release notes must state that this release is the minimum binary for every writer before f09 activation.
 
 ## Notes
 
