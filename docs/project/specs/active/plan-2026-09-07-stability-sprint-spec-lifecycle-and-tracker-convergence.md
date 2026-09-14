@@ -568,7 +568,7 @@ Four new tests close that gap:
 | T1 | `tbd-3dti` | 0.8.1 is a second baseline; the old client’s `config set` and `setup --auto` keep keys the sprint adds at their nesting level, with a `policy.<sibling>` negative control | 1e, Phase 2 `specs.dir` |
 | T2 | `tbd-stdj` | the 0.7.0 and 0.8.1 exported parser and schemas read candidate-written beads (including `## Notes`), link records, and config identically, with the same description hash | 1f, any bridge-record change |
 | T3 | `tbd-s4kb` | packed 0.8.1 and the candidate alternating `tbd integration sync` against the Linear mock converge by run 4 on a blocked epic, a future-deferred epic, an In Review item, a team without Backlog, a #267 pair seeded by 0.8.1, a flattened child, and one 0.8.1 `--push` | 1a, 1e, Phase 1B |
-| T4 | `tbd-9fpp` | a 0.8.1 clone merges and reads candidate-written attic entries, bridge records, and journaled intents across a two-clone `tbd-sync` merge | `tbd-ajq2`, Phase 1B |
+| T4 | `tbd-9fpp` | a same-format baseline clone merges and reads candidate-written attic entries, and preserves bridge records and journaled intents, across a two-clone `tbd-sync` merge (done 2026-09-14: `validateCrossVersionCoexistence` in `validate-upgrade-package.mjs`; the baseline is the *oldest* published f08, currently 0.7.0, which is the weaker client and so the stronger test; whether an older *reader* accepts candidate-written intents needs credentials and stays with T3) | `tbd-ajq2`, Phase 1B |
 
 Existing checks stay required: `pnpm --filter get-tbd test`, `pnpm qa:upgrade-package`,
 `tests/cli-format-compatibility.tryscript.md`, and the `cli-sync*` tryscripts.
@@ -1376,7 +1376,8 @@ that PR because they edit the documents it rewrites.
 - [ ] `tbd-3dti`: f08 contract T1, 0.8.1 baseline and old-client config round trip
 - [ ] `tbd-stdj`: f08 contract T2, old parser and schemas read candidate-written data
 - [ ] `tbd-s4kb`: f08 contract T3, mixed-version Linear convergence
-- [ ] `tbd-9fpp`: f08 contract T4, two-clone merge with a 0.8.1 clone
+- [x] `tbd-9fpp`: f08 contract T4, two-clone merge with a same-format baseline clone
+  (done 2026-09-14)
 - [ ] `tbd-bdkj`: rebase `claude/tbd-sync-bugs-review-f1qb1f` onto `main`, close the
   four review gaps, run the integration suites and `cli-sync*` tryscripts, open and
   merge the PR

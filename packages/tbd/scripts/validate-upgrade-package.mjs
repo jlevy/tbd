@@ -227,12 +227,27 @@ async function addPreservationProbes(configPath) {
   await writeFile(configPath, stringifyYaml(config, { lineWidth: 0 }));
 }
 
-async function snapshotIssueData(repository) {
+/**
+ * The tbd data-sync worktree of a repository, and the data directory inside it.
+ *
+ * The worktree is attached to the *common* git directory, so it is shared by every
+ * linked worktree of the repository and is not found by joining `.git` to the
+ * repository path.
+ */
+async function worktreeDirectory(repository) {
   const commonDirOutput = await git(repository, 'rev-parse', '--git-common-dir');
   const commonDir = isAbsolute(commonDirOutput)
     ? commonDirOutput
     : resolve(repository, commonDirOutput);
-  const dataDir = join(commonDir, 'tbd', 'data-sync-worktree', '.tbd', 'data-sync');
+  return join(commonDir, 'tbd', 'data-sync-worktree');
+}
+
+async function dataSyncDirectory(repository) {
+  return join(await worktreeDirectory(repository), '.tbd', 'data-sync');
+}
+
+async function snapshotIssueData(repository) {
+  const dataDir = await dataSyncDirectory(repository);
   const snapshot = {};
   for (const relativeDir of ['issues', 'mappings']) {
     const directory = join(dataDir, relativeDir);
@@ -565,11 +580,7 @@ async function validateLegacyRemoteSyncUpgrade({
     `legacy-remote: config reports ${String(config.tbd_version)}, expected ${candidateVersion}`,
   );
 
-  const commonDirOutput = await git(repository, 'rev-parse', '--git-common-dir');
-  const commonDir = isAbsolute(commonDirOutput)
-    ? commonDirOutput
-    : resolve(repository, commonDirOutput);
-  const worktree = join(commonDir, 'tbd', 'data-sync-worktree');
+  const worktree = await worktreeDirectory(repository);
   await access(join(worktree, '.tbd', 'data-sync', 'meta.yml'));
   invariant(
     (await readFile(join(worktree, 'legacy-marker.txt'), 'utf8')) === 'preserve me\n',
@@ -615,6 +626,470 @@ async function validateLegacyRemoteSyncUpgrade({
   console.log(
     `Packed legacy-remote proof passed: ${baselineVersion} (f06) -> ` +
       `${candidateVersion} (${CANDIDATE_FORMAT})`,
+  );
+}
+
+/**
+ * Split an issue file into its YAML front matter and its Markdown body.
+ *
+ * Issue files are a `---` fenced YAML block followed by the description as Markdown, so
+ * neither half can be reached with `parseYaml` on the whole file.
+ */
+async function readIssueFile(path) {
+  const text = await readFile(path, 'utf8');
+  const fence = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/u.exec(text);
+  invariant(fence, `Issue file has no front matter: ${path}`);
+  return { front: parseYaml(fence[1]), body: text.slice(fence[0].length) };
+}
+
+/** Mutate an issue file's front matter in place, leaving its body untouched. */
+async function patchIssueFrontMatter(path, patch) {
+  const { front, body } = await readIssueFile(path);
+  patch(front);
+  await writeFile(path, `---\n${stringifyYaml(front, { lineWidth: 0 })}---\n${body}`);
+}
+
+function parseCliJson(result, description) {
+  invariant(result.code === 0, `${description} failed\n${result.stdout}\n${result.stderr}`);
+  try {
+    return JSON.parse(result.stdout);
+  } catch (error) {
+    throw new Error(`${description} did not return JSON (${String(error)})\n${result.stdout}`);
+  }
+}
+
+/**
+ * Fixed values for the coexistence scenario, named so each assertion says what it means.
+ *
+ * `COEXISTENCE_WORKSPACE_UPDATED_AT` is far in the future only to make the workspace copy
+ * unambiguously the newer of the two sides, which is what decides the merge winner.
+ */
+const COEXISTENCE_DESCRIPTION = 'Description the candidate wrote';
+const COEXISTENCE_COMMENT_LOCAL_ID = '01CMT0000000000000000000A';
+const COEXISTENCE_COMMENT_AT = '2026-01-01T00:00:00.000Z';
+const COEXISTENCE_WORKSPACE_UPDATED_AT = '2099-12-31T23:59:59.000Z';
+const COEXISTENCE_SEED_TIMESTAMP = '2026-01-02T03:04:05.000Z';
+const COEXISTENCE_RUN_ID = 'coexistence-run';
+
+/**
+ * f08 contract T4: two clients on different versions sharing one repository.
+ *
+ * The other scenarios each prove a *sequential* claim — an old repository, upgraded once,
+ * still works. This one proves a *concurrent* claim: a clone on a published release and a
+ * clone on the candidate, both live against one bare remote, read and write each other's
+ * data without loss. That is the state a mixed-version team is actually in, because nobody
+ * upgrades every machine at the same moment.
+ *
+ * It needs two clones rather than two directories because "sharing a repository" in tbd
+ * means sharing the `tbd-sync` branch, so the interesting merges happen in git between two
+ * working copies, not inside one process. It needs the real published tarball rather than
+ * an old code path because the whole risk is behavior that cannot be seen by reading the
+ * candidate's source.
+ *
+ * What each step proves, in the order the sequence builds it:
+ *
+ *   1. The baseline reads what the candidate wrote — beads created by the candidate list
+ *      under the older client, with no migration step in between. The baseline is a plain
+ *      `git clone` that never runs `setup`; its first `tbd sync` provisions the worktree.
+ *   2. Attic entries survive the version gap in both directions: the baseline lists and
+ *      shows a candidate-written conflict entry with its lost value intact, and restores a
+ *      candidate-written entry back onto the issue. This is the load-bearing assertion for
+ *      `tbd-ajq2`, which makes `tbd sync` write attic entries from a new code path — it may
+ *      only do so once the format an older client reads is proven, so T4 gates ajq2 rather
+ *      than depending on it. The entry format under test is the one ajq2 will emit
+ *      (`writeAtticEntryFile` into the flat `attic/`, which is what `tbd attic` reads).
+ *   3. The candidate reads back what the baseline wrote, after the baseline merged and
+ *      pushed work of its own: a round trip, not a one-way read.
+ *   4. Neither side's data is dropped by the other's merge — each client's bead is present
+ *      at the end, an `extensions` namespace the older client does not understand comes
+ *      back through it unchanged rather than stripped, and the bridge state it has no
+ *      credentials to read (a link record and a journaled intent) survives its merge and
+ *      push byte for byte, on the shared branch and in the candidate's checkout.
+ *
+ * Deliberately NOT asserted here: that the baseline's integration reader ACCEPTS
+ * candidate-written bridge state. That is interpretation rather than preservation, and
+ * `listIntentFiles` is reachable only through the credentialed sync path
+ * (`integrations/core/sync-engine.ts`), so exercising it needs Linear or the mock server,
+ * and this script has neither. It matters — an unrecognized intent makes `listIntentFiles`
+ * throw for the whole provider — but the assertion belongs with T3 (`tbd-s4kb`,
+ * mixed-version Linear convergence), which owns `tests/helpers/linear-mock-server.ts`.
+ * Recorded so the gap is a decision rather than an oversight.
+ */
+async function validateCrossVersionCoexistence({
+  baseline,
+  baselineVersion,
+  candidate,
+  candidateVersion,
+  root,
+}) {
+  const label = 'coexistence';
+  const bareRemote = join(root, `${label}-remote.git`);
+  const candidateRepo = join(root, `${label}-candidate`);
+  const baselineRepo = join(root, `${label}-baseline`);
+  const home = join(root, `${label}-home`);
+  await mkdir(home, { recursive: true });
+
+  // The candidate establishes the repository: one machine upgrades first and the rest of
+  // the team follows, which is the sequence a mixed-version team actually goes through.
+  await initializeRepository(candidateRepo);
+  const setup = await invokeCli(candidate, candidateRepo, home, ['setup', '--auto', '--prefix=xv']);
+  invariant(setup.code === 0, `${label}: candidate setup failed\n${setup.stdout}\n${setup.stderr}`);
+  await git(candidateRepo, 'add', '--all');
+  await git(candidateRepo, 'commit', '--message', `Record ${candidateVersion} scaffold`);
+
+  const created = await invokeCli(candidate, candidateRepo, home, [
+    'create',
+    'Written by the candidate',
+    '--type=task',
+    '--description',
+    COEXISTENCE_DESCRIPTION,
+  ]);
+  invariant(
+    created.code === 0,
+    `${label}: candidate create failed\n${created.stdout}\n${created.stderr}`,
+  );
+
+  const issuesDirectory = join(await dataSyncDirectory(candidateRepo), 'issues');
+  const issueFiles = (await readdir(issuesDirectory)).filter((entry) => entry.endsWith('.md'));
+  invariant(issueFiles.length === 1, `${label}: expected one issue, found ${issueFiles.length}`);
+  const issueFile = join(issuesDirectory, issueFiles[0]);
+  const issueUlid = (await readIssueFile(issueFile)).front.id;
+  invariant(typeof issueUlid === 'string', `${label}: issue file has no id`);
+
+  // ---- A real conflict entry, produced the way the code produces one today. ----
+  //
+  // Only the workspace importer and the integration runner write to the attic on this
+  // build, and the importer cannot conflict on a plain field by construction: it passes
+  // the older side as the merge base (`file/workspace.ts`), so one side always equals the
+  // base and last-writer-wins has nothing to archive. The path that does archive is the
+  // provider-comment postcondition — two `extensions` namespaces carrying different link
+  // `id`s, at least one with a comment log, cannot be unioned into a single lineage, so
+  // the losing namespace goes to the attic (`file/git.ts` preserveNamespaceComments).
+  // That is also the shape a real integration writes.
+  //
+  // The namespace is written into the issue file directly because no CLI command sets
+  // arbitrary `extensions` — an integration does, and this script has no provider.
+  await patchIssueFrontMatter(issueFile, (front) => {
+    front.extensions = {
+      demo: {
+        id: 'demo-issue-1',
+        comments: [
+          {
+            local_id: COEXISTENCE_COMMENT_LOCAL_ID,
+            at: COEXISTENCE_COMMENT_AT,
+            body: 'from the provider',
+          },
+        ],
+      },
+    };
+  });
+
+  const saved = await invokeCli(candidate, candidateRepo, home, [
+    'save',
+    '--workspace',
+    'xv-conflict',
+  ]);
+  invariant(saved.code === 0, `${label}: workspace save failed\n${saved.stdout}\n${saved.stderr}`);
+
+  const workspaceIssues = join(candidateRepo, '.tbd', 'workspaces', 'xv-conflict', 'issues');
+  const workspaceFiles = (await readdir(workspaceIssues)).filter((entry) => entry.endsWith('.md'));
+  invariant(
+    workspaceFiles.length === 1,
+    `${label}: expected one saved workspace issue, found ${workspaceFiles.length}`,
+  );
+  // The workspace copy moves to a different provider link, and is the newer of the two, so
+  // the importer takes it as the winner and archives the repository's namespace.
+  await patchIssueFrontMatter(join(workspaceIssues, workspaceFiles[0]), (front) => {
+    front.extensions.demo.id = 'demo-issue-2';
+    front.extensions.demo.comments[0].body = 'from the other link';
+    front.updated_at = COEXISTENCE_WORKSPACE_UPDATED_AT;
+  });
+
+  const importResult = await invokeCli(candidate, candidateRepo, home, [
+    'import',
+    '--workspace=xv-conflict',
+    '--merge',
+  ]);
+  invariant(
+    importResult.code === 0 &&
+      /1 conflict\(s\) moved to attic/u.test(importResult.stdout + importResult.stderr),
+    `${label}: candidate did not archive the losing provider namespace\n` +
+      `${importResult.stdout}\n${importResult.stderr}`,
+  );
+
+  // ---- A candidate-written entry on a restorable field. ----
+  //
+  // `tbd attic restore` writes back only text fields (title, description, notes), and no
+  // path on this build produces a conflict on one, for the reason above. So seed one entry
+  // by hand — the f08 attic format, as an older sync would have left it — and have the
+  // CANDIDATE restore it. That restore is what produces the entry the baseline is then
+  // tested against: `buildRestorationAtticEntry` through `writeAtticEntryFile`, the same
+  // writer every other entry goes through. The hand-written seed only has to be good
+  // enough for the candidate to accept; the entry under test is genuinely candidate-written.
+  const atticDirectory = join(await dataSyncDirectory(candidateRepo), 'attic');
+  const seedFile = `${issueUlid}_${COEXISTENCE_SEED_TIMESTAMP.replace(/:/gu, '-')}_description.yml`;
+  await writeFile(
+    join(atticDirectory, seedFile),
+    stringifyYaml(
+      {
+        entity_id: issueUlid,
+        timestamp: COEXISTENCE_SEED_TIMESTAMP,
+        field: 'description',
+        lost_value: JSON.stringify('a description an older sync discarded'),
+        winner_source: 'local',
+        loser_source: 'remote',
+        context: {
+          local_version: 1,
+          remote_version: 1,
+          local_updated_at: COEXISTENCE_SEED_TIMESTAMP,
+          remote_updated_at: COEXISTENCE_SEED_TIMESTAMP,
+        },
+      },
+      { lineWidth: 0 },
+    ),
+  );
+  const seedRestore = await invokeCli(candidate, candidateRepo, home, [
+    'attic',
+    'restore',
+    issueUlid,
+    COEXISTENCE_SEED_TIMESTAMP,
+  ]);
+  invariant(
+    seedRestore.code === 0,
+    `${label}: candidate could not read an f08 attic entry\n${seedRestore.stdout}\n${seedRestore.stderr}`,
+  );
+
+  const candidateEntries = parseCliJson(
+    await invokeCli(candidate, candidateRepo, home, ['attic', 'list', '--json']),
+    `${label}: candidate attic list --json`,
+  );
+  const restorable = candidateEntries.find(
+    (entry) => entry.field === 'description' && entry.timestamp !== COEXISTENCE_SEED_TIMESTAMP,
+  );
+  invariant(
+    restorable,
+    `${label}: candidate restore did not archive the value it replaced\n` +
+      JSON.stringify(candidateEntries),
+  );
+
+  // ---- Bridge state the older client cannot interpret. ----
+  //
+  // Link records and journaled intents live on the same `tbd-sync` branch as the beads,
+  // under `bridge/<provider>/`, and a client with no credentials for that provider never
+  // reads them — it only merges and pushes the branch they sit on. So the claim here is
+  // data preservation, not interpretation: whatever the candidate wrote must come back
+  // byte for byte after a merge and a push by the older client. Whether the baseline's
+  // reader ACCEPTS a candidate-written intent is a separate claim that needs a live
+  // provider, and belongs with T3 (`tbd-s4kb`); see the note above.
+  //
+  // Written directly because reaching the real writers takes credentials this script does
+  // not have. The shapes are the ones `lib/schemas.ts` defines (`LinkRecordSchema`,
+  // `IntentFileSchema`), so a future reader-side assertion can use the same fixtures.
+  const bridgeDirectory = join(await dataSyncDirectory(candidateRepo), 'bridge', 'linear');
+  await mkdir(join(bridgeDirectory, 'links'), { recursive: true });
+  await mkdir(join(bridgeDirectory, 'intents'), { recursive: true });
+  const linkRecordPath = join(bridgeDirectory, 'links', `${issueUlid}.yml`);
+  const intentFilePath = join(bridgeDirectory, 'intents', `${COEXISTENCE_RUN_ID}.yml`);
+  await writeFile(
+    linkRecordPath,
+    stringifyYaml({
+      base: {
+        assignee: null,
+        description_hash: `sha256v7:${'0'.repeat(64)}`,
+        labels: ['coexistence'],
+        priority: 2,
+        status: 'open',
+        title: 'Written by the candidate',
+      },
+      bead_id: issueUlid,
+      external_id: 'f53df50f-cbd8-4069-bb90-8d27b86cc51e',
+      external_key: 'XV-1',
+      external_url: 'https://linear.app/example/issue/XV-1',
+      remote_updated_at: COEXISTENCE_COMMENT_AT,
+      state: 'linked',
+      synced_at: COEXISTENCE_COMMENT_AT,
+      type: 'lk',
+    }),
+  );
+  await writeFile(
+    intentFilePath,
+    stringifyYaml({
+      type: 'in',
+      run_id: COEXISTENCE_RUN_ID,
+      provider: 'linear',
+      created_at: COEXISTENCE_COMMENT_AT,
+      ops: [],
+    }),
+  );
+  const linkRecordBefore = await readFile(linkRecordPath, 'utf8');
+  const intentFileBefore = await readFile(intentFilePath, 'utf8');
+
+  // ---- Publish, then bring the second machine up on the published release. ----
+  await mkdir(bareRemote);
+  await git(bareRemote, 'init', '--bare');
+  await git(bareRemote, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+  await git(candidateRepo, 'remote', 'add', 'origin', bareRemote);
+  await git(candidateRepo, 'push', '--set-upstream', 'origin', 'main');
+  const firstPush = await invokeCli(candidate, candidateRepo, home, ['sync', '--issues', '--push']);
+  invariant(
+    firstPush.code === 0,
+    `${label}: candidate push failed\n${firstPush.stdout}\n${firstPush.stderr}`,
+  );
+
+  // No `setup` on the baseline, deliberately: this is not an upgrade. The published client
+  // already shares the candidate's format, so it must work from a plain clone and
+  // provision its own data worktree on first sync.
+  await run('git', ['clone', bareRemote, baselineRepo]);
+  await git(baselineRepo, 'config', 'user.name', 'tbd upgrade QA');
+  await git(baselineRepo, 'config', 'user.email', 'tbd-upgrade-qa@example.invalid');
+  await git(baselineRepo, 'config', 'commit.gpgSign', 'false');
+  const baselinePull = await invokeCli(baseline, baselineRepo, home, [
+    'sync',
+    '--issues',
+    '--pull',
+  ]);
+  invariant(
+    baselinePull.code === 0,
+    `${label}: baseline ${baselineVersion} could not pull the candidate's data\n` +
+      `${baselinePull.stdout}\n${baselinePull.stderr}`,
+  );
+
+  // 1. The baseline reads the candidate's beads.
+  const baselineIssues = parseCliJson(
+    await invokeCli(baseline, baselineRepo, home, ['list', '--json']),
+    `${label}: baseline ${baselineVersion} list --json`,
+  );
+  invariant(
+    baselineIssues.some((issue) => issue.title === 'Written by the candidate'),
+    `${label}: baseline ${baselineVersion} cannot see a bead the candidate wrote\n` +
+      JSON.stringify(baselineIssues),
+  );
+
+  // 2. The baseline lists, shows and restores candidate-written attic entries.
+  const baselineEntries = parseCliJson(
+    await invokeCli(baseline, baselineRepo, home, ['attic', 'list', '--json']),
+    `${label}: baseline ${baselineVersion} attic list --json`,
+  );
+  const archivedNamespace = baselineEntries.find((entry) => entry.field === 'extensions.demo');
+  invariant(
+    archivedNamespace && typeof archivedNamespace.timestamp === 'string',
+    `${label}: baseline ${baselineVersion} cannot list the conflict entry the candidate wrote\n` +
+      JSON.stringify(baselineEntries),
+  );
+  const shown = await invokeCli(baseline, baselineRepo, home, [
+    'attic',
+    'show',
+    archivedNamespace.id,
+    archivedNamespace.timestamp,
+  ]);
+  invariant(
+    shown.code === 0 &&
+      shown.stdout.includes('demo-issue-1') &&
+      shown.stdout.includes('from the provider'),
+    `${label}: baseline ${baselineVersion} lost the archived namespace's contents\n` +
+      `${shown.stdout}\n${shown.stderr}`,
+  );
+
+  const restored = await invokeCli(baseline, baselineRepo, home, [
+    'attic',
+    'restore',
+    restorable.id,
+    restorable.timestamp,
+  ]);
+  invariant(
+    restored.code === 0,
+    `${label}: baseline ${baselineVersion} could not restore a candidate-written attic entry\n` +
+      `${restored.stdout}\n${restored.stderr}`,
+  );
+  const restoredShow = await invokeCli(baseline, baselineRepo, home, ['show', restorable.id]);
+  invariant(
+    restoredShow.code === 0 && restoredShow.stdout.includes(COEXISTENCE_DESCRIPTION),
+    `${label}: baseline ${baselineVersion} restore did not write the archived value back\n` +
+      `${restoredShow.stdout}\n${restoredShow.stderr}`,
+  );
+
+  // 3 and 4. The baseline adds work of its own and pushes; the candidate merges it, and
+  //          nothing either side wrote is dropped on the way through.
+  const baselineCreate = await invokeCli(baseline, baselineRepo, home, [
+    'create',
+    'Written by the baseline',
+    '--type=task',
+  ]);
+  invariant(
+    baselineCreate.code === 0,
+    `${label}: baseline create failed\n${baselineCreate.stdout}\n${baselineCreate.stderr}`,
+  );
+  const baselinePush = await invokeCli(baseline, baselineRepo, home, [
+    'sync',
+    '--issues',
+    '--push',
+  ]);
+  invariant(
+    baselinePush.code === 0,
+    `${label}: baseline ${baselineVersion} could not push\n` +
+      `${baselinePush.stdout}\n${baselinePush.stderr}`,
+  );
+
+  const branchFiles = await git(bareRemote, 'ls-tree', '-r', '--name-only', 'tbd-sync');
+  for (const path of [
+    `.tbd/data-sync/bridge/linear/links/${issueUlid}.yml`,
+    `.tbd/data-sync/bridge/linear/intents/${COEXISTENCE_RUN_ID}.yml`,
+  ]) {
+    invariant(
+      branchFiles.split('\n').includes(path),
+      `${label}: ${baselineVersion} dropped ${path} from the shared branch\n${branchFiles}`,
+    );
+  }
+
+  const candidatePull = await invokeCli(candidate, candidateRepo, home, ['sync', '--issues']);
+  invariant(
+    candidatePull.code === 0,
+    `${label}: candidate could not merge the baseline's push\n` +
+      `${candidatePull.stdout}\n${candidatePull.stderr}`,
+  );
+  const finalIssues = parseCliJson(
+    await invokeCli(candidate, candidateRepo, home, ['list', '--all', '--json']),
+    `${label}: candidate list --all --json`,
+  );
+  const titles = finalIssues.map((issue) => issue.title);
+  invariant(
+    titles.includes('Written by the baseline'),
+    `${label}: the candidate lost a bead the ${baselineVersion} client created\n${titles.join(', ')}`,
+  );
+  invariant(
+    titles.includes('Written by the candidate'),
+    `${label}: the round trip through ${baselineVersion} lost the candidate's own bead\n` +
+      titles.join(', '),
+  );
+
+  const final = await readIssueFile(issueFile);
+  const demo = final.front.extensions?.demo;
+  invariant(
+    demo?.id === 'demo-issue-2' &&
+      demo.comments?.length === 1 &&
+      demo.comments[0].local_id === COEXISTENCE_COMMENT_LOCAL_ID &&
+      demo.comments[0].body === 'from the other link',
+    `${label}: ${baselineVersion} altered an extensions namespace it does not understand\n` +
+      JSON.stringify(demo),
+  );
+  invariant(
+    final.body.trim() === COEXISTENCE_DESCRIPTION,
+    `${label}: the description the ${baselineVersion} client restored did not come back\n` +
+      final.body,
+  );
+
+  invariant(
+    (await readFile(linkRecordPath, 'utf8')) === linkRecordBefore,
+    `${label}: the link record did not survive the round trip through ${baselineVersion}`,
+  );
+  invariant(
+    (await readFile(intentFilePath, 'utf8')) === intentFileBefore,
+    `${label}: the journaled intent did not survive the round trip through ${baselineVersion}`,
+  );
+
+  console.log(
+    `Packed coexistence proof passed: ${candidateVersion} and ${baselineVersion} shared one ` +
+      `${CANDIDATE_FORMAT} remote without data loss`,
   );
 }
 
@@ -747,6 +1222,16 @@ try {
   await validateLegacyRemoteSyncUpgrade({
     baseline: commonUpgradePackage,
     baselineVersion: commonUpgradeBaseline,
+    candidate,
+    candidateVersion,
+    root: temporaryDir,
+  });
+  // The coexistence proof uses the same-format baseline, not the f06 one: the claim is
+  // about two clients that share a format sharing a repository. An f06 client would fail
+  // closed on an f08 remote, which is the *other* contract, covered by validateScenario.
+  await validateCrossVersionCoexistence({
+    baseline: sameFormatPackage,
+    baselineVersion: sameFormatBaseline,
     candidate,
     candidateVersion,
     root: temporaryDir,

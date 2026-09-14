@@ -251,6 +251,22 @@ Update `TBD_UPGRADE_SAME_FORMAT_FROM`, `TBD_UPGRADE_COMMON_FROM`, or
 `TBD_UPGRADE_PREVIOUS_FORMAT_FROM` when validating a different usage or compatibility
 boundary.
 
+The gate runs five scenarios, and they prove two different things.
+Four are *upgrade*: a repository created by a published baseline, upgraded once by the
+candidate — one per compatibility boundary (same-format, common pre-bump, last
+pre-bump), plus a legacy remote whose `tbd-sync` branch lost its data scaffold and has
+to be recovered from history.
+The fifth is *coexistence*: a clone on the same-format baseline and a clone on the
+candidate share one bare remote, and each has to read, merge, and push the other’s
+beads, attic entries, and bridge state without loss.
+That is the case a mixed-version team is actually in, because nobody upgrades every
+machine at the same moment, and it is the only scenario where the two clients are live
+at once rather than one after the other.
+Coexistence proves *preservation* of bridge state the older client has no credentials to
+read, not its *interpretation*; whether an older reader accepts candidate-written link
+records and journaled intents needs a live provider and is covered by the mixed-version
+tracker convergence test instead.
+
 For changes to setup, generated launchers, installation, fallback selection, format
 migration, or upgrade recovery, also exercise the packed candidate in a first-party
 downstream repository such as `jlevy/tryscript`. Start from a fresh clone or temporary
