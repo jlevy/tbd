@@ -278,9 +278,41 @@
         <button id="expandall" hidden>Expand all</button>
       </div>
 
-      <h2 id="boardheading" class="section-heading">
-        Beads <span class="hint" id="cmd">tbd list --pretty</span>
-      </h2>
+      <div id="boardheadingrow">
+        <h2 id="boardheading" class="section-heading">
+          Beads <span class="hint" id="cmd">tbd list --pretty</span>
+        </h2>
+        <span class="grow"></span>
+        <!-- The workmap groups by a label prefix the data itself uses (area:x, team:y —
+           whatever convention the project chose). tbd assigns no meaning to any
+           prefix; the select offers only what the labels state. -->
+        <select
+          id="workmapgroup"
+          aria-label="Group cards by label prefix"
+          data-tooltip="Group cards by a label prefix your labels already use"
+          hidden
+        ></select>
+        <div class="chooser" id="viewchooser" role="radiogroup" aria-label="Board view">
+          <button
+            type="button"
+            class="seg view-seg"
+            role="radio"
+            data-view-choice="list"
+            aria-checked="true"
+          >
+            list
+          </button>
+          <button
+            type="button"
+            class="seg view-seg"
+            role="radio"
+            data-view-choice="workmap"
+            aria-checked="false"
+          >
+            workmap
+          </button>
+        </div>
+      </div>
     </section>
 
     <main>
@@ -339,6 +371,11 @@
           <tbody id="rows"></tbody>
         </table>
         <div class="empty" id="empty" role="status" hidden>No beads match this query.</div>
+      </div>
+
+      <div id="workmapwrap" hidden>
+        <div id="workmapgroups"></div>
+        <div class="empty" id="workmapempty" role="status" hidden></div>
       </div>
 
       <aside>
