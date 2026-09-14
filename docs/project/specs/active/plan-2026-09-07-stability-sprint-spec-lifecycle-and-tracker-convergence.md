@@ -444,6 +444,8 @@ It found five follow-ups, each a bead:
 - Release notes for the stack’s reachable changes (`tbd-lz1q`).
 
 **Merge order.** #280, which had to merge first, is merged.
+The full sequence from merging the stack to activating the comment format is in “Native
+Comment Work: Merge, Release, and Format Upgrade Map” below.
 The rest of the stack can be reviewed and merged in parallel with Phases 0 and 1A, since
 none of it touches the files those phases change beyond the parser adjacency.
 It merges bottom to top: #278 can land now; #279 waits for its three gate beads, and
@@ -480,6 +482,165 @@ doctor a round of findings about moves that exist only on those branches.
 - **Tracking hygiene.** The five 2026-08-28 beads and four coordination beads are closed
   while their code is unmerged.
   Each landing PR notes its merge commit on them.
+
+## Native Comment Work: Merge, Release, and Format Upgrade Map
+
+The native comment work (`plan-2026-09-06-bead-coordination-and-native-comments.md`,
+epic `tbd-khi1`) and this sprint share the sync engine and the release train, so this
+section maps both onto one sequence.
+The rule behind every step: no release changes what an existing repository stores until
+every client that writes to it can preserve the new data, and the one step that does
+change it is explicit, reviewed, and committed by a person.
+
+```mermaid
+flowchart LR
+  A["A. Merge the dormant stack<br/>#278 → #279 → #282 → #283<br/>f08, no format change"] --> B["B. Release 1<br/>f08 · stack + sprint 0/1A"]
+  B --> C["C. Preservation release<br/>f08 · tbd-qo4d → tbd-7ufa → tbd-44kw<br/>becomes the writer floor"]
+  C --> D["D. Format freeze<br/>tbd-z3ag"]
+  D --> E["E. f09 activation release<br/>tbd-x6eo · opt-in per repository"]
+  E --> F["F. Linear projection<br/>tbd-osng · per provider and project"]
+```
+
+| Stage | On disk | Older clients | What an existing repository does | Gates |
+| --- | --- | --- | --- | --- |
+| A. Merge the stack | unchanged f08; no new files written | unaffected | nothing | per layer below |
+| B. Release 1 | unchanged f08; attic entries from `tbd sync` (same entry format) | 0.7.x and 0.8.x keep reading and writing | `tbd setup --auto` refreshes generated agent surfaces; no migration | `tbd-lz1q`, `tbd-od0z`, `tbd-ajq2`, `tbd-tia7`, `tbd-80vz` |
+| C. Preservation release | unchanged f08; every sync, merge, recovery, and doctor path preserves a `comments/` tree it does not yet use | still read and write, but do not preserve comment records | nothing; this release becomes the minimum for every writer | `tbd-76ad`: `tbd-qo4d`, `tbd-7ufa`, `tbd-44kw` |
+| D. Format freeze | no release artifact | n/a | n/a | `tbd-z3ag` (with `tbd-q2w2` evidence) |
+| E. f09 activation | f09 only after an explicit, committed enable | an f08-only client that has pulled the enable commit refuses before mutating | nothing until a maintainer enables it | `tbd-x6eo`, writer inventory, packed refusal and stale-clone proofs |
+| F. Linear projection | embedded provider comments migrate into the native store per project | n/a (f09 repositories only) | nothing until projection is enabled for a provider and project | `tbd-osng`, `tbd-6vg5`, `tbd-bexc`, `tbd-iqgm` |
+
+### A. Merge the dormant stack
+
+Merge bottom to top under `tbd-m88s`, one child bead per layer.
+
+| Layer | Bead | State (2026-09-14) | Remaining gates |
+| --- | --- | --- | --- |
+| #278 coordination plan and research | `tbd-o2ob` | mergeable, CI green, docs only | none |
+| #279 embedded provider comments preserved through recovery | `tbd-8rnq` | mergeable, CI green | `tbd-s3zx` (scope the comment union to provider namespaces), `tbd-apnu` (sync and merge-refs lineage tests), `tbd-cskr` (independent re-review of the PR279-R1 fix) |
+| #282 dormant native comment records | `tbd-g58e` | mergeable, CI green | #279 |
+| #283 dormant inventory, `agent_map` fix, docs | `tbd-w3tv` | mergeable, CI green | #282 |
+
+Why merging is safe for existing repositories, and the evidence for each claim:
+
+- **No format change.** `CURRENT_FORMAT` stays f08 and fresh setup writes f08; the
+  stack’s negative gate proves no native-comment CLI, export, runtime caller, config, or
+  scaffold is reachable.
+- **The read path is unchanged.** `parseFrontmatterDocument` behaves identically to the
+  previous parser for every input class checked, including CRLF, BOM, missing
+  frontmatter, `---` in the body, and YAML errors; the new ID helpers are additions.
+- **Old clients still work.** CI’s packed upgrade proof (`qa:upgrade-package`) upgrades
+  repositories created by 0.4.2, 0.5.0, and 0.7.0 and checks that the oldest f08 client
+  reads what the candidate writes; it passed on #283’s code.
+- **What does change** is reachable behavior, and each change is either fixed before its
+  layer merges or tracked for the release: #279’s comment union rewrites third-party
+  `extensions` data (`tbd-s3zx`, before merge), #283’s `agent_map` fix makes invalid
+  maps fail and valid maps send `delegateId` on every push (`tbd-tia7`, `tbd-80vz`), and
+  `tbd sync` does not yet write the attic entries the new docs describe (`tbd-ajq2`).
+
+Rollback: each layer is a merge commit and can be reverted; nothing it writes needs
+migrating back.
+
+### B. Release 1 (f08)
+
+Contents: `main` since v0.8.1 (#264, #266, #280), the merged stack, and whichever of
+this sprint’s Phase 0 and 1A have landed.
+Before tagging:
+
+- `tbd-od0z` has landed, because #264 already widens the #265 alternation on `main`.
+- `tbd-ajq2` has landed: `tbd sync` saves every merge conflict to the attic, and the
+  attic is documented as an extra, append-only recovery store with restore steps.
+- `tbd-tia7` has landed, or the release notes name the new `agent_map` failure;
+  `tbd-80vz` is fixed or named.
+- Release notes (`tbd-lz1q`) cover the `agent_map` behavior, upgrading every clone
+  (comment lineage protection holds only when the merging client is upgraded), generated
+  agent-surface churn between versions, and changed CLI strings.
+- `pnpm qa:upgrade-package` and `pnpm release:verify` pass on the candidate, and because
+  generated agent surfaces change, the packed candidate is validated in a fresh
+  first-party downstream checkout, per `docs/development.md`.
+
+User upgrade: `npm install -g get-tbd@latest`, then `tbd setup --auto` in each
+repository and commit the generated-surface diff.
+There is no format migration, and a teammate still on 0.8.x keeps working against the
+same repository.
+
+### C. Preservation release (f08)
+
+The preservation layers under `tbd-76ad` land in order: Git operation guards
+(`tbd-qo4d`), workspace, outbox, and history recovery (`tbd-7ufa`), then doctor and the
+compatibility gate (`tbd-44kw`). They make every broad stage, commit, fast-forward,
+merge, push retry, workspace or outbox move, doctor repair, and unrelated-history rescue
+preserve a `comments/` tree and its conflict evidence, while no native writer exists.
+
+Why a separate release: Release 1 and 0.8.x clients neither read nor protect that tree.
+Once native records exist, any such client can drop them through an ordinary broad
+stage, repair, or rescue.
+This release is therefore the minimum binary for every writer before stage E, and the
+release notes say so in those words.
+
+Evidence required: `qa:upgrade-package` gains a scenario in which a planted comments
+tree survives every preserved path under the candidate, plus a record that the previous
+release does not preserve it.
+`tbd-qo4d` also decides partial-clone lazy fetch for the inventory reads, per the #283
+review.
+
+Coordination with this sprint: `tbd-ajq2` (attic writes on the `tbd sync` path, a
+Release 1 gate) and `tbd-f99c` (the fold’s commit in the git summary, Phase 1A) change
+the same Git sync code that `tbd-qo4d` guards.
+Both are planned to land first, and `tbd-qo4d` then guards their writes.
+Phase 1B changes how tracker work is planned, not the Git sync paths, so it can land
+before or after the preservation layers.
+
+### D. Format freeze
+
+`tbd-z3ag` closes after the preservation evidence exists: the Phase 2 subset of the
+`tbd-q2w2` experiments, the S282-01 syscall and error-path evidence and the S282-02
+agent-ID grammar decision, and the scale case from the #283 review (50,000 records
+classify within the benchmark target).
+The selected representation and grammar are recorded before any f09 constant exists.
+
+### E. f09 activation release
+
+`tbd-x6eo` ships the only step that changes what a repository stores, and it is opt-in
+per repository:
+
+1. **Split `CURRENT_FORMAT`.** Today it is the readable ceiling, the migration target,
+   and the fresh-repository default at once, so bumping it would auto-migrate every
+   repository on `tbd setup --auto`. The release reads f09 but keeps f08 as the default
+   and the migration target, and decides the common-directory layout and generated
+   integration-marker semantics.
+2. **Inventory writers.** Every clone that writes to the repository runs at least the
+   preservation release.
+   An unknown or older writer blocks activation, because Git cannot fence a stale clone
+   that never pulls the enable commit.
+3. **Enable explicitly.** A maintainer runs the reviewed enable command (proposed
+   `tbd comment enable`), which changes `tbd_format` in `.tbd/config.yml`; the change is
+   reviewed, committed, and pushed before any native record is written.
+4. **Old clients fail closed.** An f08-only client that has pulled the enable commit
+   stops with “This repository requires a newer version of tbd” (`formatUpgradeMessage`,
+   `lib/tbd-format.ts`). A preservation-release client that has not pulled it keeps
+   preserving records it cannot read.
+5. **Write only after rechecking.** The native writer rechecks the active format while
+   holding the shared writer lock.
+
+Evidence required: packed refusal proof (f08 client against an f09 repository), the
+two-clone stale proof from the coordination plan’s Phase 2 acceptance, restartable
+migration backed by an inventory, and `qa:upgrade-package` moving its same-format
+baseline to the preservation release and adding the enable scenario.
+
+Rollback: turn native writes off and keep a compatible reader and writer.
+A binary downgrade must prove it preserves records written since activation; no step
+restores an older snapshot over newer discussion.
+
+### F. Linear projection
+
+`tbd-osng` migrates existing embedded provider comments, pending intents, aliases, and
+stubs into the native and bridge model, routes `tbd integration comment` through the
+native store, and enables projection per provider and project after its live gate.
+Its delivery identity (`tbd-6vg5`) and projection edit `runSync`, which Phases 1A and 1B
+restructure: sequence `tbd-6vg5` after `tbd-od0z`, and build `tbd-osng` on 1B’s planner,
+which classifies comment actions so projection adds a comment source rather than a
+second sync path.
 
 ## Design
 
@@ -1181,6 +1342,9 @@ No test in this plan is evidence until it has been seen to fail for the stated r
 `main`.
 
 ## Rollout Plan
+
+The native comment stages that share these releases are mapped in “Native Comment Work:
+Merge, Release, and Format Upgrade Map”; Release 1 below is stage B there.
 
 Two releases, ordered by what reaches users’ trackers:
 
