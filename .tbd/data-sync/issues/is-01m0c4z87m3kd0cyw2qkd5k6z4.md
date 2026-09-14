@@ -5,7 +5,7 @@ title: "tracker: actor axis (assignee/delegate) and board projection"
 kind: epic
 status: in_progress
 priority: 0
-version: 8
+version: 10
 spec_path: docs/project/specs/active/plan-2026-08-18-actor-axis-and-identity.md
 docs:
   - path: docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md
@@ -17,8 +17,11 @@ docs:
 assignee: josh
 labels: []
 dependencies: []
+child_order_hints:
+  - is-01m2esegb93vkm6se4pc0gsn5h
+  - is-01m2esfargtg9zyb4n1s8z2ra2
 created_at: 2026-08-19T04:37:46.867Z
-updated_at: 2026-09-06T19:51:30.165Z
+updated_at: 2026-09-14T01:45:57.776Z
 extensions:
   linear:
     id: 4a516464-c913-4c5d-8ef4-63a7f36101be

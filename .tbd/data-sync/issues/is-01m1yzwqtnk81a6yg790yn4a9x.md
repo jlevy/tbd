@@ -5,7 +5,7 @@ title: "Stability sprint 2026-09: spec lifecycle, triage views, bulk contract, t
 kind: epic
 status: open
 priority: 1
-version: 39
+version: 41
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 labels: []
 dependencies: []
@@ -48,7 +48,9 @@ child_order_hints:
   - is-01m2egx888wh2r62pt8ce4d3wz
   - is-01m2egx9ye6n87mfbmq7txd3y9
   - is-01m2egxayhvgzz3zh9jq15jmyb
+  - is-01m2erpx9hwcpst334rc95sty6
+  - is-01m2esehnbg9pk67r7s5ep9cnb
 created_at: 2026-09-07T22:30:17.666Z
-updated_at: 2026-09-13T23:16:19.535Z
+updated_at: 2026-09-14T01:45:32.074Z
 ---
 Umbrella for plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md. Closes GH #269-#276, #267, and the remainder of #265; implements #204 and #254 via the existing beads tbd-pjan and tbd-fnwc; small fixes for #179/#180 and #181; closes #238, #255, #195 as already fixed on main. Five root causes: spec links validated once and abandoned; list is a flat open-only text projection; bulk contract refused shared-value fields; reconciler counts standing conditions as pending and the umbrella sync flattens the report; CLI trusts its environment. Phase 0 lands the unmerged branch claude/tbd-sync-bugs-review-f1qb1f (spec plan-2026-08-28-sync-convergence-and-stability.md, epic tbd-bcss).
