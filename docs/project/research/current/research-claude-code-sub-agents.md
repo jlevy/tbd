@@ -12,7 +12,7 @@
   — Multi-agent orchestration ecosystem survey
 - [Claude Code Orchestration Interfaces and UIs](../archive/research-claude-code-orchestration-and-uis.md)
   — Control protocols, IDE surfaces, and external orchestration interfaces
-- [Agent Coordination Kernel](research-agent-coordination-kernel.md)
+- [Agent Coordination Kernel](../archive/research-agent-coordination-kernel.md)
 
 * * *
 
@@ -1515,7 +1515,7 @@ for i in $(seq 1 $MAX_ITERATIONS); do
   CHILD_ID=$(tbd create "Iteration $i of: $(tbd show $PARENT_BEAD --json | jq -r '.title')" \
     --type task --priority P2 --json | jq -r '.id')
   tbd dep add "$CHILD_ID" "$PARENT_BEAD"
-  tbd update "$CHILD_ID" --status in_progress
+  tbd start "$CHILD_ID"
 
   PROMPT="You are iteration $i of up to $MAX_ITERATIONS.
 
@@ -1777,5 +1777,9 @@ claude --model opus
 
 - [Running Claude Code Across Environments](../archive/research-running-claude-code.md)
   — Multi-agent orchestration landscape survey
-- [Agent Coordination Kernel](research-agent-coordination-kernel.md) — UNIX-like
-  primitives for agent coordination
+- [Agent Coordination Kernel](../archive/research-agent-coordination-kernel.md) —
+  UNIX-like primitives for agent coordination
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

@@ -125,8 +125,8 @@ class SyncHandler extends BaseCommand {
     const tbdRoot = await requireInit();
     this.tbdRoot = tbdRoot;
 
-    // --push/--pull scope direction for the network surfaces (issues and
-    // integrations). Docs have no remote, so they cannot be scoped that way.
+    // --push/--pull scope the issue Git surface and, only when explicitly selected,
+    // integrations. Docs have no remote, so they cannot be scoped that way.
     if ((options.push || options.pull) && options.docs) {
       throw new ValidationError(
         '--push/--pull only work with issue and integration sync, not --docs',
@@ -135,7 +135,7 @@ class SyncHandler extends BaseCommand {
 
     // Surface selection. With no selector, sync EVERYTHING — an agent closing
     // a session runs plain `tbd sync` and expects the whole repository to be
-    // current. Selectors narrow it; --push/--pull imply the network surfaces.
+    // current. Selectors narrow it; --push/--pull always imply the issue surface.
     const hasDirectionFlag = Boolean(options.push) || Boolean(options.pull);
     const hasSurfaceFlag =
       Boolean(options.issues) || Boolean(options.docs) || Boolean(options.integrations);
@@ -1206,9 +1206,10 @@ class SyncHandler extends BaseCommand {
       this.output.debug(`Fetch failed (may be first sync): ${(error as Error).message}`);
     }
 
-    // Integration fold, on by default (`on_tbd_sync` defaults to `auto`;
-    // enabling a provider IS the opt-in). This is the one correct moment for
-    // it: AFTER pull/merge (so reconciliation sees other machines' bead
+    // Integration fold, on by default (`on_tbd_sync` defaults to `guarded`;
+    // enabling a provider is the opt-in to a bounded fold, while `auto`
+    // explicitly waives the bulk thresholds). This is the one correct moment
+    // for it: AFTER pull/merge (so reconciliation sees other machines' bead
     // changes instead of pushing stale state to the tracker) and BEFORE the
     // push (so the beads and bridge records it writes ride this very push).
     // A failure is contained until git sync finishes, then the outer surface

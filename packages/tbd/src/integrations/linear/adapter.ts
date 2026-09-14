@@ -213,10 +213,12 @@ export class LinearAdapter implements TrackerAdapter {
     const reverseAgents = new Map<string, string>();
     for (const [name, appUserId] of agents) {
       if (!name.trim()) {
-        throw new Error('integrations.linear.agent_map contains an empty agent name.');
+        throw new Error('integrations.linear.identity.agent_map contains an empty agent name.');
       }
       if (!UUID_RE.test(appUserId)) {
-        throw new Error(`integrations.linear.agent_map.${name} must be a Linear app user UUID.`);
+        throw new Error(
+          `integrations.linear.identity.agent_map.${name} must be a Linear app user UUID.`,
+        );
       }
       reverseAgents.set(appUserId.toLowerCase(), name);
     }
@@ -226,18 +228,18 @@ export class LinearAdapter implements TrackerAdapter {
     const reverse = new Map<string, string>();
     for (const [assignee, identity] of configuredUsers) {
       if (!assignee.trim()) {
-        throw new Error('integrations.linear.user_map contains an empty tbd assignee.');
+        throw new Error('integrations.linear.identity.user_map contains an empty tbd assignee.');
       }
       if (!UUID_RE.test(identity) && !EMAIL_RE.test(identity)) {
         throw new Error(
-          `integrations.linear.user_map.${assignee} must be a Linear user UUID or email.`,
+          `integrations.linear.identity.user_map.${assignee} must be a Linear user UUID or email.`,
         );
       }
       const normalized = identity.toLowerCase();
       const existing = reverse.get(normalized);
       if (existing) {
         throw new Error(
-          `integrations.linear.user_map maps both ${existing} and ${assignee} to the same Linear user.`,
+          `integrations.linear.identity.user_map maps both ${existing} and ${assignee} to the same Linear user.`,
         );
       }
       reverse.set(normalized, assignee);
@@ -646,8 +648,8 @@ export class LinearAdapter implements TrackerAdapter {
   /**
    * Create a comment. The provider honors client-generated comment UUIDs and
    * rejects duplicates (verified live 2026-08-10: the duplicate arrives as an
-   * INPUT_ERROR on HTTP 200, unlike issueCreate's 400), so replay with a
-   * client id is exactly-once: the duplicate converts to success here.
+   * INPUT_ERROR on HTTP 200, unlike issueCreate's 400), so replay with the same
+   * client id is idempotent: the duplicate converts to success here.
    */
   async createComment(id: string, body: string, clientId?: string): Promise<{ commentId: string }> {
     let data: { commentCreate: { success: boolean; comment: { id: string } | null } };
@@ -911,7 +913,7 @@ export class LinearAdapter implements TrackerAdapter {
     }
     if (!assigneeSyncable) {
       mappingWarnings.push(
-        'Linear assignee is not present in user_map; assignee synchronization skipped.',
+        'Linear assignee is not present in identity.user_map; assignee synchronization skipped.',
       );
     }
     return {

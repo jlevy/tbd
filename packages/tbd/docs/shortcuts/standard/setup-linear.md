@@ -57,9 +57,9 @@ Read the output and match it:
 | `- enabled: configured but disabled` | **D. Deliberately off** | Ask before changing it |
 
 Case B is the common one on a team: the `integrations` block is committed, so it arrived
-with the clone. **Do not re-run first-time setup in case B.** Changing `team_key` or
-`project` when teammates and other agents are already syncing points this repository at
-a different place than theirs.
+with the clone. **Do not re-run first-time setup in case B.** Changing
+`linear.target.team_key` or `linear.target.project` when teammates and other agents are
+already syncing points this repository at a different place than theirs.
 
 ## Step 2 (case A only): First-time setup for the repository
 
@@ -76,10 +76,12 @@ Then add to `.tbd/config.yml`:
 
 ```yaml
 integrations:
+  on_tbd_sync: guarded # default; refuse oversized folded runs
   linear:
     enabled: true
-    team_key: FIN # theirs, from the user
-    project: my-project # optional; omit if they did not name one
+    target:
+      team_key: FIN # theirs, from the user
+      project: my-project # optional; omit if they did not name one
     policy: default # open epics + anything with a live plan spec
 ```
 
@@ -94,25 +96,44 @@ In a spec-driven repository that can be a large share of open work rather than a
 one. Two things to check with the user when the preview looks bigger than expected:
 
 - `tbd --dry-run integration sync --push` lists exactly which beads would be mirrored.
-- Beads nested deeper than `max_nesting` (default 2) *within the selected set* are
-  reported as skipped rather than created, so the number of Linear issues is normally
-  smaller than the number of selected beads.
+- Beads nested deeper than `linear.policy.outbound.max_nesting` (effective default 2)
+  *within the selected set* are reported as skipped rather than created, so the number
+  of Linear issues is normally smaller than the number of selected beads.
   Both numbers appear in the dry run.
 
 **Then run `tbd setup --auto` before committing.** Writing the block leaves the
-repository at whatever format it was on; setup stamps `tbd_format: f07`, which is what
-stops a teammate’s pre-0.6.0 tbd from silently stripping the block on its next config
-write. Commit the block and the stamp together, so no one ever clones the window between
+repository at whatever format it was on; setup migrates it to the current fresh-repo
+format (currently f08). The historical f07 minimum is the boundary that stops a
+teammate’s pre-0.6.0 tbd from silently stripping the integration block on its next
+config write; f08 adds the later issue-record preservation boundary.
+Commit the block and format stamp together, so no one ever clones the window between
 them. If setup reports a format migration, that diff is part of this change.
 
-Two optional keys worth mentioning only if the user raises the need:
+Optional groups worth mentioning only if the user raises the need:
 
-- `user_map: { alias: person@example.com }` — the **only** identities tbd may push as
-  assignees. Without it, assignees do not sync in either direction, and no email or raw
-  Linear user ever enters bead data.
-- `mirror_labels: true` — pushes bead labels as Linear labels.
-  Off by default on purpose: a repository can carry a hundred-plus labels, and creating
-  one Linear label each pollutes a shared team namespace.
+- `linear.identity.user_map: { alias: person@example.com }` — an explicit alias override
+  for assignee identity.
+  Outbound handles can otherwise resolve through a stable bridge binding or one exact
+  Linear directory match; ambiguous and missing matches are skipped.
+  Inbound provider identities still need this map before they can become bead aliases.
+  Emails and raw Linear user payloads never enter bead data.
+- `linear.identity.agent_map: { agent-name: app-user-uuid }` — delegates explicitly
+  allowed to appear as installed Linear agents.
+  Unmapped session delegates stay local and are reported as skipped; tbd writes an
+  existing app-user ID and does not register an agent.
+- `linear.identity.state_map: { started: In Progress }` — selects a workflow-state name
+  for an ambiguous Linear state type.
+  The supported map keys are `backlog`, `unstarted`, `started`, `completed`, `canceled`,
+  and `duplicate`. Interactive `tbd integration setup` asks once and persists a choice;
+  non-interactive and dry-run setup leave ambiguity unresolved.
+  `tbd doctor` reports only the offline resolution plan and never calls Linear or
+  persists choices. An entry is also explicit consent for applied setup to create that
+  missing team-wide state and reorder mapped states; without entries, setup never
+  changes the board’s workflow states.
+- `linear.labels.mirror: prefixed` — projects bead labels as `tbd:`-prefixed Linear
+  labels. Mirroring is off by default because a repository can carry a hundred-plus
+  labels. `linear.labels.create: all` additionally permits creating missing mirrored
+  labels; the safer default `tbd` creates only tbd-owned infrastructure labels.
 
 This block is committed.
 Commit it in the same change as any other setup, so the next teammate to clone gets it.
@@ -210,8 +231,8 @@ have detected and reported as a conflict.
 Plain `tbd sync` first pulls the current issue state from the team’s sync branch, runs
 the full tracker reconciliation in place, and then publishes the resulting bead state.
 
-If the shared config deliberately sets `integrations.sync_on_tbd_sync: false`, preserve
-that team choice. In that exceptional case, run `tbd sync` first to pull the latest bead
+If the shared config deliberately sets `integrations.on_tbd_sync: off`, preserve that
+team choice. In that exceptional case, run `tbd sync` first to pull the latest bead
 state, preview and run `tbd integration sync` explicitly, then run `tbd sync` again to
 publish the reconciled state.
 Do not silently remove the override.
@@ -311,7 +332,7 @@ Pull request linking and issue sync are separate features; this step is only the
 | --- | --- | --- |
 | `LINEAR_API_KEY not found` | No key in env or `.env` | Step 3 |
 | `.env: present and NOT gitignored` | Key is one `git add` from being committed | Add `.env` to `.gitignore` now; rotate the key if it was ever committed |
-| `reachable` fails with a valid-looking key | Key revoked, missing a required permission, or no access to that team | Re-issue under Settings > Account > Security & Access; confirm permissions and `team_key` |
+| `reachable` fails with a valid-looking key | Key revoked, missing a required permission, or no access to that team | Re-issue under Settings > Account > Security & Access; confirm permissions and `linear.target.team_key` |
 | Integration block vanished from `config.yml` | A pre-0.6.0 tbd rewrote config before the repository was stamped `f07` | `git checkout .tbd/config.yml`, upgrade that machine (`npm install -g get-tbd@latest`), then `tbd setup --auto` to stamp the format |
 | A teammate reports “This repository requires a newer version of tbd” | Working as intended: their tbd predates `f07` and would strip the block | Have them upgrade: `npm install -g get-tbd@latest` |
 | Sync says `nothing to do` but Linear looks stale | The policy does not select those beads | Check `policy.outbound` against what the user expects; `--dry-run integration sync --push` lists the selected set |

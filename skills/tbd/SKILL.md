@@ -37,11 +37,17 @@ allowed-tools: Bash(tbd:*) Read Write
 npm install -g get-tbd@latest      # Install or upgrade the CLI (same command for both)
 tbd setup --auto --prefix=<name>   # Fresh project (--prefix is REQUIRED: 2-8 alphabetic chars recommended. ALWAYS ASK THE USER FOR THE PREFIX; do not guess it)
 tbd setup --auto                   # Existing tbd project — also the upgrade step (applies any format migration; commit the diff it reports)
-tbd setup --from-beads             # Migration from .beads/ if `bd` has been used
+tbd setup --from-beads             # Uninitialized repo: import and archive .beads/
 ```
 
 If tbd refuses with “This repository requires a newer version of tbd”, run the two
 install/upgrade commands above.
+Setup installs `portable`, `agents-md`, `claude`, and `codex` project surfaces by
+default. `--surfaces=<comma-list>` narrows only those generated agent files; setup still
+performs initialization, config and format migration, and docs refresh.
+Bare `tbd setup` displays help.
+After `--from-beads`, verify the imported state; setup can continue after an import
+warning and moves only `.beads/` to `.beads-disabled/`.
 
 ## Routine Commands
 
@@ -220,9 +226,9 @@ concluding gh is unavailable.
 
 | Command | Purpose |
 | --- | --- |
-| `tbd ready` | Beads ready to work (no blockers) |
+| `tbd ready` | Beads ready to work (open; no delegate, hold, future deferral, or non-closed blocker) |
 | `tbd list --status open` | All open beads |
-| `tbd list --status in_progress` | Your active work |
+| `tbd list --status in_progress` | All in-progress work |
 | `tbd list --spec <path>` | Beads tracking a spec (filename or suffix is enough) |
 | `tbd list --sort updated --limit 10` | Recent activity; `--count` for totals |
 | `tbd show <id1> [<id2> …]` | Bead details with dependencies (bulk: delimited per issue; `--max-lines <n>` caps each) |
@@ -233,10 +239,22 @@ concluding gh is unavailable.
 | --- | --- |
 | `tbd create "title" --type=bug --priority=1` | New bead; run `tbd create --help` for all types and priorities (P0-P4, not “high/medium/low”) |
 | `tbd create "title" --parent <epic> --depends-on <id>` | Create fully wired: parent and blockers in one call (`--depends-on` is repeatable) |
-| `tbd update <id> --status in_progress` | Claim work |
+| `tbd start <id>` | Claim work |
 | `tbd close <id> [--reason "..."]` | Mark complete |
 | `tbd close <id1> <id2> <id3> --reason "..."` | Close several at once (always preferred over one-at-a-time) |
 | `tbd update <id1> <id2> <id3> --priority 1` | Bulk-update shared fields on several beads |
+
+Use `tbd start`, not a raw status update, to claim work.
+It records the acting agent in `delegate`. On an already in-progress bead, it reports a
+different visible delegate instead of overwriting that claim.
+It does not require readiness or coordinate with a stale clone.
+Before editing, run `tbd sync --pull`, re-read the bead, use `tbd start <id>`, and run
+`tbd sync` so other replicas can see the accepted claim.
+`assignee` remains the accountable person.
+The acting name resolves from `start --as`, then `TBD_AGENT`, then the machine-local
+session identity, and finally a derived `<harness>@<host>` fallback.
+Use `tbd whoami` to inspect it; setup hooks call `tbd whoami --ensure-id` idempotently
+to persist a local ID and friendly name.
 
 **IMPORTANT: if you are about to shell-loop or pipe around tbd, stop; the bulk or filter
 form exists.** `show`, `close`, `reopen`, and `update` take multiple IDs;
@@ -281,7 +299,7 @@ mutation and make one call per group.
 | `tbd integration sync --pull --external <ref...>` | Create beads from exactly named tracker items, independent of policy |
 | `tbd integration sync` | Both directions; converges to `nothing to do` |
 | `tbd integration link/unlink <bead> [ref]` | Bind or sever a bead and an existing tracker item; unlink safely cancels pending writes for that pair before clearing the link |
-| `tbd integration comment <bead> "text"` | Author a comment offline; posted on next sync |
+| `tbd integration comment <bead> "text"` | Author a provider comment offline; attempted on next `tbd integration sync` |
 
 **Setting Linear up at all — including “add my key” — is `tbd shortcut setup-linear`.**
 Run it rather than improvising; it detects which case applies and walks the user through
@@ -304,10 +322,17 @@ Link/inbound creation refuse a remote `tbd://bead/…` claim unless `--force` is
 and the old claim was verified stale.
 Configured `project` scopes both creates and automatic inbound scans; an explicit
 `--external` import bypasses that scan scope.
-Assignees sync only through `user_map`: beads retain aliases (including on initial
-import), runtime email/UUID targets never persist, unmapped local aliases are reported,
-and an unmapped provider identity leaves the local field and prior bridge base unchanged
-with a safe warning, preserving local divergence until mapping recovers.
+`identity.user_map` is an explicit assignee alias override.
+Outbound handles can also reuse a stable bridge binding or resolve by one exact Linear
+directory match; ambiguous and missing matches are skipped.
+Inbound provider identities still need the map before they become bead aliases.
+Emails and raw provider payloads never persist.
+`identity.agent_map` maps only installed Linear app agents that may receive a bead
+delegate; unmapped session delegates stay local and are reported as skipped.
+`identity.state_map` selects state names for `backlog`, `unstarted`, `started`,
+`completed`, `canceled`, and `duplicate`. Interactive `tbd integration setup` records
+ambiguous choices; non-interactive and dry-run setup leave them unresolved, and
+`tbd doctor` reports only the offline plan without persisting it.
 Linear sub-issues import parent-first and never flatten; `max_nesting` limits only new
 outbound creation. Comments are append-only and paginated; edits, deletions, reactions,
 and thread shape are not synchronized.
@@ -315,12 +340,16 @@ Linear descriptions carry a tbd-owned `⟦tbd⟧` … `⟦/tbd⟧` region.
 Human prose outside it is preserved; legacy HTML-comment delimiters are upgraded on the
 next outbound sync. Never hand-edit the managed region—change the bead and sync instead.
 
-**Direction flags mean the same thing everywhere in tbd**: bare = both directions,
-`--push` = outbound only, `--pull` = inbound only, `--status` = report only.
-Plain `tbd sync` at session end covers docs, issues, AND enabled trackers; surfaces run
-independently, so one failing (an expired key, a down remote) never stops the others,
-and every failure is reported at the end.
+Within `tbd integration sync`, bare = both directions, `--push` = outbound only, and
+`--pull` = inbound only.
+Top-level `tbd sync --push`/`--pull` operates on the issue Git surface and excludes
+trackers unless `--integrations` is also explicit.
+Plain `tbd sync` at session end covers docs, issues, and trackers according to
+`integrations.on_tbd_sync`; surfaces run independently, so one failing (an expired key,
+a down remote) never stops the others, and every failure is reported at the end.
 Narrow with `--docs`, `--issues`, or `--integrations` for a single surface.
+`tbd sync --status` reports docs and issue Git status only; use `tbd integration status`
+for tracker health.
 
 ### Documentation
 
@@ -338,5 +367,6 @@ Narrow with `--docs`, `--issues`, or `--integrations` for a single surface.
 
 - **Priority**: P0=critical, P1=high, P2=medium (default), P3=low, P4=backlog
 - **Types**: issues default to `task`; run `tbd create --help` for the valid types
-- **Status**: open, in_progress, closed
-- **JSON output**: Add `--json` to any command
+- **Status**: open, in_progress, blocked, deferred, closed
+- **JSON output**: Data-oriented commands honor `--json`; raw document commands such as
+  `readme`, `prime`, `skill`, and `closing` remain text

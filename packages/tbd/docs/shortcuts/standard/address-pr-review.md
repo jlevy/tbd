@@ -74,7 +74,7 @@ Create a to-do list with the following items then perform all of them:
 
 6. **Triage and address each finding, in severity order:**
 
-   For each child bead, mark it in_progress, then choose one disposition:
+   For each child bead, claim it with `tbd start <id>`, then choose one disposition:
    - **Fix**: make the change, following `tbd guidelines general-tdd-guidelines`; run
      the affected tests; close the bead
    - **Rebut**: if the finding is factually wrong or the suggested fix would make things

@@ -97,7 +97,7 @@ export function detectModel(env: NodeJS.ProcessEnv = process.env): string | unde
 export type AgentIdentitySource = 'flag' | 'env' | 'session' | 'derived';
 
 export interface AgentIdentity {
-  /** Friendly name. This is what lands in `assignee`. */
+  /** Friendly name. This is what `tbd start` records in `delegate`. */
   name: string;
   /** Canonical id, when the session has one minted. */
   id?: string;
@@ -109,7 +109,7 @@ export interface AgentIdentity {
 }
 
 /**
- * Slugify a name into something safe to put in `assignee` and to filter on.
+ * Slugify a name into something safe to put in `delegate` and to filter on.
  *
  * Kept conservative — lowercase, alphanumerics, `-`, `_`, `@`, `.` — because the value
  * flows into tracker labels and query strings.

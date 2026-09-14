@@ -6,6 +6,14 @@
 
 **Status:** Done
 
+**Resolution, 2026-09-09:** This is the selected historical workspace design.
+The
+[coordination research](../../research/current/research-2026-09-06-bead-agent-coordination.md)
+reproduced loss of independent embedded provider comments in save/import.
+`tbd-hqb9` and PR #279 repair same-link comment preservation and archive the complete
+losing namespace when link identity is incompatible.
+The remaining Phase 1 work is tracked by `tbd-3eui`.
+
 ## Overview
 
 This spec addresses sync resilience: when `tbd sync` cannot push to the remote (network
@@ -999,7 +1007,7 @@ describe('Workspace management', () => {
 
 - Related issue: tbd-knfu (sync resilience feature)
 - Silent error bug: tbd-ca3g (sync silent failure)
-- Original outbox spec: plan-2026-01-29-claude-code-session-sync.md
+- [Original outbox proposal, superseded](../archive/plan-2026-01-29-claude-code-session-sync.md)
 
 ## Appendix A: Save and Import Flow Diagrams
 
@@ -1631,3 +1639,7 @@ This is solvable with clear rules and validation at relationship creation time.
 
 **Recommendation**: Consider this for a future iteration after the current workspace
 sync feature is fully stable and tested.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

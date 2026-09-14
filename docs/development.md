@@ -409,7 +409,7 @@ tbd/
 
 ## Architecture
 
-See [tbd-design.md](tbd-design.md) for the full design document.
+See [tbd-design.md](../packages/tbd/docs/tbd-design.md) for the full design document.
 
 Key concepts:
 
@@ -433,8 +433,8 @@ tbd uses a **hidden git worktree** to store issue data on the `tbd-sync` branch 
 keeping the user’s working directory clean.
 The sync worktree is anchored under Git’s common directory so the main checkout and any
 linked worktrees created by tools like Codex all share the same local issue state.
-See [tbd-design.md §2.3](packages/tbd/docs/tbd-design.md#23-hidden-worktree-model) for
-the full specification.
+See [tbd-design.md §2.3](../packages/tbd/docs/tbd-design.md#23-hidden-worktree-model)
+for the full specification.
 
 ### Why Worktree?
 
@@ -579,6 +579,9 @@ Forkable-docs behavior (fork/unfork/update/diff/status) is covered by
 engine), `tests/bead-watch.test.ts` (the poll loop, deadlines, and private-ref
 handling), `tests/cli-changes.test.ts`, `tests/cli-watch.test.ts`, and
 `tests/watch-beads-shortcut.test.ts` (the shipped worker recipe, executed as Bash).
+`tbd watch --ready` observes Git transitions into readiness; complete worker loops also
+scan `tbd ready` at startup and periodically for an existing backlog and clock-only
+`deferred_until` expiry.
 
 Unit tests cannot prove Git isolation, so a real-topology smoke test does:
 

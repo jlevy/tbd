@@ -3,7 +3,8 @@
  *
  * The pinned properties: two machines appending different comments both
  * survive a merge (union, not LWW), a pushed comment unifies with its
- * pre-push twin on local_id, and nothing beyond the allow-list persists.
+ * pre-push twin on local_id, comment unions stay within one provider-link
+ * lineage, and nothing beyond the allow-list persists.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -184,5 +185,108 @@ describe('the extensions merge with comments', () => {
     const namespace = merged.extensions?.linear as { comments: { id: string }[] };
     expect(namespace.comments).toHaveLength(3); // union still happens
     expect(conflicts).toHaveLength(1); // the key divergence is real
+  });
+
+  it('does not transplant comments between different provider-link identities', () => {
+    const local = withComment('c-local', '2026-08-10T10:00:00.000Z');
+    local.updated_at = '2026-08-10T12:00:00.000Z';
+    (local.extensions!.linear as Record<string, unknown>).id = 'uuid-local';
+    const remote = withComment('c-remote', '2026-08-10T11:00:00.000Z');
+    remote.updated_at = '2026-08-10T11:00:00.000Z';
+    (remote.extensions!.linear as Record<string, unknown>).id = 'uuid-remote';
+
+    const { merged, conflicts } = mergeIssues(baseIssue, local, remote);
+
+    expect(merged.extensions?.linear).toEqual(local.extensions?.linear);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]).toMatchObject({
+      field: 'extensions.linear',
+      lost_value: remote.extensions?.linear,
+      winner_value: local.extensions?.linear,
+    });
+  });
+
+  it('fails closed when only one provider namespace has a link identity', () => {
+    const local = withComment('c-local', '2026-08-10T10:00:00.000Z');
+    local.updated_at = '2026-08-10T12:00:00.000Z';
+    delete (local.extensions!.linear as Record<string, unknown>).id;
+    const remote = withComment('c-remote', '2026-08-10T11:00:00.000Z');
+    remote.updated_at = '2026-08-10T11:00:00.000Z';
+
+    const { merged, conflicts } = mergeIssues(baseIssue, local, remote);
+
+    expect(merged.extensions?.linear).toEqual(local.extensions?.linear);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]).toMatchObject({
+      field: 'extensions.linear',
+      lost_value: remote.extensions?.linear,
+      winner_value: local.extensions?.linear,
+    });
+  });
+
+  it('unions legacy comment namespaces when both link identities are absent', () => {
+    const base = bead({
+      linear: {
+        comments: [{ id: 'c-0', at: '2026-08-10T09:00:00.000Z', body: 'base' }],
+      },
+    });
+    const local: Issue = {
+      ...base,
+      version: 2,
+      updated_at: '2026-08-10T10:00:00.000Z',
+      extensions: {
+        linear: {
+          comments: [
+            { id: 'c-0', at: '2026-08-10T09:00:00.000Z', body: 'base' },
+            { local_id: 'local-1', at: '2026-08-10T10:00:00.000Z', body: 'local' },
+          ],
+        },
+      },
+    };
+    const remote: Issue = {
+      ...base,
+      version: 2,
+      updated_at: '2026-08-10T11:00:00.000Z',
+      extensions: {
+        linear: {
+          comments: [
+            { id: 'c-0', at: '2026-08-10T09:00:00.000Z', body: 'base' },
+            { local_id: 'remote-1', at: '2026-08-10T11:00:00.000Z', body: 'remote' },
+          ],
+        },
+      },
+    };
+
+    const { merged, conflicts } = mergeIssues(base, local, remote);
+    const namespace = merged.extensions?.linear as {
+      comments: { id?: string; local_id?: string }[];
+    };
+
+    expect(namespace.comments.map((comment) => comment.id ?? comment.local_id)).toEqual([
+      'c-0',
+      'local-1',
+      'remote-1',
+    ]);
+    expect(conflicts).toEqual([]);
+  });
+
+  it('fails closed after an approximate-base merge selects a newer link', () => {
+    const stale = withComment('c-stale', '2026-08-10T10:00:00.000Z');
+    stale.updated_at = '2026-08-10T10:00:00.000Z';
+    (stale.extensions!.linear as Record<string, unknown>).id = 'uuid-stale';
+    const current = withComment('c-current', '2026-08-10T11:00:00.000Z');
+    current.version = 3;
+    current.updated_at = '2026-08-10T11:00:00.000Z';
+    (current.extensions!.linear as Record<string, unknown>).id = 'uuid-current';
+
+    const { merged, conflicts } = mergeIssues(stale, stale, current);
+
+    expect(merged).toEqual(current);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]).toMatchObject({
+      field: 'extensions.linear',
+      lost_value: stale.extensions?.linear,
+      winner_value: current.extensions?.linear,
+    });
   });
 });

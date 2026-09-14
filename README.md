@@ -135,7 +135,9 @@ Newer releases add live visibility and coordination on top of that layer:
   Ask an agent to “show my beads in a browser” and watch statuses, epics, and
   dependencies change live instead of asking for status updates.
 - **Bead watching:** `tbd watch` blocks until selected bead state changes on the remote,
-  so unattended workers wake when work arrives—no daemon, no hand-rolled polling loops.
+  so unattended workers can wake on Git activity without a daemon.
+  General ready-work loops also scan `tbd ready` at startup and periodically for
+  existing work and clock-only deferral expiry.
 - **External tracker sync:** `tbd integration sync` mirrors and synchronizes beads with
   Linear, so teammates and stakeholders who never touch a CLI stay in the loop.
 
@@ -173,7 +175,7 @@ status or context or knowledge and know what to do next:
 | “Create a bead for the bug where …” | Agent creates and tracks a bead | `tbd create "..." --type=bug` |
 | “Let’s work on current beads” | Agent finds ready beads and starts working | `tbd ready` |
 | “Show my beads in a browser” | Agent opens and keeps alive the local viewer | `tbd web --open` |
-| “Watch for new work and keep going” | Agent blocks until a bead becomes ready, then picks it up | [`tbd shortcut watch-beads`](packages/tbd/docs/shortcuts/standard/watch-beads.md) |
+| “Watch for new work and keep going” | Agent scans ready work and uses remote-change watches between periodic scans | [`tbd shortcut watch-beads`](packages/tbd/docs/shortcuts/standard/watch-beads.md) |
 | “Set up Linear” / “Add my Linear key” | Agent distinguishes shared repository config from your personal credential and walks through only the needed path | [`tbd shortcut setup-linear`](packages/tbd/docs/shortcuts/standard/setup-linear.md) |
 | “Review this code” | Agent performs comprehensive code review with all guidelines | [`tbd shortcut review-code`](packages/tbd/docs/shortcuts/standard/review-code.md) |
 | “Review this PR” | Agent reviews a GitHub pull request and publishes the review | [`tbd shortcut review-github-pr`](packages/tbd/docs/shortcuts/standard/review-github-pr.md) |
@@ -210,8 +212,9 @@ You just talk naturally.
   Linear for visibility, or synchronizes them bidirectionally under a per-repository
   policy. GitHub Issues is planned.
 - **Agent watching:** `tbd watch` blocks until selected bead state changes on the
-  remote, reports the change, and exits—wake unattended agents with no daemon and no
-  polling loops.
+  remote, reports the change, and exits.
+  It supplies the Git-change wake-up for an unattended loop; the worker recipe adds
+  startup and periodic readiness scans.
 - **Beads alternative:** Largely compatible with `bd` at the CLI level, but with a
   simpler architecture: no JSONL merge conflicts, no daemon modifying your working tree,
   no SQLite file locking on network filesystems (see
@@ -388,6 +391,13 @@ tbd setup --from-beads
 > **Tip:** Run `tbd setup --auto` anytime to refresh skill files, hooks, and configs
 > with the latest shortcuts, guidelines, and templates.
 
+Setup installs four project-local agent surfaces by default: the portable
+`.agents/skills/tbd/SKILL.md`, a managed `AGENTS.md` block, Claude skill and hooks, and
+Codex hooks. Use `--surfaces=portable,agents-md,claude,codex` with any comma-separated
+subset (or `all`) to narrow those generated files.
+The selector does not skip initialization, config and format migration, or the
+docs-cache refresh. Bare `tbd setup` displays help.
+
 ### Upgrading
 
 Upgrading an existing installation is the same two commands, run by you or your agent:
@@ -458,11 +468,17 @@ in the CLI reference for policies, selectors, and bulk-change safety.
 
 ### Claude Code Integration
 
-`tbd setup --auto` configures SessionStart hooks that run at the beginning of each
-Claude Code session:
+`tbd setup --auto` installs all agent surfaces.
+The Claude surface configures SessionStart and PreCompact hooks, plus a PostToolUse
+closing reminder:
 
-- **`tbd prime`**—injects workflow context so the agent knows how to use `tbd`
+- **`tbd prime`**—injects workflow context at session start and a brief reminder before
+  compaction
+- **`tbd whoami --ensure-id`**—initializes a stable, machine-local agent identity
 - **`ensure-gh-cli.sh`**—installs the GitHub CLI (`gh`) if not already available
+
+To generate only the Claude files in an existing project, run
+`tbd setup --auto --surfaces=claude`.
 
 **GitHub authentication:** For `gh` to work, set these environment variables before
 starting your agent session:
@@ -485,26 +501,32 @@ To disable automatic `gh` installation, pass `--no-gh-cli` during setup or set
 ### Migrating from Beads
 
 ```bash
-tbd setup --from-beads       # Auto-detects and migrates
-tbd stats                    # Verify
+tbd --dry-run setup --from-beads  # Preview; writes nothing
+tbd setup --from-beads            # Initialize, import, install surfaces, archive .beads/
+tbd stats                         # Verify
 tbd list --all
-tbd setup beads --disable    # Optionally disable beads after migration
 ```
 
-Issue IDs are preserved: `proj-123` in beads becomes `proj-123` in `tbd`.
+Run this before initializing tbd, while `.beads/` still exists.
+Setup imports `.beads/issues.jsonl` when present and renames the complete directory to
+`.beads-disabled/`; that retained directory is the rollback source.
+It can continue after a missing JSONL file or import warning, so verify the totals and
+records.
+It does not remove `.beads-hooks/`, Cursor rules, Claude settings, or Beads text
+in `AGENTS.md`. Issue IDs are preserved: `proj-123` in Beads becomes `proj-123` in tbd.
 
 ## Commands
 
 ### Beads
 
 ```bash
-tbd ready                      # Beads ready to work on (open, unblocked, unassigned)
+tbd ready                      # Open work with no delegate, hold, deferral, or blocker
 tbd list                       # List open beads
 tbd list --all                 # Include closed
 tbd list --specs               # Group beads by spec
 tbd show proj-a7k2             # View bead details
 tbd create "Title" --type=bug  # Create bead (bug/feature/task/epic/chore)
-tbd update proj-a7k2 --status=in_progress
+tbd start proj-a7k2            # Claim under the resolved agent identity
 tbd close proj-a7k2            # Close bead
 tbd close proj-a7k2 --reason="Fixed in commit abc123"
 tbd close proj-a7k2 proj-b3m9 --reason="Sprint done"  # Bulk close (one call, no loops)
@@ -516,9 +538,19 @@ tbd watch --bead proj-a7k2     # Block until one bead changes on the remote
 tbd changes --since <commit>   # What changed since a sync-branch commit
 ```
 
+`tbd start` writes the acting agent to `delegate` and preserves the accountable
+`assignee`. It resolves the name from `--as`, then `TBD_AGENT`, then the machine-local
+session identity, and finally a derived `<harness>@<host>` fallback.
+Run `tbd whoami` to inspect the result.
+Pull and re-read shared state before claiming, then sync the accepted claim; the
+collision check is local and advisory.
+
 `tbd watch` wakes an agent when bead state changes, with no daemon and no background
 process. It polls the remote sync-branch tip, fetches only once that tip moves, reports
 one matching change, and exits.
+A `--ready` watch is edge-triggered: it does not return an existing ready backlog or
+wake only because `deferred_until` passed.
+The worker shortcut adds startup and periodic `tbd ready` scans for those cases.
 It writes no shared state, so watchers coexist with ordinary `tbd sync` in the same
 checkout. The [CLI reference](packages/tbd/docs/tbd-docs.md) documents the selectors,
 baseline commits, and report format; the
@@ -673,18 +705,20 @@ tbd doctor --fix             # Auto-fix issues
 
 ### Agent-Friendly Flags
 
-Every command supports these flags for automation:
+These global flags are accepted by every command, but commands apply only the behavior
+they implement:
 
 | Flag | Purpose |
 | --- | --- |
-| `--json` | Machine-parseable output |
-| `--dry-run` | Preview changes |
+| `--json` | Structured output for data-oriented commands; raw document commands remain text |
+| `--dry-run` | Preview supported mutations; read-only commands may ignore it |
 | `--quiet` | Minimal output |
 
 ## Documentation
 
 ```bash
-tbd                          # Full orientation and workflow guidance
+tbd                          # Command help
+tbd prime                    # Full orientation and workflow guidance
 tbd readme                   # This file
 tbd docs                     # Managed-docs overview (cached, forked, and local docs)
 tbd docs show tbd-docs       # Full CLI reference (the manual; alias: tbd docs manual)

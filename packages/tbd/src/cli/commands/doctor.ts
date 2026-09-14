@@ -919,7 +919,8 @@ class DoctorHandler extends BaseCommand {
    * knowable offline is the *plan* — which types have a configured name, which will
    * fall back to Linear's conventional one, and which will be decided by the team
    * having exactly one state of that type. Whether each actually binds is a fact about
-   * the team and is reported by `tbd integration status`.
+   * the team and is verified by `tbd integration setup` when provisioning is enabled,
+   * or by the next integration sync.
    */
   private checkStateResolution(): DiagnosticResult {
     const linear = this.config?.integrations?.linear;

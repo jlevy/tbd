@@ -6,17 +6,25 @@
 
 **Status:** Complete (survey); extension analysis is preliminary
 
+> **Archived research, 2026-09-06:** Superseded for current coordination guidance by
+> [Bead Watching, Comments, and Cross-Agent Coordination](../current/research-2026-09-06-bead-agent-coordination.md).
+> Retained for the June listener taxonomy, dispatch/context/reporting separation,
+> feedback-loop analysis, and historical source links.
+> The vendor survey is dated; proposed missing tbd watch primitives and mergeable atomic
+> claims are superseded.
+> Research-review votes described below are not executed runtime validation.
+
 **Related:**
 
-- [Running Claude Code Across Environments](../archive/research-running-claude-code.md)
-  — has a section on GitHub Actions `@claude` triggers; this doc goes deeper on the
-  monitor mechanisms themselves
+- [Running Claude Code Across Environments](research-running-claude-code.md) — has a
+  section on GitHub Actions `@claude` triggers; this doc goes deeper on the monitor
+  mechanisms themselves
 - [Agent Coordination Kernel](research-agent-coordination-kernel.md) — separating
   durable truth from live coordination across agent ecosystems
-- [Claude Code Orchestration Interfaces and UIs](../archive/research-claude-code-orchestration-and-uis.md)
+- [Claude Code Orchestration Interfaces and UIs](research-claude-code-orchestration-and-uis.md)
   — control protocols and orchestration surfaces
-- [API References for Bridge Integrations](api-references-bridge-integrations.md) —
-  multi-agent protocols (MCP, ACP, A2A, ANP) and bridge APIs
+- [API References for Bridge Integrations](../current/api-references-bridge-integrations.md)
+  — multi-agent protocols (MCP, ACP, A2A, ANP) and bridge APIs
 - [Beads Bootstrapping Mechanisms](research-beads-bootstrapping-mechanisms.md) — how
   beads initializes; relevant to the tbd/beads extension angle
 
@@ -372,7 +380,7 @@ Layered defenses, from platform to app:
 ### Emerging protocols (the standardization layer)
 
 Four layers are converging into a stack (follow-up pass; see also
-[api-references-bridge-integrations.md](api-references-bridge-integrations.md)):
+[api-references-bridge-integrations.md](../current/api-references-bridge-integrations.md)):
 
 - **MCP (Model Context Protocol)** — *agent ↔ tools/context.* Anthropic-originated (Nov
   2024), now under the Linux Foundation; **the de facto standard** with SDKs in many
