@@ -47,8 +47,8 @@ import {
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, isAbsolute, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { promisify } from 'node:util';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { isDeepStrictEqual, promisify } from 'node:util';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 const execFileAsync = promisify(execFile);
@@ -195,6 +195,12 @@ async function extractPackage(archive, destination, dependencyTree) {
   invariant(typeof bin === 'string', `get-tbd@${String(manifest.version)} has no tbd binary`);
   const cliPath = join(extracted, bin);
   await access(cliPath);
+  // The package entry point, for scenarios that import the published parser and schemas
+  // instead of driving the published CLI.
+  const entry = manifest.exports?.['.']?.default ?? manifest.main;
+  invariant(typeof entry === 'string', `get-tbd@${String(manifest.version)} has no entry point`);
+  const indexPath = join(extracted, entry);
+  await access(indexPath);
   const launcherDir = join(destination, 'qa-bin');
   await mkdir(launcherDir);
   if (process.platform === 'win32') {
@@ -205,7 +211,7 @@ async function extractPackage(archive, destination, dependencyTree) {
   } else {
     await symlink(cliPath, join(launcherDir, 'tbd'));
   }
-  return { cliPath, launcherDir, manifest };
+  return { cliPath, indexPath, launcherDir, manifest };
 }
 
 async function initializeRepository(repository) {
@@ -1225,6 +1231,209 @@ async function validateOldClientConfigRoundTrip({
   );
 }
 
+/**
+ * Fields a published f08 client is KNOWN to drop from a candidate-written link record.
+ *
+ * `LinkRecordSchema` and `BridgeBaseSchema` are deliberately not `.passthrough()`, unlike
+ * the issue schema: a bridge record is tbd's own bookkeeping, and letting arbitrary keys
+ * ride along in it would make every sync a guess about what is load-bearing. The cost is
+ * that a field this build adds is stripped by any client that predates it, so a teammate
+ * on that client silently discards it on their next sync.
+ *
+ * That is a decision, not an accident — the stability sprint plan records the minimum
+ * client version these fields require. The list is here so the decision has to be made
+ * again: add a field to a bridge record without adding it here and this gate fails.
+ */
+const BASELINE_DROPS_FROM_LINK_RECORD = ['refinement_state_id', 'refinement_slot'];
+const BASELINE_DROPS_FROM_BRIDGE_BASE = ['slot'];
+
+/**
+ * f08 contract T2: the published client's own parser and schemas read what we write.
+ *
+ * Every other scenario drives a published CLI as a process, which proves the commands
+ * work but says nothing about *why* when they do not. This one imports the published
+ * package's exported `parseIssue`, `serializeIssue` and schemas and runs them directly
+ * against candidate-written files, so a compatibility break is reported as the field it
+ * happened to rather than as a command that misbehaved.
+ *
+ * What it pins, in the order the file formats matter:
+ *
+ *   1. Beads parse identically under both versions, including the two shapes most likely
+ *      to disagree: a description that itself contains a `## Notes` heading (the
+ *      delimiter the format uses to split description from notes), and a bead carrying
+ *      f08 fields the older schema never declared.
+ *   2. A bead that goes through the older client and comes back has lost nothing. Note
+ *      what is NOT asserted: byte identity. The older client keeps fields it does not
+ *      know — the issue schema is `.passthrough()` — but writes them in a different place,
+ *      because its field order does not mention them. Reordering is churn; dropping is
+ *      data loss, and only the second one is a compatibility break.
+ *   3. A bridge link record loses exactly the fields we already decided it would, and no
+ *      others, because those schemas are NOT passthrough. `base.description_hash` in
+ *      particular survives, or the next sync on either side would see every description
+ *      as changed.
+ *   4. Config parses under the older schema with its keys intact.
+ */
+async function validateOldParserRoundTrip({
+  baseline,
+  baselineVersion,
+  candidate,
+  candidateVersion,
+  root,
+}) {
+  const label = 'old-parser';
+  const repository = join(root, `${label}-repository`);
+  const home = join(root, `${label}-home`);
+  await initializeRepository(repository);
+  await mkdir(home, { recursive: true });
+
+  const setup = await invokeCli(candidate, repository, home, ['setup', '--auto', '--prefix=qat']);
+  invariant(setup.code === 0, `${label}: candidate setup failed\n${setup.stdout}\n${setup.stderr}`);
+
+  // A description containing the very heading the format uses as a delimiter.
+  const trickyCreate = await invokeCli(candidate, repository, home, [
+    'create',
+    'A description that contains the notes delimiter',
+    '--description',
+    'Prose before.\n\n## Notes\n\nProse after.',
+    '--json',
+  ]);
+  invariant(
+    trickyCreate.code === 0,
+    `${label}: candidate create failed\n${trickyCreate.stdout}\n${trickyCreate.stderr}`,
+  );
+  const trickyId = JSON.parse(trickyCreate.stdout).id;
+  const noted = await invokeCli(candidate, repository, home, [
+    'update',
+    trickyId,
+    '--notes',
+    'Working notes written separately.',
+  ]);
+  invariant(noted.code === 0, `${label}: candidate update --notes failed\n${noted.stderr}`);
+
+  const plain = await invokeCli(candidate, repository, home, [
+    'create',
+    'A plain bead with no notes at all',
+    '--description',
+    'Just a description.',
+    '--json',
+  ]);
+  invariant(plain.code === 0, `${label}: candidate create failed\n${plain.stderr}`);
+
+  // f08 fields the published schema never declared. The issue schema is passthrough, so
+  // the claim is that they survive; the link record below is the case where they do not.
+  const held = await invokeCli(candidate, repository, home, [
+    'create',
+    'A bead the candidate put on hold',
+    '--description',
+    'Body.',
+    '--json',
+  ]);
+  invariant(held.code === 0, `${label}: candidate create failed\n${held.stderr}`);
+  const heldHold = await invokeCli(candidate, repository, home, [
+    'update',
+    JSON.parse(held.stdout).id,
+    '--hold',
+    'blocked',
+  ]);
+  invariant(heldHold.code === 0, `${label}: candidate update --hold failed\n${heldHold.stderr}`);
+
+  const candidateExports = await import(pathToFileURL(candidate.indexPath).href);
+  const baselineExports = await import(pathToFileURL(baseline.indexPath).href);
+
+  const issuesDirectory = join(await dataSyncDirectory(repository), 'issues');
+  const issueFiles = (await readdir(issuesDirectory)).filter((entry) => entry.endsWith('.md'));
+  invariant(issueFiles.length === 3, `${label}: expected 3 beads, found ${issueFiles.length}`);
+
+  for (const file of issueFiles) {
+    const text = await readFile(join(issuesDirectory, file), 'utf8');
+    const fromCandidate = candidateExports.parseIssue(text);
+    const fromBaseline = baselineExports.parseIssue(text);
+    invariant(
+      isDeepStrictEqual(fromCandidate, fromBaseline),
+      `${label}: ${baselineVersion} parses ${file} differently than ${candidateVersion}\n` +
+        `${JSON.stringify(fromBaseline)}\n${JSON.stringify(fromCandidate)}`,
+    );
+
+    // Through the older client and back: reordering is allowed, losing a field is not.
+    const rewritten = baselineExports.serializeIssue(fromBaseline);
+    invariant(
+      isDeepStrictEqual(candidateExports.parseIssue(rewritten), fromCandidate),
+      `${label}: a bead rewritten by ${baselineVersion} no longer reads the same\n` +
+        `${rewritten}\n${text}`,
+    );
+  }
+
+  // A link record with every field this build writes, including the ones the published
+  // schema does not declare. Written as a literal rather than produced by a sync, which
+  // would need a credentialed provider this script does not have.
+  const linkRecord = {
+    type: 'lk',
+    bead_id: JSON.parse(held.stdout).internalId,
+    external_id: 'f53df50f-cbd8-4069-bb90-8d27b86cc51e',
+    external_key: 'OS-1',
+    external_url: 'https://linear.app/example/issue/OS-1',
+    refinement_state_id: 'a-tracker-state-id',
+    refinement_slot: 'in_qa',
+    base: {
+      title: 'A bead the candidate put on hold',
+      status: 'open',
+      slot: 'in_qa',
+      priority: 2,
+      labels: ['coexistence'],
+      assignee: null,
+      description_hash: `sha256v7:${'0'.repeat(64)}`,
+    },
+    remote_updated_at: '2026-01-01T00:00:00.000Z',
+    synced_at: '2026-01-01T00:00:00.000Z',
+    state: 'linked',
+  };
+  const candidateRecord = candidateExports.LinkRecordSchema.parse(linkRecord);
+  for (const key of [
+    ...Object.keys(linkRecord),
+    ...Object.keys(linkRecord.base).map((k) => `base.${k}`),
+  ]) {
+    const [head, tail] = key.split('.');
+    const present = tail ? tail in candidateRecord.base : head in candidateRecord;
+    invariant(present, `${label}: the candidate's own LinkRecordSchema dropped ${key}`);
+  }
+
+  const baselineRecord = baselineExports.LinkRecordSchema.parse(linkRecord);
+  const droppedTop = Object.keys(linkRecord).filter((key) => !(key in baselineRecord));
+  const droppedBase = Object.keys(linkRecord.base).filter((key) => !(key in baselineRecord.base));
+  invariant(
+    isDeepStrictEqual(droppedTop.sort(), [...BASELINE_DROPS_FROM_LINK_RECORD].sort()) &&
+      isDeepStrictEqual(droppedBase.sort(), [...BASELINE_DROPS_FROM_BRIDGE_BASE].sort()),
+    `${label}: ${baselineVersion} drops a different set of link-record fields than recorded. ` +
+      `Top level: [${droppedTop.join(', ')}], expected [${BASELINE_DROPS_FROM_LINK_RECORD.join(', ')}]. ` +
+      `base: [${droppedBase.join(', ')}], expected [${BASELINE_DROPS_FROM_BRIDGE_BASE.join(', ')}]. ` +
+      `A new bridge-record field needs a minimum-version decision before it ships.`,
+  );
+  invariant(
+    baselineRecord.base.description_hash === linkRecord.base.description_hash,
+    `${label}: ${baselineVersion} changed the stored description hash, so every pair would ` +
+      `read as edited on its next sync`,
+  );
+
+  // Config, through the published schema rather than the published CLI (that is T1).
+  const rawConfig = parseYaml(await readFile(join(repository, '.tbd', 'config.yml'), 'utf8'));
+  const parsedConfig = baselineExports.ConfigSchema.parse(rawConfig);
+  for (const key of Object.keys(rawConfig)) {
+    invariant(
+      key in parsedConfig,
+      `${label}: ${baselineVersion} dropped the top-level config key ${key}`,
+    );
+  }
+  invariant(
+    parsedConfig.tbd_format === CANDIDATE_FORMAT,
+    `${label}: ${baselineVersion} read tbd_format as ${String(parsedConfig.tbd_format)}`,
+  );
+
+  console.log(
+    `Packed parser proof passed: ${baselineVersion} reads ${candidateVersion} beads, link ` +
+      `records and config`,
+  );
+}
+
 const sourceStatusBefore = await repositoryStatus(sourceRepoDir);
 const temporaryDir = await mkdtemp(join(tmpdir(), 'tbd-upgrade-package-'));
 try {
@@ -1400,6 +1609,16 @@ try {
   await validateOldClientConfigRoundTrip({
     baseline: configRoundTripPackage,
     baselineVersion: configRoundTripBaseline,
+    candidate,
+    candidateVersion,
+    root: temporaryDir,
+  });
+
+  // The parser proof uses the OLDEST published f08 release, not the newest: it asks what
+  // the weakest client can still read, the same question the upgrade scenarios ask.
+  await validateOldParserRoundTrip({
+    baseline: sameFormatPackage,
+    baselineVersion: sameFormatBaseline,
     candidate,
     candidateVersion,
     root: temporaryDir,

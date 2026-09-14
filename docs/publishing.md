@@ -251,7 +251,7 @@ Update `TBD_UPGRADE_SAME_FORMAT_FROM`, `TBD_UPGRADE_COMMON_FROM`, or
 `TBD_UPGRADE_PREVIOUS_FORMAT_FROM` when validating a different usage or compatibility
 boundary.
 
-The gate runs six scenarios, and they prove three different things.
+The gate runs seven scenarios, and they prove four different things.
 Four are *upgrade*: a repository created by a published baseline, upgraded once by the
 candidate — one per compatibility boundary (same-format, common pre-bump, last
 pre-bump), plus a legacy remote whose `tbd-sync` branch lost its data scaffold and has
@@ -282,6 +282,20 @@ Before the version bump that release is the candidate itself, so the scenario fa
 to the older same-format baseline and says so on stdout — bump the version to exercise
 the release the new keys ship alongside.
 Override it with `TBD_UPGRADE_LATEST_FORMAT_FROM`.
+
+The seventh is the *parser proof*. The others drive a published CLI as a process, which
+shows that commands work but not why when they do not; this one imports the published
+package’s own exported `parseIssue`, `serializeIssue` and schemas and runs them against
+candidate-written files, so a compatibility break is reported as the field it happened
+to. It pins three things worth knowing before a release: beads parse identically under
+both versions (including a description containing the `## Notes` delimiter, and f08
+fields the older schema never declared); a bead that goes through the older client and
+back has lost nothing, though it may come back with its fields in a different order,
+since the older field order does not mention them; and a bridge link record loses
+*exactly* the fields already decided it would and no others, because `LinkRecordSchema`
+and `BridgeBaseSchema` are deliberately not `.passthrough()`. That last list is the one
+to watch: adding a field to a bridge record fails this gate until the
+minimum-client-version consequence is recorded with it.
 
 For changes to setup, generated launchers, installation, fallback selection, format
 migration, or upgrade recovery, also exercise the packed candidate in a first-party

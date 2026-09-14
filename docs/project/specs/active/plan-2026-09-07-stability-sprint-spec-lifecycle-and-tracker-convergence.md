@@ -566,7 +566,7 @@ Four new tests close that gap:
 | Test | Bead | Proves | Gates |
 | --- | --- | --- | --- |
 | T1 | `tbd-3dti` | the newest published f08 release is a second baseline; the old client’s `config set` and `setup --auto` keep keys the sprint adds at their nesting level, with a `policy.<sibling>` negative control (done 2026-09-14: `validateOldClientConfigRoundTrip` in `validate-upgrade-package.mjs`, probing top level, `identity`, and `policy.outbound`; the baseline is `TBD_UPGRADE_LATEST_FORMAT_FROM`, default 0.8.1, falling back to the older same-format baseline while the unbumped candidate *is* 0.8.1; every sprint PR adding a key adds a probe at that key’s level) | 1e, Phase 2 `specs.dir` |
-| T2 | `tbd-stdj` | the 0.7.0 and 0.8.1 exported parser and schemas read candidate-written beads (including `## Notes`), link records, and config identically, with the same description hash | 1f, any bridge-record change |
+| T2 | `tbd-stdj` | the 0.7.0 exported parser and schemas read candidate-written beads (including `## Notes`), link records, and config identically, with the stored description hash unchanged (done 2026-09-14: `validateOldParserRoundTrip`. Byte identity is deliberately NOT asserted — 0.7.0 keeps unknown bead fields but writes them last, since its field order does not name them. The link-record drop list is asserted as an EXACT set — `refinement_state_id`, `refinement_slot`, `base.slot` — so a new bridge-record field fails the gate until its minimum-version consequence is recorded) | 1f, any bridge-record change |
 | T3 | `tbd-s4kb` | packed 0.8.1 and the candidate alternating `tbd integration sync` against the Linear mock converge by run 4 on a blocked epic, a future-deferred epic, an In Review item, a team without Backlog, a #267 pair seeded by 0.8.1, a flattened child, and one 0.8.1 `--push` | 1a, 1e, Phase 1B |
 | T4 | `tbd-9fpp` | a same-format baseline clone merges and reads candidate-written attic entries, and preserves bridge records and journaled intents, across a two-clone `tbd-sync` merge (done 2026-09-14: `validateCrossVersionCoexistence` in `validate-upgrade-package.mjs`; the baseline is the *oldest* published f08, currently 0.7.0, which is the weaker client and so the stronger test; whether an older *reader* accepts candidate-written intents needs credentials and stays with T3) | `tbd-ajq2`, Phase 1B |
 
@@ -1376,7 +1376,9 @@ that PR because they edit the documents it rewrites.
 - [x] `tbd-3dti`: f08 contract T1, old-client config round trip (done 2026-09-14;
   `validateOldClientConfigRoundTrip` uses the newest published f08 release, falling back
   to the older same-format baseline until the version bump makes 0.8.1 a distinct build)
-- [ ] `tbd-stdj`: f08 contract T2, old parser and schemas read candidate-written data
+- [x] `tbd-stdj`: f08 contract T2, old parser and schemas read candidate-written data
+  (done 2026-09-14; pins the exact link-record fields 0.7.0 strips:
+  `refinement_state_id`, `refinement_slot`, `base.slot`)
 - [ ] `tbd-s4kb`: f08 contract T3, mixed-version Linear convergence
 - [x] `tbd-9fpp`: f08 contract T4, two-clone merge with a same-format baseline clone
   (done 2026-09-14)
