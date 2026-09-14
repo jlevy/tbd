@@ -545,6 +545,17 @@ export interface ConflictEntry {
   remote_version: number;
   resolution: 'lww' | 'union' | 'manual';
   /**
+   * When each side was last written, as the two issues reported it.
+   *
+   * The attic entry's whole purpose is to let someone decide whether the merge kept the
+   * right side, and "which one is newer" is most of that decision. Recording the time the
+   * entry was WRITTEN on both sides — which is what the archiver did before it had these
+   * — makes every entry say the two edits happened at the same instant, which is the one
+   * thing that is never true of a conflict resolved by recency.
+   */
+  local_updated_at: string;
+  remote_updated_at: string;
+  /**
    * Which side of the merge supplied the value that was kept.
    *
    * Recorded per conflict rather than derived per issue, because the merge does not
@@ -878,13 +889,18 @@ function preserveNamespaceComments(
     } else if (resolvedMatchesRemote && !resolvedMatchesLocal) {
       onConflict(namespace, localValue, resolvedValue, 'remote');
     } else {
-      // Defensive fallback for a future merge strategy that synthesizes a third
-      // lineage: preserve every source namespace that the result no longer names.
-      // Neither side won outright here, so each report names the *other* side — the
-      // one whose value the reader still has somewhere — rather than claiming the
-      // result came from a side it did not come from.
-      onConflict(namespace, localValue, resolvedValue, 'remote');
-      if (!deepEqual(localValue, remoteValue)) {
+      // Neither side's lineage matches the result. Usually that means no side HAS a
+      // lineage: `commentsShareLinkLineage` requires a non-empty string `id`, so a
+      // namespace carrying `id: 42`, `id: ''` or `id: null` lands here even when all
+      // three sides are identical, and so does a future strategy that really does
+      // synthesize a third lineage. Report only a side the result did not keep —
+      // otherwise the entry names as lost the very value it kept, which sends whoever
+      // is recovering data after the copy they already have. Reaching the attic made
+      // this visible: before, these were phantom entries nobody ever saw.
+      if (!deepEqual(localValue, resolvedValue)) {
+        onConflict(namespace, localValue, resolvedValue, 'remote');
+      }
+      if (!deepEqual(remoteValue, resolvedValue) && !deepEqual(localValue, remoteValue)) {
         onConflict(namespace, remoteValue, resolvedValue, 'local');
       }
     }
@@ -969,6 +985,8 @@ function createConflictEntry(
   remoteVersion: number,
   resolution: 'lww' | 'union' | 'manual',
   winnerSource: 'local' | 'remote',
+  localUpdatedAt: string,
+  remoteUpdatedAt: string,
 ): ConflictEntry {
   const timestamp = nowFilenameTimestamp();
 
@@ -982,6 +1000,8 @@ function createConflictEntry(
     remote_version: remoteVersion,
     resolution,
     winner_source: winnerSource,
+    local_updated_at: localUpdatedAt,
+    remote_updated_at: remoteUpdatedAt,
   };
 }
 
@@ -1034,14 +1054,16 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
         if (!deepEqual(local, remote)) {
           conflicts.push(
             createConflictEntry(
-              remote.id,
+              local.id,
               'whole_issue',
               remote,
               local,
-              remote.version,
               local.version,
+              remote.version,
               'lww',
               'local',
+              local.updated_at,
+              remote.updated_at,
             ),
           );
         }
@@ -1059,6 +1081,8 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
               remote.version,
               'lww',
               'remote',
+              local.updated_at,
+              remote.updated_at,
             ),
           );
         }
@@ -1098,6 +1122,8 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
           remote.version,
           'lww',
           winnerSource,
+          local.updated_at,
+          remote.updated_at,
         ),
       );
     }
@@ -1165,6 +1191,8 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
               remote.version,
               'lww',
               'local',
+              local.updated_at,
+              remote.updated_at,
             ),
           );
         } else {
@@ -1179,6 +1207,8 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
               remote.version,
               'lww',
               'remote',
+              local.updated_at,
+              remote.updated_at,
             ),
           );
         }
@@ -2086,6 +2116,25 @@ async function ensureDataSyncScaffold(baseDir: string): Promise<number> {
       contents: `schema_version: ${DATA_SYNC_SCHEMA_VERSION}\n`,
     },
     { relative: `${DATA_SYNC_RELATIVE_PATH}/issues/.gitkeep`, contents: '' },
+    {
+      // Beads are merged field by field, by rules that know what each field MEANS —
+      // last-writer-wins for scalars, union for sets, lineage rules for provider
+      // namespaces. Git's line merge knows none of that, and when two clones edit one
+      // bead far enough apart in the file it silently combines the lines instead, which
+      // is not the same answer: observed, a relink to a new provider issue merged with
+      // another clone's queued comment produced a namespace holding the new issue's id
+      // and key, the OLD issue's url, and a comment written for the old issue — a record
+      // no writer would ever produce, reported as a clean sync with nothing archived.
+      //
+      // Whether that happened at all depended on how many unchanged lines separated the
+      // two edits. `merge=binary` removes the accident: git refuses to combine bead files
+      // and marks them conflicted, so every two-sided change goes to the structured merge
+      // (`mergeBeadAcrossRefs`), which reads both sides from their blobs and resolves them
+      // by the field rules. The file rides the sync branch, so an older client applies the
+      // same rule and reaches its own structured merge too.
+      relative: `${DATA_SYNC_RELATIVE_PATH}/issues/.gitattributes`,
+      contents: '*.md merge=binary\n',
+    },
     { relative: `${DATA_SYNC_RELATIVE_PATH}/mappings/.gitkeep`, contents: '' },
     {
       relative: `${DATA_SYNC_RELATIVE_PATH}/mappings/.gitattributes`,

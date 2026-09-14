@@ -55,12 +55,13 @@ const execFileAsync = promisify(execFile);
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageDir = join(scriptDir, '..');
 const sourceRepoDir = join(packageDir, '..', '..');
+// The OLDEST published f08 release: the weakest client that must still read what this
+// build writes. T2's drop list (BASELINE_DROPS_FROM_LINK_RECORD) is this version's schema,
+// so overriding this to a newer release is expected to fail T2 until that list is updated
+// with it — which is the point of asserting the list exactly.
 const sameFormatBaseline = process.env.TBD_UPGRADE_SAME_FORMAT_FROM ?? '0.7.0';
 const commonUpgradeBaseline = process.env.TBD_UPGRADE_COMMON_FROM ?? '0.4.2';
 const previousFormatBaseline = process.env.TBD_UPGRADE_PREVIOUS_FORMAT_FROM ?? '0.5.0';
-// The NEWEST published f08 release, for the config round trip only: that scenario asks
-// what a teammate's client will preserve, not what the weakest one can read.
-const latestFormatBaseline = process.env.TBD_UPGRADE_LATEST_FORMAT_FROM ?? '0.8.1';
 const managedUpgradePaths = new Set([
   '.agents/skills/tbd/SKILL.md',
   '.claude/.gitignore',
@@ -157,6 +158,28 @@ async function packCandidate(destination, version) {
     // The explicit build above is the only trusted project script this proof needs.
     env: { ...env, NPM_CONFIG_IGNORE_SCRIPTS: 'true' },
   });
+}
+
+/**
+ * The newest release actually published to npm.
+ *
+ * The config round trip asks what the client a teammate is most likely to be running will
+ * preserve, so its baseline has to be whatever `npm install -g get-tbd` gives you today —
+ * not a constant someone has to remember to bump after every release. A pinned constant
+ * decays silently: it keeps naming the release before last while the scenario goes on
+ * claiming it tested the newest one.
+ */
+async function latestPublishedVersion() {
+  const { stdout } = await runPackageManager('npm', ['view', 'get-tbd', 'dist-tags.latest'], {
+    cwd: packageDir,
+    env: withoutAmbientNpmConfig(),
+  });
+  const version = stdout.trim();
+  invariant(
+    /^\d+\.\d+\.\d+/u.test(version),
+    `npm reported an unusable latest version for get-tbd: ${JSON.stringify(stdout)}`,
+  );
+  return version;
 }
 
 async function packPublished(destination, version) {
@@ -677,7 +700,8 @@ const COEXISTENCE_DESCRIPTION = 'Description the candidate wrote';
 const COEXISTENCE_COMMENT_LOCAL_ID = '01CMT0000000000000000000A';
 const COEXISTENCE_COMMENT_AT = '2026-01-01T00:00:00.000Z';
 const COEXISTENCE_WORKSPACE_UPDATED_AT = '2099-12-31T23:59:59.000Z';
-const COEXISTENCE_SEED_TIMESTAMP = '2026-01-02T03:04:05.000Z';
+const COEXISTENCE_BASELINE_DESCRIPTION = 'Description the baseline wrote';
+const COEXISTENCE_WINNING_DESCRIPTION = 'Description that won the merge';
 const COEXISTENCE_RUN_ID = 'coexistence-run';
 
 /**
@@ -746,17 +770,21 @@ async function validateCrossVersionCoexistence({
   await git(candidateRepo, 'add', '--all');
   await git(candidateRepo, 'commit', '--message', `Record ${candidateVersion} scaffold`);
 
-  const created = await invokeCli(candidate, candidateRepo, home, [
-    'create',
-    'Written by the candidate',
-    '--type=task',
-    '--description',
-    COEXISTENCE_DESCRIPTION,
-  ]);
-  invariant(
-    created.code === 0,
-    `${label}: candidate create failed\n${created.stdout}\n${created.stderr}`,
+  const created = parseCliJson(
+    await invokeCli(candidate, candidateRepo, home, [
+      'create',
+      'Written by the candidate',
+      '--type=task',
+      '--description',
+      COEXISTENCE_DESCRIPTION,
+      '--json',
+    ]),
+    `${label}: candidate create`,
   );
+  // The display id, not the ulid: it comes from the shared mapping, so both clones
+  // resolve it, and it is what a person would type on either machine.
+  const subjectShortId = created.id;
+  invariant(typeof subjectShortId === 'string', `${label}: create returned no id`);
 
   const issuesDirectory = join(await dataSyncDirectory(candidateRepo), 'issues');
   const issueFiles = (await readdir(issuesDirectory)).filter((entry) => entry.endsWith('.md'));
@@ -767,14 +795,15 @@ async function validateCrossVersionCoexistence({
 
   // ---- A real conflict entry, produced the way the code produces one today. ----
   //
-  // Only the workspace importer and the integration runner write to the attic on this
-  // build, and the importer cannot conflict on a plain field by construction: it passes
-  // the older side as the merge base (`file/workspace.ts`), so one side always equals the
-  // base and last-writer-wins has nothing to archive. The path that does archive is the
-  // provider-comment postcondition — two `extensions` namespaces carrying different link
-  // `id`s, at least one with a comment log, cannot be unioned into a single lineage, so
-  // the losing namespace goes to the attic (`file/git.ts` preserveNamespaceComments).
-  // That is also the shape a real integration writes.
+  // This one is the provider-comment postcondition, which is the only path that archives a
+  // whole `extensions` namespace: two namespaces carrying different link `id`s, at least
+  // one with a comment log, cannot be unioned into a single lineage, so the losing
+  // namespace goes to the attic (`file/git.ts` preserveNamespaceComments). It is also the
+  // shape a real integration writes. The workspace importer is used to drive it because it
+  // needs no second clone; note that the importer cannot conflict on a PLAIN field at all
+  // — it passes the older side as the merge base (`file/workspace.ts`), so one side always
+  // equals the base and last-writer-wins has nothing to archive. A plain-field entry comes
+  // from a two-clone `tbd sync` instead, further down.
   //
   // The namespace is written into the issue file directly because no CLI command sets
   // arbitrary `extensions` — an integration does, and this script has no provider.
@@ -826,70 +855,18 @@ async function validateCrossVersionCoexistence({
       `${importResult.stdout}\n${importResult.stderr}`,
   );
 
-  // ---- A candidate-written entry on a restorable field. ----
-  //
-  // `tbd attic restore` writes back only text fields (title, description, notes), and no
-  // path on this build produces a conflict on one, for the reason above. So seed one entry
-  // by hand — the f08 attic format, as an older sync would have left it — and have the
-  // CANDIDATE restore it. That restore is what produces the entry the baseline is then
-  // tested against: `buildRestorationAtticEntry` through `writeAtticEntryFile`, the same
-  // writer every other entry goes through. The hand-written seed only has to be good
-  // enough for the candidate to accept; the entry under test is genuinely candidate-written.
-  const atticDirectory = join(await dataSyncDirectory(candidateRepo), 'attic');
-  const seedFile = `${issueUlid}_${COEXISTENCE_SEED_TIMESTAMP.replace(/:/gu, '-')}_description.yml`;
-  await writeFile(
-    join(atticDirectory, seedFile),
-    stringifyYaml(
-      {
-        entity_id: issueUlid,
-        timestamp: COEXISTENCE_SEED_TIMESTAMP,
-        field: 'description',
-        lost_value: JSON.stringify('a description an older sync discarded'),
-        winner_source: 'local',
-        loser_source: 'remote',
-        context: {
-          local_version: 1,
-          remote_version: 1,
-          local_updated_at: COEXISTENCE_SEED_TIMESTAMP,
-          remote_updated_at: COEXISTENCE_SEED_TIMESTAMP,
-        },
-      },
-      { lineWidth: 0 },
-    ),
-  );
-  const seedRestore = await invokeCli(candidate, candidateRepo, home, [
-    'attic',
-    'restore',
-    issueUlid,
-    COEXISTENCE_SEED_TIMESTAMP,
-  ]);
-  invariant(
-    seedRestore.code === 0,
-    `${label}: candidate could not read an f08 attic entry\n${seedRestore.stdout}\n${seedRestore.stderr}`,
-  );
-
-  const candidateEntries = parseCliJson(
-    await invokeCli(candidate, candidateRepo, home, ['attic', 'list', '--json']),
-    `${label}: candidate attic list --json`,
-  );
-  const restorable = candidateEntries.find(
-    (entry) => entry.field === 'description' && entry.timestamp !== COEXISTENCE_SEED_TIMESTAMP,
-  );
-  invariant(
-    restorable,
-    `${label}: candidate restore did not archive the value it replaced\n` +
-      JSON.stringify(candidateEntries),
-  );
-
   // ---- Bridge state the older client cannot interpret. ----
   //
   // Link records and journaled intents live on the same `tbd-sync` branch as the beads,
   // under `bridge/<provider>/`, and a client with no credentials for that provider never
-  // reads them — it only merges and pushes the branch they sit on. So the claim here is
-  // data preservation, not interpretation: whatever the candidate wrote must come back
-  // byte for byte after a merge and a push by the older client. Whether the baseline's
-  // reader ACCEPTS a candidate-written intent is a separate claim that needs a live
-  // provider, and belongs with T3 (`tbd-s4kb`); see the note above.
+  // reads them — it only merges and pushes the branch they sit on. So the claim is narrow
+  // and worth stating as such: the older client does not DELETE files it never opens, and
+  // they come back byte for byte. It is not a claim that its merge handles them, because
+  // its merge never sees them; and whether its reader ACCEPTS a candidate-written intent
+  // needs a live provider and belongs with T3 (`tbd-s4kb`), per the note above. The
+  // failure this does catch is a sweep — a cleanup or scaffold repair that prunes the data
+  // directory to what it recognizes — which is exactly the kind of thing an older client
+  // has done before.
   //
   // Written directly because reaching the real writers takes credentials this script does
   // not have. The shapes are the ones `lib/schemas.ts` defines (`LinkRecordSchema`,
@@ -963,6 +940,77 @@ async function validateCrossVersionCoexistence({
       `${baselinePull.stdout}\n${baselinePull.stderr}`,
   );
 
+  // ---- A candidate-written entry on a restorable field, from a real conflict. ----
+  //
+  // Both clones edit the same bead's description without pulling first. The candidate's
+  // sync merges, keeps its own (later) text by last-writer-wins, and archives the
+  // baseline's — a text field, which is what `tbd attic restore` can write back. Nothing
+  // here is seeded: the entry the baseline is tested against is one the candidate's own
+  // `tbd sync` produced, which is the format `tbd-ajq2` made it emit.
+  const baselineEdit = await invokeCli(baseline, baselineRepo, home, [
+    'update',
+    subjectShortId,
+    '--description',
+    COEXISTENCE_BASELINE_DESCRIPTION,
+  ]);
+  invariant(
+    baselineEdit.code === 0,
+    `${label}: baseline ${baselineVersion} could not edit the bead\n${baselineEdit.stderr}`,
+  );
+  const baselineEditPush = await invokeCli(baseline, baselineRepo, home, [
+    'sync',
+    '--issues',
+    '--push',
+  ]);
+  invariant(
+    baselineEditPush.code === 0,
+    `${label}: baseline ${baselineVersion} could not push its edit\n` +
+      `${baselineEditPush.stdout}\n${baselineEditPush.stderr}`,
+  );
+
+  const candidateEdit = await invokeCli(candidate, candidateRepo, home, [
+    'update',
+    subjectShortId,
+    '--description',
+    COEXISTENCE_WINNING_DESCRIPTION,
+  ]);
+  invariant(candidateEdit.code === 0, `${label}: candidate edit failed\n${candidateEdit.stderr}`);
+  const candidateMerge = await invokeCli(candidate, candidateRepo, home, ['sync', '--issues']);
+  invariant(
+    candidateMerge.code === 0,
+    `${label}: candidate could not merge the baseline's edit\n` +
+      `${candidateMerge.stdout}\n${candidateMerge.stderr}`,
+  );
+  const candidateEntries = parseCliJson(
+    await invokeCli(candidate, candidateRepo, home, ['attic', 'list', '--json']),
+    `${label}: candidate attic list --json`,
+  );
+  const restorable = candidateEntries.find((entry) => entry.field === 'description');
+  invariant(
+    restorable,
+    `${label}: the candidate's sync did not archive the description it discarded\n` +
+      JSON.stringify(candidateEntries),
+  );
+  const candidateMergePush = await invokeCli(candidate, candidateRepo, home, [
+    'sync',
+    '--issues',
+    '--push',
+  ]);
+  invariant(
+    candidateMergePush.code === 0,
+    `${label}: candidate could not publish the merge\n${candidateMergePush.stderr}`,
+  );
+  const baselineSecondPull = await invokeCli(baseline, baselineRepo, home, [
+    'sync',
+    '--issues',
+    '--pull',
+  ]);
+  invariant(
+    baselineSecondPull.code === 0,
+    `${label}: baseline ${baselineVersion} could not pull the merge\n` +
+      `${baselineSecondPull.stdout}\n${baselineSecondPull.stderr}`,
+  );
+
   // 1. The baseline reads the candidate's beads.
   const baselineIssues = parseCliJson(
     await invokeCli(baseline, baselineRepo, home, ['list', '--json']),
@@ -1012,7 +1060,7 @@ async function validateCrossVersionCoexistence({
   );
   const restoredShow = await invokeCli(baseline, baselineRepo, home, ['show', restorable.id]);
   invariant(
-    restoredShow.code === 0 && restoredShow.stdout.includes(COEXISTENCE_DESCRIPTION),
+    restoredShow.code === 0 && restoredShow.stdout.includes(COEXISTENCE_BASELINE_DESCRIPTION),
     `${label}: baseline ${baselineVersion} restore did not write the archived value back\n` +
       `${restoredShow.stdout}\n${restoredShow.stderr}`,
   );
@@ -1082,18 +1130,18 @@ async function validateCrossVersionCoexistence({
       JSON.stringify(demo),
   );
   invariant(
-    final.body.trim() === COEXISTENCE_DESCRIPTION,
+    final.body.trim() === COEXISTENCE_BASELINE_DESCRIPTION,
     `${label}: the description the ${baselineVersion} client restored did not come back\n` +
       final.body,
   );
 
   invariant(
     (await readFile(linkRecordPath, 'utf8')) === linkRecordBefore,
-    `${label}: the link record did not survive the round trip through ${baselineVersion}`,
+    `${label}: ${baselineVersion} did not return the link record unchanged`,
   );
   invariant(
     (await readFile(intentFilePath, 'utf8')) === intentFileBefore,
-    `${label}: the journaled intent did not survive the round trip through ${baselineVersion}`,
+    `${label}: ${baselineVersion} did not return the journaled intent unchanged`,
   );
 
   console.log(
@@ -1582,13 +1630,16 @@ try {
   // the working tree still carries the last published version, so that release IS the
   // candidate and comparing it against itself proves nothing; fall back to the older
   // same-format baseline, loudly, rather than skipping the scenario.
+  const latestFormatBaseline =
+    process.env.TBD_UPGRADE_LATEST_FORMAT_FROM ?? (await latestPublishedVersion());
   const configRoundTripBaseline =
     latestFormatBaseline === candidateVersion ? sameFormatBaseline : latestFormatBaseline;
   if (configRoundTripBaseline !== latestFormatBaseline) {
     console.log(
       `Config round trip falls back to ${configRoundTripBaseline}: the candidate is ` +
-        `${candidateVersion}, so ${latestFormatBaseline} is this same build. Bump the version ` +
-        `to exercise the release the sprint's keys ship alongside.`,
+        `${candidateVersion}, which is what npm currently serves as latest, so the two are ` +
+        `the same build. Bump the version to exercise the release the new keys ship ` +
+        `alongside — which is what happens on a release branch.`,
     );
   }
   let configRoundTripPackage = sameFormatPackage;

@@ -36,13 +36,28 @@ before: |
     }
     if (inExtensions && /^\s/.test(line)) continue;
     inExtensions = false;
-    kept.push(line.startsWith('updated_at:') ? `updated_at: ${updatedAt}` : line);
+    // `-` leaves the timestamp alone: two clones editing one bead without touching
+    // updated_at is the case where git's line merge would otherwise take over.
+    kept.push(
+      line.startsWith('updated_at:') && updatedAt !== '-' ? `updated_at: ${updatedAt}` : line,
+    );
   }
 
   const comments = body
     ? ['    comments:', `      - local_id: ${localId}`, `        at: ${at}`, `        body: ${body}`]
     : ['    comments: []'];
-  const block = ['extensions:', '  linear:', `    id: ${linkId}`, `    key: ${linkKey}`, ...comments];
+  // The shape a real link carries. The fields between `key` and `comments` matter: they
+  // are what lets git merge a relink and a queued comment as two independent hunks.
+  const block = [
+    'extensions:',
+    '  linear:',
+    `    id: ${linkId}`,
+    `    key: ${linkKey}`,
+    `    url: https://linear.app/example/issue/${linkKey}`,
+    '    state: linked',
+    '    synced_at: 2026-03-01T00:00:00.000Z',
+    ...comments,
+  ];
 
   writeFileSync(file, `---\n${[...kept, ...block].join('\n')}\n---\n${text.slice(fence[0].length)}`);
   PATCHER
@@ -65,6 +80,13 @@ before: |
 
   tbd create "Linked bead" --json | jq -r '.id' | tee ../bead.txt
   tbd show "$(cat ../bead.txt)" --json | jq -r '.id' > ../ulid.txt
+
+  # A second bead for the case where neither clone touches `updated_at`.
+  tbd create "Quietly linked bead" --json | jq -r '.id' | tee ../bead2.txt
+  tbd show "$(cat ../bead2.txt)" --json | jq -r '.id' > ../ulid2.txt
+  node ../relink.mjs \
+    "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/$(cat ../ulid2.txt).md" \
+    issue-P OS-9 2026-03-01T00:00:00.000Z
 
   # Session A links the bead to the tracker's issue-X and publishes it.
   node ../relink.mjs \
@@ -91,16 +113,23 @@ gap 3).
 
 # Test: Session B (a second clone) authors a comment against issue-X and pushes
 
+Session B also comments on the second bead **without touching its `updated_at`**, which
+is what an integration writing straight to the file, or a hand edit, leaves behind.
+
 ```console
-$ git clone -q ../origin-relink.git ../sessionB && ( cd ../sessionB && git config user.email "b@example.com" && git config user.name "Session B" && git config commit.gpgsign false && tbd sync >/dev/null 2>&1 && node ../relink.mjs "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/$(cat ../ulid.txt).md" issue-X OS-1 2026-03-02T00:00:00.000Z "queued against issue-X" 01pendingpendingpendingpen 2026-03-02T00:00:00.000Z && tbd sync >/dev/null 2>&1 ) && echo done
+$ git clone -q ../origin-relink.git ../sessionB && ( cd ../sessionB && git config user.email "b@example.com" && git config user.name "Session B" && git config commit.gpgsign false && tbd sync >/dev/null 2>&1 && node ../relink.mjs "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/$(cat ../ulid.txt).md" issue-X OS-1 2026-03-02T00:00:00.000Z "queued against issue-X" 01pendingpendingpendingpen 2026-03-02T00:00:00.000Z && node ../relink.mjs "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/$(cat ../ulid2.txt).md" issue-P OS-9 - "queued against issue-P" 01quietquietquietquietqui 2026-03-02T00:00:00.000Z && tbd sync >/dev/null 2>&1 ) && echo done
 done
 ? 0
 ```
 
 # Test: Session A relinks the bead to issue-Y without pulling
 
+Session A relinks the second bead too, again leaving `updated_at` alone.
+That bead now has two edits on it, several unchanged lines apart — the arrangement git’s
+line merge combines happily, producing a namespace no writer would ever emit.
+
 ```console
-$ node ../relink.mjs "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/$(cat ../ulid.txt).md" issue-Y OS-2 2026-03-03T00:00:00.000Z; echo done
+$ node ../relink.mjs "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/$(cat ../ulid.txt).md" issue-Y OS-2 2026-03-03T00:00:00.000Z && node ../relink.mjs "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/$(cat ../ulid2.txt).md" issue-Q OS-8 -; echo done
 done
 ? 0
 ```
@@ -136,7 +165,42 @@ $ tbd show "$(cat ../bead.txt)" --json | jq '.extensions.linear.comments | lengt
 # Test: the abandoned link is in the attic, with the undelivered comment intact
 
 ```console
-$ tbd attic show "$(cat ../bead.txt)" "$(tbd attic list --json | jq -r '[.[] | select(.field == "extensions.linear")] | .[0].timestamp')" | sed -n '/^{/p' | jq -r '.id + " " + .comments[0].body'
+$ tbd attic show "$(cat ../bead.txt)" "$(tbd attic list "$(cat ../bead.txt)" --json | jq -r '[.[] | select(.field == "extensions.linear")] | .[0].timestamp')" | sed -n '/^{/p' | jq -r '.id + " " + .comments[0].body'
 issue-X queued against issue-X
+? 0
+```
+
+* * *
+
+## The same rule holds when neither side touches `updated_at`
+
+Whether the field-level merge ran at all used to depend on git finding a textual
+conflict, which in turn depended on how far apart the two edits happened to land in the
+file.
+Bead files are marked unmergeable (`issues/.gitattributes`) so that every two-sided
+change goes to the structured merge instead, and the answer stops being an accident of
+line numbers.
+
+# Test: the comment queued against issue-P was NOT carried onto issue-Q
+
+```console
+$ tbd show "$(cat ../bead2.txt)" --json | jq '.extensions.linear.comments | length'
+0
+? 0
+```
+
+# Test: the bead is on the new link, with that link’s own url
+
+```console
+$ tbd show "$(cat ../bead2.txt)" --json | jq -r '.extensions.linear | .id + " " + .url'
+issue-Q https://linear.app/example/issue/OS-8
+? 0
+```
+
+# Test: the abandoned link is in the attic, with its undelivered comment
+
+```console
+$ tbd attic show "$(cat ../bead2.txt)" "$(tbd attic list "$(cat ../bead2.txt)" --json | jq -r '[.[] | select(.field == "extensions.linear")] | .[0].timestamp')" | sed -n '/^{/p' | jq -r '.id + " " + .comments[0].body'
+issue-P queued against issue-P
 ? 0
 ```

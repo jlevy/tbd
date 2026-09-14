@@ -73,7 +73,7 @@ describe('a non-UUID app user id', () => {
     const output = tbd(['doctor'], { LINEAR_API_KEY: '' });
 
     expect(output).toContain('integrations.linear.identity.agent_map.bot');
-    expect(output).toContain('must be a Linear app user UUID');
+    expect(output).toContain('must be an app-user UUID');
   });
 
   it('is reported by `tbd integration status` the same way', async () => {

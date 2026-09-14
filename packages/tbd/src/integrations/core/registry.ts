@@ -57,7 +57,7 @@ export function providerConfig(
     // one its errors never reach the user at all.
     const problems = [
       ...(linear.enabled && !settings.teamKey
-        ? ['integrations.linear.target.team_key is required when Linear is enabled']
+        ? ['integrations.linear.target.team_key is required when Linear is enabled.']
         : []),
       ...agentMapProblems(provider, settings.agentMap),
     ];
@@ -67,6 +67,8 @@ export function providerConfig(
       policy: resolvePolicy(linear),
       maxNesting: settings.maxNesting,
       target: settings.teamKey,
+      // Joined, not first-wins: a config with two mistakes should report both, and every
+      // message ends in a period so the result reads as sentences rather than a run-on.
       configError: problems.length > 0 ? problems.join(' ') : undefined,
     };
   }

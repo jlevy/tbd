@@ -233,7 +233,13 @@ const APP_USER_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{
  * still refuses the map — it must, since nothing guarantees it was built from config —
  * and raises these exact messages, so a user never sees two wordings for one mistake.
  *
- * `agent_map` addresses Linear app users specifically; the message says so.
+ * `provider` names the config key, not the id format: an agent id is a provider app-user
+ * UUID whoever the provider is. Only Linear's map is checked today, because Linear is the
+ * only provider that reads one — the GitHub block accepts the key (it shares the provider
+ * base schema) but nothing consumes it, and refusing a value that has no effect would be
+ * a new way to fail rather than a caught mistake.
+ *
+ * Every message ends in a period so a caller can join several into one line.
  */
 export function agentMapProblems(
   provider: string,
@@ -245,7 +251,7 @@ export function agentMapProblems(
     if (!name.trim()) {
       problems.push(`${key} contains an empty agent name.`);
     } else if (!APP_USER_UUID.test(appUserId)) {
-      problems.push(`${key}.${name} must be a Linear app user UUID.`);
+      problems.push(`${key}.${name} must be an app-user UUID.`);
     }
   }
   return problems;

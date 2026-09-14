@@ -119,6 +119,13 @@ class SyncHandler extends BaseCommand {
   private syncIntegrations = false;
   /** Set once the in-position (inside fullSync) integration run has happened. */
   private integrationsRan = false;
+  /**
+   * Conflicts whose losing value could not be archived, across every merge in this run.
+   *
+   * Counted on the command rather than returned, because the two merges that can produce
+   * conflicts (the pull merge and each push-retry merge) report through the same summary.
+   */
+  private conflictsNotArchived = 0;
   /** Captured so the issue surface can finish while the outer rollup still fails honestly. */
   private integrationFailure: unknown;
 
@@ -826,8 +833,13 @@ class SyncHandler extends BaseCommand {
 
       if (result.success) {
         if (result.conflicts && result.conflicts.length > 0) {
+          // Same rule as the sync summary: only claim the attic when the attic has it.
+          const unarchived = this.conflictsNotArchived;
           this.output.success(
-            `Pushed to ${remote}/${syncBranch} (${result.conflicts.length} conflict(s) preserved in attic)`,
+            `Pushed to ${remote}/${syncBranch} (${result.conflicts.length} conflict(s)` +
+              (unarchived > 0
+                ? `, ${unarchived} NOT preserved in attic — see warnings)`
+                : ' preserved in attic)'),
           );
         } else {
           this.output.success(`Pushed ${ahead} commit(s) to ${remote}/${syncBranch}`);
@@ -866,24 +878,32 @@ class SyncHandler extends BaseCommand {
    * reads these entries too — its `AtticEntrySchema` and attic commands are unchanged.
    *
    * Archiving is best effort per entry: a merge that has already been resolved must not
-   * fail because a recovery copy could not be written. A failure is reported rather than
-   * swallowed, since the sync's own summary claims the values were preserved.
+   * fail because a recovery copy could not be written. But a failure is counted as well as
+   * warned about, because the per-entry lines are `info` — invisible without `--verbose` —
+   * and the summary line every run prints would otherwise go on saying the values are
+   * recoverable when they are not.
    */
   private async archiveConflicts(conflicts: ConflictEntry[]): Promise<void> {
     if (conflicts.length === 0) {
       return;
     }
     const atticDir = join(this.dataSyncDir, 'attic');
+    const archived: string[] = [];
     for (const conflict of conflicts) {
       try {
-        const filename = await saveConflictToAttic(atticDir, conflict);
-        this.output.info(`Archived ${conflict.field} of ${conflict.issue_id} to attic/${filename}`);
+        archived.push(await saveConflictToAttic(atticDir, conflict));
       } catch (error) {
+        this.conflictsNotArchived += 1;
         this.output.warn(
           `Could not archive the ${conflict.field} value dropped from ${conflict.issue_id}: ` +
             (error as Error).message,
         );
       }
+    }
+    if (archived.length > 0) {
+      // One line, not one per entry: a large merge archives dozens, and a --verbose log
+      // that scrolls the rest of the run off the screen is not more informative.
+      this.output.info(`Archived ${archived.length} conflict(s): ${archived.join(', ')}`);
     }
   }
 
@@ -1374,6 +1394,9 @@ class SyncHandler extends BaseCommand {
     }
 
     summary.conflicts = conflicts.length;
+    if (this.conflictsNotArchived > 0) {
+      summary.conflictsNotArchived = this.conflictsNotArchived;
+    }
     spinner.stop();
 
     // Report push failure - classify error and take appropriate action

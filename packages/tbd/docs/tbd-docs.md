@@ -63,13 +63,15 @@ Your normal `git push` is only for code changes.
 - Separate issues never conflict since they are separate files.
 - If two agents modify the same issue at the same time, does field-level merge
   (last-write-wins for scalars, union for arrays)
-- In that case the value that lost is written to the attic, on every path that resolves
-  a conflict: `tbd sync`, and workspace save and import.
+- Where last-write-wins actually discards a value — scalars, and an `extensions`
+  namespace both sides changed — the loser is written to the attic.
+  Union keeps both sides, so it has nothing to archive.
   The attic is append-only and is never read back into live issue state, so archiving
   cannot change what the merge decided; it is there so a merge that kept the wrong side
   can be undone with `tbd attic restore`.
-- The attic lives on the sync branch with the issues, so an archived value reaches every
-  clone rather than staying on the machine that did the merge.
+- `tbd sync` and `tbd import --workspace` archive to the data-sync attic, which lives on
+  the sync branch with the issues, so an archived value reaches every clone rather than
+  staying on the machine that did the merge.
 
 ### Unique internal ids
 
@@ -1019,12 +1021,16 @@ When a merge has to discard a value — two clones editing the same field, a pro
 namespace relinked on one side — the discarded value is written to the attic, and
 `tbd attic restore` puts it back.
 
-Every path that resolves a conflict writes the same entry format to the same place:
-`tbd sync`, `tbd save --workspace`, and `tbd import --workspace`. Entries are
-append-only and never read back into live issue state on their own, so the archive can
-only ever add a way to recover — it cannot change what a merge decided.
+`tbd sync` and `tbd import --workspace` write their entries to the data-sync `attic/`,
+which is the one these commands read.
+Entries there are append-only and never read back into live issue state on their own, so
+the archive can only ever add a way to recover — it cannot change what a merge decided.
 They travel on the sync branch with the issues, so an entry one clone wrote is readable
 from every clone, including clones on an older release.
+
+`tbd save --workspace` also archives what its merge discards, in the same format, but
+into the workspace’s own `attic/` under `.tbd/workspaces/`. That one is a record for
+whoever inspects the workspace; the commands below do not read it.
 
 `restore` writes back text fields (`title`, `description`, `notes`); it archives the
 value it is about to replace first, so a restore is itself undoable.
