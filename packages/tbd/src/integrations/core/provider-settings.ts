@@ -215,3 +215,38 @@ export function syncFoldPosture(mode: SyncFoldModeType): SyncFoldPosture {
       return { runs: true, dryRun: false, assumeYes: true };
   }
 }
+
+/** A Linear app-user id is a UUID; anything else cannot address an agent. */
+const APP_USER_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * Everything wrong with an `identity.agent_map`, each message naming its config key.
+ *
+ * The schema takes any string record, because a config value is not the place to encode
+ * a provider's id format. That leaves one place to catch a typo, and it used to be the
+ * adapter constructor — which runs only after a credential resolves, so on a machine
+ * without one the credential error masked the config error completely, and where a
+ * credential did resolve the user got an adapter stack instead of the key at fault.
+ *
+ * Checking here instead costs nothing and needs neither credential nor network, so the
+ * same problem reaches `tbd doctor` and `tbd integration status` offline. The adapter
+ * still refuses the map — it must, since nothing guarantees it was built from config —
+ * and raises these exact messages, so a user never sees two wordings for one mistake.
+ *
+ * `agent_map` addresses Linear app users specifically; the message says so.
+ */
+export function agentMapProblems(
+  provider: string,
+  agentMap: Record<string, string> | undefined,
+): string[] {
+  const key = `integrations.${provider}.identity.agent_map`;
+  const problems: string[] = [];
+  for (const [name, appUserId] of Object.entries(agentMap ?? {})) {
+    if (!name.trim()) {
+      problems.push(`${key} contains an empty agent name.`);
+    } else if (!APP_USER_UUID.test(appUserId)) {
+      problems.push(`${key}.${name} must be a Linear app user UUID.`);
+    }
+  }
+  return problems;
+}

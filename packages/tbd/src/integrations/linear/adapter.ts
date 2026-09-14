@@ -67,6 +67,7 @@ import {
   type RawLabelNode,
 } from './label-groups.js';
 import type { LabelCreateModeType } from '../core/provider-settings.js';
+import { agentMapProblems } from '../core/provider-settings.js';
 import { resolveActor, bindingFor } from '../core/actor-binding.js';
 import type { ProviderMember, ActorBinding } from '../core/actor-binding.js';
 import { CONFLICT_COMMENT_MARKER } from '../core/types.js';
@@ -210,16 +211,15 @@ export class LinearAdapter implements TrackerAdapter {
     this.project = options.project;
     this.stateMap = options.stateMap;
     const agents = Object.entries(options.agentMap ?? {});
+    // Config is checked well before this point (`agentMapProblems`), but nothing
+    // guarantees the map came from config, so refuse a bad one here too — through the
+    // same function, so there is only ever one wording for the mistake.
+    const configProblems = agentMapProblems('linear', options.agentMap);
+    if (configProblems[0]) {
+      throw new Error(configProblems[0]);
+    }
     const reverseAgents = new Map<string, string>();
     for (const [name, appUserId] of agents) {
-      if (!name.trim()) {
-        throw new Error('integrations.linear.identity.agent_map contains an empty agent name.');
-      }
-      if (!UUID_RE.test(appUserId)) {
-        throw new Error(
-          `integrations.linear.identity.agent_map.${name} must be a Linear app user UUID.`,
-        );
-      }
       reverseAgents.set(appUserId.toLowerCase(), name);
     }
     this.agentMap = new Map(agents);
