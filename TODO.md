@@ -43,6 +43,30 @@ The blockers are correctness, not process:
   plus `tbd-od0z`.
 - **`tbd sync` still prints “conflict(s) preserved in attic” and writes no attic entry**
   (`tbd-ajq2`), and #279/#283’s shipped docs now depend on that claim.
+- **Two older P0 data-loss bugs are live**, both verified at `52d5c2f7` and both now
+  wired as blockers of `tbd-lz1q` rather than tracked beside it:
+  - `tbd-dmkd` — `file/git.ts:2989-2993` wraps the backup `cp()` in a bare `catch {}`
+    (“Continue with repair anyway”), then `rm(..., {recursive: true, force: true})` runs
+    unconditionally at `:2997` and `:3002` returns `backedUp: backupPath` naming a path
+    that may not exist. A corrupted data-sync worktree can hold unsynced bead work, so
+    the caller is told a backup exists when the work is already gone.
+  - `tbd-0oz8` — `cli/commands/import.ts:585` resolves an incoming Beads short ID
+    against `existingByShortId` and donates that issue’s internal ID *before* the
+    collision check at `:592` runs.
+    That map is built at `:562-564` from every existing issue with no source-identity
+    check, so an unrelated tbd issue owning short ID N is overwritten by an incoming
+    `xx-N`. `:578` gets this right for `existingByBeadsId`; `:585` does not, which
+    leaves the collision branch unreachable for the one destructive case it exists to
+    prevent.
+
+**Open PRs.** `#268` (six pinned GitHub Actions bumps) is `MERGEABLE/CLEAN`, and the
+prior review cleared every SHA against its tag, the 14-day cool-off, and each major
+jump’s breaking changes against the inputs these workflows actually use.
+Its CI last ran on 2026-09-13, before the coordination stack and #285 landed, so comment
+`@dependabot rebase` and let CI re-run against current `main` before merging.
+`release.yml` only fires on a tag, so its new `checkout`, `setup-node`, and
+`action-gh-release` versions get their first real exercise at the next release — another
+reason not to combine that merge with the release itself.
 
 **Version, when it does ship.** By `docs/publishing.md`’s own rule — `minor` is for new
 CLI capabilities, and a `feat` whose payload is dormant internals or bundled content is
