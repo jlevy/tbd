@@ -251,7 +251,7 @@ Update `TBD_UPGRADE_SAME_FORMAT_FROM`, `TBD_UPGRADE_COMMON_FROM`, or
 `TBD_UPGRADE_PREVIOUS_FORMAT_FROM` when validating a different usage or compatibility
 boundary.
 
-The gate runs five scenarios, and they prove two different things.
+The gate runs six scenarios, and they prove three different things.
 Four are *upgrade*: a repository created by a published baseline, upgraded once by the
 candidate — one per compatibility boundary (same-format, common pre-bump, last
 pre-bump), plus a legacy remote whose `tbd-sync` branch lost its data scaffold and has
@@ -266,6 +266,22 @@ Coexistence proves *preservation* of bridge state the older client has no creden
 read, not its *interpretation*; whether an older reader accepts candidate-written link
 records and journaled intents needs a live provider and is covered by the mixed-version
 tracker convergence test instead.
+
+The sixth is the *config round trip*, and it runs the other way round from the rest: the
+candidate writes `.tbd/config.yml`, then a published client rewrites it with
+`tbd config set` and `tbd setup --auto`, and the keys have to still be there at the
+nesting level they were written at.
+A key survives that rewrite only where its level is `.passthrough()`, and the levels are
+not uniform, so every config key a release adds is a bet on what the clients already in
+the field will carry.
+It probes one key per level and includes a key that must be *dropped*, so a run that
+detects nothing fails rather than passes.
+This scenario uses the **newest** published f08 release, not the oldest: it asks what
+the client a teammate is most likely to be running will preserve.
+Before the version bump that release is the candidate itself, so the scenario falls back
+to the older same-format baseline and says so on stdout — bump the version to exercise
+the release the new keys ship alongside.
+Override it with `TBD_UPGRADE_LATEST_FORMAT_FROM`.
 
 For changes to setup, generated launchers, installation, fallback selection, format
 migration, or upgrade recovery, also exercise the packed candidate in a first-party

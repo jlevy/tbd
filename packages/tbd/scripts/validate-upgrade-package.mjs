@@ -58,6 +58,9 @@ const sourceRepoDir = join(packageDir, '..', '..');
 const sameFormatBaseline = process.env.TBD_UPGRADE_SAME_FORMAT_FROM ?? '0.7.0';
 const commonUpgradeBaseline = process.env.TBD_UPGRADE_COMMON_FROM ?? '0.4.2';
 const previousFormatBaseline = process.env.TBD_UPGRADE_PREVIOUS_FORMAT_FROM ?? '0.5.0';
+// The NEWEST published f08 release, for the config round trip only: that scenario asks
+// what a teammate's client will preserve, not what the weakest one can read.
+const latestFormatBaseline = process.env.TBD_UPGRADE_LATEST_FORMAT_FROM ?? '0.8.1';
 const managedUpgradePaths = new Set([
   '.agents/skills/tbd/SKILL.md',
   '.claude/.gitignore',
@@ -1093,6 +1096,135 @@ async function validateCrossVersionCoexistence({
   );
 }
 
+/**
+ * Probes for the config round trip, one per nesting level the schema treats differently.
+ *
+ * A key survives an older client rewriting config only if the level it sits at is
+ * `.passthrough()`. The levels are not uniform — `PolicyDefinitionSchema` is deliberately
+ * not passthrough while the three clauses inside it are — so a probe at one level says
+ * nothing about another, and each has to be checked where it actually lives.
+ *
+ * `POLICY_SIBLING_PROBE` is the negative control: it must be DROPPED. Without it a test
+ * that only checks for survival passes just as well against a client that rewrites
+ * nothing at all, which is not the claim.
+ *
+ * Any sprint change that adds a config key adds a probe here, at the key's own level.
+ */
+const CONFIG_PROBES = {
+  topLevel: ['upgrade_qa', 'preserve'],
+  identity: ['integrations', 'linear', 'identity', 'qa_probe'],
+  policyClause: ['integrations', 'linear', 'policy', 'outbound', 'qa_probe'],
+};
+const POLICY_SIBLING_PROBE = ['integrations', 'linear', 'policy', 'qa_sibling'];
+
+function readPath(value, path) {
+  return path.reduce((current, key) => (current == null ? undefined : current[key]), value);
+}
+
+/**
+ * f08 contract T1: a published client rewrites config without dropping the sprint's keys.
+ *
+ * `tbd config set` and `tbd setup --auto` both read the whole config, validate it, and
+ * write it back. A key the reading schema does not declare survives that round trip only
+ * where the level is `.passthrough()`, so every key this sprint adds is a bet that the
+ * clients already in the field will carry it. The bet is checkable, and this is the check:
+ * the candidate writes the config, then the OLD client rewrites it twice, and the keys
+ * have to still be there at the level they were written.
+ *
+ * It runs against the newest published f08 release rather than the oldest, deliberately —
+ * the opposite of the upgrade scenarios. Those ask what the weakest client can still
+ * read; this one asks what the client a teammate is most likely to be running will
+ * preserve, which is the release that ships alongside the keys.
+ *
+ * When that release IS the candidate — before the version bump, where the working tree
+ * still carries the last published version — it falls back to the older same-format
+ * baseline and says so. The scenario keeps running either way: a client comparing a build
+ * against itself proves nothing, and silently skipping proves less.
+ */
+async function validateOldClientConfigRoundTrip({
+  baseline,
+  baselineVersion,
+  candidate,
+  candidateVersion,
+  root,
+}) {
+  const label = 'config-round-trip';
+  const repository = join(root, `${label}-repository`);
+  const home = join(root, `${label}-home`);
+  await initializeRepository(repository);
+  await mkdir(home, { recursive: true });
+
+  const setup = await invokeCli(candidate, repository, home, ['setup', '--auto', '--prefix=qat']);
+  invariant(setup.code === 0, `${label}: candidate setup failed\n${setup.stdout}\n${setup.stderr}`);
+
+  // Written on top of the candidate's own config rather than instead of it, so the round
+  // trip carries everything a real repository has, not just the probes.
+  const configPath = join(repository, '.tbd', 'config.yml');
+  const config = parseYaml(await readFile(configPath, 'utf8'));
+  config.upgrade_qa = { preserve: 'top-level-value' };
+  config.integrations = {
+    ...(config.integrations ?? {}),
+    linear: {
+      ...(config.integrations?.linear ?? {}),
+      enabled: false,
+      target: { team_key: 'OS' },
+      identity: { qa_probe: 'identity-value' },
+      policy: {
+        qa_sibling: 'dropped-by-schema',
+        outbound: { qa_probe: 'outbound-value' },
+      },
+    },
+  };
+  await writeFile(configPath, stringifyYaml(config, { lineWidth: 0 }));
+
+  // Both write paths, because they validate and rewrite by different routes.
+  const set = await invokeCli(baseline, repository, home, [
+    'config',
+    'set',
+    'sync.remote',
+    'origin',
+  ]);
+  invariant(
+    set.code === 0,
+    `${label}: baseline ${baselineVersion} config set failed\n${set.stdout}\n${set.stderr}`,
+  );
+  const baselineSetup = await invokeCli(baseline, repository, home, ['setup', '--auto']);
+  invariant(
+    baselineSetup.code === 0,
+    `${label}: baseline ${baselineVersion} setup failed\n${baselineSetup.stdout}\n${baselineSetup.stderr}`,
+  );
+
+  const after = parseYaml(await readFile(configPath, 'utf8'));
+  for (const [name, path] of Object.entries(CONFIG_PROBES)) {
+    invariant(
+      readPath(after, path) !== undefined,
+      `${label}: ${baselineVersion} dropped the ${name} key ${path.join('.')}\n` +
+        stringifyYaml(after, { lineWidth: 0 }),
+    );
+  }
+  invariant(
+    readPath(after, POLICY_SIBLING_PROBE) === undefined,
+    `${label}: ${POLICY_SIBLING_PROBE.join('.')} survived, so this scenario cannot detect a ` +
+      `dropped key and the assertions above prove nothing`,
+  );
+
+  // The old client records itself as the last to run setup — expected, that is what the
+  // field means — but it must not walk the repository's format back.
+  invariant(
+    after.tbd_format === CANDIDATE_FORMAT,
+    `${label}: ${baselineVersion} rewrote tbd_format to ${String(after.tbd_format)}`,
+  );
+  invariant(
+    after.sync?.remote === 'origin',
+    `${label}: ${baselineVersion} config set did not take effect`,
+  );
+
+  console.log(
+    `Packed config round trip passed: ${candidateVersion} config survives ${baselineVersion} ` +
+      `rewriting it`,
+  );
+}
+
 const sourceStatusBefore = await repositoryStatus(sourceRepoDir);
 const temporaryDir = await mkdtemp(join(tmpdir(), 'tbd-upgrade-package-'));
 try {
@@ -1232,6 +1364,42 @@ try {
   await validateCrossVersionCoexistence({
     baseline: sameFormatPackage,
     baselineVersion: sameFormatBaseline,
+    candidate,
+    candidateVersion,
+    root: temporaryDir,
+  });
+
+  // The config round trip wants the newest published f08 release. Before the release bump
+  // the working tree still carries the last published version, so that release IS the
+  // candidate and comparing it against itself proves nothing; fall back to the older
+  // same-format baseline, loudly, rather than skipping the scenario.
+  const configRoundTripBaseline =
+    latestFormatBaseline === candidateVersion ? sameFormatBaseline : latestFormatBaseline;
+  if (configRoundTripBaseline !== latestFormatBaseline) {
+    console.log(
+      `Config round trip falls back to ${configRoundTripBaseline}: the candidate is ` +
+        `${candidateVersion}, so ${latestFormatBaseline} is this same build. Bump the version ` +
+        `to exercise the release the sprint's keys ship alongside.`,
+    );
+  }
+  let configRoundTripPackage = sameFormatPackage;
+  if (configRoundTripBaseline !== sameFormatBaseline) {
+    const latestArchiveDir = join(temporaryDir, 'latest-format-archive');
+    await mkdir(latestArchiveDir);
+    await packPublished(latestArchiveDir, configRoundTripBaseline);
+    configRoundTripPackage = await extractPackage(
+      await findOnlyArchive(latestArchiveDir),
+      join(temporaryDir, 'latest-format'),
+      dependencyTree,
+    );
+    invariant(
+      configRoundTripPackage.manifest.version === configRoundTripBaseline,
+      `Config round trip baseline resolved to ${String(configRoundTripPackage.manifest.version)}`,
+    );
+  }
+  await validateOldClientConfigRoundTrip({
+    baseline: configRoundTripPackage,
+    baselineVersion: configRoundTripBaseline,
     candidate,
     candidateVersion,
     root: temporaryDir,
