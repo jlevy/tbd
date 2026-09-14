@@ -9,7 +9,16 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy with LLM assistance
 
-**Status:** Draft
+**Status:** Delivered, with a named, paused residue (reconciled 2026-09-14). The
+fork/unfork/update workflow and the `tbd docs` group ship: `tbd docs` gives the bare
+status overview, `tbd docs list` and `tbd docs show` render the docmap, and 71 of the 74
+beads filed against this spec are closed.
+Three remain open and are deliberately paused (`hold: paused`, carried over from the
+`pause` label): `tbd-i49m` and `tbd-wzqp` (Phase 2 — the `tbd status` Docs line and the
+per-kind `--list --json` migration to the shared docmap renderer; `tbd status` still
+prints no Docs line) and `tbd-f233` (Phase 5 — self-docs migration to a reference kind).
+This document stays in `done/` because the delivered scope is complete; the residue
+lives in those three beads, not in unchecked boxes here.
 
 ## Overview
 

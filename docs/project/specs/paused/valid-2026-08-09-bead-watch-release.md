@@ -5,6 +5,14 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Validation Plan: Bead Watch Release
 
+**Status:** Paused (reconciled 2026-09-14). Bead watch shipped — the 30 beads under
+`plan-2026-07-19-bead-watch-and-external-sync.md` are closed and that spec is in `done/`
+— but 13 items on this release-QA checklist were never run and no open bead carries
+them. Moved out of `active/` because nothing is in flight against it; it is
+begun-and-stopped, not finished.
+Re-run it, or file the residue as beads, before treating bead watch as
+release-validated.
+
 ## Status as of 2026-09-06
 
 Watch infrastructure is delivered.
