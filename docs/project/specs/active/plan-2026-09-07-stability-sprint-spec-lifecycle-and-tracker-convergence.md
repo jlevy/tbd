@@ -16,6 +16,26 @@ The coordination stack (#278, #279, #282, #283) merged the same day.
 A follow-up revision (2026-09-14) adds the f08 compatibility contract that every sprint
 fix must satisfy and changes the 1a, 1e, 1f, and 1B designs to meet it.
 
+**Release-readiness reconciliation, 2026-09-14 (`main` @ `52d5c2f7`).** Phase 0 has
+*not* landed. `claude/tbd-sync-bugs-review-f1qb1f` still carries three unmerged commits
+(`936909fe`, `ed45804a`, `4d23edcf`), including the settled-mirror fix, and no pull
+request was ever opened for it, so 0b is not merely unreviewed — it is unsubmitted
+(`tbd-bdkj`). Its spec, `plan-2026-08-28-sync-convergence-and-stability.md`, therefore
+exists only on that branch while 25 open beads name it; `tbd update --spec` cannot even
+set that path from `main` (#273), which had to be worked around by checking the file out
+of the branch during this pass.
+
+Two consequences for the rollout plan below.
+First, its own rule — no release cut from `main` before 1a lands, because #264 widened
+the #265 loop — is unmet, and 1a (`tbd-od0z`) is open.
+Second, the stack merged with `tbd-s3zx` unfixed, so what the compatibility review filed
+as a pre-merge follow-up is now a **shipped regression**: the comment union runs on
+every `extensions` namespace whose two sides both lack an `id` (`file/git.ts:698-701`),
+and `unionCommentArrays` drops non-object entries (`lib/comment-union.ts:42`), so a
+third-party `extensions.<ns>.comments` array of strings is emptied by any structured
+merge. Reproduced on `52d5c2f7`; absent from 0.8.1. Release 1 is blocked on fixing it on
+`main`, not on rebasing a branch.
+
 **Tracked as:** epic `tbd-ct4z`. Beads created for this plan carry `--spec` and sit
 under the epic. Beads that already belong to another arc (`tbd-bcss`, `tbd-dzme`) keep
 their spec and parent and are referenced here by ID.

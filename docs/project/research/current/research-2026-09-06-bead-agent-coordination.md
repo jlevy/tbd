@@ -680,7 +680,7 @@ supplement each bead’s `spec_path`.
 | Scope and existing owner | Commitments retained | Relationship to this research |
 | --- | --- | --- |
 | [Batch transactions](../../specs/active/plan-2026-01-19-transactional-mode-and-agent-registration.md), `tbd-df33` | Private tentative multi-bead changes; begin, review, commit, abort; crash/orphan recovery; immediate mode by default | Unimplemented proposal requiring refresh. Atomic comment files and current identity do not supply batch isolation or all-or-nothing publication. |
-| [Watch design](../../specs/active/plan-2026-07-19-bead-watch-and-external-sync.md) and its validation | Read-only committed-state observation, bounded reports, explicit cursor/rewrite behavior | Shipped contract and historical evidence. Superseded pilot/release checks are labeled; generic extension CLI remains `tbd-z95g` in the tracker plan. |
+| [Watch design](../../specs/done/plan-2026-07-19-bead-watch-and-external-sync.md) and its validation | Read-only committed-state observation, bounded reports, explicit cursor/rewrite behavior | Shipped contract and historical evidence. Superseded pilot/release checks are labeled; generic extension CLI remains `tbd-z95g` in the tracker plan. |
 | [Tracker integrations](../../specs/active/plan-2026-08-10-external-tracker-integrations.md), `tbd-gvju` | Linked-bead identity and direction policy, GitHub adapter/PR associations, web projection, unified engine, generic extension CLI | Native comments may become a durable source for these bridges. PRs #282 and #283 neither select that migration nor alter current provider behavior. New delivery/recovery findings qualify the older passing scenarios. |
 | [Sync and traceability](../../specs/active/plan-2026-08-14-external-sync-and-traceability.md), `tbd-dzme` | Cheap quiet sync; honest freshness/errors; in-flight rollups and durable links; attention/inherited-spec selection; inbound gestures and origin/remap safety; bounded closing gates and host hooks | Watch/dispatch research does not replace these visibility and completion requirements. Keep the inline-sync override decision (`tbd-9cf9`, overlapping `tbd-zuos`) separate from comment policy. |
 | [Actor and identity](../../specs/active/plan-2026-08-18-actor-axis-and-identity.md), delivered `tbd-ncux`, residual `tbd-p0fe` | Human assignee/agent delegate split, provider-ID bindings, metadata privacy; remaining binding UX, migration, actor diagnostics, and explicit acceptance evidence | `tbd-6nmq` sharpens the plan’s existing session-precision question. Completed core and unfinished UX have separate owners. |
@@ -787,8 +787,8 @@ Related internal documents:
   context.
 - [Runtime/session linkage](research-2026-08-19-agent-runtimes-and-session-linkage.md):
   adjacent unfinished design.
-- [Watch Phase 1 validation](../../specs/active/valid-2026-07-19-bead-watch-phase-1.md)
-  and [release validation](../../specs/active/valid-2026-08-09-bead-watch-release.md):
+- [Watch Phase 1 validation](../../specs/done/valid-2026-07-19-bead-watch-phase-1.md)
+  and [release validation](../../specs/paused/valid-2026-08-09-bead-watch-release.md):
   historical tests and their limits.
 
 ## Source Snapshots

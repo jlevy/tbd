@@ -9,7 +9,13 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy with LLM assistance
 
-**Status:** Draft
+**Status:** Implemented and shipped (reconciled 2026-09-14). The checkboxes below were
+never ticked, but every item is on `main`: `UpgradeEntrySchema` at `lib/schemas.ts:529`,
+`tbd_upgrades` in `ConfigSchema` (`:1072`) and in the written config’s comment block,
+`f06` in `FORMAT_HISTORY` (`lib/tbd-format.ts:132`) with an f05 → f06 migration
+(`:380`), and the setup-time stamp.
+This repository’s own `.tbd/config.yml` carries the resulting history back to
+`0.2.4-dev`. Moved to `done/` on that evidence rather than on the boxes.
 
 ## Overview
 

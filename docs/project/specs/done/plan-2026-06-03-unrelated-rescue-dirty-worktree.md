@@ -4,7 +4,9 @@
 
 **Author:** Joshua Levy (with agent assistance)
 
-**Status:** Implemented (PR pending)
+**Status:** Implemented and landed on `main` (verified 2026-09-14 at 52d5c2f7:
+`file/git.ts:2741-2770` tolerates a dirty data-sync worktree and aborts only on dirt
+outside it).
 
 ## Overview
 

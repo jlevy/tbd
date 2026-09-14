@@ -83,11 +83,11 @@ Do not reuse a project checkout or a directory containing user data.
 
 ## Related Documentation: Read for Context
 
-- [Watch and external-sync plan](../../docs/project/specs/active/plan-2026-07-19-bead-watch-and-external-sync.md)
+- [Watch and external-sync plan](../../docs/project/specs/done/plan-2026-07-19-bead-watch-and-external-sync.md)
   — contract, layering, and non-goals.
-- [Release validation plan](../../docs/project/specs/active/valid-2026-08-09-bead-watch-release.md)
+- [Release validation plan](../../docs/project/specs/paused/valid-2026-08-09-bead-watch-release.md)
   — coverage map, gates, risk, and rollback.
-- [Phase 1 validation record](../../docs/project/specs/active/valid-2026-07-19-bead-watch-phase-1.md)
+- [Phase 1 validation record](../../docs/project/specs/done/valid-2026-07-19-bead-watch-phase-1.md)
   — prior Claude Code and Codex live demonstrations.
 - [Release smoke runner](../../packages/tbd/scripts/validate-watch-release.ts) —
   disposable two-clone executable validation.
