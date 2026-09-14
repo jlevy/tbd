@@ -404,7 +404,8 @@ neither has shipped.
 Five PRs formed one stack: #280, then #278, #279, #282, and #283, each based on the one
 before. #280 merged on 2026-09-14. #278, #279, and #282 were restacked onto `main` with
 trees identical to their reviewed heads, and #283 was restacked onto #282’s new head
-(`a48a4416` to `175eac50`, patch-identical).
+(`a48a4416` to `175eac50`, patch-identical), then gained one docs-only commit
+(`4a42a6ac`) recording these landing gates in the coordination plan.
 `git merge-tree` finds no textual conflict between the stack’s head and either this
 plan’s branch or the 2026-08-28 branch.
 Landing is tracked as `tbd-m88s`, with one child bead per layer in merge order
@@ -434,6 +435,8 @@ It found five follow-ups, each a bead:
   fix has no independent re-review (`tbd-cskr`). These three gate merging #279.
 - `tbd sync` prints “conflict(s) preserved in attic” but writes no attic entry, which
   #279 and #283’s docs now rely on (`tbd-ajq2`, pre-existing, a release blocker).
+  Decided: sync always saves every conflict’s losing value to the attic, and the attic
+  is documented as an extra, append-only recovery store with restore steps.
 - With #283’s `agent_map` fix, an invalid map fails integration commands (`tbd-tia7`),
   and a valid one sends `delegateId` on every push, closed beads included (`tbd-80vz`).
 - `tbd status` names a nonexistent `tbd setup beads --disable` (`tbd-xzyh`,
