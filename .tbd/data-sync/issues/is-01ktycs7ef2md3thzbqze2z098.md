@@ -5,16 +5,17 @@ title: "Review/S9+F7+F3: README prune w/ unrelated files; isLayoutUpgradeable ac
 kind: bug
 status: closed
 priority: 3
-version: 4
-spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
+version: 6
+spec_path: docs/project/specs/done/plan-2026-06-11-forkable-docs.md
 labels: []
 dependencies: []
 parent_id: is-01ktxg3eqj62dhphs6dnbb30jf
 created_at: 2026-06-12T17:06:26.895Z
-updated_at: 2026-06-12T22:11:25.973Z
+updated_at: 2026-09-14T04:20:37.401Z
 closed_at: 2026-06-12T22:11:25.973Z
 close_reason: "Closed with verification, not code: F3 verified safe (readConfig gates newer formats on docs commands); S9 re-examined — keeping the fork dir when unrelated user files exist is correct (deleting user files would be worse); F7 intentionally permissive — the H3 doctor test pins older-known-format layouts as normal pending migration; an f04-floor tightening broke it and was reverted. Re-stamping derived metadata is safe for known compatible formats."
 ---
+
 ## Notes
 
 Deferred (Tier 3), three low-risk items: S9 (README prune leaves dir when unrelated non-doc files present) is cosmetic; F7 (isLayoutUpgradeable accepts f01) is theoretical — no f01 repos exist in the wild; F3 (format/layout gate not enforced on docs subcommands) is the most substantive — worth confirming docs commands route through the data-context probe — but is not a regression from this feature. Left open for a follow-up pass.

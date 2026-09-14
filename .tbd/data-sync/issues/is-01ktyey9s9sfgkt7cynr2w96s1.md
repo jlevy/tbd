@@ -5,14 +5,14 @@ title: Skill routing rows for fork/update/missing-file workflows
 kind: task
 status: closed
 priority: 1
-version: 2
-spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
+version: 3
+spec_path: docs/project/specs/done/plan-2026-06-11-forkable-docs.md
 labels:
   - pr169-review
 dependencies: []
 parent_id: is-01ktyesp3hmzqdxdg3zs79tjhz
 created_at: 2026-06-12T17:44:10.280Z
-updated_at: 2026-06-12T20:25:51.529Z
+updated_at: 2026-09-14T04:20:58.999Z
 closed_at: 2026-06-12T20:25:51.529Z
 close_reason: "Done in e5ce028: skill routing rows (list / fork-and-edit / update with conflict strategies / deleted-forked-file recovery) plus tbd docs entries in the Documentation command table, in skill-baseline.md and regenerated into all four skill copies via setup --auto (drift tests green)."
 ---

@@ -5,8 +5,8 @@ title: Bound pretty-tree context metadata to returned web rows
 kind: bug
 status: closed
 priority: 2
-version: 4
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 6
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
   - performance
@@ -14,7 +14,7 @@ labels:
 dependencies: []
 parent_id: is-01kzs5fg2amah8bnpy3mct8khd
 created_at: 2026-08-11T20:24:45.475Z
-updated_at: 2026-08-11T20:29:59.794Z
+updated_at: 2026-09-14T04:22:25.378Z
 closed_at: 2026-08-11T20:29:59.793Z
 close_reason: Pretty-tree context metadata is now bounded to returned rows with an over-limit hierarchy regression.
 ---

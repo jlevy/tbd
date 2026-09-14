@@ -5,14 +5,14 @@ title: "DocMap: version acceptance policy (docmap/0.* only)"
 kind: task
 status: closed
 priority: 2
-version: 2
-spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
+version: 3
+spec_path: docs/project/specs/done/plan-2026-06-11-forkable-docs.md
 labels:
   - pr169-review
 dependencies: []
 parent_id: is-01ktyessevb2mdcafd12z7670n
 created_at: 2026-06-12T17:44:38.950Z
-updated_at: 2026-06-12T18:20:49.397Z
+updated_at: 2026-09-14T04:21:16.093Z
 closed_at: 2026-06-12T18:20:49.396Z
 close_reason: "Fixed in a3a5b37: readers accept docmap/0.* only; other majors rejected with an unsupported-version error; tests added."
 ---

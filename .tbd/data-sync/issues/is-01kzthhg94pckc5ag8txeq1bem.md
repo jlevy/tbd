@@ -5,8 +5,8 @@ title: Handle raced owner-install EINVAL without escaping lock acquisition
 kind: bug
 status: closed
 priority: 1
-version: 3
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 5
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - concurrency
   - lockfile
@@ -14,7 +14,7 @@ labels:
 dependencies: []
 parent_id: is-01kzsrmw0y6dtbbg849384y6a4
 created_at: 2026-08-12T08:31:08.067Z
-updated_at: 2026-08-12T08:56:27.520Z
+updated_at: 2026-09-14T04:22:40.356Z
 closed_at: 2026-08-12T08:56:27.520Z
 close_reason: "Implemented and fully validated on PR #207 final head: shipped skill tiers and generated mirrors route natural browser requests to agent-run tbd web --open; onboarding, README, manual, design, changelog, CLI, and browser identify a live viewer rather than an editor; minimal skill requires Node 20+; lock acquisition classifies raced macOS EINVAL by generation identity while preserving same-generation errors. Focused tests, 113 files / 1,568 Vitest tests, 1,075 transcripts, strict quality/build, publint, 31 package-age pins, 64,485-byte packed web proof, 5,000/10,001 scale boundaries, and watch-release smoke all pass."
 ---

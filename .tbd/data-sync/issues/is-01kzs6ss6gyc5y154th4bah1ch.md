@@ -5,8 +5,8 @@ title: Bound web detail and deletion-state memory at 10k scale
 kind: bug
 status: closed
 priority: 2
-version: 5
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 7
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
   - performance
@@ -14,7 +14,7 @@ labels:
 dependencies: []
 parent_id: is-01kzs5fg2amah8bnpy3mct8khd
 created_at: 2026-08-11T20:04:10.575Z
-updated_at: 2026-08-11T20:29:59.299Z
+updated_at: 2026-09-14T04:22:24.719Z
 closed_at: 2026-08-11T20:29:59.298Z
 close_reason: Scale-specific expansion, body-cache, deletion-ghost, and row-classification paths are bounded and fully tested.
 ---

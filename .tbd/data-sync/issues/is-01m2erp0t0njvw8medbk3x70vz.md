@@ -3,9 +3,9 @@ type: is
 id: is-01m2erp0t0njvw8medbk3x70vz
 title: "Land the coordination stack: #278 -> #279 -> #282 -> #283"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 labels: []
 dependencies: []
@@ -18,7 +18,11 @@ child_order_hints:
   - is-01m2esegwz6k3bph39z6w4mdat
   - is-01m2eseh97vth3cpm35m074faf
 created_at: 2026-09-14T01:32:08.380Z
-updated_at: 2026-09-14T02:42:41.231Z
+updated_at: 2026-09-14T04:19:59.425Z
+closed_at: 2026-09-14T04:19:59.425Z
+close_reason: "All four layers merged to main on 2026-09-14: #278 (a308568 via tbd-o2ob), #279 (tbd-8rnq), #282 (tbd-g58e), #283 (9753fad5 via tbd-w3tv). main CI green on 52d5c2f7 (all six jobs). Format unchanged at f08. NOTE: the stack landed with tbd-s3zx unfixed, so the third-party extensions.<ns>.comments regression is now live on main — see that bead."
+resolution: null
+duplicate_of: null
 ---
 Land the coordination stack bottom to top: #278 (codex/bead-coordination-review, base main) -> #279 (codex/stability-comment-recovery) -> #282 (codex/native-comment-model) -> #283 (codex/native-comment-inventory). The PRs are chained by base branch, not registered with gh stack. Repo settings: merge commits allowed, delete_branch_on_merge on, so merging one layer retargets the next to main.
 

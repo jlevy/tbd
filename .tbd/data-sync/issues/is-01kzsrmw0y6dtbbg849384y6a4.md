@@ -5,8 +5,8 @@ title: Final concurrency and stream-ordering review for tbd web
 kind: epic
 status: closed
 priority: 1
-version: 86
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 87
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
   - concurrency
@@ -76,7 +76,7 @@ child_order_hints:
   - is-01kzvkfsv3ws9txybrjg09j8f4
   - is-01kzvme1a7kfgat6pq0dd27p43
 created_at: 2026-08-12T01:16:03.997Z
-updated_at: 2026-08-12T18:51:11.408Z
+updated_at: 2026-09-14T04:22:28.989Z
 closed_at: 2026-08-12T18:51:11.407Z
 close_reason: null
 ---

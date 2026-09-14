@@ -5,13 +5,13 @@ title: dep add/remove variadic <depends-on...> and create --depends-on
 kind: task
 status: closed
 priority: 2
-version: 4
-spec_path: docs/project/specs/active/plan-2026-07-28-agent-cli-bash-fallbacks.md
+version: 6
+spec_path: docs/project/specs/done/plan-2026-07-28-agent-cli-bash-fallbacks.md
 labels: []
 dependencies: []
 parent_id: is-01kyknjks7f7mm37tzt7mntc4k
 created_at: 2026-07-28T06:11:32.068Z
-updated_at: 2026-07-29T02:56:22.969Z
+updated_at: 2026-09-14T04:21:32.846Z
 closed_at: 2026-07-29T02:56:22.969Z
 close_reason: "Delivered in PR #198 (agent CLI ergonomics round 2): bulk show, variadic doc readers, variadic deps + create --depends-on, --spec suffix matching, did-you-mean/search-by-ID/overflow hints, point-of-need doc pass. All suites green."
 ---

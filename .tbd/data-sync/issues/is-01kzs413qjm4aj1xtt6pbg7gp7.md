@@ -5,8 +5,8 @@ title: "R14: Launch pnpm pack through the Windows command processor"
 kind: bug
 status: closed
 priority: 1
-version: 5
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 6
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - pr-207
   - final-review
@@ -14,7 +14,7 @@ labels:
 dependencies: []
 parent_id: is-01kzrs2jrjg3pzase83ebxdjyg
 created_at: 2026-08-11T19:15:45.009Z
-updated_at: 2026-08-11T19:29:57.480Z
+updated_at: 2026-09-14T04:22:22.402Z
 closed_at: 2026-08-11T19:29:57.479Z
 close_reason: "Fixed with packArchive: direct pnpm execFile on POSIX and pnpm.cmd through ComSpec on Windows. GitHub Actions run 31527569977 passed qa:web-package on Windows, macOS, and Ubuntu; local package proof and quality gates also passed."
 ---

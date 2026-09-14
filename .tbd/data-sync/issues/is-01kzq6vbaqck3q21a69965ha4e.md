@@ -5,8 +5,8 @@ title: "Phase 2: core foundations for tbd web (issue-query, AbortSignal, sync-ru
 kind: task
 status: closed
 priority: 1
-version: 10
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 12
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels: []
 dependencies:
   - type: blocks
@@ -17,7 +17,7 @@ parent_id: is-01kzn5wbxkb6c0db6k19wj7yzj
 child_order_hints:
   - is-01kzrs7dnqcq10ry0xeph0nsxn
 created_at: 2026-08-11T01:26:33.046Z
-updated_at: 2026-08-11T16:18:42.228Z
+updated_at: 2026-09-14T04:21:47.873Z
 closed_at: 2026-08-11T16:18:42.227Z
 close_reason: "Phase 2 complete: shared issue-query parity, hierarchy golden fix, cancellable in-process watch, JSON output guard, and reusable runIssueSync extraction are implemented and validated. The one full-suite timeout was isolated and passed; no product regression found."
 extensions:

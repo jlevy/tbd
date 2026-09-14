@@ -5,15 +5,15 @@ title: "Phase 2: Update sync command with --issues/--docs flags"
 kind: task
 status: closed
 priority: 2
-version: 18
-spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
+version: 20
+spec_path: docs/project/specs/done/plan-2026-01-29-unified-sync-command.md
 labels: []
 dependencies:
   - type: blocks
     target: is-01kg5jhdhcp6k12e48vxvpcvtz
 parent_id: is-01kg5jgqscrbp94t3hb1cegr39
 created_at: 2026-01-29T19:09:02.890Z
-updated_at: 2026-08-15T05:33:39.717Z
+updated_at: 2026-09-14T04:19:56.325Z
 closed_at: 2026-08-15T05:33:39.717Z
 close_reason: Completed specs are in docs/project/specs/done and their implementations, documentation, and tests ship on main.
 extensions:

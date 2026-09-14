@@ -5,8 +5,8 @@ title: "Address senior engineering review for PR #196"
 kind: task
 status: closed
 priority: 1
-version: 12
-spec_path: docs/project/specs/active/plan-2026-07-19-bead-watch-and-external-sync.md
+version: 13
+spec_path: docs/project/specs/done/plan-2026-07-19-bead-watch-and-external-sync.md
 labels:
   - pr-review
   - github-196
@@ -22,7 +22,7 @@ child_order_hints:
   - is-01ky097ycxzbgafsmrhcymr0p1
   - is-01ky097yq1tpdrckd1hagnwr8w
 created_at: 2026-07-20T17:29:45.071Z
-updated_at: 2026-07-20T18:23:26.041Z
+updated_at: 2026-09-14T04:21:26.791Z
 closed_at: 2026-07-20T18:23:26.040Z
 close_reason: All Phase 1 review findings were fixed and validated; S1 is explicitly deferred to Phase 2 as tbd-fuiw.
 ---

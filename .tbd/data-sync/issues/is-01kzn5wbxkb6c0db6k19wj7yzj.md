@@ -5,8 +5,8 @@ title: "Spec: tbd web — production-ready live bead view"
 kind: epic
 status: closed
 priority: 1
-version: 33
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 34
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - viewer
 dependencies: []
@@ -21,7 +21,7 @@ child_order_hints:
   - is-01kzrs6s3fn7gtzgt70wx9yzas
   - is-01kzrs779s8d2t4qmvpx310p22
 created_at: 2026-08-10T06:31:08.978Z
-updated_at: 2026-08-13T20:12:15.020Z
+updated_at: 2026-09-14T04:21:46.384Z
 closed_at: 2026-08-12T00:09:11.479Z
 close_reason: "PR #207 production implementation and all review/validation work complete; ready to merge."
 extensions:

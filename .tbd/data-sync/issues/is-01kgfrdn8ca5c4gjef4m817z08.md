@@ -5,8 +5,8 @@ title: "Spec: SKILL.md comprehensive update for expanded tbd capabilities"
 kind: epic
 status: closed
 priority: 2
-version: 13
-spec_path: docs/project/specs/active/plan-2026-02-02-skill-md-comprehensive-update.md
+version: 14
+spec_path: docs/project/specs/done/plan-2026-02-02-skill-md-comprehensive-update.md
 labels: []
 dependencies: []
 child_order_hints:
@@ -17,7 +17,7 @@ child_order_hints:
   - is-01kgfre0xe0xcde6zg8j68j2my
   - is-01kgfre16hq7326jwzq65h3rqk
 created_at: 2026-02-02T18:04:16.011Z
-updated_at: 2026-03-09T16:12:33.670Z
+updated_at: 2026-09-14T04:20:10.615Z
 closed_at: 2026-02-02T18:07:51.962Z
 close_reason: All implementation tasks completed - SKILL.md now covers full tbd scope
 ---

@@ -5,8 +5,8 @@ title: Implement streamlined outbox workflow
 kind: feature
 status: closed
 priority: 2
-version: 19
-spec_path: docs/project/specs/active/plan-2026-02-03-streamlined-outbox-workflow.md
+version: 20
+spec_path: docs/project/specs/done/plan-2026-02-03-streamlined-outbox-workflow.md
 labels: []
 dependencies: []
 child_order_hints:
@@ -23,7 +23,7 @@ child_order_hints:
   - is-01kgka30yzr4rjjxp7w6mcrh05
   - is-01kgka318e8g7em9ev8ptbc2x0
 created_at: 2026-02-03T22:49:54.387Z
-updated_at: 2026-03-09T16:12:33.920Z
+updated_at: 2026-09-14T04:20:16.549Z
 closed_at: 2026-02-04T05:24:20.844Z
 close_reason: "Streamlined outbox workflow implemented: auto-save on permanent failure (HTTP 403, etc.), auto-import on success, --no-auto-save and --no-outbox flags. Core implementation complete with 38 unit tests for error classification. Documentation updated."
 ---

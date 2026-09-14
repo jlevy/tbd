@@ -5,8 +5,8 @@ title: "Phase 6.2: prove packaged install, lifecycle, wake, and Git isolation"
 kind: task
 status: closed
 priority: 1
-version: 4
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 5
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - qa
   - packaging
@@ -17,7 +17,7 @@ dependencies:
     target: is-01kzrsarka5sq9h3x8v5yp7vpm
 parent_id: is-01kzrs779s8d2t4qmvpx310p22
 created_at: 2026-08-11T16:08:40.748Z
-updated_at: 2026-08-11T18:03:04.420Z
+updated_at: 2026-09-14T04:22:06.556Z
 closed_at: 2026-08-11T18:03:04.420Z
 close_reason: Full local quality matrix and 5k performance gates passed; packed launcher/page/API, two-clone wake, lifecycle, and Git-isolation proofs passed.
 extensions:

@@ -5,8 +5,8 @@ title: "PR #207 review R2: bound Expand all detail-fetch concurrency"
 kind: bug
 status: closed
 priority: 2
-version: 3
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 4
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - pr-207
   - review
@@ -14,7 +14,7 @@ labels:
 dependencies: []
 parent_id: is-01kzrs2jrjg3pzase83ebxdjyg
 created_at: 2026-08-11T17:01:42.268Z
-updated_at: 2026-08-11T18:03:03.504Z
+updated_at: 2026-09-14T04:22:08.974Z
 closed_at: 2026-08-11T18:03:03.504Z
 close_reason: Implemented with focused regressions; full Vitest (1496) and tryscript (1073) matrices, build, lint, and package proofs are green.
 ---

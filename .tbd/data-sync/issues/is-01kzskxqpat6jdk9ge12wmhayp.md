@@ -5,15 +5,15 @@ title: Confirm off-board expansion reset semantics
 kind: task
 status: closed
 priority: 2
-version: 4
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 6
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - pr-207
   - client-state
 dependencies: []
 parent_id: is-01kzscf4fdjf02qjcvedyp7ekx
 created_at: 2026-08-11T23:53:31.593Z
-updated_at: 2026-08-12T00:09:10.787Z
+updated_at: 2026-09-14T04:22:28.648Z
 closed_at: 2026-08-12T00:09:10.786Z
 close_reason: Reviewed as non-actionable by design; lifecycle documented in 2a7a7d44 and PR thread resolved.
 ---

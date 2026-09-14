@@ -5,13 +5,13 @@ title: "Review/S4: version-skew guard bypassed by fork refresh path (silent down
 kind: bug
 status: closed
 priority: 2
-version: 2
-spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
+version: 4
+spec_path: docs/project/specs/done/plan-2026-06-11-forkable-docs.md
 labels: []
 dependencies: []
 parent_id: is-01ktxg3eqj62dhphs6dnbb30jf
 created_at: 2026-06-12T17:06:23.014Z
-updated_at: 2026-06-12T17:45:35.491Z
+updated_at: 2026-09-14T04:20:34.232Z
 closed_at: 2026-06-12T17:45:35.490Z
 close_reason: "Fixed: forkDoc refresh path version-skew-guards (skips silent downgrade unless --force). Dedicated test added in cf5beae (doc-fork.test.ts)."
 ---

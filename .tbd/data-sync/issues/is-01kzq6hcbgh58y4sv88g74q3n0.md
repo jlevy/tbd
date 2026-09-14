@@ -5,14 +5,14 @@ title: "Senior review of PR #207 additive release safety"
 kind: task
 status: closed
 priority: 1
-version: 4
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 6
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - review
 dependencies: []
 parent_id: is-01kzn5wbxkb6c0db6k19wj7yzj
 created_at: 2026-08-11T01:21:06.415Z
-updated_at: 2026-08-11T01:41:45.019Z
+updated_at: 2026-09-14T04:21:47.529Z
 closed_at: 2026-08-11T01:41:45.018Z
 close_reason: Full review completed and verified as PR comment 5248064642; actionable follow-ups filed.
 ---

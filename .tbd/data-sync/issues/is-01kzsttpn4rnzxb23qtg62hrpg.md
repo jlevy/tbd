@@ -5,8 +5,8 @@ title: Retry transient local reload failures without a new filesystem change
 kind: bug
 status: closed
 priority: 1
-version: 3
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 5
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
   - concurrency
@@ -14,7 +14,7 @@ labels:
 dependencies: []
 parent_id: is-01kzsrmw0y6dtbbg849384y6a4
 created_at: 2026-08-12T01:54:12.259Z
-updated_at: 2026-08-12T04:38:51.082Z
+updated_at: 2026-09-14T04:22:33.493Z
 closed_at: 2026-08-12T04:38:51.082Z
 close_reason: Implemented and verified against the normative concurrency contract; focused adversarial coverage and the full release matrix pass.
 ---

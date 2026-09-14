@@ -5,8 +5,8 @@ title: Implement tbd save command with --workspace, --dir, --outbox, --updates-o
 kind: task
 status: closed
 priority: 2
-version: 11
-spec_path: docs/project/specs/active/plan-2026-01-30-workspace-sync-alt.md
+version: 13
+spec_path: docs/project/specs/done/plan-2026-01-30-workspace-sync-alt.md
 labels: []
 dependencies:
   - type: blocks
@@ -17,7 +17,7 @@ dependencies:
     target: is-01kg8ktrh4225v7hzcff8zzx6j
 parent_id: is-01kg8ksme85ymkbyt1cxj9gpe3
 created_at: 2026-01-30T23:28:59.688Z
-updated_at: 2026-03-09T16:12:33.537Z
+updated_at: 2026-09-14T04:20:05.238Z
 closed_at: 2026-01-31T00:05:03.085Z
 close_reason: "Implemented basic save command with --workspace, --dir, and --outbox options. TODO: --updates-only logic needs implementation."
 ---

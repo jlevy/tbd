@@ -5,8 +5,8 @@ title: Keep worktree initialization and data migration in one writer epoch
 kind: bug
 status: closed
 priority: 1
-version: 2
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 4
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
   - concurrency
@@ -14,7 +14,7 @@ labels:
 dependencies: []
 parent_id: is-01kzsrmw0y6dtbbg849384y6a4
 created_at: 2026-08-12T02:55:05.902Z
-updated_at: 2026-08-12T04:38:51.135Z
+updated_at: 2026-09-14T04:22:35.480Z
 closed_at: 2026-08-12T04:38:51.135Z
 close_reason: Implemented and verified against the normative concurrency contract; focused adversarial coverage and the full release matrix pass.
 ---

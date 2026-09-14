@@ -5,15 +5,15 @@ title: Audit sync.ts for hardcoded DATA_SYNC_DIR/WORKTREE_DIR usage
 kind: task
 status: closed
 priority: 1
-version: 9
-spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-hardening.md
+version: 11
+spec_path: docs/project/specs/done/plan-2026-01-28-sync-worktree-recovery-and-hardening.md
 labels: []
 dependencies:
   - type: blocks
     target: is-01kg3fpmwcq4y6y7wa7yvzd8p3
 parent_id: is-01kg3fj7r0jqj8p1hg9wt9h4sz
 created_at: 2026-01-28T23:40:50.746Z
-updated_at: 2026-03-09T16:12:33.202Z
+updated_at: 2026-09-14T04:19:49.584Z
 closed_at: 2026-01-29T01:01:16.026Z
 close_reason: "Audited sync.ts: All WORKTREE_DIR usages now use join(this.tbdRoot, WORKTREE_DIR). DATA_SYNC_DIR usages in git show commands are correct (referencing paths on sync branch)."
 ---

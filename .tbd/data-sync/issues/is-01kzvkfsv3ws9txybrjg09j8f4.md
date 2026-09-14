@@ -5,15 +5,15 @@ title: Keep live-change marker adjacent to bead ID
 kind: bug
 status: closed
 priority: 2
-version: 2
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 4
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
   - review
 dependencies: []
 parent_id: is-01kzsrmw0y6dtbbg849384y6a4
 created_at: 2026-08-12T18:24:23.906Z
-updated_at: 2026-08-12T18:29:32.677Z
+updated_at: 2026-09-14T04:22:51.242Z
 closed_at: 2026-08-12T18:29:32.676Z
 close_reason: null
 ---

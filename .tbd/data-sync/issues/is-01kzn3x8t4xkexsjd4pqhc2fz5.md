@@ -5,13 +5,13 @@ title: Review and harden bead-web spike (technical review findings)
 kind: task
 status: closed
 priority: 2
-version: 2
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 3
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - viewer
 dependencies: []
 created_at: 2026-08-10T05:56:41.411Z
-updated_at: 2026-08-10T06:04:33.826Z
+updated_at: 2026-09-14T04:21:44.144Z
 ---
 
 ## Notes

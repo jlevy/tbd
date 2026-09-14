@@ -5,14 +5,14 @@ title: Land the three-sync taxonomy table in tbd-docs.md
 kind: task
 status: closed
 priority: 1
-version: 2
-spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
+version: 3
+spec_path: docs/project/specs/done/plan-2026-06-11-forkable-docs.md
 labels:
   - pr169-review
 dependencies: []
 parent_id: is-01ktyesp3hmzqdxdg3zs79tjhz
 created_at: 2026-06-12T17:44:20.145Z
-updated_at: 2026-06-12T20:25:54.474Z
+updated_at: 2026-09-14T04:21:04.552Z
 closed_at: 2026-06-12T20:25:54.474Z
 close_reason: "Done in e5ce028: the four-row sync taxonomy table (tbd sync / setup --auto / docs sync / docs update) landed verbatim in tbd-docs.md, unblocked by tbd docs sync existing (3c718c0); includes the update-vs-docs-update disambiguation line."
 ---

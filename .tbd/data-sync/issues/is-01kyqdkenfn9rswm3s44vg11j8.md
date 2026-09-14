@@ -5,8 +5,8 @@ title: "Address review: PR #198 — agent CLI ergonomics round 2"
 kind: task
 status: closed
 priority: 1
-version: 8
-spec_path: docs/project/specs/active/plan-2026-07-28-agent-cli-bash-fallbacks.md
+version: 10
+spec_path: docs/project/specs/done/plan-2026-07-28-agent-cli-bash-fallbacks.md
 labels: []
 dependencies: []
 parent_id: is-01kyknjks7f7mm37tzt7mntc4k
@@ -18,7 +18,7 @@ child_order_hints:
   - is-01kyqdma0q76wz9884rehj1d81
   - is-01kyqfmwamnt2v35htv11n8zke
 created_at: 2026-07-29T17:08:52.527Z
-updated_at: 2026-07-29T18:04:24.985Z
+updated_at: 2026-09-14T04:21:33.835Z
 closed_at: 2026-07-29T18:04:24.985Z
 close_reason: "Review addressed on PR #198: R1-R4 + docs gap fixed in 69b6ec8, Bugbot round-1 trio fixed in 52c9856, Bugbot round-2 pair rebutted in-thread with technical justification. Disposition map posted; CI green on all checks at 52c9856."
 ---

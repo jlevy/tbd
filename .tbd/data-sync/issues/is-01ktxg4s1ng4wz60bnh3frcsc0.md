@@ -5,14 +5,15 @@ title: "Phase 2: shared docmap renderer + tbd docs list/show; migrate per-kind -
 kind: task
 status: open
 priority: 2
-version: 7
+version: 8
 spec_path: docs/project/specs/done/plan-2026-06-11-forkable-docs.md
 labels:
   - pause
 dependencies: []
 parent_id: null
+hold: paused
 created_at: 2026-06-12T08:45:56.660Z
-updated_at: 2026-08-15T05:44:07.224Z
+updated_at: 2026-09-14T04:23:35.638Z
 extensions:
   linear:
     id: c5797f48-4ee8-49b0-8da9-19c3f0b0f345

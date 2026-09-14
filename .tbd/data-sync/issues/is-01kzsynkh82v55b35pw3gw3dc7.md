@@ -5,8 +5,8 @@ title: Cap aggregate SSE clients and fan-out work
 kind: bug
 status: closed
 priority: 2
-version: 2
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 4
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
   - concurrency
@@ -14,7 +14,7 @@ labels:
 dependencies: []
 parent_id: is-01kzsrmw0y6dtbbg849384y6a4
 created_at: 2026-08-12T03:01:19.527Z
-updated_at: 2026-08-12T04:38:51.129Z
+updated_at: 2026-09-14T04:22:36.114Z
 closed_at: 2026-08-12T04:38:51.129Z
 close_reason: Implemented and verified against the normative concurrency contract; focused adversarial coverage and the full release matrix pass.
 ---

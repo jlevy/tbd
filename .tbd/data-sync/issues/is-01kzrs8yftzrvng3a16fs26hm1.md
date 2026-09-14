@@ -5,8 +5,8 @@ title: "Phase 4.1: implement transport-injected web client store and race tests"
 kind: task
 status: closed
 priority: 1
-version: 5
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 6
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - client
   - testing
@@ -16,7 +16,7 @@ dependencies:
     target: is-01kzrs94ma78nxv4qyd4yx8hr5
 parent_id: is-01kzrs6dd1abehychzed2yc1fk
 created_at: 2026-08-11T16:07:47.449Z
-updated_at: 2026-08-11T18:03:03.852Z
+updated_at: 2026-09-14T04:21:58.665Z
 closed_at: 2026-08-11T18:03:03.852Z
 close_reason: Production CLI/server/client implementation complete; lifecycle, security, race, build, browser, performance, and packaged-artifact evidence is green.
 extensions:

@@ -5,11 +5,11 @@ title: "Phase 1: tbd docs unfork (customized refusal + --force, base/missing cle
 kind: task
 status: closed
 priority: 2
-version: 2
-spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
+version: 4
+spec_path: docs/project/specs/done/plan-2026-06-11-forkable-docs.md
 labels: []
 dependencies: []
 parent_id: is-01ktxg3eqj62dhphs6dnbb30jf
 created_at: 2026-06-12T08:45:54.397Z
-updated_at: 2026-06-12T09:47:49.606Z
+updated_at: 2026-09-14T04:20:28.263Z
 ---

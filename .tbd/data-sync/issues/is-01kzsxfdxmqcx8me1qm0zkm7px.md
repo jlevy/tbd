@@ -5,15 +5,15 @@ title: Make stale shared-lock recovery ownership-safe and heartbeat live holders
 kind: bug
 status: closed
 priority: 0
-version: 5
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 7
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - concurrency
   - lock
 dependencies: []
 parent_id: is-01kzsrmw0y6dtbbg849384y6a4
 created_at: 2026-08-12T02:40:28.594Z
-updated_at: 2026-08-12T04:38:51.109Z
+updated_at: 2026-09-14T04:22:34.803Z
 closed_at: 2026-08-12T04:38:51.109Z
 close_reason: Implemented and verified against the normative concurrency contract; focused adversarial coverage and the full release matrix pass.
 ---

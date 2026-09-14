@@ -5,15 +5,15 @@ title: "R6: Tear down watcher when the web listener closes"
 kind: bug
 status: closed
 priority: 2
-version: 3
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 4
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - pr-207
   - code-review
 dependencies: []
 parent_id: is-01kzrs2jrjg3pzase83ebxdjyg
 created_at: 2026-08-11T17:27:02.383Z
-updated_at: 2026-08-11T18:03:03.548Z
+updated_at: 2026-09-14T04:22:13.549Z
 closed_at: 2026-08-11T18:03:03.548Z
 close_reason: Implemented with focused regressions; full Vitest (1496) and tryscript (1073) matrices, build, lint, and package proofs are green.
 ---

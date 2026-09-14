@@ -5,15 +5,15 @@ title: "Phase 5: Update setup command to use shared function"
 kind: task
 status: closed
 priority: 2
-version: 18
-spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
+version: 20
+spec_path: docs/project/specs/done/plan-2026-01-29-unified-sync-command.md
 labels: []
 dependencies:
   - type: blocks
     target: is-01kg5jhee3nrrtkqa80h52p1d8
 parent_id: is-01kg5jgqscrbp94t3hb1cegr39
 created_at: 2026-01-29T19:09:03.708Z
-updated_at: 2026-08-15T05:33:39.735Z
+updated_at: 2026-09-14T04:19:57.363Z
 closed_at: 2026-08-15T05:33:39.735Z
 close_reason: Completed specs are in docs/project/specs/done and their implementations, documentation, and tests ship on main.
 extensions:

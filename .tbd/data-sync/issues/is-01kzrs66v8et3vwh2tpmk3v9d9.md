@@ -5,8 +5,8 @@ title: "Phase 3: productize tbd web server, wake pipeline, and CLI lifecycle"
 kind: task
 status: closed
 priority: 1
-version: 9
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 11
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
   - pr-207
@@ -21,7 +21,7 @@ child_order_hints:
   - is-01kzrs8gb1ky34vpdv7qfdfv4q
   - is-01kzrs8phwbdy9hdkxm6c6k8pe
 created_at: 2026-08-11T16:06:17.703Z
-updated_at: 2026-08-11T18:03:12.897Z
+updated_at: 2026-09-14T04:21:50.345Z
 closed_at: 2026-08-11T18:03:12.896Z
 close_reason: All production server subtasks complete and validated.
 extensions:

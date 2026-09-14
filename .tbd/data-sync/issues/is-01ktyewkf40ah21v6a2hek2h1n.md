@@ -5,14 +5,14 @@ title: "pathExists: stat or single read; do not swallow non-ENOENT errors"
 kind: task
 status: closed
 priority: 2
-version: 2
-spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
+version: 3
+spec_path: docs/project/specs/done/plan-2026-06-11-forkable-docs.md
 labels:
   - pr169-review
 dependencies: []
 parent_id: is-01ktyesmg1w5p3v0jzt3ryt0zs
 created_at: 2026-06-12T17:43:14.660Z
-updated_at: 2026-06-12T18:20:31.245Z
+updated_at: 2026-09-14T04:20:50.252Z
 closed_at: 2026-06-12T18:20:31.245Z
 close_reason: "Fixed in 83fe4bb: pathExists is stat-based, single read, propagates non-ENOENT errors."
 ---

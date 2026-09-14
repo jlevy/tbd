@@ -5,12 +5,12 @@ title: "Spec: Design Docs Review"
 kind: epic
 status: closed
 priority: 2
-version: 9
-spec_path: docs/project/specs/active/plan-2026-01-26-design-docs-review.md
+version: 10
+spec_path: docs/project/specs/done/plan-2026-01-26-design-docs-review.md
 labels: []
 dependencies: []
 created_at: 2026-01-27T18:03:36.473Z
-updated_at: 2026-08-15T05:33:39.697Z
+updated_at: 2026-09-14T04:19:35.847Z
 closed_at: 2026-08-15T05:33:39.697Z
 close_reason: Completed specs are in docs/project/specs/done and their implementations, documentation, and tests ship on main.
 extensions:

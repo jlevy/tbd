@@ -5,14 +5,14 @@ title: Strengthen web detail labels and align repository status baselines
 kind: bug
 status: closed
 priority: 2
-version: 3
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 5
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
 dependencies: []
 parent_id: is-01kzsrmw0y6dtbbg849384y6a4
 created_at: 2026-08-12T16:31:22.922Z
-updated_at: 2026-08-12T17:21:45.983Z
+updated_at: 2026-09-14T04:22:42.813Z
 closed_at: 2026-08-12T17:21:45.983Z
 close_reason: "Implemented and verified in the shared web design-system pass: source/CSS contract tests 32/32; focused concurrency/UI suite 304/304; full repository gate 113 files and 1,591 tests; CLI transcripts 1,075/1,075; packed web artifact passed; light/dark live-browser geometry, behavior, ordering, copy feedback, and 1,000-row resource bounds validated."
 ---

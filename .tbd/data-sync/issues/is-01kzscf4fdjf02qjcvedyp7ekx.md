@@ -5,8 +5,8 @@ title: Make tbd web a local-only live view
 kind: feature
 status: closed
 priority: 1
-version: 13
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 14
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - viewer
   - liveness
@@ -20,7 +20,7 @@ child_order_hints:
   - is-01kzsjvx0n0zpjj9tdrxcj6m2p
   - is-01kzskxqpat6jdk9ge12wmhayp
 created_at: 2026-08-11T21:43:13.132Z
-updated_at: 2026-08-12T00:09:11.004Z
+updated_at: 2026-09-14T04:22:26.083Z
 closed_at: 2026-08-12T00:09:11.003Z
 close_reason: Local-only live-view contract implemented, documented, fully validated, and merge-ready on 2a7a7d44.
 ---

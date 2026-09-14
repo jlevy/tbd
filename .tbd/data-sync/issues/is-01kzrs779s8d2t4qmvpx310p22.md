@@ -5,8 +5,8 @@ title: "Phase 6: validate and land production tbd web end to end"
 kind: task
 status: closed
 priority: 1
-version: 17
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 19
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - validation
   - web
@@ -20,7 +20,7 @@ child_order_hints:
   - is-01kzs5fg2amah8bnpy3mct8khd
   - is-01kzscf4fdjf02qjcvedyp7ekx
 created_at: 2026-08-11T16:06:50.935Z
-updated_at: 2026-08-12T00:09:11.259Z
+updated_at: 2026-09-14T04:21:51.462Z
 closed_at: 2026-08-12T00:09:11.258Z
 close_reason: End-to-end local/hosted validation and PR readiness gate complete on 2a7a7d44.
 extensions:

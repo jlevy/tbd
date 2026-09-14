@@ -5,15 +5,15 @@ title: Stabilize bulk mutation missing-ID transcript
 kind: bug
 status: closed
 priority: 2
-version: 3
-spec_path: docs/project/specs/active/plan-2026-07-19-bead-watch-and-external-sync.md
+version: 5
+spec_path: docs/project/specs/done/plan-2026-07-19-bead-watch-and-external-sync.md
 labels:
   - validation
   - testing
 dependencies: []
 parent_id: is-01kzmm8zqnf8q210etncddjn6h
 created_at: 2026-08-10T02:30:34.710Z
-updated_at: 2026-08-10T02:41:44.941Z
+updated_at: 2026-09-14T04:21:43.811Z
 closed_at: 2026-08-10T02:41:44.941Z
 close_reason: null
 ---

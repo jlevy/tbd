@@ -5,15 +5,15 @@ title: Keep canonical board state over duplicate same-version SSE
 kind: bug
 status: closed
 priority: 1
-version: 4
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 6
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - pr-207
   - review
 dependencies: []
 parent_id: is-01kzscf4fdjf02qjcvedyp7ekx
 created_at: 2026-08-11T22:53:01.175Z
-updated_at: 2026-08-11T22:54:00.782Z
+updated_at: 2026-09-14T04:22:27.609Z
 closed_at: 2026-08-11T22:54:00.781Z
 close_reason: Canonical board state now dominates duplicate same-version SSE frames; exact ordering regression, focused web suite, and typecheck pass.
 ---

@@ -5,8 +5,8 @@ title: Bound SSE replay while guaranteeing delivery of current state
 kind: bug
 status: closed
 priority: 1
-version: 3
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 5
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
   - concurrency
@@ -14,7 +14,7 @@ labels:
 dependencies: []
 parent_id: is-01kzsrmw0y6dtbbg849384y6a4
 created_at: 2026-08-12T01:54:12.792Z
-updated_at: 2026-08-12T04:38:51.087Z
+updated_at: 2026-09-14T04:22:33.815Z
 closed_at: 2026-08-12T04:38:51.087Z
 close_reason: Implemented and verified against the normative concurrency contract; focused adversarial coverage and the full release matrix pass.
 ---

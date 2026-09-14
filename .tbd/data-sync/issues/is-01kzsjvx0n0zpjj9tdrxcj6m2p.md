@@ -5,15 +5,15 @@ title: Reconcile expanded rows across display-ID remaps
 kind: bug
 status: closed
 priority: 1
-version: 4
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 6
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - pr-207
   - client-state
 dependencies: []
 parent_id: is-01kzscf4fdjf02qjcvedyp7ekx
 created_at: 2026-08-11T23:35:02.932Z
-updated_at: 2026-08-12T00:09:10.567Z
+updated_at: 2026-09-14T04:22:28.303Z
 closed_at: 2026-08-12T00:09:10.566Z
 close_reason: Fixed in 152caa48; display-ID remap regression covered and final hosted matrix green.
 ---

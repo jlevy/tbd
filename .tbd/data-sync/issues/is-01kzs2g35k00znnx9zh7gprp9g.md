@@ -5,8 +5,8 @@ title: "R13: Remove shell-specific syntax from the web transcript"
 kind: bug
 status: closed
 priority: 1
-version: 7
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 8
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - pr-207
   - final-review
@@ -14,7 +14,7 @@ labels:
 dependencies: []
 parent_id: is-01kzrs2jrjg3pzase83ebxdjyg
 created_at: 2026-08-11T18:48:58.802Z
-updated_at: 2026-08-11T19:29:56.546Z
+updated_at: 2026-09-14T04:22:21.327Z
 closed_at: 2026-08-11T19:29:56.544Z
 close_reason: Fixed with the awaited shell-neutral run-built-cli harness, explicit sandbox setup assertion, and portable sed/jq filters. GitHub Actions run 31527569977 passed the focused transcript on Windows, macOS, and Ubuntu.
 ---

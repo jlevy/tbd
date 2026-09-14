@@ -5,12 +5,12 @@ title: "Enhancement: workspace list should show issue counts by status"
 kind: task
 status: closed
 priority: 2
-version: 11
-spec_path: docs/project/specs/active/plan-2026-01-30-workspace-sync-alt.md
+version: 12
+spec_path: docs/project/specs/done/plan-2026-01-30-workspace-sync-alt.md
 labels: []
 dependencies: []
 created_at: 2026-01-31T20:16:30.259Z
-updated_at: 2026-03-09T16:12:33.617Z
+updated_at: 2026-09-14T04:20:09.478Z
 closed_at: 2026-01-31T20:22:55.936Z
 close_reason: Implemented workspace list with issue counts by status. Added listWorkspacesWithCounts() function and updated workspace list command to display table format with open/in_progress/closed/total columns. Golden session test added to cli-workspace-save.tryscript.md
 ---

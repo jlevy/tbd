@@ -5,8 +5,8 @@ title: Mark truncated web boards as command-inexact
 kind: bug
 status: closed
 priority: 2
-version: 5
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 7
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
   - correctness
@@ -14,7 +14,7 @@ labels:
 dependencies: []
 parent_id: is-01kzs5fg2amah8bnpy3mct8khd
 created_at: 2026-08-11T20:52:19.118Z
-updated_at: 2026-08-11T21:05:48.479Z
+updated_at: 2026-09-14T04:22:25.734Z
 closed_at: 2026-08-11T21:05:48.478Z
 close_reason: R18 fixed, regression-tested, replied to, and resolved on the green final PR head.
 ---
