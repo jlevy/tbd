@@ -18,7 +18,10 @@ PRs #282 and #283 do not change the current f08 format or expose public behavior
 The Phase 1 owner (`tbd-3eui`) and Phase 2 owner (`tbd-raxf`) remain open.
 Within the Phase 2 stack, only `tbd-e1tu` and `tbd-4r3w` are complete; the Git guards,
 recovery, compatibility, format, command, polling, and provider-projection gates remain
-open.
+open. None of this code is on `main` yet: PRs #278, #279, #282, and #283 land bottom to
+top under `tbd-m88s`. A release-compatibility review on 2026-09-14 found no format or
+read-path break; merging #279 waits on `tbd-s3zx`, `tbd-apnu`, and `tbd-cskr`, and
+publishing the stack waits on `tbd-lz1q`.
 
 **Tracking:** `tbd-khi1`; completed historical plan preparation `tbd-q90q`.
 
@@ -519,6 +522,20 @@ sync and current integration comments remain usable.
 - [x] Preserve independent pending embedded provider comments in save/import, automatic
   outbox, and ordinary merge when provider-link lineage matches; quarantine an
   incompatible complete namespace before source clearing (`tbd-hqb9`, PR #279).
+- [ ] Apply that comment union only to provider namespaces, so third-party `extensions`
+  data with a `comments` array is never rewritten by a merge (`tbd-s3zx`), and cover the
+  `tbd sync` and merge-refs paths with differing link lineage (`tbd-apnu`). Both gate
+  merging PR #279, with an independent re-review of its lineage fix (`tbd-cskr`).
+- [ ] Make `tbd sync` save every merge conflict’s losing value to the attic, as
+  workspace import and rescue already do.
+  Today it counts conflicts and prints “preserved in attic” without writing an entry, so
+  an incompatible namespace lost during sync is not in the attic that the
+  provider-comment docs describe.
+  Document the attic as an extra, append-only recovery store that never changes live
+  bead state, and say how to find and restore an entry after a bad merge (`tbd-ajq2`,
+  release blocker).
+- [ ] State that plain `tbd sync` also delivers queued integration comments
+  (`tbd-af8w`).
 - [ ] Reuse one destination-scoped delivery identity across replicas and retries,
   including uncertain provider responses (`tbd-6vg5`).
 - [ ] Canonicalize identity aliases and preserve/report same-ID divergent content
@@ -822,6 +839,13 @@ performance SLA is claimed here.
 1. Land and ship focused Phase 1 fixes through the normal package process.
    Keep native-comment behavior, format activation, and automation absent until their
    independent gates pass.
+   The first increment is the open stack, PRs #278, #279, #282, and #283, merged bottom
+   to top (`tbd-m88s`, one child bead per layer).
+   Its release notes (`tbd-lz1q`) cover the reachable changes: `identity.agent_map` is
+   now honored, so invalid values fail integration commands (`tbd-tia7`) and valid ones
+   send `delegateId` on every push (`tbd-80vz`); comment lineage protection holds only
+   when the merging client is upgraded; and old and new clients rewrite generated agent
+   surfaces differently.
 2. Ship the f08 preservation release as its own Phase 2 increment and establish it as
    the participating-writer floor.
    Then introduce the separately reviewed f09 activation in disposable repositories and
