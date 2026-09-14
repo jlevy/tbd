@@ -30,6 +30,7 @@ import {
   slotFromLinear,
   stateColorFor,
   resolveStateId,
+  slotToLinear,
   statusToLinear,
 } from './mapping.js';
 import {
@@ -57,6 +58,7 @@ import {
   TEAM_LABELS_QUERY,
   USERS_BY_EMAIL_QUERY,
 } from './queries.js';
+import { isSlot } from '../core/slots.js';
 import { spliceManagedBlock } from '../core/managed-block.js';
 import { isTbdOwnedLabel, labelColorFor } from '../core/origin-labels.js';
 import {
@@ -1013,8 +1015,20 @@ export class LinearAdapter implements TrackerAdapter {
     }
 
     let statusLabels: string[] = [];
-    if (patch.status !== undefined) {
-      const target = statusToLinear(patch.status, patch.resolution, patch.hold);
+    // A slot names the column directly; a status only names the band it falls in. Writing
+    // the band instead is what made a blocked bead push Todo forever: the bead computes
+    // `backlog`, `decomposeSlot` collapses that to `status: open`, `statusToLinear` maps
+    // open to the unstarted default — the column the issue is already in — so the write
+    // moved nothing while the two sides went on disagreeing about the slot, one no-op
+    // IssueUpdate every other sync (GH #265). Resolving the slot is what makes the write
+    // land somewhere, which is what lets the pair finally agree.
+    const target =
+      patch.slot !== undefined && isSlot(patch.slot)
+        ? slotToLinear(patch.slot)
+        : patch.status !== undefined
+          ? statusToLinear(patch.status, patch.resolution, patch.hold)
+          : undefined;
+    if (target !== undefined) {
       // A named state is preferred when the team actually has one, because a real
       // column is visible to a person planning the week while a label is not. When it
       // is absent the carrier label rides the type's default instead, which is the
