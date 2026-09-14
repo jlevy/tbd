@@ -775,15 +775,22 @@ function resolveNamespace(
     return { present: true, value: survivor };
   }
 
-  // Both sides are objects and at least one carries a `comments` array: comments
+  // Both sides are objects and at least one carries a comment LOG — an array whose
+  // every entry has comment identity, `at`, and `body` (`commentLogsUnionable`). Comments
   // from the same provider-link lineage are append-only and union by identity.
   // A different or uncertain lineage falls through to namespace LWW below so a
   // pending comment can never be transplanted to another provider issue.
+  //
+  // The shape test is what keeps this a provider-link rule rather than a rule about
+  // the key name. `extensions` is where third-party data lives, so an unknown
+  // namespace may hold its own `comments` of strings or of objects with no comment
+  // identity; unioning those drops entries and re-sorts, losing data the caller
+  // never touched. Anything that is not a comment log on BOTH sides takes the
+  // ordinary LWW path, which preserves the winner verbatim and archives the loser.
   const localNs = local[namespace];
   const remoteNs = remote[namespace];
   if (isPlainObject(localNs) && isPlainObject(remoteNs)) {
-    const hasComments = Array.isArray(localNs.comments) || Array.isArray(remoteNs.comments);
-    if (hasComments && commentsShareLinkLineage(localNs, remoteNs)) {
+    if (commentLogsUnionable(localNs, remoteNs) && commentsShareLinkLineage(localNs, remoteNs)) {
       const winnerNs = localWins ? localNs : remoteNs;
       const loserNs = localWins ? remoteNs : localNs;
       const value = {
@@ -817,11 +824,16 @@ function preserveNamespaceComments(
   remoteValue: unknown,
   onConflict: (namespace: string, lost: unknown, winner: unknown) => void,
 ): unknown {
+  // Literally the same gate as the namespace merge, via the same function: if these two
+  // sites disagree about one namespace, the merge archives a losing comment array as a
+  // conflict and this postcondition unions it back, so the attic records a loss that
+  // did not happen. A namespace that does not qualify is left exactly as the ordinary
+  // merge resolved it.
   if (
     !isPlainObject(resolvedValue) ||
     !isPlainObject(localValue) ||
     !isPlainObject(remoteValue) ||
-    (!Array.isArray(localValue.comments) && !Array.isArray(remoteValue.comments))
+    !commentLogsUnionable(localValue, remoteValue)
   ) {
     return resolvedValue;
   }
@@ -1465,7 +1477,7 @@ import {
 import { DATA_SYNC_SCHEMA_VERSION, LinkRecordSchema } from '../lib/schemas.js';
 import type { LinkRecord } from '../lib/types.js';
 import { parseYamlWithConflictDetection, stringifyYaml } from '../utils/yaml-utils.js';
-import { unionCommentArrays } from '../lib/comment-union.js';
+import { commentLogsUnionable, unionCommentArrays } from '../lib/comment-union.js';
 import {
   loadIdMapping,
   mergeIdMappings,
@@ -2985,12 +2997,25 @@ export async function repairWorktree(
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const backupPath = join(sharedBackupsDir, `corrupted-worktree-backup-${timestamp}`);
 
-      // Copy corrupted worktree to backup before removal
+      // Copy corrupted worktree to backup before removal.
+      //
+      // The removal below is recursive and unrecoverable, and a corrupted data-sync
+      // worktree can still hold bead writes that were never synced. So the backup is
+      // a precondition for removing anything, not a courtesy: if it did not happen,
+      // the only copy of that work is the corrupted worktree itself. Leaving it in
+      // place is recoverable by hand; deleting it is not. Returning a `backedUp` path
+      // that was never written also tells the caller to look somewhere empty.
       try {
         await cp(worktreePath, backupPath, { recursive: true });
-      } catch {
-        // If copy fails, the directory might not exist or be accessible
-        // Continue with repair anyway
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        return {
+          success: false,
+          error:
+            `Refusing to repair the corrupted worktree: its backup to ${backupPath} failed ` +
+            `(${reason}). The worktree at ${worktreePath} was left untouched so its contents ` +
+            `can be recovered by hand; re-run the repair once the backup location is writable.`,
+        };
       }
 
       // Remove the corrupted worktree

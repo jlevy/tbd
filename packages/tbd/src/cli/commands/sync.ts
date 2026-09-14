@@ -271,6 +271,35 @@ class SyncHandler extends BaseCommand {
     // before reaching them. Running here still records everything on the sync
     // branch; those commits go out with the next successful push, so a git
     // problem delays tracker work rather than losing it.
+    // A dry run does not open the locked data-sync context this surface needs, so it
+    // cannot evaluate the tracker at all. Say so rather than returning quietly: the
+    // silence is indistinguishable from "the tracker is settled", and this is the
+    // command agents run to preview a sync. `tbd integration sync --dry-run` does
+    // reach the tracker and is the one to use for a real preview.
+    //
+    // Gated on the same config the real run below consults, because a repository with
+    // no tracker has nothing unevaluated to warn about — telling those users on every
+    // dry run to go run a tracker command is noise, and both neighbours check first.
+    if (syncIntegrations && !this.integrationsRan && !options.status && this.ctx.dryRun) {
+      const preConfig = await readConfig(tbdRoot);
+      const inert =
+        !syncFoldPosture(resolveSyncFoldMode(preConfig.integrations)).runs ||
+        integrationsInert(preConfig);
+      if (!inert) {
+        // `notice()` with structured data, not `info()` and not a bare `notice()`:
+        // info is verbose-only, and `notice()` without a payload emits NOTHING under
+        // --json (`cli/lib/output.ts`), which is the mode agents run — so a bare call
+        // would have left the defect exactly where it was. The payload is what carries
+        // the fact to stderr as JSONL while stdout stays one result document, which is
+        // why the surface-narrowing notice above passes one too.
+        this.output.notice(
+          'Dry run does not evaluate external trackers. ' +
+            'Use `tbd integration sync --dry-run` to preview the tracker surface.',
+          { skippedSurfaces: ['integrations'], reason: 'dry-run' },
+        );
+      }
+    }
+
     if (syncIntegrations && !this.integrationsRan && !options.status && !this.ctx.dryRun) {
       try {
         // Decide from config alone first. Opening a locked data-sync context

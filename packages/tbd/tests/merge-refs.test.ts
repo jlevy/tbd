@@ -249,4 +249,124 @@ describeUnlessWindows('mergeBeadAcrossRefs', () => {
     expect(result!.merged.child_order_hints).toEqual([COMMON, CHILD_A, CHILD_B]);
     expect(result!.merged.version).toBe(3);
   });
+  /**
+   * Comment behavior through the path `tbd sync` actually runs.
+   *
+   * The provider-comment postcondition has unit coverage over `mergeIssues`, but the
+   * merge users hit reads base/ours/theirs out of git refs, so the rules that matter
+   * most — never move a pending comment to a different provider issue, never rewrite a
+   * namespace that is not a comment log — were never exercised end to end. Both are
+   * silent when they go wrong: one delivers a comment to the wrong tracker issue, the
+   * other empties third-party data on an ordinary sync.
+   */
+  describe('provider comments across refs', () => {
+    const PENDING = {
+      local_id: '01aaaaaaaaaaaaaaaaaaaaaaaa',
+      at: '2025-01-02T00:00:00.000Z',
+      body: 'queued on the old link',
+    };
+    const DELIVERED = {
+      id: 'provider-1',
+      at: '2025-01-02T00:00:00.000Z',
+      body: 'already on the new link',
+    };
+
+    it('never carries a pending comment onto a different provider issue', async () => {
+      const id = SHARED;
+      await commitBead(
+        createTestIssue({ id, title: 'Linked', extensions: { linear: { id: 'issue-X' } } }),
+        'base',
+      );
+
+      // ours: still on issue-X, with a comment queued but not yet pushed.
+      await git('checkout', '-b', 'ours');
+      await commitBead(
+        createTestIssue({
+          id,
+          title: 'Linked',
+          version: 2,
+          updated_at: '2025-01-03T00:00:00Z',
+          extensions: { linear: { id: 'issue-X', comments: [PENDING] } },
+        }),
+        'ours queues a comment',
+      );
+
+      // theirs: relinked to issue-Y, which has a comment of its own.
+      await git('checkout', 'main');
+      await git('checkout', '-b', 'theirs');
+      await commitBead(
+        createTestIssue({
+          id,
+          title: 'Linked',
+          version: 2,
+          updated_at: '2025-01-04T00:00:00Z',
+          extensions: { linear: { id: 'issue-Y', comments: [DELIVERED] } },
+        }),
+        'theirs relinks',
+      );
+
+      const result = await mergeBeadAcrossRefs(repo, id, 'ours', 'theirs');
+      expect(result).not.toBeNull();
+
+      const linear = (
+        result!.merged.extensions as Record<string, { id: string; comments: unknown[] }>
+      ).linear!;
+      // Whichever lineage wins, the two comment logs are never merged: a comment
+      // queued against issue-X must not appear under issue-Y.
+      if (linear.id === 'issue-Y') {
+        expect(linear.comments).toEqual([DELIVERED]);
+      } else {
+        expect(linear.comments).toEqual([PENDING]);
+      }
+      // The discarded lineage is reported rather than dropped silently.
+      expect(result!.conflicts.map((c) => c.field)).toContain('extensions.linear');
+    });
+
+    it('leaves a third-party comments array untouched across refs', async () => {
+      const id = OTHER;
+      await commitBead(
+        createTestIssue({
+          id,
+          title: 'Third party data',
+          extensions: { myapp: { comments: ['a', 'b'], note: 'base' } },
+        }),
+        'base',
+      );
+
+      await git('checkout', '-b', 'ours');
+      await commitBead(
+        createTestIssue({
+          id,
+          title: 'Third party data',
+          version: 2,
+          updated_at: '2025-01-03T00:00:00Z',
+          extensions: { myapp: { comments: ['a', 'b'], note: 'local' } },
+        }),
+        'ours edits the note',
+      );
+
+      await git('checkout', 'main');
+      await git('checkout', '-b', 'theirs');
+      await commitBead(
+        createTestIssue({
+          id,
+          title: 'Third party data',
+          version: 2,
+          updated_at: '2025-01-04T00:00:00Z',
+          extensions: { myapp: { comments: ['a', 'b', 'c'], note: 'remote' } },
+        }),
+        'theirs appends and edits',
+      );
+
+      const result = await mergeBeadAcrossRefs(repo, id, 'ours', 'theirs');
+      expect(result).not.toBeNull();
+
+      const myapp = (result!.merged.extensions as Record<string, { comments: unknown[] }>).myapp!;
+      // Exact, because the winner is deterministic: theirs is newer, mergeBeadAcrossRefs
+      // passes ours as local, and namespace LWW is `nsLocalTime >= nsRemoteTime`. An
+      // arrayContaining assertion here would also accept a re-sorted array or a dropped
+      // entry, which is precisely the failure this test exists to catch.
+      expect(myapp).toEqual({ comments: ['a', 'b', 'c'], note: 'remote' });
+    });
+  });
 });

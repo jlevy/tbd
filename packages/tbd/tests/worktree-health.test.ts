@@ -395,6 +395,49 @@ describeUnlessWindows('repairWorktree', () => {
     const healthAfter = await checkWorktreeHealth(workRepoPath);
     expect(healthAfter.status).toBe('valid');
   });
+
+  /**
+   * A backup that did not happen must stop the repair.
+   *
+   * The corrupted branch removes the worktree recursively and then reports a
+   * `backedUp` path. If the copy that was supposed to fill that path failed, the
+   * removal destroys the only copy of whatever the worktree held — which for the
+   * data-sync worktree is unsynced bead work — and the caller is handed a path that
+   * does not exist. Losing data is worse than leaving a corrupted worktree in place
+   * for the operator to look at, so the repair fails closed instead.
+   *
+   * The copy is forced to fail by occupying its destination with a regular file:
+   * `fs.cp` refuses to copy a directory onto a non-directory. The destination name
+   * carries a whole-second timestamp, so every candidate in the next few seconds is
+   * occupied to keep the test off a second boundary.
+   */
+  it('aborts the repair and keeps the worktree when the backup copy fails', async () => {
+    await initWorktree(workRepoPath);
+
+    const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
+    await rm(join(worktreePath, '.git'), { force: true });
+    const testFile = join(worktreePath, 'test-data.txt');
+    await fsWriteFile(testFile, 'important data');
+
+    const { sharedBackupsDir } = await resolveSharedTbdPaths(workRepoPath);
+    await mkdir(sharedBackupsDir, { recursive: true });
+    for (let offset = 0; offset <= 3; offset++) {
+      const stamp = new Date(Date.now() + offset * 1000)
+        .toISOString()
+        .replace(/[:.]/g, '-')
+        .slice(0, 19);
+      await fsWriteFile(join(sharedBackupsDir, `corrupted-worktree-backup-${stamp}`), 'occupied');
+    }
+
+    const result = await repairWorktree(workRepoPath, 'corrupted');
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/backup/i);
+    // No path is reported, because none was written.
+    expect(result.backedUp).toBeUndefined();
+    // The worktree and its contents survive for the operator to recover by hand.
+    await expect(readFile(testFile, 'utf8')).resolves.toBe('important data');
+  });
 });
 
 describeUnlessWindows('migrateDataToWorktree', () => {

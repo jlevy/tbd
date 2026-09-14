@@ -186,3 +186,121 @@ describe('degenerate inputs', () => {
     expect(() => mergeExt(undefined, undefined, undefined)).not.toThrow();
   });
 });
+
+/**
+ * The comment union is a provider-link postcondition, not a rule about the key name
+ * `comments`.
+ *
+ * `extensions` is the documented home for third-party data (`lib/schemas.ts`), so a
+ * namespace this build knows nothing about may use `comments` for something that is not
+ * a provider comment log. Running the union over it drops every non-object entry and
+ * re-sorts the rest, which is silent data loss on an ordinary `tbd sync` merge — the
+ * caller never edited that namespace's comments at all.
+ *
+ * The union therefore applies only when both sides are actually comment logs: every
+ * entry parses as a `CommentEntry` (identity plus `at` plus `body`). Anything else
+ * falls through to namespace last-writer-wins, which preserves the winning side's
+ * value verbatim and reports the loser as a conflict like any other namespace.
+ */
+describe('comment union scoping', () => {
+  const COMMENT_A = {
+    local_id: '01aaaaaaaaaaaaaaaaaaaaaaaa',
+    at: '2026-08-10T00:00:00.000Z',
+    body: 'first',
+  };
+  const COMMENT_B = {
+    local_id: '01bbbbbbbbbbbbbbbbbbbbbbbb',
+    at: '2026-08-10T01:00:00.000Z',
+    body: 'second',
+  };
+  const COMMENT_C = {
+    local_id: '01cccccccccccccccccccccccc',
+    at: '2026-08-10T02:00:00.000Z',
+    body: 'third',
+  };
+
+  it('leaves a third-party string comments array untouched', () => {
+    const { ext } = mergeExt(
+      { myapp: { comments: ['a', 'b'], note: 'base' } },
+      { myapp: { comments: ['a', 'b'], note: 'local' } },
+      { myapp: { comments: ['a', 'b', 'c'], note: 'remote' } },
+    );
+
+    expect(ext.myapp).toEqual({ comments: ['a', 'b'], note: 'local' });
+  });
+
+  it('leaves third-party object entries without comment identity untouched', () => {
+    const { ext } = mergeExt(
+      { myapp: { comments: [{ text: 'a' }], note: 'base' } },
+      { myapp: { comments: [{ text: 'a' }], note: 'local' } },
+      { myapp: { comments: [{ text: 'a' }, { text: 'b' }], note: 'remote' } },
+    );
+
+    expect(ext.myapp).toEqual({ comments: [{ text: 'a' }], note: 'local' });
+  });
+
+  it('reports the losing third-party namespace as a conflict rather than merging it', () => {
+    const { conflicts } = mergeExt(
+      { myapp: { comments: ['a'], note: 'base' } },
+      { myapp: { comments: ['a'], note: 'local' } },
+      { myapp: { comments: ['a', 'b'], note: 'remote' } },
+    );
+
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]?.lost_value).toEqual({ comments: ['a', 'b'], note: 'remote' });
+  });
+
+  it('still unions a real provider comment log', () => {
+    // Both sides must differ from base, or `resolveNamespace` returns the one changed
+    // side before the union gate is ever reached and the case proves nothing about it.
+    const { ext } = mergeExt(
+      { linear: { id: 'uuid-1', comments: [COMMENT_A] } },
+      { linear: { id: 'uuid-1', comments: [COMMENT_A, COMMENT_C] } },
+      { linear: { id: 'uuid-1', comments: [COMMENT_A, COMMENT_B] } },
+    );
+
+    expect((ext.linear as { comments: unknown[] }).comments).toEqual([
+      COMMENT_A,
+      COMMENT_B,
+      COMMENT_C,
+    ]);
+  });
+
+  it('leaves an untouched comments: null namespace exactly as it was', () => {
+    // YAML `comments:` with no value parses to null. Nobody edited this namespace, so
+    // the merge must not invent an array for it — rewriting it also re-versions the
+    // bead on every sync.
+    const { ext } = mergeExt(
+      { myapp: { comments: null } },
+      { myapp: { comments: null } },
+      { myapp: { comments: null } },
+    );
+
+    expect(ext.myapp).toEqual({ comments: null });
+  });
+
+  it('does not union a null comments key against a real log', () => {
+    // null is not an empty log. The two sites that gate the union must agree about
+    // that, or the namespace merge archives the losing comments while the
+    // postcondition quietly unions them back.
+    const { ext, conflicts } = mergeExt(
+      { linear: { id: 'uuid-1', comments: null } },
+      { linear: { id: 'uuid-1', comments: null, note: 'local' } },
+      { linear: { id: 'uuid-1', comments: [COMMENT_A] } },
+    );
+
+    expect((ext.linear as { comments: unknown }).comments).toBeNull();
+    expect(conflicts).toHaveLength(1);
+  });
+
+  it('unions when one side has an empty comment log', () => {
+    // Two-sided again: local edits a sibling field, remote appends the first comment.
+    const { ext } = mergeExt(
+      { linear: { id: 'uuid-1', comments: [] } },
+      { linear: { id: 'uuid-1', comments: [], note: 'local' } },
+      { linear: { id: 'uuid-1', comments: [COMMENT_A] } },
+    );
+
+    expect((ext.linear as { comments: unknown[] }).comments).toEqual([COMMENT_A]);
+  });
+});
