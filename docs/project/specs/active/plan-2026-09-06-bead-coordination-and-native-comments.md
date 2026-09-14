@@ -18,10 +18,10 @@ PRs #282 and #283 do not change the current f08 format or expose public behavior
 The Phase 1 owner (`tbd-3eui`) and Phase 2 owner (`tbd-raxf`) remain open.
 Within the Phase 2 stack, only `tbd-e1tu` and `tbd-4r3w` are complete; the Git guards,
 recovery, compatibility, format, command, polling, and provider-projection gates remain
-open. None of this code is on `main` yet: PRs #278, #279, #282, and #283 land bottom to
-top under `tbd-m88s`. A release-compatibility review on 2026-09-14 found no format or
-read-path break; merging #279 waits on `tbd-s3zx`, `tbd-apnu`, and `tbd-cskr`, and
-publishing the stack waits on `tbd-lz1q`.
+open. PRs #278, #279, #282, and #283 merged to `main` together in `9753fad5` on
+2026-09-14 (landing bead `tbd-m88s`). A release-compatibility review found no format or
+read-path break. #279 merged before its gates closed, so `tbd-s3zx`, `tbd-apnu`, and
+`tbd-cskr` now gate the next release, with the rest of the release gate in `tbd-lz1q`.
 
 **Tracking:** `tbd-khi1`; completed historical plan preparation `tbd-q90q`.
 
@@ -524,8 +524,9 @@ sync and current integration comments remain usable.
   incompatible complete namespace before source clearing (`tbd-hqb9`, PR #279).
 - [ ] Apply that comment union only to provider namespaces, so third-party `extensions`
   data with a `comments` array is never rewritten by a merge (`tbd-s3zx`), and cover the
-  `tbd sync` and merge-refs paths with differing link lineage (`tbd-apnu`). Both gate
-  merging PR #279, with an independent re-review of its lineage fix (`tbd-cskr`).
+  `tbd sync` and merge-refs paths with differing link lineage (`tbd-apnu`), with an
+  independent re-review of the lineage fix (`tbd-cskr`). PR #279 merged before these
+  closed, so they gate the next release.
 - [ ] Make `tbd sync` save every merge conflict’s losing value to the attic, as
   workspace import and rescue already do.
   Today it counts conflicts and prints “preserved in attic” without writing an entry, so
@@ -839,8 +840,11 @@ performance SLA is claimed here.
 1. Land and ship focused Phase 1 fixes through the normal package process.
    Keep native-comment behavior, format activation, and automation absent until their
    independent gates pass.
-   The first increment is the open stack, PRs #278, #279, #282, and #283, merged bottom
-   to top (`tbd-m88s`, one child bead per layer).
+   The first increment is PRs #278, #279, #282, and #283, merged to `main` in `9753fad5`
+   (`tbd-m88s`). The merge, release, and format upgrade map in
+   `plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md`
+   sequences the releases that follow, and its f08 compatibility contract applies to
+   every fix that ships before f09 activation.
    Its release notes (`tbd-lz1q`) cover the reachable changes: `identity.agent_map` is
    now honored, so invalid values fail integration commands (`tbd-tia7`) and valid ones
    send `delegateId` on every push (`tbd-80vz`); comment lineage protection holds only
