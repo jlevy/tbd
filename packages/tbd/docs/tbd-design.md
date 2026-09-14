@@ -2692,6 +2692,28 @@ It does not compare content hashes.
 Direction therefore matters for an equal-timestamp conflict; callers must keep their
 local/remote roles stable.
 
+**Archiving:**
+
+Every strategy above that discards a value records it in the attic, and every path that
+runs the merge writes those records: `tbd sync`, workspace save, and workspace import.
+Entries go through one writer (`file/attic-entry.ts`) into the flat `attic/` directory
+on the sync branch, in the format `tbd attic list`, `show` and `restore` read, so an
+entry written by any path is readable by any of them and by a clone on an older release.
+
+The attic is append-only and is never read back into live issue state on its own, so
+archiving cannot change what a merge decided.
+Restoring is an explicit `tbd attic restore`, and it archives the value it replaces
+first, which makes the restore itself undoable.
+
+An entry names the side whose value survived.
+That side is carried on the conflict rather than derived per issue, because the merge
+does not use one rule for a whole entity: `lww` and `namespace_merge` resolve on
+`updated_at`, an independent creation resolves on `created_at`, a namespace deleted on
+one side survives from the other regardless of either, and the comment postcondition
+resolves on provider-link lineage.
+An entry that named the wrong winner would point whoever is recovering data at the value
+they still have.
+
 #### BaseEntity Merge Rules
 
 All entities share these base field merge rules:

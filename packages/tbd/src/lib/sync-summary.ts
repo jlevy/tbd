@@ -100,7 +100,12 @@ export function formatSyncSummary(summary: SyncSummary): string {
   let result = parts.join(', ');
 
   if (summary.conflicts > 0) {
-    result += ` (${summary.conflicts} conflict${summary.conflicts === 1 ? '' : 's'} resolved)`;
+    // Name the attic, not just the count. A resolved conflict means one side's value was
+    // discarded, and the only reason that is safe is that the value is recoverable — so
+    // the line that reports the loss has to say where it went.
+    result +=
+      ` (${summary.conflicts} conflict${summary.conflicts === 1 ? '' : 's'} resolved, ` +
+      `archived in the attic)`;
   }
 
   return result;

@@ -63,7 +63,13 @@ Your normal `git push` is only for code changes.
 - Separate issues never conflict since they are separate files.
 - If two agents modify the same issue at the same time, does field-level merge
   (last-write-wins for scalars, union for arrays)
-- In that case lost values preserved in attic—no data loss ever
+- In that case the value that lost is written to the attic, on every path that resolves
+  a conflict: `tbd sync`, and workspace save and import.
+  The attic is append-only and is never read back into live issue state, so archiving
+  cannot change what the merge decided; it is there so a merge that kept the wrong side
+  can be undone with `tbd attic restore`.
+- The attic lives on the sync branch with the issues, so an archived value reaches every
+  clone rather than staying on the machine that did the merge.
 
 ### Unique internal ids
 
@@ -1008,8 +1014,22 @@ Common config keys:
 
 ### attic
 
-Manage conflict archive.
-When sync conflicts occur, the losing values are preserved in the attic for recovery.
+Manage the conflict archive.
+When a merge has to discard a value — two clones editing the same field, a provider
+namespace relinked on one side — the discarded value is written to the attic, and
+`tbd attic restore` puts it back.
+
+Every path that resolves a conflict writes the same entry format to the same place:
+`tbd sync`, `tbd save --workspace`, and `tbd import --workspace`. Entries are
+append-only and never read back into live issue state on their own, so the archive can
+only ever add a way to recover — it cannot change what a merge decided.
+They travel on the sync branch with the issues, so an entry one clone wrote is readable
+from every clone, including clones on an older release.
+
+`restore` writes back text fields (`title`, `description`, `notes`); it archives the
+value it is about to replace first, so a restore is itself undoable.
+For a structured field such as `extensions.<provider>`, `tbd attic show` prints the lost
+value for manual recovery.
 
 ```bash
 tbd attic list                              # List all attic entries

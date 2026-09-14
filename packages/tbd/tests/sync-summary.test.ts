@@ -107,14 +107,18 @@ describe('formatSyncSummary', () => {
     const summary = emptySummary();
     summary.sent.new = 1;
     summary.conflicts = 2;
-    expect(formatSyncSummary(summary)).toBe('sent 1 new (2 conflicts resolved)');
+    expect(formatSyncSummary(summary)).toBe(
+      'sent 1 new (2 conflicts resolved, archived in the attic)',
+    );
   });
 
   it('formats single conflict correctly', () => {
     const summary = emptySummary();
     summary.received.updated = 1;
     summary.conflicts = 1;
-    expect(formatSyncSummary(summary)).toBe('received 1 updated (1 conflict resolved)');
+    expect(formatSyncSummary(summary)).toBe(
+      'received 1 updated (1 conflict resolved, archived in the attic)',
+    );
   });
 });
 

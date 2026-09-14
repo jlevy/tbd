@@ -14,6 +14,7 @@ import {
   classifySyncError,
 } from '../lib/errors.js';
 import { listIssues, writeIssue, type InvalidIssueFile } from '../../file/storage.js';
+import { saveConflictToAttic } from '../../file/attic-entry.js';
 import {
   git,
   gitCommit,
@@ -856,6 +857,36 @@ class SyncHandler extends BaseCommand {
    *
    * @returns field-level conflict entries (the caller preserves them in attic).
    */
+  /**
+   * Write one attic entry per value the bead merge discarded.
+   *
+   * Same writer, same directory, same entry format as a workspace import
+   * (`file/attic-entry.ts`), so `tbd attic list`, `show` and `restore` work on a sync
+   * conflict exactly as they do on an import conflict, and a client on an older release
+   * reads these entries too — its `AtticEntrySchema` and attic commands are unchanged.
+   *
+   * Archiving is best effort per entry: a merge that has already been resolved must not
+   * fail because a recovery copy could not be written. A failure is reported rather than
+   * swallowed, since the sync's own summary claims the values were preserved.
+   */
+  private async archiveConflicts(conflicts: ConflictEntry[]): Promise<void> {
+    if (conflicts.length === 0) {
+      return;
+    }
+    const atticDir = join(this.dataSyncDir, 'attic');
+    for (const conflict of conflicts) {
+      try {
+        const filename = await saveConflictToAttic(atticDir, conflict);
+        this.output.info(`Archived ${conflict.field} of ${conflict.issue_id} to attic/${filename}`);
+      } catch (error) {
+        this.output.warn(
+          `Could not archive the ${conflict.field} value dropped from ${conflict.issue_id}: ` +
+            (error as Error).message,
+        );
+      }
+    }
+  }
+
   private async mergeRemoteIntoSyncBranch(
     syncBranch: string,
     remote: string,
@@ -1050,6 +1081,16 @@ class SyncHandler extends BaseCommand {
           }
         }
       }
+
+      // Archive every value the merge had to drop, BEFORE staging, so the entries ride
+      // the same commit as the resolution that produced them and reach every clone.
+      //
+      // Without this the losing value existed only in git history: the sync reported
+      // "conflict(s) preserved in attic" and nothing had been written there. The attic
+      // is append-only and never read back into live bead state — it exists so a merge
+      // that discarded the wrong side can be undone — so writing here cannot change
+      // what the merge decided.
+      await this.archiveConflicts(conflicts);
 
       // Stage resolved files and complete merge
       // Use --no-verify to bypass parent repo hooks (lefthook, husky, etc.)
