@@ -9,10 +9,12 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Draft, revised 2026-09-13 after checking every tracker claim against the
-code on `main` and reading open PRs #278 through #283. The revision replaces the #265
-and #267 root causes, adds Phase 1B (one sync engine), and sequences the plan against
-the open PRs.
+**Status:** Active. Merged in #277 (2026-09-14) after a revision that checked every
+tracker claim against the code on `main`, replaced the #265 and #267 root causes, and
+added Phase 1B (one sync engine).
+The coordination stack (#278, #279, #282, #283) merged the same day.
+A follow-up revision (2026-09-14) adds the f08 compatibility contract that every sprint
+fix must satisfy and changes the 1a, 1e, 1f, and 1B designs to meet it.
 
 **Tracked as:** epic `tbd-ct4z`. Beads created for this plan carry `--spec` and sit
 under the epic. Beads that already belong to another arc (`tbd-bcss`, `tbd-dzme`) keep
@@ -117,7 +119,7 @@ Where a cause is inferred rather than confirmed, the text says so.
 - **The coordination plan’s phases**
   (`plan-2026-09-06-bead-coordination-and-native-comments.md` on #278). Its comment
   delivery identity (`tbd-6vg5`) and Linear comment projection (`tbd-osng`) edit
-  `runSync` too; see “Relationship to Open PRs”.
+  `runSync` too; see “Relationship to the Coordination Stack”.
 - **Phases 2 and 3 of the 2026-08-28 stability plan** (lock recovery, test-gate
   integrity, wall-clock flakes).
   They stay in that plan.
@@ -399,17 +401,19 @@ recover ([#254](https://github.com/jlevy/tbd/issues/254), confirmed again on 0.8
 2026-09-05). Both defects have beads under earlier plans (`tbd-pjan`, `tbd-fnwc`) and
 neither has shipped.
 
-## Relationship to Open PRs
+## Relationship to the Coordination Stack
 
-Five PRs formed one stack: #280, then #278, #279, #282, and #283, each based on the one
-before. #280 merged on 2026-09-14. #278, #279, and #282 were restacked onto `main` with
-trees identical to their reviewed heads, and #283 was restacked onto #282’s new head
-(`a48a4416` to `175eac50`, patch-identical), then gained one docs-only commit
-(`4a42a6ac`) recording these landing gates in the coordination plan.
-`git merge-tree` finds no textual conflict between the stack’s head and either this
-plan’s branch or the 2026-08-28 branch.
-Landing is tracked as `tbd-m88s`, with one child bead per layer in merge order
-(`tbd-o2ob`, `tbd-8rnq`, `tbd-g58e`, `tbd-w3tv`).
+Five PRs formed one stack: #280, then #278, #279, #282, and #283. #280 merged first, on
+2026-09-14, to unblock CI’s audit step.
+The other four merged together in `9753fad5` the same day, after restacks that left each
+reviewed tree unchanged and one docs-only commit on #283 (`4a42a6ac`) recording the
+landing gates in the coordination plan.
+`main` CI passed on the merge.
+Landing was tracked as `tbd-m88s`, with one child bead per layer (`tbd-o2ob`,
+`tbd-8rnq`, `tbd-g58e`, `tbd-w3tv`, all closed).
+#279 merged before its three gates closed, so they now apply to `main` and gate Release
+1 instead (see below).
+The table records what each PR changed:
 
 | PR | What it changes | Reachable today | Effect on this plan |
 | --- | --- | --- | --- |
@@ -432,7 +436,8 @@ It found five follow-ups, each a bead:
 - #279’s comment union runs on every `extensions` namespace with a `comments` array, so
   a merge silently rewrites third-party data (`tbd-s3zx`), and the `tbd sync` and
   merge-refs paths have no differing-lineage test (`tbd-apnu`). Its High review finding
-  fix has no independent re-review (`tbd-cskr`). These three gate merging #279.
+  fix has no independent re-review (`tbd-cskr`). #279 merged before these closed, so
+  they now gate Release 1.
 - `tbd sync` prints “conflict(s) preserved in attic” but writes no attic entry, which
   #279 and #283’s docs now rely on (`tbd-ajq2`, pre-existing, a release blocker).
   Decided: sync always saves every conflict’s losing value to the attic, and the attic
@@ -443,21 +448,12 @@ It found five follow-ups, each a bead:
   pre-existing), and the comment delivery docs omit the `tbd sync` fold (`tbd-af8w`).
 - Release notes for the stack’s reachable changes (`tbd-lz1q`).
 
-**Merge order.** #280, which had to merge first, is merged.
-The full sequence from merging the stack to activating the comment format is in “Native
-Comment Work: Merge, Release, and Format Upgrade Map” below.
-The rest of the stack can be reviewed and merged in parallel with Phases 0 and 1A, since
-none of it touches the files those phases change beyond the parser adjacency.
-It merges bottom to top: #278 can land now; #279 waits for its three gate beads, and
-#282 and #283 wait for #279. #283 does not block the sprint’s code: rebasing sprint code
-onto it is small (comment and message hunks in `sync-engine.ts`, `adapter.ts`,
-`integration.ts`, and `sync.ts`), while rebasing its document rewrite across sprint docs
-is the expensive direction.
-So the sprint’s document edits wait for it: the state-model corrections in 1a, the docs
-in `tbd-qeug`, `tbd-hspp`, and `tbd-owf9`, and the “nothing to do” wording that
-`tbd-km3p` changes, which #283 already documents as the steady state (`tbd-docs.md`
-around `:2005` and `:2221`). Landing the stack before Phase 2 also spares the spec-link
-doctor a round of findings about moves that exist only on those branches.
+**After the merge.** The full sequence from here to activating the comment format is in
+“Native Comment Work: Merge, Release, and Format Upgrade Map” below.
+The sprint’s document edits that waited for #283 can now proceed: the state-model
+corrections in 1a, the docs in `tbd-qeug`, `tbd-hspp`, and `tbd-owf9`, and the “nothing
+to do” wording that `tbd-km3p` changes, which #283 documents as the steady state
+(`tbd-docs.md` around `:2005` and `:2221`).
 
 **Semantic dependencies.**
 
@@ -479,9 +475,107 @@ doctor a round of findings about moves that exist only on those branches.
   to linked Linear beads), both edit the engine that Phases 1A and 1B restructure.
   1B’s planner classifies comment actions so `tbd-osng` adds a comment source rather
   than a second path. Sequence `tbd-6vg5` after 1a, or review the two together.
-- **Tracking hygiene.** The five 2026-08-28 beads and four coordination beads are closed
-  while their code is unmerged.
-  Each landing PR notes its merge commit on them.
+- **Tracking hygiene.** The coordination beads closed before merge now record merge
+  commit `9753fad5`. The five 2026-08-28 beads stay closed with their code still on the
+  unmerged branch; `tbd-bdkj` notes the merge commit when it lands.
+
+## f08 Compatibility Contract for Sprint Fixes
+
+Every fix in this plan ships without a format bump.
+A compatibility review on 2026-09-14 checked each planned change against what 0.7.x and
+0.8.x clients read, write, preserve, and replay when they share a repository, bridge
+records, intents, and config with a newer teammate.
+None of the changes needs f09; four needed design changes to stay safe, and those are
+folded into the Design sections below.
+
+### Why “no format bump” needs rules
+
+Four facts about current clients decide what an f08 change may do:
+
+- **Config survives only where every enclosing level keeps unknown keys.** `writeConfig`
+  writes back the parsed object (`file/config.ts:216-222`). The top level,
+  `integrations` and each provider block, `target`, `labels`, `identity`,
+  `policy.outbound`, `policy.inbound`, `policy.field_sync`, and legacy `select` keep
+  unknown keys in 0.7.0 and 0.8.1. `policy` itself does not (`PolicyDefinitionSchema`,
+  `lib/schemas.ts:761-795`, deliberately not passthrough), nor do `sync`, `settings`, or
+  `display`.
+- **Bridge records drop fields they do not declare.** `BridgeBaseSchema` and
+  `LinkRecordSchema` are plain objects (`lib/schemas.ts:611-687`), records are rebuilt
+  on write (`sync-engine.ts:1433-1472`), and 0.7.0 declares no `base.slot` or
+  `refinement_*` at all, so a 0.7.0 client already deletes them when it rewrites a
+  record.
+- **An intent a client cannot parse stops that provider’s sync.** `listIntentFiles`
+  throws on a schema failure (`integrations/core/intents.ts:152-157`) and is read even
+  on dry and `--pull` runs; unknown keys inside a patch are kept (`intents.ts:30-40`).
+- **The bead parser is shared history.** 0.7.0 and 0.8.1 split a body at the first
+  `/(^|\n)## Notes\n/i` after trimming (`file/parser.ts:71`, `:78`, `:131`); a client
+  that parses differently truncates or corrupts what another client wrote.
+
+### Rules
+
+1. No `CURRENT_FORMAT` change and no new bead keys.
+2. A new config key lives only at a level that keeps unknown keys in 0.7.0.
+3. No new bridge-record fields and no new meaning for existing ones.
+   If a field is unavoidable, it is optional, and its absence means “derive it”.
+4. No new intent op kinds; reuse `create_issue`, `update_issue`, `upsert_attachments`,
+   and `splice_description`. Journaled patches always carry `status`, `resolution`, and
+   `hold`, never `slot` alone.
+5. The parser does not change.
+   A writer-side encoding must read back identically in the 0.7.0 and 0.8.1 parsers and
+   leave the description hash unchanged.
+6. Attic entries are written only through `writeAtticEntryFile`, into the flat `attic/`
+   directory that `tbd attic list` reads (`cli/commands/attic.ts:92`).
+7. A change to what tbd writes to Linear passes the mixed-version convergence test (T3).
+   If it cannot, it ships opt-in or with a stated minimum version for every clone that
+   runs integration sync.
+8. A change to a generated script updates the upgrade proof’s expectation in the same PR
+   (`scripts/validate-upgrade-package.mjs:394-401` requires `tbd-session.sh` to be
+   unchanged for a compatible upgrade).
+9. A JSON shape change that is not additive is opt-in or named in the release notes.
+
+### Checks every sprint PR passes
+
+CI already runs `qa:upgrade-package` on every PR (`.github/workflows/ci.yml:54-56`). It
+proves that the candidate keeps unknown top-level and provider-level config keys, that
+the format stamp is unchanged, and that setup does not touch issue data.
+It does not prove that an old client can read what the candidate writes: the 0.7.0
+client only runs `status` afterward, nothing exercises beads, bridge records, intents,
+or the attic, and 0.8.1 is not a baseline.
+Four new tests close that gap:
+
+| Test | Bead | Proves | Gates |
+| --- | --- | --- | --- |
+| T1 | `tbd-3dti` | 0.8.1 is a second baseline; the old client’s `config set` and `setup --auto` keep keys the sprint adds at their nesting level, with a `policy.<sibling>` negative control | 1e, Phase 2 `specs.dir` |
+| T2 | `tbd-stdj` | the 0.7.0 and 0.8.1 exported parser and schemas read candidate-written beads (including `## Notes`), link records, and config identically, with the same description hash | 1f, any bridge-record change |
+| T3 | `tbd-s4kb` | packed 0.8.1 and the candidate alternating `tbd integration sync` against the Linear mock converge by run 4 on a blocked epic, a future-deferred epic, an In Review item, a team without Backlog, a #267 pair seeded by 0.8.1, a flattened child, and one 0.8.1 `--push` | 1a, 1e, Phase 1B |
+| T4 | `tbd-9fpp` | a 0.8.1 clone merges and reads candidate-written attic entries, bridge records, and journaled intents across a two-clone `tbd-sync` merge | `tbd-ajq2`, Phase 1B |
+
+Existing checks stay required: `pnpm --filter get-tbd test`, `pnpm qa:upgrade-package`,
+`tests/cli-format-compatibility.tryscript.md`, and the `cli-sync*` tryscripts.
+
+### Per-change classification
+
+| Change | Persisted surface | f08-safe? | Constraint |
+| --- | --- | --- | --- |
+| Phase 0 branch (reporting, `--explain`) | CLI and JSON only | yes | keep JSON additive; release-note ids moving from `pushed` to `suppressedPushes` |
+| 1a slot round trip | Linear state; `base.slot` | yes, with the 1a changes below | keep `base.slot` in local vocabulary; seed-from-0.8.1 duplicate test; T3 |
+| 1a duplicate pointer | existing bead fields | yes | the upgrade rule in 1a |
+| 1a create path | Linear; journaled `create_issue` | yes | rule 4 |
+| 1b, 1c, 1g reporting, guard order, `tbd sync --yes` | CLI and JSON; journal order | yes | no new op kinds; a refused run leaves the journal intact |
+| 1d nesting notice and doctor check | none | yes | none |
+| 1e `policy.outbound.deep` | nested config (kept by 0.8.1 under an inline policy object) | on disk yes; behavior no | every 0.7.x and 0.8.x sync re-sets linked parents (`sync-engine.ts:850-860`), undoing `flatten`; ships only with a minimum version for every writer, after T3 |
+| 1f `## Notes` round trip | bead body bytes | yes, writer-side only | encoding in 1f; T2 |
+| 1B one sync | Linear; bridge base values; intents | yes, if constrained | rules 3 and 4; attachment changes detected against the remote item; T3, T4 |
+| `tbd-ajq2` sync attic entries | attic files | yes | rule 6; non-bead conflicts (link records, intents) need a representation list and restore can show; T4 |
+| Phase 2 `specs.dir`, `--fix` repointing | top-level config; existing `spec_path` | yes | do not reinterpret `select.specs: active` relative to `specs.dir` (`lib/schemas.ts:557-563`) |
+| Phase 3 bulk `--parent` and `--spec`; `--children`, `--linked` | existing bead fields; JSON | yes | `list --specs --json` groups are a breaking shape change: opt-in flag or release note |
+| 4a git-boundary resolution | none (CLI) | yes | ship an escape hatch or a warning first: agents work inside nested clones such as `attic/<repo>` from `checkout-third-party-repo` |
+| 4d generated hook scripts | generated surfaces | yes | rule 8; an old client’s `setup --auto` restores the old script, which is churn, not data loss |
+| 5c honest setup exit | generated surfaces | yes | exit 1 only on a real write failure; the upgrade harness and bootstrap scripts require setup to succeed |
+
+Already true today, and stated in Release 1’s notes: a 0.7.x client that runs
+integration sync drops `base.slot` and `refinement_*` and leaves `resolution` set on a
+reopened bead, so 0.8.1 is the minimum version for any clone that runs integration sync.
 
 ## Native Comment Work: Merge, Release, and Format Upgrade Map
 
@@ -503,8 +597,8 @@ flowchart LR
 
 | Stage | On disk | Older clients | What an existing repository does | Gates |
 | --- | --- | --- | --- | --- |
-| A. Merge the stack | unchanged f08; no new files written | unaffected | nothing | per layer below |
-| B. Release 1 | unchanged f08; attic entries from `tbd sync` (same entry format) | 0.7.x and 0.8.x keep reading and writing | `tbd setup --auto` refreshes generated agent surfaces; no migration | `tbd-lz1q`, `tbd-od0z`, `tbd-ajq2`, `tbd-tia7`, `tbd-80vz` |
+| A. Merge the stack (done, `9753fad5`) | unchanged f08; no new files written | unaffected | nothing | carried into Release 1 |
+| B. Release 1 | unchanged f08; attic entries from `tbd sync` (same entry format) | 0.8.x keeps reading and writing; 0.8.1 is the minimum for clones that run integration sync | `tbd setup --auto` refreshes generated agent surfaces; no migration | `tbd-lz1q`, `tbd-od0z`, `tbd-ajq2`, `tbd-s3zx`, `tbd-apnu`, `tbd-cskr`, `tbd-tia7`, `tbd-80vz`, f08 contract tests T1 to T4 |
 | C. Preservation release | unchanged f08; every sync, merge, recovery, and doctor path preserves a `comments/` tree it does not yet use | still read and write, but do not preserve comment records | nothing; this release becomes the minimum for every writer | `tbd-76ad`: `tbd-qo4d`, `tbd-7ufa`, `tbd-44kw` |
 | D. Format freeze | no release artifact | n/a | n/a | `tbd-z3ag` (with `tbd-q2w2` evidence) |
 | E. f09 activation | f09 only after an explicit, committed enable | an f08-only client that has pulled the enable commit refuses before mutating | nothing until a maintainer enables it | `tbd-x6eo`, writer inventory, packed refusal and stale-clone proofs |
@@ -512,14 +606,15 @@ flowchart LR
 
 ### A. Merge the dormant stack
 
-Merge bottom to top under `tbd-m88s`, one child bead per layer.
+Done: merged bottom to top in `9753fad5` on 2026-09-14 under `tbd-m88s`, with `main` CI
+green on the merge.
 
-| Layer | Bead | State (2026-09-14) | Remaining gates |
+| Layer | Bead | Outcome | Gates carried forward |
 | --- | --- | --- | --- |
-| #278 coordination plan and research | `tbd-o2ob` | mergeable, CI green, docs only | none |
-| #279 embedded provider comments preserved through recovery | `tbd-8rnq` | mergeable, CI green | `tbd-s3zx` (scope the comment union to provider namespaces), `tbd-apnu` (sync and merge-refs lineage tests), `tbd-cskr` (independent re-review of the PR279-R1 fix) |
-| #282 dormant native comment records | `tbd-g58e` | mergeable, CI green | #279 |
-| #283 dormant inventory, `agent_map` fix, docs | `tbd-w3tv` | mergeable, CI green | #282 |
+| #278 coordination plan and research | `tbd-o2ob` | merged, docs only | none |
+| #279 embedded provider comments preserved through recovery | `tbd-8rnq` | merged before its gates closed | `tbd-s3zx` (scope the comment union to provider namespaces), `tbd-apnu` (sync and merge-refs lineage tests), `tbd-cskr` (independent re-review of the PR279-R1 fix), now Release 1 gates |
+| #282 dormant native comment records | `tbd-g58e` | merged | none |
+| #283 dormant inventory, `agent_map` fix, docs | `tbd-w3tv` | merged | `tbd-tia7`, `tbd-80vz` (Release 1) |
 
 Why merging is safe for existing repositories, and the evidence for each claim:
 
@@ -534,9 +629,10 @@ Why merging is safe for existing repositories, and the evidence for each claim:
   reads what the candidate writes; it passed on #283’s code.
 - **What does change** is reachable behavior, and each change is either fixed before its
   layer merges or tracked for the release: #279’s comment union rewrites third-party
-  `extensions` data (`tbd-s3zx`, before merge), #283’s `agent_map` fix makes invalid
-  maps fail and valid maps send `delegateId` on every push (`tbd-tia7`, `tbd-80vz`), and
-  `tbd sync` does not yet write the attic entries the new docs describe (`tbd-ajq2`).
+  `extensions` data (`tbd-s3zx`, which did not close before merge and now gates Release
+  1), #283’s `agent_map` fix makes invalid maps fail and valid maps send `delegateId` on
+  every push (`tbd-tia7`, `tbd-80vz`), and `tbd sync` does not yet write the attic
+  entries the new docs describe (`tbd-ajq2`).
 
 Rollback: each layer is a merge commit and can be reverted; nothing it writes needs
 migrating back.
@@ -548,6 +644,11 @@ this sprint’s Phase 0 and 1A have landed.
 Before tagging:
 
 - `tbd-od0z` has landed, because #264 already widens the #265 alternation on `main`.
+- `tbd-s3zx`, `tbd-apnu`, and `tbd-cskr` have closed: #279 is on `main`, so its comment
+  union already rewrites third-party `extensions` data during merges there.
+- Every sprint fix in the release satisfies the f08 compatibility contract, including
+  the tests T1 to T4 (`tbd-3dti`, `tbd-stdj`, `tbd-s4kb`, `tbd-9fpp`) for the changes
+  they gate.
 - `tbd-ajq2` has landed: `tbd sync` saves every merge conflict to the attic, and the
   attic is documented as an extra, append-only recovery store with restore steps.
 - `tbd-tia7` has landed, or the release notes name the new `agent_map` failure;
@@ -562,7 +663,9 @@ Before tagging:
 User upgrade: `npm install -g get-tbd@latest`, then `tbd setup --auto` in each
 repository and commit the generated-surface diff.
 There is no format migration, and a teammate still on 0.8.x keeps working against the
-same repository.
+same repository. A clone that runs `tbd integration sync` needs at least 0.8.1 (0.7.x
+drops `base.slot` and `refinement_*`), plus any further minimum T3 establishes for the
+Backlog mapping.
 
 ### C. Preservation release (f08)
 
@@ -701,8 +804,11 @@ states, pins it.
   When either projection agrees, the slots agree and nothing is written.
   A refinement the bead cannot hold (`in_review`, `draft`) stays remote-owned, and a
   distinction the team cannot show (no Backlog or Duplicate state) stays local-owned.
-  The base records the slot the pair agreed on in the remote’s terms, so the record
-  matches what the next read returns.
+  The comparison happens in memory: `base.slot` keeps the local vocabulary it has today,
+  because 0.8.1 compares it exactly (`reconcile.ts:262-265`, `slots.ts:242`) and would
+  push every run against a base stored in the remote’s terms.
+  If a remote-form value must persist, it goes in a new optional field whose absence
+  means “derive”, since old clients drop undeclared bridge fields.
   The refinement record (`refinement_slot`, `refinement_state_id`) keeps its current
   role of returning an issue to its column after a round trip.
 - **Never report a push that did not happen.** When no state resolves for the target,
@@ -715,17 +821,29 @@ states, pins it.
   `canceled` (`sync-engine.ts:806-810`) applies only to a bead with no pointer.
   A patch that moves the bead out of the duplicate position clears the pointer, as
   `reopen.ts:139-144` does.
+  **Upgrade rule:** every existing #267 pair already holds base `duplicate`, remote
+  Canceled, and a bead with a pointer, because 0.8.1’s pull failed before the base
+  advanced. When the base is `duplicate`, the bead carries `resolution: duplicate` with a
+  pointer, and the remote is Canceled, the slots agree and the run pushes the Duplicate
+  state; without this rule the first run after upgrade clears the pointer on every such
+  pair. A test seeds that state as 0.8.1 leaves it, not a fresh pair.
   This ships in the same PR as the round-trip change and never before it, because
   without the round trip the clearing rule fires on a phantom remote change.
 - **The create path matches the pair path.** The engine’s create call writes the slot
   (so a canceled bead is created as Canceled and a held bead lands in Backlog) and
   applies the `assignee: merge` gate.
+  A journaled create carries `status`, `resolution`, and `hold` alongside `slot`,
+  because a 0.8.1 replay ignores `slot`.
 
 The first run after upgrade moves linked, open, not-ready items from Todo to Backlog and
 duplicates from Canceled to Duplicate.
 That is the designed mapping, so it ships with a release note and counts toward the bulk
 guard like any other push.
-See Open Questions for the alternative.
+With 0.8.x teammates the Backlog write can alternate: 0.8.1 treats a future
+`deferred_until` as ready and its `--push` writes Todo for every open item.
+T3 (`tbd-s4kb`) decides it: if the mixed pair cannot converge, Release 1 states a
+minimum version for every clone that runs integration sync, or the Backlog write is
+opt-in. See Open Questions for the alternative.
 
 Tests, each red on `main` first:
 
@@ -833,11 +951,26 @@ unset. Already-linked deep beads are mirrored exactly this way today
 one. The 2026-08-10 spec chose “deeper structure stays in beads” because Linear’s views
 flatten past two levels; that stays the default, and `flatten` is for a team that would
 rather see a flat epic than none.
-See Open Questions.
+Compatibility: the key is kept on disk by 0.8.1 under an inline policy object, but every
+0.7.x and 0.8.x sync re-sets the Linear parent of a linked bead whose parent is linked
+(`sync-engine.ts:850-860`), so a mixed team would re-nest what `flatten` flattens on
+every run.
+`flatten` therefore ships only with a stated minimum version for every writer,
+after T3 covers it. See Open Questions.
 
-**1f. Pulled prose keeps its `## Notes` heading.** The parser’s notes split
-(`parser.ts:78-85`) applies to beads tbd wrote; a pulled description is stored so that a
-literal `## Notes` in tracker prose round-trips unchanged.
+**1f. Pulled prose keeps its `## Notes` heading.** The parser does not change: 0.7.0 and
+0.8.1 split at the first `/(^|\n)## Notes\n/i` after trimming (`file/parser.ts:71`,
+`:78`, `:131`), so a new parse rule would make old clients truncate the description and
+push the shortened text to Linear.
+The fix is on the writer side: a `## notes` line inside a description is written with a
+trailing space (a leading space when it is the last line).
+The 0.8.1 parser, serializer, and description hash read that back identically and
+hash-neutrally, because the hash normalizer strips trailing whitespace and one to three
+leading spaces (`bridge-state.ts:109-116`). Encodings that change the hash, such as
+`\##`, would cause a push loop.
+The one case the encoding cannot express, a description that is only the heading on a
+bead with notes, is reported as excluded.
+T2 (`tbd-stdj`) pins the round trip in the old parser.
 
 **1g. Interim honesty for `--push`.** Until Phase 1B lands, the `--push` dry run and its
 confirmation say what the projection does:
@@ -887,6 +1020,11 @@ Design:
   did not reconcile.
 - **One guard, one printer, one JSON report** over the filtered actions, before any
   write.
+- **No new intent op kinds or record fields.** The engine journals only the op kinds
+  0.7.0 knows (`create_issue`, `update_issue`, `upsert_attachments`,
+  `splice_description`), because an unrecognized intent stops an old client’s sync for
+  the whole provider. Attachment changes are detected against the remote item, not a new
+  stored field. T3 and T4 gate the engine.
 - **One overwrite.** `--take local|remote` forces the owner rule for the selected pairs
   through the existing `local`/`remote` branch (`reconcile.ts:413-427`), which already
   reports overwrites; discarded values go to the attic as conflicts do.
@@ -1197,10 +1335,11 @@ to `tbd spec status`; the CHANGELOG entry leads with convergence and the spec li
 | `.tbd/config.yml` | `specs.dir` (default `docs/project/specs`); `integrations.<p>.policy.outbound.deep` |
 | Generated hooks | PATH append; Node probe; `systemMessage` on failure; closing reminder on `gh pr create` |
 
-No bead schema change and no format bump: `BeadPatch` and `CanonicalPatch` are in-memory
-types, the bridge record already stores a slot, and the two config keys are optional
-with defaults resolved in code, following the f08 convention
-(`provider-settings.ts:93-99`).
+No format bump and no bead schema change: `BeadPatch` and `CanonicalPatch` are in-memory
+types, and both config keys sit at levels that 0.7.0 and 0.8.1 preserve.
+Every change is held to the f08 compatibility contract above, which also records the
+behavior limits the format alone does not cover (1a with 0.8.x teammates, 1e, and the
+JSON shape changes).
 
 ## Implementation Plan
 
@@ -1213,7 +1352,11 @@ that PR because they edit the documents it rewrites.
 
 - [x] Merge [#280](https://github.com/jlevy/tbd/pull/280) (PR, no bead): CI’s audit step
   fails without it (merged 2026-09-14)
-- [ ] `tbd-cfcc`: review and merge this plan (#277)
+- [x] `tbd-cfcc`: review and merge this plan (#277, merged 2026-09-14)
+- [ ] `tbd-3dti`: f08 contract T1, 0.8.1 baseline and old-client config round trip
+- [ ] `tbd-stdj`: f08 contract T2, old parser and schemas read candidate-written data
+- [ ] `tbd-s4kb`: f08 contract T3, mixed-version Linear convergence
+- [ ] `tbd-9fpp`: f08 contract T4, two-clone merge with a 0.8.1 clone
 - [ ] `tbd-bdkj`: rebase `claude/tbd-sync-bugs-review-f1qb1f` onto `main`, close the
   four review gaps, run the integration suites and `cli-sync*` tryscripts, open and
   merge the PR
