@@ -3,9 +3,9 @@ type: is
 id: is-01m26cmagk7vpeq8k3z1d9rm9a
 title: Abort corrupted-worktree repair when backup fails
 kind: bug
-status: open
+status: closed
 priority: 0
-version: 3
+version: 5
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 labels: []
 dependencies:
@@ -13,7 +13,14 @@ dependencies:
     target: is-01m2eseh97vth3cpm35m074faf
 parent_id: is-01m1w3d1e63qg5e2wpz31qkmvn
 created_at: 2026-09-10T19:27:34.413Z
-updated_at: 2026-09-14T04:31:00.683Z
+updated_at: 2026-09-14T14:10:55.044Z
+closed_at: 2026-09-14T14:10:55.044Z
+close_reason: |-
+  Fixed: repairWorktree now treats the backup as a precondition for removal. On a corrupted worktree, a failed cp returns { success: false } naming the backup path, the underlying reason, and the untouched worktree path; the recursive rm and the fresh init no longer run, and no backedUp path is reported for a backup that does not exist (file/git.ts, corrupted branch).
+
+  Red-green: new case in tests/worktree-health.test.ts, 'aborts the repair and keeps the worktree when the backup copy fails'. The copy is forced to fail by occupying its destination with a regular file (fs.cp refuses directory-onto-non-directory); the destination name carries a whole-second timestamp, so candidates for the next 3 seconds are occupied to stay off a second boundary. Verified red by reverting the fix in place: 'expected true to be false' — the old code reported success:true after deleting the data, and the test's written file was gone. Green with the fix; full 38-case suite passes.
+resolution: null
+duplicate_of: null
 ---
 repairCorruptedWorktree catches backup copy failures, recursively removes the worktree anyway, and reports a backup path that may not exist. Fail closed before removal unless durable backup succeeds, with a forced-copy-failure regression. Treat as a release safety blocker.
 

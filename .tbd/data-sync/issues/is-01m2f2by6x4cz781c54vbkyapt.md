@@ -3,14 +3,23 @@ type: is
 id: is-01m2f2by6x4cz781c54vbkyapt
 title: tbd sync --dry-run silently skips the tracker surface entirely and exits 0
 kind: bug
-status: open
+status: closed
 priority: 2
-version: 1
+version: 2
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 labels: []
 dependencies: []
 created_at: 2026-09-14T04:21:23.804Z
-updated_at: 2026-09-14T04:21:23.804Z
+updated_at: 2026-09-14T14:11:10.320Z
+closed_at: 2026-09-14T14:11:10.320Z
+close_reason: |-
+  Fixed the dishonesty, not the omission. tbd sync --dry-run still does not evaluate the tracker surface — it cannot, because it never opens the locked data-sync context that surface needs, and opening one in a dry run would repair the worktree and commit pending state, which is exactly what a dry run must not do. What it no longer does is stay silent about it: cli/commands/sync.ts now emits a notice whenever the tracker surface is selected and skipped for a dry run, pointing at 'tbd integration sync --dry-run', which does reach the tracker.
+
+  Uses notice(), not info(): info is verbose-only (documented at sync.ts:161 for the adjacent surface-narrowing notice), so an info() call would have left the default run as silent as before — the defect itself. Verified on the built CLI: both 'tbd --dry-run sync' and 'tbd --dry-run sync --integrations' now print it; before, the latter printed nothing at all and exited 0.
+
+  Actually running the tracker surface under --dry-run stays open as part of Phase 1b's reporting work; this change makes the current behavior honest in the meantime.
+resolution: null
+duplicate_of: null
 ---
 Reproduced on main at 52d5c2f7 in this repository (linear enabled, LINEAR_API_KEY deliberately absent):
 
