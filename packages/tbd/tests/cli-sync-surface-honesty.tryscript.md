@@ -158,6 +158,58 @@ $ tbd sync --status 2>&1 | grep -c "Skipping external trackers" || true
 
 * * *
 
+## A dry run cannot evaluate the tracker, and must say so
+
+`--dry-run` never opens the locked data-sync context the tracker surface needs, so it
+does not evaluate that surface at all.
+Returning quietly is indistinguishable from “the tracker is settled”, and this is the
+command agents run to preview a sync.
+
+The same `info()`/`notice()` trap applies one level deeper here: a bare `notice()` emits
+NOTHING under `--json`, which is the mode agents run, so the structured payload is what
+actually carries the fact.
+
+# Test: a dry run names the surface it did not evaluate
+
+```console
+$ tbd sync --integrations --dry-run 2>&1 | grep -c "Dry run does not evaluate external trackers"
+1
+? 0
+```
+
+# Test: it points at the command that does reach the tracker
+
+```console
+$ tbd sync --integrations --dry-run 2>&1 | grep -c "tbd integration sync --dry-run"
+1
+? 0
+```
+
+# Test: a plain dry run reports it too
+
+```console
+$ tbd sync --dry-run 2>&1 | grep -c "Dry run does not evaluate external trackers"
+1
+? 0
+```
+
+# Test: capture the dry-run JSON channels separately
+
+```console
+$ tbd sync --integrations --dry-run --json > dry-output.json 2> dry-diagnostics.jsonl || true
+? 0
+```
+
+# Test: JSON mode carries the unevaluated surface as a structured diagnostic
+
+```console
+$ node -e "const fs=require('node:fs'); const rows=fs.readFileSync('dry-diagnostics.jsonl','utf8').trim().split('\\n').map(JSON.parse); const row=rows.find((r)=>r.reason==='dry-run'); console.log(row.skippedSurfaces.join(',')+' '+row.reason)"
+integrations dry-run
+? 0
+```
+
+* * *
+
 ## Deliberately excluded from `tbd sync`
 
 A team that turns the fold off has already decided the tracker is manual, so a scoped

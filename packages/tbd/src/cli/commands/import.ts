@@ -589,8 +589,12 @@ class ImportHandler extends BaseCommand {
         );
         const internalId = generateInternalId();
         beadsTotbd[beads.id] = internalId;
-        // Derived from the new ULID rather than random, so two clones importing the
-        // same file independently compute the same replacement instead of diverging.
+        // Derived from the new ULID rather than random. This does NOT make two clones
+        // agree — `generateInternalId` mints a fresh random ULID per run, so they pick
+        // different ids either way. What it buys is agreement with the repair path:
+        // `resolveDuplicateShortIds` recomputes displaced short ids from the ULID the
+        // same way, so if two clones' `ids.yml` later collide, the bead is already
+        // sitting where that repair would put it.
         const ulid = extractUlidFromInternalId(internalId);
         const newShortId = deriveShortIdFromUlid(ulid, new Set(shortIdMapping.shortToUlid.keys()));
         addIdMapping(shortIdMapping, ulid, newShortId);

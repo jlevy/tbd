@@ -44,6 +44,15 @@ function sortKey(entry: Record<string, unknown>): string {
  * `CommentEntry` contract in `lib/schemas.ts`, checked structurally here because this
  * module is the one both the merge engine and the comment store share. An empty array
  * qualifies — a log with nothing in it is still a log, and unioning it loses nothing.
+ *
+ * Every entry must qualify, so ONE malformed entry disables the union for that whole
+ * namespace on that merge, and a concurrent comment on the other side goes to the attic
+ * as an ordinary last-writer-wins loser instead of merging. That is deliberate: refusing
+ * to interpret an array we do not recognize is the safe half of the trade, and a
+ * malformed entry cannot come from tbd itself — the comment store validates every entry
+ * with `CommentEntry` on read and rewrites only valid ones
+ * (`integrations/core/comment-store.ts`), and this predicate is strictly looser than
+ * that schema. Only a hand edit or a foreign tool can produce one.
  */
 export function isCommentLog(value: unknown): value is Record<string, unknown>[] {
   return (
@@ -59,6 +68,33 @@ export function isCommentLog(value: unknown): value is Record<string, unknown>[]
 }
 
 /**
+ * Whether two `extensions` namespaces may have their comment logs unioned.
+ *
+ * The single gate every caller must use, so the merge and its postcondition cannot
+ * disagree about one namespace — when they did, the merge archived a losing comment
+ * array as a conflict and the postcondition unioned it straight back, recording a loss
+ * that never happened.
+ *
+ * A side qualifies if it holds a comment log, or if it has no `comments` key at all
+ * (nothing to lose). Anything else — a string array, entries without identity, or an
+ * explicit `null`, which is what YAML `comments:` with no value parses to — disqualifies
+ * the pair, and the namespace takes the ordinary last-writer-wins path instead. At least
+ * one side must actually hold a log, or there is nothing to union.
+ */
+export function commentLogsUnionable(
+  left: Record<string, unknown>,
+  right: Record<string, unknown>,
+): boolean {
+  const leftIsLog = isCommentLog(left.comments);
+  const rightIsLog = isCommentLog(right.comments);
+  return (
+    (leftIsLog || rightIsLog) &&
+    (leftIsLog || left.comments === undefined) &&
+    (rightIsLog || right.comments === undefined)
+  );
+}
+
+/**
  * Union two comment arrays by identity, ordered by creation time.
  *
  * Non-array inputs read as empty; non-object entries are dropped. Where the
@@ -66,7 +102,7 @@ export function isCommentLog(value: unknown): value is Record<string, unknown>[]
  * (i.e. the pushed observation) wins.
  *
  * Callers merging an arbitrary `extensions` namespace must gate this on
- * `isCommentLog` for both sides first; see the note there.
+ * `commentLogsUnionable` first; see the note there.
  */
 export function unionCommentArrays(a: unknown, b: unknown): Record<string, unknown>[] {
   const entries = (value: unknown): Record<string, unknown>[] =>

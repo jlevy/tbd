@@ -362,9 +362,11 @@ describeUnlessWindows('mergeBeadAcrossRefs', () => {
       expect(result).not.toBeNull();
 
       const myapp = (result!.merged.extensions as Record<string, { comments: unknown[] }>).myapp!;
-      // The winning side's array survives verbatim; nothing is dropped or re-sorted.
-      expect(myapp.comments).toEqual(expect.arrayContaining(['a', 'b']));
-      expect(myapp.comments.every((entry) => typeof entry === 'string')).toBe(true);
+      // Exact, because the winner is deterministic: theirs is newer, mergeBeadAcrossRefs
+      // passes ours as local, and namespace LWW is `nsLocalTime >= nsRemoteTime`. An
+      // arrayContaining assertion here would also accept a re-sorted array or a dropped
+      // entry, which is precisely the failure this test exists to catch.
+      expect(myapp).toEqual({ comments: ['a', 'b', 'c'], note: 'remote' });
     });
   });
 });

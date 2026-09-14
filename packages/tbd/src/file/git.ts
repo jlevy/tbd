@@ -776,7 +776,7 @@ function resolveNamespace(
   }
 
   // Both sides are objects and at least one carries a comment LOG — an array whose
-  // every entry has comment identity, `at`, and `body` (`isCommentLog`). Comments
+  // every entry has comment identity, `at`, and `body` (`commentLogsUnionable`). Comments
   // from the same provider-link lineage are append-only and union by identity.
   // A different or uncertain lineage falls through to namespace LWW below so a
   // pending comment can never be transplanted to another provider issue.
@@ -790,13 +790,7 @@ function resolveNamespace(
   const localNs = local[namespace];
   const remoteNs = remote[namespace];
   if (isPlainObject(localNs) && isPlainObject(remoteNs)) {
-    const localHasLog = isCommentLog(localNs.comments);
-    const remoteHasLog = isCommentLog(remoteNs.comments);
-    const bothSidesAreLogs =
-      (localHasLog || remoteHasLog) &&
-      (localHasLog || localNs.comments === undefined) &&
-      (remoteHasLog || remoteNs.comments === undefined);
-    if (bothSidesAreLogs && commentsShareLinkLineage(localNs, remoteNs)) {
+    if (commentLogsUnionable(localNs, remoteNs) && commentsShareLinkLineage(localNs, remoteNs)) {
       const winnerNs = localWins ? localNs : remoteNs;
       const loserNs = localWins ? remoteNs : localNs;
       const value = {
@@ -830,16 +824,16 @@ function preserveNamespaceComments(
   remoteValue: unknown,
   onConflict: (namespace: string, lost: unknown, winner: unknown) => void,
 ): unknown {
-  // Same shape gate as the namespace merge: a `comments` key that is not a comment
-  // log on both sides belongs to some third party, and this postcondition must leave
-  // it exactly as the ordinary merge resolved it.
+  // Literally the same gate as the namespace merge, via the same function: if these two
+  // sites disagree about one namespace, the merge archives a losing comment array as a
+  // conflict and this postcondition unions it back, so the attic records a loss that
+  // did not happen. A namespace that does not qualify is left exactly as the ordinary
+  // merge resolved it.
   if (
     !isPlainObject(resolvedValue) ||
     !isPlainObject(localValue) ||
     !isPlainObject(remoteValue) ||
-    !isCommentLog(localValue.comments ?? []) ||
-    !isCommentLog(remoteValue.comments ?? []) ||
-    (localValue.comments === undefined && remoteValue.comments === undefined)
+    !commentLogsUnionable(localValue, remoteValue)
   ) {
     return resolvedValue;
   }
@@ -1483,7 +1477,7 @@ import {
 import { DATA_SYNC_SCHEMA_VERSION, LinkRecordSchema } from '../lib/schemas.js';
 import type { LinkRecord } from '../lib/types.js';
 import { parseYamlWithConflictDetection, stringifyYaml } from '../utils/yaml-utils.js';
-import { isCommentLog, unionCommentArrays } from '../lib/comment-union.js';
+import { commentLogsUnionable, unionCommentArrays } from '../lib/comment-union.js';
 import {
   loadIdMapping,
   mergeIdMappings,

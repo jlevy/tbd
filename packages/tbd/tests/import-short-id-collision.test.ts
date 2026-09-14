@@ -82,10 +82,29 @@ describe('Beads import onto an occupied short ID', () => {
     expect(survivor.title).toBe('Native issue that must survive');
     expect(survivor.extensions ?? {}).not.toHaveProperty('beads');
 
-    // The bead landed as its own issue, under some other short ID.
+    // The bead landed as its own issue, under a DIFFERENT short ID.
+    //
+    // Compare short-ID suffixes, not whole ids: the import detects the incoming prefix
+    // and rewrites `display.id_prefix` from `coll` to `src` (import.ts
+    // updateConfigPrefixIfNeeded), so every id now renders as `src-…` and comparing
+    // whole ids would pass no matter what the import did.
     const all = JSON.parse(tbd(['list', '--all', '--json'])) as Record<string, unknown>[];
+    const suffix = (id: string) => id.split('-').slice(1).join('-');
+
+    expect(all).toHaveLength(2);
     const imported = all.filter((i) => i.title === 'Imported bead from another repository');
     expect(imported).toHaveLength(1);
-    expect(imported[0]!.id).not.toBe(native.id);
+    expect(suffix(imported[0]!.id as string)).not.toBe(shortId);
+
+    // The native issue kept the short ID it already owned.
+    const survivors = all.filter((i) => i.title === 'Native issue that must survive');
+    expect(survivors).toHaveLength(1);
+    expect(suffix(survivors[0]!.id as string)).toBe(shortId);
+
+    // And the imported bead records where it came from.
+    const importedShown = show(imported[0]!.id as string);
+    expect((importedShown.extensions as { beads: { original_id: string } }).beads.original_id).toBe(
+      `src-${shortId}`,
+    );
   });
 });
