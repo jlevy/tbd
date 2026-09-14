@@ -3,9 +3,9 @@ type: is
 id: is-01m1d1vjcdb8ee80m6adbbw3fw
 title: "ensure-gh-cli.sh: enforce a version floor, not just presence"
 kind: bug
-status: open
+status: closed
 priority: 0
-version: 4
+version: 5
 labels: []
 dependencies:
   - type: blocks
@@ -16,7 +16,11 @@ dependencies:
     target: is-01m1d1x86a96ak3rzd8w6ft7ej
 parent_id: is-01m1d1tam7230zrcj70ecmkt8b
 created_at: 2026-08-31T23:18:16.716Z
-updated_at: 2026-08-31T23:19:21.372Z
+updated_at: 2026-09-14T02:42:24.545Z
+closed_at: 2026-09-14T02:42:24.545Z
+close_reason: "Fixed on main by PR #266 (7249b293, merged 2026-09-02): ensure-gh-cli.sh pins GH_VERSION=2.97.0 (:49) with GH_MIN_VERSION=2.97.0 enforced as a floor (:57); the PR shortcuts no longer hardcode --base main and route stacked branches through the stacked-prs shortcut."
+resolution: null
+duplicate_of: null
 ---
 ensure-gh-cli.sh gates on 'command -v gh' alone. If any gh exists it is accepted forever, no
 matter how old. A fresh Debian/Ubuntu box with gh from apt (often several minor versions behind)

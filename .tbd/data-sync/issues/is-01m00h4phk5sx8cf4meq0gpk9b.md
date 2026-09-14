@@ -5,7 +5,7 @@ title: Teach the claim step in all four instruction surfaces
 kind: task
 status: closed
 priority: 1
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 docs:
   - path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
@@ -17,7 +17,7 @@ dependencies:
     target: is-01m00h60xmsj85fqn07wkrtjqd
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:19:35.091Z
-updated_at: 2026-09-10T20:20:03.501Z
+updated_at: 2026-09-14T02:42:36.710Z
 closed_at: 2026-09-10T20:20:03.501Z
 close_reason: Reconciled implementation and documentation, validated links and formatting, passed lint/build/publint/golden tests, and passed focused tests; the single full-suite load timeout passed in isolation.
 resolution: null
@@ -32,3 +32,5 @@ Claiming a bead appears in exactly one table row of skill-baseline ('tbd update 
 Add Claim to all four surfaces and as a numbered step in implement-beads, mirroring how the closing protocol is repeated.
 
 Research: research-2026-08-14-agent-sync-protocol-and-hooks.md §1.4, E9
+
+Merged to main 2026-09-14 in 9753fad5 (PR #283, via the coordination stack merge).

@@ -5,7 +5,7 @@ title: Build native-comment inventory and immutable transition engine
 kind: task
 status: closed
 priority: 1
-version: 8
+version: 9
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 delegate: codex-native-comment-inventory
 labels: []
@@ -14,13 +14,15 @@ dependencies:
     target: is-01m222ys2fv17vvxnr67rxhwq9
 parent_id: is-01m220htdx8tv5k1mpjavfpsca
 created_at: 2026-09-09T03:21:06.003Z
-updated_at: 2026-09-10T16:03:21.301Z
+updated_at: 2026-09-14T02:42:34.657Z
 closed_at: 2026-09-09T08:07:56.872Z
 close_reason: "Native-comment inventory and immutable transition layer is implemented, reviewed, fixed, documented, tested across platforms, and published as PR #283. Later Git guards, recovery, diagnostics, and activation remain tracked in the phase stack."
 resolution: null
 duplicate_of: null
 ---
 Implement one bounded DataSyncInventory for comments and one deterministic immutable-transition engine. Validate exact sharded paths, fatal UTF-8, file modes, filename/embedded identity, canonical bytes, record and aggregate limits, and Git blob/index inputs. Accept only absent-to-valid-add or byte-identical existing records. Classify mutation, deletion, reparenting, invalid paths, and same-ID divergence; preserve raw alternatives with content-addressed provenance manifests. No public writer and no Git mutation integration in this layer.
+
+Merged to main 2026-09-14 in 9753fad5 (PR #283, via the coordination stack merge).
 
 ## Notes
 

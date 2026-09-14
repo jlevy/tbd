@@ -5,13 +5,13 @@ title: Release notes and release gate for the coordination stack
 kind: task
 status: open
 priority: 1
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 labels: []
 dependencies: []
 parent_id: is-01m2erp0t0njvw8medbk3x70vz
 created_at: 2026-09-14T01:45:31.686Z
-updated_at: 2026-09-14T02:12:30.687Z
+updated_at: 2026-09-14T02:42:42.774Z
 ---
 The repository composes release notes at release time from CHANGELOG (no changesets). Items the coordination stack adds, from the release-compatibility review:
 - identity.agent_map is now honored: invalid values fail integration commands (tbd-tia7), valid values send delegateId on --push, which can start Linear Agent Sessions (tbd-80vz).
@@ -24,3 +24,5 @@ Also gate the release on the tbd sync attic decision (tbd-ajq2) and on tbd-od0z 
 Update 2026-09-14: tbd-ajq2 decided (sync always saves conflicts to the attic; attic documented as a recovery store), so the release notes describe attic recovery rather than a git-history caveat.
 
 2026-09-14: Release 1 is stage B of the merge, release, and format upgrade map in the stability sprint plan (PR #277). Before tagging, in addition to the notes: tbd-od0z landed; tbd-ajq2 landed; pnpm qa:upgrade-package and pnpm release:verify pass; and because generated agent surfaces change, the packed candidate is validated in a fresh first-party downstream checkout (docs/development.md release step 4). User upgrade: npm install -g get-tbd@latest, then tbd setup --auto and commit the generated-surface diff; no format migration.
+
+2026-09-14: the stack is on main. Add as release gates: tbd-s3zx (third-party extensions comments rewritten on merge, now reachable from main), tbd-apnu, tbd-cskr.

@@ -3,16 +3,20 @@ type: is
 id: is-01m1d1vj0va849g09krmgvtrpm
 title: Bump pinned gh to 2.97.0 (four CVE fixes, gh skill support)
 kind: bug
-status: open
+status: closed
 priority: 0
-version: 2
+version: 3
 labels: []
 dependencies:
   - type: blocks
     target: is-01m1d1x86a96ak3rzd8w6ft7ej
 parent_id: is-01m1d1tam7230zrcj70ecmkt8b
 created_at: 2026-08-31T23:18:16.343Z
-updated_at: 2026-08-31T23:19:21.058Z
+updated_at: 2026-09-14T02:42:24.528Z
+closed_at: 2026-09-14T02:42:24.525Z
+close_reason: "Fixed on main by PR #266 (7249b293, merged 2026-09-02): ensure-gh-cli.sh pins GH_VERSION=2.97.0 (:49) with GH_MIN_VERSION=2.97.0 enforced as a floor (:57); the PR shortcuts no longer hardcode --base main and route stacked branches through the stacked-prs shortcut."
+resolution: null
+duplicate_of: null
 ---
 ensure-gh-cli.sh pins GH_VERSION=2.92.0. Bump to 2.97.0.
 

@@ -5,7 +5,7 @@ title: Define native comment record and no-replace storage
 kind: feature
 status: closed
 priority: 1
-version: 13
+version: 14
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 delegate: codex-native-comment-model
 labels: []
@@ -16,13 +16,15 @@ dependencies:
     target: is-01m222xy6md5svr7r89cdjkh1g
 parent_id: is-01m1w3g0smx3ezvwz4g8mkmjy9
 created_at: 2026-09-09T02:39:23.733Z
-updated_at: 2026-09-10T06:41:20.124Z
+updated_at: 2026-09-14T02:42:31.436Z
 closed_at: 2026-09-09T04:54:36.401Z
 close_reason: "Implemented immutable native-comment records and create-only storage in PR #282; full local CI and all GitHub checks pass across Linux, macOS, and Windows."
 resolution: null
 duplicate_of: null
 ---
 Phase 2 stacked PR layer 1. Specify and implement the immutable native comment record, cm ID grammar, hash-sharded data-sync path, strict serialization and validation, bounded body size, and atomic create-if-absent publication with identical-retry and mismatched-ID outcomes. Add a current architecture document and focused red-green tests. Do not expose a public native write command or upgrade existing f08 repositories in this layer; Phase 2 remains gated on the unfinished Phase 1 epic.
+
+Merged to main 2026-09-14 in 9753fad5 (PR #282, via the coordination stack merge).
 
 ## Notes
 
