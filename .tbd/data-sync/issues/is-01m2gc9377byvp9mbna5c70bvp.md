@@ -3,9 +3,9 @@ type: is
 id: is-01m2gc9377byvp9mbna5c70bvp
 title: "Address review: PR #287 — data-loss fixes and dry-run honesty"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 9
+version: 10
 labels: []
 dependencies: []
 child_order_hints:
@@ -18,5 +18,9 @@ child_order_hints:
   - is-01m2gca5n1m2w00v3jgdmwqhjf
   - is-01m2gca655tcaspcgaty2v43p6
 created_at: 2026-09-14T16:33:50.823Z
-updated_at: 2026-09-14T16:34:26.597Z
+updated_at: 2026-09-14T16:49:17.803Z
+closed_at: 2026-09-14T16:49:17.802Z
+close_reason: "All eight review findings (R1-R8) from the senior engineering review of PR #287 are fixed and closed; disposition map posted at https://github.com/jlevy/tbd/pull/287#issuecomment-5667507995. Landed in d877f53c. Two out-of-scope findings filed as tbd-3nzb (dry-run performs the docs sync for real) and tbd-gju9 (import counts before writing and swallows write failures), both reproduced first-hand. Full gate green on the result: 2604 tests, 172 files."
+resolution: null
+duplicate_of: null
 ---
