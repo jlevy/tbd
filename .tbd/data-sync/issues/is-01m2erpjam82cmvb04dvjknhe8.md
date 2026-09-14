@@ -5,7 +5,7 @@ title: "Merge #282 (dormant native comment records; parser refactor)"
 kind: task
 status: open
 priority: 1
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 labels: []
 dependencies:
@@ -13,6 +13,8 @@ dependencies:
     target: is-01m2erpjrg6pwg8fjveft1s99f
 parent_id: is-01m2erp0t0njvw8medbk3x70vz
 created_at: 2026-09-14T01:32:26.323Z
-updated_at: 2026-09-14T01:32:28.081Z
+updated_at: 2026-09-14T01:50:31.160Z
 ---
 Layer 3 of tbd-m88s. Branch codex/native-comment-model, head ecd2a682 (tree identical to be815943). Approved by senior review with no findings. Reachable change: parseFrontmatterDocument extracted in file/parser.ts, which every bead read uses.
+
+2026-09-14 status: head ecd2a682, mergeable CLEAN, all checks green. Content ready; waits on #279 (stack order).
