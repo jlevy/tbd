@@ -401,9 +401,14 @@ neither has shipped.
 
 ## Relationship to Open PRs
 
-Five open PRs form one stack: #280, then #278, #279, #282, and #283, each based on the
-one before. `git merge-tree` finds no textual conflict between the stack’s head and
-either this plan’s branch or the 2026-08-28 branch.
+Five PRs formed one stack: #280, then #278, #279, #282, and #283, each based on the one
+before. #280 merged on 2026-09-14. #278, #279, and #282 were restacked onto `main` with
+trees identical to their reviewed heads, and #283 was restacked onto #282’s new head
+(`a48a4416` to `175eac50`, patch-identical).
+`git merge-tree` finds no textual conflict between the stack’s head and either this
+plan’s branch or the 2026-08-28 branch.
+Landing is tracked as `tbd-m88s`, with one child bead per layer in merge order
+(`tbd-o2ob`, `tbd-8rnq`, `tbd-g58e`, `tbd-w3tv`).
 
 | PR | What it changes | Reachable today | Effect on this plan |
 | --- | --- | --- | --- |
@@ -417,12 +422,32 @@ Neither #282’s nor #283’s new code changes a persisted format: the native co
 inventory modules are imported only by each other, their tests, and the benchmark
 script, and nothing writes under `.tbd/data-sync/comments`.
 
-**Merge order.** Only #280 must merge before this sprint.
-#278, #279, and #282 can be reviewed and merged in parallel with Phases 0 and 1A, since
-none touches the files those phases change beyond the parser adjacency.
-#283 does not block the sprint’s code: rebasing sprint code onto it is small (comment
-and message hunks in `sync-engine.ts`, `adapter.ts`, `integration.ts`, and `sync.ts`),
-while rebasing its document rewrite across sprint docs is the expensive direction.
+**Release compatibility.** A review of every change the stack makes reachable
+(2026-09-14) found no format or read-path break: the parser refactor is equivalent, the
+new ID helpers are additive, and the native-comment modules are unreachable from the CLI
+and library entry points.
+It found five follow-ups, each a bead:
+
+- #279’s comment union runs on every `extensions` namespace with a `comments` array, so
+  a merge silently rewrites third-party data (`tbd-s3zx`), and the `tbd sync` and
+  merge-refs paths have no differing-lineage test (`tbd-apnu`). Its High review finding
+  fix has no independent re-review (`tbd-cskr`). These three gate merging #279.
+- `tbd sync` prints “conflict(s) preserved in attic” but writes no attic entry, which
+  #279 and #283’s docs now rely on (`tbd-ajq2`, pre-existing, a release blocker).
+- With #283’s `agent_map` fix, an invalid map fails integration commands (`tbd-tia7`),
+  and a valid one sends `delegateId` on every push, closed beads included (`tbd-80vz`).
+- `tbd status` names a nonexistent `tbd setup beads --disable` (`tbd-xzyh`,
+  pre-existing), and the comment delivery docs omit the `tbd sync` fold (`tbd-af8w`).
+- Release notes for the stack’s reachable changes (`tbd-lz1q`).
+
+**Merge order.** #280, which had to merge first, is merged.
+The rest of the stack can be reviewed and merged in parallel with Phases 0 and 1A, since
+none of it touches the files those phases change beyond the parser adjacency.
+It merges bottom to top: #278 can land now; #279 waits for its three gate beads, and
+#282 and #283 wait for #279. #283 does not block the sprint’s code: rebasing sprint code
+onto it is small (comment and message hunks in `sync-engine.ts`, `adapter.ts`,
+`integration.ts`, and `sync.ts`), while rebasing its document rewrite across sprint docs
+is the expensive direction.
 So the sprint’s document edits wait for it: the state-model corrections in 1a, the docs
 in `tbd-qeug`, `tbd-hspp`, and `tbd-owf9`, and the “nothing to do” wording that
 `tbd-km3p` changes, which #283 already documents as the steady state (`tbd-docs.md`
@@ -1022,8 +1047,9 @@ that PR because they edit the documents it rewrites.
 
 ### Phase 0: Unblock CI and land the stability branch
 
-- [ ] Merge [#280](https://github.com/jlevy/tbd/pull/280) (PR, no bead): CI’s audit step
-  fails without it
+- [x] Merge [#280](https://github.com/jlevy/tbd/pull/280) (PR, no bead): CI’s audit step
+  fails without it (merged 2026-09-14)
+- [ ] `tbd-cfcc`: review and merge this plan (#277)
 - [ ] `tbd-bdkj`: rebase `claude/tbd-sync-bugs-review-f1qb1f` onto `main`, close the
   four review gaps, run the integration suites and `cli-sync*` tryscripts, open and
   merge the PR
