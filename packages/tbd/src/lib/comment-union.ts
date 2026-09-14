@@ -31,11 +31,42 @@ function sortKey(entry: Record<string, unknown>): string {
 }
 
 /**
+ * Whether a value is an array this module may union without losing anything.
+ *
+ * The union drops non-object entries and re-sorts the rest, which is correct for a
+ * provider comment log and destructive for anything else. `extensions` is the
+ * documented home for third-party data, and a namespace this build knows nothing
+ * about may legitimately keep a `comments` key holding strings, or objects with no
+ * comment identity. Callers that key off the name alone would silently rewrite it.
+ *
+ * So identify a comment log by shape, not by key: every entry must be an object with
+ * an identity (`local_id` or `id`), an `at` timestamp, and a `body`. That is the
+ * `CommentEntry` contract in `lib/schemas.ts`, checked structurally here because this
+ * module is the one both the merge engine and the comment store share. An empty array
+ * qualifies — a log with nothing in it is still a log, and unioning it loses nothing.
+ */
+export function isCommentLog(value: unknown): value is Record<string, unknown>[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        isRecord(entry) &&
+        (typeof entry.local_id === 'string' || typeof entry.id === 'string') &&
+        typeof entry.at === 'string' &&
+        typeof entry.body === 'string',
+    )
+  );
+}
+
+/**
  * Union two comment arrays by identity, ordered by creation time.
  *
  * Non-array inputs read as empty; non-object entries are dropped. Where the
  * same identity appears on both sides, the entry carrying a provider `id`
  * (i.e. the pushed observation) wins.
+ *
+ * Callers merging an arbitrary `extensions` namespace must gate this on
+ * `isCommentLog` for both sides first; see the note there.
  */
 export function unionCommentArrays(a: unknown, b: unknown): Record<string, unknown>[] {
   const entries = (value: unknown): Record<string, unknown>[] =>

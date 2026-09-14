@@ -23,7 +23,7 @@ import {
   saveIdMapping,
   addIdMapping,
   hasShortId,
-  generateUniqueShortId,
+  deriveShortIdFromUlid,
 } from '../../file/id-mapping.js';
 import { IssueStatus, IssueKind } from '../../lib/schemas.js';
 import type { Issue, IssueStatusType, IssueKindType, DependencyType } from '../../lib/types.js';
@@ -549,19 +549,12 @@ class ImportHandler extends BaseCommand {
 
     // Build lookup maps
     const existingByBeadsId = new Map<string, Issue>();
-    const existingByShortId = new Map<string, Issue>();
 
     // Build reverse lookup from extensions and from short ID mapping
     for (const issue of existingIssues) {
       const beadsExt = issue.extensions?.beads as { original_id?: string } | undefined;
       if (beadsExt?.original_id) {
         existingByBeadsId.set(beadsExt.original_id, issue);
-      }
-      // Also track by short ID
-      const ulid = extractUlidFromInternalId(issue.id);
-      const shortId = shortIdMapping.ulidToShort.get(ulid);
-      if (shortId) {
-        existingByShortId.set(shortId, issue);
       }
     }
 
@@ -581,26 +574,25 @@ class ImportHandler extends BaseCommand {
         continue;
       }
 
-      // Check if we already have a mapping for this short ID
-      const existingByShort = existingByShortId.get(shortId);
-      if (existingByShort) {
-        beadsTotbd[beads.id] = existingByShort.id;
-        continue;
-      }
-
-      // Check if the short ID is already in the mapping (collision check)
+      // A short ID this repository has already handed out identifies SOME issue, and
+      // the check above has just established it is not this bead: every import writes
+      // `extensions.beads.original_id`, so a bead imported before is matched by its own
+      // id, and anything reachable only by short ID is a different issue. Adopting its
+      // internal ID here would make the write below land on that issue's file and
+      // replace its content — the one destructive outcome in this loop, and silent.
+      // So the occupied case always mints a new issue and gives it a free short ID.
       if (hasShortId(shortIdMapping, shortId)) {
-        // Short ID already exists but for a different issue - generate a new one
-        if (options.verbose) {
-          this.output.warn(
-            `Short ID "${shortId}" already exists, generating new ID for ${beads.id}`,
-          );
-        }
+        // Not gated on --verbose: the bead does not keep the id the source file names,
+        // so anyone reconciling the two repositories afterwards needs to be told.
+        this.output.warn(
+          `Short ID "${shortId}" is already in use here; importing ${beads.id} under a new short ID.`,
+        );
         const internalId = generateInternalId();
         beadsTotbd[beads.id] = internalId;
-        // Generate a random short ID since the original is taken
+        // Derived from the new ULID rather than random, so two clones importing the
+        // same file independently compute the same replacement instead of diverging.
         const ulid = extractUlidFromInternalId(internalId);
-        const newShortId = generateUniqueShortId(shortIdMapping);
+        const newShortId = deriveShortIdFromUlid(ulid, new Set(shortIdMapping.shortToUlid.keys()));
         addIdMapping(shortIdMapping, ulid, newShortId);
       } else {
         // Create new mapping, preserving the original short ID
