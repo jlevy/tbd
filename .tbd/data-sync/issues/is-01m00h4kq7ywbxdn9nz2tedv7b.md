@@ -5,14 +5,14 @@ title: Fix tbd-session.sh PATH order and make hook failure visible
 kind: bug
 status: open
 priority: 1
-version: 7
+version: 8
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels:
   - phase-1
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:19:32.199Z
-updated_at: 2026-09-13T23:18:32.134Z
+updated_at: 2026-09-14T02:58:56.206Z
 extensions:
   linear:
     id: dc4bbd81-49ba-4668-bf0a-ed5a04e23a86
@@ -25,3 +25,5 @@ Fix: append rather than prepend the fallback locations; prefer local resolution 
 Research: research-2026-08-14-agent-sync-protocol-and-hooks.md §1.3, E7
 
 Revision 2026-09-13 (stability sprint plan review, plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md): Compare against Node 22.12, not the major version (22.0-22.11 fail the engines gate). Run the probe before the npx fallback too: tbd_local_can_read_repository returns early when tbd is missing, so the no-local-tbd, old-Node case from the #254 follow-up comment is otherwise uncovered.
+
+f08 compatibility review 2026-09-14 (see 'f08 Compatibility Contract for Sprint Fixes' in the stability sprint plan): changing the generated session script turns the upgrade proof red on purpose: validate-upgrade-package.mjs:394-401 requires tbd-session.sh unchanged for a compatible upgrade. Update that expectation deliberately in the same PR. An old client's setup --auto restores the old script and resets tbd_fallback_version (config.ts:118-139): churn, not data loss; release-note it.

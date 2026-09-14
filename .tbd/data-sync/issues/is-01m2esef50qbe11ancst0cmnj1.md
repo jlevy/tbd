@@ -5,7 +5,7 @@ title: tbd sync must save every merge conflict to the attic; document the attic 
 kind: bug
 status: open
 priority: 1
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 labels: []
 dependencies:
@@ -13,7 +13,7 @@ dependencies:
     target: is-01m2eseh97vth3cpm35m074faf
 parent_id: is-01m1w3d1e63qg5e2wpz31qkmvn
 created_at: 2026-09-14T01:45:29.503Z
-updated_at: 2026-09-14T02:02:25.461Z
+updated_at: 2026-09-14T02:58:51.309Z
 ---
 `tbd sync` collects field-level merge conflicts from the structured bead merge (sync.ts:941-956, mergeRemoteIntoSyncBranch; doPushWithRetry allConflicts in file/git.ts:1318-1323) and only counts them (summary.conflicts), yet prints "N conflict(s) preserved in attic" (sync.ts:800) and git.ts:828/:1321 say the caller preserves them in the attic. No code on the sync path writes an attic entry: writeAtticEntryFile is called only by `tbd attic`, the integration runner, and workspace save/import; rescue writes attic/conflicts/ separately. Pre-existing on main.
 
@@ -26,3 +26,5 @@ Decision 2026-09-14 (owner): `tbd sync` always saves to the attic. The attic is 
 - Keep the message at sync.ts:800 and the comments at git.ts:828/:1321 true by construction; report the entry paths under --verbose.
 - Red first: a two-clone conflicting edit through the built CLI asserts the entry exists, `tbd attic restore` recovers the losing value, and a relinked provider namespace's pending comment is recoverable.
 Document: the attic's role and recovery steps in tbd-docs.md (`### attic` ~:904 and `### Conflict handling` ~:61), tbd-design.md §3.5 Merge Rules, the sync-failure-recovery shortcut, and the tbd-sync-troubleshooting guideline. After PR #283 merges, its provider-comment passages (tbd-docs.md ~2129-2133, tbd-design.md ~2746, ~6735) become accurate once this lands.
+
+f08 compatibility review 2026-09-14 (see 'f08 Compatibility Contract for Sprint Fixes' in the stability sprint plan): write sync conflict entries through writeAtticEntryFile into the flat attic/ directory (file/attic-entry.ts:13-30) with is-<ulid> ids and now() timestamps. Not attic/conflicts/ (git.ts:2599): `tbd attic list` reads only the top-level directory (attic.ts:92). Conflicts on non-bead files (link records, intents) have no valid entity id and would fail AtticEntrySchema; record them in a way list and restore can show, or report them. AtticEntrySchema and attic commands are unchanged since 0.7.0, so old clients list/show/restore these entries; tbd-9fpp (T4) proves it.

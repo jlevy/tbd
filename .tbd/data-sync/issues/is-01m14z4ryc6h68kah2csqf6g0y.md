@@ -5,13 +5,13 @@ title: Repo resolution crosses git boundaries and the ID prefix is ignored on in
 kind: bug
 status: open
 priority: 1
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
 parent_id: is-01m14yzbwwg92e5k7z7d4kyn00
 created_at: 2026-08-28T19:56:57.164Z
-updated_at: 2026-09-13T23:18:29.771Z
+updated_at: 2026-09-14T02:58:55.396Z
 ---
 GH #204. Two data-safety defects in one surface; the observability half of that issue (status printing cwd under 'Repository:', no --repo flag, no repo identity in --json) is lower value and tracked in the same issue.
 
@@ -22,3 +22,5 @@ GH #204. Two data-safety defects in one surface; the observability half of that 
 Fix: keep cwd-based resolution, add a .git sentinel to the walk, and compare the parsed prefix against the repo's at resolveIssueId.
 
 Revision 2026-09-13 (stability sprint plan review, plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md): Place the prefix check in resolveToInternalId (file/id-mapping.ts:556), after the exact-mapping lookup at :566, not in resolveIssueId: show, close, update, reopen, pause, --parent, dep, integration, attic, and board all resolve through resolveAllIds -> resolveToInternalId, so a check in resolveIssueId misses both examples (show zzz-fiba, bulk close). The bd- constant (ids.ts:219) is used only by normalizeIssueId; bd-a7k2 resolves today only because every prefix is stripped, so it needs an explicit allowance. Outside git, status, prime, skill, and requireInit would still adopt a stray ~/.tbd.
+
+f08 compatibility review 2026-09-14 (see 'f08 Compatibility Contract for Sprint Fixes' in the stability sprint plan): the git-boundary stop breaks agents that work inside nested clones today, including the bundled checkout-third-party-repo shortcut, which clones into attic/<repo> (docs/shortcuts/standard/checkout-third-party-repo.md:25-40), and submodules. Ship an escape hatch (environment variable or -C, see tbd-ziie) or a warning release first.
