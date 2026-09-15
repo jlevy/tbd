@@ -278,9 +278,10 @@ It probes one key per level and includes a key that must be *dropped*, so a run 
 detects nothing fails rather than passes.
 This scenario uses the **newest** published f08 release, not the oldest: it asks what
 the client a teammate is most likely to be running will preserve.
-Before the version bump that release is the candidate itself, so the scenario falls back
-to the older same-format baseline and says so on stdout — bump the version to exercise
-the release the new keys ship alongside.
+The gate always packs that release from npm, even when its manifest version matches the
+candidate.
+The candidate archive comes from the checkout, so equal version strings do not
+make the published and unpublished artifacts identical.
 Override it with `TBD_UPGRADE_LATEST_FORMAT_FROM`.
 
 The seventh is the *parser proof*. The others drive a published CLI as a process, which

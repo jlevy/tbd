@@ -122,3 +122,61 @@ $ ! grep -rq '<<<<<<<' "$(git rev-parse --path-format=absolute --git-common-dir)
 clean
 ? 0
 ```
+
+* * *
+
+## An attic write failure is visible to scripts
+
+The merge and push are already safe when the recovery copy is written.
+If that final write fails, the sync still publishes the resolved issue, but it must
+return nonzero so automation does not mistake incomplete recovery data for complete
+success.
+
+# Test: establish the restored title as the common base
+
+```console
+$ tbd sync >/dev/null 2>&1 && ( cd ../sessionB && tbd sync >/dev/null 2>&1 ) && echo ready
+ready
+? 0
+```
+
+# Test: Session B changes the description and publishes it
+
+```console
+$ ( cd ../sessionB && tbd update "$(cat ../bead.txt)" --description "Description from B" >/dev/null 2>&1 && tbd sync >/dev/null 2>&1 ) && echo done
+done
+? 0
+```
+
+# Test: Session A changes the same field without pulling B’s change
+
+```console
+$ tbd update "$(cat ../bead.txt)" --description "Description from A" >/dev/null 2>&1 && echo done
+done
+? 0
+```
+
+# Test: a blocked attic path makes sync return nonzero after completing the merge
+
+```console
+$ attic="$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/attic"; mv "$attic" "$attic.saved"; echo blocked > "$attic"; tbd sync > ../archive-failure.txt 2>&1; echo "exit=$?"
+exit=1
+? 0
+```
+
+# Test: the default-visible output reports both the failed write and incomplete archive
+
+```console
+$ grep -c 'Could not archive the description value' ../archive-failure.txt; grep -c '1 conflict resolved, 1 NOT archived' ../archive-failure.txt
+1
+1
+? 0
+```
+
+# Test: restore the fixture path and prove the resolved issue was pushed despite the error
+
+```console
+$ attic="$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/attic"; rm "$attic"; mv "$attic.saved" "$attic"; ( cd ../sessionB && tbd sync >/dev/null 2>&1 && tbd show "$(cat ../bead.txt)" --json | jq -r '.description' )
+Description from A
+? 0
+```

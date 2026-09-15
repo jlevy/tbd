@@ -262,6 +262,13 @@ class SyncHandler extends BaseCommand {
             }
           },
         );
+        if (this.conflictsNotArchived > 0) {
+          const plural = this.conflictsNotArchived === 1 ? '' : 's';
+          throw new SyncError(
+            `${this.conflictsNotArchived} conflict value${plural} could not be archived; ` +
+              'the resolved issue sync completed, but its recovery data is incomplete',
+          );
+        }
       } catch (error) {
         fail('issues', error);
       }

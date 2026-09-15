@@ -2720,12 +2720,13 @@ local/remote roles stable.
 **Archiving:**
 
 `lww` and `namespace_merge` archive the value they discard.
-The others do not, and the distinction is deliberate rather than an omission: `union`
-and `union_by_key` keep both sides (a same-key collision resolves local-first), `max`
-and `min_timestamp` pick a bound from values both still derivable from the merged issue,
-and `immutable` keeps the base precisely because neither edit is trusted.
-Only last-writer-wins actually throws a value away, so only last-writer-wins has
-something to recover.
+The other strategies do not write attic entries.
+`union` retains distinct inputs, but `immutable` discards both changed inputs when they
+differ from the base, `union_by_key` discards a differing remote object on a same-key
+collision, and `max` and `min_timestamp` discard the other bound.
+Those losses are not recoverable from the merged issue alone.
+Callers that require recovery for one of those strategies must add conflict reporting
+and archive the discarded input explicitly.
 
 Entries go through one writer (`file/attic-entry.ts`). `tbd sync` and
 `tbd import --workspace` write into the data-sync `attic/` directory, which rides the

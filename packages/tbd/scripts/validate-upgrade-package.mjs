@@ -1190,10 +1190,10 @@ function readPath(value, path) {
  * read; this one asks what the client a teammate is most likely to be running will
  * preserve, which is the release that ships alongside the keys.
  *
- * When that release IS the candidate — before the version bump, where the working tree
- * still carries the last published version — it falls back to the older same-format
- * baseline and says so. The scenario keeps running either way: a client comparing a build
- * against itself proves nothing, and silently skipping proves less.
+ * The published package and the candidate are packed and extracted independently even
+ * when their manifest versions match. Equal version strings do not imply equal artifacts:
+ * before the release bump, the candidate contains the current branch changes while npm
+ * still serves the prior published build.
  */
 async function validateOldClientConfigRoundTrip({
   baseline,
@@ -1626,40 +1626,29 @@ try {
     root: temporaryDir,
   });
 
-  // The config round trip wants the newest published f08 release. Before the release bump
-  // the working tree still carries the last published version, so that release IS the
-  // candidate and comparing it against itself proves nothing; fall back to the older
-  // same-format baseline, loudly, rather than skipping the scenario.
+  // The config round trip wants the newest published f08 release. Pack it from npm even
+  // when its manifest version equals the candidate's: the candidate archive comes from
+  // this checkout and can contain unpublished changes under that same version string.
   const latestFormatBaseline =
     process.env.TBD_UPGRADE_LATEST_FORMAT_FROM ?? (await latestPublishedVersion());
-  const configRoundTripBaseline =
-    latestFormatBaseline === candidateVersion ? sameFormatBaseline : latestFormatBaseline;
-  if (configRoundTripBaseline !== latestFormatBaseline) {
-    console.log(
-      `Config round trip falls back to ${configRoundTripBaseline}: the candidate is ` +
-        `${candidateVersion}, which is what npm currently serves as latest, so the two are ` +
-        `the same build. Bump the version to exercise the release the new keys ship ` +
-        `alongside — which is what happens on a release branch.`,
-    );
-  }
   let configRoundTripPackage = sameFormatPackage;
-  if (configRoundTripBaseline !== sameFormatBaseline) {
+  if (latestFormatBaseline !== sameFormatBaseline) {
     const latestArchiveDir = join(temporaryDir, 'latest-format-archive');
     await mkdir(latestArchiveDir);
-    await packPublished(latestArchiveDir, configRoundTripBaseline);
+    await packPublished(latestArchiveDir, latestFormatBaseline);
     configRoundTripPackage = await extractPackage(
       await findOnlyArchive(latestArchiveDir),
       join(temporaryDir, 'latest-format'),
       dependencyTree,
     );
     invariant(
-      configRoundTripPackage.manifest.version === configRoundTripBaseline,
+      configRoundTripPackage.manifest.version === latestFormatBaseline,
       `Config round trip baseline resolved to ${String(configRoundTripPackage.manifest.version)}`,
     );
   }
   await validateOldClientConfigRoundTrip({
     baseline: configRoundTripPackage,
-    baselineVersion: configRoundTripBaseline,
+    baselineVersion: latestFormatBaseline,
     candidate,
     candidateVersion,
     root: temporaryDir,
