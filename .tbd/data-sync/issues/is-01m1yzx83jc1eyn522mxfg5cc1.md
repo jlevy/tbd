@@ -5,7 +5,7 @@ title: "Every slot round-trips: write slots through slotToLinear, compare in bot
 kind: bug
 status: open
 priority: 1
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 labels:
   - phase-1
@@ -20,7 +20,7 @@ dependencies:
     target: is-01m2eseh97vth3cpm35m074faf
 parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 created_at: 2026-09-07T22:30:34.353Z
-updated_at: 2026-09-15T21:27:01.612Z
+updated_at: 2026-09-15T22:48:32.094Z
 ---
 GH #265 (the alternation) and the In Review drag. Plan 1a.
 
@@ -39,3 +39,5 @@ f08 compatibility review 2026-09-14 (see 'f08 Compatibility Contract for Sprint 
 Unresolvable Backlog keeps a half-hidden loop: on a team with no backlog-type state, or several with no state_map, adapter.ts ~:1045 has no else branch, ambiguity is reported only by `integration status` (integration.ts ~:262), the pull half is left out of the report (sync-engine.ts ~:1078), yet the base advances and the runner commits (integration-runner.ts ~:689-693). Syncs alternate between "nothing to do" plus a commit and "push 1". Code verified, sequence inferred.
 
 Mixed-version and --push contention introduced by #290 are tracked on tbd-s4kb and tbd-evn3. Remains a Release 1 gate for Linear users.
+
+2026-09-15, from the independent review of PR #293 (inferred by reading, not run): the reconciler likely moves an In Review or Draft item back out on the second full sync after it pulls that column. A pull sets `merged.slot` to the refinement (`reconcile.ts` ~:320-322), and the base is written from it (`sync-engine.ts` ~:1515). But `localViewOf` never passes a refinement, so the next run sees local `in_progress` (or `backlog`/`todo`) differing from base `in_review` (or `draft`) with the remote unchanged, and pushes the computed slot. The `refinement_state_id` replay needs `refinement_slot` to equal the pushed slot, so it does not apply. `integrations-sync-engine.test.ts` ~:938 runs only one sync after the move; a test that runs several syncs would confirm or clear this.

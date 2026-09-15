@@ -5,7 +5,7 @@ title: Push-only projection sends delegateId for every selected linked bead on e
 kind: bug
 status: in_progress
 priority: 2
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-08-18-actor-axis-and-identity.md
 labels: []
 dependencies:
@@ -13,7 +13,7 @@ dependencies:
     target: is-01m2eseh97vth3cpm35m074faf
 parent_id: is-01m0c4z87m3kd0cyw2qkd5k6z4
 created_at: 2026-09-14T01:45:57.776Z
-updated_at: 2026-09-15T22:19:30.435Z
+updated_at: 2026-09-15T22:48:38.263Z
 ---
 Behavior change in PR #283 (tbd-w3tv): with agent_map honored, the push-only projection (`tbd integration sync --push`, `tbd sync --push --integrations`) sends `delegateId` for every selected linked bead whose delegate maps (mirror.ts:292-296), on every run, because the mirror does not diff against Linear; closed beads keep `delegate` (close does not clear it), so they are included. linear/adapter.ts:1008 notes that Linear turns a delegate write into an Agent Session. Not verified: whether Linear starts a new session when the same delegateId is written again.
 
@@ -41,3 +41,5 @@ Still unverified: whether live Linear starts a new Agent Session on an identical
 Leave open until merge.
 
 CI: all 7 checks green (Test ubuntu Node 22.12.0/24, macOS, Windows; Coverage & Lint; Benchmark; DeepSource).
+
+2026-09-15: live Linear QA has no delegate or agent_map scenario. Neither `tests/qa/linear-integration.qa.md` nor `scripts/validate-linear-integration-live.ts` (or the `provider-live-qa-contract.ts` checklist) exercises publishing a delegate, so whether an identical `delegateId` write, or re-delegation after a removal, starts a new Agent Session is unverified and cannot be checked in the current QA pass. A scenario would need a workspace with an installed agent (app user). Review of #294 also established that `--push` restores a delegate removed in Linear while the bead names the agent; that is now documented in tbd-docs.md, and the design question is on tbd-9tj0.

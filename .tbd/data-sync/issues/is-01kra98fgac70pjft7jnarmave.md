@@ -5,7 +5,7 @@ title: "Spec: Docs config redesign (f06+ framework)"
 kind: epic
 status: open
 priority: 1
-version: 24
+version: 25
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
 assignee: josh
 labels:
@@ -22,7 +22,7 @@ child_order_hints:
   - is-01kra99kg4z987hjrwwrj5wh4q
   - is-01kra99kvf2ys81vcakyb8vbzz
 created_at: 2026-05-11T01:08:40.073Z
-updated_at: 2026-09-15T22:46:32.194Z
+updated_at: 2026-09-15T22:49:26.508Z
 extensions:
   linear:
     id: 469c60b7-7a9d-4724-82a1-cd0d24d76321
@@ -53,3 +53,5 @@ CI: green. Status: draft PR, waiting on architectural decisions (Q15-Q20).
 Era correction before merging PR #169: f05 shipped as the forkable-docs workflow (specs/done/plan-2026-06-11-forkable-docs.md), which deliberately deferred this spec's scope — external bundles, lockfiles, resolver policy, operations over docmaps — to the f06+ framework (see its 'line deliberately not crossed' section and Q15-Q20 here). Retitled from (f05) so the open questions read as future work, not as a parallel claim on the shipped format.
 
 2026-09-15: PR #117 closed unmerged by the maintainer. The spec this epic and its 42 open descendants reference (docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md) still exists only on branch claude/review-config-format-2wxh8 (head f113cef9), which is kept. Open follow-ups from the PR triage, undecided: land the spec in specs/backlog/ or archive/ and repoint spec_path; close the beads delivered by forkable docs (e7k2, fmmy, zpp2, q0f3, ibvv); hold or close the remaining framework beads depending on whether f06+ is still planned; port the doctor summary fix 0493fa90.
+
+2026-09-15 triage addendum: all 44 beads whose spec_path is the #117 spec (43 open plus closed tbd-kax2) are linked to Linear issues (e.g. tbd-up8l = TBD-39). Any bulk spec_path repoint, close, or hold change will propagate on the next integration sync, so dry-run the Linear side (tbd integration sync --dry-run) before bulk-editing this set.
