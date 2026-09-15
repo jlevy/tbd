@@ -41,9 +41,9 @@ Note: Output includes size/token info like “(2.99 kB, ~847 tok)”
 
 ```console
 $ tbd --color=never guidelines --list | head -3
-agent-session-bootstrap [..]
-   Agent Session Bootstrap: When and how to make a repository[..]
-[..]
+agent-run-operations-rules (8.2 kB, ~2.3k tok)
+   Agent Run Operations Rules: Launching, monitoring, and diagnosing long agent
+   and batch runs—pinned launch checkouts, one scheduler per host budget,
 ? 0
 ```
 
@@ -55,8 +55,8 @@ $ tbd guidelines --list --json | head -6
   "docmap": "docmap/0.1",
   "documents": [
     {
-      "name": "agent-session-bootstrap",
-[..]
+      "name": "agent-run-operations-rules",
+      "type": "guideline",
 ? 0
 ```
 
