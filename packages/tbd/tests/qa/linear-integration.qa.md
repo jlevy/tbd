@@ -31,8 +31,12 @@ gives the candidate a private gitignored `.env`, and archives every Linear fixtu
 during cleanup.
 
 A passing run prints one line for each stable scenario id and a final count.
-A failure exits nonzero, names the failed assertion, still attempts provider cleanup,
-and retains no successful result marker.
+A failure exits nonzero, names the failed assertion, independently rediscovers every
+active fixture by the exact run token within the configured team and project, and still
+attempts provider cleanup.
+If discovery or archival fails, the runner strips the credential, retains the disposable
+repository, and prints its path and recovery scope; it never emits a successful cleanup
+marker for a known-only partial cleanup.
 
 ## Scenario Contract
 
