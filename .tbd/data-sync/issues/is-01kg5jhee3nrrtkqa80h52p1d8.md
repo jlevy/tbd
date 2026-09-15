@@ -5,13 +5,13 @@ title: "Phase 7: Testing for unified sync"
 kind: task
 status: closed
 priority: 3
-version: 17
-spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
+version: 19
+spec_path: docs/project/specs/done/plan-2026-01-29-unified-sync-command.md
 labels: []
 dependencies: []
 parent_id: is-01kg5jgqscrbp94t3hb1cegr39
 created_at: 2026-01-29T19:09:04.323Z
-updated_at: 2026-08-15T05:33:39.748Z
+updated_at: 2026-09-14T04:19:58.056Z
 closed_at: 2026-08-15T05:33:39.748Z
 close_reason: Completed specs are in docs/project/specs/done and their implementations, documentation, and tests ship on main.
 extensions:

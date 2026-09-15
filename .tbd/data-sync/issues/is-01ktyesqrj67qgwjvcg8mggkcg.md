@@ -5,8 +5,8 @@ title: "DocRef v0.1 hardening (PR #169 review sec 4)"
 kind: epic
 status: closed
 priority: 1
-version: 7
-spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
+version: 9
+spec_path: docs/project/specs/done/plan-2026-06-11-forkable-docs.md
 labels:
   - pr169-review
 dependencies: []
@@ -18,7 +18,7 @@ child_order_hints:
   - is-01ktyeywn1xa6pjakggs1yea1y
   - is-01ktyeyyk5jjm8yq7hkmdxayn8
 created_at: 2026-06-12T17:41:40.754Z
-updated_at: 2026-06-12T20:26:00.179Z
+updated_at: 2026-09-14T04:20:38.492Z
 closed_at: 2026-06-12T20:26:00.179Z
 close_reason: "All 5 children closed: git: scheme dropped (future-protocols note), strict anchored locals, drive letters, fragment preservation, reference doc + manifest-source enforcement. docref v0.1 is now spec'd, strict, and enforced."
 ---

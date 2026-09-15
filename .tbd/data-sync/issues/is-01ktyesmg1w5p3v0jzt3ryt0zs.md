@@ -5,8 +5,8 @@ title: "PR #169 review: correctness and polish fixes"
 kind: epic
 status: closed
 priority: 1
-version: 20
-spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
+version: 22
+spec_path: docs/project/specs/done/plan-2026-06-11-forkable-docs.md
 labels:
   - pr169-review
 dependencies: []
@@ -31,7 +31,7 @@ child_order_hints:
   - is-01ktyewy19dvyvs2gpm2rv04zr
   - is-01ktyewzv7j9fh8dt4n08t0547
 created_at: 2026-06-12T17:41:37.408Z
-updated_at: 2026-06-12T20:25:57.275Z
+updated_at: 2026-09-14T04:20:37.771Z
 closed_at: 2026-06-12T20:25:57.275Z
 close_reason: "All 18 children closed: 3 P0s fixed and verified, golden maps reconciled, f05 definition honest, old surface re-homed, Windows paths unified with cross-OS e2e, plus the full polish set. Commits 4301220..e5ce028 on PR #169."
 ---

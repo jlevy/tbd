@@ -5,15 +5,15 @@ title: Make local-observation path assertion cross-platform
 kind: bug
 status: closed
 priority: 1
-version: 5
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 7
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - pr-207
   - windows
 dependencies: []
 parent_id: is-01kzscf4fdjf02qjcvedyp7ekx
 created_at: 2026-08-11T23:16:36.292Z
-updated_at: 2026-08-12T00:09:10.345Z
+updated_at: 2026-09-14T04:22:27.963Z
 closed_at: 2026-08-12T00:09:10.344Z
 close_reason: Fixed in de4f1218; final hosted matrix 31548603423 green.
 ---

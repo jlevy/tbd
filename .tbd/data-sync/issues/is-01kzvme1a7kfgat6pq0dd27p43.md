@@ -5,15 +5,15 @@ title: Give synthetic Git-history integration tests platform-safe timeouts
 kind: bug
 status: closed
 priority: 1
-version: 2
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 4
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - ci
   - windows
 dependencies: []
 parent_id: is-01kzsrmw0y6dtbbg849384y6a4
 created_at: 2026-08-12T18:40:54.598Z
-updated_at: 2026-08-12T18:51:11.082Z
+updated_at: 2026-09-14T04:22:51.582Z
 closed_at: 2026-08-12T18:51:11.081Z
 close_reason: null
 ---

@@ -5,15 +5,15 @@ title: Harden subprocess test budgets on slow Windows runners
 kind: bug
 status: closed
 priority: 1
-version: 5
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 7
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - pr-207
   - ci
 dependencies: []
 parent_id: is-01kzsrmw0y6dtbbg849384y6a4
 created_at: 2026-08-12T09:18:46.045Z
-updated_at: 2026-08-12T09:47:14.898Z
+updated_at: 2026-09-14T04:22:40.765Z
 closed_at: 2026-08-12T09:47:14.897Z
 close_reason: "Implemented the evidence-based integration-test policy: 30-second default for Git/Node subprocess functional tests, 60-second Windows floor, and larger explicit budgets preserved. Actual performance/lock deadlines remain unchanged. The previously failing 40-case setup suite now passes, along with formatting and strict lint/typecheck; the complete pre-push suite will re-run on push."
 ---

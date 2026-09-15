@@ -5,15 +5,15 @@ title: Add --fix flag to tbd sync
 kind: task
 status: closed
 priority: 1
-version: 9
-spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-hardening.md
+version: 11
+spec_path: docs/project/specs/done/plan-2026-01-28-sync-worktree-recovery-and-hardening.md
 labels: []
 dependencies:
   - type: blocks
     target: is-01kg3fq74xtepfgcjyfh6kx67z
 parent_id: is-01kg3fj7r0jqj8p1hg9wt9h4sz
 created_at: 2026-01-28T23:41:14.183Z
-updated_at: 2026-03-09T16:12:33.219Z
+updated_at: 2026-09-14T04:19:50.708Z
 closed_at: 2026-01-29T01:04:54.030Z
 close_reason: Added --fix flag to tbd sync command. When worktree is unhealthy and --fix is provided, attempts repair by pruning stale entries and reinitializing worktree.
 ---

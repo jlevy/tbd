@@ -5,15 +5,15 @@ title: Keep release transcripts from abandoning active writer locks
 kind: bug
 status: closed
 priority: 1
-version: 2
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 4
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - concurrency
   - tests
 dependencies: []
 parent_id: is-01kzsrmw0y6dtbbg849384y6a4
 created_at: 2026-08-12T03:43:32.958Z
-updated_at: 2026-08-12T04:38:51.142Z
+updated_at: 2026-09-14T04:22:36.457Z
 closed_at: 2026-08-12T04:38:51.142Z
 close_reason: Implemented and verified against the normative concurrency contract; focused adversarial coverage and the full release matrix pass.
 ---

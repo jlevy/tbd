@@ -5,8 +5,8 @@ title: "Phase 4.2: move viewer DOM, template, and design system into strict sour
 kind: task
 status: closed
 priority: 1
-version: 4
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 5
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - client
   - ui
@@ -16,7 +16,7 @@ dependencies:
     target: is-01kzrs9eanh9pfsh52fed3gdna
 parent_id: is-01kzrs6dd1abehychzed2yc1fk
 created_at: 2026-08-11T16:07:53.737Z
-updated_at: 2026-08-11T18:03:03.860Z
+updated_at: 2026-09-14T04:21:59.849Z
 closed_at: 2026-08-11T18:03:03.860Z
 close_reason: Production CLI/server/client implementation complete; lifecycle, security, race, build, browser, performance, and packaged-artifact evidence is green.
 extensions:

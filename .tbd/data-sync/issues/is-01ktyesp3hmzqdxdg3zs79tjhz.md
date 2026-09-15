@@ -5,8 +5,8 @@ title: "PR #169 review: docs completeness for f05 release"
 kind: epic
 status: closed
 priority: 1
-version: 9
-spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
+version: 11
+spec_path: docs/project/specs/done/plan-2026-06-11-forkable-docs.md
 labels:
   - pr169-review
 dependencies: []
@@ -20,7 +20,7 @@ child_order_hints:
   - is-01ktyeykdhe7b2xbwkad56bxzg
   - is-01ktyeyn8hpk1pxgyb4sxpcxc3
 created_at: 2026-06-12T17:41:39.056Z
-updated_at: 2026-06-12T20:25:58.779Z
+updated_at: 2026-09-14T04:20:38.145Z
 closed_at: 2026-06-12T20:25:58.779Z
 close_reason: "All 7 children closed: Managing Docs chapter, sync taxonomy, skill routing rows, docs-overview rewrite, canonical drift table cite, README upgrading line, design-rationale capture."
 ---

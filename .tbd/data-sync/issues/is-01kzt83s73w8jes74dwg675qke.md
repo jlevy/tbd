@@ -5,13 +5,13 @@ title: Avoid busy-loop when stale-generation quarantine is already occupied
 kind: bug
 status: closed
 priority: 2
-version: 2
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 4
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels: []
 dependencies: []
 parent_id: is-01kzsrmw0y6dtbbg849384y6a4
 created_at: 2026-08-12T05:46:21.282Z
-updated_at: 2026-08-12T06:08:38.607Z
+updated_at: 2026-09-14T04:22:38.974Z
 closed_at: 2026-08-12T06:08:38.607Z
 close_reason: Implemented the portable mkdir-elected owner-generation protocol, bounded all failed-progress paths, preserved actionable permission diagnostics, and verified the adversarial and full release matrices.
 ---

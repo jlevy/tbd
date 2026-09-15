@@ -3,14 +3,18 @@ type: is
 id: is-01m09qc0vbmz4a340c1ga1gdfd
 title: deferred_until does not remove a bead from tbd ready
 kind: bug
-status: open
+status: closed
 priority: 2
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
 created_at: 2026-08-18T06:01:36.362Z
-updated_at: 2026-08-28T19:56:09.604Z
+updated_at: 2026-09-14T04:16:44.551Z
+closed_at: 2026-09-14T04:16:44.551Z
+close_reason: "Fixed on main by PR #264 (c1235d3c/cb771d2f, merged 2026-09-13). readyIssueIds now takes an explicit 'now' and excludes a bead whose deferred_until is still in the future (lib/issue-selection.ts deferralPending); list --defer-before is parsed at the CLI boundary and filtered in selectIssues (cli/commands/list.ts, lib/issue-query.ts deferredBefore). Covered by tests/deferred-until.test.ts and tests/hold-axis.test.ts; verified on 52d5c2f7."
+resolution: null
+duplicate_of: null
 ---
 Setting `--defer <datetime>` on a bead records `deferred_until` but leaves `status: open`, and `tbd ready` still offers the bead. A bead deferred until 2027-01-01 shows as ready today, which makes the field misleading: it reads as scheduling but changes nothing about what work is surfaced.
 

@@ -5,8 +5,8 @@ title: "DocMap v0.1 tightening (PR #169 review sec 4)"
 kind: epic
 status: closed
 priority: 1
-version: 7
-spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
+version: 9
+spec_path: docs/project/specs/done/plan-2026-06-11-forkable-docs.md
 labels:
   - pr169-review
 dependencies: []
@@ -18,7 +18,7 @@ child_order_hints:
   - is-01ktyez5s6ygg9d22a07ef2146
   - is-01ktyez7efx62agahwy47sxmwz
 created_at: 2026-06-12T17:41:42.491Z
-updated_at: 2026-06-12T20:26:01.591Z
+updated_at: 2026-09-14T04:20:38.821Z
 closed_at: 2026-06-12T20:26:01.590Z
 close_reason: "All 5 children closed: location required, word_count out of core, version policy, producer conformance (sources on upstream entries), reference doc with path-relativity and view-not-input. docmap/0.1 adoptable as-is."
 ---

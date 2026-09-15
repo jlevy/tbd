@@ -5,14 +5,14 @@ title: "docmap-format.md (Phase 0.3): path-relativity, extension fields, view-no
 kind: task
 status: closed
 priority: 2
-version: 2
-spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
+version: 3
+spec_path: docs/project/specs/done/plan-2026-06-11-forkable-docs.md
 labels:
   - pr169-review
 dependencies: []
 parent_id: is-01ktyessevb2mdcafd12z7670n
 created_at: 2026-06-12T17:44:40.655Z
-updated_at: 2026-06-12T20:25:50.092Z
+updated_at: 2026-09-14T04:21:17.166Z
 closed_at: 2026-06-12T20:25:50.092Z
 close_reason: "Done in e5ce028: references/docmap-format.md authored — location required per entry, path relativity (relative to the docmap's own directory; generated maps state their root), extension-field policy with size metrics as extensions, docmap/0.* reader policy, and the view-not-input principle."
 ---

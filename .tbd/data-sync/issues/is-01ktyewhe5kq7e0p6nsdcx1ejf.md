@@ -5,14 +5,14 @@ title: Validate manifest name/kind fields against path traversal
 kind: task
 status: closed
 priority: 2
-version: 2
-spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
+version: 3
+spec_path: docs/project/specs/done/plan-2026-06-11-forkable-docs.md
 labels:
   - pr169-review
 dependencies: []
 parent_id: is-01ktyesmg1w5p3v0jzt3ryt0zs
 created_at: 2026-06-12T17:43:12.581Z
-updated_at: 2026-06-12T18:00:18.968Z
+updated_at: 2026-09-14T04:20:49.085Z
 closed_at: 2026-06-12T18:00:18.967Z
 close_reason: "Fixed upstream in 6b4d266 (S2/S8): isSafeDocName + kind enum + tolerant per-entry manifest parse with warning; unit tests added. Verified empirically: ../../ entry dropped with warning, never acted on (cf5beae)."
 ---

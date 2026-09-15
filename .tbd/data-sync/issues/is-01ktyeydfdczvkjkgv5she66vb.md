@@ -5,14 +5,14 @@ title: One canonical drift table; the other cites it
 kind: task
 status: closed
 priority: 2
-version: 2
-spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
+version: 3
+spec_path: docs/project/specs/done/plan-2026-06-11-forkable-docs.md
 labels:
   - pr169-review
 dependencies: []
 parent_id: is-01ktyesp3hmzqdxdg3zs79tjhz
 created_at: 2026-06-12T17:44:14.061Z
-updated_at: 2026-06-12T18:20:55.012Z
+updated_at: 2026-09-14T04:21:01.328Z
 closed_at: 2026-06-12T18:20:55.012Z
 close_reason: "Done in e8b5112: tbd-docs.md drift table cites tbd-design 2.9 as the canonical model."
 ---

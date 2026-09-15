@@ -5,8 +5,8 @@ title: "Tests: Phase 3 auto-repair"
 kind: task
 status: closed
 priority: 2
-version: 11
-spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-hardening.md
+version: 13
+spec_path: docs/project/specs/done/plan-2026-01-28-sync-worktree-recovery-and-hardening.md
 labels: []
 dependencies:
   - type: blocks
@@ -17,7 +17,7 @@ dependencies:
     target: is-01kg3fry69b2azss39rm5zw2bf
 parent_id: is-01kg3fj7r0jqj8p1hg9wt9h4sz
 created_at: 2026-01-28T23:41:37.465Z
-updated_at: 2026-03-09T16:12:33.248Z
+updated_at: 2026-09-14T04:19:52.501Z
 closed_at: 2026-01-29T01:15:23.566Z
 close_reason: "Added 16 tests for Phase 3 auto-repair: repairWorktree (missing, prunable, corrupted) and migrateDataToWorktree (migration, backup, source preservation, data integrity)"
 ---

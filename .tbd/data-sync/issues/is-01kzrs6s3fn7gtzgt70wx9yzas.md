@@ -5,8 +5,8 @@ title: "Phase 5: align tbd web design, user docs, and release notes"
 kind: task
 status: closed
 priority: 1
-version: 6
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 8
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - docs
   - web
@@ -19,7 +19,7 @@ child_order_hints:
   - is-01kzrs9vkh8j1vsrfytqdx3sr1
   - is-01kzrsa3b4fywmvvsxt5s4srrq
 created_at: 2026-08-11T16:06:36.398Z
-updated_at: 2026-08-11T18:03:13.395Z
+updated_at: 2026-09-14T04:21:51.076Z
 closed_at: 2026-08-11T18:03:13.394Z
 close_reason: All documentation, architecture, metadata, and spike-retirement subtasks complete.
 extensions:

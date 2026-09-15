@@ -5,8 +5,8 @@ title: Add linked field to IssueSchema with merge_by_id (provider,id) rule
 kind: task
 status: closed
 priority: 1
-version: 6
-spec_path: docs/project/specs/active/plan-2026-07-19-bead-watch-and-external-sync.md
+version: 8
+spec_path: docs/project/specs/done/plan-2026-07-19-bead-watch-and-external-sync.md
 labels:
   - linear-sync
 dependencies:
@@ -14,7 +14,7 @@ dependencies:
     target: is-01kxz3mf4ytsqe23z53h0z8c7q
 parent_id: is-01kxz3kfz7n7y23n9rzmy28f98
 created_at: 2026-07-20T06:32:35.625Z
-updated_at: 2026-08-15T05:33:51.868Z
+updated_at: 2026-09-14T04:21:24.390Z
 closed_at: 2026-08-15T05:33:51.868Z
 close_reason: "The legacy PR #197 integration design was superseded by the active external-tracker plan and the production implementation merged in PR #206."
 ---

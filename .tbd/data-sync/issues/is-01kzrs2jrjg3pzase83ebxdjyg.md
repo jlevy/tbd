@@ -5,8 +5,8 @@ title: "Address review: PR #207 — final Bugbot body-fetch finding"
 kind: task
 status: closed
 priority: 1
-version: 20
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 22
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - pr-207
   - review
@@ -28,7 +28,7 @@ child_order_hints:
   - is-01kzs2g35k00znnx9zh7gprp9g
   - is-01kzs413qjm4aj1xtt6pbg7gp7
 created_at: 2026-08-11T16:04:18.833Z
-updated_at: 2026-08-11T19:30:43.665Z
+updated_at: 2026-09-14T04:21:48.876Z
 closed_at: 2026-08-11T19:30:43.664Z
 close_reason: "Final senior review complete on head 66a63cca: all 14 mapped findings are closed, all 9 inline review threads are resolved, all flat comments/reviews were re-audited, and a final no-blockers review was submitted. CI run 31527569977 and external checks are green."
 extensions:

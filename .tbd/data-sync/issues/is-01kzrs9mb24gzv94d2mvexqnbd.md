@@ -5,8 +5,8 @@ title: "Phase 4.4: prove client/server behavior parity and retire stale inline r
 kind: task
 status: closed
 priority: 1
-version: 4
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 5
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - integration
   - testing
@@ -16,7 +16,7 @@ dependencies:
     target: is-01kzrs9vkh8j1vsrfytqdx3sr1
 parent_id: is-01kzrs6dd1abehychzed2yc1fk
 created_at: 2026-08-11T16:08:09.825Z
-updated_at: 2026-08-11T18:03:03.873Z
+updated_at: 2026-09-14T04:22:02.163Z
 closed_at: 2026-08-11T18:03:03.873Z
 close_reason: Production CLI/server/client implementation complete; lifecycle, security, race, build, browser, performance, and packaged-artifact evidence is green.
 extensions:

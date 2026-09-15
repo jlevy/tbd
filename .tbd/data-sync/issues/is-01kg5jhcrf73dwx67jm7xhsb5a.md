@@ -5,8 +5,8 @@ title: "Phase 1: Extract shared syncDocsWithDefaults() function"
 kind: task
 status: closed
 priority: 2
-version: 20
-spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
+version: 22
+spec_path: docs/project/specs/done/plan-2026-01-29-unified-sync-command.md
 labels: []
 dependencies:
   - type: blocks
@@ -17,7 +17,7 @@ dependencies:
     target: is-01kg5jhdtwzxw7ce1xvnnc5tn3
 parent_id: is-01kg5jgqscrbp94t3hb1cegr39
 created_at: 2026-01-29T19:09:02.601Z
-updated_at: 2026-08-15T05:33:39.710Z
+updated_at: 2026-09-14T04:19:55.947Z
 closed_at: 2026-08-15T05:33:39.710Z
 close_reason: Completed specs are in docs/project/specs/done and their implementations, documentation, and tests ship on main.
 extensions:

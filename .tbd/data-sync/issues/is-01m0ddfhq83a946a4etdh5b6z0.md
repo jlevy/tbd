@@ -5,8 +5,8 @@ title: Resolve the main worktree via git --git-common-dir
 kind: task
 status: closed
 priority: 0
-version: 8
-spec_path: null
+version: 9
+spec_path: docs/project/specs/done/plan-2026-08-19-worktree-env-credential-resolution.md
 assignee: josh
 labels: []
 dependencies:
@@ -14,7 +14,7 @@ dependencies:
     target: is-01m0ddfj2qkwxhej9p8q30qs9y
 parent_id: is-01m0ddenmjsxeqm98ytfpcfc11
 created_at: 2026-08-19T16:25:43.911Z
-updated_at: 2026-08-19T19:51:05.437Z
+updated_at: 2026-09-14T04:22:52.745Z
 closed_at: 2026-08-19T19:51:05.435Z
 close_reason: null
 ---

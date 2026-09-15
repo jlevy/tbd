@@ -5,15 +5,15 @@ title: Add Zod schemas for id-mapping.ts and prefix-detection.ts
 kind: task
 status: closed
 priority: 2
-version: 9
-spec_path: docs/project/specs/active/plan-2026-02-02-skill-md-comprehensive-update.md
+version: 11
+spec_path: docs/project/specs/done/plan-2026-02-02-skill-md-comprehensive-update.md
 labels: []
 dependencies:
   - type: blocks
     target: is-01kgfy2s3b37y02tya2nmnn6mm
 parent_id: is-01kgfy2a5tz9hx3b7twjg2est7
 created_at: 2026-02-02T19:43:10.083Z
-updated_at: 2026-03-09T16:12:33.730Z
+updated_at: 2026-09-14T04:20:15.103Z
 closed_at: 2026-02-02T19:52:47.962Z
 close_reason: Added IdMappingYamlSchema and Ulid schema to schemas.ts. Updated id-mapping.ts to validate parsed YAML with Zod. Updated ShortId regex to handle legacy dotted IDs from imports. Skipped prefix-detection schema - it only reads legacy .beads config for migration and handles errors gracefully.
 ---

@@ -5,8 +5,8 @@ title: "Phase 1: tbd docs group scaffolding + fork subcommand (--all/--dry-run/-
 kind: task
 status: closed
 priority: 1
-version: 9
-spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
+version: 11
+spec_path: docs/project/specs/done/plan-2026-06-11-forkable-docs.md
 labels: []
 dependencies:
   - type: blocks
@@ -23,5 +23,5 @@ dependencies:
     target: is-01ktxg4xzfxshrmb3besbwr2w2
 parent_id: is-01ktxg3eqj62dhphs6dnbb30jf
 created_at: 2026-06-12T08:45:53.816Z
-updated_at: 2026-06-12T09:47:49.130Z
+updated_at: 2026-09-14T04:20:27.904Z
 ---

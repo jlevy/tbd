@@ -5,13 +5,13 @@ title: "Review/S6: fork-dir README index injection via frontmatter blurb and fil
 kind: bug
 status: closed
 priority: 2
-version: 2
-spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
+version: 4
+spec_path: docs/project/specs/done/plan-2026-06-11-forkable-docs.md
 labels: []
 dependencies: []
 parent_id: is-01ktxg3eqj62dhphs6dnbb30jf
 created_at: 2026-06-12T17:06:23.929Z
-updated_at: 2026-06-12T17:45:36.161Z
+updated_at: 2026-09-14T04:20:34.930Z
 closed_at: 2026-06-12T17:45:36.161Z
 close_reason: "Fixed: README index sanitizes frontmatter blurbs and percent-encodes link targets; local filenames escaped. Dedicated test added in cf5beae (doc-fork.test.ts, S6)."
 ---

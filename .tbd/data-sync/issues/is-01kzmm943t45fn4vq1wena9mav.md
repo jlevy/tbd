@@ -5,8 +5,8 @@ title: Add watch release smoke script and validation plan
 kind: task
 status: closed
 priority: 1
-version: 6
-spec_path: docs/project/specs/active/plan-2026-07-19-bead-watch-and-external-sync.md
+version: 8
+spec_path: docs/project/specs/done/plan-2026-07-19-bead-watch-and-external-sync.md
 labels:
   - bead-watch
   - validation
@@ -15,7 +15,7 @@ dependencies:
     target: is-01kzmm9dhgj1ygc3qysrehs66v
 parent_id: is-01kzmm8zqnf8q210etncddjn6h
 created_at: 2026-08-10T01:23:32.601Z
-updated_at: 2026-08-10T01:47:42.660Z
+updated_at: 2026-09-14T04:21:43.455Z
 closed_at: 2026-08-10T01:47:07.323Z
 close_reason: Added the repeatable two-clone release smoke and isolated-package entrypoint, full release validation plan, and manual QA playbook; fixed the remote-tracking refmap regression found by the smoke. Validated 18 focused tests, the source and packed-artifact smokes, precommit (100 files/1,451 tests), 1,068 tryscript cases, publint, package age, formatting, and documentation links.
 ---

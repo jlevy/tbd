@@ -5,8 +5,8 @@ title: "Phase 6.3: final senior review, upstream integration, PR disposition, an
 kind: task
 status: closed
 priority: 1
-version: 4
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 5
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - review
   - ci
@@ -14,7 +14,7 @@ labels:
 dependencies: []
 parent_id: is-01kzrs779s8d2t4qmvpx310p22
 created_at: 2026-08-11T16:08:46.950Z
-updated_at: 2026-08-11T19:30:44.273Z
+updated_at: 2026-09-14T04:22:07.726Z
 closed_at: 2026-08-11T19:30:44.272Z
 close_reason: "Current origin/main is integrated; final conventional commits are pushed to the PR head; PR metadata and the 14-finding disposition map are current; all review threads are resolved; final CI run 31527569977 is fully green; PR #207 is non-draft, MERGEABLE, and CLEAN."
 extensions:

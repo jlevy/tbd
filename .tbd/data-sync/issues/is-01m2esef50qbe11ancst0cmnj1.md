@@ -5,7 +5,7 @@ title: tbd sync must save every merge conflict to the attic; document the attic 
 kind: bug
 status: open
 priority: 1
-version: 4
+version: 6
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 labels: []
 dependencies:
@@ -13,7 +13,7 @@ dependencies:
     target: is-01m2eseh97vth3cpm35m074faf
 parent_id: is-01m1w3d1e63qg5e2wpz31qkmvn
 created_at: 2026-09-14T01:45:29.503Z
-updated_at: 2026-09-14T02:58:51.309Z
+updated_at: 2026-09-14T14:23:55.037Z
 ---
 `tbd sync` collects field-level merge conflicts from the structured bead merge (sync.ts:941-956, mergeRemoteIntoSyncBranch; doPushWithRetry allConflicts in file/git.ts:1318-1323) and only counts them (summary.conflicts), yet prints "N conflict(s) preserved in attic" (sync.ts:800) and git.ts:828/:1321 say the caller preserves them in the attic. No code on the sync path writes an attic entry: writeAtticEntryFile is called only by `tbd attic`, the integration runner, and workspace save/import; rescue writes attic/conflicts/ separately. Pre-existing on main.
 

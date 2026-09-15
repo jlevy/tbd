@@ -5,14 +5,14 @@ title: docref-format.md reference doc + wire validation into tbd
 kind: task
 status: closed
 priority: 2
-version: 2
-spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
+version: 3
+spec_path: docs/project/specs/done/plan-2026-06-11-forkable-docs.md
 labels:
   - pr169-review
 dependencies: []
 parent_id: is-01ktyesqrj67qgwjvcg8mggkcg
 created_at: 2026-06-12T17:44:31.589Z
-updated_at: 2026-06-12T20:25:48.691Z
+updated_at: 2026-09-14T04:21:11.699Z
 closed_at: 2026-06-12T20:25:48.691Z
 close_reason: "Done in e5ce028: references/docref-format.md authored (forms, strictness rationale, normalization incl. fragment preservation, syntactic equality, purl prior art, future-protocols note) and the docref-everywhere rule enforced at a real boundary — manifest source fields validate via isDocRef on read (invalid entries dropped with the existing warning). Serving the doc through a reference kind remains Phase 5."
 ---

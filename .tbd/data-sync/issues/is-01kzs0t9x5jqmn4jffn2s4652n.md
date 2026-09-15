@@ -5,8 +5,8 @@ title: "R11: Invoke the focused web transcript cross-platform"
 kind: bug
 status: closed
 priority: 1
-version: 4
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 5
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - pr-207
   - final-review
@@ -14,7 +14,7 @@ labels:
 dependencies: []
 parent_id: is-01kzrs2jrjg3pzase83ebxdjyg
 created_at: 2026-08-11T18:19:36.228Z
-updated_at: 2026-08-11T19:29:54.299Z
+updated_at: 2026-09-14T04:22:18.985Z
 closed_at: 2026-08-11T19:29:54.297Z
 close_reason: Fixed by invoking the built CLI through Node in the focused transcript. GitHub Actions run 31527569977 passed the full Windows job, including the 5-case tbd web CLI transcript; Ubuntu and macOS also passed.
 ---

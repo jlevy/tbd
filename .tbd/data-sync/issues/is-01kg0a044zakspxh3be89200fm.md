@@ -5,12 +5,12 @@ title: "Spec: Welcome Message Improvements"
 kind: epic
 status: closed
 priority: 2
-version: 9
-spec_path: docs/project/specs/active/plan-2026-01-27-welcome-message-improvements.md
+version: 10
+spec_path: docs/project/specs/done/plan-2026-01-27-welcome-message-improvements.md
 labels: []
 dependencies: []
 created_at: 2026-01-27T18:03:35.966Z
-updated_at: 2026-08-15T05:33:39.682Z
+updated_at: 2026-09-14T04:19:33.447Z
 closed_at: 2026-08-15T05:33:39.682Z
 close_reason: Completed specs are in docs/project/specs/done and their implementations, documentation, and tests ship on main.
 extensions:

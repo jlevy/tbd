@@ -5,8 +5,8 @@ title: "R12: Preserve the remote wake cursor when pull cannot apply"
 kind: bug
 status: closed
 priority: 1
-version: 5
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 6
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - pr-207
   - final-review
@@ -14,7 +14,7 @@ labels:
 dependencies: []
 parent_id: is-01kzrs2jrjg3pzase83ebxdjyg
 created_at: 2026-08-11T18:30:56.328Z
-updated_at: 2026-08-11T19:29:55.247Z
+updated_at: 2026-09-14T04:22:20.180Z
 closed_at: 2026-08-11T19:29:55.243Z
 close_reason: Fixed by treating remote-missing as retryable without publishing or advancing cursor state. Regression coverage passed in the final 1,498-test matrix, the PR thread is resolved, and Cursor Bugbot passed on head 66a63cca.
 ---

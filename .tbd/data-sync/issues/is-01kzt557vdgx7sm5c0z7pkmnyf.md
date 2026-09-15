@@ -5,13 +5,13 @@ title: Do not strand a live-owned lock after heartbeat maintenance failure
 kind: bug
 status: closed
 priority: 1
-version: 3
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 5
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels: []
 dependencies: []
 parent_id: is-01kzsrmw0y6dtbbg849384y6a4
 created_at: 2026-08-12T04:54:43.306Z
-updated_at: 2026-08-12T05:09:21.396Z
+updated_at: 2026-09-14T04:22:37.164Z
 closed_at: 2026-08-12T05:09:21.395Z
 close_reason: "Implemented advisory heartbeat failure handling: failed timestamp maintenance disables further touches, while direct token ownership fences still quiesce and release. Added forced EIO regression; full 1,551-test and 1,074-transcript matrix passed."
 ---

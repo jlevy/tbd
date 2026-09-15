@@ -5,8 +5,8 @@ title: "Spike: benchmark and raise the tbd web board scale ceiling"
 kind: task
 status: closed
 priority: 1
-version: 11
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 12
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
   - performance
@@ -19,7 +19,7 @@ child_order_hints:
   - is-01kzs7zf54b3jc7m21sv5vq3vd
   - is-01kzs9hy1f971yzj995exw09gd
 created_at: 2026-08-11T19:41:04.969Z
-updated_at: 2026-08-11T21:05:48.985Z
+updated_at: 2026-09-14T04:22:23.576Z
 closed_at: 2026-08-11T21:05:48.984Z
 close_reason: 10,000-row paged ceiling selected from measured browser/server bounds and all four scale findings are closed.
 ---

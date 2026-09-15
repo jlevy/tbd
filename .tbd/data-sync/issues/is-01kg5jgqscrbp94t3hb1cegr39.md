@@ -5,12 +5,12 @@ title: "Unified sync command: sync both issues and docs by default"
 kind: feature
 status: closed
 priority: 2
-version: 9
-spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
+version: 10
+spec_path: docs/project/specs/done/plan-2026-01-29-unified-sync-command.md
 labels: []
 dependencies: []
 created_at: 2026-01-29T19:08:41.128Z
-updated_at: 2026-08-15T05:33:39.703Z
+updated_at: 2026-09-14T04:19:54.841Z
 closed_at: 2026-08-15T05:33:39.703Z
 close_reason: Completed specs are in docs/project/specs/done and their implementations, documentation, and tests ship on main.
 extensions:

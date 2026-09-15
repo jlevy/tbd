@@ -5,14 +5,14 @@ title: docs status recommends nonexistent --category flag (golden-tested)
 kind: bug
 status: closed
 priority: 0
-version: 2
-spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
+version: 3
+spec_path: docs/project/specs/done/plan-2026-06-11-forkable-docs.md
 labels:
   - pr169-review
 dependencies: []
 parent_id: is-01ktyesmg1w5p3v0jzt3ryt0zs
 created_at: 2026-06-12T17:42:58.332Z
-updated_at: 2026-06-12T17:51:57.576Z
+updated_at: 2026-09-14T04:20:40.314Z
 closed_at: 2026-06-12T17:51:57.576Z
 close_reason: "Fixed upstream in 6b4d266 (D3): hint now 'tbd docs fork <name>' / '--all'; tryscript updated. Verified empirically against built CLI at cf5beae."
 ---

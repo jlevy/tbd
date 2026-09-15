@@ -5,8 +5,8 @@ title: Prove the 10k web response ceiling above its boundary
 kind: bug
 status: closed
 priority: 2
-version: 4
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 6
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
   - performance
@@ -14,7 +14,7 @@ labels:
 dependencies: []
 parent_id: is-01kzs5fg2amah8bnpy3mct8khd
 created_at: 2026-08-11T20:22:55.539Z
-updated_at: 2026-08-11T20:29:59.547Z
+updated_at: 2026-09-14T04:22:25.059Z
 closed_at: 2026-08-11T20:29:59.546Z
 close_reason: The 10,001-issue boundary regression proves the 10,000-row hard response ceiling and full truncation count.
 ---

@@ -5,8 +5,8 @@ title: "Phase 3.5: register WebHandler CLI surface and process lifecycle"
 kind: task
 status: closed
 priority: 1
-version: 5
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 6
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - cli
   - lifecycle
@@ -16,7 +16,7 @@ dependencies:
     target: is-01kzrs9mb24gzv94d2mvexqnbd
 parent_id: is-01kzrs66v8et3vwh2tpmk3v9d9
 created_at: 2026-08-11T16:07:39.323Z
-updated_at: 2026-08-11T18:03:03.841Z
+updated_at: 2026-09-14T04:21:57.507Z
 closed_at: 2026-08-11T18:03:03.840Z
 close_reason: Production CLI/server/client implementation complete; lifecycle, security, race, build, browser, performance, and packaged-artifact evidence is green.
 extensions:

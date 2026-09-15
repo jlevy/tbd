@@ -5,8 +5,8 @@ title: "Phase 5.2: retire development spike and reconcile release/spec metadata"
 kind: task
 status: closed
 priority: 1
-version: 4
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 5
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - cleanup
   - release
@@ -16,7 +16,7 @@ dependencies:
     target: is-01kzrsac4r354tm2b2f89mg0ve
 parent_id: is-01kzrs6s3fn7gtzgt70wx9yzas
 created_at: 2026-08-11T16:08:25.188Z
-updated_at: 2026-08-11T18:03:04.145Z
+updated_at: 2026-09-14T04:22:04.322Z
 closed_at: 2026-08-11T18:03:04.145Z
 close_reason: Architecture/manual/README/development/changelog/spec documentation reconciled; development spike deleted and production QA topology retained under tests.
 extensions:

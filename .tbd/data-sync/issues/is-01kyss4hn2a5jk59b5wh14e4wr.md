@@ -5,13 +5,13 @@ title: "Bugbot: single-ID show --ignore-missing emits no JSON on stdout"
 kind: bug
 status: closed
 priority: 1
-version: 3
-spec_path: docs/project/specs/active/plan-2026-07-28-agent-cli-bash-fallbacks.md
+version: 5
+spec_path: docs/project/specs/done/plan-2026-07-28-agent-cli-bash-fallbacks.md
 labels: []
 dependencies: []
 parent_id: is-01kyknjks7f7mm37tzt7mntc4k
 created_at: 2026-07-30T15:08:55.840Z
-updated_at: 2026-07-30T15:17:57.254Z
+updated_at: 2026-09-14T04:21:41.689Z
 closed_at: 2026-07-30T15:17:57.253Z
 close_reason: "Fixed in aad6c47 on PR #198: showSingle's two --ignore-missing returns now emit JSON null via a shared reportSingleSkip helper, keeping stdout parseable (bulk emits [], mutators their summary). Text mode byte-identical. Goldens pin null, the stderr warning shape, and bulk []. Manual, design doc, and CHANGELOG note the shapes. Replied on the Bugbot thread."
 ---

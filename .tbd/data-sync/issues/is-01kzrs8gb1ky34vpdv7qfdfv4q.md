@@ -5,8 +5,8 @@ title: "Phase 3.4: implement loopback server lifecycle, ports, readiness, and sh
 kind: task
 status: closed
 priority: 1
-version: 4
-spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
+version: 5
+spec_path: docs/project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - server
   - lifecycle
@@ -16,7 +16,7 @@ dependencies:
     target: is-01kzrs8phwbdy9hdkxm6c6k8pe
 parent_id: is-01kzrs66v8et3vwh2tpmk3v9d9
 created_at: 2026-08-11T16:07:32.955Z
-updated_at: 2026-08-11T16:40:17.360Z
+updated_at: 2026-09-14T04:21:56.381Z
 closed_at: 2026-08-11T16:40:17.359Z
 close_reason: "Implemented src/cli/web/server.ts: packaged-page loading, loopback-only bind, pinned/default-range port policy, HTTP readiness probe, request/socket limits, Wake/Board/SSE lifecycle, bounded idempotent shutdown, and browser-launch fallback seam. Port/lifecycle tests green."
 extensions:

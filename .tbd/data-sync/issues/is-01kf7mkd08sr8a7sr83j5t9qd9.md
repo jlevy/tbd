@@ -5,12 +5,12 @@ title: "Spec: CLI Output Design System"
 kind: epic
 status: closed
 priority: 2
-version: 20
-spec_path: docs/project/specs/active/plan-2026-01-17-cli-output-design-system.md
+version: 21
+spec_path: docs/project/specs/done/plan-2026-01-17-cli-output-design-system.md
 labels: []
 dependencies: []
 created_at: 2026-01-18T04:07:52.583Z
-updated_at: 2026-08-15T05:33:39.657Z
+updated_at: 2026-09-14T04:19:31.173Z
 closed_at: 2026-08-15T05:33:39.656Z
 close_reason: Completed specs are in docs/project/specs/done and their implementations, documentation, and tests ship on main.
 extensions:

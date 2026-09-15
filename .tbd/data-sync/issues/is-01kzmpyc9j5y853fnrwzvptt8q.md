@@ -5,15 +5,15 @@ title: Expand watch release smoke coverage and run it in CI
 kind: task
 status: closed
 priority: 1
-version: 6
-spec_path: docs/project/specs/active/valid-2026-08-09-bead-watch-release.md
+version: 7
+spec_path: docs/project/specs/paused/valid-2026-08-09-bead-watch-release.md
 labels:
   - bead-watch
   - validation
 dependencies: []
 parent_id: is-01kzmm8zqnf8q210etncddjn6h
 created_at: 2026-08-10T02:10:06.257Z
-updated_at: 2026-08-10T03:00:55.483Z
+updated_at: 2026-09-14T04:24:25.189Z
 closed_at: 2026-08-10T02:41:44.927Z
 close_reason: null
 ---

@@ -5,12 +5,12 @@ title: "Epic: Sync Worktree Recovery and Hardening"
 kind: epic
 status: closed
 priority: 1
-version: 7
-spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-hardening.md
+version: 8
+spec_path: docs/project/specs/done/plan-2026-01-28-sync-worktree-recovery-and-hardening.md
 labels: []
 dependencies: []
 created_at: 2026-01-28T23:38:35.647Z
-updated_at: 2026-03-09T16:12:33.111Z
+updated_at: 2026-09-14T04:19:42.673Z
 closed_at: 2026-01-29T01:30:54.220Z
 close_reason: "All phases complete: Phase 1 (detection infrastructure), Phase 2 (path consistency fixes), Phase 3 (auto-repair with sync --fix and doctor --fix), Phase 4 (prevention tests, verification, documentation). 769 tests pass, including 28 worktree-specific tests and 17 e2e tryscript scenarios."
 ---
