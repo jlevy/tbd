@@ -518,13 +518,29 @@ export class LinearAdapter implements TrackerAdapter {
     // from the issue.
     const assertsLabels = (patch.ensureLabels?.length ?? 0) > 0;
     const writesState = patch.status !== undefined || patch.slot !== undefined;
-    if ((writesState || assertsLabels) && patch.labels === undefined) {
-      const [current] = await this.fetchIssues([id]);
+    const readsLabels = (writesState || assertsLabels) && patch.labels === undefined;
+    // A delegate write is what makes Linear start an Agent Session, and the push-only
+    // mirror resends every field on every run. So the item's current delegate is read too,
+    // and a delegate it already has is not written again. Compared as app-user ids, since
+    // two agent names may map to one app user.
+    const appUserId = (delegate: string | null | undefined) =>
+      delegate ? this.agentMap.get(delegate)?.toLowerCase() : undefined;
+    const delegateId = appUserId(patch.delegate);
+    const [current] = readsLabels || delegateId ? await this.fetchIssues([id]) : [];
+    if (readsLabels) {
       preservedLabels = current?.labels.filter(
         (label) => label !== BLOCKED_LABEL && label !== DEFERRED_LABEL,
       );
     }
-    const input = await this.toInput(patch, meta, preservedLabels);
+    const unchangedDelegate =
+      delegateId !== undefined &&
+      current !== undefined &&
+      appUserId(current.delegate) === delegateId;
+    const input = await this.toInput(
+      unchangedDelegate ? { ...patch, delegate: undefined } : patch,
+      meta,
+      preservedLabels,
+    );
     const data = await this.client.request<{
       issueUpdate: {
         success: boolean;

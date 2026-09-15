@@ -95,6 +95,35 @@ describe('planMirror', () => {
     expect(plan.creates[0]?.skippedFields).toBeUndefined();
   });
 
+  it('publishes a delegate for open work but never for a closed bead', () => {
+    // tbd-80vz. Closing a bead keeps its `delegate`, and a delegate write is what starts a
+    // Linear Agent Session, so a closed bead would otherwise hand finished work to an
+    // agent on every push.
+    const link = { linear: { id: 'ext', linked_at: '2026-08-10T00:00:00.000Z' } };
+    const open = issue({ id: 'is-open', delegate: 'cyrus', extensions: link });
+    const closed = issue({
+      id: 'is-closed',
+      status: 'closed',
+      delegate: 'cyrus',
+      extensions: link,
+    });
+    const plan = planMirror({
+      provider: 'linear',
+      readyAt: READY_AT,
+      allIssues: [open, closed],
+      selected: [open, closed],
+      displayId,
+      maxNesting: 2,
+      canPushDelegate: () => true,
+    });
+
+    const byId = new Map(plan.updates.map((action) => [action.bead.id, action]));
+    expect(byId.get('is-open')?.patch.delegate).toBe('cyrus');
+    expect(byId.get('is-closed')?.patch).not.toHaveProperty('delegate');
+    // Not publishing a finished bead's delegate is policy, not a failure to report.
+    expect(byId.get('is-closed')?.skippedFields).toBeUndefined();
+  });
+
   it('plans an update for an already-linked bead', () => {
     const bead = issue({
       id: 'is-a',
@@ -564,6 +593,52 @@ describe('applyMirror', () => {
 
     expect(report.updated).toEqual(['tbd-a']);
     expect(server.attachments.length).toBe(attachmentsAfterFirst);
+  });
+
+  it('sends a delegate once, not on every push (tbd-80vz)', async () => {
+    const withAgent = new LinearAdapter({
+      client: new LinearClient({
+        apiKey: 'k',
+        endpoint: server.endpoint,
+        sleep: () => Promise.resolve(),
+      }),
+      teamKey: 'FIN',
+      agentMap: { cyrus: server.appUsers[0]!.id },
+    });
+    server.addIssue({ id: 'uuid-d', identifier: 'FIN-1', title: 'Delegated' });
+    const bead = issue({
+      id: 'is-d',
+      delegate: 'cyrus',
+      extensions: { linear: { id: 'uuid-d', linked_at: '2026-08-10T00:00:00.000Z' } },
+    });
+    const push = async () =>
+      applyMirror({
+        adapter: withAgent,
+        plan: planMirror({
+          provider: 'linear',
+          readyAt: READY_AT,
+          allIssues: [bead],
+          selected: [bead],
+          displayId,
+          maxNesting: 2,
+          canPushDelegate: (delegate) => withAgent.canPushDelegate(delegate),
+        }),
+        displayId,
+        onLinked,
+      });
+    const delegateWrites = () =>
+      server.requests.filter(
+        (request) =>
+          /mutation\s+IssueUpdate/u.test(request.query) &&
+          'delegateId' in (request.variables.input as Record<string, unknown>),
+      ).length;
+
+    await push();
+    expect(delegateWrites()).toBe(1);
+    await push();
+    await push();
+    expect(delegateWrites()).toBe(1);
+    expect(server.issues.get('uuid-d')?.delegate?.id).toBe(server.appUsers[0]!.id);
   });
 
   it('reports a failing bead and still mirrors the rest', async () => {

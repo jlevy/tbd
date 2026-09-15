@@ -573,6 +573,42 @@ describe('Linear client and adapter', () => {
       expect(issue?.delegate).toBe('cyrus');
     });
 
+    /** The delegateId each IssueUpdate sent, in order; undefined where none was sent. */
+    const sentDelegateIds = (): unknown[] =>
+      server.requests
+        .filter((request) => /mutation\s+IssueUpdate/u.test(request.query))
+        .map((request) => (request.variables.input as Record<string, unknown>).delegateId);
+
+    it('does not rewrite the delegate an item already has (tbd-80vz)', async () => {
+      // A delegate write is what starts a Linear Agent Session, and the push-only mirror
+      // resends every field on every run. Writing only a change keeps a settled item quiet.
+      const adapterWithAgent = withAgent();
+      server.addIssue({ id: 'uuid-12', identifier: 'FIN-12', title: 'Already delegated' });
+      server.issues.get('uuid-12')!.delegate = { ...server.appUsers[0]! };
+
+      await adapterWithAgent.applyChanges('uuid-12', { delegate: 'cyrus', status: 'open' });
+      await adapterWithAgent.applyChanges('uuid-12', { delegate: 'cyrus' });
+
+      expect(sentDelegateIds()).toEqual([undefined, undefined]);
+      expect(server.issues.get('uuid-12')?.delegate?.id).toBe(server.appUsers[0]!.id);
+    });
+
+    it('writes a delegate that differs from the item’s current one', async () => {
+      const adapterWithAgent = withAgent();
+      server.addIssue({ id: 'uuid-13', identifier: 'FIN-13', title: 'Foreign delegate' });
+      server.issues.get('uuid-13')!.delegate = {
+        id: '00000000-0000-4000-8000-00000000ffff',
+        name: 'Someone Else',
+        displayName: 'Someone Else',
+      };
+      server.addIssue({ id: 'uuid-14', identifier: 'FIN-14', title: 'No delegate' });
+
+      await adapterWithAgent.applyChanges('uuid-13', { delegate: 'cyrus', status: 'open' });
+      await adapterWithAgent.applyChanges('uuid-14', { delegate: 'cyrus' });
+
+      expect(sentDelegateIds()).toEqual([server.appUsers[0]!.id, server.appUsers[0]!.id]);
+    });
+
     it('leaves the delegate alone when the agent is unmapped', async () => {
       const bare = new LinearAdapter({ client, teamKey: 'FIN' });
       server.addIssue({ id: 'uuid-10', identifier: 'FIN-10', title: 'Not delegated' });
