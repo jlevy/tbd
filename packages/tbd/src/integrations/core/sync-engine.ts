@@ -37,7 +37,14 @@ import type {
   PolicyDefinition,
   ProviderNameType,
 } from '../../lib/types.js';
-import { bandOf, computeSlot, decomposeSlot, isSlot, type Slot } from './slots.js';
+import {
+  bandOf,
+  computeSlot,
+  decomposeSlot,
+  isSlot,
+  outboundPosition,
+  type Slot,
+} from './slots.js';
 import { readyIssueIds } from '../../lib/issue-selection.js';
 import {
   descriptionHash,
@@ -602,17 +609,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   // then has to converge out of: an open bead that is not ready belongs in Backlog,
   // and `status: open` alone lands it in Todo. `status`, `resolution` and `hold` ride
   // alongside because a journal replayed by a client that predates slots ignores `slot`.
-  const positionOf = (issue: Issue) => ({
-    status: issue.status,
-    resolution: issue.resolution ?? null,
-    hold: issue.hold ?? null,
-    slot: computeSlot({
-      status: issue.status,
-      hold: issue.hold,
-      resolution: issue.resolution,
-      ready: readyIds.has(issue.id),
-    }),
-  });
+  const positionOf = (issue: Issue) => outboundPosition(issue, readyIds.has(issue.id));
   const childrenByParent = new Map<string, Issue[]>();
   for (const issue of currentIssues) {
     if (!issue.parent_id) {

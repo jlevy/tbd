@@ -262,6 +262,54 @@ describe('planMirror', () => {
     // Two children, one of them ready (the other is claimed).
     expect(block).toContain('Children: 2 (1 ready)');
   });
+
+  it('sends the slot the reconciler computes, so not-ready open work stays in Backlog', () => {
+    // tbd-evn3: without a slot the adapter maps `status: open` to Todo, which is not where
+    // the reconciler puts open work that is not ready.
+    const linked: Partial<Issue> = {
+      extensions: { linear: { id: 'ext', linked_at: '2026-08-10T00:00:00.000Z' } },
+    };
+    const ready = issue({ id: 'is-ready', ...linked });
+    const blocked = issue({ id: 'is-blocked', ...linked });
+    const blocker = issue({
+      id: 'is-blocker',
+      kind: 'task',
+      dependencies: [{ type: 'blocks', target: blocked.id }],
+    });
+    const deferred = issue({
+      id: 'is-deferred',
+      deferred_until: '2999-01-01T00:00:00.000Z',
+      ...linked,
+    });
+    const held = issue({ id: 'is-held', hold: 'paused', ...linked });
+    const done = issue({ id: 'is-done', status: 'closed', resolution: 'canceled', ...linked });
+    const all = [ready, blocker, blocked, deferred, held, done];
+
+    const plan = planMirror({
+      provider: 'linear',
+      readyAt: READY_AT,
+      allIssues: all,
+      selected: [ready, blocked, deferred, held, done],
+      displayId,
+      maxNesting: 2,
+    });
+
+    const positions = Object.fromEntries(
+      plan.updates.map((action) => [
+        action.bead.id,
+        (({ slot, status, resolution, hold }) => ({ slot, status, resolution, hold }))(
+          action.patch,
+        ),
+      ]),
+    );
+    expect(positions).toEqual({
+      'is-ready': { slot: 'todo', status: 'open', resolution: null, hold: null },
+      'is-blocked': { slot: 'backlog', status: 'open', resolution: null, hold: null },
+      'is-deferred': { slot: 'backlog', status: 'open', resolution: null, hold: null },
+      'is-held': { slot: 'backlog', status: 'open', resolution: null, hold: 'paused' },
+      'is-done': { slot: 'canceled', status: 'closed', resolution: 'canceled', hold: null },
+    });
+  });
 });
 
 describe('label mirroring', () => {

@@ -134,6 +134,42 @@ export function computeSlot(inputs: SlotInputs): Slot {
   return 'backlog';
 }
 
+/**
+ * Where an outbound write files a bead: its slot, plus the status, resolution, and hold
+ * the slot was computed from.
+ *
+ * The slot is what tells Backlog from Todo; the other three ride alongside because a
+ * reader that predates slots ignores `slot` and files the item by them instead. Every
+ * writer that projects a bead without first comparing it to the tracker (a create, the
+ * push-only mirror) takes its position from here, so no two of them can disagree about
+ * where the same bead sits.
+ */
+export function outboundPosition(
+  bead: {
+    status: IssueStatusType;
+    hold?: IssueHoldType | null;
+    resolution?: IssueResolutionType | null;
+  },
+  ready: boolean,
+): {
+  status: IssueStatusType;
+  resolution: IssueResolutionType | null;
+  hold: IssueHoldType | null;
+  slot: Slot;
+} {
+  return {
+    status: bead.status,
+    resolution: bead.resolution ?? null,
+    hold: bead.hold ?? null,
+    slot: computeSlot({
+      status: bead.status,
+      hold: bead.hold,
+      resolution: bead.resolution,
+      ready,
+    }),
+  };
+}
+
 /** The bead fields a pulled slot implies. */
 export interface SlotDecomposition {
   status: IssueStatusType;
