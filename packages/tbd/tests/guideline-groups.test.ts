@@ -62,6 +62,7 @@ describe('guidelineGroupFor', () => {
 
   it('files language-neutral topic guidelines under Cross-cutting engineering topics', () => {
     for (const name of [
+      'agent-run-operations-rules',
       'backward-compatibility-rules',
       'ci-and-gates-rules',
       'code-review-rules',
