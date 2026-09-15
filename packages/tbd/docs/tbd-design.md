@@ -820,6 +820,7 @@ does not create them.
 └── data-sync/
     ├── issues/                          # Issue entities (Markdown)
     │   ├── .gitkeep                     # Initial scaffold
+    │   ├── .gitattributes               # *.md merge=binary
     │   └── is-01hx5zzkbkactav9wevgemmvrz.md
     ├── mappings/                        # ID mappings
     │   ├── .gitkeep                     # Initial scaffold
@@ -837,9 +838,11 @@ does not create them.
     └── meta.yml                         # Required schema-version scaffold
 ```
 
-Only `meta.yml`, `issues/.gitkeep`, `mappings/.gitkeep`, and `mappings/.gitattributes`
-are guaranteed in a fresh sync-branch scaffold.
-The issue, mapping, attic, and bridge examples appear as their features are used.
+Only `meta.yml`, the two `.gitkeep` files, and the two `.gitattributes` files are
+guaranteed in a fresh sync-branch scaffold.
+A sync branch created before an attribute file existed gets it from its next `tbd sync`
+(§3.4, “What makes the field-level merge run”). The issue, mapping, attic, and bridge
+examples appear as their features are used.
 
 > **Future: Simple Mode**—For users who don’t need multi-machine sync, tbd could support
 > a “simple mode” where `data-sync/` is committed directly to main instead of using a
@@ -2628,12 +2631,26 @@ for the old issue. No writer emits a record like that, and the run reported a cl
 with nothing archived.
 
 So bead files are marked unmergeable — `issues/.gitattributes` carries
-`*.md merge=binary`, written with the rest of the data scaffold.
-Git refuses to combine them and marks any two-sided change conflicted; every such bead
-then goes through `mergeBeadAcrossRefs`, which reads both sides from their blobs (never
-the marker-corrupted working file) and resolves them by the rules in §3.5. The attribute
-lives on the sync branch, so an older client applies it and reaches its own structured
-merge too.
+`*.md merge=binary`. Git refuses to combine them and marks any two-sided change
+conflicted; every such bead then goes through `mergeBeadAcrossRefs`, which reads both
+sides from their blobs (never the marker-corrupted working file) and resolves them by
+the rules in §3.5.
+
+Git takes attributes from the worktree doing the merge, not from the branch being merged
+in, so the file has to be on the merging clone’s own branch first.
+The data scaffold writes it when a worktree is created, and `tbd sync` writes it before
+it merges: on every full sync, and again before the merge a rejected push triggers.
+Each writes the file only when it is missing and commits it once
+(`tbd sync: add merge attributes`); after that both are no-ops.
+A sync branch created by tbd 0.8.1 or earlier, which never wrote the file, therefore
+gets it from its first sync with a current client.
+
+From there the attribute travels with the sync branch to every clone, including one
+still on an older release.
+Git applies it to that client’s merges, and 0.7.x and 0.8.x already resolve a conflicted
+bead through the same ref-based `mergeBeadAcrossRefs` path, so they reach their own
+structured merge too.
+Until the file reaches its branch, an older client line-merges as before.
 
 Do not rely on writers to force this by touching `updated_at`. They do, and that is why
 the hazard above needs a hand edit or a foreign tool to reach today, but a data-safety
@@ -6026,6 +6043,7 @@ $GIT_COMMON_DIR/tbd/
 .tbd/data-sync/
 ├── issues/
 │   ├── .gitkeep                 # Fresh scaffold
+│   ├── .gitattributes           # *.md merge=binary
 │   └── is-01hx5zzkbkactav9wevgemmvrz.md
 ├── mappings/
 │   ├── .gitkeep                 # Fresh scaffold
