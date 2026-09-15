@@ -15,6 +15,7 @@ export const LIVE_COMPATIBILITY_SCENARIOS = [
   'automatic-inbound-scope',
   'concurrent-conflict-recovery',
   'exact-once-settle',
+  'blocked-slot-create-settle',
   'orphan-detection',
   'cleanup',
 ] as const;

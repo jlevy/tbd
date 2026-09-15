@@ -16,7 +16,7 @@ Linear’s web UI is one final parity check, not a substitute for repeatable rou
 Load `LINEAR_API_KEY` from a gitignored `.env`, then run:
 
 ```bash
-pnpm --filter get-tbd qa:linear-live -- --team TBD --project tbd
+pnpm --filter get-tbd qa:linear-live -- --team OS --project tbd
 ```
 
 Both `--team` and `--project` are mandatory release-gate inputs.
@@ -47,6 +47,7 @@ and retains no successful result marker.
 | `automatic-inbound-scope` | Create one same-team item inside the configured project and one outside it | Automatic discovery reports the in-project item and excludes the outside-project sentinel. The runner evaluates those owned sentinels from structured output even when unrelated real project items produce report-level failures; providers without a narrower configured scope record the scenario as not applicable |
 | `concurrent-conflict-recovery` | Make a provider edit while tbd has a different edit | Full sync applies the configured tie-break, archives the loser, and posts one conflict report |
 | `exact-once-settle` | Count comments before and after | The next full sync reports `nothing to do` and adds no duplicate comment |
+| `blocked-slot-create-settle` | Read workflow state and `updatedAt` after every run | Create a local epic with an open blocker, require the first sync to create it directly in Backlog, then require two full syncs to report `nothing to do` without changing the provider timestamp or column |
 | `orphan-detection` | Archive the child through GraphQL | Pull-only reports the linked item orphaned and leaves its bead intact |
 | `cleanup` | Archive every remaining fixture | Remove the disposable repository unless explicitly retained |
 
@@ -78,6 +79,25 @@ Intentional boundaries—comment edits/deletes, reactions, threaded layout, prov
 deletion, and simultaneous cross-repository first claims—must remain explicit in the
 matrix and must never be reported as synchronized.
 
+## Ongoing Maintenance
+
+Run the automated live gate for every pull request that changes a provider adapter,
+canonical field mapping, slot or lifecycle semantics, bridge records, intent replay, or
+integration configuration.
+Run it again from the packed release candidate before publishing.
+When one of those changes adds or changes a compatibility claim, update the shared
+scenario list, the provider runner, and this table in the same pull request.
+Keep scenario ids stable so results remain comparable between releases.
+
+Record the candidate commit or package, UTC timestamp, team and project names, completed
+scenario count, and cleanup result in the pull request or its tracking bead.
+Never record the credential or a retained disposable-repository `.env`. If cleanup
+fails, archive the owned fixtures manually before accepting the run.
+
+The dated runbook under `docs/project/specs/done/` is historical evidence, not the live
+procedure. Carry forward any still-relevant manual check here instead of editing a
+completed spec.
+
 ## Extended Concurrency Soak
 
 Run the established two-clone soak before a provider release candidate when sync-engine,
@@ -88,6 +108,11 @@ bridge-merge, or intent semantics change:
 3. Alternate two more full syncs from both clones.
 4. Verify both clones and Linear contain both operations once, bridge files have no
    conflict markers, and the final runs are quiet.
+
+Also run the mixed-version convergence gate tracked by `tbd-s4kb` when a change affects
+slot encoding, bridge bases, or journal compatibility.
+Do not use a single-version live pass as evidence that released and candidate clients
+can alternate safely.
 
 The 2026-08-13 Linear release-candidate run passed this soak along with forced conflict
 recovery, archived-item detection, explicit read-only import, and comment exact-once

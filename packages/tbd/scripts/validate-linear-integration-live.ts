@@ -64,6 +64,8 @@ interface LinearIssueSnapshot {
   description: string | null;
   priority: number;
   stateType: string;
+  stateName: string;
+  updatedAt: string;
   assigneeId: string | null;
   parentId: string | null;
   archivedAt: string | null;
@@ -364,7 +366,8 @@ class LinearApi {
         title: string;
         description: string | null;
         priority: number;
-        state: { type: string };
+        updatedAt: string;
+        state: { type: string; name: string };
         assignee: { id: string } | null;
         parent: { id: string } | null;
         archivedAt: string | null;
@@ -374,8 +377,8 @@ class LinearApi {
     }>(
       `query QaIssue($id: String!) {
         issue(id: $id) {
-          id identifier title description priority archivedAt
-          state { type }
+          id identifier title description priority updatedAt archivedAt
+          state { type name }
           assignee { id }
           parent { id }
           comments(first: 250) { nodes { body } }
@@ -392,6 +395,8 @@ class LinearApi {
       description: data.issue.description,
       priority: data.issue.priority,
       stateType: data.issue.state.type,
+      stateName: data.issue.state.name,
+      updatedAt: data.issue.updatedAt,
       assigneeId: data.issue.assignee?.id ?? null,
       parentId: data.issue.parent?.id ?? null,
       archivedAt: data.issue.archivedAt,
@@ -734,6 +739,56 @@ async function main(): Promise<void> {
         after.commentBodies.length === before.commentBodies.length,
         'Settling duplicated a comment',
       );
+    });
+
+    await checklist.run('blocked-slot-create-settle', async () => {
+      const epicTitle = `${token} blocked epic`;
+      const epic = parseJson(
+        expectSuccess(
+          await tbd(['create', epicTitle, '--type=epic', '--json']),
+          'blocked epic create',
+        ),
+        'blocked epic create',
+      ) as { id: string };
+      const blocker = parseJson(
+        expectSuccess(
+          await tbd(['create', `${token} local blocker`, '--type=task', '--json']),
+          'local blocker create',
+        ),
+        'local blocker create',
+      ) as { id: string };
+      expectSuccess(await tbd(['dep', 'add', epic.id, blocker.id]), 'blocked epic dependency');
+
+      expectSuccess(await tbd(['integration', 'sync', '--yes']), 'blocked epic first sync');
+      const local = await show(epic.id);
+      const link = local.extensions?.linear as Record<string, unknown> | undefined;
+      assertCondition(typeof link?.id === 'string', 'Blocked epic did not receive a Linear link');
+      const created = await api.issue(link.id);
+      fixtures.push({ id: created.id, key: created.key });
+      assertCondition(
+        created.stateName === 'Backlog',
+        `Blocked epic was created in ${created.stateName}, not Backlog`,
+      );
+
+      for (const label of ['second', 'third']) {
+        const settled = expectSuccess(
+          await tbd(['integration', 'sync', '--yes']),
+          `blocked epic ${label} sync`,
+        );
+        assertCondition(
+          settled.includes('nothing to do'),
+          `Blocked epic ${label} sync did not converge`,
+        );
+        const unchanged = await api.issue(created.id);
+        assertCondition(
+          unchanged.updatedAt === created.updatedAt,
+          `Blocked epic ${label} sync changed Linear's updatedAt`,
+        );
+        assertCondition(
+          unchanged.stateName === 'Backlog',
+          `Blocked epic ${label} sync moved Linear to ${unchanged.stateName}`,
+        );
+      }
     });
 
     await checklist.run('orphan-detection', async () => {
