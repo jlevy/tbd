@@ -154,11 +154,14 @@ only 85 of which had any open bead.
 - Fix every link or bead `spec_path` affected by a move.
   Inbound references are usually more numerous than expected — a dozen per spec is
   ordinary, spread across other specs, `TODO.md`, research docs, and logbooks — and they
-  appear in several shapes (bare filename, repo-relative, and `../` relative).
-  Rewriting on the `specs/<folder>/<file>` fragment catches every path-bearing form at
-  once while leaving bare filenames alone, which a move does not break.
-  Use a multi-file rewrite tool with a dry run rather than editing by hand, and
-  afterwards grep for the old path to prove none survived.
+  appear in several shapes (bare filename, `./` sibling links, repo-relative paths, and
+  `../` relative paths).
+  Rewrite the `specs/<folder>/<file>` fragment for path-bearing references, and also
+  rewrite every bare filename or `./` sibling link that points at the moved file; those
+  break just as surely when the target changes lifecycle folder.
+  Use a multi-file rewrite tool with a dry run rather than editing by hand, then grep
+  for the old path and run a relative-link check over the changed files to prove no
+  stale references survived.
 
   **Repointing the beads is the half that gets skipped, and it is not cosmetic.** A bead
   whose `spec_path` still names the old location makes the spec look like it has no
@@ -233,9 +236,9 @@ Two things to know before scripting the triage:
   links.
 - Because closed beads are absent from that dump, it cannot distinguish
   every-child-closed from no-children-ever-existed, which is the distinction step 2
-  turns on. To count closed beads per spec, read the committed bead files directly and
-  tally `spec_path` against `status`; they live under the data-sync worktree
-  `tbd doctor` reports.
+  turns on. Use `tbd list --all --parent <id> --count` to count closed children for an
+  epic, and `tbd list --all --spec <path> --count` to count closed beads for a spec.
+  Prefer those commands over reading the data-sync worktree directly.
 - `parentId` holds the **display** id (`abc1-xyz9`), not `internalId`, while
   `child_order_hints` holds internal ids.
   Matching the wrong pair silently yields zero children for every epic, which reads as
