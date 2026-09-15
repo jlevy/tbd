@@ -251,6 +251,53 @@ Update `TBD_UPGRADE_SAME_FORMAT_FROM`, `TBD_UPGRADE_COMMON_FROM`, or
 `TBD_UPGRADE_PREVIOUS_FORMAT_FROM` when validating a different usage or compatibility
 boundary.
 
+The gate runs seven scenarios, and they prove four different things.
+Four are *upgrade*: a repository created by a published baseline, upgraded once by the
+candidate — one per compatibility boundary (same-format, common pre-bump, last
+pre-bump), plus a legacy remote whose `tbd-sync` branch lost its data scaffold and has
+to be recovered from history.
+The fifth is *coexistence*: a clone on the same-format baseline and a clone on the
+candidate share one bare remote, and each has to read, merge, and push the other’s
+beads, attic entries, and bridge state without loss.
+That is the case a mixed-version team is actually in, because nobody upgrades every
+machine at the same moment, and it is the only scenario where the two clients are live
+at once rather than one after the other.
+Coexistence proves *preservation* of bridge state the older client has no credentials to
+read, not its *interpretation*; whether an older reader accepts candidate-written link
+records and journaled intents needs a live provider and is covered by the mixed-version
+tracker convergence test instead.
+
+The sixth is the *config round trip*, and it runs the other way round from the rest: the
+candidate writes `.tbd/config.yml`, then a published client rewrites it with
+`tbd config set` and `tbd setup --auto`, and the keys have to still be there at the
+nesting level they were written at.
+A key survives that rewrite only where its level is `.passthrough()`, and the levels are
+not uniform, so every config key a release adds is a bet on what the clients already in
+the field will carry.
+It probes one key per level and includes a key that must be *dropped*, so a run that
+detects nothing fails rather than passes.
+This scenario uses the **newest** published f08 release, not the oldest: it asks what
+the client a teammate is most likely to be running will preserve.
+The gate always packs that release from npm, even when its manifest version matches the
+candidate.
+The candidate archive comes from the checkout, so equal version strings do not
+make the published and unpublished artifacts identical.
+Override it with `TBD_UPGRADE_LATEST_FORMAT_FROM`.
+
+The seventh is the *parser proof*. The others drive a published CLI as a process, which
+shows that commands work but not why when they do not; this one imports the published
+package’s own exported `parseIssue`, `serializeIssue` and schemas and runs them against
+candidate-written files, so a compatibility break is reported as the field it happened
+to. It pins three things worth knowing before a release: beads parse identically under
+both versions (including a description containing the `## Notes` delimiter, and f08
+fields the older schema never declared); a bead that goes through the older client and
+back has lost nothing, though it may come back with its fields in a different order,
+since the older field order does not mention them; and a bridge link record loses
+*exactly* the fields already decided it would and no others, because `LinkRecordSchema`
+and `BridgeBaseSchema` are deliberately not `.passthrough()`. That last list is the one
+to watch: adding a field to a bridge record fails this gate until the
+minimum-client-version consequence is recorded with it.
+
 For changes to setup, generated launchers, installation, fallback selection, format
 migration, or upgrade recovery, also exercise the packed candidate in a first-party
 downstream repository such as `jlevy/tryscript`. Start from a fresh clone or temporary

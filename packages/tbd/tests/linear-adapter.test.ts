@@ -594,9 +594,11 @@ describe('Linear client and adapter', () => {
     });
 
     it('rejects an agent id that is not a UUID at construction', () => {
+      // The same wording config validation uses, from the same function: one mistake must
+      // never read as two different problems depending on where it was caught.
       expect(
         () => new LinearAdapter({ client, teamKey: 'FIN', agentMap: { cyrus: 'nope' } }),
-      ).toThrow(/app user UUID/);
+      ).toThrow(/integrations\.linear\.identity\.agent_map\.cyrus must be an app-user UUID/);
     });
   });
 

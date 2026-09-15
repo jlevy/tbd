@@ -47,14 +47,18 @@ import {
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, isAbsolute, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { promisify } from 'node:util';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { isDeepStrictEqual, promisify } from 'node:util';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 const execFileAsync = promisify(execFile);
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageDir = join(scriptDir, '..');
 const sourceRepoDir = join(packageDir, '..', '..');
+// The OLDEST published f08 release: the weakest client that must still read what this
+// build writes. T2's drop list (BASELINE_DROPS_FROM_LINK_RECORD) is this version's schema,
+// so overriding this to a newer release is expected to fail T2 until that list is updated
+// with it — which is the point of asserting the list exactly.
 const sameFormatBaseline = process.env.TBD_UPGRADE_SAME_FORMAT_FROM ?? '0.7.0';
 const commonUpgradeBaseline = process.env.TBD_UPGRADE_COMMON_FROM ?? '0.4.2';
 const previousFormatBaseline = process.env.TBD_UPGRADE_PREVIOUS_FORMAT_FROM ?? '0.5.0';
@@ -156,6 +160,28 @@ async function packCandidate(destination, version) {
   });
 }
 
+/**
+ * The newest release actually published to npm.
+ *
+ * The config round trip asks what the client a teammate is most likely to be running will
+ * preserve, so its baseline has to be whatever `npm install -g get-tbd` gives you today —
+ * not a constant someone has to remember to bump after every release. A pinned constant
+ * decays silently: it keeps naming the release before last while the scenario goes on
+ * claiming it tested the newest one.
+ */
+async function latestPublishedVersion() {
+  const { stdout } = await runPackageManager('npm', ['view', 'get-tbd', 'dist-tags.latest'], {
+    cwd: packageDir,
+    env: withoutAmbientNpmConfig(),
+  });
+  const version = stdout.trim();
+  invariant(
+    /^\d+\.\d+\.\d+/u.test(version),
+    `npm reported an unusable latest version for get-tbd: ${JSON.stringify(stdout)}`,
+  );
+  return version;
+}
+
 async function packPublished(destination, version) {
   // Exact historical first-party artifacts only; npm pack does not run lifecycle scripts.
   await runPackageManager(
@@ -192,6 +218,12 @@ async function extractPackage(archive, destination, dependencyTree) {
   invariant(typeof bin === 'string', `get-tbd@${String(manifest.version)} has no tbd binary`);
   const cliPath = join(extracted, bin);
   await access(cliPath);
+  // The package entry point, for scenarios that import the published parser and schemas
+  // instead of driving the published CLI.
+  const entry = manifest.exports?.['.']?.default ?? manifest.main;
+  invariant(typeof entry === 'string', `get-tbd@${String(manifest.version)} has no entry point`);
+  const indexPath = join(extracted, entry);
+  await access(indexPath);
   const launcherDir = join(destination, 'qa-bin');
   await mkdir(launcherDir);
   if (process.platform === 'win32') {
@@ -202,7 +234,7 @@ async function extractPackage(archive, destination, dependencyTree) {
   } else {
     await symlink(cliPath, join(launcherDir, 'tbd'));
   }
-  return { cliPath, launcherDir, manifest };
+  return { cliPath, indexPath, launcherDir, manifest };
 }
 
 async function initializeRepository(repository) {
@@ -227,12 +259,27 @@ async function addPreservationProbes(configPath) {
   await writeFile(configPath, stringifyYaml(config, { lineWidth: 0 }));
 }
 
-async function snapshotIssueData(repository) {
+/**
+ * The tbd data-sync worktree of a repository, and the data directory inside it.
+ *
+ * The worktree is attached to the *common* git directory, so it is shared by every
+ * linked worktree of the repository and is not found by joining `.git` to the
+ * repository path.
+ */
+async function worktreeDirectory(repository) {
   const commonDirOutput = await git(repository, 'rev-parse', '--git-common-dir');
   const commonDir = isAbsolute(commonDirOutput)
     ? commonDirOutput
     : resolve(repository, commonDirOutput);
-  const dataDir = join(commonDir, 'tbd', 'data-sync-worktree', '.tbd', 'data-sync');
+  return join(commonDir, 'tbd', 'data-sync-worktree');
+}
+
+async function dataSyncDirectory(repository) {
+  return join(await worktreeDirectory(repository), '.tbd', 'data-sync');
+}
+
+async function snapshotIssueData(repository) {
+  const dataDir = await dataSyncDirectory(repository);
   const snapshot = {};
   for (const relativeDir of ['issues', 'mappings']) {
     const directory = join(dataDir, relativeDir);
@@ -565,11 +612,7 @@ async function validateLegacyRemoteSyncUpgrade({
     `legacy-remote: config reports ${String(config.tbd_version)}, expected ${candidateVersion}`,
   );
 
-  const commonDirOutput = await git(repository, 'rev-parse', '--git-common-dir');
-  const commonDir = isAbsolute(commonDirOutput)
-    ? commonDirOutput
-    : resolve(repository, commonDirOutput);
-  const worktree = join(commonDir, 'tbd', 'data-sync-worktree');
+  const worktree = await worktreeDirectory(repository);
   await access(join(worktree, '.tbd', 'data-sync', 'meta.yml'));
   invariant(
     (await readFile(join(worktree, 'legacy-marker.txt'), 'utf8')) === 'preserve me\n',
@@ -615,6 +658,827 @@ async function validateLegacyRemoteSyncUpgrade({
   console.log(
     `Packed legacy-remote proof passed: ${baselineVersion} (f06) -> ` +
       `${candidateVersion} (${CANDIDATE_FORMAT})`,
+  );
+}
+
+/**
+ * Split an issue file into its YAML front matter and its Markdown body.
+ *
+ * Issue files are a `---` fenced YAML block followed by the description as Markdown, so
+ * neither half can be reached with `parseYaml` on the whole file.
+ */
+async function readIssueFile(path) {
+  const text = await readFile(path, 'utf8');
+  const fence = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/u.exec(text);
+  invariant(fence, `Issue file has no front matter: ${path}`);
+  return { front: parseYaml(fence[1]), body: text.slice(fence[0].length) };
+}
+
+/** Mutate an issue file's front matter in place, leaving its body untouched. */
+async function patchIssueFrontMatter(path, patch) {
+  const { front, body } = await readIssueFile(path);
+  patch(front);
+  await writeFile(path, `---\n${stringifyYaml(front, { lineWidth: 0 })}---\n${body}`);
+}
+
+function parseCliJson(result, description) {
+  invariant(result.code === 0, `${description} failed\n${result.stdout}\n${result.stderr}`);
+  try {
+    return JSON.parse(result.stdout);
+  } catch (error) {
+    throw new Error(`${description} did not return JSON (${String(error)})\n${result.stdout}`);
+  }
+}
+
+/**
+ * Fixed values for the coexistence scenario, named so each assertion says what it means.
+ *
+ * `COEXISTENCE_WORKSPACE_UPDATED_AT` is far in the future only to make the workspace copy
+ * unambiguously the newer of the two sides, which is what decides the merge winner.
+ */
+const COEXISTENCE_DESCRIPTION = 'Description the candidate wrote';
+const COEXISTENCE_COMMENT_LOCAL_ID = '01CMT0000000000000000000A';
+const COEXISTENCE_COMMENT_AT = '2026-01-01T00:00:00.000Z';
+const COEXISTENCE_WORKSPACE_UPDATED_AT = '2099-12-31T23:59:59.000Z';
+const COEXISTENCE_BASELINE_DESCRIPTION = 'Description the baseline wrote';
+const COEXISTENCE_WINNING_DESCRIPTION = 'Description that won the merge';
+const COEXISTENCE_RUN_ID = 'coexistence-run';
+
+/**
+ * f08 contract T4: two clients on different versions sharing one repository.
+ *
+ * The other scenarios each prove a *sequential* claim — an old repository, upgraded once,
+ * still works. This one proves a *concurrent* claim: a clone on a published release and a
+ * clone on the candidate, both live against one bare remote, read and write each other's
+ * data without loss. That is the state a mixed-version team is actually in, because nobody
+ * upgrades every machine at the same moment.
+ *
+ * It needs two clones rather than two directories because "sharing a repository" in tbd
+ * means sharing the `tbd-sync` branch, so the interesting merges happen in git between two
+ * working copies, not inside one process. It needs the real published tarball rather than
+ * an old code path because the whole risk is behavior that cannot be seen by reading the
+ * candidate's source.
+ *
+ * What each step proves, in the order the sequence builds it:
+ *
+ *   1. The baseline reads what the candidate wrote — beads created by the candidate list
+ *      under the older client, with no migration step in between. The baseline is a plain
+ *      `git clone` that never runs `setup`; its first `tbd sync` provisions the worktree.
+ *   2. Attic entries survive the version gap in both directions: the baseline lists and
+ *      shows a candidate-written conflict entry with its lost value intact, and restores a
+ *      candidate-written entry back onto the issue. This is the load-bearing assertion for
+ *      `tbd-ajq2`, which makes `tbd sync` write attic entries from a new code path — it may
+ *      only do so once the format an older client reads is proven, so T4 gates ajq2 rather
+ *      than depending on it. The entry format under test is the one ajq2 will emit
+ *      (`writeAtticEntryFile` into the flat `attic/`, which is what `tbd attic` reads).
+ *   3. The candidate reads back what the baseline wrote, after the baseline merged and
+ *      pushed work of its own: a round trip, not a one-way read.
+ *   4. Neither side's data is dropped by the other's merge — each client's bead is present
+ *      at the end, an `extensions` namespace the older client does not understand comes
+ *      back through it unchanged rather than stripped, and the bridge state it has no
+ *      credentials to read (a link record and a journaled intent) survives its merge and
+ *      push byte for byte, on the shared branch and in the candidate's checkout.
+ *
+ * Deliberately NOT asserted here: that the baseline's integration reader ACCEPTS
+ * candidate-written bridge state. That is interpretation rather than preservation, and
+ * `listIntentFiles` is reachable only through the credentialed sync path
+ * (`integrations/core/sync-engine.ts`), so exercising it needs Linear or the mock server,
+ * and this script has neither. It matters — an unrecognized intent makes `listIntentFiles`
+ * throw for the whole provider — but the assertion belongs with T3 (`tbd-s4kb`,
+ * mixed-version Linear convergence), which owns `tests/helpers/linear-mock-server.ts`.
+ * Recorded so the gap is a decision rather than an oversight.
+ */
+async function validateCrossVersionCoexistence({
+  baseline,
+  baselineVersion,
+  candidate,
+  candidateVersion,
+  root,
+}) {
+  const label = 'coexistence';
+  const bareRemote = join(root, `${label}-remote.git`);
+  const candidateRepo = join(root, `${label}-candidate`);
+  const baselineRepo = join(root, `${label}-baseline`);
+  const home = join(root, `${label}-home`);
+  await mkdir(home, { recursive: true });
+
+  // The candidate establishes the repository: one machine upgrades first and the rest of
+  // the team follows, which is the sequence a mixed-version team actually goes through.
+  await initializeRepository(candidateRepo);
+  const setup = await invokeCli(candidate, candidateRepo, home, ['setup', '--auto', '--prefix=xv']);
+  invariant(setup.code === 0, `${label}: candidate setup failed\n${setup.stdout}\n${setup.stderr}`);
+  await git(candidateRepo, 'add', '--all');
+  await git(candidateRepo, 'commit', '--message', `Record ${candidateVersion} scaffold`);
+
+  const created = parseCliJson(
+    await invokeCli(candidate, candidateRepo, home, [
+      'create',
+      'Written by the candidate',
+      '--type=task',
+      '--description',
+      COEXISTENCE_DESCRIPTION,
+      '--json',
+    ]),
+    `${label}: candidate create`,
+  );
+  // The display id, not the ulid: it comes from the shared mapping, so both clones
+  // resolve it, and it is what a person would type on either machine.
+  const subjectShortId = created.id;
+  invariant(typeof subjectShortId === 'string', `${label}: create returned no id`);
+
+  const issuesDirectory = join(await dataSyncDirectory(candidateRepo), 'issues');
+  const issueFiles = (await readdir(issuesDirectory)).filter((entry) => entry.endsWith('.md'));
+  invariant(issueFiles.length === 1, `${label}: expected one issue, found ${issueFiles.length}`);
+  const issueFile = join(issuesDirectory, issueFiles[0]);
+  const issueUlid = (await readIssueFile(issueFile)).front.id;
+  invariant(typeof issueUlid === 'string', `${label}: issue file has no id`);
+
+  // ---- A real conflict entry, produced the way the code produces one today. ----
+  //
+  // This one is the provider-comment postcondition, which is the only path that archives a
+  // whole `extensions` namespace: two namespaces carrying different link `id`s, at least
+  // one with a comment log, cannot be unioned into a single lineage, so the losing
+  // namespace goes to the attic (`file/git.ts` preserveNamespaceComments). It is also the
+  // shape a real integration writes. The workspace importer is used to drive it because it
+  // needs no second clone; note that the importer cannot conflict on a PLAIN field at all
+  // — it passes the older side as the merge base (`file/workspace.ts`), so one side always
+  // equals the base and last-writer-wins has nothing to archive. A plain-field entry comes
+  // from a two-clone `tbd sync` instead, further down.
+  //
+  // The namespace is written into the issue file directly because no CLI command sets
+  // arbitrary `extensions` — an integration does, and this script has no provider.
+  await patchIssueFrontMatter(issueFile, (front) => {
+    front.extensions = {
+      demo: {
+        id: 'demo-issue-1',
+        comments: [
+          {
+            local_id: COEXISTENCE_COMMENT_LOCAL_ID,
+            at: COEXISTENCE_COMMENT_AT,
+            body: 'from the provider',
+          },
+        ],
+      },
+    };
+  });
+
+  const saved = await invokeCli(candidate, candidateRepo, home, [
+    'save',
+    '--workspace',
+    'xv-conflict',
+  ]);
+  invariant(saved.code === 0, `${label}: workspace save failed\n${saved.stdout}\n${saved.stderr}`);
+
+  const workspaceIssues = join(candidateRepo, '.tbd', 'workspaces', 'xv-conflict', 'issues');
+  const workspaceFiles = (await readdir(workspaceIssues)).filter((entry) => entry.endsWith('.md'));
+  invariant(
+    workspaceFiles.length === 1,
+    `${label}: expected one saved workspace issue, found ${workspaceFiles.length}`,
+  );
+  // The workspace copy moves to a different provider link, and is the newer of the two, so
+  // the importer takes it as the winner and archives the repository's namespace.
+  await patchIssueFrontMatter(join(workspaceIssues, workspaceFiles[0]), (front) => {
+    front.extensions.demo.id = 'demo-issue-2';
+    front.extensions.demo.comments[0].body = 'from the other link';
+    front.updated_at = COEXISTENCE_WORKSPACE_UPDATED_AT;
+  });
+
+  const importResult = await invokeCli(candidate, candidateRepo, home, [
+    'import',
+    '--workspace=xv-conflict',
+    '--merge',
+  ]);
+  invariant(
+    importResult.code === 0 &&
+      /1 conflict\(s\) moved to attic/u.test(importResult.stdout + importResult.stderr),
+    `${label}: candidate did not archive the losing provider namespace\n` +
+      `${importResult.stdout}\n${importResult.stderr}`,
+  );
+
+  // ---- Bridge state the older client cannot interpret. ----
+  //
+  // Link records and journaled intents live on the same `tbd-sync` branch as the beads,
+  // under `bridge/<provider>/`, and a client with no credentials for that provider never
+  // reads them — it only merges and pushes the branch they sit on. So the claim is narrow
+  // and worth stating as such: the older client does not DELETE files it never opens, and
+  // they come back byte for byte. It is not a claim that its merge handles them, because
+  // its merge never sees them; and whether its reader ACCEPTS a candidate-written intent
+  // needs a live provider and belongs with T3 (`tbd-s4kb`), per the note above. The
+  // failure this does catch is a sweep — a cleanup or scaffold repair that prunes the data
+  // directory to what it recognizes — which is exactly the kind of thing an older client
+  // has done before.
+  //
+  // Written directly because reaching the real writers takes credentials this script does
+  // not have. The shapes are the ones `lib/schemas.ts` defines (`LinkRecordSchema`,
+  // `IntentFileSchema`), so a future reader-side assertion can use the same fixtures.
+  const bridgeDirectory = join(await dataSyncDirectory(candidateRepo), 'bridge', 'linear');
+  await mkdir(join(bridgeDirectory, 'links'), { recursive: true });
+  await mkdir(join(bridgeDirectory, 'intents'), { recursive: true });
+  const linkRecordPath = join(bridgeDirectory, 'links', `${issueUlid}.yml`);
+  const intentFilePath = join(bridgeDirectory, 'intents', `${COEXISTENCE_RUN_ID}.yml`);
+  await writeFile(
+    linkRecordPath,
+    stringifyYaml({
+      base: {
+        assignee: null,
+        description_hash: `sha256v7:${'0'.repeat(64)}`,
+        labels: ['coexistence'],
+        priority: 2,
+        status: 'open',
+        title: 'Written by the candidate',
+      },
+      bead_id: issueUlid,
+      external_id: 'f53df50f-cbd8-4069-bb90-8d27b86cc51e',
+      external_key: 'XV-1',
+      external_url: 'https://linear.app/example/issue/XV-1',
+      remote_updated_at: COEXISTENCE_COMMENT_AT,
+      state: 'linked',
+      synced_at: COEXISTENCE_COMMENT_AT,
+      type: 'lk',
+    }),
+  );
+  await writeFile(
+    intentFilePath,
+    stringifyYaml({
+      type: 'in',
+      run_id: COEXISTENCE_RUN_ID,
+      provider: 'linear',
+      created_at: COEXISTENCE_COMMENT_AT,
+      ops: [],
+    }),
+  );
+  const linkRecordBefore = await readFile(linkRecordPath, 'utf8');
+  const intentFileBefore = await readFile(intentFilePath, 'utf8');
+
+  // ---- Publish, then bring the second machine up on the published release. ----
+  await mkdir(bareRemote);
+  await git(bareRemote, 'init', '--bare');
+  await git(bareRemote, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+  await git(candidateRepo, 'remote', 'add', 'origin', bareRemote);
+  await git(candidateRepo, 'push', '--set-upstream', 'origin', 'main');
+  const firstPush = await invokeCli(candidate, candidateRepo, home, ['sync', '--issues', '--push']);
+  invariant(
+    firstPush.code === 0,
+    `${label}: candidate push failed\n${firstPush.stdout}\n${firstPush.stderr}`,
+  );
+
+  // No `setup` on the baseline, deliberately: this is not an upgrade. The published client
+  // already shares the candidate's format, so it must work from a plain clone and
+  // provision its own data worktree on first sync.
+  await run('git', ['clone', bareRemote, baselineRepo]);
+  await git(baselineRepo, 'config', 'user.name', 'tbd upgrade QA');
+  await git(baselineRepo, 'config', 'user.email', 'tbd-upgrade-qa@example.invalid');
+  await git(baselineRepo, 'config', 'commit.gpgSign', 'false');
+  const baselinePull = await invokeCli(baseline, baselineRepo, home, [
+    'sync',
+    '--issues',
+    '--pull',
+  ]);
+  invariant(
+    baselinePull.code === 0,
+    `${label}: baseline ${baselineVersion} could not pull the candidate's data\n` +
+      `${baselinePull.stdout}\n${baselinePull.stderr}`,
+  );
+
+  // ---- A candidate-written entry on a restorable field, from a real conflict. ----
+  //
+  // Both clones edit the same bead's description without pulling first. The candidate's
+  // sync merges, keeps its own (later) text by last-writer-wins, and archives the
+  // baseline's — a text field, which is what `tbd attic restore` can write back. Nothing
+  // here is seeded: the entry the baseline is tested against is one the candidate's own
+  // `tbd sync` produced, which is the format `tbd-ajq2` made it emit.
+  const baselineEdit = await invokeCli(baseline, baselineRepo, home, [
+    'update',
+    subjectShortId,
+    '--description',
+    COEXISTENCE_BASELINE_DESCRIPTION,
+  ]);
+  invariant(
+    baselineEdit.code === 0,
+    `${label}: baseline ${baselineVersion} could not edit the bead\n${baselineEdit.stderr}`,
+  );
+  const baselineEditPush = await invokeCli(baseline, baselineRepo, home, [
+    'sync',
+    '--issues',
+    '--push',
+  ]);
+  invariant(
+    baselineEditPush.code === 0,
+    `${label}: baseline ${baselineVersion} could not push its edit\n` +
+      `${baselineEditPush.stdout}\n${baselineEditPush.stderr}`,
+  );
+
+  const candidateEdit = await invokeCli(candidate, candidateRepo, home, [
+    'update',
+    subjectShortId,
+    '--description',
+    COEXISTENCE_WINNING_DESCRIPTION,
+  ]);
+  invariant(candidateEdit.code === 0, `${label}: candidate edit failed\n${candidateEdit.stderr}`);
+  const candidateMerge = await invokeCli(candidate, candidateRepo, home, ['sync', '--issues']);
+  invariant(
+    candidateMerge.code === 0,
+    `${label}: candidate could not merge the baseline's edit\n` +
+      `${candidateMerge.stdout}\n${candidateMerge.stderr}`,
+  );
+  const candidateEntries = parseCliJson(
+    await invokeCli(candidate, candidateRepo, home, ['attic', 'list', '--json']),
+    `${label}: candidate attic list --json`,
+  );
+  const restorable = candidateEntries.find((entry) => entry.field === 'description');
+  invariant(
+    restorable,
+    `${label}: the candidate's sync did not archive the description it discarded\n` +
+      JSON.stringify(candidateEntries),
+  );
+  const candidateMergePush = await invokeCli(candidate, candidateRepo, home, [
+    'sync',
+    '--issues',
+    '--push',
+  ]);
+  invariant(
+    candidateMergePush.code === 0,
+    `${label}: candidate could not publish the merge\n${candidateMergePush.stderr}`,
+  );
+  const baselineSecondPull = await invokeCli(baseline, baselineRepo, home, [
+    'sync',
+    '--issues',
+    '--pull',
+  ]);
+  invariant(
+    baselineSecondPull.code === 0,
+    `${label}: baseline ${baselineVersion} could not pull the merge\n` +
+      `${baselineSecondPull.stdout}\n${baselineSecondPull.stderr}`,
+  );
+
+  // 1. The baseline reads the candidate's beads.
+  const baselineIssues = parseCliJson(
+    await invokeCli(baseline, baselineRepo, home, ['list', '--json']),
+    `${label}: baseline ${baselineVersion} list --json`,
+  );
+  invariant(
+    baselineIssues.some((issue) => issue.title === 'Written by the candidate'),
+    `${label}: baseline ${baselineVersion} cannot see a bead the candidate wrote\n` +
+      JSON.stringify(baselineIssues),
+  );
+
+  // 2. The baseline lists, shows and restores candidate-written attic entries.
+  const baselineEntries = parseCliJson(
+    await invokeCli(baseline, baselineRepo, home, ['attic', 'list', '--json']),
+    `${label}: baseline ${baselineVersion} attic list --json`,
+  );
+  const archivedNamespace = baselineEntries.find((entry) => entry.field === 'extensions.demo');
+  invariant(
+    archivedNamespace && typeof archivedNamespace.timestamp === 'string',
+    `${label}: baseline ${baselineVersion} cannot list the conflict entry the candidate wrote\n` +
+      JSON.stringify(baselineEntries),
+  );
+  const shown = await invokeCli(baseline, baselineRepo, home, [
+    'attic',
+    'show',
+    archivedNamespace.id,
+    archivedNamespace.timestamp,
+  ]);
+  invariant(
+    shown.code === 0 &&
+      shown.stdout.includes('demo-issue-1') &&
+      shown.stdout.includes('from the provider'),
+    `${label}: baseline ${baselineVersion} lost the archived namespace's contents\n` +
+      `${shown.stdout}\n${shown.stderr}`,
+  );
+
+  const restored = await invokeCli(baseline, baselineRepo, home, [
+    'attic',
+    'restore',
+    restorable.id,
+    restorable.timestamp,
+  ]);
+  invariant(
+    restored.code === 0,
+    `${label}: baseline ${baselineVersion} could not restore a candidate-written attic entry\n` +
+      `${restored.stdout}\n${restored.stderr}`,
+  );
+  const restoredShow = await invokeCli(baseline, baselineRepo, home, ['show', restorable.id]);
+  invariant(
+    restoredShow.code === 0 && restoredShow.stdout.includes(COEXISTENCE_BASELINE_DESCRIPTION),
+    `${label}: baseline ${baselineVersion} restore did not write the archived value back\n` +
+      `${restoredShow.stdout}\n${restoredShow.stderr}`,
+  );
+
+  // 3 and 4. The baseline adds work of its own and pushes; the candidate merges it, and
+  //          nothing either side wrote is dropped on the way through.
+  const baselineCreate = await invokeCli(baseline, baselineRepo, home, [
+    'create',
+    'Written by the baseline',
+    '--type=task',
+  ]);
+  invariant(
+    baselineCreate.code === 0,
+    `${label}: baseline create failed\n${baselineCreate.stdout}\n${baselineCreate.stderr}`,
+  );
+  const baselinePush = await invokeCli(baseline, baselineRepo, home, [
+    'sync',
+    '--issues',
+    '--push',
+  ]);
+  invariant(
+    baselinePush.code === 0,
+    `${label}: baseline ${baselineVersion} could not push\n` +
+      `${baselinePush.stdout}\n${baselinePush.stderr}`,
+  );
+
+  const branchFiles = await git(bareRemote, 'ls-tree', '-r', '--name-only', 'tbd-sync');
+  for (const path of [
+    `.tbd/data-sync/bridge/linear/links/${issueUlid}.yml`,
+    `.tbd/data-sync/bridge/linear/intents/${COEXISTENCE_RUN_ID}.yml`,
+  ]) {
+    invariant(
+      branchFiles.split('\n').includes(path),
+      `${label}: ${baselineVersion} dropped ${path} from the shared branch\n${branchFiles}`,
+    );
+  }
+
+  const candidatePull = await invokeCli(candidate, candidateRepo, home, ['sync', '--issues']);
+  invariant(
+    candidatePull.code === 0,
+    `${label}: candidate could not merge the baseline's push\n` +
+      `${candidatePull.stdout}\n${candidatePull.stderr}`,
+  );
+  const finalIssues = parseCliJson(
+    await invokeCli(candidate, candidateRepo, home, ['list', '--all', '--json']),
+    `${label}: candidate list --all --json`,
+  );
+  const titles = finalIssues.map((issue) => issue.title);
+  invariant(
+    titles.includes('Written by the baseline'),
+    `${label}: the candidate lost a bead the ${baselineVersion} client created\n${titles.join(', ')}`,
+  );
+  invariant(
+    titles.includes('Written by the candidate'),
+    `${label}: the round trip through ${baselineVersion} lost the candidate's own bead\n` +
+      titles.join(', '),
+  );
+
+  const final = await readIssueFile(issueFile);
+  const demo = final.front.extensions?.demo;
+  invariant(
+    demo?.id === 'demo-issue-2' &&
+      demo.comments?.length === 1 &&
+      demo.comments[0].local_id === COEXISTENCE_COMMENT_LOCAL_ID &&
+      demo.comments[0].body === 'from the other link',
+    `${label}: ${baselineVersion} altered an extensions namespace it does not understand\n` +
+      JSON.stringify(demo),
+  );
+  invariant(
+    final.body.trim() === COEXISTENCE_BASELINE_DESCRIPTION,
+    `${label}: the description the ${baselineVersion} client restored did not come back\n` +
+      final.body,
+  );
+
+  invariant(
+    (await readFile(linkRecordPath, 'utf8')) === linkRecordBefore,
+    `${label}: ${baselineVersion} did not return the link record unchanged`,
+  );
+  invariant(
+    (await readFile(intentFilePath, 'utf8')) === intentFileBefore,
+    `${label}: ${baselineVersion} did not return the journaled intent unchanged`,
+  );
+
+  console.log(
+    `Packed coexistence proof passed: ${candidateVersion} and ${baselineVersion} shared one ` +
+      `${CANDIDATE_FORMAT} remote without data loss`,
+  );
+}
+
+/**
+ * Probes for the config round trip, one per nesting level the schema treats differently.
+ *
+ * A key survives an older client rewriting config only if the level it sits at is
+ * `.passthrough()`. The levels are not uniform — `PolicyDefinitionSchema` is deliberately
+ * not passthrough while the three clauses inside it are — so a probe at one level says
+ * nothing about another, and each has to be checked where it actually lives.
+ *
+ * `POLICY_SIBLING_PROBE` is the negative control: it must be DROPPED. Without it a test
+ * that only checks for survival passes just as well against a client that rewrites
+ * nothing at all, which is not the claim.
+ *
+ * Any sprint change that adds a config key adds a probe here, at the key's own level.
+ */
+const CONFIG_PROBES = {
+  topLevel: ['upgrade_qa', 'preserve'],
+  identity: ['integrations', 'linear', 'identity', 'qa_probe'],
+  policyClause: ['integrations', 'linear', 'policy', 'outbound', 'qa_probe'],
+};
+const POLICY_SIBLING_PROBE = ['integrations', 'linear', 'policy', 'qa_sibling'];
+
+function readPath(value, path) {
+  return path.reduce((current, key) => (current == null ? undefined : current[key]), value);
+}
+
+/**
+ * f08 contract T1: a published client rewrites config without dropping the sprint's keys.
+ *
+ * `tbd config set` and `tbd setup --auto` both read the whole config, validate it, and
+ * write it back. A key the reading schema does not declare survives that round trip only
+ * where the level is `.passthrough()`, so every key this sprint adds is a bet that the
+ * clients already in the field will carry it. The bet is checkable, and this is the check:
+ * the candidate writes the config, then the OLD client rewrites it twice, and the keys
+ * have to still be there at the level they were written.
+ *
+ * It runs against the newest published f08 release rather than the oldest, deliberately —
+ * the opposite of the upgrade scenarios. Those ask what the weakest client can still
+ * read; this one asks what the client a teammate is most likely to be running will
+ * preserve, which is the release that ships alongside the keys.
+ *
+ * The published package and the candidate are packed and extracted independently even
+ * when their manifest versions match. Equal version strings do not imply equal artifacts:
+ * before the release bump, the candidate contains the current branch changes while npm
+ * still serves the prior published build.
+ */
+async function validateOldClientConfigRoundTrip({
+  baseline,
+  baselineVersion,
+  candidate,
+  candidateVersion,
+  root,
+}) {
+  const label = 'config-round-trip';
+  const repository = join(root, `${label}-repository`);
+  const home = join(root, `${label}-home`);
+  await initializeRepository(repository);
+  await mkdir(home, { recursive: true });
+
+  const setup = await invokeCli(candidate, repository, home, ['setup', '--auto', '--prefix=qat']);
+  invariant(setup.code === 0, `${label}: candidate setup failed\n${setup.stdout}\n${setup.stderr}`);
+
+  // Written on top of the candidate's own config rather than instead of it, so the round
+  // trip carries everything a real repository has, not just the probes.
+  const configPath = join(repository, '.tbd', 'config.yml');
+  const config = parseYaml(await readFile(configPath, 'utf8'));
+  config.upgrade_qa = { preserve: 'top-level-value' };
+  config.integrations = {
+    ...(config.integrations ?? {}),
+    linear: {
+      ...(config.integrations?.linear ?? {}),
+      enabled: false,
+      target: { team_key: 'OS' },
+      identity: { qa_probe: 'identity-value' },
+      policy: {
+        qa_sibling: 'dropped-by-schema',
+        outbound: { qa_probe: 'outbound-value' },
+      },
+    },
+  };
+  await writeFile(configPath, stringifyYaml(config, { lineWidth: 0 }));
+
+  // Both write paths, because they validate and rewrite by different routes.
+  const set = await invokeCli(baseline, repository, home, [
+    'config',
+    'set',
+    'sync.remote',
+    'origin',
+  ]);
+  invariant(
+    set.code === 0,
+    `${label}: baseline ${baselineVersion} config set failed\n${set.stdout}\n${set.stderr}`,
+  );
+  const baselineSetup = await invokeCli(baseline, repository, home, ['setup', '--auto']);
+  invariant(
+    baselineSetup.code === 0,
+    `${label}: baseline ${baselineVersion} setup failed\n${baselineSetup.stdout}\n${baselineSetup.stderr}`,
+  );
+
+  const after = parseYaml(await readFile(configPath, 'utf8'));
+  for (const [name, path] of Object.entries(CONFIG_PROBES)) {
+    invariant(
+      readPath(after, path) !== undefined,
+      `${label}: ${baselineVersion} dropped the ${name} key ${path.join('.')}\n` +
+        stringifyYaml(after, { lineWidth: 0 }),
+    );
+  }
+  invariant(
+    readPath(after, POLICY_SIBLING_PROBE) === undefined,
+    `${label}: ${POLICY_SIBLING_PROBE.join('.')} survived, so this scenario cannot detect a ` +
+      `dropped key and the assertions above prove nothing`,
+  );
+
+  // The old client records itself as the last to run setup — expected, that is what the
+  // field means — but it must not walk the repository's format back.
+  invariant(
+    after.tbd_format === CANDIDATE_FORMAT,
+    `${label}: ${baselineVersion} rewrote tbd_format to ${String(after.tbd_format)}`,
+  );
+  invariant(
+    after.sync?.remote === 'origin',
+    `${label}: ${baselineVersion} config set did not take effect`,
+  );
+
+  console.log(
+    `Packed config round trip passed: ${candidateVersion} config survives ${baselineVersion} ` +
+      `rewriting it`,
+  );
+}
+
+/**
+ * Fields a published f08 client is KNOWN to drop from a candidate-written link record.
+ *
+ * `LinkRecordSchema` and `BridgeBaseSchema` are deliberately not `.passthrough()`, unlike
+ * the issue schema: a bridge record is tbd's own bookkeeping, and letting arbitrary keys
+ * ride along in it would make every sync a guess about what is load-bearing. The cost is
+ * that a field this build adds is stripped by any client that predates it, so a teammate
+ * on that client silently discards it on their next sync.
+ *
+ * That is a decision, not an accident — the stability sprint plan records the minimum
+ * client version these fields require. The list is here so the decision has to be made
+ * again: add a field to a bridge record without adding it here and this gate fails.
+ */
+const BASELINE_DROPS_FROM_LINK_RECORD = ['refinement_state_id', 'refinement_slot'];
+const BASELINE_DROPS_FROM_BRIDGE_BASE = ['slot'];
+
+/**
+ * f08 contract T2: the published client's own parser and schemas read what we write.
+ *
+ * Every other scenario drives a published CLI as a process, which proves the commands
+ * work but says nothing about *why* when they do not. This one imports the published
+ * package's exported `parseIssue`, `serializeIssue` and schemas and runs them directly
+ * against candidate-written files, so a compatibility break is reported as the field it
+ * happened to rather than as a command that misbehaved.
+ *
+ * What it pins, in the order the file formats matter:
+ *
+ *   1. Beads parse identically under both versions, including the two shapes most likely
+ *      to disagree: a description that itself contains a `## Notes` heading (the
+ *      delimiter the format uses to split description from notes), and a bead carrying
+ *      f08 fields the older schema never declared.
+ *   2. A bead that goes through the older client and comes back has lost nothing. Note
+ *      what is NOT asserted: byte identity. The older client keeps fields it does not
+ *      know — the issue schema is `.passthrough()` — but writes them in a different place,
+ *      because its field order does not mention them. Reordering is churn; dropping is
+ *      data loss, and only the second one is a compatibility break.
+ *   3. A bridge link record loses exactly the fields we already decided it would, and no
+ *      others, because those schemas are NOT passthrough. `base.description_hash` in
+ *      particular survives, or the next sync on either side would see every description
+ *      as changed.
+ *   4. Config parses under the older schema with its keys intact.
+ */
+async function validateOldParserRoundTrip({
+  baseline,
+  baselineVersion,
+  candidate,
+  candidateVersion,
+  root,
+}) {
+  const label = 'old-parser';
+  const repository = join(root, `${label}-repository`);
+  const home = join(root, `${label}-home`);
+  await initializeRepository(repository);
+  await mkdir(home, { recursive: true });
+
+  const setup = await invokeCli(candidate, repository, home, ['setup', '--auto', '--prefix=qat']);
+  invariant(setup.code === 0, `${label}: candidate setup failed\n${setup.stdout}\n${setup.stderr}`);
+
+  // A description containing the very heading the format uses as a delimiter.
+  const trickyCreate = await invokeCli(candidate, repository, home, [
+    'create',
+    'A description that contains the notes delimiter',
+    '--description',
+    'Prose before.\n\n## Notes\n\nProse after.',
+    '--json',
+  ]);
+  invariant(
+    trickyCreate.code === 0,
+    `${label}: candidate create failed\n${trickyCreate.stdout}\n${trickyCreate.stderr}`,
+  );
+  const trickyId = JSON.parse(trickyCreate.stdout).id;
+  const noted = await invokeCli(candidate, repository, home, [
+    'update',
+    trickyId,
+    '--notes',
+    'Working notes written separately.',
+  ]);
+  invariant(noted.code === 0, `${label}: candidate update --notes failed\n${noted.stderr}`);
+
+  const plain = await invokeCli(candidate, repository, home, [
+    'create',
+    'A plain bead with no notes at all',
+    '--description',
+    'Just a description.',
+    '--json',
+  ]);
+  invariant(plain.code === 0, `${label}: candidate create failed\n${plain.stderr}`);
+
+  // f08 fields the published schema never declared. The issue schema is passthrough, so
+  // the claim is that they survive; the link record below is the case where they do not.
+  const held = await invokeCli(candidate, repository, home, [
+    'create',
+    'A bead the candidate put on hold',
+    '--description',
+    'Body.',
+    '--json',
+  ]);
+  invariant(held.code === 0, `${label}: candidate create failed\n${held.stderr}`);
+  const heldHold = await invokeCli(candidate, repository, home, [
+    'update',
+    JSON.parse(held.stdout).id,
+    '--hold',
+    'blocked',
+  ]);
+  invariant(heldHold.code === 0, `${label}: candidate update --hold failed\n${heldHold.stderr}`);
+
+  const candidateExports = await import(pathToFileURL(candidate.indexPath).href);
+  const baselineExports = await import(pathToFileURL(baseline.indexPath).href);
+
+  const issuesDirectory = join(await dataSyncDirectory(repository), 'issues');
+  const issueFiles = (await readdir(issuesDirectory)).filter((entry) => entry.endsWith('.md'));
+  invariant(issueFiles.length === 3, `${label}: expected 3 beads, found ${issueFiles.length}`);
+
+  for (const file of issueFiles) {
+    const text = await readFile(join(issuesDirectory, file), 'utf8');
+    const fromCandidate = candidateExports.parseIssue(text);
+    const fromBaseline = baselineExports.parseIssue(text);
+    invariant(
+      isDeepStrictEqual(fromCandidate, fromBaseline),
+      `${label}: ${baselineVersion} parses ${file} differently than ${candidateVersion}\n` +
+        `${JSON.stringify(fromBaseline)}\n${JSON.stringify(fromCandidate)}`,
+    );
+
+    // Through the older client and back: reordering is allowed, losing a field is not.
+    const rewritten = baselineExports.serializeIssue(fromBaseline);
+    invariant(
+      isDeepStrictEqual(candidateExports.parseIssue(rewritten), fromCandidate),
+      `${label}: a bead rewritten by ${baselineVersion} no longer reads the same\n` +
+        `${rewritten}\n${text}`,
+    );
+  }
+
+  // A link record with every field this build writes, including the ones the published
+  // schema does not declare. Written as a literal rather than produced by a sync, which
+  // would need a credentialed provider this script does not have.
+  const linkRecord = {
+    type: 'lk',
+    bead_id: JSON.parse(held.stdout).internalId,
+    external_id: 'f53df50f-cbd8-4069-bb90-8d27b86cc51e',
+    external_key: 'OS-1',
+    external_url: 'https://linear.app/example/issue/OS-1',
+    refinement_state_id: 'a-tracker-state-id',
+    refinement_slot: 'in_qa',
+    base: {
+      title: 'A bead the candidate put on hold',
+      status: 'open',
+      slot: 'in_qa',
+      priority: 2,
+      labels: ['coexistence'],
+      assignee: null,
+      description_hash: `sha256v7:${'0'.repeat(64)}`,
+    },
+    remote_updated_at: '2026-01-01T00:00:00.000Z',
+    synced_at: '2026-01-01T00:00:00.000Z',
+    state: 'linked',
+  };
+  const candidateRecord = candidateExports.LinkRecordSchema.parse(linkRecord);
+  for (const key of [
+    ...Object.keys(linkRecord),
+    ...Object.keys(linkRecord.base).map((k) => `base.${k}`),
+  ]) {
+    const [head, tail] = key.split('.');
+    const present = tail ? tail in candidateRecord.base : head in candidateRecord;
+    invariant(present, `${label}: the candidate's own LinkRecordSchema dropped ${key}`);
+  }
+
+  const baselineRecord = baselineExports.LinkRecordSchema.parse(linkRecord);
+  const droppedTop = Object.keys(linkRecord).filter((key) => !(key in baselineRecord));
+  const droppedBase = Object.keys(linkRecord.base).filter((key) => !(key in baselineRecord.base));
+  invariant(
+    isDeepStrictEqual(droppedTop.sort(), [...BASELINE_DROPS_FROM_LINK_RECORD].sort()) &&
+      isDeepStrictEqual(droppedBase.sort(), [...BASELINE_DROPS_FROM_BRIDGE_BASE].sort()),
+    `${label}: ${baselineVersion} drops a different set of link-record fields than recorded. ` +
+      `Top level: [${droppedTop.join(', ')}], expected [${BASELINE_DROPS_FROM_LINK_RECORD.join(', ')}]. ` +
+      `base: [${droppedBase.join(', ')}], expected [${BASELINE_DROPS_FROM_BRIDGE_BASE.join(', ')}]. ` +
+      `A new bridge-record field needs a minimum-version decision before it ships.`,
+  );
+  invariant(
+    baselineRecord.base.description_hash === linkRecord.base.description_hash,
+    `${label}: ${baselineVersion} changed the stored description hash, so every pair would ` +
+      `read as edited on its next sync`,
+  );
+
+  // Config, through the published schema rather than the published CLI (that is T1).
+  const rawConfig = parseYaml(await readFile(join(repository, '.tbd', 'config.yml'), 'utf8'));
+  const parsedConfig = baselineExports.ConfigSchema.parse(rawConfig);
+  for (const key of Object.keys(rawConfig)) {
+    invariant(
+      key in parsedConfig,
+      `${label}: ${baselineVersion} dropped the top-level config key ${key}`,
+    );
+  }
+  invariant(
+    parsedConfig.tbd_format === CANDIDATE_FORMAT,
+    `${label}: ${baselineVersion} read tbd_format as ${String(parsedConfig.tbd_format)}`,
+  );
+
+  console.log(
+    `Packed parser proof passed: ${baselineVersion} reads ${candidateVersion} beads, link ` +
+      `records and config`,
   );
 }
 
@@ -747,6 +1611,54 @@ try {
   await validateLegacyRemoteSyncUpgrade({
     baseline: commonUpgradePackage,
     baselineVersion: commonUpgradeBaseline,
+    candidate,
+    candidateVersion,
+    root: temporaryDir,
+  });
+  // The coexistence proof uses the same-format baseline, not the f06 one: the claim is
+  // about two clients that share a format sharing a repository. An f06 client would fail
+  // closed on an f08 remote, which is the *other* contract, covered by validateScenario.
+  await validateCrossVersionCoexistence({
+    baseline: sameFormatPackage,
+    baselineVersion: sameFormatBaseline,
+    candidate,
+    candidateVersion,
+    root: temporaryDir,
+  });
+
+  // The config round trip wants the newest published f08 release. Pack it from npm even
+  // when its manifest version equals the candidate's: the candidate archive comes from
+  // this checkout and can contain unpublished changes under that same version string.
+  const latestFormatBaseline =
+    process.env.TBD_UPGRADE_LATEST_FORMAT_FROM ?? (await latestPublishedVersion());
+  let configRoundTripPackage = sameFormatPackage;
+  if (latestFormatBaseline !== sameFormatBaseline) {
+    const latestArchiveDir = join(temporaryDir, 'latest-format-archive');
+    await mkdir(latestArchiveDir);
+    await packPublished(latestArchiveDir, latestFormatBaseline);
+    configRoundTripPackage = await extractPackage(
+      await findOnlyArchive(latestArchiveDir),
+      join(temporaryDir, 'latest-format'),
+      dependencyTree,
+    );
+    invariant(
+      configRoundTripPackage.manifest.version === latestFormatBaseline,
+      `Config round trip baseline resolved to ${String(configRoundTripPackage.manifest.version)}`,
+    );
+  }
+  await validateOldClientConfigRoundTrip({
+    baseline: configRoundTripPackage,
+    baselineVersion: latestFormatBaseline,
+    candidate,
+    candidateVersion,
+    root: temporaryDir,
+  });
+
+  // The parser proof uses the OLDEST published f08 release, not the newest: it asks what
+  // the weakest client can still read, the same question the upgrade scenarios ask.
+  await validateOldParserRoundTrip({
+    baseline: sameFormatPackage,
+    baselineVersion: sameFormatBaseline,
     candidate,
     candidateVersion,
     root: temporaryDir,

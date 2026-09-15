@@ -2616,6 +2616,31 @@ push.
 Push rejection remains the race detector when another writer publishes between that
 fetch and this writer’s push.
 
+#### What makes the field-level merge run
+
+A bead changed on both sides has to reach `mergeIssues`, and git decides that: only a
+file git marks unmerged is handed to the structured merge.
+Left to itself, git would line-merge a bead whenever the two edits fell far enough apart
+in the file, combining them by proximity rather than by what the fields mean — observed,
+a relink to a new provider issue merged with another clone’s queued comment to produce a
+namespace holding the new issue’s id and key, the old issue’s url, and a comment written
+for the old issue. No writer emits a record like that, and the run reported a clean sync
+with nothing archived.
+
+So bead files are marked unmergeable — `issues/.gitattributes` carries
+`*.md merge=binary`, written with the rest of the data scaffold.
+Git refuses to combine them and marks any two-sided change conflicted; every such bead
+then goes through `mergeBeadAcrossRefs`, which reads both sides from their blobs (never
+the marker-corrupted working file) and resolves them by the rules in §3.5. The attribute
+lives on the sync branch, so an older client applies it and reaches its own structured
+merge too.
+
+Do not rely on writers to force this by touching `updated_at`. They do, and that is why
+the hazard above needs a hand edit or a foreign tool to reach today, but a data-safety
+rule that holds only because of a side effect somewhere else is not a rule.
+
+#### Versions are informational
+
 The `version` field is purely informational (edit counter) and is NOT used for conflict
 detection. This avoids the distributed systems problem where version numbers diverge
 independently.
@@ -2691,6 +2716,39 @@ local and preserves a differing remote value in the attic.
 It does not compare content hashes.
 Direction therefore matters for an equal-timestamp conflict; callers must keep their
 local/remote roles stable.
+
+**Archiving:**
+
+`lww` and `namespace_merge` archive the value they discard.
+The other strategies do not write attic entries.
+`union` retains distinct inputs, but `immutable` discards both changed inputs when they
+differ from the base, `union_by_key` discards a differing remote object on a same-key
+collision, and `max` and `min_timestamp` discard the other bound.
+Those losses are not recoverable from the merged issue alone.
+Callers that require recovery for one of those strategies must add conflict reporting
+and archive the discarded input explicitly.
+
+Entries go through one writer (`file/attic-entry.ts`). `tbd sync` and
+`tbd import --workspace` write into the data-sync `attic/` directory, which rides the
+sync branch and is the only one `tbd attic list`, `show` and `restore` read — so an
+entry either of them writes is readable from every clone, including a clone on an older
+release. `tbd save --workspace` archives into the workspace’s own `attic/` under
+`.tbd/workspaces/`, in the same format but outside that directory: a record for whoever
+inspects the workspace, not something the `tbd attic` commands can see.
+
+The attic is append-only and is never read back into live issue state on its own, so
+archiving cannot change what a merge decided.
+Restoring is an explicit `tbd attic restore`, and it archives the value it replaces
+first, which makes the restore itself undoable.
+
+An entry names the side whose value survived.
+That side is carried on the conflict rather than derived per issue, because the merge
+does not use one rule for a whole entity: `lww` and `namespace_merge` resolve on
+`updated_at`, an independent creation resolves on `created_at`, a namespace deleted on
+one side survives from the other regardless of either, and the comment postcondition
+resolves on provider-link lineage.
+An entry that named the wrong winner would point whoever is recovering data at the value
+they still have.
 
 #### BaseEntity Merge Rules
 
