@@ -116,7 +116,7 @@ describe('tbd integration sync settles', () => {
     return id;
   }
 
-  it('settles a bead with an open blocker, in one write that moves the column', async () => {
+  it('creates a bead with an open blocker in Backlog and stays settled', async () => {
     const epic = await createBead('A blocked epic', 'epic');
     const blocker = await createBead('A blocker', 'task');
     expect((await cli(['dep', 'add', epic, blocker])).code).toBe(0);
@@ -130,16 +130,14 @@ describe('tbd integration sync settles', () => {
     }
     const writes = later.flat();
 
-    // One settling write, not a stream. The bead computes `backlog` and the item starts in
-    // Todo, so something does have to move; what must not happen is moving it every other
-    // run forever. Before the fix this was four IssueUpdates across these eight runs, and
-    // it never stopped.
-    expect(
-      writes,
-      `expected at most one settling write across runs 2-9, got ${JSON.stringify(later)}`,
-    ).toHaveLength(1);
+    // Creation writes the computed slot directly, so every later run must be silent.
+    // Before the fix this was four IssueUpdates across these eight runs, and it never
+    // stopped.
+    expect(writes, `expected no writes across runs 2-9, got ${JSON.stringify(later)}`).toHaveLength(
+      0,
+    );
 
-    // And the tail is silent: whatever it took to settle, it is settled.
+    // The tail stays silent as an explicit guard against alternating every other run.
     expect(later.slice(-4)).toEqual([[], [], [], []]);
 
     // The write moved the column. That is what ends the disagreement: the old no-op push

@@ -16,6 +16,16 @@ The coordination stack (#278, #279, #282, #283) merged the same day.
 A follow-up revision (2026-09-14) adds the f08 compatibility contract that every sprint
 fix must satisfy and changes the 1a, 1e, 1f, and 1B designs to meet it.
 
+**Linear convergence update, 2026-09-15 (#290).** The outbound adapter now writes the
+canonical slot, including on create, and suppresses bead rewrites when an inbound
+projection changes no persisted field.
+The regression suite proves that a blocked epic is created in Backlog and produces no
+later provider mutations across runs 2 through 9. The maintained live QA playbook adds
+the same create-and-settle check against the OS team’s `tbd` project.
+This fixes the #265 slot-alternation mechanism, but does not close the wider Phase 1A
+work, the mixed-version T3 gate (`tbd-s4kb`), or the reporter-mirror confirmation
+(`tbd-xn8m`).
+
 **Release-readiness reconciliation, 2026-09-14 (`main` @ `52d5c2f7`).** Phase 0 has
 *not* landed. `claude/tbd-sync-bugs-review-f1qb1f` still carries three unmerged commits
 (`936909fe`, `ed45804a`, `4d23edcf`), including the settled-mirror fix, and no pull
@@ -238,7 +248,9 @@ at `slots.ts:158-178`), which collapses `backlog` and `todo` into plain `open`, 
 adapter maps `open` to the `unstarted` state type (`statusToLinear`,
 `linear/mapping.ts:80-93`), which is Todo.
 Todo reads back as `todo` (`slotFromLinear`, `mapping.ts:345-387`). `slotToLinear`
-(`mapping.ts:394`), which would write Backlog, has no caller.
+(`mapping.ts:398`) is the required outbound inverse.
+Before #290, it had no caller; #290 routes slot-bearing create and update patches
+through it.
 
 For a linked, open, not-ready bead with no hold, that is a two-run cycle once the link
 record holds an exact slot.
@@ -1390,14 +1402,14 @@ that PR because they edit the documents it rewrites.
 
 ### Phase 1A: Tracker correctness
 
-- [ ] `tbd-od0z`: every slot round-trips (write through `slotToLinear`, compare in both
-  vocabularies, an unresolvable state is a skipped field); five-run, four-run, and
-  property tests; correct state-model spec line 551 (after #283)
+- [ ] `tbd-od0z`: every slot round-trips (the #265 slot-write and single-client
+  convergence portion landed in #290; missing-state handling and the remaining
+  state-model reconciliation stay open)
 - [ ] `tbd-alws`: duplicates keep their pointer (`applyTerminalAxis`,
   `BeadPatch.duplicate_of`), same PR as `tbd-od0z`; correct state-model spec lines 511
   and 513 (after #283)
-- [ ] `tbd-m80i`: the engine’s create path writes the slot and applies the
-  `assignee: merge` gate, same PR as `tbd-od0z`
+- [ ] `tbd-m80i`: the engine’s create path writes the slot (#290) and applies the
+  `assignee: merge` gate (remaining), same phase as `tbd-od0z`
 - [ ] `tbd-km3p`: convergence contract; exclusions never hold `nothingToDo` false;
   `orphaned` counted in both terms
 - [ ] `tbd-020a`: one report renderer for `tbd sync` and `tbd integration sync`

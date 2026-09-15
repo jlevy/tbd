@@ -23,7 +23,7 @@ import { parse, stringify } from 'yaml';
 import { writeFile } from 'atomically';
 
 import { MANAGED_BLOCK_MARKERS } from '../src/integrations/core/managed-block.js';
-import { LiveCompatibilityChecklist } from './provider-live-qa-contract.js';
+import { cleanupOwnedFixtures, LiveCompatibilityChecklist } from './provider-live-qa-contract.js';
 import { parseLinearLiveQaArgs } from './linear-live-qa-options.js';
 
 const COMMAND_TIMEOUT_MS = 90_000;
@@ -64,6 +64,8 @@ interface LinearIssueSnapshot {
   description: string | null;
   priority: number;
   stateType: string;
+  stateName: string;
+  updatedAt: string;
   assigneeId: string | null;
   parentId: string | null;
   archivedAt: string | null;
@@ -364,7 +366,8 @@ class LinearApi {
         title: string;
         description: string | null;
         priority: number;
-        state: { type: string };
+        updatedAt: string;
+        state: { type: string; name: string };
         assignee: { id: string } | null;
         parent: { id: string } | null;
         archivedAt: string | null;
@@ -374,8 +377,8 @@ class LinearApi {
     }>(
       `query QaIssue($id: String!) {
         issue(id: $id) {
-          id identifier title description priority archivedAt
-          state { type }
+          id identifier title description priority updatedAt archivedAt
+          state { type name }
           assignee { id }
           parent { id }
           comments(first: 250) { nodes { body } }
@@ -392,12 +395,69 @@ class LinearApi {
       description: data.issue.description,
       priority: data.issue.priority,
       stateType: data.issue.state.type,
+      stateName: data.issue.state.name,
+      updatedAt: data.issue.updatedAt,
       assigneeId: data.issue.assignee?.id ?? null,
       parentId: data.issue.parent?.id ?? null,
       archivedAt: data.issue.archivedAt,
       commentBodies: data.issue.comments.nodes.map((comment) => comment.body),
       attachmentUrls: data.issue.attachments.nodes.map((attachment) => attachment.url),
     };
+  }
+
+  /** Find active fixtures owned by one run, independently of candidate-local state. */
+  async activeIssuesByTitleToken(context: LinearContext, token: string): Promise<LinearRef[]> {
+    const found: LinearRef[] = [];
+    let after: string | undefined;
+    do {
+      const data = await this.request<{
+        issues: {
+          pageInfo: { hasNextPage: boolean; endCursor: string | null };
+          nodes: {
+            id: string;
+            identifier: string;
+            title: string;
+            archivedAt: string | null;
+          }[];
+        };
+      }>(
+        `query QaOwnedIssues(
+          $teamId: ID!
+          $projectId: ID!
+          $token: String!
+          $after: String
+        ) {
+          issues(
+            filter: {
+              team: { id: { eq: $teamId } }
+              project: { id: { eq: $projectId } }
+              title: { contains: $token }
+            }
+            includeArchived: true
+            first: 250
+            after: $after
+          ) {
+            pageInfo { hasNextPage endCursor }
+            nodes { id identifier title archivedAt }
+          }
+        }`,
+        {
+          teamId: context.teamId,
+          projectId: context.projectId,
+          token,
+          after,
+        },
+      );
+      found.push(
+        ...data.issues.nodes
+          .filter((issue) => issue.archivedAt === null && issue.title.startsWith(`${token} `))
+          .map((issue) => ({ id: issue.id, key: issue.identifier })),
+      );
+      after = data.issues.pageInfo.hasNextPage
+        ? (data.issues.pageInfo.endCursor ?? undefined)
+        : undefined;
+    } while (after);
+    return found;
   }
 
   async archiveIssue(id: string): Promise<void> {
@@ -736,6 +796,56 @@ async function main(): Promise<void> {
       );
     });
 
+    await checklist.run('blocked-slot-create-settle', async () => {
+      const epicTitle = `${token} blocked epic`;
+      const epic = parseJson(
+        expectSuccess(
+          await tbd(['create', epicTitle, '--type=epic', '--json']),
+          'blocked epic create',
+        ),
+        'blocked epic create',
+      ) as { id: string };
+      const blocker = parseJson(
+        expectSuccess(
+          await tbd(['create', `${token} local blocker`, '--type=task', '--json']),
+          'local blocker create',
+        ),
+        'local blocker create',
+      ) as { id: string };
+      expectSuccess(await tbd(['dep', 'add', epic.id, blocker.id]), 'blocked epic dependency');
+
+      expectSuccess(await tbd(['integration', 'sync', '--yes']), 'blocked epic first sync');
+      const local = await show(epic.id);
+      const link = local.extensions?.linear as Record<string, unknown> | undefined;
+      assertCondition(typeof link?.id === 'string', 'Blocked epic did not receive a Linear link');
+      const created = await api.issue(link.id);
+      fixtures.push({ id: created.id, key: created.key });
+      assertCondition(
+        created.stateName === 'Backlog',
+        `Blocked epic was created in ${created.stateName}, not Backlog`,
+      );
+
+      for (const label of ['second', 'third']) {
+        const settled = expectSuccess(
+          await tbd(['integration', 'sync', '--yes']),
+          `blocked epic ${label} sync`,
+        );
+        assertCondition(
+          settled.includes('nothing to do'),
+          `Blocked epic ${label} sync did not converge`,
+        );
+        const unchanged = await api.issue(created.id);
+        assertCondition(
+          unchanged.updatedAt === created.updatedAt,
+          `Blocked epic ${label} sync changed Linear's updatedAt`,
+        );
+        assertCondition(
+          unchanged.stateName === 'Backlog',
+          `Blocked epic ${label} sync moved Linear to ${unchanged.stateName}`,
+        );
+      }
+    });
+
     await checklist.run('orphan-detection', async () => {
       await api.archiveIssue(child.id);
       const report = expectSuccess(
@@ -749,25 +859,43 @@ async function main(): Promise<void> {
   } finally {
     try {
       await checklist.run('cleanup', async () => {
-        const cleanupFailures: string[] = [];
-        for (const fixture of fixtures.reverse()) {
-          try {
-            if (!(await api.issue(fixture.id)).archivedAt) {
-              await api.archiveIssue(fixture.id);
-            }
-          } catch (error) {
-            cleanupFailures.push(`${fixture.key}: ${String(error)}`);
-          }
+        const cleanupProblems: unknown[] = [];
+        const scope = `Linear team ${args.team}, project ${args.project}, token ${token}`;
+        try {
+          await cleanupOwnedFixtures({
+            known: fixtures,
+            scope,
+            discoverOwned: () => api.activeIssuesByTitleToken(context, token),
+            isArchived: async (fixture) => Boolean((await api.issue(fixture.id)).archivedAt),
+            archive: async (fixture) => api.archiveIssue(fixture.id),
+          });
+        } catch (error) {
+          cleanupProblems.push(error);
         }
-        if (process.env.TBD_QA_KEEP === '1') {
-          process.stdout.write(`Retained disposable repository: ${repoDir}\n`);
-        } else {
+
+        let credentialRemoved = false;
+        try {
+          await rm(join(repoDir, '.env'), { force: true });
+          credentialRemoved = true;
+        } catch (error) {
+          cleanupProblems.push(
+            new Error(`Could not remove the disposable credential: ${errorText(error)}`),
+          );
           await rm(repoDir, { recursive: true, force: true });
         }
-        assertCondition(
-          cleanupFailures.length === 0,
-          `Linear fixture cleanup failed:\n${cleanupFailures.join('\n')}`,
-        );
+
+        if (credentialRemoved) {
+          if (process.env.TBD_QA_KEEP === '1' || cleanupProblems.length > 0) {
+            process.stdout.write(`Retained sanitized disposable repository: ${repoDir}\n`);
+            process.stdout.write(`Cleanup recovery scope: ${scope}\n`);
+          } else {
+            await rm(repoDir, { recursive: true, force: true });
+          }
+        }
+
+        if (cleanupProblems.length > 0) {
+          throw new AggregateError(cleanupProblems, `Live QA cleanup failed for ${scope}`);
+        }
       });
     } catch (cleanupError) {
       cleanupFailure = cleanupError;

@@ -24,6 +24,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 
 import { ulid } from 'ulid';
 
@@ -36,7 +37,7 @@ import type {
   PolicyDefinition,
   ProviderNameType,
 } from '../../lib/types.js';
-import { computeSlot, decomposeSlot, isSlot, type Slot } from './slots.js';
+import { bandOf, computeSlot, decomposeSlot, isSlot, type Slot } from './slots.js';
 import { readyIssueIds } from '../../lib/issue-selection.js';
 import {
   descriptionHash,
@@ -58,6 +59,7 @@ import { renderManagedBlock, spliceManagedBlock, type MirrorLinks } from './mana
 import { attachmentsFor, beadAttachmentUrl, depthWithinSelection, prefixLabels } from './mirror.js';
 import {
   reconcile,
+  type BeadPatch,
   type FieldConflict,
   type FieldEquivalences,
   type LocalView,
@@ -242,6 +244,48 @@ function remoteViewOf(remote: ExternalIssue): RemoteView {
     assignee: remote.assignee,
     updatedAt: remote.updatedAt,
   };
+}
+
+/** The fields a pull can change, shaped so two beads compare by value. */
+function pulledFieldsOf(issue: Issue) {
+  return {
+    title: issue.title,
+    description: issue.description ?? null,
+    status: issue.status,
+    priority: issue.priority,
+    labels: [...(issue.labels ?? [])].sort(),
+    assignee: issue.assignee ?? null,
+    resolution: issue.resolution ?? null,
+    hold: issue.hold ?? null,
+  };
+}
+
+/**
+ * Apply a pull to a stored bead, saying whether anything actually changed.
+ *
+ * A patch can be non-empty and still change nothing: a pulled slot decomposes to a
+ * status, hold and resolution the bead already holds, because Todo and Backlog both
+ * mean `open`. Rewriting the bead then bumps `version` and `updated_at` for no edit,
+ * and under `tie_break: newest` a bead stamped newer than the tracker on every sync
+ * wins every later conflict by default. So the write, and the `pulled` line that
+ * reports it, are gated on a real difference; the base still advances either way.
+ */
+function applyBeadPatch(stored: Issue, patch: BeadPatch): { issue: Issue; changed: boolean } {
+  if (Object.keys(patch).length === 0) {
+    return { issue: stored, changed: false };
+  }
+  const issue: Issue = {
+    ...stored,
+    ...(patch.title !== undefined ? { title: patch.title } : {}),
+    ...(patch.description !== undefined ? { description: patch.description } : {}),
+    ...(patch.status !== undefined ? { status: patch.status } : {}),
+    ...(patch.priority !== undefined ? { priority: patch.priority } : {}),
+    ...(patch.labels !== undefined ? { labels: patch.labels } : {}),
+    ...(patch.assignee !== undefined ? { assignee: patch.assignee } : {}),
+    ...(patch.resolution !== undefined ? { resolution: patch.resolution } : {}),
+    ...(patch.hold !== undefined ? { hold: patch.hold } : {}),
+  };
+  return { issue, changed: !isDeepStrictEqual(pulledFieldsOf(stored), pulledFieldsOf(issue)) };
 }
 
 function overlappedWatermark(watermark: string | undefined): string | undefined {
@@ -553,6 +597,22 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   // 2. Assemble the linked set and the remote view.
   const currentIssues = [...issuesById.values()];
   const readyIds = readyIssueIds(currentIssues, Date.now());
+  // What a create writes for where the work sits. The slot goes on the create as well
+  // as on later pushes, or a new pair starts life in the disagreement the pair path
+  // then has to converge out of: an open bead that is not ready belongs in Backlog,
+  // and `status: open` alone lands it in Todo. `status`, `resolution` and `hold` ride
+  // alongside because a journal replayed by a client that predates slots ignores `slot`.
+  const positionOf = (issue: Issue) => ({
+    status: issue.status,
+    resolution: issue.resolution ?? null,
+    hold: issue.hold ?? null,
+    slot: computeSlot({
+      status: issue.status,
+      hold: issue.hold,
+      resolution: issue.resolution,
+      ready: readyIds.has(issue.id),
+    }),
+  });
   const childrenByParent = new Map<string, Issue[]>();
   for (const issue of currentIssues) {
     if (!issue.parent_id) {
@@ -774,14 +834,20 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     // bead ends up canceled and open at once. Widening the matrix properly is the slot
     // work in a later phase; until then the rule is that the reason goes where the
     // position goes.
-    // An outbound slot is decomposed into the fields the adapter already knows how to
-    // write. The adapter's job is provider vocabulary, not lifecycle arithmetic, so the
-    // slot is turned back into status/hold/resolution here rather than teaching every
-    // adapter to read slots.
+    // An outbound slot stays on the patch — it is the position the adapter writes, since
+    // a status alone cannot tell Backlog from Todo — and is also decomposed into
+    // status/hold/resolution here, so a journal replayed by a client that reads only
+    // those still files the issue in the right band. The adapter's job is provider
+    // vocabulary, not lifecycle arithmetic, so the decomposition lives here.
     if (result.externalPatch.slot !== undefined) {
-      const fields = decomposeSlot(result.externalPatch.slot as Slot);
+      const slot = result.externalPatch.slot as Slot;
+      const fields = decomposeSlot(slot);
       result.externalPatch.status = fields.status;
-      result.externalPatch.hold = fields.hold;
+      // Held open work has no slot of its own — it sits in `backlog` — so the
+      // decomposition cannot recover the hold. The bead's own rides along, and the
+      // adapter writes it as the carrier label beside the Backlog state.
+      result.externalPatch.hold =
+        fields.hold ?? (bandOf(slot) === 'open' ? (bead.hold ?? null) : null);
       result.externalPatch.resolution = fields.resolution;
     } else if (result.externalPatch.status !== undefined) {
       result.externalPatch.resolution = bead.resolution ?? null;
@@ -1010,7 +1076,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     (pair) => Object.keys(pair.result.externalPatch).length > 0 || managedBlocks.has(pair.bead.id),
   ).length;
   const beadUpdates = synchronizablePairs.filter(
-    (pair) => Object.keys(pair.result.beadPatch).length > 0,
+    (pair) => applyBeadPatch(pair.bead, pair.result.beadPatch).changed,
   ).length;
   const creates =
     outboundNew.length + (effectiveInboundMode === 'auto' ? importPlan.ordered.length : 0);
@@ -1026,7 +1092,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       if (Object.keys(pair.result.externalPatch).length > 0 || managedBlocks.has(pair.bead.id)) {
         report.pushed.push(id);
       }
-      if (Object.keys(pair.result.beadPatch).length > 0) {
+      if (applyBeadPatch(pair.bead, pair.result.beadPatch).changed) {
         report.pulled.push(id);
       }
       for (const conflict of pair.result.conflicts) {
@@ -1184,7 +1250,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       patch: {
         title: issue.title,
         ...(issue.description != null ? { description: issue.description } : {}),
-        status: issue.status,
+        ...positionOf(issue),
         priority: issue.priority,
         ...(adapter.canPushAssignee(issue.assignee ?? null)
           ? { assignee: issue.assignee ?? null }
@@ -1381,19 +1447,9 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       // Bead-side changes ride the normal write path via the caller.
       let stored = await callbacks.readBead(pair.bead.id);
       let dirty = false;
-      const patch = pair.result.beadPatch;
-      if (Object.keys(patch).length > 0) {
-        stored = {
-          ...stored,
-          ...(patch.title !== undefined ? { title: patch.title } : {}),
-          ...(patch.description !== undefined ? { description: patch.description } : {}),
-          ...(patch.status !== undefined ? { status: patch.status } : {}),
-          ...(patch.priority !== undefined ? { priority: patch.priority } : {}),
-          ...(patch.labels !== undefined ? { labels: patch.labels } : {}),
-          ...(patch.assignee !== undefined ? { assignee: patch.assignee } : {}),
-          ...(patch.resolution !== undefined ? { resolution: patch.resolution } : {}),
-          ...(patch.hold !== undefined ? { hold: patch.hold } : {}),
-        };
+      const patched = applyBeadPatch(stored, pair.result.beadPatch);
+      if (patched.changed) {
+        stored = patched.issue;
         dirty = true;
         report.pulled.push(displayId);
       }
@@ -1529,7 +1585,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         {
           title: issue.title,
           ...(issue.description != null ? { description: issue.description } : {}),
-          status: issue.status,
+          ...positionOf(issue),
           priority: issue.priority,
           // The bead's real dates, not the moment this sync happened to run. Only the
           // create surface accepts them, which is also the only place they matter:

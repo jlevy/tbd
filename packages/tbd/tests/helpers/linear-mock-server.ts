@@ -611,6 +611,15 @@ export class LinearMockServer {
           (input.description as string | null) ?? null,
         ),
         priority: (input.priority as number) ?? 0,
+        // Real Linear files a created issue in the state it was given, and the
+        // IssueUpdate handler below already honors `stateId`; ignoring it here put
+        // every created issue in Todo whatever the adapter asked for.
+        ...(typeof input.stateId === 'string'
+          ? (() => {
+              const state = this.states.find((s) => s.id === input.stateId);
+              return state ? { state } : {};
+            })()
+          : {}),
         projectId: typeof input.projectId === 'string' ? input.projectId : null,
         assignee:
           typeof input.assigneeId === 'string'

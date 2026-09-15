@@ -13,8 +13,44 @@ import {
 } from '../src/integrations/linear/client.js';
 import { MANAGED_BLOCK_MARKERS } from '../src/integrations/core/managed-block.js';
 import { LinearAdapter } from '../src/integrations/linear/adapter.js';
-import { BLOCKED_LABEL } from '../src/integrations/linear/mapping.js';
+import {
+  BLOCKED_LABEL,
+  CONVENTIONAL_STATE_NAMES,
+  PAUSED_LABEL,
+  slotFromLinear,
+  slotToLinear,
+} from '../src/integrations/linear/mapping.js';
+import { SLOTS, type Slot } from '../src/integrations/core/slots.js';
 import { LinearMockServer } from './helpers/linear-mock-server.js';
+
+describe('slot mapping round trip', () => {
+  // The contract behind every settled pair: what the adapter writes for a slot reads
+  // back as that slot, or as one the pair treats as agreement because the team cannot
+  // show the difference. Anything else is a write that never converges.
+  const readBack = (slot: Slot, namedStates: boolean): Slot => {
+    const target = slotToLinear(slot);
+    const name =
+      namedStates && target.stateName
+        ? target.stateName
+        : CONVENTIONAL_STATE_NAMES[target.stateType];
+    return slotFromLinear(target.stateType, name, target.labels);
+  };
+
+  it('returns every slot on a team that has the named states', () => {
+    for (const slot of SLOTS) {
+      expect(readBack(slot, true)).toBe(slot);
+    }
+  });
+
+  it('returns every slot, or its band default, on a team with only the stock states', () => {
+    // Draft and In Review are columns tbd cannot write without the team having them;
+    // the carrier labels keep paused and blocked round-tripping regardless.
+    const tolerated: Partial<Record<Slot, Slot>> = { draft: 'backlog', in_review: 'in_progress' };
+    for (const slot of SLOTS) {
+      expect(readBack(slot, false)).toBe(tolerated[slot] ?? slot);
+    }
+  });
+});
 
 describe('Linear client and adapter', () => {
   let server: LinearMockServer;
@@ -580,6 +616,27 @@ describe('Linear client and adapter', () => {
     it('translates status into a state id', async () => {
       await adapter.applyChanges('uuid-5', { status: 'closed' });
       expect(server.issues.get('uuid-5')?.state.type).toBe('completed');
+    });
+
+    it('writes the slot rather than the status it decomposes to', async () => {
+      // `backlog` and `todo` both decompose to `open`, and `open` alone maps to Todo.
+      // An outbound `backlog` that reached the adapter only as `open` never moved the
+      // issue, which is the no-op write behind the #265 alternation.
+      await adapter.applyChanges('uuid-5', { slot: 'backlog', status: 'open' });
+      expect(server.issues.get('uuid-5')?.state.name).toBe('Backlog');
+
+      await adapter.applyChanges('uuid-5', { slot: 'todo', status: 'open' });
+      expect(server.issues.get('uuid-5')?.state.name).toBe('Todo');
+    });
+
+    it('keeps the hold on open work as its carrier label beside the Backlog state', async () => {
+      await adapter.applyChanges('uuid-5', { slot: 'backlog', status: 'open', hold: 'paused' });
+      const issue = server.issues.get('uuid-5');
+      expect(issue?.state.name).toBe('Backlog');
+      expect(issue?.labels.nodes.map((l) => l.name)).toContain(PAUSED_LABEL);
+
+      const [canonical] = await adapter.fetchIssues(['uuid-5']);
+      expect(canonical?.hold).toBe('paused');
     });
 
     it('files each terminal resolution in its own Linear state', async () => {

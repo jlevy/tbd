@@ -1970,6 +1970,73 @@ describe('the sync engine', () => {
     expect(second.nothingToDo).toBe(true);
   });
 
+  it('an open bead that is not ready settles in Backlog instead of alternating forever (#265)', async () => {
+    // The reporter's mirror, pair by pair: linked, open, unheld, and blocked by an open
+    // bead, so `tbd ready` omits it and the local slot is `backlog`, while the tracker
+    // item sits in Todo. The outbound path used to decompose `backlog` to `open`, the
+    // adapter mapped `open` to Todo, Linear did not move, and the base still recorded
+    // `backlog` as agreed — so the next run pulled `todo` back onto a bead that had
+    // nothing to change, the run after that pushed again, and so on forever.
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    const blocker = bead('is-01hx5zzkbkactav9wevgemblkr', {
+      kind: 'task',
+      dependencies: [{ type: 'blocks', target: epic.id }],
+    });
+    const todo = server.states.find((state) => state.name === 'Todo')!;
+    server.addIssue({ id: 'issue-todo', identifier: 'FIN-707', title: epic.title, state: todo });
+    const linked = writeLink(epic, {
+      provider: 'linear',
+      id: 'issue-todo',
+      linked_at: '2026-08-10T00:00:00.000Z',
+    });
+    store.set(linked.id, linked);
+    store.set(blocker.id, blocker);
+
+    const reports = [];
+    for (let i = 0; i < 5; i += 1) {
+      reports.push(await run([store.get(epic.id)!, blocker]));
+    }
+
+    // The pair converges where the state model puts open work that is not ready...
+    expect(server.issues.get('issue-todo')?.state.name).toBe('Backlog');
+    // ...and once there, nothing moves in either direction again.
+    for (const report of reports.slice(3)) {
+      expect(report.pushed).toEqual([]);
+      expect(report.pulled).toEqual([]);
+    }
+    // No field on the bead ever had a reason to change, so it was never rewritten: a
+    // pull that changes nothing must not bump the version or `updated_at`, which under
+    // `tie_break: newest` would also make the bead outrank the tracker forever after.
+    expect(store.get(epic.id)!.version).toBe(1);
+    expect(store.get(epic.id)!.updated_at).toBe(epic.updated_at);
+  });
+
+  it('creates a blocked open epic in Backlog and stays quiet over five runs', async () => {
+    // The create path has to agree with the pair path, or every new pair starts life
+    // in the disagreement the previous test converges out of.
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    const blocker = bead('is-01hx5zzkbkactav9wevgemblkr', {
+      kind: 'task',
+      dependencies: [{ type: 'blocks', target: epic.id }],
+    });
+    store.set(epic.id, epic);
+    store.set(blocker.id, blocker);
+
+    const first = await run([epic, blocker]);
+    expect(first.createdOutbound).toEqual(['mvrz']);
+    const externalId = readLink(store.get(epic.id)!, 'linear')!.id;
+    expect(server.issues.get(externalId)?.state.name).toBe('Backlog');
+    const versionAfterCreate = store.get(epic.id)!.version;
+
+    for (let i = 0; i < 4; i += 1) {
+      const report = await run([store.get(epic.id)!, blocker]);
+      expect(report.pushed).toEqual([]);
+      expect(report.pulled).toEqual([]);
+    }
+    expect(server.issues.get(externalId)?.state.name).toBe('Backlog');
+    expect(store.get(epic.id)!.version).toBe(versionAfterCreate);
+  });
+
   it('a crash between create and attachments replays to a complete item', async () => {
     // Bugbot PR #206 R2: outbound creates journaled only the create, so a
     // crash after the issue existed left it bare forever. Attachments and the

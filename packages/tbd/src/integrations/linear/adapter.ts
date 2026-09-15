@@ -517,7 +517,8 @@ export class LinearAdapter implements TrackerAdapter {
     // the whole list — and missing either one silently strips every human-applied label
     // from the issue.
     const assertsLabels = (patch.ensureLabels?.length ?? 0) > 0;
-    if ((patch.status !== undefined || assertsLabels) && patch.labels === undefined) {
+    const writesState = patch.status !== undefined || patch.slot !== undefined;
+    if ((writesState || assertsLabels) && patch.labels === undefined) {
       const [current] = await this.fetchIssues([id]);
       preservedLabels = current?.labels.filter(
         (label) => label !== BLOCKED_LABEL && label !== DEFERRED_LABEL,
@@ -1016,15 +1017,12 @@ export class LinearAdapter implements TrackerAdapter {
 
     let statusLabels: string[] = [];
     // A slot names the column directly; a status only names the band it falls in. Writing
-    // the band instead is what made a blocked bead push Todo forever: the bead computes
-    // `backlog`, `decomposeSlot` collapses that to `status: open`, `statusToLinear` maps
-    // open to the unstarted default — the column the issue is already in — so the write
-    // moved nothing while the two sides went on disagreeing about the slot, one no-op
-    // IssueUpdate every other sync (GH #265). Resolving the slot is what makes the write
-    // land somewhere, which is what lets the pair finally agree.
+    // the band instead is what made a blocked bead push Todo forever. The hold and
+    // status ride along so carrier labels still round-trip when the named state is absent.
+    const slot = patch.slot !== undefined && isSlot(patch.slot) ? patch.slot : undefined;
     const target =
-      patch.slot !== undefined && isSlot(patch.slot)
-        ? slotToLinear(patch.slot)
+      slot !== undefined
+        ? slotToLinear(slot, { hold: patch.hold, status: patch.status })
         : patch.status !== undefined
           ? statusToLinear(patch.status, patch.resolution, patch.hold)
           : undefined;
