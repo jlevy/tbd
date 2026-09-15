@@ -304,3 +304,52 @@ describe('comment union scoping', () => {
     expect((ext.linear as { comments: unknown[] }).comments).toEqual([COMMENT_A]);
   });
 });
+
+describe('a namespace whose id is not a usable lineage', () => {
+  // `commentsShareLinkLineage` wants a non-empty string id, so `42`, `''` and `null` all
+  // read as "no lineage" — on every side at once. The postcondition's fallback then fires
+  // for namespaces that are not in conflict at all, and used to report the value it had
+  // just KEPT as the value that was lost. Harmless while those entries were phantoms
+  // nobody saw; `tbd sync` now writes them to the attic, where an entry pointing at the
+  // copy you already have is worse than no entry.
+  const COMMENT = {
+    local_id: '01aaaaaaaaaaaaaaaaaaaaaaaa',
+    at: '2026-08-10T00:00:00.000Z',
+    body: 'first',
+  };
+
+  it('reports one conflict, not two, when a numeric id sits on every side', () => {
+    const { ext, conflicts } = mergeExt(
+      { foo: { id: 42, other: 'base', comments: [] } },
+      { foo: { id: 42, other: 'local', comments: [] } },
+      { foo: { id: 42, other: 'remote', comments: [] } },
+    );
+
+    expect(ext.foo).toEqual({ id: 42, other: 'local', comments: [] });
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]!.lost_value).toEqual({ id: 42, other: 'remote', comments: [] });
+    expect(conflicts[0]!.winner_source).toBe('local');
+  });
+
+  it('reports nothing for an empty id neither side touched', () => {
+    const { conflicts } = mergeExt(
+      { linear: { id: '', comments: [COMMENT] } },
+      { linear: { id: '', comments: [COMMENT] } },
+      { linear: { id: '', comments: [COMMENT] } },
+    );
+
+    expect(conflicts).toHaveLength(0);
+  });
+
+  it('still reports the loser when the sides genuinely differ', () => {
+    // The guard must not swallow a real conflict: same absent lineage, different values.
+    const { conflicts } = mergeExt(
+      { linear: { id: null, note: 'base', comments: [] } },
+      { linear: { id: null, note: 'local', comments: [] } },
+      { linear: { id: null, note: 'remote', comments: [] } },
+    );
+
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]!.lost_value).toEqual({ id: null, note: 'remote', comments: [] });
+  });
+});

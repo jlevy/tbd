@@ -544,6 +544,28 @@ export interface ConflictEntry {
   local_version: number;
   remote_version: number;
   resolution: 'lww' | 'union' | 'manual';
+  /**
+   * When each side was last written, as the two issues reported it.
+   *
+   * The attic entry's whole purpose is to let someone decide whether the merge kept the
+   * right side, and "which one is newer" is most of that decision. Recording the time the
+   * entry was WRITTEN on both sides — which is what the archiver did before it had these
+   * — makes every entry say the two edits happened at the same instant, which is the one
+   * thing that is never true of a conflict resolved by recency.
+   */
+  local_updated_at: string;
+  remote_updated_at: string;
+  /**
+   * Which side of the merge supplied the value that was kept.
+   *
+   * Recorded per conflict rather than derived per issue, because the merge does not
+   * use one rule for the whole bead: ordinary fields and namespaces resolve on
+   * `updated_at`, an independent creation resolves on `created_at`, and the comment
+   * postcondition resolves on provider-link lineage. An archived entry that labels the
+   * wrong side as the winner points whoever is recovering data at the value they still
+   * have, so the side is carried from the branch that made the decision.
+   */
+  winner_source: 'local' | 'remote';
 }
 
 /**
@@ -729,12 +751,27 @@ type NamespaceResolution = { present: true; value: unknown } | { present: false 
  * wrong silently resurrects an unlinked bead, so deletion is treated as an edit
  * like any other.
  */
+/**
+ * Report one namespace the merge could not keep whole.
+ *
+ * `winnerSource` is the side whose value survived, carried here because only the branch
+ * that made the decision knows it: a namespace deleted on one side survives from the
+ * other regardless of timestamps, and the comment postcondition picks by provider-link
+ * lineage rather than by `updated_at`.
+ */
+type NamespaceConflictReporter = (
+  namespace: string,
+  lost: unknown,
+  winner: unknown,
+  winnerSource: 'local' | 'remote',
+) => void;
+
 function resolveNamespace(
   namespace: string,
   base: Record<string, unknown>,
   local: Record<string, unknown>,
   remote: Record<string, unknown>,
-  onConflict: (namespace: string, lost: unknown, winner: unknown) => void,
+  onConflict: NamespaceConflictReporter,
   localWins: boolean,
 ): NamespaceResolution {
   const inBase = Object.hasOwn(base, namespace);
@@ -771,7 +808,7 @@ function resolveNamespace(
   // The discarded deletion is still reported so it is not silent.
   if (!inLocal || !inRemote) {
     const survivor = inLocal ? local[namespace] : remote[namespace];
-    onConflict(namespace, DELETED_NAMESPACE, survivor);
+    onConflict(namespace, DELETED_NAMESPACE, survivor, inLocal ? 'local' : 'remote');
     return { present: true, value: survivor };
   }
 
@@ -798,7 +835,12 @@ function resolveNamespace(
         comments: unionCommentArrays(localNs.comments, remoteNs.comments),
       };
       if (!deepEqual(omitComments(localNs), omitComments(remoteNs))) {
-        onConflict(namespace, omitComments(loserNs), omitComments(winnerNs));
+        onConflict(
+          namespace,
+          omitComments(loserNs),
+          omitComments(winnerNs),
+          localWins ? 'local' : 'remote',
+        );
       }
       return { present: true, value };
     }
@@ -806,7 +848,7 @@ function resolveNamespace(
 
   const winner = localWins ? local[namespace] : remote[namespace];
   const loser = localWins ? remote[namespace] : local[namespace];
-  onConflict(namespace, loser, winner);
+  onConflict(namespace, loser, winner, localWins ? 'local' : 'remote');
   return { present: true, value: winner };
 }
 
@@ -822,7 +864,7 @@ function preserveNamespaceComments(
   resolvedValue: unknown,
   localValue: unknown,
   remoteValue: unknown,
-  onConflict: (namespace: string, lost: unknown, winner: unknown) => void,
+  onConflict: NamespaceConflictReporter,
 ): unknown {
   // Literally the same gate as the namespace merge, via the same function: if these two
   // sites disagree about one namespace, the merge archives a losing comment array as a
@@ -843,15 +885,23 @@ function preserveNamespaceComments(
     const resolvedMatchesRemote = commentsShareLinkLineage(resolvedValue, remoteValue);
 
     if (resolvedMatchesLocal && !resolvedMatchesRemote) {
-      onConflict(namespace, remoteValue, resolvedValue);
+      onConflict(namespace, remoteValue, resolvedValue, 'local');
     } else if (resolvedMatchesRemote && !resolvedMatchesLocal) {
-      onConflict(namespace, localValue, resolvedValue);
+      onConflict(namespace, localValue, resolvedValue, 'remote');
     } else {
-      // Defensive fallback for a future merge strategy that synthesizes a third
-      // lineage: preserve every source namespace that the result no longer names.
-      onConflict(namespace, localValue, resolvedValue);
-      if (!deepEqual(localValue, remoteValue)) {
-        onConflict(namespace, remoteValue, resolvedValue);
+      // Neither side's lineage matches the result. Usually that means no side HAS a
+      // lineage: `commentsShareLinkLineage` requires a non-empty string `id`, so a
+      // namespace carrying `id: 42`, `id: ''` or `id: null` lands here even when all
+      // three sides are identical, and so does a future strategy that really does
+      // synthesize a third lineage. Report only a side the result did not keep —
+      // otherwise the entry names as lost the very value it kept, which sends whoever
+      // is recovering data after the copy they already have. Reaching the attic made
+      // this visible: before, these were phantom entries nobody ever saw.
+      if (!deepEqual(localValue, resolvedValue)) {
+        onConflict(namespace, localValue, resolvedValue, 'remote');
+      }
+      if (!deepEqual(remoteValue, resolvedValue) && !deepEqual(localValue, remoteValue)) {
+        onConflict(namespace, remoteValue, resolvedValue, 'local');
       }
     }
     return resolvedValue;
@@ -868,7 +918,7 @@ function preserveExtensionComments(
   resolvedValue: unknown,
   localValue: unknown,
   remoteValue: unknown,
-  onConflict: (namespace: string, lost: unknown, winner: unknown) => void,
+  onConflict: NamespaceConflictReporter,
 ): unknown {
   if (!isPlainObject(resolvedValue) || !isPlainObject(localValue) || !isPlainObject(remoteValue)) {
     return resolvedValue;
@@ -901,7 +951,7 @@ function mergeNamespaces(
   baseVal: unknown,
   localVal: unknown,
   remoteVal: unknown,
-  onConflict: (namespace: string, lost: unknown, winner: unknown) => void,
+  onConflict: NamespaceConflictReporter,
   localWins: boolean,
 ): Record<string, unknown> {
   const base = isPlainObject(baseVal) ? baseVal : {};
@@ -934,6 +984,9 @@ function createConflictEntry(
   localVersion: number,
   remoteVersion: number,
   resolution: 'lww' | 'union' | 'manual',
+  winnerSource: 'local' | 'remote',
+  localUpdatedAt: string,
+  remoteUpdatedAt: string,
 ): ConflictEntry {
   const timestamp = nowFilenameTimestamp();
 
@@ -946,6 +999,9 @@ function createConflictEntry(
     local_version: localVersion,
     remote_version: remoteVersion,
     resolution,
+    winner_source: winnerSource,
+    local_updated_at: localUpdatedAt,
+    remote_updated_at: remoteUpdatedAt,
   };
 }
 
@@ -998,13 +1054,16 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
         if (!deepEqual(local, remote)) {
           conflicts.push(
             createConflictEntry(
-              remote.id,
+              local.id,
               'whole_issue',
               remote,
               local,
-              remote.version,
               local.version,
+              remote.version,
               'lww',
+              'local',
+              local.updated_at,
+              remote.updated_at,
             ),
           );
         }
@@ -1021,6 +1080,9 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
               local.version,
               remote.version,
               'lww',
+              'remote',
+              local.updated_at,
+              remote.updated_at,
             ),
           );
         }
@@ -1040,6 +1102,7 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
     namespace: string,
     lost: unknown,
     winner: unknown,
+    winnerSource: 'local' | 'remote',
   ): void => {
     const fieldPath = `${field}.${namespace}`;
     const duplicate = conflicts.some(
@@ -1058,6 +1121,9 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
           local.version,
           remote.version,
           'lww',
+          winnerSource,
+          local.updated_at,
+          remote.updated_at,
         ),
       );
     }
@@ -1124,6 +1190,9 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
               local.version,
               remote.version,
               'lww',
+              'local',
+              local.updated_at,
+              remote.updated_at,
             ),
           );
         } else {
@@ -1137,6 +1206,9 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
               local.version,
               remote.version,
               'lww',
+              'remote',
+              local.updated_at,
+              remote.updated_at,
             ),
           );
         }
@@ -1192,8 +1264,8 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
           baseVal,
           localVal,
           remoteVal,
-          (namespace, lost, winner) => {
-            recordNamespaceConflict(field, namespace, lost, winner);
+          (namespace, lost, winner, winnerSource) => {
+            recordNamespaceConflict(field, namespace, lost, winner, winnerSource);
           },
           nsLocalTime >= nsRemoteTime,
         );
@@ -1206,8 +1278,8 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
     merged.extensions,
     local.extensions,
     remote.extensions,
-    (namespace, lost, winner) => {
-      recordNamespaceConflict('extensions', namespace, lost, winner);
+    (namespace, lost, winner, winnerSource) => {
+      recordNamespaceConflict('extensions', namespace, lost, winner, winnerSource);
     },
   ) as Issue['extensions'];
 
@@ -2044,6 +2116,25 @@ async function ensureDataSyncScaffold(baseDir: string): Promise<number> {
       contents: `schema_version: ${DATA_SYNC_SCHEMA_VERSION}\n`,
     },
     { relative: `${DATA_SYNC_RELATIVE_PATH}/issues/.gitkeep`, contents: '' },
+    {
+      // Beads are merged field by field, by rules that know what each field MEANS —
+      // last-writer-wins for scalars, union for sets, lineage rules for provider
+      // namespaces. Git's line merge knows none of that, and when two clones edit one
+      // bead far enough apart in the file it silently combines the lines instead, which
+      // is not the same answer: observed, a relink to a new provider issue merged with
+      // another clone's queued comment produced a namespace holding the new issue's id
+      // and key, the OLD issue's url, and a comment written for the old issue — a record
+      // no writer would ever produce, reported as a clean sync with nothing archived.
+      //
+      // Whether that happened at all depended on how many unchanged lines separated the
+      // two edits. `merge=binary` removes the accident: git refuses to combine bead files
+      // and marks them conflicted, so every two-sided change goes to the structured merge
+      // (`mergeBeadAcrossRefs`), which reads both sides from their blobs and resolves them
+      // by the field rules. The file rides the sync branch, so an older client applies the
+      // same rule and reaches its own structured merge too.
+      relative: `${DATA_SYNC_RELATIVE_PATH}/issues/.gitattributes`,
+      contents: '*.md merge=binary\n',
+    },
     { relative: `${DATA_SYNC_RELATIVE_PATH}/mappings/.gitkeep`, contents: '' },
     {
       relative: `${DATA_SYNC_RELATIVE_PATH}/mappings/.gitattributes`,
