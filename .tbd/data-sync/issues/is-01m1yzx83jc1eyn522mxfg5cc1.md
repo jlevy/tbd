@@ -5,7 +5,7 @@ title: "Every slot round-trips: write slots through slotToLinear, compare in bot
 kind: bug
 status: open
 priority: 1
-version: 7
+version: 9
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 labels:
   - phase-1
@@ -16,9 +16,11 @@ dependencies:
     target: is-01m2egwv3n7dkwa53568vrsgfc
   - type: blocks
     target: is-01m2egwz6r0qgbtvzh2nkevjdb
+  - type: blocks
+    target: is-01m2eseh97vth3cpm35m074faf
 parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 created_at: 2026-09-07T22:30:34.353Z
-updated_at: 2026-09-14T02:58:42.974Z
+updated_at: 2026-09-15T21:27:01.612Z
 ---
 GH #265 (the alternation) and the In Review drag. Plan 1a.
 
@@ -29,3 +31,11 @@ Fix: CanonicalPatch carries the slot and the adapter writes it via slotToLinear 
 Tests, red first: open epic blocked by an open bead synced five times, runs 3-5 quiet; In Review stays over four runs; team with only Doing and In Review started states reports a skipped field; pure property test that slotFromLinear(write(slot)) returns the slot or a declared tolerated one for a default team and a team with no optional states (tests/slots.test.ts:105-118 passes the refinement back in, which production never does); Paused settles after one pull (guard).
 
 f08 compatibility review 2026-09-14 (see 'f08 Compatibility Contract for Sprint Fixes' in the stability sprint plan): DESIGN CHANGE. Keep base.slot in the local vocabulary and do the two-vocabulary comparison in memory only; 0.8.1 compares base.slot exactly (reconcile.ts:262-265, slots.ts:242), so a base stored in remote terms makes a 0.8.x teammate push every run. If a remote-form value must persist, add an optional field whose absence means derive (old clients drop undeclared fields: BridgeBaseSchema/LinkRecordSchema are not passthrough, and 0.7.0 already drops slot and refinement_*). Readiness differs across versions (main treats a future deferred_until as not ready, 0.8.1 does not) and 0.8.x --push writes Todo, so the Backlog write can ping-pong with 0.8.x clients: gated by tbd-s4kb (T3); if T3 cannot converge, Release 1 states a minimum version for every clone that runs integration sync, or the Backlog write is opt-in.
+
+## Notes
+
+2026-09-15 release-readiness review of main @ 1238038e: partial. #290 (044d0624, 0da306d5) writes the slot on update and create and suppresses no-op bead rewrites. Still open: comparing in both vocabularies, reporting a skipped field when the target state does not resolve, and the In Review drag (localViewOf passes no refinement; the only test stops at run 2).
+
+Unresolvable Backlog keeps a half-hidden loop: on a team with no backlog-type state, or several with no state_map, adapter.ts ~:1045 has no else branch, ambiguity is reported only by `integration status` (integration.ts ~:262), the pull half is left out of the report (sync-engine.ts ~:1078), yet the base advances and the runner commits (integration-runner.ts ~:689-693). Syncs alternate between "nothing to do" plus a commit and "push 1". Code verified, sequence inferred.
+
+Mixed-version and --push contention introduced by #290 are tracked on tbd-s4kb and tbd-evn3. Remains a Release 1 gate for Linear users.

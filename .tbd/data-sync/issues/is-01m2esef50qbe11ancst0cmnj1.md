@@ -3,9 +3,9 @@ type: is
 id: is-01m2esef50qbe11ancst0cmnj1
 title: tbd sync must save every merge conflict to the attic; document the attic as a recovery store
 kind: bug
-status: open
+status: closed
 priority: 1
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 labels: []
 dependencies:
@@ -13,7 +13,12 @@ dependencies:
     target: is-01m2eseh97vth3cpm35m074faf
 parent_id: is-01m1w3d1e63qg5e2wpz31qkmvn
 created_at: 2026-09-14T01:45:29.503Z
-updated_at: 2026-09-14T14:23:55.037Z
+updated_at: 2026-09-15T21:27:01.127Z
+closed_at: 2026-09-15T21:27:01.126Z
+close_reason: |
+  Implemented for bead merge conflicts on main via PR #288: 413d7e69 archives every ConflictEntry from mergeRemoteIntoSyncBranch and doPushWithRetry through writeAtticEntryFile (sync.ts ~:893-915, ~:1120), a0f4d629 adds follow-ups, and 3289adfa makes an archive failure exit nonzero with honest summary strings; docs and a tryscript were added. The unmet remainder (bridge-file link-record and intent conflicts that resolveBridgeConflicts drops with only a debug count) is split to tbd-qgei. Verified in the 2026-09-15 release-readiness review of 1238038e.
+resolution: null
+duplicate_of: null
 ---
 `tbd sync` collects field-level merge conflicts from the structured bead merge (sync.ts:941-956, mergeRemoteIntoSyncBranch; doPushWithRetry allConflicts in file/git.ts:1318-1323) and only counts them (summary.conflicts), yet prints "N conflict(s) preserved in attic" (sync.ts:800) and git.ts:828/:1321 say the caller preserves them in the attic. No code on the sync path writes an attic entry: writeAtticEntryFile is called only by `tbd attic`, the integration runner, and workspace save/import; rescue writes attic/conflicts/ separately. Pre-existing on main.
 

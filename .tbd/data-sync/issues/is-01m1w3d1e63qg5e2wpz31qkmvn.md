@@ -5,7 +5,7 @@ title: "Coordination phase 1: stabilize existing sync, comments, and claims"
 kind: epic
 status: open
 priority: 1
-version: 23
+version: 26
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 labels: []
 dependencies:
@@ -33,7 +33,10 @@ child_order_hints:
   - is-01m2esefj8xnpv379q99nrket5
   - is-01m2esefyjp3x8qfk8mb0p8g0e
   - is-01m2esej1t36pzt1vqft3py13g
+  - is-01m2kfdtptbs02r57n8rhzk73j
+  - is-01m2kfdv49hpc2jytb1s0y02hx
+  - is-01m2kfdw1m3930d15w12j1z2ac
 created_at: 2026-09-06T19:33:54.245Z
-updated_at: 2026-09-14T01:45:32.473Z
+updated_at: 2026-09-15T21:26:36.339Z
 ---
 Release gate for existing-contract repairs: preserve concurrent comments in every recovery path; destination-stable Linear delivery; canonical alias/conflicting-content handling; distinct concurrent worker identities; opt-in atomic eligible-work claim with explicit outcome; startup/periodic readiness; graph removal and validation policy. Reuse September defect beads and existing instruction owners. Each fix may ship independently; the full gate closes only after all proofs. No native comment format or automatic background process is required.

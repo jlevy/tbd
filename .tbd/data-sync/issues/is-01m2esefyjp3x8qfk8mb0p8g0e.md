@@ -3,9 +3,9 @@ type: is
 id: is-01m2esefyjp3x8qfk8mb0p8g0e
 title: "PR #279 test gaps: sync and merge-refs paths with differing link lineage, conflict destination, third-party namespace"
 kind: task
-status: open
+status: closed
 priority: 2
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 labels: []
 dependencies:
@@ -15,7 +15,12 @@ dependencies:
     target: is-01m2eseh97vth3cpm35m074faf
 parent_id: is-01m1w3d1e63qg5e2wpz31qkmvn
 created_at: 2026-09-14T01:45:30.321Z
-updated_at: 2026-09-14T14:27:48.636Z
+updated_at: 2026-09-15T21:27:00.034Z
+closed_at: 2026-09-15T21:27:00.033Z
+close_reason: |
+  All three gaps are covered on main: ref-level differing-lineage and conflict-destination tests in merge-refs.test.ts ~:262-345 (0a31ef57, PR #287); the third-party namespace gate via commentLogsUnionable with red-green tests (87cd7619, #287); and a two-clone built-CLI end to end in cli-sync-relink-pending-comment.tryscript.md (64238d1b, PR #288). Caveat: the tryscript uses a freshly initialized repo, so it has issues/.gitattributes, which upgraded repos lack (tracked on tbd-yqq7). Verified in the 2026-09-15 release-readiness review of 1238038e.
+resolution: null
+duplicate_of: null
 ---
 Test gaps in PR #279 (tbd-8rnq), found in the release-compatibility review: the four mergeIssues unit tests (tests/integrations-comments.test.ts:190-291) and the workspace/outbox tests cover the postcondition directly, but nothing exercises it through the paths users run:
 - mergeBeadAcrossRefs / `tbd sync` with provider comments and differing link lineage (tests/merge-refs.test.ts and rescue-*.test.ts have no comment cases);
