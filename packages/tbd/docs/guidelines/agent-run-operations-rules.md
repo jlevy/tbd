@@ -109,9 +109,13 @@ LLM steps are not reproducible by default.
 
 - For a model or prompt comparison, run a duplicate of the baseline alongside the
   candidate on the same inputs.
-- Report the candidate’s difference next to the duplicate’s. In one spot check, two
-  models agreed on selected terms at a Jaccard similarity of 0.39, and two runs of the
-  same model agreed at 0.44; the model difference was within run-to-run noise.
+- Report the candidate’s difference next to the duplicate’s. In one spot check over six
+  companies, two models agreed on measured terms at a mean Jaccard similarity of 0.40,
+  and two runs of the same model agreed at only 0.45: most of the apparent model
+  difference was run-to-run variation.
+- Declare the margin or test before reading the data.
+  A rule that counts any excess disagreement as an effect flagged that 0.05 gap, which
+  six companies cannot distinguish from noise.
 
 ## Re-Derive Timeouts When a Prompt Change Lengthens a Step
 
