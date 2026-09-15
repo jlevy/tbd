@@ -28,10 +28,12 @@ import {
   resolutionFromLinear,
   holdFromLinear,
   slotFromLinear,
+  slotToLinear,
   stateColorFor,
   resolveStateId,
   statusToLinear,
 } from './mapping.js';
+import { isSlot } from '../core/slots.js';
 import {
   ATTACHMENT_UPSERT_MUTATION,
   COMMENT_CREATE_MUTATION,
@@ -515,7 +517,8 @@ export class LinearAdapter implements TrackerAdapter {
     // the whole list — and missing either one silently strips every human-applied label
     // from the issue.
     const assertsLabels = (patch.ensureLabels?.length ?? 0) > 0;
-    if ((patch.status !== undefined || assertsLabels) && patch.labels === undefined) {
+    const writesState = patch.status !== undefined || patch.slot !== undefined;
+    if ((writesState || assertsLabels) && patch.labels === undefined) {
       const [current] = await this.fetchIssues([id]);
       preservedLabels = current?.labels.filter(
         (label) => label !== BLOCKED_LABEL && label !== DEFERRED_LABEL,
@@ -1013,8 +1016,17 @@ export class LinearAdapter implements TrackerAdapter {
     }
 
     let statusLabels: string[] = [];
-    if (patch.status !== undefined) {
-      const target = statusToLinear(patch.status, patch.resolution, patch.hold);
+    // The slot is the position to write. A status alone cannot tell Backlog from Todo
+    // (both decompose to `open`), which is how a pushed `backlog` used to land in Todo,
+    // never move the issue, and leave the base claiming it had (#265).
+    const slot = patch.slot !== undefined && isSlot(patch.slot) ? patch.slot : undefined;
+    const target =
+      slot !== undefined
+        ? slotToLinear(slot, { hold: patch.hold, status: patch.status })
+        : patch.status !== undefined
+          ? statusToLinear(patch.status, patch.resolution, patch.hold)
+          : undefined;
+    if (target) {
       // A named state is preferred when the team actually has one, because a real
       // column is visible to a person planning the week while a label is not. When it
       // is absent the carrier label rides the type's default instead, which is the

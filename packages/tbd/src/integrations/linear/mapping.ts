@@ -390,8 +390,15 @@ export function slotFromLinear(
  * a requirement: a team that has the column gets a real one, and a team that does not
  * falls back to the type's default plus a carrier label, which is the degradation
  * `blocked` and `deferred` have always used.
+ *
+ * `carriers` covers the one band a slot cannot express on its own: held and deferred
+ * open work all sits in `backlog`, and only the label says which kind, exactly as
+ * {@link statusToLinear} writes it for `open` with a hold or for `deferred`.
  */
-export function slotToLinear(slot: Slot): LinearStatusTarget {
+export function slotToLinear(
+  slot: Slot,
+  carriers: { hold?: IssueHoldType | null; status?: IssueStatusType } = {},
+): LinearStatusTarget {
   switch (slot) {
     case 'done':
       return { stateType: 'completed', labels: [] };
@@ -411,6 +418,15 @@ export function slotToLinear(slot: Slot): LinearStatusTarget {
       return { stateType: 'backlog', stateName: 'Draft', labels: [] };
     case 'todo':
       return { stateType: 'unstarted', labels: [] };
+    case 'backlog':
+      return {
+        stateType: 'backlog',
+        labels: carriers.hold
+          ? [carriers.hold === 'paused' ? PAUSED_LABEL : BLOCKED_LABEL]
+          : carriers.status === 'deferred'
+            ? [DEFERRED_LABEL]
+            : [],
+      };
     default:
       return { stateType: 'backlog', labels: [] };
   }
