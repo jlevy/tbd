@@ -295,6 +295,7 @@ opinionated rules with concrete examples, built from months of heavy agentic cod
 | [supply-chain-hardening](packages/tbd/docs/guidelines/supply-chain-hardening.md) | Dependency cool-offs, lockfiles, install scripts, provenance, and immutable CI inputs |
 | [release-engineering-rules](packages/tbd/docs/guidelines/release-engineering-rules.md) | Release identity, least-privilege publishing, build-once promotion, and packaged-artifact testing |
 | [release-notes-guidelines](packages/tbd/docs/guidelines/release-notes-guidelines.md) | User-visible release deltas without listing development-only fixes as shipped changes |
+| [agent-run-operations-rules](packages/tbd/docs/guidelines/agent-run-operations-rules.md) | Pinned launch checkouts, one scheduler per host budget, host-first slowness diagnosis, validating metrics, and reading prompts before blaming a model |
 | [agent-session-bootstrap](packages/tbd/docs/guidelines/agent-session-bootstrap.md) | Installing a repository’s pinned toolchain in agent environments |
 
 ### Testing
