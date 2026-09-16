@@ -1,6 +1,6 @@
 ---
 title: Stacked PRs
-description: When to split work into a stack of dependent PRs, how stacks line up with beads, and how the PR shortcuts change when a branch is part of a stack
+description: When to use formal GitHub PR stacks, how they align with beads, and how to link and verify them with gh stack; chained branch bases alone do not count
 category: git
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
@@ -10,8 +10,9 @@ A reviewer sees only that layer’s diff, so three 200-line PRs replace one 600-
 The branch-base chain is necessary for layered diffs, but it is not formal stack
 membership by itself.
 
-This shortcut covers **when to stack and how stacking interacts with tbd**. It
-deliberately does not document the `gh stack` commands.
+This shortcut covers **when to stack, how stacking interacts with tbd, and the critical
+noninteractive commands and postconditions for agent sessions**. It does not replace the
+official `gh-stack` command reference.
 
 ## Mechanics Live in the Official Skill
 

@@ -361,6 +361,20 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       await access(join(tempDir, '.codex/hooks.json'));
     });
 
+    it('--surfaces=portable keeps formal stack guidance without AGENTS.md', async () => {
+      initGitRepo();
+
+      const result = runTbd(['setup', '--auto', '--prefix=test', '--surfaces=portable']);
+      expect(result.status).toBe(0);
+
+      const skill = await readFile(join(tempDir, '.agents/skills/tbd/SKILL.md'), 'utf-8');
+      expect(skill).toContain('tbd shortcut create-or-update-pr-simple');
+      expect(skill).toContain('tbd shortcut stacked-prs');
+      expect(skill).toContain('Chained branch bases alone are not a formal GitHub stack');
+      expect(skill).toMatch(/link and verify the PRs with\s+`gh stack`/u);
+      await expect(access(join(tempDir, 'AGENTS.md'))).rejects.toThrow();
+    });
+
     it('--surfaces=codex installs only the Codex hooks surface', async () => {
       initGitRepo();
 

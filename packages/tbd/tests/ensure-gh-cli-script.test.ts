@@ -9,7 +9,6 @@ import { describe, expect, it } from 'vitest';
 const SCRIPT = join(import.meta.dirname, '..', 'docs', 'install', 'ensure-gh-cli.sh');
 const GH_STACK_VERSION = 'v0.1.0';
 const GH_STACK_SKILL_SHA = 'a1b4a3d4d0bcde9ec3a78ab99b2d63af121857a9';
-const unixIt = process.platform === 'win32' ? it.skip : it;
 
 const GH_STACK_ASSET_DIGESTS = {
   'darwin-amd64': '712266939bf40349dce6c8893037b88e0453334d30d06750b61ce1a6c8640bb9',
@@ -17,6 +16,53 @@ const GH_STACK_ASSET_DIGESTS = {
   'linux-amd64': '358552dd7dce0a46ce153fe196270cec482b84f080947890aad4061a8d44bc0b',
   'linux-arm64': 'a79649e121845b7404109de21d65601c09c8c6d021d93738a3428d23986a8841',
 } as const;
+
+/** Reads the shipped shell source with stable line endings for text inspection. */
+async function readScriptSource(): Promise<string> {
+  return (await readFile(SCRIPT, 'utf8')).replace(/\r\n?/g, '\n');
+}
+
+/** Converts a native fixture path to the path spelling understood by Git Bash. */
+function bashPath(path: string): string {
+  if (process.platform !== 'win32') {
+    return path;
+  }
+
+  const result = spawnSync('bash', ['-c', 'cygpath -u "$1"', '_', path], {
+    encoding: 'utf8',
+  });
+  if (result.status !== 0) {
+    throw new Error(`could not convert ${path} to a Git Bash path: ${result.stderr}`);
+  }
+  return result.stdout.trim();
+}
+
+/** Prepends a fixture directory to Bash's own normalized PATH. */
+function bashPathWith(directory: string): string {
+  const result = spawnSync('bash', ['-c', 'printf %s "$PATH"'], { encoding: 'utf8' });
+  if (result.status !== 0) {
+    throw new Error(`could not read the Git Bash PATH: ${result.stderr}`);
+  }
+  return `${bashPath(directory)}:${result.stdout}`;
+}
+
+/** Installs a deterministic supported-platform uname fixture for black-box tests. */
+async function writeSupportedUname(binDirectory: string): Promise<void> {
+  const file = join(binDirectory, 'uname');
+  await writeFile(
+    file,
+    [
+      '#!/bin/bash',
+      'case "${1:-}" in',
+      '    -s) echo Linux ;;',
+      '    -m) echo x86_64 ;;',
+      '    *) echo Linux ;;',
+      'esac',
+      '',
+    ].join('\n'),
+  );
+  await chmod(file, 0o755);
+}
 
 interface SkillListFixture {
   readonly agentHosts: readonly string[];
@@ -55,7 +101,7 @@ const SKILL_IDENTITY_COLLISIONS: [string, Partial<SkillListFixture>][] = [
  * copy that can drift.
  */
 async function extractFunction(name: string): Promise<string> {
-  const source = await readFile(SCRIPT, 'utf8');
+  const source = await readScriptSource();
   const match = new RegExp(`^${name}\\(\\) \\{$.*?^\\}$`, 'ms').exec(source);
   if (!match) {
     throw new Error(`${name}() not found in ${SCRIPT}`);
@@ -163,7 +209,7 @@ async function ghStackChecksumMatches(contents: string, expected: string): Promi
     const fn = await extractFunction('sha256_matches');
     const result = spawnSync(
       'bash',
-      ['-c', `${fn}\nsha256_matches "$1" "$2"`, '_', fixture, expected],
+      ['-c', `${fn}\nsha256_matches "$1" "$2"`, '_', bashPath(fixture), expected],
       {
         encoding: 'utf8',
       },
@@ -187,6 +233,8 @@ interface ManifestOverrides {
 async function ghStackManifestMatches(overrides: ManifestOverrides = {}): Promise<boolean> {
   const dataHome = await mkdtemp(join(tmpdir(), 'tbd-gh-stack-manifest-'));
   const extensionDirectory = join(dataHome, 'gh', 'extensions', 'gh-stack');
+  const bashDataHome = bashPath(dataHome);
+  const bashExecutable = `${bashDataHome}/gh/extensions/gh-stack/gh-stack`;
   try {
     await mkdir(extensionDirectory, { recursive: true });
     const manifest = [
@@ -195,7 +243,7 @@ async function ghStackManifestMatches(overrides: ManifestOverrides = {}): Promis
       'host: github.com',
       `tag: ${overrides.tag ?? GH_STACK_VERSION}`,
       'ispinned: true',
-      `path: ${overrides.path ?? join(extensionDirectory, 'gh-stack')}`,
+      `path: ${overrides.path ?? bashExecutable}`,
       '',
     ].join('\n');
     await writeFile(join(extensionDirectory, 'manifest.yml'), manifest);
@@ -220,7 +268,7 @@ async function ghStackManifestMatches(overrides: ManifestOverrides = {}): Promis
           'gh_stack_manifest_matches',
         ].join('\n'),
       ],
-      { encoding: 'utf8', env: { ...process.env, XDG_DATA_HOME: dataHome } },
+      { encoding: 'utf8', env: { ...process.env, XDG_DATA_HOME: bashDataHome } },
     );
     if (result.status !== 0 && result.status !== 1) {
       throw new Error(`unexpected exit ${result.status}: ${result.stderr}`);
@@ -266,7 +314,7 @@ describe('ensure-gh-cli.sh', () => {
   });
 
   it('pins the gh version, the floor, and a checksum for every supported platform', async () => {
-    const source = await readFile(SCRIPT, 'utf8');
+    const source = await readScriptSource();
     const version = /^GH_VERSION="([^"]+)"$/m.exec(source)?.[1];
     const floor = /^GH_MIN_VERSION="([^"]+)"$/m.exec(source)?.[1];
     expect(version).toBeTruthy();
@@ -285,7 +333,7 @@ describe('ensure-gh-cli.sh', () => {
   });
 
   it('installs the gh-stack skill by name and verifies the result', async () => {
-    const source = await readFile(SCRIPT, 'utf8');
+    const source = await readScriptSource();
     // `gh skill install <repo>` with no skill name installs nothing and still exits 0,
     // so both the selector and a result check are load-bearing.
     expect(source).toMatch(/gh skill install "\$GH_STACK_REPO" gh-stack/);
@@ -299,7 +347,7 @@ describe('ensure-gh-cli.sh', () => {
   });
 
   it('pins an immutable digest for every supported gh-stack release asset', async () => {
-    const source = await readFile(SCRIPT, 'utf8');
+    const source = await readScriptSource();
     expect(source).toContain(`GH_STACK_VERSION="${GH_STACK_VERSION}"`);
     for (const [platform, digest] of Object.entries(GH_STACK_ASSET_DIGESTS)) {
       expect(source).toMatch(new RegExp(`${platform.replace('-', '\\-')}\\)\\s+echo "${digest}"`));
@@ -315,19 +363,20 @@ describe('ensure-gh-cli.sh', () => {
     ['Linux', 'x86_64', 'linux-amd64'],
     ['Linux', 'aarch64', 'linux-arm64'],
     ['FreeBSD', 'amd64', null],
+    ['MINGW64_NT-10.0-26100', 'x86_64', null],
     ['Linux', 'riscv64', null],
   ])('maps %s/%s to the reviewed asset %s', async (os, arch, expected) => {
     expect(await ghStackPlatformFor(os, arch)).toBe(expected);
   });
 
-  unixIt('rejects asset bytes that do not match the expected SHA-256 digest', async () => {
+  it('rejects asset bytes that do not match the expected SHA-256 digest', async () => {
     const official = 'reviewed gh-stack asset';
     const digest = createHash('sha256').update(official).digest('hex');
     expect(await ghStackChecksumMatches(official, digest)).toBe(true);
     expect(await ghStackChecksumMatches(`${official} tampered`, digest)).toBe(false);
   });
 
-  unixIt('removes a colliding extension before a checksum failure and cleans staging', async () => {
+  it('removes a colliding extension before a checksum failure and cleans staging', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'tbd-gh-stack-fail-closed-'));
     const binDirectory = join(directory, 'bin');
     const homeDirectory = join(directory, 'home');
@@ -336,6 +385,8 @@ describe('ensure-gh-cli.sh', () => {
     const marker = join(directory, 'gh-stack-registered');
     const extensionDirectory = join(dataHome, 'gh', 'extensions', 'gh-stack');
     const executable = join(extensionDirectory, 'gh-stack');
+    const bashMarker = bashPath(marker);
+    const bashExtensionDirectory = bashPath(extensionDirectory);
     try {
       await Promise.all([
         mkdir(binDirectory, { recursive: true }),
@@ -358,14 +409,14 @@ if [ "\${1:-}" = "auth" ] && [ "\${2:-}" = "status" ]; then
     exit 0
 fi
 if [ "\${1:-}" = "extension" ] && [ "\${2:-}" = "list" ]; then
-    if [ -f "${marker}" ]; then
+    if [ -f "${bashMarker}" ]; then
         printf 'gh stack\\texample/gh-stack\\tv9.9.9\\n'
     fi
     exit 0
 fi
 if [ "\${1:-}" = "extension" ] && [ "\${2:-}" = "remove" ]; then
-    rm -f "${marker}"
-    rm -rf "${extensionDirectory}"
+    rm -f "${bashMarker}"
+    rm -rf "${bashExtensionDirectory}"
     exit 0
 fi
 echo "unexpected mocked gh invocation: $*" >&2
@@ -386,6 +437,7 @@ done
 printf 'tampered asset' > "$output"
 `,
         ),
+        writeSupportedUname(binDirectory),
       ]);
       await Promise.all([
         chmod(join(binDirectory, 'gh'), 0o755),
@@ -397,10 +449,10 @@ printf 'tampered asset' > "$output"
         env: {
           ...process.env,
           GH_TOKEN: '',
-          HOME: homeDirectory,
-          PATH: `${binDirectory}:${process.env.PATH ?? ''}`,
-          TMPDIR: tempDirectory,
-          XDG_DATA_HOME: dataHome,
+          HOME: bashPath(homeDirectory),
+          PATH: bashPathWith(binDirectory),
+          TMPDIR: bashPath(tempDirectory),
+          XDG_DATA_HOME: bashPath(dataHome),
         },
       });
       expect(result.status, result.stderr).toBe(0);
@@ -414,7 +466,7 @@ printf 'tampered asset' > "$output"
     }
   });
 
-  unixIt('quarantines a competing destination when mv nests the staged directory', async () => {
+  it('quarantines a competing canonical target when mv nests the staged directory', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'tbd-gh-stack-publish-race-'));
     const binDirectory = join(directory, 'bin');
     const homeDirectory = join(directory, 'home');
@@ -425,6 +477,11 @@ printf 'tampered asset' > "$output"
     const extensionDirectory = join(dataHome, 'gh', 'extensions', 'gh-stack');
     const executable = join(extensionDirectory, 'gh-stack');
     const expectedDigest = GH_STACK_ASSET_DIGESTS['linux-amd64'];
+    const bashDataHome = bashPath(dataHome);
+    const bashExtensionDirectory = bashPath(extensionDirectory);
+    const bashExecutable = bashPath(executable);
+    const bashInstallRootLog = bashPath(installRootLog);
+    const bashVersionAttempt = bashPath(versionAttempt);
     try {
       await Promise.all([
         mkdir(binDirectory, { recursive: true }),
@@ -450,7 +507,7 @@ if [ "\${1:-}" = "extension" ] && [ "\${2:-}" = "list" ]; then
     exit 0
 fi
 if [ "\${1:-}" = "extension" ] && [ "\${2:-}" = "install" ]; then
-    if [ "\${XDG_DATA_HOME}" = "${dataHome}" ]; then
+    if [ "\${XDG_DATA_HOME}" = "${bashDataHome}" ]; then
         echo 'extension install used canonical XDG_DATA_HOME' >&2
         exit 96
     fi
@@ -466,7 +523,7 @@ if [ "\${1:-}" = "extension" ] && [ "\${2:-}" = "install" ]; then
         "path: \${staged_executable}" > "\${staged_directory}/manifest.yml"
     printf 'gh unchecked download' > "\${staged_executable}"
     chmod 755 "\${staged_executable}"
-    printf '%s\\n' "\${XDG_DATA_HOME}" > "${installRootLog}"
+    printf '%s\\n' "\${XDG_DATA_HOME}" > "${bashInstallRootLog}"
     exit 0
 fi
 if [ "\${1:-}" = "extension" ] && [ "\${2:-}" = "remove" ]; then
@@ -474,7 +531,7 @@ if [ "\${1:-}" = "extension" ] && [ "\${2:-}" = "remove" ]; then
     exit 0
 fi
 if [ "\${1:-}" = "stack" ] && [ "\${2:-}" = "--version" ]; then
-    touch "${versionAttempt}"
+    touch "${bashVersionAttempt}"
     echo 'gh stack version ${GH_STACK_VERSION.slice(1)}'
     exit 0
 fi
@@ -502,40 +559,29 @@ printf 'reviewed asset fixture' > "$output"
 printf '${expectedDigest}  %s\\n' "$1"
 `,
         ),
-        writeFile(
-          join(binDirectory, 'uname'),
-          `#!/bin/bash
-case "\${1:-}" in
-    -s) echo Linux ;;
-    -m) echo x86_64 ;;
-    *) echo Linux ;;
-esac
-`,
-        ),
+        writeSupportedUname(binDirectory),
         writeFile(
           join(binDirectory, 'mv'),
           `#!/bin/bash
 set -eu
 if [ "$#" = "2" ] \
     && [[ "$1" == *'/.tbd-gh-stack.'*'/gh/extensions/gh-stack' ]] \
-    && [ "$2" = "${extensionDirectory}" ]; then
-    mkdir -p "${extensionDirectory}"
+    && [ "$2" = "${bashExtensionDirectory}" ]; then
+    mkdir -p "${bashExtensionDirectory}"
     printf '%s\\n' \\
         'owner: github' \\
         'name: gh-stack' \\
         'host: github.com' \\
         'tag: ${GH_STACK_VERSION}' \\
         'ispinned: true' \\
-        'path: ${executable}' > "${join(extensionDirectory, 'manifest.yml')}"
+        'path: ${bashExecutable}' > "${bashExtensionDirectory}/manifest.yml"
 fi
 exec /bin/mv "$@"
 `,
         ),
       ]);
       await Promise.all(
-        ['gh', 'curl', 'sha256sum', 'uname', 'mv'].map((name) =>
-          chmod(join(binDirectory, name), 0o755),
-        ),
+        ['gh', 'curl', 'sha256sum', 'mv'].map((name) => chmod(join(binDirectory, name), 0o755)),
       );
 
       const result = spawnSync('bash', [SCRIPT, '--with-stack'], {
@@ -543,17 +589,17 @@ exec /bin/mv "$@"
         env: {
           ...process.env,
           GH_TOKEN: '',
-          HOME: homeDirectory,
-          PATH: `${binDirectory}:${process.env.PATH ?? ''}`,
-          TMPDIR: tempDirectory,
-          XDG_DATA_HOME: dataHome,
+          HOME: bashPath(homeDirectory),
+          PATH: bashPathWith(binDirectory),
+          TMPDIR: bashPath(tempDirectory),
+          XDG_DATA_HOME: bashDataHome,
         },
       });
       expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
       expect(result.stdout).toContain('could not install a verified github/gh-stack extension');
       const isolatedRoot = (await readFile(installRootLog, 'utf8')).trim();
-      expect(isolatedRoot).not.toBe(dataHome);
-      expect(isolatedRoot.startsWith(`${dataHome}/.tbd-gh-stack.`)).toBe(true);
+      expect(isolatedRoot).not.toBe(bashDataHome);
+      expect(isolatedRoot.startsWith(`${bashDataHome}/.tbd-gh-stack.`)).toBe(true);
       expect(await readFile(versionAttempt, 'utf8').catch(() => null)).toBeNull();
       expect(await readFile(executable, 'utf8').catch(() => null)).toBeNull();
       expect(await readdir(tempDirectory)).toEqual([]);
@@ -574,7 +620,7 @@ exec /bin/mv "$@"
     ).toBe(false);
   });
 
-  unixIt('requires gh to execute the pinned manifest path', async () => {
+  it('requires gh to execute the pinned manifest path', async () => {
     expect(await ghStackManifestMatches()).toBe(true);
     expect(await ghStackManifestMatches({ owner: 'example' })).toBe(false);
     expect(await ghStackManifestMatches({ tag: 'v0.0.9' })).toBe(false);
@@ -582,7 +628,7 @@ exec /bin/mv "$@"
   });
 
   it('publishes only a fully verified isolated registration at the canonical path', async () => {
-    const source = (await readFile(SCRIPT, 'utf8')).replaceAll('\r\n', '\n');
+    const source = await readScriptSource();
     expect(source.match(/--connect-timeout 15 --max-time 120/g)).toHaveLength(2);
     expect(source).toMatch(/sha256_matches "\$asset_path" "\$expected"/);
     expect(source).toMatch(
