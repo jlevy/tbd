@@ -1,0 +1,139 @@
+created_at: 2026-09-16T18:15:32.308Z
+ops:
+  - bead_id: is-01m0es4z70jsnf8e7gna1sskbn
+    external_id: 9432b8e7-9193-4ee4-ae46-c5da09b228a5
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: completed
+      slot: done
+      status: closed
+  - bead_id: is-01m0es4z70jsnf8e7gna1sskbn
+    block: |-
+      ⟦tbd⟧
+      `tbd-639t` · epic · closed · P1
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-639t`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 9432b8e7-9193-4ee4-ae46-c5da09b228a5
+    kind: splice_description
+  - bead_id: is-01m14yzbwwg92e5k7z7d4kyn00
+    block: |-
+      ⟦tbd⟧
+      `tbd-bcss` · epic · open · P1
+      Spec: [plan-2026-08-28-sync-convergence-and-stability.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md)
+      Children: 10 (2 ready)
+      Bead: `tbd show tbd-bcss`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 1adba480-fa92-4840-bf07-7a520a6a9c91
+    kind: splice_description
+  - bead_id: is-01m14z0nr8gaygh727ysr134qc
+    external_id: 49c11354-db1a-43f3-bf1c-889bc0066dc9
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: completed
+      slot: done
+      status: closed
+  - bead_id: is-01m14z0nr8gaygh727ysr134qc
+    block: |-
+      ⟦tbd⟧
+      `tbd-u9eg` · bug · closed · P0
+      Spec: [plan-2026-08-28-sync-convergence-and-stability.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-u9eg`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 49c11354-db1a-43f3-bf1c-889bc0066dc9
+    kind: splice_description
+  - bead_id: is-01m1d1tam7230zrcj70ecmkt8b
+    block: |-
+      ⟦tbd⟧
+      `tbd-ewsw` · epic · in_progress · P1
+      Children: 8 (1 ready)
+      Bead: `tbd show tbd-ewsw`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: cc291f47-d621-49f7-bc89-998ad050ce68
+    kind: splice_description
+  - bead_id: is-01m1yzwqtnk81a6yg790yn4a9x
+    block: |-
+      ⟦tbd⟧
+      `tbd-ct4z` · epic · open · P1
+      Spec: [plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md)
+      Children: 51 (27 ready)
+      Bead: `tbd show tbd-ct4z`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: dd42e056-d545-47ff-a532-ffe0d6a519dc
+    kind: splice_description
+  - bead_id: is-01m1yzwv5hxya72fgnk91pb3gv
+    external_id: daba69bb-ef76-4d03-b7d8-eb8e5e8317f6
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: completed
+      slot: done
+      status: closed
+  - bead_id: is-01m1yzwv5hxya72fgnk91pb3gv
+    block: |-
+      ⟦tbd⟧
+      `tbd-xn8m` · task · closed · P1
+      Spec: [plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-xn8m`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: daba69bb-ef76-4d03-b7d8-eb8e5e8317f6
+    kind: splice_description
+  - bead_id: is-01m2eseh97vth3cpm35m074faf
+    external_id: 2f20c626-78c2-4a48-9904-5f80572914a7
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: completed
+      slot: done
+      status: closed
+  - bead_id: is-01m2eseh97vth3cpm35m074faf
+    block: |-
+      ⟦tbd⟧
+      `tbd-lz1q` · task · closed · P1
+      Spec: [plan-2026-09-06-bead-coordination-and-native-comments.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-lz1q`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 2f20c626-78c2-4a48-9904-5f80572914a7
+    kind: splice_description
+  - bead_id: is-01m2kfdwg1v0yk4zt6zrz7h6eq
+    external_id: 6086b533-e680-4064-9a8f-9008d1f7eab9
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: completed
+      slot: done
+      status: closed
+  - bead_id: is-01m2kfdwg1v0yk4zt6zrz7h6eq
+    block: |-
+      ⟦tbd⟧
+      `tbd-xky1` · task · closed · P2
+      Spec: [plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md](https://github.com/jlevy/tbd/blob/main/docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-xky1`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      ⟦/tbd⟧
+    external_id: 6086b533-e680-4064-9a8f-9008d1f7eab9
+    kind: splice_description
+provider: linear
+run_id: 01m2npwqpjc5b7mn37efp05sd0
+type: in
