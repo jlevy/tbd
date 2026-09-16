@@ -1549,6 +1549,10 @@ before anything touches the network.
 
 ### Phase 3: GitHub adapter
 
+Provider research for this phase, with API facts verified 2026-09-15 and the open
+questions keyed to the beads below:
+[GitHub issues and pull requests for a tbd tracker adapter](../../research/current/research-2026-09-15-github-issues-for-tracker-adapter.md).
+
 - [ ] **`tbd-lmo9`: transport and adapter.** Native REST client, zod response schemas,
   canonical mapping, repository target validation, `GITHUB_TOKEN` then `gh auth token`,
   status probes, pagination, rate-limit and permission remedies.
