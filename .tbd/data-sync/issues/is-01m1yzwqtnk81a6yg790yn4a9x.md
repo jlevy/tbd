@@ -5,7 +5,7 @@ title: "Stability sprint 2026-09: spec lifecycle, triage views, bulk contract, t
 kind: epic
 status: open
 priority: 1
-version: 53
+version: 54
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 labels: []
 dependencies: []
@@ -60,8 +60,9 @@ child_order_hints:
   - is-01m2kfdvjffdg8fdz8yn837m14
   - is-01m2kfdwg1v0yk4zt6zrz7h6eq
   - is-01m2kfpj6qm42z0bk6t4907jj7
+  - is-01m2nnx13vpykmr4cbwxgdw3p1
 created_at: 2026-09-07T22:30:17.666Z
-updated_at: 2026-09-16T08:27:03.921Z
+updated_at: 2026-09-16T17:58:13.370Z
 extensions:
   linear:
     id: dd42e056-d545-47ff-a532-ffe0d6a519dc
