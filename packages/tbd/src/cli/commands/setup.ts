@@ -238,6 +238,9 @@ actions rather than telling them to run commands.
 - Run \`tbd prime\` to load current project state and the full tbd workflow.
 - Run \`tbd skill\` for the complete reusable tbd skill instructions.
 - Run \`tbd shortcut --list\` and \`tbd guidelines --list\` for on-demand resources.
+- For pull requests, run \`tbd shortcut create-or-update-pr-simple\`. When the user asks
+  for stacked or dependent PRs, run \`tbd shortcut stacked-prs\` before creating
+  anything. Chained branch bases are not a formal stack; link the PRs with \`gh stack\`.
 - Track all work as beads: \`tbd create\`, \`tbd ready\`, \`tbd start\`, \`tbd close\`, and
   \`tbd sync\`.
 - Before editing a bead, pull and re-read it, run \`tbd start <id>\`, then run \`tbd sync\`
@@ -477,6 +480,18 @@ async function loadBundledScript(name: string): Promise<string> {
   throw new Error(`Bundled script not found: ${name}`);
 }
 
+type GhSkillAgent = 'claude-code' | 'codex';
+
+/** Render the gh setup script with the owning agent as its skill target. */
+async function loadGhCliScript(agent: GhSkillAgent): Promise<string> {
+  const source = await loadBundledScript('ensure-gh-cli.sh');
+  const defaultLine = 'GH_SKILL_AGENT="${GH_SKILL_AGENT:-claude-code}"';
+  if (!source.includes(defaultLine)) {
+    throw new Error('Bundled ensure-gh-cli.sh is missing its agent default marker');
+  }
+  return source.replace(defaultLine, `GH_SKILL_AGENT="\${GH_SKILL_AGENT:-${agent}}"`);
+}
+
 /**
  * Generate a new AGENTS.md file with tbd integration.
  */
@@ -609,10 +624,7 @@ export async function inspectCodexHooksSurface(cwd: string): Promise<ManagedArti
     [join(cwd, CODEX_CLOSING_REMINDER_REL), TBD_CLOSE_PROTOCOL_SCRIPT],
   ]);
   if (useGhCli) {
-    expectedScripts.set(
-      join(cwd, CODEX_GH_CLI_SCRIPT_REL),
-      await loadBundledScript('ensure-gh-cli.sh'),
-    );
+    expectedScripts.set(join(cwd, CODEX_GH_CLI_SCRIPT_REL), await loadGhCliScript('codex'));
   }
   for (const [path, expected] of expectedScripts) {
     try {
@@ -1021,7 +1033,7 @@ class SetupClaudeHandler extends BaseCommand {
 
         // Install the script file
         await mkdir(claudePaths.scriptsDir, { recursive: true });
-        const ghScriptContent = await loadBundledScript('ensure-gh-cli.sh');
+        const ghScriptContent = await loadGhCliScript('claude-code');
         await writeFile(claudePaths.ghCliScript, ghScriptContent);
         await chmod(claudePaths.ghCliScript, 0o755);
         this.output.success('Installed gh CLI setup script');
@@ -1200,7 +1212,7 @@ class SetupCodexHandler extends BaseCommand {
     await writeFile(join(cwd, CODEX_CLOSING_REMINDER_REL), TBD_CLOSE_PROTOCOL_SCRIPT);
     await chmod(join(cwd, CODEX_CLOSING_REMINDER_REL), 0o755);
     if (useGhCli) {
-      const ghScriptContent = await loadBundledScript('ensure-gh-cli.sh');
+      const ghScriptContent = await loadGhCliScript('codex');
       await writeFile(join(cwd, CODEX_GH_CLI_SCRIPT_REL), ghScriptContent);
       await chmod(join(cwd, CODEX_GH_CLI_SCRIPT_REL), 0o755);
     } else {

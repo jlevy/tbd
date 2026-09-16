@@ -306,12 +306,33 @@ GH_STACK_VERSION="v0.1.0"
 GH_STACK_SKILL_SHA="a1b4a3d4d0bcde9ec3a78ab99b2d63af121857a9"
 GH_SKILL_AGENT="${GH_SKILL_AGENT:-claude-code}"
 
-# Is the gh-stack skill present for this agent? Used both as the pre-check and as the
-# post-install verification, because `gh skill install` exit status cannot be trusted
-# (see below).
+# Is the pinned official gh-stack skill present in this agent's user scope? Used both
+# as the pre-check and as the post-install verification, because a same-name skill can
+# come from another source or revision and `gh skill install` exit status cannot be
+# trusted (see below).
 gh_stack_skill_present() {
-    gh skill list --agent "$GH_SKILL_AGENT" --json skillName -q '.[].skillName' 2>/dev/null \
-        | grep -qx 'gh-stack'
+    gh skill list --agent "$GH_SKILL_AGENT" \
+        --json skillName,sourceURL,scope,version,pinned,agentHosts \
+        --template '{{range .}}{{printf "%s\t%s\t%s\t%s\t%t\t" .skillName .sourceURL .scope .version .pinned}}{{range .agentHosts}}{{printf "%s," .}}{{end}}{{printf "\n"}}{{end}}' \
+        2>/dev/null \
+        | awk -F "$(printf '\t')" \
+            -v expected_source="https://github.com/${GH_STACK_REPO}" \
+            -v expected_version="$GH_STACK_SKILL_SHA" \
+            -v expected_agent="$GH_SKILL_AGENT" '
+                $1 == "gh-stack" {
+                    valid = $2 == expected_source &&
+                        $3 == "user" &&
+                        $4 == expected_version &&
+                        $5 == "true" &&
+                        index("," $6, "," expected_agent ",") > 0
+                    if (valid) {
+                        found = 1
+                    } else {
+                        conflict = 1
+                    }
+                }
+                END { exit(found && !conflict ? 0 : 1) }
+            '
 }
 
 if [ "$WITH_STACK" = "1" ]; then

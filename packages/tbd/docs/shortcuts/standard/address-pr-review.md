@@ -60,17 +60,51 @@ Create a to-do list with the following items then perform all of them:
      that bead in the disposition map
 
 5. **Check out the PR branch:**
-   - `gh pr checkout <PR_NUMBER> --repo $REPO`
-   - If the base branch has moved substantially, run `tbd shortcut merge-upstream` first
-     so fixes land on a current branch
-   - **If the PR is one layer of a stack** (`gh stack view --json`; any non-zero exit,
-     whether 2 or a missing `gh stack`, means it is not), the checkout lands you
-     mid-stack. Two rules follow: land each fix on the layer that owns the code, never on
-     whatever layer is checked out; and after committing, run
-     `gh stack rebase --upstack` so the layers above pick up the change.
-     CI on the upper PRs means nothing until that rebase happens.
-     To refresh a stacked branch use `gh stack sync`, not `merge-upstream`, bearing in
-     mind it force-pushes (`--force-with-lease`) the whole chain.
+   - Set `$PR_NUMBER` to the PR selected in step 2, then run
+     `gh pr checkout "$PR_NUMBER" --repo "$REPO"`
+
+   - Resolve the checked-out branch and PR metadata:
+
+     ```bash
+     BRANCH=$(git branch --show-current)
+     PR_URL=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json url --jq .url)
+     ```
+
+     Stop if either command fails.
+
+   - Check local stack tracking with `gh stack view --json`. Exit 0 with a stack
+     containing `$BRANCH` means the branch is locally tracked.
+     Exit 2 means only that it is not tracked locally.
+     For any other nonzero exit, including a missing `gh stack`, stop and run
+     `tbd shortcut setup-github-cli`.
+
+   - Check the authoritative formal membership on GitHub:
+
+     ```bash
+     REMOTE_STACK_NUMBER=$(gh api \
+       "repos/$REPO/stacks?pull_request=$PR_NUMBER" \
+       --jq '.[0].number // empty')
+     ```
+
+     Stop if this API call fails; do not treat an unavailable check as proof that the PR
+     is unstacked. A nonempty result means the PR belongs to a formal GitHub stack, even
+     when the local check exits 2.
+
+   - If the PR belongs to a remote-only formal stack, run `gh stack checkout "$PR_URL"`
+     before any `gh stack sync` or `gh stack rebase --upstack`. Stop if checkout fails
+     or a subsequent `gh stack view --json` does not contain `$BRANCH`; do not merge or
+     reconstruct the chain by hand.
+
+   - If either the local or remote check identifies a stack, the checkout lands you
+     mid-stack. Land each fix on the layer that owns the code, never on whichever layer
+     happens to be checked out.
+     If the stack needs the latest trunk, run `gh stack sync`, not `merge-upstream`; it
+     force-pushes (`--force-with-lease`) the whole chain.
+     After committing, run `gh stack rebase --upstack` so the layers above pick up the
+     change. CI on the upper PRs means nothing until that rebase happens.
+
+   - Only when local tracking is absent and `$REMOTE_STACK_NUMBER` is empty may you run
+     `tbd shortcut merge-upstream` if the base branch has moved substantially.
 
 6. **Triage and address each finding, in severity order:**
 

@@ -105,6 +105,7 @@ or want help → run `tbd shortcut welcome-user`
 | “Review this PR” | `tbd shortcut review-github-pr` |
 | “Commit this” / “Use the commit shortcut” | `tbd shortcut code-review-and-commit` |
 | “Create a PR” / “File a PR” | `tbd shortcut create-or-update-pr-simple` |
+| “Create a stacked PR” / “Stack this” / “Create dependent PRs” | `tbd shortcut stacked-prs` |
 | “Merge main into my branch” | `tbd shortcut merge-upstream` |
 | **Guidelines & Knowledge** |  |
 | *(any engineering work)* | Load the **General engineering** group first (see below) |

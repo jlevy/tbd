@@ -5,6 +5,36 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const SCRIPT = join(import.meta.dirname, '..', 'docs', 'install', 'ensure-gh-cli.sh');
+const GH_STACK_SKILL_SHA = 'a1b4a3d4d0bcde9ec3a78ab99b2d63af121857a9';
+
+interface SkillListFixture {
+  readonly agentHosts: readonly string[];
+  readonly pinned: boolean;
+  readonly scope: 'project' | 'user';
+  readonly skillName: string;
+  readonly sourceURL: string;
+  readonly version: string;
+}
+
+const OFFICIAL_SKILL_FIXTURE: SkillListFixture = {
+  agentHosts: ['codex'],
+  pinned: true,
+  scope: 'user',
+  skillName: 'gh-stack',
+  sourceURL: 'https://github.com/github/gh-stack',
+  version: GH_STACK_SKILL_SHA,
+};
+
+const SKILL_IDENTITY_COLLISIONS: [string, Partial<SkillListFixture>][] = [
+  ['same-name skill from a different source', { sourceURL: 'https://github.com/example/gh-stack' }],
+  [
+    'same-name skill at a different version',
+    { version: '1111111111111111111111111111111111111111' },
+  ],
+  ['same-name skill without a pin', { pinned: false }],
+  ['same-name skill in project scope', { scope: 'project' }],
+  ['same-name skill installed for another agent', { agentHosts: ['claude-code'] }],
+];
 
 /**
  * Extract a single bash function from the shipped script.
@@ -20,6 +50,54 @@ async function extractFunction(name: string): Promise<string> {
     throw new Error(`${name}() not found in ${SCRIPT}`);
   }
   return match[0];
+}
+
+/** Formats one mocked `gh skill list` record as the installer's Go template does. */
+function formatSkillListFixture(fixture: SkillListFixture): string {
+  return [
+    fixture.skillName,
+    fixture.sourceURL,
+    fixture.scope,
+    fixture.version,
+    String(fixture.pinned),
+    `${fixture.agentHosts.join(',')},`,
+  ].join('\t');
+}
+
+/** Builds a skill-list fixture from the valid official identity. */
+function skillListFixture(overrides: Partial<SkillListFixture> = {}): SkillListFixture {
+  return { ...OFFICIAL_SKILL_FIXTURE, ...overrides };
+}
+
+/** Runs the shipped skill identity check against mocked `gh skill list` output. */
+async function ghStackSkillPresent(fixtures: readonly SkillListFixture[]): Promise<boolean> {
+  const fn = await extractFunction('gh_stack_skill_present');
+  const result = spawnSync(
+    'bash',
+    [
+      '-c',
+      [
+        'set -o pipefail',
+        'gh() { printf "%s\\n" "$GH_SKILL_LIST_FIXTURE"; }',
+        fn,
+        'GH_STACK_REPO="github/gh-stack"',
+        `GH_STACK_SKILL_SHA="${GH_STACK_SKILL_SHA}"`,
+        'GH_SKILL_AGENT="codex"',
+        'gh_stack_skill_present',
+      ].join('\n'),
+    ],
+    {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        GH_SKILL_LIST_FIXTURE: fixtures.map(formatSkillListFixture).join('\n'),
+      },
+    },
+  );
+  if (result.status !== 0 && result.status !== 1) {
+    throw new Error(`unexpected exit ${result.status}: ${result.stderr}`);
+  }
+  return result.status === 0;
 }
 
 describe('ensure-gh-cli.sh', () => {
@@ -81,7 +159,28 @@ describe('ensure-gh-cli.sh', () => {
     // so both the selector and a result check are load-bearing.
     expect(source).toMatch(/gh skill install "\$GH_STACK_REPO" gh-stack/);
     expect(source).toMatch(/gh_stack_skill_present/);
+    expect(source).toContain('gh skill list --agent "$GH_SKILL_AGENT"');
+    expect(source).toContain('--json skillName,sourceURL,scope,version,pinned,agentHosts');
+    expect(source).toMatch(/--agent "\$GH_SKILL_AGENT" --scope user --force/);
+    expect(source.match(/if gh_stack_skill_present; then/g)).toHaveLength(2);
     // The skill is instructions loaded into later sessions, so it is pinned by SHA.
     expect(source).toMatch(/^GH_STACK_SKILL_SHA="[0-9a-f]{40}"$/m);
+  });
+
+  it('accepts the pinned official skill for the owning agent and user scope', async () => {
+    expect(await ghStackSkillPresent([skillListFixture()])).toBe(true);
+  });
+
+  it.each(SKILL_IDENTITY_COLLISIONS)('rejects a %s', async (_description, overrides) => {
+    expect(await ghStackSkillPresent([skillListFixture(overrides)])).toBe(false);
+  });
+
+  it('rejects a project-scoped collision that shadows the valid user skill', async () => {
+    expect(
+      await ghStackSkillPresent([
+        skillListFixture(),
+        skillListFixture({ scope: 'project', version: 'project-shadow' }),
+      ]),
+    ).toBe(false);
   });
 });

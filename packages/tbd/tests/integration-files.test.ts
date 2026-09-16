@@ -203,6 +203,129 @@ describe('integration file formats', () => {
     });
   });
 
+  describe('stacked PR routing', () => {
+    it('routes explicit stack requests through the dedicated shortcut in every skill tier', async () => {
+      const skillFiles = [
+        join(shortcutsSystemDir, 'skill-baseline.md'),
+        join(docsDir, 'skill-brief.md'),
+        join(shortcutsSystemDir, 'skill-minimal.md'),
+      ];
+
+      for (const skillFile of skillFiles) {
+        const content = await readFile(skillFile, 'utf-8');
+        expect(content, `${skillFile} must recognize an explicit stack request`).toMatch(
+          /stacked PR|stack dependent PRs/iu,
+        );
+        expect(content, `${skillFile} must route stack requests`).toContain(
+          'tbd shortcut stacked-prs',
+        );
+      }
+    });
+
+    it('preserves draft state unless the user explicitly asks to open the stack', async () => {
+      const standardDir = join(docsDir, 'shortcuts', 'standard');
+      for (const name of [
+        'create-or-update-pr-simple.md',
+        'create-or-update-pr-with-validation-plan.md',
+        'stacked-prs.md',
+      ]) {
+        const content = await readFile(join(standardDir, name), 'utf-8');
+        expect(content, `${name} must use the non-interactive stack submit path`).toContain(
+          'gh stack submit --auto',
+        );
+        expect(content, `${name} must make review-state changes explicit`).toContain(
+          'only when the user explicitly asks',
+        );
+        expect(content, `${name} must not make --open the default submit command`).not.toMatch(
+          /(?:run|Run) `gh stack submit --auto --open`/u,
+        );
+      }
+    });
+
+    it('distinguishes local tracking from authoritative formal stack membership', async () => {
+      const standardDir = join(docsDir, 'shortcuts', 'standard');
+      for (const name of [
+        'create-or-update-pr-simple.md',
+        'create-or-update-pr-with-validation-plan.md',
+      ]) {
+        const content = await readFile(join(standardDir, name), 'utf-8');
+        expect(content, `${name} must retain the existing PR base`).toContain(
+          '--json number,url,baseRefName',
+        );
+        expect(content, `${name} must inspect local stack tracking safely`).toContain(
+          'gh stack view --json',
+        );
+        expect(content, `${name} must inspect remote formal membership`).toContain(
+          'stacks?pull_request=$PR_NUMBER',
+        );
+        expect(content, `${name} must fail closed when GitHub cannot verify membership`).toContain(
+          'If this API call fails, stop',
+        );
+        expect(content, `${name} must diff an existing stacked PR from its actual base`).toContain(
+          '$PR_BASE',
+        );
+        expect(content, `${name} must preserve remote-only linked stacks`).toContain(
+          'Formal remote stack without local tracking',
+        );
+        expect(content, `${name} must classify stack state before any trunk merge`).toContain(
+          'Do not merge the trunk yet',
+        );
+        expect(content, `${name} must safely adopt a remote-only stack before syncing`).toContain(
+          'gh stack checkout "$PR_URL"',
+        );
+        expect(content, `${name} must route existing PRs through formal linking`).toContain(
+          'gh stack link',
+        );
+        expect(content, `${name} must cover a locally tracked PR before remote linking`).toContain(
+          'whether or not an open PR already exists',
+        );
+        expect(content, `${name} must resolve a fetched remote base revision`).toContain(
+          'origin/<candidate>',
+        );
+      }
+
+      const stacked = await readFile(join(standardDir, 'stacked-prs.md'), 'utf-8');
+      expect(stacked).toContain('Local tracking and formal GitHub membership are separate states');
+      expect(stacked).toContain('stacks?pull_request=$PR_NUMBER');
+      expect(stacked).toContain('gh stack link');
+      expect(stacked).toMatch(/it is not formal stack\s+membership by itself/u);
+      expect(stacked).not.toContain('or set the base to the branch below');
+    });
+
+    it('protects remote-only stacks in merge and review follow-up workflows', async () => {
+      const standardDir = join(docsDir, 'shortcuts', 'standard');
+      for (const name of ['merge-upstream.md', 'address-pr-review.md']) {
+        const content = await readFile(join(standardDir, name), 'utf-8');
+        expect(content, `${name} must inspect authoritative remote membership`).toContain(
+          'stacks?pull_request=$PR_NUMBER',
+        );
+        expect(content, `${name} must distinguish local tracking from remote membership`).toContain(
+          'Exit 2 means only that it is not tracked locally',
+        );
+        expect(content, `${name} must adopt a remote-only stack before local operations`).toContain(
+          'gh stack checkout "$PR_URL"',
+        );
+        expect(
+          content,
+          `${name} must fail closed when stack adoption cannot be verified`,
+        ).toContain('Stop if checkout fails');
+        expect(content, `${name} must not retain the old nonzero-is-flat rule`).not.toMatch(
+          /any non-zero exit[\s\S]{0,100}means it is not/iu,
+        );
+      }
+
+      const merge = await readFile(join(standardDir, 'merge-upstream.md'), 'utf-8');
+      expect(merge).toContain(
+        'The normal path applies only when local tracking is absent and the current PR, if any,',
+      );
+
+      const review = await readFile(join(standardDir, 'address-pr-review.md'), 'utf-8');
+      expect(review).toContain(
+        'Only when local tracking is absent and `$REMOTE_STACK_NUMBER` is empty',
+      );
+    });
+  });
+
   describe('typescript-lint-format-rules routing', () => {
     const combinedRoute = 'tbd guidelines typescript-rules typescript-lint-format-rules';
 
