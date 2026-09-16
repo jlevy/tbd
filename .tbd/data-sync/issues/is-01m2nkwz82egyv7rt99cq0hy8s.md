@@ -3,9 +3,9 @@ type: is
 id: is-01m2nkwz82egyv7rt99cq0hy8s
 title: Verify pinned gh-stack extension identity before use
 kind: bug
-status: closed
+status: in_progress
 priority: 1
-version: 4
+version: 6
 delegate: codex@spud10
 labels:
   - supply-chain
@@ -14,10 +14,10 @@ dependencies: []
 hold: null
 hold_until: null
 created_at: 2026-09-16T17:23:14.305Z
-updated_at: 2026-09-16T17:43:41.565Z
+updated_at: 2026-09-16T17:50:50.612Z
 started_at: 2026-09-16T17:23:37.498Z
-closed_at: 2026-09-16T17:43:41.562Z
-close_reason: "Resolved PR #301 High finding with exact extension identity, artifact-integrity verification, and fail-closed regression coverage."
+closed_at: null
+close_reason: null
 resolution: null
 duplicate_of: null
 ---
