@@ -3,9 +3,9 @@ type: is
 id: is-01m2nkwz82egyv7rt99cq0hy8s
 title: Verify pinned gh-stack extension identity before use
 kind: bug
-status: in_progress
+status: closed
 priority: 1
-version: 6
+version: 8
 delegate: codex@spud10
 labels:
   - supply-chain
@@ -14,10 +14,10 @@ dependencies: []
 hold: null
 hold_until: null
 created_at: 2026-09-16T17:23:14.305Z
-updated_at: 2026-09-16T17:50:50.612Z
+updated_at: 2026-09-16T17:59:23.647Z
 started_at: 2026-09-16T17:23:37.498Z
-closed_at: null
-close_reason: null
+closed_at: 2026-09-16T17:59:23.645Z
+close_reason: Resolved independent High finding by staging gh extension registration off the canonical dispatch path and atomically publishing only a fully verified directory.
 resolution: null
 duplicate_of: null
 ---
@@ -25,4 +25,4 @@ PR #301 review finding: generated ensure-gh-cli installers currently run 'gh ext
 
 ## Notes
 
-Implemented pinned SHA-256 verification for gh-stack v0.1.0 assets on Darwin/Linux amd64/arm64; exact gh extension list and manifest identity checks; bounded downloads; pre-download removal/quarantine of any existing gh stack command; atomic replacement of gh's unchecked download; macOS ad-hoc signing only after digest verification; post-registration fail-closed cleanup; and gating of agent-skill installation on a verified extension. Regenerated Claude and Codex installer surfaces. Validation: bash syntax; pnpm build; 100 focused tests across ensure-gh-cli-script, setup-flows, integration-files; focused installer suite 34/34; pnpm format:check; pnpm lint:check; git diff --check; generated-template byte comparisons. Official GitHub release API digests were checked directly for all four supported assets.
+Follow-up independent security review eliminated the canonical-path crash window. gh extension install now runs only under an isolated XDG_DATA_HOME created by mktemp directly beneath the canonical data home, so staging and publication share a filesystem. The staged manifest identity/path is validated, the downloaded executable is replaced with pinned-digest bytes and signed/verified on macOS, the manifest path is atomically rewritten to the final executable, and the fully verified extension directory is published by one directory rename. The source disappearance, canonical directory, canonical gh identity, manifest path, and executable integrity are verified before the first gh stack --version execution. SIGKILL or power loss before publication can leave only a non-dispatchable isolated staging directory; after publication it can leave only the fully verified directory. Failure after publication removes or quarantines the canonical registration. Regressions prove isolated XDG registration under canonical data home, ordering of digest/signature/manifest checks before publication, exact post-publish verification before execution, and fail-closed cleanup. Regenerated Claude/Codex surfaces. Validation: pnpm build; bash syntax; 100/100 focused tests; installer suite 34/34; format check; lint/typecheck/action pins; generated-template comparisons; git diff check.
