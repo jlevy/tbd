@@ -138,6 +138,10 @@ or want help → run `tbd shortcut welcome-user`
 | “Check out this library’s source” | `tbd shortcut checkout-third-party-repo` |
 | *(your choice whenever appropriate)* | `tbd list`, `tbd dep add`, `tbd close`, `tbd sync`, etc. |
 
+For explicit stacked or dependent PR intent, run `tbd shortcut stacked-prs` first.
+Chained branch bases alone are not a formal GitHub stack; link and verify the PRs with
+`gh stack`.
+
 **Loading guidelines for engineering work:** three layers, in this order.
 
 1. **Always**, before writing or reviewing code, load the engineering core:
@@ -401,7 +405,7 @@ Run `tbd shortcut <name>` to use any of these shortcuts:
 | revise-architecture-doc | Update an architecture document to reflect current codebase state |
 | setup-github-cli | Ensure GitHub CLI (gh) is installed and working |
 | setup-linear | Set up the Linear integration end to end—first-time configuration for a repository, or adding your own API key to a repository your team already configured |
-| stacked-prs | When to split work into a stack of dependent PRs, how stacks line up with beads, and how the PR shortcuts change when a branch is part of a stack |
+| stacked-prs | When to use formal GitHub PR stacks, how they align with beads, and how to link and verify them with gh stack; chained branch bases alone do not count |
 | suggest-upstream-improvements | Review local doc-fork customizations and contribute the generally useful changes back upstream |
 | sync-failure-recovery | Handle tbd sync failures by saving to workspace and recovering later |
 | update-specs-status | Reconcile active specs, the top-level work index (e.g. TODO.md), and tbd beads into one current status map |

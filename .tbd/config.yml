@@ -1,5 +1,5 @@
 tbd_format: f08
-tbd_version: 0.9.1-dev.3.b3771a7-dirty
+tbd_version: 0.9.1-dev.5.048ce4d-dirty
 tbd_fallback_version: 0.9.0
 # tbd_upgrades: tbd versions that have run `tbd setup` in this repo (oldest first);
 # tbd_version above is the most recent. Informational; updated automatically by setup.
@@ -48,6 +48,8 @@ tbd_upgrades:
     at: 2026-09-16T16:56:47.018Z
   - version: 0.9.1-dev.3.b3771a7-dirty
     at: 2026-09-16T17:36:48.437Z
+  - version: 0.9.1-dev.5.048ce4d-dirty
+    at: 2026-09-16T18:32:16.873Z
 display:
   id_prefix: tbd
 sync:

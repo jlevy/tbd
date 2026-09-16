@@ -59,6 +59,10 @@ Plain `tbd sync` also runs trackers according to `integrations.on_tbd_sync`; use
 | Stack dependent PRs | `tbd shortcut stacked-prs` |
 | TypeScript review | `tbd guidelines typescript-rules` |
 
+For explicit stacked or dependent PR intent, run `tbd shortcut stacked-prs` first.
+Chained branch bases alone are not a formal GitHub stack; link and verify the PRs with
+`gh stack`.
+
 ## Session Protocol
 
 **Before ending ANY session:**

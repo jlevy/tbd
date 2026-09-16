@@ -204,7 +204,7 @@ describe('integration file formats', () => {
   });
 
   describe('stacked PR routing', () => {
-    it('routes explicit stack requests through the dedicated shortcut in every skill tier', async () => {
+    it('preserves ordinary and formal stacked PR routing in every skill tier', async () => {
       const skillFiles = [
         join(shortcutsSystemDir, 'skill-baseline.md'),
         join(docsDir, 'skill-brief.md'),
@@ -213,11 +213,20 @@ describe('integration file formats', () => {
 
       for (const skillFile of skillFiles) {
         const content = await readFile(skillFile, 'utf-8');
+        expect(content, `${skillFile} must route ordinary PR creation and updates`).toContain(
+          'tbd shortcut create-or-update-pr-simple',
+        );
         expect(content, `${skillFile} must recognize an explicit stack request`).toMatch(
           /stacked PR|stack dependent PRs/iu,
         );
         expect(content, `${skillFile} must route stack requests`).toContain(
           'tbd shortcut stacked-prs',
+        );
+        expect(content, `${skillFile} must reject branch-base-only stacks`).toContain(
+          'Chained branch bases alone are not a formal GitHub stack',
+        );
+        expect(content, `${skillFile} must require formal gh stack operations`).toMatch(
+          /link and verify the PRs with\s+`gh stack`/u,
         );
       }
     });

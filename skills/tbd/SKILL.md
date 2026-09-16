@@ -147,6 +147,10 @@ or want help → run `tbd shortcut welcome-user`
 | “Check out this library’s source” | `tbd shortcut checkout-third-party-repo` |
 | *(your choice whenever appropriate)* | `tbd list`, `tbd dep add`, `tbd close`, `tbd sync`, etc. |
 
+For explicit stacked or dependent PR intent, run `tbd shortcut stacked-prs` first.
+Chained branch bases alone are not a formal GitHub stack; link and verify the PRs with
+`gh stack`.
+
 **Loading guidelines for engineering work:** three layers, in this order.
 
 1. **Always**, before writing or reviewing code, load the engineering core:

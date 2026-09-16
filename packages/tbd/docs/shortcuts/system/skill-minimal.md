@@ -94,6 +94,10 @@ Plain `tbd sync` also runs trackers according to `integrations.on_tbd_sync`; use
 
 Run `tbd shortcut --list` for all available shortcuts.
 
+For explicit stacked or dependent PR intent, run `tbd shortcut stacked-prs` first.
+Chained branch bases alone are not a formal GitHub stack; link and verify the PRs with
+`gh stack`.
+
 ## Key Guidelines
 
 | Command | Purpose |
