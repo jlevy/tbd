@@ -62,22 +62,23 @@ function bashPathWith(directory: string): string {
   return `${bashPath(directory)}:${result.stdout}`;
 }
 
-/** Installs a deterministic supported-platform uname fixture for black-box tests. */
-async function writeSupportedUname(binDirectory: string): Promise<void> {
-  const file = join(binDirectory, 'uname');
+/** Writes a Bash startup file with a deterministic supported-platform uname fixture. */
+async function writeSupportedUnameEnvironment(directory: string): Promise<string> {
+  const file = join(directory, 'supported-uname.sh');
   await writeFile(
     file,
     [
-      '#!/bin/bash',
-      'case "${1:-}" in',
-      '    -s) echo Linux ;;',
-      '    -m) echo x86_64 ;;',
-      '    *) echo Linux ;;',
-      'esac',
+      'uname() {',
+      '    case "${1:-}" in',
+      '        -s) echo Linux ;;',
+      '        -m) echo x86_64 ;;',
+      '        *) echo Linux ;;',
+      '    esac',
+      '}',
       '',
     ].join('\n'),
   );
-  await chmod(file, 0o755);
+  return file;
 }
 
 interface SkillListFixture {
@@ -406,6 +407,7 @@ describe('ensure-gh-cli.sh', () => {
         mkdir(extensionDirectory, { recursive: true }),
         mkdir(tempDirectory, { recursive: true }),
       ]);
+      const unameEnvironment = await writeSupportedUnameEnvironment(binDirectory);
       await Promise.all([
         writeFile(marker, 'registered'),
         writeFile(executable, 'unverified executable'),
@@ -449,7 +451,6 @@ done
 printf 'tampered asset' > "$output"
 `,
         ),
-        writeSupportedUname(binDirectory),
       ]);
       await Promise.all([
         chmod(join(binDirectory, 'gh'), 0o755),
@@ -460,6 +461,7 @@ printf 'tampered asset' > "$output"
         encoding: 'utf8',
         env: {
           ...process.env,
+          BASH_ENV: bashPath(unameEnvironment),
           GH_TOKEN: '',
           HOME: bashPath(homeDirectory),
           PATH: bashPathWith(binDirectory),
@@ -500,6 +502,7 @@ printf 'tampered asset' > "$output"
         mkdir(homeDirectory, { recursive: true }),
         mkdir(tempDirectory, { recursive: true }),
       ]);
+      const unameEnvironment = await writeSupportedUnameEnvironment(binDirectory);
       await Promise.all([
         writeFile(
           join(binDirectory, 'gh'),
@@ -571,7 +574,6 @@ printf 'reviewed asset fixture' > "$output"
 printf '${expectedDigest}  %s\\n' "$1"
 `,
         ),
-        writeSupportedUname(binDirectory),
         writeFile(
           join(binDirectory, 'mv'),
           `#!/bin/bash
@@ -600,6 +602,7 @@ exec /bin/mv "$@"
         encoding: 'utf8',
         env: {
           ...process.env,
+          BASH_ENV: bashPath(unameEnvironment),
           GH_TOKEN: '',
           HOME: bashPath(homeDirectory),
           PATH: bashPathWith(binDirectory),
