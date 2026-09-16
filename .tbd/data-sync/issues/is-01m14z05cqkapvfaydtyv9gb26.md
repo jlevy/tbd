@@ -5,13 +5,13 @@ title: "tbd sync never prints a tracker line: reportIntegrationRun uses verbose-
 kind: bug
 status: closed
 priority: 0
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
 parent_id: is-01m14yzbwwg92e5k7z7d4kyn00
 created_at: 2026-08-28T19:54:26.071Z
-updated_at: 2026-08-28T20:29:27.784Z
+updated_at: 2026-09-16T08:42:00.776Z
 closed_at: 2026-08-28T20:29:27.784Z
 close_reason: "Fixed: reportIntegrationRun and reportIntegrationPush now use output.notice (default-visible) instead of the verbose-only output.info, and a settled tracker reports 'nothing to do' rather than staying silent. Verified end to end through the real binary: new e2e test 'names the tracker surface on an ordinary tbd sync, without --verbose' asserts the line appears on stdout with no --verbose."
 resolution: null
@@ -22,3 +22,7 @@ GH #265 defect 1, confirmed by code. reportIntegrationRun (sync.ts:374) and repo
 The same trap was already diagnosed one call site earlier: the skip notice at sync.ts:167-181 carries the comment 'info() is verbose-only, so reporting it there would leave the ordinary run exactly as silent as before' and uses notice() for that reason. The report path was never converted.
 
 Fix: convert both report methods to output.notice (default-visible, --json-safe via the structured-data argument). A folded run that did nothing should still say so.
+
+## Notes
+
+Landed in PR #298, merge commit 118929d68c6cc4aa02c176f4df6587d094ed943e. Hosted CI passed on Ubuntu Node 22/24, macOS Node 24, Windows Node 24, coverage/lint, benchmark, and secret scanning.

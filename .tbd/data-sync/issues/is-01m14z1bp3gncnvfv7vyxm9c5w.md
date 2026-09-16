@@ -5,13 +5,13 @@ title: Dry-run reports omit skippedPushes entirely, so a dry run cannot name a s
 kind: bug
 status: closed
 priority: 1
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
 parent_id: is-01m14yzbwwg92e5k7z7d4kyn00
 created_at: 2026-08-28T19:55:05.283Z
-updated_at: 2026-08-28T20:29:29.065Z
+updated_at: 2026-09-16T08:42:08.649Z
 closed_at: 2026-08-28T20:29:29.064Z
 close_reason: "Fixed: the dry-run branch now populates report.skippedPushes from pair.result.skippedPushes, matching the execute path, which also makes the skippedPushes term in the dry-run nothingToDo live rather than inert. 'fields not pushed N' added to the printSyncReport summary parts on both paths. Test: 'a dry run names a field it could not push, exactly as the execute path does'."
 resolution: null
@@ -27,3 +27,7 @@ Consequences:
 Net effect: the command an operator reaches for to diagnose a stuck mirror is the one command that cannot report why it is stuck. This is why #265 had to read .tbd/data-sync/bridge/ by hand.
 
 Fix: populate report.skippedPushes in the dry-run branch from the same pair.result.skippedPushes the execute path reads, and add a 'skipped pushes N' part to the summary.
+
+## Notes
+
+Landed in PR #298, merge commit 118929d68c6cc4aa02c176f4df6587d094ed943e. Hosted CI passed on Ubuntu Node 22/24, macOS Node 24, Windows Node 24, coverage/lint, benchmark, and secret scanning.

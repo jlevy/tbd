@@ -3,9 +3,9 @@ type: is
 id: is-01m1yzx83jc1eyn522mxfg5cc1
 title: "Every slot round-trips: write slots through slotToLinear, compare in both vocabularies, never report an unresolved state push"
 kind: bug
-status: in_progress
+status: closed
 priority: 1
-version: 13
+version: 14
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 delegate: claude-code@spud10.local
 labels:
@@ -23,8 +23,12 @@ parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 hold: null
 hold_until: null
 created_at: 2026-09-07T22:30:34.353Z
-updated_at: 2026-09-16T08:27:26.861Z
+updated_at: 2026-09-16T08:42:26.494Z
 started_at: 2026-09-16T07:18:41.338Z
+closed_at: 2026-09-16T08:42:26.492Z
+close_reason: "Exact-slot reconciliation now converges: Backlog and Paused settle, In Review remains stable, unavailable mirror states are preflighted and reported as skipped fields, and no silent state substitution occurs. Landed in PR #298 at 118929d68c6cc4aa02c176f4df6587d094ed943e."
+resolution: null
+duplicate_of: null
 extensions:
   linear:
     id: 2f970134-325e-47da-8b11-920305d0fcaa

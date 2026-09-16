@@ -3,9 +3,9 @@ type: is
 id: is-01m1yzwsqz1fcgc03e0mck82tn
 title: "Land the 2026-08-28 stability branch: rebase claude/tbd-sync-bugs-review-f1qb1f onto main and merge"
 kind: task
-status: in_progress
+status: closed
 priority: 1
-version: 8
+version: 9
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 delegate: claude-code@spud10.local
 labels:
@@ -19,8 +19,12 @@ parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 hold: null
 hold_until: null
 created_at: 2026-09-07T22:30:19.640Z
-updated_at: 2026-09-16T08:27:05.223Z
+updated_at: 2026-09-16T08:42:23.687Z
 started_at: 2026-09-16T07:18:41.316Z
+closed_at: 2026-09-16T08:42:23.676Z
+close_reason: "Landed the stability branch in PR #298 at merge commit 118929d68c6cc4aa02c176f4df6587d094ed943e. Focused convergence tests, 24 built-CLI e2e tests, 214 cli-sync tryscripts, and the full 2,655-test suite passed; hosted CI passed on all required platforms."
+resolution: null
+duplicate_of: null
 extensions:
   linear:
     id: f25c4987-f9fd-46d3-8542-d147e908eae9

@@ -5,13 +5,13 @@ title: A standing mapping warning makes nothingToDo permanently false
 kind: bug
 status: closed
 priority: 0
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
 parent_id: is-01m14yzbwwg92e5k7z7d4kyn00
 created_at: 2026-08-28T20:29:14.362Z
-updated_at: 2026-08-28T20:29:26.543Z
+updated_at: 2026-09-16T08:42:03.040Z
 closed_at: 2026-08-28T20:29:26.543Z
 close_reason: "Fixed: warnings removed from both nothingToDo computations; warnings still printed when a run is otherwise quiet. Red-green test in integrations-sync-engine.test.ts. Full suite green: 2452 vitest + 1101 tryscript goldens."
 resolution: null
@@ -26,3 +26,7 @@ This is exactly #265 symptom 2's headline ('nothing to do is never reached') tog
 Fix: warnings are a diagnostic, not work, so they are no longer a term in nothingToDo (failures stay counted: a failure is work attempted that did not land). Removing the count alone would have traded a mirror that never settles for a mirror that settles SILENTLY over a real diagnostic, so printSyncReport now prints 'nothing to do, warnings N' plus the warning detail lines, and the tbd sync tracker line reports standing warnings too.
 
 Regression test: 'settles even while a standing mapping warning keeps being reported' in tests/integrations-sync-engine.test.ts. One pre-existing assertion changed deliberately: 'reports provider mapping warnings once even when an item appears in multiple fetches' asserted nothingToDo === false, which encoded the defect; its actual subject (warning dedup) is unchanged.
+
+## Notes
+
+Landed in PR #298, merge commit 118929d68c6cc4aa02c176f4df6587d094ed943e. Hosted CI passed on Ubuntu Node 22/24, macOS Node 24, Windows Node 24, coverage/lint, benchmark, and secret scanning.

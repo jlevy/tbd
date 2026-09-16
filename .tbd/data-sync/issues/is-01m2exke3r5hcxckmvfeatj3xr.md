@@ -3,9 +3,9 @@ type: is
 id: is-01m2exke3r5hcxckmvfeatj3xr
 title: "f08 contract T3: mixed-version Linear convergence between packed 0.8.1 and the candidate"
 kind: task
-status: in_progress
+status: closed
 priority: 1
-version: 11
+version: 12
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 delegate: claude-code@spud10.local
 labels:
@@ -25,8 +25,12 @@ parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 hold: null
 hold_until: null
 created_at: 2026-09-14T02:58:06.582Z
-updated_at: 2026-09-16T08:28:32.864Z
+updated_at: 2026-09-16T08:42:29.161Z
 started_at: 2026-09-16T07:18:41.329Z
+closed_at: 2026-09-16T08:42:29.159Z
+close_reason: "The f08 T3 gate now packs exact get-tbd@0.8.1 and proves candidate recovery for blocked, future-deferred, In Review, duplicate half-state, deep-child exclusion, and no-Backlog scenarios. It establishes 0.9.0 as the minimum version for every clone that runs integration sync. Landed in PR #298 at 118929d68c6cc4aa02c176f4df6587d094ed943e."
+resolution: null
+duplicate_of: null
 extensions:
   linear:
     id: eac51d85-8674-4d75-988e-932a35e125c7
