@@ -5,12 +5,16 @@ title: Committed agent surfaces are stale relative to bundled docs
 kind: bug
 status: open
 priority: 2
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
 created_at: 2026-08-23T05:38:40.062Z
-updated_at: 2026-08-28T19:56:13.544Z
+updated_at: 2026-09-16T08:24:08.431Z
+extensions:
+  linear:
+    id: 20c7ca12-d738-4fd8-bc91-b438dc842e46
+    linked_at: 2026-09-16T08:24:08.431Z
 ---
 Running 'tbd setup --auto' on a clean checkout rewrites .claude/skills/tbd/SKILL.md, .agents/skills/tbd/SKILL.md, .claude/scripts/ensure-gh-cli.sh, and .codex/ensure-gh-cli.sh with content that is already in packages/tbd/docs/ but was never regenerated into the committed surfaces. The drift is in the skill baseline (bead location on the tbd-sync branch, proxied-session gh guidance) and the gh-cli helper, not in the guideline directory block. Found while confirming that a GUIDELINE_GROUPS change produced no directory drift; reverted there to keep that PR's diff honest. Regenerate and commit these separately, and consider a CI check that fails when a clean 'tbd setup --auto' produces a diff.
 

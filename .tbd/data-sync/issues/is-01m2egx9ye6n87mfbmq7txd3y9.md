@@ -5,14 +5,18 @@ title: "GH #180 remaining asks: Codex hook key deletes user .codex/ hooks; prune
 kind: bug
 status: open
 priority: 2
-version: 1
+version: 2
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 labels:
   - phase-5
 dependencies: []
 parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 created_at: 2026-09-13T23:16:18.509Z
-updated_at: 2026-09-13T23:16:18.509Z
+updated_at: 2026-09-16T08:24:08.772Z
+extensions:
+  linear:
+    id: fc900ec5-12c3-4d56-9477-4bd696263bcc
+    linked_at: 2026-09-16T08:24:08.772Z
 ---
 GH #180 asks the stability plan's Phase 5b does not cover, split out so the narrowing is explicit:
 - Bug: the Codex hook upsert treats any hook whose command contains '.codex/' as tbd-owned (setup.ts:1219-1222 isTbdOwned, :1251 removeCodexHooks), so `tbd setup --auto` deletes a user's own Codex hooks under .codex/. Use an exact tbd marker.

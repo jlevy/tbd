@@ -5,7 +5,7 @@ title: "Stability release: sync convergence, lock recovery, and gate integrity"
 kind: epic
 status: open
 priority: 1
-version: 11
+version: 12
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
@@ -21,6 +21,10 @@ child_order_hints:
   - is-01m1512sk5atraw6pf7nshsgrx
   - is-01m1512v1c8z7kbx0q2t07rstv
 created_at: 2026-08-28T19:53:59.963Z
-updated_at: 2026-08-28T20:30:50.923Z
+updated_at: 2026-09-16T08:24:08.446Z
+extensions:
+  linear:
+    id: 1adba480-fa92-4840-bf07-7a520a6a9c91
+    linked_at: 2026-09-16T08:24:08.446Z
 ---
 Umbrella for the 2026-08-28 stability plan. Closes GH #265 (Linear mirror never reaches a fixed point; tbd sync reports success with tracker work pending), the data-sync lock cluster that blocks all bead writes after a crashed sync, and the test-gate defects that hide both. Spec: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md

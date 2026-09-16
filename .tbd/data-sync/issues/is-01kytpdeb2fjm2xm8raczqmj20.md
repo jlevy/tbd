@@ -5,12 +5,16 @@ title: tbd sync issues phase hangs in proxied remote session; killed sync leaves
 kind: bug
 status: open
 priority: 2
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
 created_at: 2026-07-30T23:40:36.066Z
-updated_at: 2026-08-28T19:55:34.055Z
+updated_at: 2026-09-16T08:24:08.300Z
+extensions:
+  linear:
+    id: 1325b4df-7b5a-4eb7-ad01-6dc4d1af1aef
+    linked_at: 2026-09-16T08:24:08.300Z
 ---
 Two coupled failure modes observed in a CCR remote container (git origin via local proxy, session HTTPS proxy intercepting GitHub API, use_gh_cli: true), session for GH issue #195 / PR #201, 2026-07-30 ~23:00Z, CLI resolved to local dev build 0.4.2-dev.23:
 

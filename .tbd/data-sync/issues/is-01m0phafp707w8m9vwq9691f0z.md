@@ -5,13 +5,17 @@ title: "Playbook: record the disposition of every moved document"
 kind: task
 status: open
 priority: 2
-version: 1
+version: 2
 spec_path: docs/project/specs/active/plan-2026-08-23-rust-quality-floor-and-guideline-mapping.md
 labels:
   - playbook
 dependencies: []
 parent_id: is-01m0ph6ehhhryj0z52a1c3b3rv
 created_at: 2026-08-23T05:26:02.183Z
-updated_at: 2026-08-23T05:26:02.183Z
+updated_at: 2026-09-16T08:24:08.402Z
+extensions:
+  linear:
+    id: 3e54e964-ffa5-4765-84e1-9d49500b1b51
+    linked_at: 2026-09-16T08:24:08.402Z
 ---
 Record in _meta/playbook-improvement-log.md which file moved, to which tbd name, and at which commit. Git history holds the content; the log holds the mapping, so a future reader can trace any rule to its current home. Covers the seven Rust guidelines plus the sections split into filesystem-rules, release-engineering-rules, code-review-rules, and ci-and-gates-rules.

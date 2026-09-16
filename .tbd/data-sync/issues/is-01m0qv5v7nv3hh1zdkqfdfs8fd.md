@@ -5,14 +5,15 @@ title: "Publish standalone holistic review for PR #258"
 kind: task
 status: closed
 priority: 1
-version: 3
-assignee: unknown@spud10.local
+version: 4
+assignee: null
+delegate: unknown@spud10.local
 labels:
   - review
 dependencies: []
 parent_id: is-01m0qv5bctnj949vfydhpnaynn
 created_at: 2026-08-23T17:37:30.357Z
-updated_at: 2026-08-23T19:33:22.860Z
+updated_at: 2026-09-16T08:23:52.249Z
 closed_at: 2026-08-23T19:33:22.860Z
 close_reason: "Review published on PR #258 and the complete implementation is stacked in PR #260; all local and GitHub gates pass."
 resolution: null

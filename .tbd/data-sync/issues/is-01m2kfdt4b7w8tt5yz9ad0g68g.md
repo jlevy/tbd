@@ -5,13 +5,17 @@ title: Linear resume keeps the tbd:paused carrier label, so the next sync pulls 
 kind: bug
 status: open
 priority: 2
-version: 1
+version: 2
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 labels: []
 dependencies: []
 parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 created_at: 2026-09-15T21:26:34.378Z
-updated_at: 2026-09-15T21:26:34.378Z
+updated_at: 2026-09-16T08:24:08.811Z
+extensions:
+  linear:
+    id: 99c9d426-e7b6-49c5-a784-a633e354f918
+    linked_at: 2026-09-16T08:24:08.811Z
 ---
 Pre-existing (also in 0.8.1), untracked. Reported by the 2026-09-15 release-readiness review of main @ 1238038e; inferred from code with high confidence, not yet reproduced.
 

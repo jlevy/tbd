@@ -5,8 +5,9 @@ title: Audit catalog coherence, routing, and agent usefulness
 kind: task
 status: closed
 priority: 1
-version: 4
-assignee: unknown@spud10.local
+version: 5
+assignee: null
+delegate: unknown@spud10.local
 labels:
   - review
 dependencies:
@@ -14,7 +15,7 @@ dependencies:
     target: is-01m0qv5v7nv3hh1zdkqfdfs8fd
 parent_id: is-01m0qv5bctnj949vfydhpnaynn
 created_at: 2026-08-23T17:37:29.974Z
-updated_at: 2026-08-23T18:01:08.246Z
+updated_at: 2026-09-16T08:23:52.223Z
 closed_at: 2026-08-23T18:01:08.244Z
 close_reason: null
 ---

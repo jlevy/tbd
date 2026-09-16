@@ -5,13 +5,17 @@ title: resolveLabelIds silently drops an uncreatable label and the pair is still
 kind: bug
 status: open
 priority: 2
-version: 1
+version: 2
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
 parent_id: is-01m14yzbwwg92e5k7z7d4kyn00
 created_at: 2026-08-28T20:30:50.923Z
-updated_at: 2026-08-28T20:30:50.923Z
+updated_at: 2026-09-16T08:24:08.465Z
+extensions:
+  linear:
+    id: 2cec9836-f527-43db-a420-cdd532cec7df
+    linked_at: 2026-09-16T08:24:08.465Z
 ---
 Confirmed by code reading while investigating GH #265; NOT the cause of that issue (the reporter runs labels.mirror: none, under which sync-engine deletes externalPatch.labels entirely, so bead labels are never pushed for them). Real for any repository running labels.mirror: prefixed or verbatim.
 

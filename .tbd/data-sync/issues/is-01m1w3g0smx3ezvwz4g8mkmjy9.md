@@ -5,7 +5,7 @@ title: "Coordination phase 2: native comments with complete manual Git exchange"
 kind: epic
 status: open
 priority: 1
-version: 12
+version: 13
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 labels: []
 dependencies:
@@ -25,6 +25,10 @@ child_order_hints:
   - is-01m268aqvggghpg4yxtp8qe554
   - is-01m268ardk0e4wt49c5690pwga
 created_at: 2026-09-06T19:35:31.891Z
-updated_at: 2026-09-10T18:12:37.635Z
+updated_at: 2026-09-16T08:24:08.502Z
+extensions:
+  linear:
+    id: 4441a455-6e61-40ac-acab-e9e440e0fbb9
+    linked_at: 2026-09-16T08:24:08.502Z
 ---
 Add independent append-only native comment records, stable identity and authorship, bounded CLI reads, comments-aware one-shot change reports, format/old-client gating, and every save/import/outbox/history-recovery path. Compare record candidates before freezing format. Existing Linear comments remain supported until explicit projection migration in phase 4.

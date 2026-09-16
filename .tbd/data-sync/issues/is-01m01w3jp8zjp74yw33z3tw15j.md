@@ -5,12 +5,16 @@ title: diff3-style conflict markers bypass MergeConflictError detection
 kind: bug
 status: open
 priority: 3
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
 created_at: 2026-08-15T04:50:27.144Z
-updated_at: 2026-08-28T19:55:38.126Z
+updated_at: 2026-09-16T08:24:08.336Z
+extensions:
+  linear:
+    id: 0510b229-d1d7-4010-b176-f780de68d11e
+    linked_at: 2026-09-16T08:24:08.336Z
 ---
 `hasMergeConflictMarkers` detects the standard `<<<<<<<` / `=======` / `>>>>>>>` markers, but diff3-style conflicts also emit a `|||||||` base section. A file conflicted in diff3 style raises a confusing raw YAML parse error instead of the clear `MergeConflictError` with its "run tbd doctor --fix" guidance.
 

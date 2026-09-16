@@ -5,13 +5,17 @@ title: "Linear mirror alternates push/pull on 13 agreeing pairs: mechanism not y
 kind: bug
 status: open
 priority: 0
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
 parent_id: is-01m14yzbwwg92e5k7z7d4kyn00
 created_at: 2026-08-28T19:54:42.823Z
-updated_at: 2026-09-13T23:18:35.311Z
+updated_at: 2026-09-16T08:24:08.452Z
+extensions:
+  linear:
+    id: 49c11354-db1a-43f3-bf1c-889bc0066dc9
+    linked_at: 2026-09-16T08:24:08.452Z
 ---
 GH #265 defect 2. The reachable code path is confirmed; that labels (rather than assignee or description) are the stuck field in the reporter's 13 pairs is NOT yet confirmed.
 

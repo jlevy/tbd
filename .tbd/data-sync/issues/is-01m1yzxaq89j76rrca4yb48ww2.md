@@ -5,14 +5,18 @@ title: A pulled description containing a '## Notes' heading is truncated on read
 kind: bug
 status: open
 priority: 2
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 labels:
   - phase-1
 dependencies: []
 parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 created_at: 2026-09-07T22:30:37.026Z
-updated_at: 2026-09-14T02:58:47.597Z
+updated_at: 2026-09-16T08:24:08.609Z
+extensions:
+  linear:
+    id: da793fb0-536d-48bb-9347-941c2ea4a74d
+    linked_at: 2026-09-16T08:24:08.609Z
 ---
 Found while surveying #265. parseMarkdownWithFrontmatter splits the body at the first /(^|\n)## Notes\n/i (parser.ts:74-83, :130-131). A description pulled from Linear that contains a literal '## Notes' heading is stored verbatim, then truncated on the next read, so local != base and the next run pushes the truncated prose: converges in two runs but loses text. Store pulled prose so a literal '## Notes' round-trips unchanged (escape or fence on write, or split only on the notes tbd itself appends). Test: pull a description with '## Notes' and assert the second run is quiet and the bead text is intact.
 

@@ -5,7 +5,7 @@ title: "[epic] gh CLI hardening and stacked-PR support"
 kind: epic
 status: in_progress
 priority: 1
-version: 10
+version: 11
 labels: []
 dependencies: []
 child_order_hints:
@@ -18,7 +18,11 @@ child_order_hints:
   - is-01m1d1x7tk4995rv8skr6javbk
   - is-01m1d1x86a96ak3rzd8w6ft7ej
 created_at: 2026-08-31T23:17:36.006Z
-updated_at: 2026-09-02T06:23:00.512Z
+updated_at: 2026-09-16T08:24:08.471Z
+extensions:
+  linear:
+    id: cc291f47-d621-49f7-bc89-998ad050ce68
+    linked_at: 2026-09-16T08:24:08.471Z
 ---
 Bring tbd's gh provisioning and guidance up to date with (a) gh security fixes, (b) the github/gh-stack extension and its official agent skill, and (c) stacked-PR discipline in the PR shortcuts.
 

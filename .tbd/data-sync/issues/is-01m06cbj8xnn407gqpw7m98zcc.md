@@ -5,12 +5,16 @@ title: tbd setup --auto overwrites pinned get-tbd version in generated skill doc
 kind: bug
 status: open
 priority: 2
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
 created_at: 2026-08-16T22:51:23.794Z
-updated_at: 2026-08-28T19:56:15.531Z
+updated_at: 2026-09-16T08:24:08.349Z
+extensions:
+  linear:
+    id: 8aae8bec-02c7-4c8a-a403-22d3af49a7f5
+    linked_at: 2026-09-16T08:24:08.349Z
 ---
 `tbd setup --auto` regenerates the agent skill surfaces (.agents/skills/tbd/SKILL.md, .claude/skills/tbd/SKILL.md) with a hardcoded `npm install -g get-tbd@latest`, overwriting whatever was there. A repository whose supply-chain policy requires explicit version pins cannot express that preference, and setup silently reverts its customization on every run.
 

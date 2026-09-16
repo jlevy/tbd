@@ -5,7 +5,7 @@ title: "Convergence contract: excluded items never hold nothingToDo false"
 kind: bug
 status: open
 priority: 1
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 labels:
   - phase-1
@@ -16,7 +16,11 @@ dependencies:
     target: is-01m2egwz6r0qgbtvzh2nkevjdb
 parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 created_at: 2026-09-07T22:30:22.210Z
-updated_at: 2026-09-13T23:18:38.514Z
+updated_at: 2026-09-16T08:24:08.557Z
+extensions:
+  linear:
+    id: 6e20ee34-77e0-4319-a19c-14cdd7663b73
+    linked_at: 2026-09-16T08:24:08.556Z
 ---
 GH #272. skippedOutbound (beads past max_nesting) is a term in both nothingToDo computations (sync-engine.ts:1076 and :1678-1692); it is recomputed from the graph every run and nothing but re-parenting or a policy change can clear it, so one deep bead means nothing-to-do is never reached. Define the report classes actionable / suppressed / excluded / failed / blocked (plan 1a). Excluded = standing conditions: past max_nesting, a field push the provider or user_map cannot carry (capability-limited skippedPushes), importable items under inbound.mode: report. nothingToDo is true when actionable, suppressed and failed are empty; excluded is reported every run and never counts. Red-green: a second runSync over an unchanged deep bead reports nothingToDo true and lists the bead as excluded (beside tests/integrations-sync-engine.test.ts:693).
 

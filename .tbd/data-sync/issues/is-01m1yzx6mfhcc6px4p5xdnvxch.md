@@ -5,14 +5,18 @@ title: "Duplicate close survives the Linear round trip: applyTerminalAxis and Be
 kind: bug
 status: open
 priority: 1
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 labels:
   - phase-1
 dependencies: []
 parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 created_at: 2026-09-07T22:30:32.846Z
-updated_at: 2026-09-15T21:26:57.943Z
+updated_at: 2026-09-16T08:24:08.592Z
+extensions:
+  linear:
+    id: 8ace775b-994d-4d19-8cbc-7e77f7cbe644
+    linked_at: 2026-09-16T08:24:08.592Z
 ---
 GH #267. Plan 1a. Ships in the same PR as tbd-od0z, never before it.
 
