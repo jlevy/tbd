@@ -3,9 +3,9 @@ type: is
 id: is-01m2p3ctq9jbm4q4z8mq45aj9f
 title: Make doctor --fix repair orphaned dependency references
 kind: bug
-status: in_progress
+status: closed
 priority: 2
-version: 4
+version: 5
 delegate: codex@spud10
 labels:
   - doctor
@@ -14,8 +14,12 @@ dependencies: []
 hold: null
 hold_until: null
 created_at: 2026-09-16T21:54:02.599Z
-updated_at: 2026-09-16T22:13:34.913Z
+updated_at: 2026-09-16T22:22:49.505Z
 started_at: 2026-09-16T21:54:53.855Z
+closed_at: 2026-09-16T22:22:49.504Z
+close_reason: "Implemented in commit 1e4c2e49 and PR #307: doctor --fix now revalidates under the shared lock, removes only missing-target dependency edges, preserves valid edges, and is documented and covered end to end. GitHub CI passed on all required checks."
+resolution: null
+duplicate_of: null
 ---
 The Dependencies diagnostic marks orphaned dependency references fixable and tells users to run tbd doctor --fix, but the dependency check does not receive the fix option and no code removes orphaned edges. Reproduce by writing a blocks edge to a missing issue, running tbd doctor to see [fixable], then running tbd doctor --fix and observing the same edge and finding remain. Either implement the advertised repair with regression coverage and user documentation or stop labeling the condition fixable and give an accurate manual remedy.
 
