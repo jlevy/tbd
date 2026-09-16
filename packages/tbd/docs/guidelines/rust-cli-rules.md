@@ -114,20 +114,71 @@ fn write_lines(lines: impl IntoIterator<Item = String>) -> io::Result<()> {
 }
 ```
 
-## Enable Color and Progress Only for an Appropriate Terminal
+## Gate Terminal Presentation on the Destination Stream
 
-Use `std::io::IsTerminal` to decide whether interactive presentation is appropriate.
+Use
+[`std::io::IsTerminal`](https://doc.rust-lang.org/stable/std/io/trait.IsTerminal.html)
+at the process boundary.
+Probe stdout and stderr independently: help and results normally use stdout, while
+diagnostics and progress use stderr.
+Pass those facts into presentation code instead of letting domain code inspect global
+streams.
 
-- Suppress progress animation when its stream is not a terminal.
-- Respect `NO_COLOR`; support a documented `--color=auto|always|never` policy if users
-  need an override.
-- Keep ANSI escapes out of redirected output unless the user explicitly forces them.
+### Make Automatic Color Human-Only
+
+Without an explicit force request, automatic color MUST add ANSI styling only to
+human-facing output when that output’s actual destination is a terminal.
+Redirected or piped output MUST remain stable plain text unless the user explicitly
+forces color for human output, and color must not change its words or layout.
+Machine-readable and other byte-stable modes MUST remain ANSI-free even when a human
+color override is active.
+Apply the same destination-aware policy to generated help, usage errors, and
+diagnostics.
+
+A CLI with automatic color MUST provide an unconditional off switch, normally through
+`--color=auto|always|never` with these semantics:
+
+- `auto` follows the output kind and destination terminal;
+- `always` may style redirected **human** output, but never machine output; and
+- `never` is an unconditional off switch that wins over terminal detection,
+  configuration, and any force-color environment variable.
+
+If the CLI adds color by default, follow the
+[`NO_COLOR` convention](https://no-color.org/): a present, non-empty value disables
+automatic color, while an empty value is unset.
+An explicit per-invocation `--color=always` may override that environmental default.
+`FORCE_COLOR`, `CLICOLOR`, and `CLICOLOR_FORCE` are separate conventions; the
+[`CLICOLOR` proposal](https://bixense.com/clicolors/) does not define `FORCE_COLOR`.
+Support only variables required by the project’s compatibility needs, and document and
+test each accepted value, precedence rule, output mode, and destination.
+
+### Show Progress for Noticeable Interactive Work
+
+A command with routinely noticeable latency MUST provide progress, enabled by default
+only when it is producing human-facing output and stderr is a terminal.
+It MUST write progress to stderr so stdout remains composable, and MUST automatically
+suppress progress when stderr is redirected, when the command is used in a
+machine-oriented mode, or when no meaningful progress can be reported.
+It MUST provide `--no-progress` as an unconditional override for scripts, recordings,
+and users who do not want animation.
+
+An opt-in progress-event or partial-result stream for automation is a separate,
+versioned output contract.
+It does not replace the default interactive indicator and must not reuse mutable
+terminal frames as machine data.
+
+On success, failure, and interruption, finish or clear the active display before writing
+the final result or diagnostic.
+Do not leave partial frames, control sequences, or a hidden cursor behind.
+Keep progress state out of domain logic: the domain should report typed work events or
+counters, and a terminal adapter decides whether and how to render them.
+
+### Keep Other Interactive Features Optional
+
 - Size tables and help output for the available terminal, with a readable maximum.
 - Use `PAGER` only for terminal output, and make paging opt-out and failure-safe.
 - Disable prompts in CI and non-interactive modes; never wait indefinitely for input
   that cannot arrive.
-
-Progress and status output should normally use stderr so stdout remains composable.
 
 ## Report Success Only After Every Required Operation Succeeds
 
@@ -327,12 +378,21 @@ CLI integration tests should cover:
 
 - help, version, and invalid-argument behavior;
 - stdin, stdout, stderr, files, and exit codes;
-- TTY and non-TTY presentation decisions;
+- deterministic TTY and non-TTY color and progress decisions;
+- unconditional color and progress opt-outs plus every supported environment override;
+- ANSI and progress-control-byte absence in redirected and machine-oriented modes;
+- progress cleanup on success, failure, and interruption;
 - broken pipes and interruption;
 - text and machine-readable modes;
 - configuration precedence;
 - dry-run and destructive-operation failure paths;
 - platform-specific path and newline behavior.
+
+Keep terminal decisions testable without depending on the test runner’s own streams:
+inject explicit terminal booleans into a pure policy test, then add a pseudo-terminal
+process test when the renderer emits cursor control.
+Assert raw bytes in focused tests; a golden harness that strips ANSI escapes cannot
+prove that color or progress was emitted—or suppressed—correctly.
 
 Use `rust-testing-rules` for fixture, snapshot, and property testing guidance.
 
