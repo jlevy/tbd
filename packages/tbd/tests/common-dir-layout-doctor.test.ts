@@ -19,6 +19,7 @@ import { tmpdir, platform } from 'node:os';
 import { join } from 'node:path';
 
 import { CURRENT_FORMAT } from '../src/lib/tbd-format.js';
+import { deleteIssue, listIssues, readIssue } from '../src/file/storage.js';
 
 const execFileAsync = promisify(execFile);
 const isWindows = platform() === 'win32';
@@ -99,6 +100,78 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
   });
 
   describe('doctor --fix (H3)', () => {
+    it('removes orphaned dependencies while preserving valid edges', async () => {
+      const orphan = runTbd(dir, ['create', 'Soon deleted', '--type', 'task', '--json']);
+      const live = runTbd(dir, ['create', 'Still present', '--type', 'task', '--json']);
+      const blocker = runTbd(dir, ['create', 'Shared blocker', '--type', 'task', '--json']);
+      expect(orphan.status).toBe(0);
+      expect(live.status).toBe(0);
+      expect(blocker.status).toBe(0);
+
+      const orphanDisplayId = (JSON.parse(orphan.stdout) as { id: string }).id;
+      const liveDisplayId = (JSON.parse(live.stdout) as { id: string }).id;
+      const blockerDisplayId = (JSON.parse(blocker.stdout) as { id: string }).id;
+      expect(runTbd(dir, ['dep', 'add', orphanDisplayId, blockerDisplayId]).status).toBe(0);
+      expect(runTbd(dir, ['dep', 'add', liveDisplayId, blockerDisplayId]).status).toBe(0);
+
+      const dataSyncDir = join(dir, '.git', 'tbd', 'data-sync-worktree', '.tbd', 'data-sync');
+      const issues = await listIssues(dataSyncDir);
+      const orphanIssue = issues.find((issue) => issue.title === 'Soon deleted');
+      const liveIssue = issues.find((issue) => issue.title === 'Still present');
+      const blockerIssue = issues.find((issue) => issue.title === 'Shared blocker');
+      expect(orphanIssue).toBeDefined();
+      expect(liveIssue).toBeDefined();
+      expect(blockerIssue).toBeDefined();
+      await deleteIssue(dataSyncDir, orphanIssue!.id);
+
+      const before = await readIssue(dataSyncDir, blockerIssue!.id);
+      expect(before.dependencies).toEqual([
+        { type: 'blocks', target: orphanIssue!.id },
+        { type: 'blocks', target: liveIssue!.id },
+      ]);
+
+      const diagnose = runTbd(dir, ['doctor', '--json']);
+      expect(diagnose.status).toBe(0);
+      const diagnostic = (
+        JSON.parse(diagnose.stdout) as {
+          healthChecks: { name: string; status: string; fixable?: boolean }[];
+        }
+      ).healthChecks.find((finding) => finding.name === 'Dependencies');
+      expect(diagnostic).toMatchObject({ status: 'warn', fixable: true });
+      expect((await readIssue(dataSyncDir, blockerIssue!.id)).dependencies).toHaveLength(2);
+
+      const dryRun = runTbd(dir, ['--dry-run', 'doctor', '--fix']);
+      expect(dryRun.status).toBe(0);
+      expect(dryRun.stdout).toContain('[DRY-RUN] Remove orphaned dependency references');
+      expect((await readIssue(dataSyncDir, blockerIssue!.id)).dependencies).toHaveLength(2);
+
+      const fix = runTbd(dir, ['doctor', '--fix', '--json']);
+      expect(fix.status).toBe(0);
+      const fixedDiagnostic = (
+        JSON.parse(fix.stdout) as {
+          healthChecks: { name: string; status: string; message?: string }[];
+        }
+      ).healthChecks.find((finding) => finding.name === 'Dependencies');
+      expect(fixedDiagnostic).toMatchObject({
+        status: 'ok',
+        message: 'removed 1 orphaned reference(s)',
+      });
+
+      const repaired = await readIssue(dataSyncDir, blockerIssue!.id);
+      expect(repaired.dependencies).toEqual([{ type: 'blocks', target: liveIssue!.id }]);
+      expect(repaired.version).toBe(before.version + 1);
+      expect(repaired.updated_at).not.toBe(before.updated_at);
+
+      const verify = runTbd(dir, ['doctor', '--json']);
+      expect(verify.status).toBe(0);
+      const verifiedDiagnostic = (
+        JSON.parse(verify.stdout) as {
+          healthChecks: { name: string; status: string }[];
+        }
+      ).healthChecks.find((finding) => finding.name === 'Dependencies');
+      expect(verifiedDiagnostic).toMatchObject({ status: 'ok' });
+    });
+
     it('initializes and migrates misplaced data under one writer epoch', async () => {
       const sharedRoot = join(dir, '.git', 'tbd');
       const worktree = join(sharedRoot, 'data-sync-worktree');

@@ -14,7 +14,7 @@ import { randomUUID } from 'node:crypto';
 import { BaseCommand } from '../lib/base-command.js';
 import { requireInit } from '../lib/errors.js';
 import { EXIT_OPERATIONAL_ERROR } from '../lib/exit-codes.js';
-import { listIssues, type InvalidIssueFile } from '../../file/storage.js';
+import { listIssues, writeIssue, type InvalidIssueFile } from '../../file/storage.js';
 import { droppedConfigKeys, IncompatibleFormatError, readConfig } from '../../file/config.js';
 import { prepareDataSyncContext } from '../lib/data-context.js';
 import type { Config, Issue, IssueStatusType } from '../../lib/types.js';
@@ -80,6 +80,7 @@ import {
 } from '../../lib/tbd-format.js';
 import { type DiagnosticResult, renderDiagnostics } from '../lib/diagnostics.js';
 import { VERSION } from '../lib/version.js';
+import { now } from '../../utils/time-utils.js';
 import {
   extractManagedBlock,
   inspectManagedArtifact,
@@ -467,7 +468,9 @@ class DoctorHandler extends BaseCommand {
 
     // Check 4: Orphaned dependencies
     healthChecks.push(
-      await this.safeCheck('Dependencies', async () => this.checkOrphanedDependencies(this.issues)),
+      await this.safeCheck('Dependencies', () =>
+        this.checkOrphanedDependencies(this.issues, options.fix),
+      ),
       await this.safeCheck('Actor axis', async () => this.checkAgentShapedAssignees(this.issues)),
       await this.safeCheck('State resolution', () => Promise.resolve(this.checkStateResolution())),
     );
@@ -985,7 +988,10 @@ class DoctorHandler extends BaseCommand {
     };
   }
 
-  private checkOrphanedDependencies(issues: Issue[]): DiagnosticResult {
+  private async checkOrphanedDependencies(
+    issues: Issue[],
+    fix?: boolean,
+  ): Promise<DiagnosticResult> {
     const issueIds = new Set(issues.map((i) => i.id));
     const orphans: string[] = [];
 
@@ -999,6 +1005,42 @@ class DoctorHandler extends BaseCommand {
 
     if (orphans.length === 0) {
       return { name: 'Dependencies', status: 'ok' };
+    }
+
+    if (fix && !this.checkDryRun('Remove orphaned dependency references')) {
+      const repaired = await withSharedDataSyncLock(this.cwd, async () => {
+        // Re-read the complete graph inside the writer transaction. A create, delete,
+        // or another doctor repair may have changed either end of an edge since the
+        // diagnostic snapshot was loaded.
+        const currentIssues = await listIssues(this.dataSyncDir, { warnOnInvalid: false });
+        const currentIds = new Set(currentIssues.map((issue) => issue.id));
+        let removed = 0;
+
+        for (const issue of currentIssues) {
+          const retained = issue.dependencies.filter((dep) => currentIds.has(dep.target));
+          const removedFromIssue = issue.dependencies.length - retained.length;
+          if (removedFromIssue === 0) {
+            continue;
+          }
+
+          issue.dependencies = retained;
+          issue.version += 1;
+          issue.updated_at = now();
+          await writeIssue(this.dataSyncDir, issue);
+          removed += removedFromIssue;
+        }
+
+        return { issues: currentIssues, removed };
+      });
+      this.issues = repaired.issues;
+      return {
+        name: 'Dependencies',
+        status: 'ok',
+        message:
+          repaired.removed === 0
+            ? 'already fixed by another tbd command'
+            : `removed ${repaired.removed} orphaned reference(s)`,
+      };
     }
 
     return {

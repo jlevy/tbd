@@ -994,6 +994,12 @@ tbd doctor --fix                            # Attempt to fix issues
 Options:
 - `--fix` - Attempt to automatically fix detected issues
 
+Plain `tbd doctor` is read-only.
+If it reports an orphaned dependency, the stored edge points to an issue that no longer
+exists. `tbd doctor --fix` rechecks the complete graph under the shared data lock,
+removes only those missing-target edges, and preserves dependencies whose targets still
+exist. Each repaired issue receives the normal version and update-time change.
+
 ### config
 
 Manage tbd configuration.
