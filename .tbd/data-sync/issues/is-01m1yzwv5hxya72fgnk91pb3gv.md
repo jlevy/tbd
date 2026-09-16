@@ -3,16 +3,20 @@ type: is
 id: is-01m1yzwv5hxya72fgnk91pb3gv
 title: "Confirm the #265 mechanism on the reporter's mirror: the 13 pairs are linked open beads without a hold that tbd ready omits"
 kind: task
-status: open
+status: in_progress
 priority: 1
-version: 7
+version: 8
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
+delegate: codex@spud10
 labels:
   - phase-0
 dependencies: []
 parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
+hold: null
+hold_until: null
 created_at: 2026-09-07T22:30:21.103Z
-updated_at: 2026-09-16T08:27:06.734Z
+updated_at: 2026-09-16T18:09:16.855Z
+started_at: 2026-09-16T18:09:16.854Z
 extensions:
   linear:
     id: daba69bb-ef76-4d03-b7d8-eb8e5e8317f6
