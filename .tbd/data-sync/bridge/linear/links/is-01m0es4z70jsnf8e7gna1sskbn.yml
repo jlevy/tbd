@@ -10,9 +10,9 @@ bead_id: is-01m0es4z70jsnf8e7gna1sskbn
 external_id: 9432b8e7-9193-4ee4-ae46-c5da09b228a5
 external_key: OS-398
 external_url: https://linear.app/finterm-ai/issue/OS-398/update-specs-status-encodes-tbd-shortcomings-that-belong-in-the-tool
-refinement_slot: todo
-refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
 remote_updated_at: 2026-09-16T18:16:38.314Z
 state: linked
-synced_at: 2026-09-16T18:16:38.632Z
+synced_at: 2026-09-16T18:59:51.526Z
 type: lk

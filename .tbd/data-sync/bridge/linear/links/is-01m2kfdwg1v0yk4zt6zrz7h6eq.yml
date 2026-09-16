@@ -11,9 +11,9 @@ bead_id: is-01m2kfdwg1v0yk4zt6zrz7h6eq
 external_id: 6086b533-e680-4064-9a8f-9008d1f7eab9
 external_key: OS-471
 external_url: https://linear.app/finterm-ai/issue/OS-471/stability-sprint-plan-text-is-stale-after-286-290-record-the-2026-09
-refinement_slot: todo
-refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
 remote_updated_at: 2026-09-16T18:17:02.969Z
 state: linked
-synced_at: 2026-09-16T18:17:03.198Z
+synced_at: 2026-09-16T19:00:19.592Z
 type: lk
