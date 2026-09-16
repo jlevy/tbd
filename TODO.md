@@ -7,83 +7,79 @@ Historical detail moves to [TODO.archive.md](./TODO.archive.md).
 Beads are the source of truth.
 `tbd list --status open`, `tbd show <id>`. The 0.7.0 snapshot further down dates to
 2026-08-16; it is historical, not the current shipping gate.
-Specs, bead spec links, and release readiness were reconciled on 2026-09-14 against
-`main` at `52d5c2f7`; the coordination pass of 2026-09-10 is superseded by it.
+Release readiness was reconciled on 2026-09-15 against `main` at `7120d16f`.
 
-## Release readiness (reconciled 2026-09-14, `main` @ `52d5c2f7`)
+## Release Readiness (Reconciled 2026-09-15, `main` at `7120d16f`)
 
-Published: **0.8.1** (`v0.8.1`, 2026-08-25). `main` carries 36 commits since.
-**Not ready to cut a release — minor or patch.** CI is green on `52d5c2f7` (all six
-jobs), `pnpm audit --prod` is clean, the lockfile moved only for the js-yaml CVE
-overrides, and `check:package-age` passes.
-The blockers are correctness, not process:
+Published: **0.8.1** (`v0.8.1`, 2026-08-25). `main` carries 83 commits since that tag.
+**Do not cut a release yet.** The exact main commit passed hosted CI, the packed upgrade
+gate, and the package checks, but the release gate still has unresolved Linear
+correctness and compatibility work.
 
-- **`tbd-s3zx` (P1, open) is a shipped regression, not a pre-merge finding.** #279
-  merged with its comment union still applied to *every* `extensions` namespace that
-  carries a `comments` array.
-  Because `commentsShareLinkLineage` returns true when neither side has an `id`
-  (`file/git.ts:698-701`), a third-party `extensions.<ns>.comments: ["a","b"]` is
-  emptied by `unionCommentArrays` (`lib/comment-union.ts:42`) on any structured merge.
-  Reproduced on `52d5c2f7`; absent from 0.8.1. The bead’s “Not present on main” line is
-  stale and now corrected.
-- **Phase 0 never landed.** `claude/tbd-sync-bugs-review-f1qb1f` still holds three
-  unmerged commits, including the settled-mirror fix, and has **no pull request at
-  all**. Its spec `plan-2026-08-28-sync-convergence-and-stability.md` exists only on
-  that branch while 25 open beads point at it.
-  Tracked by `tbd-bdkj`.
-- **The sprint plan forbids this release explicitly.** `main` already carries #264,
-  which makes a future `deferred_until` remove a bead from `readyIssueIds`
-  (`lib/issue-selection.ts`), and `mirror.ts` consumes that set — so the #265
-  alternation now covers every linked deferred bead.
-  The plan’s rollout section states that no release should be cut from `main` before
-  Phase 1a (`tbd-od0z`) lands.
-  It has not.
-- **Release 1’s own gate is open**, every bead of it: `tbd-lz1q` (notes and gate) is
-  blocked by `tbd-ajq2`, `tbd-s3zx`, `tbd-apnu`, `tbd-cskr`, `tbd-tia7`, `tbd-80vz`,
-  plus `tbd-od0z`.
-- **`tbd sync` still prints “conflict(s) preserved in attic” and writes no attic entry**
-  (`tbd-ajq2`), and #279/#283’s shipped docs now depend on that claim.
-- **Two older P0 data-loss bugs are live**, both verified at `52d5c2f7` and both now
-  wired as blockers of `tbd-lz1q` rather than tracked beside it:
-  - `tbd-dmkd` — `file/git.ts:2989-2993` wraps the backup `cp()` in a bare `catch {}`
-    (“Continue with repair anyway”), then `rm(..., {recursive: true, force: true})` runs
-    unconditionally at `:2997` and `:3002` returns `backedUp: backupPath` naming a path
-    that may not exist. A corrupted data-sync worktree can hold unsynced bead work, so
-    the caller is told a backup exists when the work is already gone.
-  - `tbd-0oz8` — `cli/commands/import.ts:585` resolves an incoming Beads short ID
-    against `existingByShortId` and donates that issue’s internal ID *before* the
-    collision check at `:592` runs.
-    That map is built at `:562-564` from every existing issue with no source-identity
-    check, so an unrelated tbd issue owning short ID N is overwritten by an incoming
-    `xx-N`. `:578` gets this right for `existingByBeadsId`; `:585` does not, which
-    leaves the collision branch unreachable for the one destructive case it exists to
-    prevent.
+### Confirmed on the Candidate
 
-**Open PRs.** `#268` (six pinned GitHub Actions bumps) is `MERGEABLE/CLEAN`, and the
-prior review cleared every SHA against its tag, the 14-day cool-off, and each major
-jump’s breaking changes against the inputs these workflows actually use.
-Its CI last ran on 2026-09-13, before the coordination stack and #285 landed, so comment
-`@dependabot rebase` and let CI re-run against current `main` before merging.
-`release.yml` only fires on a tag, so its new `checkout`, `setup-node`, and
-`action-gh-release` versions get their first real exercise at the next release — another
-reason not to combine that merge with the release itself.
+- GitHub Actions run
+  [35052496902](https://github.com/jlevy/tbd/actions/runs/35052496902) passed on the
+  exact `7120d16f` push to `main`.
+- `pnpm release:verify` passed: the candidate builds and `publint` accepts the packed
+  package surface.
+- `pnpm qa:upgrade-package` passed all seven upgrade, legacy recovery, coexistence,
+  config round-trip, and old-parser scenarios against published 0.4.2, 0.5.0, 0.7.0, and
+  0.8.1 baselines.
+- `pnpm audit --prod` found no known runtime vulnerabilities, and all 31 direct pins
+  passed the 14-day package-age gate.
+  The full audit still reports 36 development-only advisories (1 critical, 24 high, 11
+  moderate), tracked by `tbd-0am0`.
+- Formatting, lint, type checking, and the build passed locally.
+  The first full Vitest run failed four load-sensitive time or performance bounds; each
+  case passed alone, including the 5,000-bead read at 0.44 ms average against a 10 ms
+  limit. This existing gate-reliability class remains tracked by `tbd-2pqp`, `tbd-6p9s`,
+  and `tbd-jzen`.
+- The repository setup stamp now records 0.8.1, and the generated portable and Claude
+  skill mirrors are current with the built candidate.
+  The repository remains on f08.
 
-**Version, when it does ship.** By `docs/publishing.md`’s own rule — `minor` is for new
-CLI capabilities, and a `feat` whose payload is dormant internals or bundled content is
-a `patch` — everything on `main` since 0.8.1 is fixes, docs, bundled shortcuts, and the
-dormant native-comment modules.
-That is **0.8.2**. The next *minor* is the sprint’s Phase 0 + Phase 1A train, where
-`tbd sync --yes` is the new capability.
+### Remaining Release Blockers
 
-**Linear sync is not verified and is known not to converge.** No `LINEAR_API_KEY` is
-available in the reconciliation session, so no live round trip was run.
-Offline: the convergence fixes are unmerged (Phase 0), the slot round trip is open
-(`tbd-od0z`, #265/#267), the two sync engines still disagree (Phase 1B), `tbd-u9eg` (P0)
-still has no reproduced mechanism, and `tbd doctor` reports one bead carrying a linear
-link with no bridge record.
-New this pass: `tbd-uygb` — `tbd sync --dry-run` skips the tracker surface entirely
-(`cli/commands/sync.ts:274`), printing nothing and exiting 0, so the umbrella preview
-reports a clean repository while the tracker half is unexamined.
+- **`tbd-od0z` is only partially implemented.** #290 fixed single-version slot writes,
+  and #293 fixed the push-only mirror path, but cross-vocabulary comparison,
+  unresolvable-state reporting, and the In Review round trip remain open.
+- **`tbd-s4kb` has not run.** The required T3 gate must alternate packed 0.8.1 and the
+  candidate against the Linear mock and either prove convergence or establish a minimum
+  writer version.
+- **`tbd-bdkj` is still open.** The 2026-08-28 stability branch and its diagnostics have
+  not landed, and it blocks the remaining `tbd-od0z` work.
+- **The first-party downstream package proof is pending.** Generated setup surfaces
+  changed, so the packed candidate must be installed into a fresh downstream checkout,
+  its full gate must pass, and setup must be idempotent there.
+- **Release metadata does not exist yet.** `packages/tbd/package.json` is still 0.8.1,
+  and `packages/tbd/CHANGELOG.md` has no candidate section.
+  Do not create either until the correctness gates above close and the release scope is
+  frozen.
+- **Repository health is not fully clean.** Candidate `doctor` reports two actor-shaped
+  assignees (`tbd-a273`, `tbd-f7vr`) and a Linear link on `tbd-zy0f` with no bridge
+  record. The latter must survive a full sync or be repaired before live Linear
+  validation can count as evidence.
+
+### Closed Since the Prior Reconciliation
+
+- #287 fixed the corrupted-worktree backup loss (`tbd-dmkd`) and destructive Beads
+  short-ID collision (`tbd-0oz8`).
+- #288 now writes sync conflicts to the attic and made archive failure visible
+  (`tbd-ajq2`), with the comment-lineage review gates closed.
+- #292 writes `issues/.gitattributes` before every relevant merge (`tbd-yqq7`).
+- #293 sends the reconciler slot through push-only mirror runs (`tbd-evn3`).
+- #294 sends `delegateId` only when it changes (`tbd-80vz`). All three late beads were
+  closed after their merge commits and green PR checks were verified.
+
+### Scope and Version
+
+The open GitHub PRs #21, #174, and #253 are older, unrelated work and are deferred from
+this release train. Under `docs/publishing.md`, the current delta is still a patch:
+fixes, shipped guidance, generated surfaces, and dormant native-comment foundations,
+with no new public CLI capability.
+That points to **0.8.2**. The release-gate bead also contains a later 0.9.0 note;
+resolve that contradiction explicitly before creating the release branch.
 
 ## Agent coordination rollout
 

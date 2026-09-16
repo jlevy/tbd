@@ -673,6 +673,14 @@ migrating back.
 
 Contents: `main` since v0.8.1 (#264, #266, #280), the merged stack, and whichever of
 this sprint’s Phase 0 and 1A have landed.
+
+Status on 2026-09-15 at `main` `7120d16f`: #292, #293, and #294 closed the upgraded-repo
+merge-attributes, push-only slot, and repeated-delegate gates (`tbd-yqq7`, `tbd-evn3`,
+and `tbd-80vz`). Release 1 remains blocked by the unfinished `tbd-od0z` contract,
+mixed-version T3 (`tbd-s4kb`), and the unlanded Phase 0 stability branch (`tbd-bdkj`).
+The full evidence and package-gate snapshot is in the top-level `TODO.md` release
+readiness section and `tbd-lz1q`.
+
 Before tagging:
 
 - `tbd-od0z` has landed, because #264 already widens the #265 alternation on `main`.
