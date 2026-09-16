@@ -492,6 +492,8 @@ interface SyncOptions {
   yes?: boolean;
   push?: boolean;
   pull?: boolean;
+  /** Print, per dirty pair, which fields diverge and under which rule. */
+  explain?: boolean;
   /** Resolved from the direction flags; `inbound` is `--pull`. */
   direction?: 'both' | 'inbound';
   external?: string[];
@@ -531,7 +533,7 @@ class IntegrationSyncHandler extends BaseCommand {
 
     this.output.data(reports, () => {
       for (const report of reports) {
-        printSyncReport(report, dryRun);
+        printSyncReport(report, dryRun, options.explain === true);
       }
     });
     if (reports.some((report) => report.failures.length > 0)) {
@@ -540,21 +542,46 @@ class IntegrationSyncHandler extends BaseCommand {
   }
 }
 
-function printSyncReport(report: SyncRunReport, dryRun: boolean): void {
+function printSyncReport(report: SyncRunReport, dryRun: boolean, explain = false): void {
   const would = dryRun ? 'would ' : '';
   if (report.nothingToDo) {
-    console.log(`${report.provider}: nothing to do`);
+    // Warnings and provider-limited pushes are standing conditions, not work this run
+    // can perform. Keep them visible even though they no longer prevent a quiet result.
+    const standing = [
+      report.skippedPushes.length > 0 ? `fields not pushed ${report.skippedPushes.length}` : '',
+      report.warnings.length > 0 ? `warnings ${report.warnings.length}` : '',
+    ].filter(Boolean);
+    console.log(
+      `${report.provider}: nothing to do${standing.length > 0 ? `, ${standing.join(', ')}` : ''}`,
+    );
+    for (const skipped of report.skippedPushes) {
+      console.log(
+        `  - ${skipped.beadId}: ${skipped.field} push skipped; ${skipped.reason ?? 'unsupported by the provider'}; left divergent`,
+      );
+    }
+    for (const warning of report.warnings) {
+      console.log(`  ! ${warning.externalKey ?? warning.externalId}: ${warning.message}`);
+    }
     return;
   }
   const parts = [
     report.replayedOps > 0 ? `replayed ${report.replayedOps}` : '',
     report.pushed.length > 0 ? `${would}push ${report.pushed.length}` : '',
     report.pulled.length > 0 ? `${would}pull ${report.pulled.length}` : '',
+    // Its own vocabulary, never the push verb: this is outbound work the run is NOT
+    // doing, and naming it "would push" is what made `--pull` announce a push (#265).
+    report.suppressedPushes.length > 0
+      ? `outbound pending ${report.suppressedPushes.length} (not sent: inbound-only run)`
+      : '',
     report.commentsPushed > 0 ? `comments out ${report.commentsPushed}` : '',
     report.commentsPulled > 0 ? `comments in ${report.commentsPulled}` : '',
     report.createdOutbound.length > 0 ? `${would}create ${report.createdOutbound.length}` : '',
     report.importedInbound.length > 0 ? `${would}import ${report.importedInbound.length}` : '',
     report.skippedOutbound.length > 0 ? `skipped ${report.skippedOutbound.length}` : '',
+    // Surfaced in the summary, not only in the detail lines below: a field that cannot
+    // be published is why a pair never converges, and it belongs in the one line an
+    // operator reads.
+    report.skippedPushes.length > 0 ? `fields not pushed ${report.skippedPushes.length}` : '',
     report.conflicts.length > 0 ? `conflicts ${report.conflicts.length}` : '',
     report.orphaned.length > 0 ? `orphaned ${report.orphaned.length}` : '',
     report.warnings.length > 0 ? `warnings ${report.warnings.length}` : '',
@@ -570,7 +597,24 @@ function printSyncReport(report: SyncRunReport, dryRun: boolean): void {
     );
   }
   for (const skipped of report.skippedPushes) {
-    console.log(`  - ${skipped.beadId}: ${skipped.field} push unsupported; left divergent`);
+    console.log(
+      `  - ${skipped.beadId}: ${skipped.field} push skipped; ${skipped.reason ?? 'unsupported by the provider'}; left divergent`,
+    );
+  }
+  // "push 13" says how many; this says which, and which field, and under which rule.
+  // Behind --explain because a healthy run does not need it and a large mirror would
+  // bury the summary, but it is the first thing to reach for when a pair reports work
+  // every run and never converges (#265).
+  if (explain) {
+    for (const divergence of report.divergences) {
+      console.log(
+        `  ? ${divergence.beadId}: ${divergence.field} ${divergence.direction} ` +
+          `(rule: ${divergence.rule}; ` +
+          `local=${formatExplainValue(divergence.localValue)}; ` +
+          `remote=${formatExplainValue(divergence.remoteValue)}; ` +
+          `base=${formatExplainValue(divergence.baseValue)})`,
+      );
+    }
   }
   for (const skipped of report.skippedOutbound) {
     console.log(`  - ${skipped.beadId}: ${skipped.reason}`);
@@ -587,6 +631,13 @@ function printSyncReport(report: SyncRunReport, dryRun: boolean): void {
   for (const failure of report.failures) {
     console.log(`  ✗ ${failure.beadId}: ${failure.error}`);
   }
+}
+
+function formatExplainValue(value: unknown): string {
+  if (value === undefined) {
+    return '<unset>';
+  }
+  return JSON.stringify(value) ?? `<${typeof value}>`;
 }
 
 /** `tbd integration comment` — queue a provider comment offline for integration sync. */
@@ -848,6 +899,7 @@ export const integrationCommand = new Command('integration')
       .description('Synchronize with a configured tracker (both directions by default)')
       .option('--push', 'Outbound only: project selected beads to the tracker')
       .option('--pull', 'Inbound only: pull tracker changes into beads')
+      .option('--explain', 'Name the diverging fields for each pair the run would touch')
       .option('--external <refs...>', 'With --pull, import exactly these external references')
       .option('--force', 'With --pull --external, ignore a stale remote tbd link claim')
       .option('--provider <name>', 'Limit to one provider')
@@ -876,6 +928,11 @@ export const integrationCommand = new Command('integration')
         }
         if (options.force && (!options.pull || !options.external?.length)) {
           throw new CLIError('--force is only valid with --pull --external.');
+        }
+        if (options.push && options.explain) {
+          throw new CLIError(
+            '--explain is not valid with --push; use a full or inbound integration sync.',
+          );
         }
         const invalidSelector = pushOnlySelector(options);
         if (!options.push && invalidSelector) {

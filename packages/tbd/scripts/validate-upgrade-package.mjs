@@ -60,6 +60,7 @@ const sourceRepoDir = join(packageDir, '..', '..');
 // so overriding this to a newer release is expected to fail T2 until that list is updated
 // with it — which is the point of asserting the list exactly.
 const sameFormatBaseline = process.env.TBD_UPGRADE_SAME_FORMAT_FROM ?? '0.7.0';
+const mixedVersionLinearBaseline = process.env.TBD_UPGRADE_LINEAR_FROM ?? '0.8.1';
 const commonUpgradeBaseline = process.env.TBD_UPGRADE_COMMON_FROM ?? '0.4.2';
 const previousFormatBaseline = process.env.TBD_UPGRADE_PREVIOUS_FORMAT_FROM ?? '0.5.0';
 const managedUpgradePaths = new Set([
@@ -1482,6 +1483,41 @@ async function validateOldParserRoundTrip({
   );
 }
 
+/**
+ * f08 contract T3: an exact published 0.8.1 writer and the packed candidate share one
+ * repository and Linear workspace, then the candidate proves it can recover every known
+ * half-converged shape after the old writer stops.
+ *
+ * The companion script also proves the release boundary: 0.8.1 is not safe to keep as a
+ * concurrent integration-sync writer, so this candidate becomes the minimum version for
+ * every clone that performs integration sync.
+ */
+async function validateMixedVersionLinear({
+  baseline,
+  baselineVersion,
+  candidate,
+  candidateVersion,
+}) {
+  const { stdout, stderr } = await runPackageManager(
+    'pnpm',
+    ['exec', 'tsx', 'scripts/validate-mixed-version-linear.ts'],
+    {
+      cwd: packageDir,
+      env: {
+        ...process.env,
+        TBD_MIXED_BASELINE_CLI: baseline.cliPath,
+        TBD_MIXED_BASELINE_LAUNCHER_DIR: baseline.launcherDir,
+        TBD_MIXED_BASELINE_VERSION: baselineVersion,
+        TBD_MIXED_CANDIDATE_CLI: candidate.cliPath,
+        TBD_MIXED_CANDIDATE_LAUNCHER_DIR: candidate.launcherDir,
+        TBD_MIXED_CANDIDATE_VERSION: candidateVersion,
+      },
+    },
+  );
+  process.stdout.write(stdout);
+  process.stderr.write(stderr);
+}
+
 const sourceStatusBefore = await repositoryStatus(sourceRepoDir);
 const temporaryDir = await mkdtemp(join(tmpdir(), 'tbd-upgrade-package-'));
 try {
@@ -1492,17 +1528,20 @@ try {
   const dependencyTree = await realpath(join(packageDir, 'node_modules'));
   const candidateArchiveDir = join(temporaryDir, 'candidate-archive');
   const sameArchiveDir = join(temporaryDir, 'same-format-archive');
+  const mixedLinearArchiveDir = join(temporaryDir, 'mixed-linear-archive');
   const commonArchiveDir = join(temporaryDir, 'common-upgrade-archive');
   const previousArchiveDir = join(temporaryDir, 'previous-format-archive');
   await Promise.all([
     mkdir(candidateArchiveDir),
     mkdir(sameArchiveDir),
+    mkdir(mixedLinearArchiveDir),
     mkdir(commonArchiveDir),
     mkdir(previousArchiveDir),
   ]);
   await packCandidate(candidateArchiveDir, candidateVersion);
   await Promise.all([
     packPublished(sameArchiveDir, sameFormatBaseline),
+    packPublished(mixedLinearArchiveDir, mixedVersionLinearBaseline),
     packPublished(commonArchiveDir, commonUpgradeBaseline),
     packPublished(previousArchiveDir, previousFormatBaseline),
   ]);
@@ -1540,6 +1579,15 @@ try {
     await findOnlyArchive(commonArchiveDir),
     join(temporaryDir, 'common-upgrade'),
     dependencyTree,
+  );
+  const mixedVersionLinearPackage = await extractPackage(
+    await findOnlyArchive(mixedLinearArchiveDir),
+    join(temporaryDir, 'mixed-linear'),
+    dependencyTree,
+  );
+  invariant(
+    mixedVersionLinearPackage.manifest.version === mixedVersionLinearBaseline,
+    `Mixed-version Linear baseline resolved to ${String(mixedVersionLinearPackage.manifest.version)}`,
   );
   invariant(
     commonUpgradePackage.manifest.version === commonUpgradeBaseline,
@@ -1662,6 +1710,12 @@ try {
     candidate,
     candidateVersion,
     root: temporaryDir,
+  });
+  await validateMixedVersionLinear({
+    baseline: mixedVersionLinearPackage,
+    baselineVersion: mixedVersionLinearBaseline,
+    candidate,
+    candidateVersion,
   });
 
   const sourceStatusAfter = await repositoryStatus(sourceRepoDir);

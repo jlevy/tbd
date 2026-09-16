@@ -794,9 +794,8 @@ describe('applyMirror', () => {
 
   it('writes no state for not-ready open work on a team without a Backlog state', async () => {
     // Such work's slot is `backlog`, which names no state on this team, so the update
-    // carries no stateId and the item stays in whatever column it is in. The reconciler has
-    // written the same since #290. The other fields still go out, so the item is reported
-    // as updated.
+    // carries no stateId and the item stays in whatever column it is in. The other fields
+    // still go out, so the item is reported as updated and the excluded state is named.
     server.states = server.states.filter((state) => state.type !== 'backlog');
     const todo = server.states.find((state) => state.type === 'unstarted')!;
     server.addIssue({
@@ -834,10 +833,19 @@ describe('applyMirror', () => {
     );
     const input = update?.variables.input as Record<string, unknown>;
     expect(input).not.toHaveProperty('stateId');
-    // A human-applied label survives the write.
-    expect(input.labelIds).toEqual(['label-bug']);
     expect(server.issues.get('uuid-no-backlog')?.state.name).toBe('Todo');
+    // Omitting labelIds leaves a human-applied label in place.
+    expect(server.issues.get('uuid-no-backlog')?.labels.nodes).toEqual([
+      { id: 'label-bug', name: 'Bug' },
+    ]);
     expect(report.updated).toEqual(['tbd-blocked']);
+    expect(report.skippedFields).toEqual([
+      {
+        beadId: 'tbd-blocked',
+        field: 'status',
+        reason: 'Linear team FIN has no backlog workflow state.',
+      },
+    ]);
   });
 
   it('writes the managed block into the description', async () => {

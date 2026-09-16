@@ -154,6 +154,159 @@ describe('the sync engine', () => {
     });
   }
 
+  it('a dry run names a field it could not push, exactly as the execute path does', async () => {
+    // The signal that explains a pair which reports work forever and never converges.
+    // It was recorded only on the execute path, so a dry run — the command an operator
+    // reaches for to ask "why is this stuck?" — was the one command that could not say
+    // (#265). An unmapped assignee cannot be pushed, so the field stays divergent.
+    const id = 'is-01hx5zzkbkactav9wevgemma78';
+    store.set(id, bead(id, { assignee: 'nobody-in-the-user-map' }));
+
+    await run([...store.values()]);
+    const executed = await run([...store.values()]);
+    const previewed = await run([...store.values()], POLICY, true);
+
+    expect(executed.skippedPushes).toEqual([{ beadId: 'ma78', field: 'assignee' }]);
+    // The whole point: the preview says the same thing the run says.
+    expect(previewed.skippedPushes).toEqual(executed.skippedPushes);
+  });
+
+  it('an inbound-only dry run reports outbound work as suppressed, never as a push', async () => {
+    // `--pull` announcing "would push 13" is what left an operator with three
+    // inconsistent numbers for one state (#265). The dry run must predict the run it
+    // previews: an inbound-only run performs no push, so it must not report one — while
+    // still saying that outbound work is pending, which is worth knowing.
+    const id = 'is-01hx5zzkbkactav9wevgemma79';
+    store.set(id, bead(id));
+    await run([...store.values()]);
+
+    // A local edit that would push on a full sync.
+    const linked = store.get(id)!;
+    store.set(id, { ...linked, title: 'Edited locally', updated_at: new Date().toISOString() });
+
+    const inbound = await runSync({
+      provider: 'linear',
+      adapter,
+      policy: POLICY,
+      dataSyncDir: dir,
+      allIssues: [...store.values()],
+      displayId: (beadId) => beadId.slice(-4),
+      mirrorLabels: 'none',
+      direction: 'inbound',
+      callbacks,
+      dryRun: true,
+      now: () => new Date().toISOString(),
+    });
+
+    expect(inbound.pushed).toEqual([]);
+    expect(inbound.suppressedPushes).toEqual(['ma79']);
+    // Pending outbound work is still work, so the run does not claim to be quiet.
+    expect(inbound.nothingToDo).toBe(false);
+  });
+
+  it.each(['open', 'in_progress', 'blocked', 'deferred'] as const)(
+    'round-trips %s through the tracker and settles',
+    async (status) => {
+      // `blocked` and `deferred` have no Linear state, so they ride a tbd-owned carrier
+      // label alongside the nearest state type: the round trip is only correct if the
+      // push picks the right state AND the pull reads the label back. Asserted for all
+      // four statuses because a status that does not survive its own round trip is the
+      // shape that makes a pair alternate forever (#265).
+      //
+      // This could not be tested before: the mock's issueCreate ignored `stateId`, so
+      // every created issue landed in Todo whatever the adapter asked for, and a
+      // `deferred` bead read back as `open`. That looked exactly like a product defect
+      // and was not one.
+      const id = 'is-01hx5zzkbkactav9wevgemma8x';
+      store.set(id, bead(id, { status }));
+      const policy = PolicyDefinitionSchema.parse({
+        outbound: {
+          kinds: ['epic'],
+          statuses: ['open', 'in_progress', 'blocked', 'deferred'],
+          specs: 'none',
+          linked: true,
+        },
+      });
+
+      await run([...store.values()], policy);
+      const settled = await run([...store.values()], policy);
+
+      expect(store.get(id)!.status).toBe(status);
+      expect(settled.nothingToDo).toBe(true);
+
+      // A third run still holds it: the value is stable, not merely slow to drift.
+      const again = await run([...store.values()], policy);
+      expect(store.get(id)!.status).toBe(status);
+      expect(again.nothingToDo).toBe(true);
+    },
+  );
+
+  it('names the diverging field and its rule, identically in preview and in the run', async () => {
+    // "push 13" says how many; nothing said WHICH field, so a pair that reports work
+    // every run and never converges could only be diagnosed by reading the bridge
+    // records by hand (#265). The preview and the run must give the same account, or
+    // the diagnostic inherits the very drift it exists to find.
+    const id = 'is-01hx5zzkbkactav9wevgemma80';
+    store.set(id, bead(id));
+    await run([...store.values()]);
+
+    // A tracker-side title edit: one field, inbound.
+    const remote = [...server.issues.values()][0]!;
+    remote.title = 'Edited on the tracker';
+    remote.updatedAt = new Date(Date.now() + 60_000).toISOString();
+
+    const previewed = await run([...store.values()], POLICY, true);
+    const executed = await run([...store.values()]);
+
+    expect(previewed.divergences).toEqual([
+      {
+        beadId: 'ma80',
+        field: 'title',
+        direction: 'pull',
+        rule: 'merge',
+        localValue: 'An epic',
+        remoteValue: 'Edited on the tracker',
+        baseValue: 'An epic',
+      },
+    ]);
+    expect(executed.divergences).toEqual(previewed.divergences);
+  });
+
+  it('settles even while a standing mapping warning keeps being reported', async () => {
+    // The fourth write loop, and the one with no write in it at all. A mapping warning
+    // describes a condition tbd cannot fix from here — a Linear assignee absent from
+    // `user_map` is reported on every read of that issue, forever — but `warnings`
+    // was a term in `nothingToDo`, so a fully settled mirror could never say it was
+    // settled. On a live mirror that is indistinguishable from real pending work: the
+    // reporter of #265 saw `warnings 5` and no `nothing to do`, on every run.
+    //
+    // A warning is a diagnostic, not an item of work. It must keep being reported and
+    // must stop meaning "there is something to do".
+    const id = 'is-01hx5zzkbkactav9wevgemma77';
+    store.set(id, bead(id));
+
+    await run([...store.values()]);
+    const remote = [...server.issues.values()][0]!;
+    // An assignee no `user_map` can resolve: the exact condition behind the warning.
+    remote.assignee = {
+      id: 'user-unmapped',
+      name: 'Unmapped Person',
+      displayName: 'Unmapped Person',
+      email: 'unmapped@example.com',
+    };
+
+    await run([...store.values()]); // settle
+    const settled = await run([...store.values()]);
+
+    // The warning is still reported: it is real, and silencing it would be the worse bug.
+    expect(settled.warnings).toHaveLength(1);
+    expect(settled.warnings[0]!.message).toContain('user_map');
+    // ...but nothing was written, so there was nothing to do.
+    expect(settled.pushed).toEqual([]);
+    expect(settled.pulled).toEqual([]);
+    expect(settled.nothingToDo).toBe(true);
+  });
+
   it('settles when the managed block contains a link the tracker rewrites', async () => {
     // The third write loop found in this feature, and the one no other check could see.
     // tbd renders `Spec: [name](url)`; Linear stores `[name](<url>)`, which CommonMark
@@ -561,6 +714,47 @@ describe('the sync engine', () => {
     expect(description.split(MANAGED_BLOCK_MARKERS.end)).toHaveLength(2);
   });
 
+  it('explains a managed-block-only push', async () => {
+    server.addIssue({
+      id: 'linked-item',
+      identifier: 'FIN-10',
+      title: 'Linked issue',
+      description: 'Human prose',
+    });
+    const linked = writeLink(
+      bead('is-01hx5zzkbkactav9wevgemmvrz', {
+        title: 'Linked issue',
+        description: 'Human prose',
+      }),
+      {
+        provider: 'linear',
+        id: 'linked-item',
+        key: 'FIN-10',
+        linked_at: '2026-08-10T00:00:00.000Z',
+      },
+    );
+    store.set(linked.id, linked);
+
+    await run([linked]);
+    await run([store.get(linked.id)!]);
+    server.issues.get('linked-item')!.description = 'Human prose';
+
+    const preview = await run([store.get(linked.id)!], POLICY, true);
+
+    expect(preview.pushed).toEqual(['mvrz']);
+    expect(preview.divergences).toEqual([
+      expect.objectContaining({
+        beadId: 'mvrz',
+        field: 'managed_block',
+        direction: 'push',
+        rule: 'local',
+        remoteValue: null,
+        baseValue: null,
+      }),
+    ]);
+    expect(preview.divergences[0]?.localValue).toContain(MANAGED_BLOCK_MARKERS.begin);
+  });
+
   it('does not report a push when the managed-block splice is already satisfied', async () => {
     server.addIssue({
       id: 'linked-item',
@@ -669,7 +863,11 @@ describe('the sync engine', () => {
         message: 'Unknown Linear workflow state type "custom_triage"; mapped to open.',
       },
     ]);
-    expect(result.nothingToDo).toBe(false);
+    // A warning is reported but is not work: this run wrote nothing, so it has nothing
+    // to do. It used to read `false` here, which is what let a standing warning keep a
+    // settled mirror from ever reporting itself settled (#265). Reporting the warning
+    // is this test's subject, and that is unchanged; whether it counts as work is not.
+    expect(result.nothingToDo).toBe(true);
   });
 
   it('creates an outbound parent before its child and preserves Linear hierarchy', async () => {
@@ -905,10 +1103,10 @@ describe('the sync engine', () => {
     expect(server.issues.get(externalId)?.state.name).toBe('In QA');
   });
 
-  it('does not call a run with a skipped field push "nothing to do"', async () => {
-    // Same defect as OS-351's `skipped 0`, one layer up: a run whose only outcome was a
-    // field it could not publish reported nothing to do, and the detail line naming
-    // that field sits behind the early return that reading gates.
+  it('settles while retaining the diagnostic for a skipped field push', async () => {
+    // A provider capability or policy can leave a field divergent indefinitely. That
+    // is a standing diagnostic, not work this run can perform, so it must remain
+    // visible without making every otherwise-quiet run claim there is work to do.
     adapter = new LinearAdapter({
       client: new LinearClient({
         apiKey: 'lin_api_test',
@@ -930,9 +1128,12 @@ describe('the sync engine', () => {
     const stranger = { ...store.get(epic.id)!, assignee: 'not-in-any-map', version: 2 };
     store.set(epic.id, stranger);
     const report = await run([stranger], rules);
+    const preview = await run([stranger], rules, true);
 
     expect(report.skippedPushes.length).toBeGreaterThan(0);
-    expect(report.nothingToDo).toBe(false);
+    expect(report.nothingToDo).toBe(true);
+    expect(preview.skippedPushes).toEqual(report.skippedPushes);
+    expect(preview.nothingToDo).toBe(true);
   });
 
   it('does not drag an issue back out of a column a person moved it to', async () => {
@@ -955,13 +1156,83 @@ describe('the sync engine', () => {
     const inReview = server.states.find((state) => state.name === 'In Review')!;
     server.issues.get(externalId)!.state = { ...inReview };
 
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const settled = await run([store.get(epic.id)!], policy);
+
+      // The issue stays where the person put it, and every run is quiet about it — not
+      // merely the first pull before an exact base makes the next run push it back.
+      expect(server.issues.get(externalId)?.state.name).toBe('In Review');
+      expect(settled.pushed).toEqual([]);
+      expect(settled.pulled).toEqual([]);
+      // And the bead still reads as started, not dragged to some other position.
+      expect(store.get(epic.id)?.status).toBe('in_progress');
+    }
+  });
+
+  it('reports an unresolved workflow state as a skipped status push', async () => {
+    const todo = server.states.find((state) => state.name === 'Todo')!;
+    server.states = [
+      ...server.states.filter((state) => state.type !== 'started'),
+      { id: 'state-doing', name: 'Doing', type: 'started', position: 2 },
+      { id: 'state-review', name: 'In Review', type: 'started', position: 3 },
+    ];
+    server.addIssue({
+      id: 'issue-unresolved-state',
+      identifier: 'FIN-711',
+      title: 'An epic',
+      state: todo,
+    });
+    const linked = writeLink(bead('is-01hx5zzkbkactav9wevgemmvrz'), {
+      provider: 'linear',
+      id: 'issue-unresolved-state',
+      linked_at: '2026-08-10T00:00:00.000Z',
+    });
+    store.set(linked.id, linked);
+    await run([linked]);
+    const started = {
+      ...store.get(linked.id)!,
+      status: 'in_progress' as const,
+      version: store.get(linked.id)!.version + 1,
+      updated_at: new Date(Date.now() + 60_000).toISOString(),
+    };
+    store.set(linked.id, started);
+
+    const report = await run([started]);
+
+    expect(report.pushed).toEqual([]);
+    expect(report.skippedPushes).toEqual([
+      {
+        beadId: 'mvrz',
+        field: 'status',
+        reason: 'Linear team FIN has no unambiguous started workflow state (Doing, In Review).',
+      },
+    ]);
+    expect(report.nothingToDo).toBe(true);
+    expect(server.issues.get('issue-unresolved-state')?.state.name).toBe('Todo');
+  });
+
+  it('settles after pulling a Paused column once', async () => {
+    const paused = { id: 'state-paused', name: 'Paused', type: 'started', position: 4 };
+    server.states.push(paused);
+    const policy = PolicyDefinitionSchema.parse({
+      outbound: { kinds: ['epic'], statuses: ['in_progress'], specs: 'none', linked: true },
+    });
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz', { status: 'in_progress' });
+    store.set(epic.id, epic);
+    await run([epic], policy);
+    await run([store.get(epic.id)!], policy);
+    const externalId = readLink(store.get(epic.id)!, 'linear')!.id;
+    server.issues.get(externalId)!.state = { ...paused };
+
+    const pulled = await run([store.get(epic.id)!], policy);
     const settled = await run([store.get(epic.id)!], policy);
 
-    // The issue stays where the person put it, and the run is quiet about it.
-    expect(server.issues.get(externalId)?.state.name).toBe('In Review');
+    expect(pulled.pulled).toEqual(['mvrz']);
+    expect(store.get(epic.id)?.hold).toBe('paused');
+    expect(server.issues.get(externalId)?.state.name).toBe('Paused');
     expect(settled.pushed).toEqual([]);
-    // And the bead still reads as started, not dragged to some other position.
-    expect(store.get(epic.id)?.status).toBe('in_progress');
+    expect(settled.pulled).toEqual([]);
+    expect(settled.nothingToDo).toBe(true);
   });
 
   // The reported data loss, end to end, under both flow modes because OS-351 asks for
@@ -1090,8 +1361,11 @@ describe('the sync engine', () => {
     // Linear archive does not bump updatedAt; it therefore stays outside the
     // watermark delta and can only be observed by the targeted liveness read.
     remote.archivedAt = '2026-08-10T16:00:00.000Z';
+    const preview = await run([linked], POLICY, true);
     const archived = await run([linked]);
 
+    expect(preview.orphaned).toEqual(['mvrz']);
+    expect(preview.nothingToDo).toBe(false);
     expect(archived.orphaned).toEqual(['mvrz']);
     expect(store.get(epic.id)?.status).toBe('open');
   });

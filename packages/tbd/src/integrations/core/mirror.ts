@@ -401,6 +401,38 @@ export async function applyMirror(options: ApplyOptions): Promise<MirrorReport> 
   };
   const createdExternalIds = new Map<string, string>();
 
+  const writablePatch = async (action: MirrorAction): Promise<CanonicalPatch> => {
+    const slot = action.patch.slot;
+    if (slot === undefined || !adapter.resolveSlotWrite) {
+      return action.patch;
+    }
+    const resolution = await adapter.resolveSlotWrite(slot, {
+      status: action.patch.status ?? action.bead.status,
+      hold: action.patch.hold,
+    });
+    if (resolution.canPush) {
+      return action.patch;
+    }
+
+    report.skippedFields.push({
+      beadId: options.displayId(action.bead.id),
+      field: 'status',
+      reason: resolution.reason ?? `provider cannot write the ${slot} slot`,
+    });
+    // The slot and its carrier fields are one state write. Leaving `status` behind
+    // would let the adapter fall back to the band's default and silently write Todo
+    // when the requested Backlog column does not exist.
+    const {
+      hold: _hold,
+      resolution: _resolution,
+      slot: _slot,
+      stateId: _stateId,
+      status: _status,
+      ...rest
+    } = action.patch;
+    return rest;
+  };
+
   for (const action of plan.creates) {
     const displayId = options.displayId(action.bead.id);
     try {
@@ -410,7 +442,7 @@ export async function applyMirror(options: ApplyOptions): Promise<MirrorReport> 
       if (action.parentBeadId && !parentId) {
         throw new Error(`parent ${options.displayId(action.parentBeadId)} was not mirrored`);
       }
-      const ref = await adapter.createIssue({ ...action.patch, parentId });
+      const ref = await adapter.createIssue({ ...(await writablePatch(action)), parentId });
       createdExternalIds.set(action.bead.id, ref.id);
       await options.onLinked(action.bead, {
         provider: plan.provider,
@@ -442,7 +474,7 @@ export async function applyMirror(options: ApplyOptions): Promise<MirrorReport> 
         throw new Error(`parent ${options.displayId(action.parentBeadId)} was not mirrored`);
       }
       const applied = await adapter.applyChanges(action.externalId, {
-        ...action.patch,
+        ...(await writablePatch(action)),
         parentId,
       });
       await adapter.upsertAttachments(action.externalId, action.attachments);

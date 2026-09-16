@@ -15,7 +15,7 @@ import type {
   ProviderMeta,
   TrackerAdapter,
 } from '../core/types.js';
-import type { ProviderNameType } from '../../lib/types.js';
+import type { IssueHoldType, IssueStatusType, ProviderNameType } from '../../lib/types.js';
 import type { LinearClient } from './client.js';
 import { LinearDuplicateIdError, MAX_PAGE_SIZE } from './client.js';
 import {
@@ -30,6 +30,7 @@ import {
   slotFromLinear,
   stateColorFor,
   resolveStateId,
+  resolveSlotToLinear,
   slotToLinear,
   statusToLinear,
 } from './mapping.js';
@@ -352,6 +353,37 @@ export class LinearAdapter implements TrackerAdapter {
       return false;
     }
     return this.userMap.has(assignee) || this.resolvedActors.has(assignee);
+  }
+
+  async resolveSlotWrite(
+    slot: string,
+    carriers: { status: IssueStatusType; hold?: IssueHoldType | null },
+    preferredStateId?: string,
+  ): Promise<{
+    canPush: boolean;
+    projectedSlot?: string;
+    stateId?: string;
+    reason?: string;
+  }> {
+    if (!isSlot(slot)) {
+      return { canPush: false, reason: `Unknown tbd board slot: ${slot}` };
+    }
+    const meta = await this.ensureMeta();
+    const resolution = resolveSlotToLinear(meta.states ?? [], slot, carriers, {
+      configuredName: this.stateMap?.[slotToLinear(slot, carriers).stateType],
+      preferredStateId,
+    });
+    if (!resolution.state) {
+      return {
+        canPush: false,
+        reason: `Linear team ${this.teamKey} has ${resolution.reason}.`,
+      };
+    }
+    return {
+      canPush: true,
+      projectedSlot: resolution.projectedSlot,
+      stateId: resolution.state.id,
+    };
   }
 
   /**
@@ -1036,13 +1068,26 @@ export class LinearAdapter implements TrackerAdapter {
     // the band instead is what made a blocked bead push Todo forever. The hold and
     // status ride along so carrier labels still round-trip when the named state is absent.
     const slot = patch.slot !== undefined && isSlot(patch.slot) ? patch.slot : undefined;
-    const target =
-      slot !== undefined
-        ? slotToLinear(slot, { hold: patch.hold, status: patch.status })
-        : patch.status !== undefined
-          ? statusToLinear(patch.status, patch.resolution, patch.hold)
-          : undefined;
-    if (target !== undefined) {
+    if (slot !== undefined) {
+      const resolution = resolveSlotToLinear(
+        meta.states ?? [],
+        slot,
+        { hold: patch.hold, status: patch.status },
+        {
+          configuredName:
+            this.stateMap?.[
+              slotToLinear(slot, { hold: patch.hold, status: patch.status }).stateType
+            ],
+          preferredStateId: patch.stateId ?? undefined,
+        },
+      );
+      if (!resolution.state) {
+        throw new Error(`Linear team ${this.teamKey} has ${resolution.reason}.`);
+      }
+      input.stateId = resolution.state.id;
+      statusLabels = resolution.labels;
+    } else if (patch.status !== undefined) {
+      const target = statusToLinear(patch.status, patch.resolution, patch.hold);
       // A named state is preferred when the team actually has one, because a real
       // column is visible to a person planning the week while a label is not. When it
       // is absent the carrier label rides the type's default instead, which is the
