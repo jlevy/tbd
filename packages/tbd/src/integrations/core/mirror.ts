@@ -12,6 +12,7 @@ import type { LabelMirrorModeType } from './provider-settings.js';
 import type { Issue, LinkedEntryType, ProviderNameType } from '../../lib/types.js';
 import { readyIssueIds } from '../../lib/issue-selection.js';
 import { readLink } from './link-store.js';
+import { outboundPosition } from './slots.js';
 import { TBD_LABEL_PREFIX } from './origin-labels.js';
 import { renderManagedBlock, type MirrorLinks } from './managed-block.js';
 import type {
@@ -262,9 +263,10 @@ export function planMirror(context: MirrorContext): MirrorPlan {
       : undefined;
     const patch: CanonicalPatch = {
       title: issue.title,
-      status: issue.status,
-      resolution: issue.resolution ?? null,
-      hold: issue.hold ?? null,
+      // The position the reconciler writes, slot included. A status alone cannot tell
+      // Backlog from Todo, so without the slot every push moved open work that is not
+      // ready into Todo, and a full sync afterwards left it there.
+      ...outboundPosition(issue, readyIds.has(issue.id)),
       priority: issue.priority,
       // Carried on every action, consumed only by the create path: the adapter's
       // update surface ignores these, and the provider does not accept them there

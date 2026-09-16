@@ -146,6 +146,54 @@ describe('tbd integration sync settles', () => {
     expect(item?.state.name).toBe('Backlog');
   });
 
+  it('keeps not-ready linked epics in Backlog when push-only and full syncs alternate', async () => {
+    // tbd-evn3. The reconciler writes the computed slot, so open work that is not ready
+    // goes to Backlog. The push-only mirror used to send `status: open` with no slot,
+    // which the adapter maps to Todo, so every `--push` moved these items out of Backlog,
+    // and a full sync afterwards left them in Todo.
+    const blocked = await createBead('A blocked epic', 'epic');
+    const blocker = await createBead('A blocker', 'task');
+    expect((await cli(['dep', 'add', blocked, blocker])).code).toBe(0);
+    const deferred = await createBead('A deferred epic', 'epic');
+    expect((await cli(['update', deferred, '--defer', '2999-01-01T00:00:00.000Z'])).code).toBe(0);
+
+    const columns = (): Record<string, string | undefined> =>
+      Object.fromEntries(
+        ['A blocked epic', 'A deferred epic', 'A blocker'].map((title) => [
+          title,
+          [...server.issues.values()].find((issue) => issue.title === title)?.state.name,
+        ]),
+      );
+    const expected = {
+      'A blocked epic': 'Backlog',
+      'A deferred epic': 'Backlog',
+      'A blocker': 'Todo',
+    };
+
+    // The first full sync creates and links all three.
+    await syncMutations();
+    expect(columns()).toEqual(expected);
+
+    const sequence: { step: string; columns: Record<string, string | undefined> }[] = [];
+    let fullSyncWrites: string[] = [];
+    for (const step of ['--push', 'full', '--push']) {
+      if (step === 'full') {
+        fullSyncWrites = await syncMutations();
+      } else {
+        const result = await cli(['integration', 'sync', '--push']);
+        expect(result.code, `--push failed\n${result.stdout}\n${result.stderr}`).toBe(0);
+      }
+      sequence.push({ step, columns: columns() });
+    }
+    expect(sequence).toEqual([
+      { step: '--push', columns: expected },
+      { step: 'full', columns: expected },
+      { step: '--push', columns: expected },
+    ]);
+    // The push wrote the column the reconciler would, so the full sync has nothing to undo.
+    expect(fullSyncWrites).toEqual([]);
+  });
+
   it('writes nothing after the first run for an unblocked bead (control)', async () => {
     // Same shape without the dependency. If this one ever fails, the assertion above is
     // measuring general sync churn rather than the blocked-slot loop.

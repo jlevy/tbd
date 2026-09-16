@@ -262,6 +262,118 @@ describe('planMirror', () => {
     // Two children, one of them ready (the other is claimed).
     expect(block).toContain('Children: 2 (1 ready)');
   });
+
+  it('sends the slot the reconciler computes, so not-ready open work stays in Backlog', () => {
+    // tbd-evn3: without a slot the adapter maps `status: open` to Todo, which is not where
+    // the reconciler puts open work that is not ready.
+    const linked: Partial<Issue> = {
+      extensions: { linear: { id: 'ext', linked_at: '2026-08-10T00:00:00.000Z' } },
+    };
+    const ready = issue({ id: 'is-ready', ...linked });
+    const blocked = issue({ id: 'is-blocked', ...linked });
+    const blocker = issue({
+      id: 'is-blocker',
+      kind: 'task',
+      dependencies: [{ type: 'blocks', target: blocked.id }],
+    });
+    const deferred = issue({
+      id: 'is-deferred',
+      deferred_until: '2999-01-01T00:00:00.000Z',
+      ...linked,
+    });
+    const held = issue({ id: 'is-held', hold: 'paused', ...linked });
+    const canceled = issue({
+      id: 'is-canceled',
+      status: 'closed',
+      resolution: 'canceled',
+      ...linked,
+    });
+    // The rest of the positions, including the legacy five-value statuses: `blocked` is the
+    // one whose Linear column changes here (the named Blocked state, as a full sync writes).
+    const legacyBlocked = issue({ id: 'is-legacy-blocked', status: 'blocked', ...linked });
+    const legacyDeferred = issue({ id: 'is-legacy-deferred', status: 'deferred', ...linked });
+    const started = issue({ id: 'is-started', status: 'in_progress', ...linked });
+    const startedBlocked = issue({
+      id: 'is-started-blocked',
+      status: 'in_progress',
+      hold: 'blocked',
+      ...linked,
+    });
+    const startedPaused = issue({
+      id: 'is-started-paused',
+      status: 'in_progress',
+      hold: 'paused',
+      ...linked,
+    });
+    const completed = issue({
+      id: 'is-completed',
+      status: 'closed',
+      resolution: 'completed',
+      ...linked,
+    });
+    const duplicate = issue({
+      id: 'is-duplicate',
+      status: 'closed',
+      resolution: 'duplicate',
+      ...linked,
+    });
+    const selected = [
+      ready,
+      blocked,
+      deferred,
+      held,
+      canceled,
+      legacyBlocked,
+      legacyDeferred,
+      started,
+      startedBlocked,
+      startedPaused,
+      completed,
+      duplicate,
+    ];
+
+    const plan = planMirror({
+      provider: 'linear',
+      readyAt: READY_AT,
+      allIssues: [blocker, ...selected],
+      selected,
+      displayId,
+      maxNesting: 2,
+    });
+
+    const positions = Object.fromEntries(
+      plan.updates.map((action) => [
+        action.bead.id,
+        (({ slot, status, resolution, hold }) => ({ slot, status, resolution, hold }))(
+          action.patch,
+        ),
+      ]),
+    );
+    expect(positions).toEqual({
+      'is-ready': { slot: 'todo', status: 'open', resolution: null, hold: null },
+      'is-blocked': { slot: 'backlog', status: 'open', resolution: null, hold: null },
+      'is-deferred': { slot: 'backlog', status: 'open', resolution: null, hold: null },
+      'is-held': { slot: 'backlog', status: 'open', resolution: null, hold: 'paused' },
+      'is-canceled': { slot: 'canceled', status: 'closed', resolution: 'canceled', hold: null },
+      'is-legacy-blocked': { slot: 'blocked', status: 'blocked', resolution: null, hold: null },
+      'is-legacy-deferred': { slot: 'backlog', status: 'deferred', resolution: null, hold: null },
+      'is-started': { slot: 'in_progress', status: 'in_progress', resolution: null, hold: null },
+      'is-started-blocked': {
+        slot: 'blocked',
+        status: 'in_progress',
+        resolution: null,
+        hold: 'blocked',
+      },
+      'is-started-paused': {
+        slot: 'paused',
+        status: 'in_progress',
+        resolution: null,
+        hold: 'paused',
+      },
+      'is-completed': { slot: 'done', status: 'closed', resolution: 'completed', hold: null },
+      'is-duplicate': { slot: 'duplicate', status: 'closed', resolution: 'duplicate', hold: null },
+    });
+  });
 });
 
 describe('label mirroring', () => {
@@ -603,6 +715,54 @@ describe('applyMirror', () => {
     expect(seen).toEqual([expect.objectContaining({ beadId: 'is-renamed', key: 'OS-4' })]);
     // The bead itself is untouched: no version churn for a remote rename.
     expect(linked).toHaveLength(0);
+  });
+
+  it('writes no state for not-ready open work on a team without a Backlog state', async () => {
+    // Such work's slot is `backlog`, which names no state on this team, so the update
+    // carries no stateId and the item stays in whatever column it is in. The reconciler has
+    // written the same since #290. The other fields still go out, so the item is reported
+    // as updated.
+    server.states = server.states.filter((state) => state.type !== 'backlog');
+    const todo = server.states.find((state) => state.type === 'unstarted')!;
+    server.addIssue({
+      id: 'uuid-no-backlog',
+      identifier: 'FIN-2',
+      title: 'Blocked epic',
+      state: todo,
+      labels: { nodes: [{ id: 'label-bug', name: 'Bug' }] },
+    });
+    const blocked = issue({
+      id: 'is-blocked',
+      title: 'Blocked epic',
+      extensions: { linear: { id: 'uuid-no-backlog', linked_at: '2026-08-10T00:00:00.000Z' } },
+    });
+    const blocker = issue({
+      id: 'is-blocker',
+      kind: 'task',
+      dependencies: [{ type: 'blocks', target: blocked.id }],
+    });
+    const plan = planMirror({
+      provider: 'linear',
+      readyAt: READY_AT,
+      allIssues: [blocked, blocker],
+      selected: [blocked],
+      displayId,
+      maxNesting: 2,
+    });
+
+    const report = await applyMirror({ adapter, plan, displayId, onLinked });
+
+    const update = server.requests.find(
+      (request) =>
+        /mutation\s+IssueUpdate/u.test(request.query) &&
+        'title' in (request.variables.input as Record<string, unknown>),
+    );
+    const input = update?.variables.input as Record<string, unknown>;
+    expect(input).not.toHaveProperty('stateId');
+    // A human-applied label survives the write.
+    expect(input.labelIds).toEqual(['label-bug']);
+    expect(server.issues.get('uuid-no-backlog')?.state.name).toBe('Todo');
+    expect(report.updated).toEqual(['tbd-blocked']);
   });
 
   it('writes the managed block into the description', async () => {

@@ -37,7 +37,7 @@ import type {
   PolicyDefinition,
   ProviderNameType,
 } from '../../lib/types.js';
-import { bandOf, computeSlot, decomposeSlot, isSlot, type Slot } from './slots.js';
+import { bandOf, decomposeSlot, isSlot, outboundPosition, type Slot } from './slots.js';
 import { readyIssueIds } from '../../lib/issue-selection.js';
 import {
   descriptionHash,
@@ -215,16 +215,9 @@ function localViewOf(bead: Issue, ready?: ReadonlySet<string>): LocalView {
     status: bead.status,
     // Computed only when the caller supplied readiness. Without it the Todo/Backlog
     // split cannot be decided, and guessing would be worse than staying on statuses.
-    ...(ready
-      ? {
-          slot: computeSlot({
-            status: bead.status,
-            hold: bead.hold,
-            resolution: bead.resolution,
-            ready: ready.has(bead.id),
-          }),
-        }
-      : {}),
+    // The same helper the create path and the push-only mirror use, so the pair path
+    // cannot compute a different slot for the same bead.
+    ...(ready ? { slot: outboundPosition(bead, ready.has(bead.id)).slot } : {}),
     priority: bead.priority,
     labels: bead.labels ?? [],
     assignee: bead.assignee ?? null,
@@ -602,17 +595,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   // then has to converge out of: an open bead that is not ready belongs in Backlog,
   // and `status: open` alone lands it in Todo. `status`, `resolution` and `hold` ride
   // alongside because a journal replayed by a client that predates slots ignores `slot`.
-  const positionOf = (issue: Issue) => ({
-    status: issue.status,
-    resolution: issue.resolution ?? null,
-    hold: issue.hold ?? null,
-    slot: computeSlot({
-      status: issue.status,
-      hold: issue.hold,
-      resolution: issue.resolution,
-      ready: readyIds.has(issue.id),
-    }),
-  });
+  const positionOf = (issue: Issue) => outboundPosition(issue, readyIds.has(issue.id));
   const childrenByParent = new Map<string, Issue[]>();
   for (const issue of currentIssues) {
     if (!issue.parent_id) {
