@@ -62,9 +62,12 @@ function bashPathWith(directory: string): string {
   return `${bashPath(directory)}:${result.stdout}`;
 }
 
-/** Writes a Bash startup file with a deterministic supported-platform uname fixture. */
-async function writeSupportedUnameEnvironment(directory: string): Promise<string> {
-  const file = join(directory, 'supported-uname.sh');
+/** Writes process-scoped Bash command fixtures that work across Git Bash and POSIX. */
+async function writeBashEnvironment(
+  directory: string,
+  commandFixtures: readonly string[] = [],
+): Promise<string> {
+  const file = join(directory, 'test-environment.sh');
   await writeFile(
     file,
     [
@@ -75,6 +78,7 @@ async function writeSupportedUnameEnvironment(directory: string): Promise<string
       '        *) echo Linux ;;',
       '    esac',
       '}',
+      ...commandFixtures,
       '',
     ].join('\n'),
   );
@@ -407,7 +411,18 @@ describe('ensure-gh-cli.sh', () => {
         mkdir(extensionDirectory, { recursive: true }),
         mkdir(tempDirectory, { recursive: true }),
       ]);
-      const unameEnvironment = await writeSupportedUnameEnvironment(binDirectory);
+      const bashEnvironment = await writeBashEnvironment(binDirectory, [
+        'curl() {',
+        '    local output=""',
+        '    while [ "$#" -gt 0 ]; do',
+        '        case "$1" in',
+        '            -o) output=$2; shift 2 ;;',
+        '            *) shift ;;',
+        '        esac',
+        '    done',
+        '    printf "tampered asset" > "$output"',
+        '}',
+      ]);
       await Promise.all([
         writeFile(marker, 'registered'),
         writeFile(executable, 'unverified executable'),
@@ -437,31 +452,14 @@ echo "unexpected mocked gh invocation: $*" >&2
 exit 98
 `,
         ),
-        writeFile(
-          join(binDirectory, 'curl'),
-          `#!/bin/bash
-set -eu
-output=""
-while [ "$#" -gt 0 ]; do
-    case "$1" in
-        -o) output=$2; shift 2 ;;
-        *) shift ;;
-    esac
-done
-printf 'tampered asset' > "$output"
-`,
-        ),
       ]);
-      await Promise.all([
-        chmod(join(binDirectory, 'gh'), 0o755),
-        chmod(join(binDirectory, 'curl'), 0o755),
-      ]);
+      await chmod(join(binDirectory, 'gh'), 0o755);
 
       const result = spawnSync(BASH, [bashPath(SCRIPT), '--with-stack'], {
         encoding: 'utf8',
         env: {
           ...process.env,
-          BASH_ENV: bashPath(unameEnvironment),
+          BASH_ENV: bashPath(bashEnvironment),
           GH_TOKEN: '',
           HOME: bashPath(homeDirectory),
           PATH: bashPathWith(binDirectory),
@@ -502,7 +500,36 @@ printf 'tampered asset' > "$output"
         mkdir(homeDirectory, { recursive: true }),
         mkdir(tempDirectory, { recursive: true }),
       ]);
-      const unameEnvironment = await writeSupportedUnameEnvironment(binDirectory);
+      const bashEnvironment = await writeBashEnvironment(binDirectory, [
+        'curl() {',
+        '    local output=""',
+        '    while [ "$#" -gt 0 ]; do',
+        '        case "$1" in',
+        '            -o) output=$2; shift 2 ;;',
+        '            *) shift ;;',
+        '        esac',
+        '    done',
+        '    printf "reviewed asset fixture" > "$output"',
+        '}',
+        'sha256sum() {',
+        `    printf '${expectedDigest}  %s\\n' "$1"`,
+        '}',
+        'mv() {',
+        '    if [ "$#" = "2" ] \\',
+        "        && [[ \"$1\" == *'/.tbd-gh-stack.'*'/gh/extensions/gh-stack' ]] \\",
+        `        && [ "$2" = "${bashExtensionDirectory}" ]; then`,
+        `        mkdir -p "${bashExtensionDirectory}"`,
+        "        printf '%s\\n' \\",
+        "            'owner: github' \\",
+        "            'name: gh-stack' \\",
+        "            'host: github.com' \\",
+        `            'tag: ${GH_STACK_VERSION}' \\`,
+        "            'ispinned: true' \\",
+        `            'path: ${bashExecutable}' > "${bashExtensionDirectory}/manifest.yml"`,
+        '    fi',
+        '    command mv "$@"',
+        '}',
+      ]);
       await Promise.all([
         writeFile(
           join(binDirectory, 'gh'),
@@ -555,26 +582,6 @@ exit 98
 `,
         ),
         writeFile(
-          join(binDirectory, 'curl'),
-          `#!/bin/bash
-set -eu
-output=""
-while [ "$#" -gt 0 ]; do
-    case "$1" in
-        -o) output=$2; shift 2 ;;
-        *) shift ;;
-    esac
-done
-printf 'reviewed asset fixture' > "$output"
-`,
-        ),
-        writeFile(
-          join(binDirectory, 'sha256sum'),
-          `#!/bin/bash
-printf '${expectedDigest}  %s\\n' "$1"
-`,
-        ),
-        writeFile(
           join(binDirectory, 'mv'),
           `#!/bin/bash
 set -eu
@@ -594,15 +601,13 @@ exec /bin/mv "$@"
 `,
         ),
       ]);
-      await Promise.all(
-        ['gh', 'curl', 'sha256sum', 'mv'].map((name) => chmod(join(binDirectory, name), 0o755)),
-      );
+      await Promise.all(['gh', 'mv'].map((name) => chmod(join(binDirectory, name), 0o755)));
 
       const result = spawnSync(BASH, [bashPath(SCRIPT), '--with-stack'], {
         encoding: 'utf8',
         env: {
           ...process.env,
-          BASH_ENV: bashPath(unameEnvironment),
+          BASH_ENV: bashPath(bashEnvironment),
           GH_TOKEN: '',
           HOME: bashPath(homeDirectory),
           PATH: bashPathWith(binDirectory),
