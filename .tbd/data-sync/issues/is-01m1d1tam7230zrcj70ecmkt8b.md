@@ -5,7 +5,7 @@ title: "[epic] gh CLI hardening and stacked-PR support"
 kind: epic
 status: in_progress
 priority: 1
-version: 15
+version: 16
 labels: []
 dependencies: []
 child_order_hints:
@@ -19,7 +19,7 @@ child_order_hints:
   - is-01m1d1x86a96ak3rzd8w6ft7ej
   - is-01m2nqtwk7sa6nfjta8s3r7hy4
 created_at: 2026-08-31T23:17:36.006Z
-updated_at: 2026-09-16T18:32:00.358Z
+updated_at: 2026-09-16T18:54:35.950Z
 duplicate_of: null
 extensions:
   linear:
@@ -72,4 +72,4 @@ DIVISION OF LABOR
 
 ## Notes
 
-Reconciled 2026-09-16: core gh version-floor and stacked-PR work shipped in PR #266/0.9.0; PR #301 hardens discovery, remote-stack adoption, sync postconditions, and generated routing. Children tbd-70a2, tbd-d2f6, tbd-gc0p, and tbd-oudg are closed. Fresh-Linux QA tbd-j4wy remains open.
+Reconciled 2026-09-16: core gh version-floor and stacked-PR work shipped in PR #266/0.9.0. PR #301 completed hardening for discovery, remote-stack adoption, sync postconditions, generated routing, pinned gh-stack artifact verification, and Windows-safe test coverage; it passed the full hosted matrix and merged as d8939d23. Review parent tbd-9yi5 and findings tbd-k00n, tbd-g3la, tbd-e6uf, tbd-6tz7 are closed. Children tbd-70a2, tbd-d2f6, tbd-gc0p, tbd-oudg, tbd-tiqk are closed. Fresh-Linux QA tbd-j4wy remains open.
