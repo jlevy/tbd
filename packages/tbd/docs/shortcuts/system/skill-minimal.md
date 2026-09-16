@@ -84,6 +84,7 @@ Plain `tbd sync` also runs trackers according to `integrations.on_tbd_sync`; use
 | --- | --- |
 | `tbd shortcut code-review-and-commit` | Pre-commit checks and commit |
 | `tbd shortcut create-or-update-pr-simple` | Create or update a PR |
+| `tbd shortcut stacked-prs` | Create or maintain stacked PRs |
 | `tbd shortcut new-plan-spec` | Plan a new feature |
 | `tbd shortcut setup-linear` | Set up Linear or add a personal Linear key |
 | `tbd shortcut review-code` | Comprehensive code review |

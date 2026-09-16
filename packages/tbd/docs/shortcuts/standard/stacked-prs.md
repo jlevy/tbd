@@ -5,8 +5,10 @@ category: git
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 A **stack** is an ordered chain of branches on a trunk, where each branch has one PR
-based on the branch below it.
+based on the branch below it and the PRs are linked as a formal stack on GitHub.
 A reviewer sees only that layer’s diff, so three 200-line PRs replace one 600-line PR.
+The branch-base chain is necessary for layered diffs, but it is not formal stack
+membership by itself.
 
 This shortcut covers **when to stack and how stacking interacts with tbd**. It
 deliberately does not document the `gh stack` commands.
@@ -22,25 +24,56 @@ Check that it is installed before doing stack work:
 
 ```bash
 gh extension list | grep 'gh stack'   # expect: gh stack  github/gh-stack  v0.1.0
-gh skill list | grep gh-stack         # expect: gh-stack
+gh skill list --agent codex | grep gh-stack   # under Claude Code, use --agent claude-code
 ```
 
-If either is missing, install both pinned via the ensure script
-(`.claude/scripts/ensure-gh-cli.sh`, or `.codex/ensure-gh-cli.sh` under Codex):
+If either is missing, install both pinned via the ensure script for the current agent:
 
 ```bash
-bash .claude/scripts/ensure-gh-cli.sh --with-stack
+bash .codex/ensure-gh-cli.sh --with-stack          # Codex
+bash .claude/scripts/ensure-gh-cli.sh --with-stack # Claude Code
 ```
+
+Local tracking and formal GitHub membership are separate states.
+`gh stack view --json` reports the current *locally tracked* stack; `gh stack link` can
+create a formal remote stack without creating local tracking.
+For an existing PR, verify authoritative remote membership with:
+
+```bash
+REMOTE_STACK_NUMBER=$(gh api "repos/$REPO/stacks?pull_request=$PR_NUMBER" \
+  --jq '.[0].number // empty')
+```
+
+Stop if the API call fails; do not treat an unavailable check as “not stacked.”
+A nonempty result verifies formal membership.
+An empty result means the PR is not yet part of a formal GitHub stack, even if its base
+points at another feature branch.
 
 If the skill is unavailable and you must proceed anyway, the four rules that matter
 most, because breaking them hangs an agent session indefinitely:
 
 - `gh stack view --json`, never bare `gh stack view` (bare opens a blocking TUI).
-- `gh stack submit --auto --open`, never bare `submit` (bare prompts for every PR
-  title). `--auto` on its own opens the PRs as drafts, which `gh stack merge` refuses.
+- `gh stack submit --auto`, never bare `submit` (bare prompts for every PR title).
+  `--auto` creates new PRs as drafts and preserves existing review state.
+  Add `--open` only when the user explicitly asks to mark every new and existing PR
+  ready for review.
 - `gh stack merge <target> --yes`. Plain `gh pr merge` cannot merge a stack, and a bare
   number is read as a stack number before a PR number.
 - Pass branch names to `init`, `add`, and `checkout`. Bare forms prompt.
+
+Two recovery paths need additional postconditions even when the command invocation is
+otherwise non-interactive:
+
+- Before adopting a remote-only stack with `gh stack checkout <PR URL>`, check whether
+  any target branch belongs to a different local stack.
+  From a non-shared branch in the conflicting stack, run `gh stack unstack --local`,
+  then return and retry the checkout.
+  The official skill documents an unbypassable prompt when local and remote stack
+  compositions conflict, so stop if you cannot prove the checkout is conflict-free.
+- Capture and inspect combined output from `gh stack sync`. A divergent non-interactive
+  sync can print `Sync aborted — no changes were made` and exit 0. Treat that message as
+  failure, resolve the divergence using the official skill, retry, and verify the
+  resulting stack with `gh stack view --json` before continuing.
 
 ## When to Stack
 
@@ -51,9 +84,12 @@ Do not restructure someone’s work into a stack because stacks are available.
 **If the user asks for a stacked PR, produce an actual stack.** When they say “stacked
 PR”, “stack this”, “layer these”, or “dependent PRs”, the deliverable is a real stack:
 branches chained bottom to top, each PR based on the branch below, linked as a stack on
-GitHub. Creating one flat PR instead is a silent failure to deliver what was asked.
-Verify with `gh stack view --json` and confirm each PR’s base is the branch below it,
-not the trunk.
+GitHub. Creating one flat PR, or only setting each PR’s base to the branch below, is a
+silent failure to deliver what was asked.
+Use `gh stack init` or `gh stack add` followed by `gh stack submit --auto` for a locally
+tracked stack, or `gh stack link` for existing PRs.
+Then verify every PR through the remote `stacks?pull_request=$PR_NUMBER` API lookup and
+confirm each PR’s base is the branch below it, not the trunk.
 
 **Offer a stack when the change plainly decomposes.** Suggest it once, in a sentence,
 and accept the answer:
@@ -100,7 +136,7 @@ A stack and a bead tree describe the same decomposition, so keep them aligned:
 
 | Shortcut | On a stacked branch |
 | --- | --- |
-| `create-or-update-pr-simple` / `-with-validation-plan` | Do **not** target the trunk. Use `gh stack submit --auto --open`, or set the base to the branch below. Targeting the trunk retargets the PR and flattens the stack. |
+| `create-or-update-pr-simple` / `-with-validation-plan` | Do **not** target the trunk. For a locally tracked stack, use `gh stack submit --auto`. For a remote-only linked stack, push the owning branch and use `gh pr edit` without `--base`. Add `--open` only when the user explicitly asks to mark the whole stack ready. Verify formal membership through the remote stack API after either path. |
 | `code-review-and-commit` | Commit to the owning layer (see Layer Discipline), then rebase the layers above. |
 | `review-github-pr` | Review only that layer’s diff, which is what GitHub already shows. Name the layer in each finding. |
 | `address-pr-review` | Fix on the owning layer, then `gh stack rebase --upstack` before trusting CI on the upper PRs. |
@@ -116,8 +152,9 @@ gh stack sync --prune               # reconcile local state, drop merged branche
 ```
 
 A bare number is resolved as a **stack** number first and only then as a PR number, so
-on a repo where those ranges still overlap, confirm with `gh stack view --json` before
-merging.
+on a repo where those ranges still overlap, confirm the target with
+`gh stack view --json` for a locally tracked stack or the remote stack API for a
+remote-only linked stack before merging.
 
 The merge is all-or-nothing: if any PR in the set cannot merge, none do.
 After a squash merge on the trunk, `gh stack sync` detects it and rebases the remaining

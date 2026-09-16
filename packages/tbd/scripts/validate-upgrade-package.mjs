@@ -297,30 +297,47 @@ async function assertHardenedGhInstallers(repository, name) {
     'utf8',
   );
   const codexInstaller = await readFile(join(repository, '.codex', 'ensure-gh-cli.sh'), 'utf8');
+  const claudeAgentDefault = 'GH_SKILL_AGENT="${GH_SKILL_AGENT:-claude-code}"';
+  const codexAgentDefault = 'GH_SKILL_AGENT="${GH_SKILL_AGENT:-codex}"';
+
   invariant(
-    claudeInstaller === codexInstaller,
-    `${name}: Claude and Codex received different GitHub CLI installers`,
+    claudeInstaller.split(claudeAgentDefault).length === 2,
+    `${name}: Claude installer does not have exactly one Claude Code skill target default`,
   );
   invariant(
-    claudeInstaller.includes('# Automated GitHub CLI setup for agent sessions'),
-    `${name}: installer carries a surface-specific header`,
+    codexInstaller.split(codexAgentDefault).length === 2,
+    `${name}: Codex installer does not have exactly one Codex skill target default`,
   );
   invariant(
-    claudeInstaller.includes('INSTALL_TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/tbd-gh.XXXXXX")') &&
-      claudeInstaller.includes('trap cleanup EXIT') &&
-      claudeInstaller.includes('ARCHIVE_PATH="${INSTALL_TMP_DIR}/${ASSET}"'),
-    `${name}: installer does not isolate downloaded and extracted files`,
+    claudeInstaller === codexInstaller.replace(codexAgentDefault, claudeAgentDefault),
+    `${name}: Claude and Codex GitHub CLI installers differ beyond their agent defaults`,
   );
-  invariant(
-    claudeInstaller.includes('INSTALL_STAGING=$(mktemp "$HOME/.local/bin/.gh.XXXXXX")') &&
-      claudeInstaller.includes('mv -f "$INSTALL_STAGING" "$HOME/.local/bin/gh"'),
-    `${name}: installer does not replace the destination atomically`,
-  );
-  invariant(
-    !claudeInstaller.includes('EXTRACT_DIR="/tmp/') &&
-      !claudeInstaller.includes('curl -fsSL -o "/tmp/${ASSET}"'),
-    `${name}: installer writes to a shared fixed temporary path`,
-  );
+
+  for (const [surface, installer] of [
+    ['Claude', claudeInstaller],
+    ['Codex', codexInstaller],
+  ]) {
+    invariant(
+      installer.includes('# Automated GitHub CLI setup for agent sessions'),
+      `${name}: ${surface} installer is missing its generated header`,
+    );
+    invariant(
+      installer.includes('INSTALL_TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/tbd-gh.XXXXXX")') &&
+        installer.includes('trap cleanup EXIT') &&
+        installer.includes('ARCHIVE_PATH="${INSTALL_TMP_DIR}/${ASSET}"'),
+      `${name}: ${surface} installer does not isolate downloaded and extracted files`,
+    );
+    invariant(
+      installer.includes('INSTALL_STAGING=$(mktemp "$HOME/.local/bin/.gh.XXXXXX")') &&
+        installer.includes('mv -f "$INSTALL_STAGING" "$HOME/.local/bin/gh"'),
+      `${name}: ${surface} installer does not replace the destination atomically`,
+    );
+    invariant(
+      !installer.includes('EXTRACT_DIR="/tmp/') &&
+        !installer.includes('curl -fsSL -o "/tmp/${ASSET}"'),
+      `${name}: ${surface} installer writes to a shared fixed temporary path`,
+    );
+  }
 }
 
 async function validateScenario({

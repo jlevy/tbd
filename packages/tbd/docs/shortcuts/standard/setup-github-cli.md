@@ -55,12 +55,20 @@ See [Proxied Remote Sessions](#proxied-remote-sessions) first.
 Run these in order on a machine that has never had tbd or `gh` on it.
 Every step is idempotent, so re-running the whole sequence is safe.
 
-1. **Install and verify gh** with the ensure script (`.claude/scripts/ensure-gh-cli.sh`,
-   or `.codex/ensure-gh-cli.sh` under Codex; the two are byte-identical, and later steps
-   call it “the ensure script”):
+1. **Install and verify gh** with the ensure script for the current agent:
+
+   Codex:
+   ```bash
+   bash .codex/ensure-gh-cli.sh
+   ```
+
+   Claude Code:
    ```bash
    bash .claude/scripts/ensure-gh-cli.sh
    ```
+
+   The scripts use the same pinned installer and hardening rules, but each defaults the
+   agent-skill target to its own agent.
 
    Installs the pinned `gh` to `~/.local/bin` when `gh` is missing or below the version
    floor, verifying a pinned SHA-256 checksum before extracting.
@@ -78,7 +86,15 @@ Every step is idempotent, so re-running the whole sequence is safe.
    [Authentication](#authentication).
    Either is fine; see [Two Ways to Authenticate](#two-ways-to-authenticate).
 
-3. **Install stacked-PR tooling** (optional, only if you use stacked PRs):
+3. **Install stacked-PR tooling** (optional, only if you use stacked PRs) with the same
+   agent-specific script:
+
+   Codex:
+   ```bash
+   bash .codex/ensure-gh-cli.sh --with-stack
+   ```
+
+   Claude Code:
    ```bash
    bash .claude/scripts/ensure-gh-cli.sh --with-stack
    ```
@@ -96,8 +112,8 @@ Every step is idempotent, so re-running the whole sequence is safe.
    GitHub does not verify skills, so review it before relying on it:
    `gh skill preview github/gh-stack gh-stack@a1b4a3d4d0bcde9ec3a78ab99b2d63af121857a9`.
    Note that `gh skill` currently has no uninstall command: to remove it, delete the
-   installed directory, whose location `gh skill list` reports.
-   Override the target agent with `GH_SKILL_AGENT=codex` if you use a different one.
+   installed directory, whose location the agent-specific `gh skill list` command in the
+   checklist below reports.
 
 4. **Confirm PATH** if step 1 installed a new binary:
    ```bash
@@ -117,7 +133,8 @@ judgment call:
 | `gh auth status` | `Logged in to github.com` |
 | `gh repo view <owner>/<repo> --json defaultBranchRef -q .defaultBranchRef.name` | the trunk name, e.g. `main` |
 | `gh extension list` | `gh stack  github/gh-stack  v0.1.0` (only after step 3) |
-| `gh skill list` | a `gh-stack` row (only after step 3) |
+| `gh skill list --agent codex` | a `gh-stack` row in Codex (only after Codex step 3) |
+| `gh skill list --agent claude-code` | a `gh-stack` row in Claude Code (only after Claude Code step 3) |
 | `gh stack --help` | exits 0 (only after step 3) |
 
 ### Version Floor
@@ -320,7 +337,7 @@ report the limitation — do not attempt to tunnel around network policy.
 | `gh --version` fails | gh is broken, reinstall via ensure script |
 | `gh --version` is below 2.97.0 | Run the ensure script; it installs the pinned build to `~/.local/bin` |
 | Ensure script ran but `gh --version` is still old | An older gh precedes `~/.local/bin` in PATH; reorder PATH |
-| `gh: unknown command "stack"` | Extension not installed: `bash .claude/scripts/ensure-gh-cli.sh --with-stack` |
+| `gh: unknown command "stack"` | Extension not installed: run the current agent’s ensure script with `--with-stack` (`.codex/ensure-gh-cli.sh` for Codex or `.claude/scripts/ensure-gh-cli.sh` for Claude Code) |
 | `gh stack view` hangs and never returns | Bare `view` opens a TUI; always pass `--json` |
 | `gh auth status` passes but the hook says GH_TOKEN is unset | Normal: authenticated via the OS keyring instead of a token |
 | `gh auth status` errors and `HTTPS_PROXY` is set | Proxied session: apply the NO_PROXY recipe above before trusting the error |

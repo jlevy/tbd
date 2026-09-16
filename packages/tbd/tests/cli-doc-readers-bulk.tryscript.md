@@ -122,6 +122,62 @@ Run `tbd shortcut --list` to see available shortcuts.
 ? 1
 ```
 
+# Test: A single unknown shortcut keeps the legacy non-error behavior
+
+```console
+$ tbd shortcut totally-bogus-name-xyz 2>&1
+No shortcut found matching: totally-bogus-name-xyz
+Run `tbd shortcut --list` to see available shortcuts.
+? 0
+```
+
+# Test: Model a pre-upgrade cache with no stacked-PR entry and a colliding helper
+
+```console
+$ node -e "const fs=require('node:fs'); const p='.tbd/config.yml'; fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(/^    shortcuts\\/standard\\/stacked-prs\\.md:.*\\n/m, '')); fs.rmSync('.tbd/docs/shortcuts/standard/stacked-prs.md', { force: true }); fs.writeFileSync('.tbd/docs/shortcuts/standard/stacked-prs-helper.md', '---\\ntitle: Stacked PRs Helper\\n---\\n\\n# Helper\\n')"
+? 0
+```
+
+# Test: A bundled shortcut missing from a fresh repository cache points to setup
+
+```console
+$ tbd shortcut stacked-prs 2>&1
+Error: The installed tbd includes the "stacked-prs" shortcut, but this repository's managed docs and generated agent guidance are stale.
+Run `tbd setup --auto` to refresh them, then retry.
+? 1
+```
+
+# Test: The stale-cache diagnosis also applies to an all-or-nothing batch
+
+```console
+$ tbd shortcut agent-handoff stacked-prs 2>&1
+Error: The installed tbd includes the "stacked-prs" shortcut, but this repository's managed docs and generated agent guidance are stale.
+Run `tbd setup --auto` to refresh them, then retry.
+? 1
+```
+
+# Test: Setup restores the shortcut and generated routing surfaces
+
+```console
+$ tbd setup --auto >/dev/null && tbd shortcut stacked-prs | grep "^title:"
+title: Stacked PRs
+? 0
+```
+
+# Test: Setup restores the generated portable-skill route
+
+```console
+$ grep -F "Create a stacked PR" .agents/skills/tbd/SKILL.md >/dev/null
+? 0
+```
+
+# Test: Setup generates the Codex installer for the Codex skill target
+
+```console
+$ grep -F 'GH_SKILL_AGENT="${GH_SKILL_AGENT:-codex}"' .codex/ensure-gh-cli.sh >/dev/null
+? 0
+```
+
 # Test: --json emits an array of the per-shortcut shape
 
 ```console
