@@ -3,14 +3,18 @@ type: is
 id: is-01m1d1x7tk4995rv8skr6javbk
 title: Stack awareness in the PR review lifecycle docs
 kind: task
-status: open
+status: in_progress
 priority: 2
-version: 1
+version: 2
+delegate: codex@spud10
 labels: []
 dependencies: []
 parent_id: is-01m1d1tam7230zrcj70ecmkt8b
+hold: null
+hold_until: null
 created_at: 2026-08-31T23:19:11.442Z
-updated_at: 2026-08-31T23:19:11.442Z
+updated_at: 2026-09-16T18:02:50.015Z
+started_at: 2026-09-16T18:02:50.015Z
 ---
 pr-review-workflows.md maps the review lifecycle but has no notion of a stack, and the review and
 address shortcuts inherit that blind spot.

@@ -3,16 +3,20 @@ type: is
 id: is-01m1d1wd94kmwcbne34nf4f8se
 title: "New shortcut: stacked-prs (tbd policy layer over the official skill)"
 kind: feature
-status: open
+status: in_progress
 priority: 1
-version: 2
+version: 3
+delegate: codex@spud10
 labels: []
 dependencies:
   - type: blocks
     target: is-01m1d1x86a96ak3rzd8w6ft7ej
 parent_id: is-01m1d1tam7230zrcj70ecmkt8b
+hold: null
+hold_until: null
 created_at: 2026-08-31T23:18:44.259Z
-updated_at: 2026-08-31T23:19:22.669Z
+updated_at: 2026-09-16T18:02:49.998Z
+started_at: 2026-09-16T18:02:49.998Z
 ---
 Add packages/tbd/docs/shortcuts/standard/stacked-prs.md.
 
