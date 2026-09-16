@@ -112,6 +112,8 @@ export interface BeadPatch {
    * would describe a bead that is canceled and open at once.
    */
   resolution?: IssueResolutionType | null;
+  /** Applied atomically with resolution so duplicate pointers cannot become invalid. */
+  duplicate_of?: string | null;
   /** Set alongside `status` for the same reason `resolution` is. */
   hold?: IssueHoldType | null;
   /**

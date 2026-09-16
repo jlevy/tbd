@@ -291,6 +291,7 @@ function pulledFieldsOf(issue: Issue) {
     labels: [...(issue.labels ?? [])].sort(),
     assignee: issue.assignee ?? null,
     resolution: issue.resolution ?? null,
+    duplicate_of: issue.duplicate_of ?? null,
     hold: issue.hold ?? null,
   };
 }
@@ -318,8 +319,12 @@ function applyBeadPatch(stored: Issue, patch: BeadPatch): { issue: Issue; change
     ...(patch.labels !== undefined ? { labels: patch.labels } : {}),
     ...(patch.assignee !== undefined ? { assignee: patch.assignee } : {}),
     ...(patch.resolution !== undefined ? { resolution: patch.resolution } : {}),
+    ...(patch.duplicate_of !== undefined ? { duplicate_of: patch.duplicate_of } : {}),
     ...(patch.hold !== undefined ? { hold: patch.hold } : {}),
   };
+  if (issue.resolution !== 'duplicate') {
+    issue.duplicate_of = null;
+  }
   return { issue, changed: !isDeepStrictEqual(pulledFieldsOf(stored), pulledFieldsOf(issue)) };
 }
 
@@ -878,7 +883,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     // one-way regime where the bead was the truth, so the base seeds from the
     // REMOTE snapshot: local divergence pushes, nothing pulls, and no phantom
     // conflicts fire on the first synchronization.
-    const base =
+    const base: LinkRecord['base'] =
       record?.base ??
       pendingCreateBase ??
       (() => {
@@ -947,6 +952,26 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         adapter.canPushAssignee(bead.assignee ?? null),
       assigneePull: remote.assigneeSyncable !== false,
     });
+    // 0.8.1 could record agreement on Duplicate while writing Linear's Canceled state.
+    // Repair that exact half-converged shape outward; pulling Canceled would leave the
+    // bead's required duplicate pointer attached to a non-duplicate resolution and fail
+    // schema validation forever.
+    const repairsLegacyDuplicate =
+      base.slot === 'duplicate' &&
+      local.slot === 'duplicate' &&
+      remoteView.slot === 'canceled' &&
+      bead.resolution === 'duplicate' &&
+      bead.duplicate_of != null;
+    if (repairsLegacyDuplicate) {
+      delete result.beadPatch.slot;
+      delete result.beadPatch.status;
+      delete result.beadPatch.hold;
+      delete result.beadPatch.resolution;
+      delete result.beadPatch.duplicate_of;
+      result.externalPatch.slot = 'duplicate';
+      result.merged.slot = 'duplicate';
+      result.merged.status = 'closed';
+    }
     // A pulled slot decomposes here rather than in the matrix, because the bead fields
     // it implies carry invariants the matrix knows nothing about — a resolution only on
     // closed work, a hold only off it. Doing it in one place keeps those rules with the
@@ -960,7 +985,12 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       // renders, so a decomposition that stopped at the patch would leave both
       // describing the position the bead just moved away from.
       result.merged.status = fields.status;
-      if (result.beadPatch.slot === 'duplicate') {
+      if (result.beadPatch.slot === 'duplicate' && bead.duplicate_of != null) {
+        // A locally known duplicate target is stronger than the provider's bare state.
+        // Keep the valid resolution-pointer pair together.
+        result.beadPatch.resolution = 'duplicate';
+        result.beadPatch.duplicate_of = bead.duplicate_of;
+      } else if (result.beadPatch.slot === 'duplicate') {
         // The tracker carries the duplicate's target as a relation tbd does not read,
         // and the write boundary rejects a duplicate without one. Canceled keeps the
         // honest half; saying so beats narrowing it silently.
@@ -970,6 +1000,9 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
           message:
             'Marked a duplicate in the tracker; recorded as canceled because the duplicate target is not mirrored locally.',
         });
+      } else if (bead.duplicate_of != null) {
+        // Moving away from Duplicate invalidates the pointer just as `tbd reopen` does.
+        result.beadPatch.duplicate_of = null;
       }
     }
 
