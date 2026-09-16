@@ -3,8 +3,8 @@ base:
   description_hash: sha256v7:6f78ed930b41184d4bc596090ce455e01e65682dbc74b095ac00c9689cca1256
   labels: []
   priority: 1
-  slot: in_progress
-  status: in_progress
+  slot: done
+  status: closed
   title: Release notes and release gate for the coordination stack
 bead_id: is-01m2eseh97vth3cpm35m074faf
 external_id: 2f20c626-78c2-4a48-9904-5f80572914a7
@@ -12,7 +12,7 @@ external_key: OS-465
 external_url: https://linear.app/finterm-ai/issue/OS-465/release-notes-and-release-gate-for-the-coordination-stack
 refinement_slot: in_progress
 refinement_state_id: 3d68307f-c21e-4fa1-a9e4-6e9b4f5f6e69
-remote_updated_at: 2026-09-16T08:28:29.377Z
+remote_updated_at: 2026-09-16T18:17:00.229Z
 state: linked
-synced_at: 2026-09-16T08:58:45.789Z
+synced_at: 2026-09-16T18:17:00.582Z
 type: lk

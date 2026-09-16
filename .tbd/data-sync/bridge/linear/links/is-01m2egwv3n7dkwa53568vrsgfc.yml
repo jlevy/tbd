@@ -11,9 +11,9 @@ bead_id: is-01m2egwv3n7dkwa53568vrsgfc
 external_id: 11b14cdc-5e88-4dc2-a658-0280673e8eb1
 external_key: OS-456
 external_url: https://linear.app/finterm-ai/issue/OS-456/engine-create-path-drops-resolution-and-hold-and-skips-the-assignee
-refinement_slot: backlog
-refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T09:06:22.972Z
 state: linked
-synced_at: 2026-09-16T09:06:23.202Z
+synced_at: 2026-09-16T18:16:56.366Z
 type: lk

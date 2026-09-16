@@ -12,9 +12,9 @@ bead_id: is-01m1yzx6mfhcc6px4p5xdnvxch
 external_id: 8ace775b-994d-4d19-8cbc-7e77f7cbe644
 external_key: OS-434
 external_url: https://linear.app/finterm-ai/issue/OS-434/duplicate-close-survives-the-linear-round-trip-applyterminalaxis-and
-refinement_slot: backlog
-refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T09:06:18.840Z
 state: linked
-synced_at: 2026-09-16T09:06:19.047Z
+synced_at: 2026-09-16T18:16:51.657Z
 type: lk
