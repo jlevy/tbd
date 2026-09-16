@@ -276,7 +276,7 @@ tbd’s conflict-report lifecycle depends on Linear’s `commentResolve`
 (`integrations/core/types.ts:320-336`), so GitHub needs a different convention.
 
 `GET …/issues/{number}/timeline` returns the merged event stream.
-`IssueTimelineItems` introspects to 49 members, including the ones this work cares
+`IssueTimelineItems` introspects to 48 members, including the ones this work cares
 about: `ClosedEvent`, `ReopenedEvent`, `MarkedAsDuplicateEvent`,
 `UnmarkedAsDuplicateEvent`, `SubIssueAddedEvent`, `SubIssueRemovedEvent`,
 `ParentIssueAddedEvent`, `ParentIssueRemovedEvent`, `BlockedByAddedEvent`,
