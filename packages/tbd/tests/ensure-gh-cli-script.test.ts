@@ -17,6 +17,22 @@ const GH_STACK_ASSET_DIGESTS = {
   'linux-arm64': 'a79649e121845b7404109de21d65601c09c8c6d021d93738a3428d23986a8841',
 } as const;
 
+/** Resolves Bash before a test replaces PATH with Git Bash's POSIX spelling. */
+function resolveBash(): string {
+  if (process.platform !== 'win32') {
+    return 'bash';
+  }
+
+  const result = spawnSync('where.exe', ['bash'], { encoding: 'utf8' });
+  const executable = result.stdout?.split(/\r?\n/).find(Boolean);
+  if (result.status !== 0 || !executable) {
+    throw new Error(`could not resolve bash.exe: ${result.stderr}`);
+  }
+  return executable;
+}
+
+const BASH = resolveBash();
+
 /** Reads the shipped shell source with stable line endings for text inspection. */
 async function readScriptSource(): Promise<string> {
   return (await readFile(SCRIPT, 'utf8')).replace(/\r\n?/g, '\n');
@@ -28,7 +44,7 @@ function bashPath(path: string): string {
     return path;
   }
 
-  const result = spawnSync('bash', ['-c', 'cygpath -u "$1"', '_', path], {
+  const result = spawnSync(BASH, ['-c', 'cygpath -u "$1"', '_', path], {
     encoding: 'utf8',
   });
   if (result.status !== 0) {
@@ -39,7 +55,7 @@ function bashPath(path: string): string {
 
 /** Prepends a fixture directory to Bash's own normalized PATH. */
 function bashPathWith(directory: string): string {
-  const result = spawnSync('bash', ['-c', 'printf %s "$PATH"'], { encoding: 'utf8' });
+  const result = spawnSync(BASH, ['-c', 'printf %s "$PATH"'], { encoding: 'utf8' });
   if (result.status !== 0) {
     throw new Error(`could not read the Git Bash PATH: ${result.stderr}`);
   }
@@ -130,7 +146,7 @@ function skillListFixture(overrides: Partial<SkillListFixture> = {}): SkillListF
 async function ghStackSkillPresent(fixtures: readonly SkillListFixture[]): Promise<boolean> {
   const fn = await extractFunction('gh_stack_skill_present');
   const result = spawnSync(
-    'bash',
+    BASH,
     [
       '-c',
       [
@@ -161,7 +177,7 @@ async function ghStackSkillPresent(fixtures: readonly SkillListFixture[]): Promi
 async function ghStackExtensionListMatches(lines: readonly string[]): Promise<boolean> {
   const fn = await extractFunction('gh_stack_extension_list_matches');
   const result = spawnSync(
-    'bash',
+    BASH,
     [
       '-c',
       [
@@ -187,13 +203,9 @@ async function ghStackExtensionListMatches(lines: readonly string[]): Promise<bo
 /** Runs the shipped platform normalizer without depending on the test host. */
 async function ghStackPlatformFor(os: string, arch: string): Promise<string | null> {
   const fn = await extractFunction('gh_stack_platform_for');
-  const result = spawnSync(
-    'bash',
-    ['-c', `${fn}\ngh_stack_platform_for "$1" "$2"`, '_', os, arch],
-    {
-      encoding: 'utf8',
-    },
-  );
+  const result = spawnSync(BASH, ['-c', `${fn}\ngh_stack_platform_for "$1" "$2"`, '_', os, arch], {
+    encoding: 'utf8',
+  });
   if (result.status !== 0 && result.status !== 1) {
     throw new Error(`unexpected exit ${result.status}: ${result.stderr}`);
   }
@@ -208,7 +220,7 @@ async function ghStackChecksumMatches(contents: string, expected: string): Promi
     await writeFile(fixture, contents);
     const fn = await extractFunction('sha256_matches');
     const result = spawnSync(
-      'bash',
+      BASH,
       ['-c', `${fn}\nsha256_matches "$1" "$2"`, '_', bashPath(fixture), expected],
       {
         encoding: 'utf8',
@@ -255,7 +267,7 @@ async function ghStackManifestMatches(overrides: ManifestOverrides = {}): Promis
     const manifestFileFn = await extractFunction('gh_stack_manifest_file_matches');
     const manifestFn = await extractFunction('gh_stack_manifest_matches');
     const result = spawnSync(
-      'bash',
+      BASH,
       [
         '-c',
         [
@@ -284,7 +296,7 @@ describe('ensure-gh-cli.sh', () => {
     /** Runs `version_ge have want` and reports whether it returned success. */
     async function versionGe(have: string, want: string): Promise<boolean> {
       const fn = await extractFunction('version_ge');
-      const result = spawnSync('bash', ['-c', `${fn}\nversion_ge "$1" "$2"`, '_', have, want], {
+      const result = spawnSync(BASH, ['-c', `${fn}\nversion_ge "$1" "$2"`, '_', have, want], {
         encoding: 'utf8',
       });
       if (result.status !== 0 && result.status !== 1) {
@@ -444,7 +456,7 @@ printf 'tampered asset' > "$output"
         chmod(join(binDirectory, 'curl'), 0o755),
       ]);
 
-      const result = spawnSync('bash', [SCRIPT, '--with-stack'], {
+      const result = spawnSync(BASH, [bashPath(SCRIPT), '--with-stack'], {
         encoding: 'utf8',
         env: {
           ...process.env,
@@ -455,7 +467,7 @@ printf 'tampered asset' > "$output"
           XDG_DATA_HOME: bashPath(dataHome),
         },
       });
-      expect(result.status, result.stderr).toBe(0);
+      expect(result.status, `${result.error?.message ?? ''}\n${result.stderr}`).toBe(0);
       expect(result.stdout).toContain('checksum mismatch');
       expect(result.stdout).toContain("Do not run 'gh stack'");
       expect(await readFile(marker, 'utf8').catch(() => null)).toBeNull();
@@ -584,7 +596,7 @@ exec /bin/mv "$@"
         ['gh', 'curl', 'sha256sum', 'mv'].map((name) => chmod(join(binDirectory, name), 0o755)),
       );
 
-      const result = spawnSync('bash', [SCRIPT, '--with-stack'], {
+      const result = spawnSync(BASH, [bashPath(SCRIPT), '--with-stack'], {
         encoding: 'utf8',
         env: {
           ...process.env,
@@ -595,7 +607,10 @@ exec /bin/mv "$@"
           XDG_DATA_HOME: bashDataHome,
         },
       });
-      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+      expect(
+        result.status,
+        `${result.error?.message ?? ''}\n${result.stdout}\n${result.stderr}`,
+      ).toBe(0);
       expect(result.stdout).toContain('could not install a verified github/gh-stack extension');
       const isolatedRoot = (await readFile(installRootLog, 'utf8')).trim();
       expect(isolatedRoot).not.toBe(bashDataHome);
