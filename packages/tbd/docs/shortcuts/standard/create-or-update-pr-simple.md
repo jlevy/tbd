@@ -63,9 +63,19 @@ Create a to-do list with the following items then perform all of them:
      - For an unstacked branch, run `tbd shortcut merge-upstream` when needed.
      - For a locally tracked stack, use `gh stack sync`.
      - For a formal remote stack without local tracking, never merge the trunk into the
-       layer. If synchronization is needed, adopt it non-interactively with
-       `gh stack checkout "$PR_URL"`, verify with `gh stack view --json`, and then run
-       `gh stack sync`. Stop if adoption or verification fails.
+       layer. Before `gh stack checkout "$PR_URL"`, apply the official skill’s conflict
+       preflight: if any target branch is tracked in a different local stack, switch to
+       a non-shared branch in that stack and run `gh stack unstack --local`, then return
+       to this branch. If you cannot prove the checkout is conflict-free or safely remove
+       the conflicting local tracking, stop instead of invoking a command that can
+       prompt indefinitely.
+       Then check out the remote stack, verify with `gh stack view --json`, and run
+       `gh stack sync`. Stop if checkout, verification, or sync fails.
+   - For every `gh stack sync` above, capture and inspect its combined output before
+     continuing. A divergent non-interactive sync can print
+     `Sync aborted — no changes were made` and exit 0. Treat any `Sync aborted` output
+     as failure, resolve the divergence using the official skill, retry, and require a
+     final `gh stack view --json` containing `$BRANCH`.
 
 4. Review all commits on this branch since it diverged from its base:
    - Choose a base candidate:
@@ -76,10 +86,13 @@ Create a to-do list with the following items then perform all of them:
        `gh stack view --json` to find `$BRANCH` in `.branches`; use the previous
        branch’s `.name`, or `.trunk` when `$BRANCH` is the bottom layer.
        This applies whether or not an open PR already exists.
-   - Run `git fetch origin`, then resolve the candidate to an existing commit: prefer
-     the local branch when it exists, otherwise use `origin/<candidate>`. Stop if
-     neither revision exists.
-     Assign that resolved revision to `$DIFF_BASE`.
+   - Run `git fetch origin`, then resolve the candidate to an existing commit.
+     For an existing PR, and for a trunk or already-published base, use the fetched
+     `origin/<candidate>` ref so the description matches GitHub’s diff.
+     Never prefer a same-named local branch over that fetched remote ref.
+     Use the local `<candidate>` only for a genuinely unpublished, locally tracked stack
+     layer; stop if the state-appropriate revision does not exist.
+     Assign the resolved revision to `$DIFF_BASE`.
    - Run `git log $DIFF_BASE..HEAD --oneline` to see commits.
    - Run `git diff $DIFF_BASE...HEAD` to see all changes.
      Diffing a stacked layer against the trunk includes every lower layer and produces

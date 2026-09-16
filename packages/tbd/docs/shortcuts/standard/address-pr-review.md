@@ -90,18 +90,26 @@ Create a to-do list with the following items then perform all of them:
      is unstacked. A nonempty result means the PR belongs to a formal GitHub stack, even
      when the local check exits 2.
 
-   - If the PR belongs to a remote-only formal stack, run `gh stack checkout "$PR_URL"`
-     before any `gh stack sync` or `gh stack rebase --upstack`. Stop if checkout fails
-     or a subsequent `gh stack view --json` does not contain `$BRANCH`; do not merge or
-     reconstruct the chain by hand.
+   - If the PR belongs to a remote-only formal stack, apply the official skill’s
+     checkout-conflict preflight before `gh stack checkout "$PR_URL"`: if any target
+     branch is tracked in a different local stack, switch to a non-shared branch in that
+     stack and run `gh stack unstack --local`, then return to this branch.
+     If you cannot prove the checkout is conflict-free or safely remove the conflicting
+     local tracking, stop instead of invoking a command that can prompt indefinitely.
+     Stop if checkout fails or a subsequent `gh stack view --json` does not contain
+     `$BRANCH`; do not merge or reconstruct the chain by hand.
 
    - If either the local or remote check identifies a stack, the checkout lands you
      mid-stack. Land each fix on the layer that owns the code, never on whichever layer
      happens to be checked out.
      If the stack needs the latest trunk, run `gh stack sync`, not `merge-upstream`; it
      force-pushes (`--force-with-lease`) the whole chain.
-     After committing, run `gh stack rebase --upstack` so the layers above pick up the
-     change. CI on the upper PRs means nothing until that rebase happens.
+     Capture and inspect the sync’s combined output: a divergent non-interactive sync
+     can print `Sync aborted — no changes were made` and exit 0. Treat any
+     `Sync aborted` output as failure, resolve the divergence using the official skill,
+     retry, and require a final `gh stack view --json` containing `$BRANCH`. After
+     committing, run `gh stack rebase --upstack` so the layers above pick up the change.
+     CI on the upper PRs means nothing until that rebase happens.
 
    - Only when local tracking is absent and `$REMOTE_STACK_NUMBER` is empty may you run
      `tbd shortcut merge-upstream` if the base branch has moved substantially.

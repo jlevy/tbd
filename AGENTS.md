@@ -44,9 +44,10 @@ actions rather than telling them to run commands.
 - Run `tbd prime` to load current project state and the full tbd workflow.
 - Run `tbd skill` for the complete reusable tbd skill instructions.
 - Run `tbd shortcut --list` and `tbd guidelines --list` for on-demand resources.
-- For pull requests, run `tbd shortcut create-or-update-pr-simple`. When the user asks
-  for stacked or dependent PRs, run `tbd shortcut stacked-prs` before creating
-  anything. Chained branch bases are not a formal stack; link the PRs with `gh stack`.
+- When creating or updating a pull request, run
+  `tbd shortcut create-or-update-pr-simple`. When that creation or update concerns
+  stacked or dependent PRs, run `tbd shortcut stacked-prs` first.
+  Chained branch bases are not a formal stack; link the PRs with `gh stack`.
 - Track all work as beads: `tbd create`, `tbd ready`, `tbd start`, `tbd close`, and
   `tbd sync`.
 - Before editing a bead, pull and re-read it, run `tbd start <id>`, then run `tbd sync`

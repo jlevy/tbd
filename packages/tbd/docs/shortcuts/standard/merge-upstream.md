@@ -49,13 +49,21 @@ If either check identifies a stack, do not run the normal merge path below.
 A merge commit breaks the stack because stacked branches are kept current by rebasing
 the chain, not by merging the trunk into one layer.
 
-- For a remote-only formal stack, first run `gh stack checkout "$PR_URL"` to adopt its
-  local tracking. Stop if checkout fails or a subsequent `gh stack view --json` does not
-  contain `$BRANCH`; do not merge or reconstruct the chain by hand.
+- For a remote-only formal stack, apply the official skill’s checkout-conflict preflight
+  before `gh stack checkout "$PR_URL"`: if any target branch is tracked in a different
+  local stack, switch to a non-shared branch in that stack and run
+  `gh stack unstack --local`, then return to this branch.
+  If you cannot prove the checkout is conflict-free or safely remove the conflicting
+  local tracking, stop instead of invoking a command that can prompt indefinitely.
+  Stop if checkout fails or a subsequent `gh stack view --json` does not contain
+  `$BRANCH`; do not merge or reconstruct the chain by hand.
 - Run `gh stack sync`. This rebases and force-pushes (`--force-with-lease`) every branch
   in the stack. Skip normal-path steps 2 through 5 below.
-  Run the step 6 verification without creating a merge commit, then complete the push,
-  CI, and closeout steps.
+  Capture and inspect the command’s combined output: a divergent non-interactive sync
+  can print `Sync aborted — no changes were made` and exit 0. Treat any `Sync aborted`
+  output as failure, resolve the divergence using the official skill, retry, and require
+  a final `gh stack view --json` containing `$BRANCH`. Run the step 6 verification
+  without creating a merge commit, then complete the push, CI, and closeout steps.
 
 The normal path applies only when local tracking is absent and the current PR, if any,
 has no formal remote stack membership.

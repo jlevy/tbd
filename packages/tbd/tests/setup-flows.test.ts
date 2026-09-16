@@ -211,9 +211,14 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
         `<!-- BEGIN TBD INTEGRATION format=${CURRENT_FORMAT} surface=agents-md -->`,
       );
       expect(agents).toContain('tbd prime');
-      expect(agents).toContain('tbd shortcut create-or-update-pr-simple');
+      expect(agents).toContain(
+        'When creating or updating a pull request, run `tbd shortcut create-or-update-pr-simple`',
+      );
       expect(agents).toContain('tbd shortcut stacked-prs');
       expect(agents).toContain('not a formal stack');
+      expect(agents).not.toContain(
+        'For pull requests, run `tbd shortcut create-or-update-pr-simple`',
+      );
 
       const block = agents.slice(
         agents.indexOf('<!-- BEGIN TBD INTEGRATION'),

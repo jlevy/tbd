@@ -61,6 +61,20 @@ most, because breaking them hangs an agent session indefinitely:
   number is read as a stack number before a PR number.
 - Pass branch names to `init`, `add`, and `checkout`. Bare forms prompt.
 
+Two recovery paths need additional postconditions even when the command invocation is
+otherwise non-interactive:
+
+- Before adopting a remote-only stack with `gh stack checkout <PR URL>`, check whether
+  any target branch belongs to a different local stack.
+  From a non-shared branch in the conflicting stack, run `gh stack unstack --local`,
+  then return and retry the checkout.
+  The official skill documents an unbypassable prompt when local and remote stack
+  compositions conflict, so stop if you cannot prove the checkout is conflict-free.
+- Capture and inspect combined output from `gh stack sync`. A divergent non-interactive
+  sync can print `Sync aborted — no changes were made` and exit 0. Treat that message as
+  failure, resolve the divergence using the official skill, retry, and verify the
+  resulting stack with `gh stack view --json` before continuing.
+
 ## When to Stack
 
 Stacking is **opt-in**. It is one workflow among several, and a single well-scoped PR is

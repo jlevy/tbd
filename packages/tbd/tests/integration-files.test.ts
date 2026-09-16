@@ -273,6 +273,12 @@ describe('integration file formats', () => {
         expect(content, `${name} must safely adopt a remote-only stack before syncing`).toContain(
           'gh stack checkout "$PR_URL"',
         );
+        expect(content, `${name} must avoid interactive checkout conflicts`).toContain(
+          'gh stack unstack --local',
+        );
+        expect(content, `${name} must detect a successful stack-sync abort`).toContain(
+          'Sync aborted',
+        );
         expect(content, `${name} must route existing PRs through formal linking`).toContain(
           'gh stack link',
         );
@@ -281,6 +287,9 @@ describe('integration file formats', () => {
         );
         expect(content, `${name} must resolve a fetched remote base revision`).toContain(
           'origin/<candidate>',
+        );
+        expect(content, `${name} must prefer the remote base for an existing PR`).toContain(
+          'Never prefer a same-named local branch over that fetched remote ref',
         );
       }
 
@@ -305,10 +314,16 @@ describe('integration file formats', () => {
         expect(content, `${name} must adopt a remote-only stack before local operations`).toContain(
           'gh stack checkout "$PR_URL"',
         );
+        expect(content, `${name} must avoid interactive checkout conflicts`).toContain(
+          'gh stack unstack --local',
+        );
         expect(
           content,
           `${name} must fail closed when stack adoption cannot be verified`,
         ).toContain('Stop if checkout fails');
+        expect(content, `${name} must detect a successful stack-sync abort`).toContain(
+          'Sync aborted',
+        );
         expect(content, `${name} must not retain the old nonzero-is-flat rule`).not.toMatch(
           /any non-zero exit[\s\S]{0,100}means it is not/iu,
         );
