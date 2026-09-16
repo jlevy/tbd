@@ -5,7 +5,7 @@ title: "[epic] gh CLI hardening and stacked-PR support"
 kind: epic
 status: in_progress
 priority: 1
-version: 14
+version: 15
 labels: []
 dependencies: []
 child_order_hints:
@@ -17,8 +17,9 @@ child_order_hints:
   - is-01m1d1x7ezs8c1q388j419679e
   - is-01m1d1x7tk4995rv8skr6javbk
   - is-01m1d1x86a96ak3rzd8w6ft7ej
+  - is-01m2nqtwk7sa6nfjta8s3r7hy4
 created_at: 2026-08-31T23:17:36.006Z
-updated_at: 2026-09-16T18:03:08.500Z
+updated_at: 2026-09-16T18:32:00.358Z
 duplicate_of: null
 extensions:
   linear:

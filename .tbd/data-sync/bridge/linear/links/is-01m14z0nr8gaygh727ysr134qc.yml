@@ -3,8 +3,8 @@ base:
   description_hash: sha256v7:ed5b5d09d2055d97e256fcbc8e9a7edaad704b04d8a55ba68b0cf0a8633fbeea
   labels: []
   priority: 0
-  slot: todo
-  status: open
+  slot: done
+  status: closed
   title: "Linear mirror alternates push/pull on 13 agreeing pairs: mechanism not yet
     reproduced"
 bead_id: is-01m14z0nr8gaygh727ysr134qc
@@ -13,7 +13,7 @@ external_key: OS-412
 external_url: https://linear.app/finterm-ai/issue/OS-412/linear-mirror-alternates-pushpull-on-13-agreeing-pairs-mechanism-not
 refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
-remote_updated_at: 2026-09-16T08:58:32.590Z
+remote_updated_at: 2026-09-16T18:16:45.132Z
 state: linked
-synced_at: 2026-09-16T08:58:32.956Z
+synced_at: 2026-09-16T18:16:45.606Z
 type: lk

@@ -3,15 +3,22 @@ type: is
 id: is-01m2kfdwg1v0yk4zt6zrz7h6eq
 title: "Stability sprint plan text is stale after #286-#290; record the 2026-09-15 release gates"
 kind: task
-status: open
+status: closed
 priority: 2
-version: 4
+version: 6
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
+delegate: codex@spud10
 labels: []
 dependencies: []
 parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
+hold: null
+hold_until: null
 created_at: 2026-09-15T21:26:36.800Z
-updated_at: 2026-09-16T08:58:47.903Z
+updated_at: 2026-09-16T18:11:52.966Z
+started_at: 2026-09-16T18:09:16.869Z
+closed_at: 2026-09-16T18:11:52.965Z
+close_reason: "Reconciled the stability-sprint plan through PRs #286-#290, the #298 convergence fixes, the #299 v0.9.0 release, and the current post-release gates. Updated TODO and active plan status; formatted and validated the durable documentation."
+resolution: null
 duplicate_of: null
 extensions:
   linear:

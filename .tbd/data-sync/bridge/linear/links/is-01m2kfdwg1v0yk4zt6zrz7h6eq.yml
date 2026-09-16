@@ -3,8 +3,8 @@ base:
   description_hash: sha256v7:7eb1b20ab380b9ee60eeb3e118dd0b0803f1c444177b737298696aa868901cd6
   labels: []
   priority: 2
-  slot: todo
-  status: open
+  slot: done
+  status: closed
   title: "Stability sprint plan text is stale after #286-#290; record the 2026-09-15
     release gates"
 bead_id: is-01m2kfdwg1v0yk4zt6zrz7h6eq
@@ -13,7 +13,7 @@ external_key: OS-471
 external_url: https://linear.app/finterm-ai/issue/OS-471/stability-sprint-plan-text-is-stale-after-286-290-record-the-2026-09
 refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
-remote_updated_at: 2026-09-16T08:28:41.275Z
+remote_updated_at: 2026-09-16T18:17:02.969Z
 state: linked
-synced_at: 2026-09-16T08:58:47.931Z
+synced_at: 2026-09-16T18:17:03.198Z
 type: lk
