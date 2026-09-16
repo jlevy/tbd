@@ -5,7 +5,7 @@ title: Verify pinned gh-stack skill identity during setup
 kind: bug
 status: closed
 priority: 1
-version: 4
+version: 5
 delegate: codex@spud10
 labels:
   - stacked-prs
@@ -14,7 +14,7 @@ dependencies: []
 hold: null
 hold_until: null
 created_at: 2026-09-16T16:36:45.311Z
-updated_at: 2026-09-16T16:42:50.329Z
+updated_at: 2026-09-16T16:45:17.350Z
 started_at: 2026-09-16T16:37:03.553Z
 closed_at: 2026-09-16T16:42:50.328Z
 close_reason: Pinned skill identity and ownership are now verified before reuse and after forced reinstall; focused collision coverage passes.
@@ -25,4 +25,4 @@ The ensure-gh-cli skill presence check accepts any skill named gh-stack, regardl
 
 ## Notes
 
-Hardened gh_stack_skill_present to require the official github/gh-stack source, exact GH_STACK_SKILL_SHA version, pinned=true, user scope, and the selected agent host. Added valid identity plus wrong-source, wrong-version, unpinned, wrong-scope, and wrong-agent fixtures. Focused Vitest: 20 passed; package typecheck and focused ESLint passed.
+Hardened gh_stack_skill_present to inspect all scopes for the owning agent, require the official github/gh-stack source at exact GH_STACK_SKILL_SHA with pinned=true in user scope, and reject any nonmatching same-name record (including a project-scoped shadow). Added valid identity, wrong-source, wrong-version, unpinned, wrong-scope, wrong-agent, and valid-user-plus-project-shadow fixtures. Focused Vitest: 21 passed; package typecheck and focused ESLint passed.
