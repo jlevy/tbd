@@ -9,11 +9,15 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Phase 1 partially implemented.
-Four defects fixed and verified (`tbd-p40p`, `tbd-10zb`, `tbd-8gcz`, `tbd-r1a3`); the
-13-item alternation in #265 is not yet reproduced and stays open as `tbd-u9eg`. Two
-further defects were found while investigating and are tracked but unfixed: `tbd-g1bu`
-and `tbd-vpje`.
+**Status:** The release-critical convergence and reporting work shipped in 0.9.0;
+residual stability work remains (reconciled 2026-09-16). PR #298 landed the former
+stability branch, exact-slot convergence, honest skipped-field reporting, and the
+mixed-version recovery gate.
+The old unreproduced-mechanism bead `tbd-u9eg` is superseded by that measured
+implementation and its regression suite.
+The label-creation gap (`tbd-vpje`), repository-boundary work (`tbd-pjan`), lock
+recovery, and test-gate reliability remain active; they are post-0.9.0 work rather than
+release blockers.
 
 **Tracked as:** epic `tbd-bcss`.
 
