@@ -339,6 +339,17 @@ Inbound, a Linear delegate is always an app user: a known one maps through `agen
 in reverse; an unknown one warns and leaves the bead unchanged, matching how unmapped
 assignees behave.
 
+> **Status (2026-09-15):** only the provider half of the inbound rule shipped.
+> The Linear adapter reads an issue’s delegate and maps a known app user back through
+> `agent_map` (an unknown one reads as no delegate, without a warning), but no sync path
+> compares or writes that value onto a bead: bare `tbd integration sync` ignores
+> delegates in both directions.
+> Outbound, only the push-only projection (`tbd integration sync --push`,
+> `tbd sync --push --integrations`) publishes a delegate; it skips closed beads and an
+> issue that already has that agent, and it restores a delegate removed in Linear while
+> the bead still names the agent.
+> The engine port and the remote-removal question are tracked in `tbd-9tj0`.
+
 ### Reporting
 
 Two defects from a real debugging session, where a push reported success for a field
@@ -424,8 +435,11 @@ The checked resolver coverage is not evidence that those workflows shipped.
 ### Phase 3: Publishing delegates
 
 - [x] `agent_map` in config; outbound `delegate` → `delegateId` only for mapped agents
-- [x] Inbound delegate maps through `agent_map` in reverse; unknown app users warn and
-  leave the bead unchanged
+- [x] The Linear adapter reads an issue’s delegate and maps it through `agent_map` in
+  reverse; an unknown app user reads as no delegate
+- [ ] Inbound delegate reaches the bead through sync, and an unknown app user warns and
+  leaves the bead unchanged (not implemented: no sync path writes the adapter’s value;
+  see the status note under Mapping)
 - [x] An unmapped agent delegate produces a **reported** skip, never a silent one
 - [x] Tests: each mapping row round-trips; the unpublishable-agent case emits a skip; a
   human delegate is never sent to Linear

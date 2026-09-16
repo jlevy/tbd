@@ -1772,9 +1772,19 @@ prior canonical bridge base so local edits stay pending.
 folded in.)
 
 `linear.identity.agent_map` maps a tbd delegate name to an installed Linear app-user
-UUID. Only a mapped delegate is published to Linear or read back as a bead delegate;
-ordinary session delegates remain local and are reported as skipped.
+UUID. Only a mapped delegate is published to Linear; ordinary session delegates remain
+local and are reported as skipped.
 The field write can create a Linear Agent Session, but tbd does not register an agent.
+The outbound-only projection (`tbd integration sync --push`, or
+`tbd sync --push --integrations`) writes a delegate only when the Linear issue does not
+already have that agent as its delegate, and never for a closed bead (closing a bead
+keeps its `delegate`). While the bead still names the agent, that projection therefore
+restores a delegate that someone removed in Linear, or replaced with an app user not in
+`agent_map`, and the restored delegate may start a new Agent Session.
+To stop publishing it, clear the bead’s delegate with `tbd update <id> --delegate ""`.
+Bare `tbd integration sync` does not apply delegates in either direction: the provider
+reads Linear’s delegate, but the reconciler neither compares nor writes it, so a
+delegate set in Linear does not reach the bead.
 
 `linear.identity.state_map` maps a Linear workflow-state type (`backlog`, `unstarted`,
 `started`, `completed`, `canceled`, or `duplicate`) to the state name this repository

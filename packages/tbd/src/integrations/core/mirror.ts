@@ -239,6 +239,7 @@ export function planMirror(context: MirrorContext): MirrorPlan {
       continue;
     }
     const linkedBeyondMaxNesting = depth > context.maxNesting;
+    const publishesDelegate = issue.status !== 'closed';
 
     const children = childrenOf.get(issue.id) ?? [];
     const counts = {
@@ -291,7 +292,10 @@ export function planMirror(context: MirrorContext): MirrorPlan {
       ...(context.canPushAssignee?.(issue.assignee ?? null)
         ? { assignee: issue.assignee ?? null }
         : {}),
-      ...(context.canPushDelegate?.(issue.delegate ?? null)
+      // Never for closed work. Closing keeps `delegate`, and a delegate write is what makes
+      // Linear start an Agent Session, so publishing it would hand finished work to an
+      // agent. The adapter also skips a delegate the item already has.
+      ...(publishesDelegate && context.canPushDelegate?.(issue.delegate ?? null)
         ? { delegate: issue.delegate ?? null }
         : {}),
     };
@@ -311,7 +315,12 @@ export function planMirror(context: MirrorContext): MirrorPlan {
       });
     }
 
-    if (issue.delegate && context.canPushDelegate && !context.canPushDelegate(issue.delegate)) {
+    if (
+      publishesDelegate &&
+      issue.delegate &&
+      context.canPushDelegate &&
+      !context.canPushDelegate(issue.delegate)
+    ) {
       skippedFields.push({
         field: 'delegate',
         reason:
