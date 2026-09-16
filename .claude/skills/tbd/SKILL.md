@@ -414,8 +414,7 @@ Load the **General engineering** core, then only guidelines matching the task.
 
 ### General engineering
 
-*Read this core before writing or reviewing code.
-Everything else is routed by what the change touches.*
+*Read this core before writing or reviewing code. Everything else is routed by what the change touches.*
 
 | Name | Description |
 | --- | --- |
@@ -445,8 +444,7 @@ Everything else is routed by what the change touches.*
 
 ### TypeScript & JS ecosystem
 
-*Select the documents that match the TypeScript or JavaScript surface; do not load this
-whole group by default.*
+*Select the documents that match the TypeScript or JavaScript surface; do not load this whole group by default.*
 
 | Name | Description |
 | --- | --- |
@@ -461,8 +459,7 @@ whole group by default.*
 
 ### Python
 
-*Select the documents that match the Python surface; do not load this whole group by
-default.*
+*Select the documents that match the Python surface; do not load this whole group by default.*
 
 | Name | Description |
 | --- | --- |
@@ -472,8 +469,7 @@ default.*
 
 ### Rust
 
-*Select the documents that match the Rust surface; do not load this whole group by
-default.*
+*Select the documents that match the Rust surface; do not load this whole group by default.*
 
 | Name | Description |
 | --- | --- |
@@ -488,8 +484,7 @@ default.*
 
 ### Convex
 
-*Select the documents that match the Convex surface; do not load this whole group by
-default.*
+*Select the documents that match the Convex surface; do not load this whole group by default.*
 
 | Name | Description |
 | --- | --- |
