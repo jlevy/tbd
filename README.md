@@ -289,11 +289,11 @@ opinionated rules with concrete examples, built from months of heavy agentic cod
 | [general-comment-rules](packages/tbd/docs/guidelines/general-comment-rules.md) | Comments that preserve non-obvious rationale without restating code |
 | [backward-compatibility-rules](packages/tbd/docs/guidelines/backward-compatibility-rules.md) | Compatibility across code, APIs, file formats, and database schemas |
 | [error-handling-rules](packages/tbd/docs/guidelines/error-handling-rules.md) | Failure propagation, error context, cleanup, exit status, and partial success |
-| [ci-and-gates-rules](packages/tbd/docs/guidelines/ci-and-gates-rules.md) | One local and CI entry point, testable gate logic, non-vacuous checks, and workflow authority |
+| [ci-and-gates-rules](packages/tbd/docs/guidelines/ci-and-gates-rules.md) | One local and CI entry point, negative probes, packaged-artifact evidence, and job-scoped workflow authority |
 | [code-review-rules](packages/tbd/docs/guidelines/code-review-rules.md) | Severity vocabulary, review baseline, risk-ordered reading, and actionable findings |
 | [filesystem-rules](packages/tbd/docs/guidelines/filesystem-rules.md) | Atomic output publication, crash durability, collision policy, deterministic traversal, and partial failure |
 | [supply-chain-hardening](packages/tbd/docs/guidelines/supply-chain-hardening.md) | Dependency cool-offs, lockfiles, install scripts, provenance, and immutable CI inputs |
-| [release-engineering-rules](packages/tbd/docs/guidelines/release-engineering-rules.md) | Release identity, least-privilege publishing, build-once promotion, and packaged-artifact testing |
+| [release-engineering-rules](packages/tbd/docs/guidelines/release-engineering-rules.md) | Rehearsable release state, immutable artifact identity, build-once promotion, channel evidence, and recovery |
 | [release-notes-guidelines](packages/tbd/docs/guidelines/release-notes-guidelines.md) | User-visible release deltas without listing development-only fixes as shipped changes |
 | [agent-run-operations-rules](packages/tbd/docs/guidelines/agent-run-operations-rules.md) | Pinned launch checkouts, one scheduler per host budget, host-first slowness diagnosis, validating metrics, and reading prompts before blaming a model |
 | [agent-session-bootstrap](packages/tbd/docs/guidelines/agent-session-bootstrap.md) | Installing a repository’s pinned toolchain in agent environments |
@@ -325,7 +325,7 @@ opinionated rules with concrete examples, built from months of heavy agentic cod
 | --- | --- |
 | [python-rules](packages/tbd/docs/guidelines/python-rules.md) | Type annotations, imports, exceptions, resource management, and atomic file replacement |
 | [python-modern-guidelines](packages/tbd/docs/guidelines/python-modern-guidelines.md) | uv-based projects, Strif atomic output, and concise human-readable formatting |
-| [python-cli-patterns](packages/tbd/docs/guidelines/python-cli-patterns.md) | uv, Typer, Rich, Ruff, and BasedPyright for Python CLIs |
+| [python-cli-patterns](packages/tbd/docs/guidelines/python-cli-patterns.md) | Python CLI architecture and the boundary between Python programs and Rust executables distributed in wheels |
 
 ### Rust
 
@@ -333,18 +333,18 @@ opinionated rules with concrete examples, built from months of heavy agentic cod
 | --- | --- |
 | [rust-rules](packages/tbd/docs/guidelines/rust-rules.md) | Ownership, domain types, errors, unsafe code, async, and performance |
 | [rust-lint-format-rules](packages/tbd/docs/guidelines/rust-lint-format-rules.md) | The `[lints]` floor, `clippy.toml`, and measured adoption cost beyond the floor |
-| [rust-project-setup](packages/tbd/docs/guidelines/rust-project-setup.md) | Cargo package shape, workspace metadata, features, toolchain pinning, and MSRV |
+| [rust-project-setup](packages/tbd/docs/guidelines/rust-project-setup.md) | Shortest Rust CLI setup path, Cargo shape, features, current toolchain, MSRV, and the local quality gate |
 | [rust-cli-rules](packages/tbd/docs/guidelines/rust-cli-rules.md) | clap patterns, stream composability, exit status, broken pipes, and destructive commands |
 | [rust-testing-rules](packages/tbd/docs/guidelines/rust-testing-rules.md) | Test boundaries, fixtures, snapshots, properties, features, and platform matrices |
 | [rust-filesystem-rules](packages/tbd/docs/guidelines/rust-filesystem-rules.md) | Path and `OsStr` types, atomic output publication, traversal crates, and error propagation |
-| [rust-release-rules](packages/tbd/docs/guidelines/rust-release-rules.md) | crates.io publishing, unpublished sibling crates, semver checks, and maturin wheels |
+| [rust-release-rules](packages/tbd/docs/guidelines/rust-release-rules.md) | Cargo and crates.io, native target contracts, Maturin binary wheels, uv commands, and registry bootstrap |
 | [rust-code-review-rules](packages/tbd/docs/guidelines/rust-code-review-rules.md) | Unsafe and FFI review plus investigative Rust quick-scan questions |
 
 ### Frameworks and Application Platforms
 
 | Guideline | What it covers |
 | --- | --- |
-| [cli-agent-skill-patterns](packages/tbd/docs/guidelines/cli-agent-skill-patterns.md) | Portable skill, CLI-backed skill, and bundle installation decision guide |
+| [cli-agent-skill-patterns](packages/tbd/docs/guidelines/cli-agent-skill-patterns.md) | Portable skills, local-first exact CLI acquisition, and safe bundle installation |
 | [electron-app-development-patterns](packages/tbd/docs/guidelines/electron-app-development-patterns.md) | Electron process boundaries, backends, security, signing, and updates |
 | [electrobun-app-development-patterns](packages/tbd/docs/guidelines/electrobun-app-development-patterns.md) | Electrobun runtime, typed RPC, packaging, delta updates, and maturity risks |
 | [tauri-app-development-patterns](packages/tbd/docs/guidelines/tauri-app-development-patterns.md) | Tauri 2 capabilities, sidecars, non-Rust backends, signing, and updates |

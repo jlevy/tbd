@@ -1,6 +1,6 @@
 ---
 title: Agent Skills and CLI Integration Patterns
-description: A concise decision guide for portable skills, CLI-backed skills, safe bundle installation, and agent integration
+description: A concise decision guide for portable skills, local-first and exact-version CLI acquisition, safe bundle installation, and agent integration
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: general
 ---
@@ -219,6 +219,60 @@ Keep compatibility separate from recency: prefer an installed CLI whenever it ca
 read the repository’s format, even if its release number is older or newer than the
 recorded fallback.
 
+### Give Rust CLIs an Explicit Acquisition Order
+
+Rust has no first-party zero-install binary runner with uvx ergonomics.
+`cargo install` builds a crate from source and therefore needs a Rust toolchain;
+`cargo-binstall` may select a prebuilt release asset, but it is another tool the user
+must already trust and install.
+Do not describe either as a built-in equivalent of `uvx`.
+
+For an agent-facing Rust CLI, use this order and stop at the first compatible option the
+project supports:
+
+1. **Local command.** Prefer a project-managed or already-installed executable after
+   checking its version or format compatibility.
+
+2. **Verified native archive.** Select the exact version and target from a reviewed
+   GitHub release. Verify the published SHA-256 digest and, when the project publishes
+   one, its artifact attestation before executing.
+   Never fetch a moving `latest` URL.
+
+3. **Exact PyPI binary wheel.** When the project intentionally publishes Maturin
+   `bindings = "bin"` wheels for uv users, use an isolated ephemeral run:
+
+   ```bash
+   uvx --isolated mycli@1.4.2 check README.md
+   ```
+
+   Use a persistent tool environment only when later processes need the command on
+   `PATH`:
+
+   ```bash
+   uv tool install mycli==1.4.2
+   ```
+
+   `uvx` is `uv tool run`; `--isolated` prevents an already-installed tool from
+   replacing the requested environment.
+   The exact version is what reconciles this path with the no-unpinned-runner rule.
+   A wheel used this way must contain the real Rust executable, not a downloader or
+   runtime wrapper; `rust-release-rules` owns that artifact contract.
+
+4. **Exact crates.io source install.** If a Rust toolchain is an accepted prerequisite,
+   use `cargo install --locked mycli@1.4.2`. State that it compiles locally, may take
+   longer, and is not the prebuilt-asset path.
+
+5. **No network fallback.** In a locked-down environment, require the tool to be
+   preprovisioned and fail with the supported installation choices.
+   Do not improvise an unpinned download.
+
+The skill should name only channels the project actually publishes and tests.
+Keep the version in one reviewed configuration when several launchers share it, and keep
+archive digests or attestation policy beside the acquisition logic rather than trusting
+a filename alone. See the official
+[uv tool documentation](https://docs.astral.sh/uv/concepts/tools/) and Cargo’s
+[`cargo install` documentation](https://doc.rust-lang.org/cargo/commands/cargo-install.html).
+
 ### Make Failures Actionable
 
 The CLI should:
@@ -311,6 +365,8 @@ packaging.
 
 - [ ] Project/local entrypoint is tried first
 - [ ] Network fallback pins a reviewed package version
+- [ ] Native-archive fallbacks verify checksums and available attestations
+- [ ] uv instructions distinguish isolated ephemeral runs from persistent installs
 - [ ] Generated pins identify a published release, not a development build
 - [ ] Failures are actionable and return accurate exit codes
 - [ ] Sandbox and permission behavior is documented
