@@ -3,9 +3,9 @@ type: is
 id: is-01m2kfdsf7d4n1txgwftzrajmh
 title: "Push-only mirror sends status without slot, so every --push moves not-ready Linear items Backlog to Todo and fights the reconciler (new with #290)"
 kind: bug
-status: in_progress
+status: closed
 priority: 1
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 labels: []
 dependencies:
@@ -13,7 +13,11 @@ dependencies:
     target: is-01m2eseh97vth3cpm35m074faf
 parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 created_at: 2026-09-15T21:26:33.703Z
-updated_at: 2026-09-15T22:19:29.971Z
+updated_at: 2026-09-16T06:38:26.801Z
+closed_at: 2026-09-16T06:38:26.801Z
+close_reason: "Implemented and merged to main with green PR CI: tbd-yqq7 in #292 (705f70c0), tbd-evn3 in #293 (05f7eb66), and tbd-80vz in #294 (7120d16f). Verified against origin/main during the 2026-09-15 release-readiness audit."
+resolution: null
+duplicate_of: null
 ---
 New with PR #290. The reconciler (sync engine) now writes the canonical slot, so open work that is not ready goes to Backlog. The push-only mirror still builds its patch with `status` and no `slot` (packages/tbd/src/integrations/core/mirror.ts:264-266), and the Linear adapter falls back to `statusToLinear` when `patch.slot` is absent (integrations/linear/adapter.ts:1021-1027), which maps open work to Todo.
 

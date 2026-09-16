@@ -3,9 +3,9 @@ type: is
 id: is-01m2kfdbt06nedkf82tj5r5qyv
 title: issues/.gitattributes (*.md merge=binary) never reaches existing repositories; only a fresh worktree writes it
 kind: bug
-status: in_progress
+status: closed
 priority: 1
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 labels: []
 dependencies:
@@ -13,7 +13,11 @@ dependencies:
     target: is-01m2eseh97vth3cpm35m074faf
 parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 created_at: 2026-09-15T21:26:19.710Z
-updated_at: 2026-09-15T22:10:37.948Z
+updated_at: 2026-09-16T06:38:26.573Z
+closed_at: 2026-09-16T06:38:26.572Z
+close_reason: "Implemented and merged to main with green PR CI: tbd-yqq7 in #292 (705f70c0), tbd-evn3 in #293 (05f7eb66), and tbd-80vz in #294 (7120d16f). Verified against origin/main during the 2026-09-15 release-readiness audit."
+resolution: null
+duplicate_of: null
 ---
 `ensureDataSyncScaffold` (packages/tbd/src/file/git.ts:2112-2142) is the only writer of `.tbd/data-sync/issues/.gitattributes` (`*.md merge=binary`), added in PR #288 (a0f4d629) so every two-sided bead edit reaches the structured merge instead of git's line merge.
 

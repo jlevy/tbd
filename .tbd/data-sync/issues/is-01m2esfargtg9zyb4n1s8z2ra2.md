@@ -3,9 +3,9 @@ type: is
 id: is-01m2esfargtg9zyb4n1s8z2ra2
 title: Push-only projection sends delegateId for every selected linked bead on every run, including closed beads
 kind: bug
-status: in_progress
+status: closed
 priority: 2
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-08-18-actor-axis-and-identity.md
 labels: []
 dependencies:
@@ -13,7 +13,11 @@ dependencies:
     target: is-01m2eseh97vth3cpm35m074faf
 parent_id: is-01m0c4z87m3kd0cyw2qkd5k6z4
 created_at: 2026-09-14T01:45:57.776Z
-updated_at: 2026-09-15T22:48:38.263Z
+updated_at: 2026-09-16T06:38:27.451Z
+closed_at: 2026-09-16T06:38:27.451Z
+close_reason: "Implemented and merged to main with green PR CI: tbd-yqq7 in #292 (705f70c0), tbd-evn3 in #293 (05f7eb66), and tbd-80vz in #294 (7120d16f). Verified against origin/main during the 2026-09-15 release-readiness audit."
+resolution: null
+duplicate_of: null
 ---
 Behavior change in PR #283 (tbd-w3tv): with agent_map honored, the push-only projection (`tbd integration sync --push`, `tbd sync --push --integrations`) sends `delegateId` for every selected linked bead whose delegate maps (mirror.ts:292-296), on every run, because the mirror does not diff against Linear; closed beads keep `delegate` (close does not clear it), so they are included. linear/adapter.ts:1008 notes that Linear turns a delegate write into an Agent Session. Not verified: whether Linear starts a new session when the same delegateId is written again.
 
