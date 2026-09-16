@@ -3,17 +3,21 @@ type: is
 id: is-01m0es4z70jsnf8e7gna1sskbn
 title: update-specs-status encodes tbd shortcomings that belong in the tool
 kind: epic
-status: in_progress
+status: closed
 priority: 1
-version: 4
+version: 5
 delegate: codex@spud10
 labels: []
 dependencies: []
 hold: null
 hold_until: null
 created_at: 2026-08-20T05:08:54.623Z
-updated_at: 2026-09-16T18:04:27.092Z
+updated_at: 2026-09-16T18:04:42.588Z
 started_at: 2026-09-16T18:04:27.091Z
+closed_at: 2026-09-16T18:04:42.587Z
+close_reason: "Delivered by the September stability plan and its tracked implementation beads: child-count triage, spec lifecycle/status, spec moves, epic/spec-path doctor checks, and shortcut shrinkage are explicitly designed and filed under tbd-ct4z in plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md."
+resolution: null
+duplicate_of: null
 extensions:
   linear:
     id: 9432b8e7-9193-4ee4-ae46-c5da09b228a5
