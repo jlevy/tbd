@@ -6,11 +6,12 @@ category: general
 ---
 # Feature: Rust Quality Floor and Guideline Mapping
 
-**Date:** 2026-08-23 (last updated 2026-08-23)
+**Date:** 2026-08-23 (last updated 2026-09-16)
 
-**Status:** In progress — Phases 2-4 complete in tbd; Phase 1 and 3 each leave one item
-open that needs the playbook repo or a Rust codebase (noted inline); Phase 5 (playbook
-simplification) not started
+**Status:** In progress — Phases 2-4 are complete in tbd, including the Rust CLI
+packaging and release expansion merged in PR #302. Phase 1 and Phase 3 each leave one
+item that needs the playbook repo or a Rust codebase (noted inline); Phase 5 (playbook
+simplification) has not started
 
 ## Overview
 
@@ -425,6 +426,17 @@ tested before its four documents were authored, so it rendered as an empty headi
 the routing test passed.
 `guideline-groups.test.ts` now checks both explicit name sets against what is actually
 bundled.
+
+**Rust CLI packaging and release guidance was reconciled in PR #302.** The follow-up
+gave maintainers one path from executable-contract design through workspace setup,
+quality gates, immutable release rehearsal, packaged-artifact validation, and
+least-privilege publication.
+It clarified Cargo 1.90 workspace publication, crates.io and PyPI trusted-publisher
+bootstrap, Maturin binary wheels for optional uv delivery, exact-version uv acquisition,
+native compatibility floors, and build-once-per-channel promotion.
+The implementation bead `tbd-1fag` is closed.
+An independent Fable review found no actionable issues, all seven hosted checks passed,
+and PR #302 merged on 2026-09-16.
 
 ### Response to the Holistic Review (2026-08-23)
 

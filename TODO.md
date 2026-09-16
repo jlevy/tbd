@@ -31,10 +31,12 @@ that state after the older writer stops, but the versions are not safe concurren
 integration-sync writers.
 
 Development is now 0.9.1-dev.
-PR #301 hardens formal stacked-PR discovery and recovery; the senior review and all four
-remediation items are attached to that PR. Remaining stability-sprint, spec-lifecycle,
-one-sync-engine, coordination, and test-reliability beads are post-0.9.0 work, not
-retroactive release blockers.
+PR #301 merged the formal stacked-PR discovery and recovery hardening after the senior
+review, all four remediation items, and the Windows CI follow-up were closed.
+PR #302 merged the Rust CLI packaging and release guidance reconciliation after an
+independent Fable review found no actionable issues.
+Remaining stability-sprint, spec-lifecycle, one-sync-engine, coordination, and
+test-reliability beads are post-0.9.0 work, not retroactive release blockers.
 
 ## Agent coordination rollout
 
@@ -135,13 +137,16 @@ Selected current epics (query beads for the complete set):
 - **`tbd-bcss`** — Sync convergence, lock recovery, and gate integrity.
   The release convergence fixes shipped; residual stability work remains
 - **`tbd-ewsw`** — GitHub CLI hardening and stacked-PR support.
-  Core support shipped in 0.9.0 and PR #301 hardens it; fresh-machine QA remains
+  Core support shipped in 0.9.0 and PR #301 merged the hardening; fresh-machine QA
+  remains
 - **`tbd-khi1`** — Incremental bead coordination and native comments
 - **`tbd-dzme`** — External sync and traceability (prime, claim, checkpoint, Linear
   visibility). Phases 1–2 shipped; phase 3 is the current front
 - **`tbd-f2kv`** — Actor axis and board projection.
   Core behavior shipped; residual identity UX remains
-- **`tbd-pnhv`** — Rust guideline extraction, migration, and consistency
+- **`tbd-pnhv`** — Rust guideline extraction, migration, and consistency.
+  PR #302 merged the Rust CLI packaging and release expansion; playbook-side migration
+  and simplification remain
 - **`tbd-owa5`** — Agent session refs: link live agent runs from beads, Linear, and
   `tbd web`. New, unstarted; phase 1 is offline and needs no runtime decision
 - **`tbd-gvju`** — External tracker integrations (Linear first, GitHub next)
