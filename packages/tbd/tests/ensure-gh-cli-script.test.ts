@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 const SCRIPT = join(import.meta.dirname, '..', 'docs', 'install', 'ensure-gh-cli.sh');
 const GH_STACK_VERSION = 'v0.1.0';
 const GH_STACK_SKILL_SHA = 'a1b4a3d4d0bcde9ec3a78ab99b2d63af121857a9';
+const unixIt = process.platform === 'win32' ? it.skip : it;
 
 const GH_STACK_ASSET_DIGESTS = {
   'darwin-amd64': '712266939bf40349dce6c8893037b88e0453334d30d06750b61ce1a6c8640bb9',
@@ -319,14 +320,14 @@ describe('ensure-gh-cli.sh', () => {
     expect(await ghStackPlatformFor(os, arch)).toBe(expected);
   });
 
-  it('rejects asset bytes that do not match the expected SHA-256 digest', async () => {
+  unixIt('rejects asset bytes that do not match the expected SHA-256 digest', async () => {
     const official = 'reviewed gh-stack asset';
     const digest = createHash('sha256').update(official).digest('hex');
     expect(await ghStackChecksumMatches(official, digest)).toBe(true);
     expect(await ghStackChecksumMatches(`${official} tampered`, digest)).toBe(false);
   });
 
-  it('removes a colliding extension before a checksum failure and cleans staging', async () => {
+  unixIt('removes a colliding extension before a checksum failure and cleans staging', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'tbd-gh-stack-fail-closed-'));
     const binDirectory = join(directory, 'bin');
     const homeDirectory = join(directory, 'home');
@@ -413,7 +414,7 @@ printf 'tampered asset' > "$output"
     }
   });
 
-  it('quarantines a competing canonical target when mv nests the staged directory', async () => {
+  unixIt('quarantines a competing destination when mv nests the staged directory', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'tbd-gh-stack-publish-race-'));
     const binDirectory = join(directory, 'bin');
     const homeDirectory = join(directory, 'home');
@@ -573,7 +574,7 @@ exec /bin/mv "$@"
     ).toBe(false);
   });
 
-  it('requires gh to execute the pinned manifest path', async () => {
+  unixIt('requires gh to execute the pinned manifest path', async () => {
     expect(await ghStackManifestMatches()).toBe(true);
     expect(await ghStackManifestMatches({ owner: 'example' })).toBe(false);
     expect(await ghStackManifestMatches({ tag: 'v0.0.9' })).toBe(false);
@@ -581,7 +582,7 @@ exec /bin/mv "$@"
   });
 
   it('publishes only a fully verified isolated registration at the canonical path', async () => {
-    const source = await readFile(SCRIPT, 'utf8');
+    const source = (await readFile(SCRIPT, 'utf8')).replaceAll('\r\n', '\n');
     expect(source.match(/--connect-timeout 15 --max-time 120/g)).toHaveLength(2);
     expect(source).toMatch(/sha256_matches "\$asset_path" "\$expected"/);
     expect(source).toMatch(
