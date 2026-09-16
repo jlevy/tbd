@@ -1,0 +1,389 @@
+created_at: 2026-09-16T09:02:02.011Z
+ops:
+  - bead_id: is-01khjmbw2yx3pbgd1edn23ekws
+    external_id: 600e28bf-217d-416b-bc27-8932e9333d95
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01khjmbxbgm5tvpg8j1r2svn7k
+    external_id: 9d43b1cf-47c7-4774-9bd6-aea5333a0e5f
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra98tffpc00qar6ee3zk8tv
+    external_id: 12bc0128-ab1c-407a-80be-ab0789bc537d
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra98tz1mb3br9kg77933vdx
+    external_id: 7ad54ee7-74aa-4285-9edb-e7458ec25a9a
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra99jqbvtjysnr4gc0r7dwm
+    external_id: 767bd6ce-192e-418a-a2ca-3b7954ff1f7d
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra99k339r7jwtw5wdjzbrs5
+    external_id: f1363c49-cc37-4472-8edf-5f44de0bc481
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9a8ae405nqc2mh0jfd8zf
+    external_id: eee255f7-a0be-471b-96e5-41e6ad1479a9
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9a8p986pwpazqavzragar
+    external_id: 808f00cb-b143-413a-be73-d96eeedce2ee
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9a9rgnw0ea5171yg7e317
+    external_id: 26026bba-6214-4214-b039-5e3b6d85426a
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9aag4p0ec6nmg1htaa128
+    external_id: d6695d69-490c-4950-bed1-dfea18535899
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9aave6br1ysqedyccf8y5
+    external_id: 86750d7d-601f-49f3-9cae-7a06a9dae633
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9b5vg4adws2hxtyn51e1r
+    external_id: 92dd4238-d24f-4180-b52b-a69d5bd8938b
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9b6k52jagayjr4sqzjhc7
+    external_id: 77151309-625d-4c2b-8ae3-80585539241d
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9b6yq2v5z2490t4f7c9et
+    external_id: e0c34d16-2c91-4929-8df8-dc16aa18001c
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9b7a1qhwfgg7shvnka1hp
+    external_id: 367dada7-324b-461e-80eb-797dacda995e
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9b7q4zewzz4vgdw17vvav
+    external_id: 672ff69f-07fb-458f-ba4b-9ea1368a6e85
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9b85h82vdtk85f0r86w92
+    external_id: bd6ce62a-9813-4912-b43d-441ef7a94c8a
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9b8m3jtk1jp7qyzdkvy1a
+    external_id: fde3fb2b-2223-4702-8d6e-5b0e52ae479f
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9b964e1h3y4q2f3fhy064
+    external_id: c2c1d79a-d8d8-40d4-b326-0ab4ae13ab89
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9ba2a6fbrkb1qvxeactgn
+    external_id: 0b9c4385-b6fa-406e-9392-cb3f897cea19
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9bae7t8hk71z0dg3jtztx
+    external_id: 039bbcc8-35e4-4960-956f-a9d568610588
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9bp8j6g8fv8pq61srprrw
+    external_id: 56262cab-082c-4507-bd4f-3a74ee005707
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9bpmkg2zh03fp5qc2f9nm
+    external_id: 54b3cb98-0236-4a53-8fd1-f76d3d450408
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9bq0wa8tcqevenxecy6j5
+    external_id: 0e1fa3a5-f469-4084-b8c7-5768f0f1c075
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9bqdh6ep2k6f1ta3szeb3
+    external_id: 53009496-a367-4182-be91-0a1978452e92
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9bqsnbq33f26xd6skfne2
+    external_id: 136b03c1-4293-44be-b2f6-75d1982dc87d
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9br63f467mxc3fjwga2wz
+    external_id: 21a0f147-b56a-4ccc-94da-ad274aca2653
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kra9brkfj969kby0dk36khzg
+    external_id: 7bf5482e-1e0e-4949-8746-f9c7e4e51806
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01ktxg4s1ng4wz60bnh3frcsc0
+    external_id: c5797f48-4ee8-49b0-8da9-19c3f0b0f345
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kv199rkcm7z63tmp6hs2dbr1
+    external_id: 1f760527-47c0-47a2-8e1a-01b086c6eb05
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kzn5152hkvnx553tj4gwgc28
+    external_id: e4a2e265-ed0d-439d-9db3-51186d517dcf
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kzn515e154th2ehqthkpcv0v
+    external_id: 82fd6e26-c98b-4c92-a2c2-f0b7a23d94d8
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kzx8kn4vtndb0t84345snpy5
+    external_id: 0e08d8c7-a478-49f2-aedf-db9934fc6f5a
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kzx8knkqyxmghreewwsy16h9
+    external_id: 4fb64dc7-d929-4ac3-81d2-f9040582f16c
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kzx8nc1vetjsc86by8085sg1
+    external_id: d3e91620-a20f-4d0f-aec7-ce509ea7082f
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01kzx8ncczb69sp1bgyk20pyt5
+    external_id: 691dcef9-0896-4e6b-8168-8c93a6372a93
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01m00h60xmsj85fqn07wkrtjqd
+    external_id: 5864358b-05bd-42b9-b41e-0cf936aea22e
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01m010epmrrmp2s67x1pe8xqa3
+    external_id: 81c998b0-bf8c-415d-a54e-6212b641a6cc
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01m0dsa6915r9gqwt572rgffzy
+    external_id: 520e1b4d-5520-4fdb-9aef-371431076375
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01m0dsa6kqmmmt269gx5hfq53y
+    external_id: c600ba31-b457-4a7f-b309-6096a816bb50
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01m0dsa6yx7pcwybmmspf947q2
+    external_id: a39455e8-7f3d-4e1b-bc37-89136aa1f3de
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01m0dsa79sd5cwpf4jwftec762
+    external_id: 30a583e2-c918-4c63-acf0-3fef93834da6
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01m0dsa7n1nr69wfbgytp55f9j
+    external_id: e9349482-5852-4884-b7dc-c1658a30500a
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01m0dsa808f6p2yfvdrabw53qq
+    external_id: 07a53ed7-2688-4059-b9a4-d31101a091a9
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01m0dsa8bnkbes44tnda9tqtft
+    external_id: 54582906-376f-486b-ad4b-87ba44c0a824
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01m0dsa8pe5fsxx8c82wf5gfhx
+    external_id: b43e0948-9ed6-4d81-a8cc-34dfe705f9e0
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01m0dsa91nkb3j5b4j4ky8y65p
+    external_id: 13c3dc5e-f996-4792-bd39-9bcb4cecfc02
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+  - bead_id: is-01m0dsa9djn6h3k1fg60nqfgs4
+    external_id: 148020d9-cd9d-4aae-817f-5ae8a1411bb5
+    kind: update_issue
+    patch:
+      hold: null
+      resolution: null
+      slot: backlog
+      status: open
+provider: linear
+run_id: 01m2mq77rta17j1q6fqqa4t1yg
+type: in
