@@ -2002,12 +2002,113 @@ export async function pushFreshOrphan(
 const DATA_SYNC_RELATIVE_PATH = `${TBD_DIR}/${DATA_SYNC_DIR_NAME}`;
 const GIT_PATH_BATCH_SIZE = 128;
 
+/** The merge rules the sync branch carries, as worktree-relative attribute files. */
+const DATA_SYNC_MERGE_ATTRIBUTES = [
+  {
+    // Beads are merged field by field, by rules that know what each field MEANS —
+    // last-writer-wins for scalars, union for sets, lineage rules for provider
+    // namespaces. Git's line merge knows none of that, and when two clones edit one
+    // bead far enough apart in the file it silently combines the lines instead, which
+    // is not the same answer: observed, a relink to a new provider issue merged with
+    // another clone's queued comment produced a namespace holding the new issue's id
+    // and key, the OLD issue's url, and a comment written for the old issue — a record
+    // no writer would ever produce, reported as a clean sync with nothing archived.
+    //
+    // Whether that happened at all depended on how many unchanged lines separated the
+    // two edits. `merge=binary` removes the accident: git refuses to combine bead files
+    // and marks them conflicted, so every two-sided change goes to the structured merge
+    // (`mergeBeadAcrossRefs`), which reads both sides from their blobs and resolves them
+    // by the field rules. The file rides the sync branch, so once it reaches an older
+    // client's branch that client applies the same rule and reaches its own structured
+    // merge too.
+    relative: `${DATA_SYNC_RELATIVE_PATH}/issues/.gitattributes`,
+    contents: '*.md merge=binary\n',
+  },
+  {
+    relative: `${DATA_SYNC_RELATIVE_PATH}/mappings/.gitattributes`,
+    contents: 'ids.yml merge=union\n',
+  },
+];
+
 async function writeScaffoldFileIfMissing(path: string, contents: string): Promise<boolean> {
   if (await pathExists(path)) {
     return false;
   }
   await writeFile(path, contents);
   return true;
+}
+
+/**
+ * Write and commit any merge attribute file the sync worktree is missing.
+ *
+ * The scaffold writes these only when a worktree is created, and a repository initialized
+ * before an attribute existed never creates one again. Git reads attributes from the
+ * worktree doing the merge, not from the branch merged in, so such a repository keeps
+ * line-merging until something adds the file on its own branch. Sync calls this before it
+ * merges.
+ *
+ * Idempotent: a file already on disk is left alone, whatever it holds, and nothing is
+ * committed unless a write changed the branch.
+ *
+ * When `publishedRef` (the fetched remote sync branch) already carries a missing file, its
+ * committed copy is taken instead of the default. Both sides then add the same blob, which
+ * git merges cleanly; writing the default over a published file with other contents (a
+ * hand edit, or a later release's rules) would be an add/add conflict that stops the sync.
+ *
+ * MUST be called while holding `withSharedDataSyncLock`: it writes and commits in the
+ * shared worktree.
+ *
+ * @returns the worktree-relative paths written
+ */
+export async function ensureDataSyncMergeAttributes(
+  worktreePath: string,
+  publishedRef?: string,
+): Promise<string[]> {
+  const written: string[] = [];
+  for (const file of DATA_SYNC_MERGE_ATTRIBUTES) {
+    const path = join(worktreePath, file.relative);
+    if (await pathExists(path)) {
+      continue;
+    }
+    // A sync branch from an older client can lack the directory itself: git tracks no
+    // empty directories.
+    await mkdir(dirname(path), { recursive: true });
+    const publishedCopy =
+      publishedRef !== undefined &&
+      (await git('-C', worktreePath, 'cat-file', '-e', `${publishedRef}:${file.relative}`).then(
+        () => true,
+        () => false,
+      ))
+        ? publishedRef
+        : undefined;
+    if (publishedCopy !== undefined) {
+      // `checkout`, not a read and rewrite: it copies the blob byte for byte.
+      await git('-C', worktreePath, 'checkout', publishedCopy, '--', file.relative);
+    } else {
+      await writeFile(path, file.contents);
+    }
+    written.push(file.relative);
+  }
+  if (written.length === 0) {
+    return written;
+  }
+  // Forced for the scaffold's reason: a legacy snapshot may ignore `.tbd/data-sync`.
+  await git('-C', worktreePath, 'add', '--force', '--', ...written);
+  // A file deleted from disk but still committed is rewritten identically, and a commit
+  // with nothing in it fails.
+  const staged = await git('-C', worktreePath, 'diff', '--cached', '--name-only', '--', ...written);
+  if (staged.trim()) {
+    await gitCommit(
+      worktreePath,
+      '--no-verify',
+      '--only',
+      '-m',
+      'tbd sync: add merge attributes',
+      '--',
+      ...written,
+    );
+  }
+  return written;
 }
 
 /**
@@ -2116,30 +2217,8 @@ async function ensureDataSyncScaffold(baseDir: string): Promise<number> {
       contents: `schema_version: ${DATA_SYNC_SCHEMA_VERSION}\n`,
     },
     { relative: `${DATA_SYNC_RELATIVE_PATH}/issues/.gitkeep`, contents: '' },
-    {
-      // Beads are merged field by field, by rules that know what each field MEANS —
-      // last-writer-wins for scalars, union for sets, lineage rules for provider
-      // namespaces. Git's line merge knows none of that, and when two clones edit one
-      // bead far enough apart in the file it silently combines the lines instead, which
-      // is not the same answer: observed, a relink to a new provider issue merged with
-      // another clone's queued comment produced a namespace holding the new issue's id
-      // and key, the OLD issue's url, and a comment written for the old issue — a record
-      // no writer would ever produce, reported as a clean sync with nothing archived.
-      //
-      // Whether that happened at all depended on how many unchanged lines separated the
-      // two edits. `merge=binary` removes the accident: git refuses to combine bead files
-      // and marks them conflicted, so every two-sided change goes to the structured merge
-      // (`mergeBeadAcrossRefs`), which reads both sides from their blobs and resolves them
-      // by the field rules. The file rides the sync branch, so an older client applies the
-      // same rule and reaches its own structured merge too.
-      relative: `${DATA_SYNC_RELATIVE_PATH}/issues/.gitattributes`,
-      contents: '*.md merge=binary\n',
-    },
     { relative: `${DATA_SYNC_RELATIVE_PATH}/mappings/.gitkeep`, contents: '' },
-    {
-      relative: `${DATA_SYNC_RELATIVE_PATH}/mappings/.gitattributes`,
-      contents: 'ids.yml merge=union\n',
-    },
+    ...DATA_SYNC_MERGE_ATTRIBUTES,
   ];
   for (const file of scaffoldFiles) {
     if (await writeScaffoldFileIfMissing(join(worktreePath, file.relative), file.contents)) {
