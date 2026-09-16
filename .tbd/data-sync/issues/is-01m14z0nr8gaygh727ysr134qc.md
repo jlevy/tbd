@@ -3,15 +3,23 @@ type: is
 id: is-01m14z0nr8gaygh727ysr134qc
 title: "Linear mirror alternates push/pull on 13 agreeing pairs: mechanism not yet reproduced"
 kind: bug
-status: open
+status: closed
 priority: 0
-version: 5
+version: 7
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
+delegate: codex@spud10
 labels: []
 dependencies: []
 parent_id: is-01m14yzbwwg92e5k7z7d4kyn00
+hold: null
+hold_until: null
 created_at: 2026-08-28T19:54:42.823Z
-updated_at: 2026-09-16T08:26:43.767Z
+updated_at: 2026-09-16T18:03:07.295Z
+started_at: 2026-09-16T18:02:49.974Z
+closed_at: 2026-09-16T18:03:07.294Z
+close_reason: "Superseded by the measured exact-slot convergence implementation and regression matrix merged in PR #298 (118929d6) and released in 0.9.0; the live 2026-09-16 explain preview found no oscillating status pairs."
+resolution: null
+duplicate_of: null
 extensions:
   linear:
     id: 49c11354-db1a-43f3-bf1c-889bc0066dc9

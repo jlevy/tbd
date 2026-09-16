@@ -3,9 +3,10 @@ type: is
 id: is-01m1d1vjqysr1jg5he07zatyy3
 title: Provision gh-stack extension and its official agent skill (pinned)
 kind: feature
-status: open
+status: closed
 priority: 1
-version: 4
+version: 6
+delegate: codex@spud10
 labels: []
 dependencies:
   - type: blocks
@@ -15,8 +16,15 @@ dependencies:
   - type: blocks
     target: is-01m1d1x86a96ak3rzd8w6ft7ej
 parent_id: is-01m1d1tam7230zrcj70ecmkt8b
+hold: null
+hold_until: null
 created_at: 2026-08-31T23:18:17.085Z
-updated_at: 2026-08-31T23:19:21.685Z
+updated_at: 2026-09-16T18:03:07.571Z
+started_at: 2026-09-16T18:02:49.986Z
+closed_at: 2026-09-16T18:03:07.570Z
+close_reason: "Delivered by PR #266 (c218e90b) and released in 0.9.0: pinned gh-stack skill provisioning, stacked-prs workflow, reproducible setup guidance, and stack-aware PR lifecycle docs; PR #301 adds reviewed hardening."
+resolution: null
+duplicate_of: null
 ---
 tbd provisions no gh extensions or skills, so 'gh stack' is absent on every fresh machine even
 though the local dev box has had it for weeks.
