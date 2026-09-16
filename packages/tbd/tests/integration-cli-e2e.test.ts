@@ -154,6 +154,13 @@ describe('tbd integration, end to end via the built binary', () => {
     expect(result.stderr).toContain('--limit is only valid with --push');
   });
 
+  it('rejects --explain with the outbound-only projection', async () => {
+    const result = await cli(['--dry-run', 'integration', 'sync', '--push', '--explain']);
+
+    expect(result.code).not.toBe(0);
+    expect(result.stderr).toContain('--explain is not valid with --push');
+  });
+
   it('mirrors exactly a named bead, then full sync settles to nothing-to-do', async () => {
     const first = await cli(['create', 'An epic to mirror', '-t', 'epic']);
     const second = await cli(['create', 'A second epic outside the staged push', '-t', 'epic']);
@@ -202,6 +209,9 @@ describe('tbd integration, end to end via the built binary', () => {
     expect(explained.code).toBe(0);
     expect(explained.stdout).toContain('title pull');
     expect(explained.stdout).toContain('rule: merge');
+    expect(explained.stdout).toContain('local="Explain sentinel"');
+    expect(explained.stdout).toContain('remote="Retitled on the tracker"');
+    expect(explained.stdout).toContain('base="Explain sentinel"');
   });
 
   it('names the tracker surface on an ordinary tbd sync, without --verbose', async () => {

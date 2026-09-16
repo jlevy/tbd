@@ -259,7 +259,15 @@ describe('the sync engine', () => {
     const executed = await run([...store.values()]);
 
     expect(previewed.divergences).toEqual([
-      { beadId: 'ma80', field: 'title', direction: 'pull', rule: 'merge' },
+      {
+        beadId: 'ma80',
+        field: 'title',
+        direction: 'pull',
+        rule: 'merge',
+        localValue: 'An epic',
+        remoteValue: 'Edited on the tracker',
+        baseValue: 'An epic',
+      },
     ]);
     expect(executed.divergences).toEqual(previewed.divergences);
   });
@@ -706,6 +714,47 @@ describe('the sync engine', () => {
     expect(description.split(MANAGED_BLOCK_MARKERS.end)).toHaveLength(2);
   });
 
+  it('explains a managed-block-only push', async () => {
+    server.addIssue({
+      id: 'linked-item',
+      identifier: 'FIN-10',
+      title: 'Linked issue',
+      description: 'Human prose',
+    });
+    const linked = writeLink(
+      bead('is-01hx5zzkbkactav9wevgemmvrz', {
+        title: 'Linked issue',
+        description: 'Human prose',
+      }),
+      {
+        provider: 'linear',
+        id: 'linked-item',
+        key: 'FIN-10',
+        linked_at: '2026-08-10T00:00:00.000Z',
+      },
+    );
+    store.set(linked.id, linked);
+
+    await run([linked]);
+    await run([store.get(linked.id)!]);
+    server.issues.get('linked-item')!.description = 'Human prose';
+
+    const preview = await run([store.get(linked.id)!], POLICY, true);
+
+    expect(preview.pushed).toEqual(['mvrz']);
+    expect(preview.divergences).toEqual([
+      expect.objectContaining({
+        beadId: 'mvrz',
+        field: 'managed_block',
+        direction: 'push',
+        rule: 'local',
+        remoteValue: null,
+        baseValue: null,
+      }),
+    ]);
+    expect(preview.divergences[0]?.localValue).toContain(MANAGED_BLOCK_MARKERS.begin);
+  });
+
   it('does not report a push when the managed-block splice is already satisfied', async () => {
     server.addIssue({
       id: 'linked-item',
@@ -1054,10 +1103,10 @@ describe('the sync engine', () => {
     expect(server.issues.get(externalId)?.state.name).toBe('In QA');
   });
 
-  it('does not call a run with a skipped field push "nothing to do"', async () => {
-    // Same defect as OS-351's `skipped 0`, one layer up: a run whose only outcome was a
-    // field it could not publish reported nothing to do, and the detail line naming
-    // that field sits behind the early return that reading gates.
+  it('settles while retaining the diagnostic for a skipped field push', async () => {
+    // A provider capability or policy can leave a field divergent indefinitely. That
+    // is a standing diagnostic, not work this run can perform, so it must remain
+    // visible without making every otherwise-quiet run claim there is work to do.
     adapter = new LinearAdapter({
       client: new LinearClient({
         apiKey: 'lin_api_test',
@@ -1079,9 +1128,12 @@ describe('the sync engine', () => {
     const stranger = { ...store.get(epic.id)!, assignee: 'not-in-any-map', version: 2 };
     store.set(epic.id, stranger);
     const report = await run([stranger], rules);
+    const preview = await run([stranger], rules, true);
 
     expect(report.skippedPushes.length).toBeGreaterThan(0);
-    expect(report.nothingToDo).toBe(false);
+    expect(report.nothingToDo).toBe(true);
+    expect(preview.skippedPushes).toEqual(report.skippedPushes);
+    expect(preview.nothingToDo).toBe(true);
   });
 
   it('does not drag an issue back out of a column a person moved it to', async () => {
@@ -1239,8 +1291,11 @@ describe('the sync engine', () => {
     // Linear archive does not bump updatedAt; it therefore stays outside the
     // watermark delta and can only be observed by the targeted liveness read.
     remote.archivedAt = '2026-08-10T16:00:00.000Z';
+    const preview = await run([linked], POLICY, true);
     const archived = await run([linked]);
 
+    expect(preview.orphaned).toEqual(['mvrz']);
+    expect(preview.nothingToDo).toBe(false);
     expect(archived.orphaned).toEqual(['mvrz']);
     expect(store.get(epic.id)?.status).toBe('open');
   });

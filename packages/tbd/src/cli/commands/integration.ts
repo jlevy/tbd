@@ -545,12 +545,18 @@ class IntegrationSyncHandler extends BaseCommand {
 function printSyncReport(report: SyncRunReport, dryRun: boolean, explain = false): void {
   const would = dryRun ? 'would ' : '';
   if (report.nothingToDo) {
-    // Warnings no longer count as work (see sync-engine's nothingToDo), so a settled
-    // mirror can carry standing ones. They must still be printed here, or removing them
-    // from the count would have traded a mirror that never settles for a mirror that
-    // settles silently over a real diagnostic.
-    const standing = report.warnings.length > 0 ? `, warnings ${report.warnings.length}` : '';
-    console.log(`${report.provider}: nothing to do${standing}`);
+    // Warnings and provider-limited pushes are standing conditions, not work this run
+    // can perform. Keep them visible even though they no longer prevent a quiet result.
+    const standing = [
+      report.skippedPushes.length > 0 ? `fields not pushed ${report.skippedPushes.length}` : '',
+      report.warnings.length > 0 ? `warnings ${report.warnings.length}` : '',
+    ].filter(Boolean);
+    console.log(
+      `${report.provider}: nothing to do${standing.length > 0 ? `, ${standing.join(', ')}` : ''}`,
+    );
+    for (const skipped of report.skippedPushes) {
+      console.log(`  - ${skipped.beadId}: ${skipped.field} push unsupported; left divergent`);
+    }
     for (const warning of report.warnings) {
       console.log(`  ! ${warning.externalKey ?? warning.externalId}: ${warning.message}`);
     }
@@ -599,7 +605,10 @@ function printSyncReport(report: SyncRunReport, dryRun: boolean, explain = false
     for (const divergence of report.divergences) {
       console.log(
         `  ? ${divergence.beadId}: ${divergence.field} ${divergence.direction} ` +
-          `(rule: ${divergence.rule})`,
+          `(rule: ${divergence.rule}; ` +
+          `local=${formatExplainValue(divergence.localValue)}; ` +
+          `remote=${formatExplainValue(divergence.remoteValue)}; ` +
+          `base=${formatExplainValue(divergence.baseValue)})`,
       );
     }
   }
@@ -618,6 +627,13 @@ function printSyncReport(report: SyncRunReport, dryRun: boolean, explain = false
   for (const failure of report.failures) {
     console.log(`  ✗ ${failure.beadId}: ${failure.error}`);
   }
+}
+
+function formatExplainValue(value: unknown): string {
+  if (value === undefined) {
+    return '<unset>';
+  }
+  return JSON.stringify(value) ?? `<${typeof value}>`;
 }
 
 /** `tbd integration comment` — queue a provider comment offline for integration sync. */
@@ -908,6 +924,11 @@ export const integrationCommand = new Command('integration')
         }
         if (options.force && (!options.pull || !options.external?.length)) {
           throw new CLIError('--force is only valid with --pull --external.');
+        }
+        if (options.push && options.explain) {
+          throw new CLIError(
+            '--explain is not valid with --push; use a full or inbound integration sync.',
+          );
         }
         const invalidSelector = pushOnlySelector(options);
         if (!options.push && invalidSelector) {

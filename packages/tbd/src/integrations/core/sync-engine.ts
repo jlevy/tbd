@@ -55,7 +55,13 @@ import {
 } from './comment-store.js';
 import { duplicateExternalLinks, readLink, writeLink } from './link-store.js';
 import { assertExternalUnclaimed } from './link-guard.js';
-import { renderManagedBlock, spliceManagedBlock, type MirrorLinks } from './managed-block.js';
+import {
+  readManagedBlock,
+  renderManagedBlock,
+  spliceManagedBlock,
+  stripManagedBlock,
+  type MirrorLinks,
+} from './managed-block.js';
 import { attachmentsFor, beadAttachmentUrl, depthWithinSelection, prefixLabels } from './mirror.js';
 import {
   reconcile,
@@ -194,7 +200,15 @@ export interface SyncRunReport {
    * reading `.tbd/data-sync/bridge/` by hand, which is what #265 had to do. Populated
    * identically on both the dry-run and execute paths, so a preview explains the run.
    */
-  divergences: { beadId: string; field: string; direction: 'push' | 'pull'; rule: string }[];
+  divergences: {
+    beadId: string;
+    field: string;
+    direction: 'push' | 'pull';
+    rule: string;
+    localValue: unknown;
+    remoteValue: unknown;
+    baseValue: unknown;
+  }[];
   conflicts: { beadId: string; field: string; winner: string }[];
   overwrites: { beadId: string; field: string; direction: string }[];
   skippedPushes: { beadId: string; field: string }[];
@@ -220,7 +234,10 @@ export interface SyncRunReport {
 interface PlannedPair {
   bead: Issue;
   record: LinkRecord | undefined;
+  base: LinkRecord['base'];
+  local: LocalView;
   remote: ExternalIssue;
+  remoteView: RemoteView;
   result: ReturnType<typeof reconcile>;
   /** Parent relationships are tbd-owned and intentionally not three-way merged. */
   parentOverwrite: boolean;
@@ -453,14 +470,79 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
    * would be two chances to drift (which is exactly how the direction reporting drifted
    * in the first place).
    */
-  const recordDivergence = (beadId: string, pair: PlannedPair): void => {
-    const ruleFor = (field: string): string =>
-      (policy.field_sync.fields as Record<string, string | undefined>)[field] ?? 'n/a';
-    for (const field of Object.keys(pair.result.externalPatch)) {
-      report.divergences.push({ beadId, field, direction: 'push', rule: ruleFor(field) });
+  const recordDivergence = (beadId: string, pair: PlannedPair, managedBlock?: string): void => {
+    const valuesFor = (field: string): [unknown, unknown, unknown] => {
+      if (field === 'description') {
+        return [
+          pair.local.description,
+          stripManagedBlock(pair.remoteView.description),
+          pair.base.description_hash,
+        ];
+      }
+      if (field === 'status') {
+        const comparesSlots = pair.local.slot !== undefined && pair.remoteView.slot !== undefined;
+        return comparesSlots
+          ? [pair.local.slot, pair.remoteView.slot, pair.base.slot ?? pair.base.status]
+          : [pair.local.status, pair.remoteView.status, pair.base.status];
+      }
+      const local = pair.local as unknown as Record<string, unknown>;
+      const remote = pair.remoteView as unknown as Record<string, unknown>;
+      const base = pair.base as unknown as Record<string, unknown>;
+      return [local[field], remote[field], base[field]];
+    };
+    const add = (field: string, direction: 'push' | 'pull'): void => {
+      const [localValue, remoteValue, baseValue] = valuesFor(field);
+      report.divergences.push({
+        beadId,
+        field,
+        direction,
+        rule: (policy.field_sync.fields as Record<string, string | undefined>)[field] ?? 'n/a',
+        localValue,
+        remoteValue,
+        baseValue,
+      });
+    };
+    const { externalPatch, beadPatch } = pair.result;
+    const fields = ['title', 'description', 'status', 'priority', 'labels', 'assignee'] as const;
+    for (const field of fields) {
+      const pushes =
+        field === 'status'
+          ? externalPatch.status !== undefined || externalPatch.slot !== undefined
+          : field === 'labels'
+            ? externalPatch.labels !== undefined || externalPatch.ensureLabels !== undefined
+            : externalPatch[field] !== undefined;
+      const pulls =
+        field === 'status'
+          ? beadPatch.status !== undefined || beadPatch.slot !== undefined
+          : beadPatch[field] !== undefined;
+      if (pushes) {
+        add(field, 'push');
+      }
+      if (pulls) {
+        add(field, 'pull');
+      }
     }
-    for (const field of Object.keys(pair.result.beadPatch)) {
-      report.divergences.push({ beadId, field, direction: 'pull', rule: ruleFor(field) });
+    if (pair.parentOverwrite) {
+      report.divergences.push({
+        beadId,
+        field: 'parent',
+        direction: 'push',
+        rule: 'local',
+        localValue: pair.result.externalPatch.parentId,
+        remoteValue: pair.remote.parent?.id ?? null,
+        baseValue: undefined,
+      });
+    }
+    if (managedBlock !== undefined) {
+      report.divergences.push({
+        beadId,
+        field: 'managed_block',
+        direction: 'push',
+        rule: 'local',
+        localValue: managedBlock,
+        remoteValue: readManagedBlock(pair.remote.description),
+        baseValue: null,
+      });
     }
   };
 
@@ -803,25 +885,20 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
           description_hash: descriptionHash(remote.description),
         };
       })();
-    const result = reconcile(
-      base,
-      localViewOf(bead, readyIds),
-      remoteViewOf(remote),
-      policy.field_sync,
-      options.equivalences,
-      {
-        // The flow rule gates the push, not just the pull. `FieldSyncClauseSchema`
-        // promises nothing person-identifying moves without an explicit `user_map`
-        // AND an explicit `assignee: merge`, but that guard only ever covered the
-        // inbound direction — so the conservative default was not conservative in the
-        // direction that destroys data (OS-351). `merge` is now required before any
-        // outbound assignee write.
-        assignee:
-          policy.field_sync.fields.assignee === 'merge' &&
-          adapter.canPushAssignee(bead.assignee ?? null),
-        assigneePull: remote.assigneeSyncable !== false,
-      },
-    );
+    const local = localViewOf(bead, readyIds);
+    const remoteView = remoteViewOf(remote);
+    const result = reconcile(base, local, remoteView, policy.field_sync, options.equivalences, {
+      // The flow rule gates the push, not just the pull. `FieldSyncClauseSchema`
+      // promises nothing person-identifying moves without an explicit `user_map`
+      // AND an explicit `assignee: merge`, but that guard only ever covered the
+      // inbound direction — so the conservative default was not conservative in the
+      // direction that destroys data (OS-351). `merge` is now required before any
+      // outbound assignee write.
+      assignee:
+        policy.field_sync.fields.assignee === 'merge' &&
+        adapter.canPushAssignee(bead.assignee ?? null),
+      assigneePull: remote.assigneeSyncable !== false,
+    });
     // A pulled slot decomposes here rather than in the matrix, because the bead fields
     // it implies carry invariants the matrix knows nothing about — a resolution only on
     // closed work, a hold only off it. Doing it in one place keeps those rules with the
@@ -946,7 +1023,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       result.externalPatch.parentId = expectedParentId;
       parentOverwrite = true;
     }
-    pairs.push({ bead, record, remote, result, parentOverwrite });
+    pairs.push({ bead, record, base, local, remote, remoteView, result, parentOverwrite });
   }
 
   // Comment planning. All linked pairs with a remote in hand participate;
@@ -1137,7 +1214,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       for (const skipped of pair.result.skippedPushes) {
         report.skippedPushes.push({ beadId: id, field: skipped.field });
       }
-      recordDivergence(id, pair);
+      recordDivergence(id, pair, managedBlocks.get(pair.bead.id));
       if (pair.parentOverwrite) {
         report.overwrites.push({ beadId: id, field: 'parent', direction: 'push' });
       }
@@ -1173,11 +1250,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       report.failures.length === 0 &&
       report.suppressedPushes.length === 0 &&
       report.skippedOutbound.length === 0 &&
-      // A field the run could not publish is something to do, not nothing. Omitting it
-      // here is the same defect as OS-351's `skipped 0`: the summary reads as success
-      // while a value never left the machine, and the detail lines that would have
-      // named it are behind this early return.
-      report.skippedPushes.length === 0 &&
+      report.orphaned.length === 0 &&
       report.commentsPulled + report.commentsPushed === 0;
     return report;
   }
@@ -1476,7 +1549,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       for (const skipped of pair.result.skippedPushes) {
         report.skippedPushes.push({ beadId: displayId, field: skipped.field });
       }
-      recordDivergence(displayId, pair);
+      recordDivergence(displayId, pair, managedBlocks.get(pair.bead.id));
 
       // Bead-side changes ride the normal write path via the caller.
       let stored = await callbacks.readBead(pair.bead.id);
@@ -1787,7 +1860,6 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       report.importedInbound.length +
       report.importable.length +
       report.skippedOutbound.length +
-      report.skippedPushes.length +
       report.suppressedPushes.length +
       report.failures.length ===
       0;
