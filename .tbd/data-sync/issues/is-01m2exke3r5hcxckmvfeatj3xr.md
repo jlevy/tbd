@@ -3,10 +3,11 @@ type: is
 id: is-01m2exke3r5hcxckmvfeatj3xr
 title: "f08 contract T3: mixed-version Linear convergence between packed 0.8.1 and the candidate"
 kind: task
-status: open
+status: in_progress
 priority: 1
-version: 8
+version: 9
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
+delegate: claude-code@spud10.local
 labels:
   - phase-0
 dependencies:
@@ -21,8 +22,11 @@ dependencies:
   - type: blocks
     target: is-01m2eseh97vth3cpm35m074faf
 parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
+hold: null
+hold_until: null
 created_at: 2026-09-14T02:58:06.582Z
-updated_at: 2026-09-15T22:48:25.204Z
+updated_at: 2026-09-16T07:18:41.329Z
+started_at: 2026-09-16T07:18:41.329Z
 ---
 f08 compatibility contract, test T3: mixed-version Linear convergence. Both 0.8.1 and the candidate honor LINEAR_API_URL (linear/client.ts:111), so a packed 0.8.1 client and the candidate can alternate `tbd integration sync` against the Linear mock server on one shared repository.
 

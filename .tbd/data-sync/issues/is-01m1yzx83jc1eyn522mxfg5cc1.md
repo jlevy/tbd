@@ -3,10 +3,11 @@ type: is
 id: is-01m1yzx83jc1eyn522mxfg5cc1
 title: "Every slot round-trips: write slots through slotToLinear, compare in both vocabularies, never report an unresolved state push"
 kind: bug
-status: open
+status: in_progress
 priority: 1
-version: 10
+version: 11
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
+delegate: claude-code@spud10.local
 labels:
   - phase-1
 dependencies:
@@ -19,8 +20,11 @@ dependencies:
   - type: blocks
     target: is-01m2eseh97vth3cpm35m074faf
 parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
+hold: null
+hold_until: null
 created_at: 2026-09-07T22:30:34.353Z
-updated_at: 2026-09-15T22:48:32.094Z
+updated_at: 2026-09-16T07:18:41.338Z
+started_at: 2026-09-16T07:18:41.338Z
 ---
 GH #265 (the alternation) and the In Review drag. Plan 1a.
 
