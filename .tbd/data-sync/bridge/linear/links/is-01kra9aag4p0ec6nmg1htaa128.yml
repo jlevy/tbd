@@ -12,9 +12,9 @@ bead_id: is-01kra9aag4p0ec6nmg1htaa128
 external_id: d6695d69-490c-4950-bed1-dfea18535899
 external_key: OS-96
 external_url: https://linear.app/finterm-ai/issue/OS-96/existing-doc-commands-work-via-new-resolution-path-tbd
-refinement_slot: todo
-refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T09:02:18.841Z
 state: linked
-synced_at: 2026-09-16T09:02:19.021Z
+synced_at: 2026-09-16T09:05:31.624Z
 type: lk

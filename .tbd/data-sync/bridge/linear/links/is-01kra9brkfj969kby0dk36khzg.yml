@@ -12,9 +12,9 @@ bead_id: is-01kra9brkfj969kby0dk36khzg
 external_id: 7bf5482e-1e0e-4949-8746-f9c7e4e51806
 external_key: OS-120
 external_url: https://linear.app/finterm-ai/issue/OS-120/phase-3-tests-tryscripts-that-depend-on-bundled-doc-content-point-at
-refinement_slot: todo
-refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T09:02:31.864Z
 state: linked
-synced_at: 2026-09-16T09:02:34.002Z
+synced_at: 2026-09-16T09:05:36.501Z
 type: lk

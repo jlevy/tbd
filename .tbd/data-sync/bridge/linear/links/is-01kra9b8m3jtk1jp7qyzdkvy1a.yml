@@ -12,9 +12,9 @@ bead_id: is-01kra9b8m3jtk1jp7qyzdkvy1a
 external_id: fde3fb2b-2223-4702-8d6e-5b0e52ae479f
 external_key: OS-108
 external_url: https://linear.app/finterm-ai/issue/OS-108/tbd-source-upstream-key-github-branchcommitpushopen-pr-via-gh-others
-refinement_slot: todo
-refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T09:02:25.611Z
 state: linked
-synced_at: 2026-09-16T09:02:25.809Z
+synced_at: 2026-09-16T09:05:33.653Z
 type: lk

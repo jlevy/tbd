@@ -11,9 +11,9 @@ bead_id: is-01m010epmrrmp2s67x1pe8xqa3
 external_id: 81c998b0-bf8c-415d-a54e-6212b641a6cc
 external_key: OS-241
 external_url: https://linear.app/finterm-ai/issue/OS-241/inbound-selectors-label-or-assignee-triggers-kind-overrides-consume-on
-refinement_slot: todo
-refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T09:03:10.287Z
 state: linked
-synced_at: 2026-09-16T09:03:10.469Z
+synced_at: 2026-09-16T09:06:02.055Z
 type: lk

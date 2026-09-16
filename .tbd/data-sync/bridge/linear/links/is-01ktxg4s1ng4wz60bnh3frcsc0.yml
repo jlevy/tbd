@@ -12,9 +12,9 @@ bead_id: is-01ktxg4s1ng4wz60bnh3frcsc0
 external_id: c5797f48-4ee8-49b0-8da9-19c3f0b0f345
 external_key: OS-83
 external_url: https://linear.app/finterm-ai/issue/OS-83/phase-2-shared-docmap-renderer-tbd-docs-listshow-migrate-per-kind-list
-refinement_slot: todo
-refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T09:02:36.851Z
 state: linked
-synced_at: 2026-09-16T09:02:37.057Z
+synced_at: 2026-09-16T09:05:39.539Z
 type: lk

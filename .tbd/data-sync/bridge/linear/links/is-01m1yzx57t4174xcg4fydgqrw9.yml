@@ -4,7 +4,7 @@ base:
   labels:
     - phase-1
   priority: 3
-  slot: backlog
+  slot: todo
   status: open
   title: "policy.outbound.deep: flatten (opt-in) mirrors deep beads as top-level tracker
     issues"
@@ -14,7 +14,7 @@ external_key: OS-433
 external_url: https://linear.app/finterm-ai/issue/OS-433/policyoutbounddeep-flatten-opt-in-mirrors-deep-beads-as-top-level
 refinement_slot: backlog
 refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
-remote_updated_at: 2026-09-16T08:27:21.242Z
+remote_updated_at: 2026-09-16T09:06:18.267Z
 state: linked
-synced_at: 2026-09-16T09:03:33.076Z
+synced_at: 2026-09-16T09:06:18.487Z
 type: lk

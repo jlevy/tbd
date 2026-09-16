@@ -10,9 +10,9 @@ bead_id: is-01m0dsa8pe5fsxx8c82wf5gfhx
 external_id: b43e0948-9ed6-4d81-a8cc-34dfe705f9e0
 external_key: OS-361
 external_url: https://linear.app/finterm-ai/issue/OS-361/universal-wrapper-session-adapter-rivet-bb-or-omnigent
-refinement_slot: todo
-refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T09:03:25.546Z
 state: linked
-synced_at: 2026-09-16T09:03:25.835Z
+synced_at: 2026-09-16T09:06:09.715Z
 type: lk

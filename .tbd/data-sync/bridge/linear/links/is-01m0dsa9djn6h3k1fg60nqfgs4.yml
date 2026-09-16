@@ -10,9 +10,9 @@ bead_id: is-01m0dsa9djn6h3k1fg60nqfgs4
 external_id: 148020d9-cd9d-4aae-817f-5ae8a1411bb5
 external_key: OS-363
 external_url: https://linear.app/finterm-ai/issue/OS-363/set-externalurl-on-the-linear-agent-session-to-point-at-the-run
-refinement_slot: todo
-refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T09:03:26.762Z
 state: linked
-synced_at: 2026-09-16T09:03:26.942Z
+synced_at: 2026-09-16T09:06:10.071Z
 type: lk

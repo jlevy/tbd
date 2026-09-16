@@ -10,9 +10,9 @@ bead_id: is-01m0dsa6yx7pcwybmmspf947q2
 external_id: a39455e8-7f3d-4e1b-bc37-89136aa1f3de
 external_key: OS-356
 external_url: https://linear.app/finterm-ai/issue/OS-356/tbd-sessions-and-tbd-sessions-refresh-commands
-refinement_slot: todo
-refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T09:03:21.882Z
 state: linked
-synced_at: 2026-09-16T09:03:22.079Z
+synced_at: 2026-09-16T09:06:08.660Z
 type: lk

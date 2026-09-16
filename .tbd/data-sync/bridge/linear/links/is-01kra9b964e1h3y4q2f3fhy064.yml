@@ -11,9 +11,9 @@ bead_id: is-01kra9b964e1h3y4q2f3fhy064
 external_id: c2c1d79a-d8d8-40d4-b326-0ab4ae13ab89
 external_key: OS-109
 external_url: https://linear.app/finterm-ai/issue/OS-109/tbd-source-unfork-key-git-rm-local-override-source-update-bundle
-refinement_slot: todo
-refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T09:02:26.376Z
 state: linked
-synced_at: 2026-09-16T09:02:26.556Z
+synced_at: 2026-09-16T09:05:33.815Z
 type: lk

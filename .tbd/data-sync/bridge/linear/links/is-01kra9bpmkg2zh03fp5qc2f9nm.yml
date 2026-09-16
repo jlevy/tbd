@@ -11,9 +11,9 @@ bead_id: is-01kra9bpmkg2zh03fp5qc2f9nm
 external_id: 54b3cb98-0236-4a53-8fd1-f76d3d450408
 external_key: OS-115
 external_url: https://linear.app/finterm-ai/issue/OS-115/update-tbd-setup-auto-to-add-githubjlevytbd-docsv100-as-default-source
-refinement_slot: todo
-refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T09:02:29.241Z
 state: linked
-synced_at: 2026-09-16T09:02:29.427Z
+synced_at: 2026-09-16T09:05:35.340Z
 type: lk

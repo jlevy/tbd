@@ -10,9 +10,9 @@ bead_id: is-01m0dsa6kqmmmt269gx5hfq53y
 external_id: c600ba31-b457-4a7f-b309-6096a816bb50
 external_key: OS-355
 external_url: https://linear.app/finterm-ai/issue/OS-355/session-status-map-in-local-state-with-the-derived-stale-rule
-refinement_slot: todo
-refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T09:03:21.179Z
 state: linked
-synced_at: 2026-09-16T09:03:21.493Z
+synced_at: 2026-09-16T09:06:08.508Z
 type: lk

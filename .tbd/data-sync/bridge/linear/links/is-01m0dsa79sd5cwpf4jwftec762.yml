@@ -10,9 +10,9 @@ bead_id: is-01m0dsa79sd5cwpf4jwftec762
 external_id: 30a583e2-c918-4c63-acf0-3fef93834da6
 external_key: OS-357
 external_url: https://linear.app/finterm-ai/issue/OS-357/managed-block-renders-the-session-line-with-freshness
-refinement_slot: todo
-refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T09:03:22.577Z
 state: linked
-synced_at: 2026-09-16T09:03:22.802Z
+synced_at: 2026-09-16T09:06:08.817Z
 type: lk

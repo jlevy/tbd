@@ -4,7 +4,7 @@ base:
   labels:
     - phase-1
   priority: 1
-  slot: backlog
+  slot: todo
   status: open
   title: "Duplicate close survives the Linear round trip: applyTerminalAxis and
     BeadPatch.duplicate_of"
@@ -14,7 +14,7 @@ external_key: OS-434
 external_url: https://linear.app/finterm-ai/issue/OS-434/duplicate-close-survives-the-linear-round-trip-applyterminalaxis-and
 refinement_slot: backlog
 refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
-remote_updated_at: 2026-09-16T08:27:26.306Z
+remote_updated_at: 2026-09-16T09:06:18.840Z
 state: linked
-synced_at: 2026-09-16T09:03:33.221Z
+synced_at: 2026-09-16T09:06:19.047Z
 type: lk

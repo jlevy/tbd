@@ -11,9 +11,9 @@ bead_id: is-01kra9br63f467mxc3fjwga2wz
 external_id: 21a0f147-b56a-4ccc-94da-ad274aca2653
 external_key: OS-119
 external_url: https://linear.app/finterm-ai/issue/OS-119/update-tbd-docs-release-notes-and-link-from-tbds-docs
-refinement_slot: todo
-refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T09:02:31.320Z
 state: linked
-synced_at: 2026-09-16T09:02:31.539Z
+synced_at: 2026-09-16T09:05:36.336Z
 type: lk

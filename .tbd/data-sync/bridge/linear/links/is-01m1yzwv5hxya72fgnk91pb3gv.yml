@@ -4,7 +4,7 @@ base:
   labels:
     - phase-0
   priority: 1
-  slot: backlog
+  slot: todo
   status: open
   title: "Confirm the #265 mechanism on the reporter's mirror: the 13 pairs are linked
     open beads without a hold that tbd ready omits"
@@ -14,7 +14,7 @@ external_key: OS-427
 external_url: https://linear.app/finterm-ai/issue/OS-427/confirm-the-265-mechanism-on-the-reporters-mirror-the-13-pairs-are
 refinement_slot: backlog
 refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
-remote_updated_at: 2026-09-16T08:27:07.585Z
+remote_updated_at: 2026-09-16T09:06:16.121Z
 state: linked
-synced_at: 2026-09-16T09:03:32.154Z
+synced_at: 2026-09-16T09:06:16.636Z
 type: lk

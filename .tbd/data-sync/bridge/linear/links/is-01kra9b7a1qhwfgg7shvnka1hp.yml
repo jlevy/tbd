@@ -12,9 +12,9 @@ bead_id: is-01kra9b7a1qhwfgg7shvnka1hp
 external_id: 367dada7-324b-461e-80eb-797dacda995e
 external_key: OS-105
 external_url: https://linear.app/finterm-ai/issue/OS-105/tbd-doc-status-query-bundle-grouped-output-per-doc-state-abc-staleness
-refinement_slot: todo
-refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T09:02:22.729Z
 state: linked
-synced_at: 2026-09-16T09:02:24.163Z
+synced_at: 2026-09-16T09:05:33.138Z
 type: lk
