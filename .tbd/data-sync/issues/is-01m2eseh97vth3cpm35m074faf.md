@@ -3,9 +3,9 @@ type: is
 id: is-01m2eseh97vth3cpm35m074faf
 title: Release notes and release gate for the coordination stack
 kind: task
-status: in_progress
+status: closed
 priority: 1
-version: 12
+version: 14
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 delegate: claude-code@spud10.local
 labels: []
@@ -14,8 +14,11 @@ parent_id: is-01m2erp0t0njvw8medbk3x70vz
 hold: null
 hold_until: null
 created_at: 2026-09-14T01:45:31.686Z
-updated_at: 2026-09-16T08:58:45.777Z
+updated_at: 2026-09-16T10:07:39.338Z
 started_at: 2026-09-16T06:37:08.142Z
+closed_at: 2026-09-16T10:07:39.337Z
+close_reason: "Released get-tbd 0.9.0 end to end: PR #299 merged at f005c19d2129b2e86f6d4cb43d2776b8c03f2f7b after full local/downstream/live Linear validation; exact-SHA main CI 35081366182 passed; v0.9.0 release workflow 35082264977 published npm and GitHub successfully; public exact-version install reports 0.9.0 with signed npm/SLSA attestations."
+resolution: null
 duplicate_of: null
 extensions:
   linear:
@@ -41,4 +44,38 @@ f08 compatibility review 2026-09-14 (see 'f08 Compatibility Contract for Sprint 
 
 ## Notes
 
-2026-09-15 release-readiness audit at main 7120d16f, 83 commits after v0.8.1. Closed after verified merges and green PR CI: tbd-yqq7 in #292, tbd-evn3 in #293, and tbd-80vz in #294. Remaining correctness gates: tbd-od0z is partial; tbd-s4kb mixed-version T3 is open; tbd-bdkj has not landed. Exact-main hosted CI run 35052496902 passed. pnpm release:verify passed. pnpm qa:upgrade-package passed all seven scenarios. pnpm audit --prod is clean and check:package-age passed 31 pins; full audit has 36 dev-only findings tracked by tbd-0am0. Local format, lint, typecheck, and build passed; the full Vitest run hit four load-sensitive bounds, and all four passed alone, tracked under tbd-2pqp, tbd-6p9s, and tbd-jzen. Candidate doctor now finds generated surfaces current after setup, but still reports actor-shaped assignees tbd-a273/tbd-f7vr and a Linear link on tbd-zy0f with no bridge record. Fresh first-party downstream package validation remains pending. Release metadata has not been started: package version is 0.8.1 and CHANGELOG has no candidate section. TODO.md and the stability sprint spec carry this snapshot. Open PRs #21, #174, and #253 are explicitly deferred. Version remains a decision: current delta supports patch 0.8.2 under docs/publishing.md, while the prior bead note said 0.9.0.
+Release v0.9.0 completed 2026-09-16.
+
+Release identity and publication:
+
+* Stabilization PR #298 merged as 118929d68c6cc4aa02c176f4df6587d094ed943e.
+* Release PR #299 merged as f005c19d2129b2e86f6d4cb43d2776b8c03f2f7b.
+* Exact-merge-SHA main CI run 35081366182 passed before tagging.
+* Tag v0.9.0 points to f005c19d2129b2e86f6d4cb43d2776b8c03f2f7b.
+* Release workflow 35082264977 passed all steps, including production audit, build, publint, packed web proof, eight packaged upgrade proofs, metadata and clean-checkout checks, npm OIDC publication, and GitHub Release creation.
+* GitHub release: https://github.com/jlevy/tbd/releases/tag/v0.9.0 (public, non-draft, non-prerelease; published 2026-09-16T09:58:36Z).
+* npm serves get-tbd@0.9.0 and dist-tag latest=0.9.0. Tarball shasum d94a847935c05072944d4048d587c1a17f1db5c9; integrity sha512-XB+oxBqR6oT6CqdmWqAxfRMPI9RZ5ofAEdU91+I+tC/lmwhwH7XqRk7y4m/KLB9WqtYKK9dTvr5jQR7jg57zBA==.
+* npm exposes two signed attestations: npm publish v0.1 and SLSA provenance v1. The workflow recorded Sigstore transparency-log index 2859019020.
+* An isolated public-registry install of exact get-tbd@0.9.0 reported package version 0.9.0 and `tbd --version` 0.9.0.
+
+Validation evidence:
+
+* Final local `pnpm run ci`: 176 test files, 2,655 passed, 1 skipped, plus format, lint, typecheck, and build.
+* The successful pre-push hook independently repeated check, build, the 2,655-test suite, and the package-age gate (31 pins, 0 violations).
+* `pnpm release:verify` passed build and publint.
+* `pnpm qa:upgrade-package` passed all eight scenarios: 0.7.0 f08, 0.4.2 f06, 0.5.0 f06, legacy-remote recovery, coexistence, exact-0.8.1 config roundtrip, parser proof, and mixed-version Linear proof.
+* Focused stabilization suite: 311 tests; built-CLI E2E: 24/24; CLI sync tryscripts: 214.
+* `pnpm audit --prod` found no runtime vulnerabilities. The 36 build/test-only advisories remain tracked in tbd-0am0. The package-age gate passed 31 pins with 0 violations.
+* Hosted release-PR CI passed Ubuntu Node 22.12 and 24, macOS Node 24, Windows Node 24, coverage/lint, benchmark, and DeepSource. One load-sensitive Windows 60-second setup-flow timeout passed on rerun in 8m26s; the same test passed in both final local full suites.
+
+First-party and live-system proof:
+
+* A `TBD_VERSION_OVERRIDE=0.9.0` tarball was installed into a fresh tryscript clone. `tbd setup --auto` was idempotent across two runs; the six-file setup patch had SHA-256 89efe591d68a6c38c7d43852cd786844481ff9db7c9174ae9d32771ff17548c4.
+* The downstream format/docs/lint/typecheck/build/publint/package-smoke, v0.1.7 compatibility replay (108 assertions and 16 reviewed CLI changes), 252 tests, and self-tests passed. Its only `pnpm verify` failure was the pristine downstream repository's three pre-existing dev-tool advisories; the candidate production artifact audited clean.
+* Live Linear convergence completed with guarded writes 52 -> 48 -> 4 -> 0. The final dry-run had no pushes, pulls, divergences, conflicts, overwrites, skipped pushes, failures, comment work, imports, or archives. Only 24 intentional max-nesting outbound exclusions and 21 standing unmapped-assignee warnings remained.
+
+Compatibility and operator guidance:
+
+* Repository format remains f08; no format migration is required.
+* Every clone that runs `tbd integration sync` must upgrade to 0.9.0 before syncing again. Version 0.8.1 must not remain a concurrent integration-sync writer; 0.9.0 repairs its legacy state once the older writer stops.
+* Install with `npm install -g get-tbd@0.9.0`, then run `tbd setup --auto` and commit the generated-surface diff.
