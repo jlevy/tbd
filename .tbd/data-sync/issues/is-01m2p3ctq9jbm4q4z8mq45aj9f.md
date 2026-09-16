@@ -5,7 +5,7 @@ title: Make doctor --fix repair orphaned dependency references
 kind: bug
 status: in_progress
 priority: 2
-version: 3
+version: 4
 delegate: codex@spud10
 labels:
   - doctor
@@ -14,7 +14,7 @@ dependencies: []
 hold: null
 hold_until: null
 created_at: 2026-09-16T21:54:02.599Z
-updated_at: 2026-09-16T22:00:53.449Z
+updated_at: 2026-09-16T22:13:34.913Z
 started_at: 2026-09-16T21:54:53.855Z
 ---
 The Dependencies diagnostic marks orphaned dependency references fixable and tells users to run tbd doctor --fix, but the dependency check does not receive the fix option and no code removes orphaned edges. Reproduce by writing a blocks edge to a missing issue, running tbd doctor to see [fixable], then running tbd doctor --fix and observing the same edge and finding remain. Either implement the advertised repair with regression coverage and user documentation or stop labeling the condition fixable and give an accurate manual remedy.
@@ -46,3 +46,13 @@ Focused validation:
 - `pnpm --filter get-tbd build`
 - `pnpm --filter get-tbd exec vitest run tests/common-dir-layout-doctor.test.ts`
 - full repository `pnpm ci` before handoff
+
+Published implementation:
+
+- branch: `codex/doctor-orphan-dependency-fix`
+- commit: `1e4c2e49`
+- PR: https://github.com/jlevy/tbd/pull/307
+- focused doctor/layout suite: 19 passed
+- lint/typecheck/build/format gates: passed
+- full parallel suite: 2,675 passed; seven unrelated subprocess-heavy tests timed out
+  under load; all five affected files then passed serially (53 tests)
