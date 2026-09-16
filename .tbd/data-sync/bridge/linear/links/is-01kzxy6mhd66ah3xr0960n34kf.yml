@@ -7,13 +7,16 @@ base:
     - dogfood
     - qa-linear-outbound
   priority: 3
+  slot: done
   status: closed
   title: Linear sync pilot — outbound round 1
 bead_id: is-01kzxy6mhd66ah3xr0960n34kf
 external_id: 66bec061-2896-4c20-a8c8-2938ca8781dd
 external_key: OS-164
 external_url: https://linear.app/finterm-ai/issue/OS-164/linear-sync-pilot-outbound-round-1
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
 remote_updated_at: 2026-08-16T02:11:22.409Z
 state: linked
-synced_at: 2026-08-16T02:11:22.611Z
+synced_at: 2026-09-16T08:25:05.316Z
 type: lk

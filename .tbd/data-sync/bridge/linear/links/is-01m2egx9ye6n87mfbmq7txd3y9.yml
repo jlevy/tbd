@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:4eaa156fe8e30c9f439088e3e7776a62d019b4836a0ce3df496e9f62ffdc96b5
+  labels:
+    - phase-5
+  priority: 2
+  status: open
+  title: "GH #180 remaining asks: Codex hook key deletes user .codex/ hooks; prune,
+    collision warning, shared spec, opt-out"
+bead_id: is-01m2egx9ye6n87mfbmq7txd3y9
+external_id: fc900ec5-12c3-4d56-9477-4bd696263bcc
+external_key: OS-463
+external_url: https://linear.app/finterm-ai/issue/OS-463/gh-180-remaining-asks-codex-hook-key-deletes-user-codex-hooks-prune
+remote_updated_at: 2026-09-16T08:28:25.293Z
+state: linked
+synced_at: 2026-09-16T08:28:25.945Z
+type: lk

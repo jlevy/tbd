@@ -4,13 +4,16 @@ base:
   labels:
     - pause
   priority: 3
+  slot: backlog
   status: open
   title: "Cut: remove migrated docs from packages/tbd/docs/ (keep only tbd-internal set)"
 bead_id: is-01kra9bqdh6ep2k6f1ta3szeb3
 external_id: 53009496-a367-4182-be91-0a1978452e92
 external_key: OS-117
 external_url: https://linear.app/finterm-ai/issue/OS-117/cut-remove-migrated-docs-from-packagestbddocs-keep-only-tbd-internal
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:50.795Z
 state: linked
-synced_at: 2026-08-16T01:13:50.586Z
+synced_at: 2026-09-16T08:24:29.669Z
 type: lk

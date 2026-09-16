@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:4d966b0d40369edc7c573f7ae5ce3b26939af7fb4d55c32f95b92e1ad47e17a7
+  labels:
+    - phase-1
+  priority: 2
+  status: open
+  title: "tbd integration sync --take local|remote: run-scoped overwrite with per-field
+    report"
+bead_id: is-01m2egx69q1wdj3p0tccxdkgg7
+external_id: 8a341f32-d29f-4ff2-9c02-28574b146181
+external_key: OS-461
+external_url: https://linear.app/finterm-ai/issue/OS-461/tbd-integration-sync-take-localremote-run-scoped-overwrite-with-per
+remote_updated_at: 2026-09-16T08:28:22.548Z
+state: linked
+synced_at: 2026-09-16T08:28:22.784Z
+type: lk

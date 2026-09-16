@@ -5,15 +5,15 @@ title: update-specs-status encodes tbd shortcomings that belong in the tool
 kind: epic
 status: open
 priority: 1
-version: 2
+version: 3
 labels: []
 dependencies: []
 created_at: 2026-08-20T05:08:54.623Z
-updated_at: 2026-09-16T08:24:08.355Z
+updated_at: 2026-09-16T08:26:20.208Z
 extensions:
   linear:
     id: 9432b8e7-9193-4ee4-ae46-c5da09b228a5
-    linked_at: 2026-09-16T08:24:08.355Z
+    linked_at: 2026-09-16T08:26:20.208Z
 ---
 The update-specs-status shortcut has accreted guidance that reads as workarounds for things tbd cannot do itself. Reviewing PR #245's edits to it, several steps exist only because the CLI will not answer a question directly. Each is a candidate feature; the shortcut should shrink as they land.
 

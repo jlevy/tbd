@@ -4,6 +4,7 @@ base:
   labels:
     - pause
   priority: 2
+  slot: backlog
   status: open
   title: "Phase 2 tests: e2e eject→edit→diff→unfork, bundle-add preview golden, status
     golden, lockfile round-trip"
@@ -11,7 +12,9 @@ bead_id: is-01kra9bae7t8hk71z0dg3jtztx
 external_id: 039bbcc8-35e4-4960-956f-a9d568610588
 external_key: OS-112
 external_url: https://linear.app/finterm-ai/issue/OS-112/phase-2-tests-e2e-ejecteditdiffunfork-bundle-add-preview-golden-status
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:47.437Z
 state: linked
-synced_at: 2026-08-16T01:13:49.841Z
+synced_at: 2026-09-16T08:24:28.846Z
 type: lk

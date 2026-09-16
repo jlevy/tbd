@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:1fae1b6874ad443cc4c4de8628c1a2fd262d5cebcfd13b819deeed273e3327e0
+  labels:
+    - phase-3
+  priority: 1
+  status: open
+  title: "tbd list --children: per-row total/open/closed child counts in text and JSON"
+bead_id: is-01m1yzxta617qzkzd32aqjmay4
+external_id: da5ea6d2-eb25-4044-9c54-2262debf5177
+external_key: OS-446
+external_url: https://linear.app/finterm-ai/issue/OS-446/tbd-list-children-per-row-totalopenclosed-child-counts-in-text-and
+remote_updated_at: 2026-09-16T08:27:45.229Z
+state: linked
+synced_at: 2026-09-16T08:27:45.527Z
+type: lk

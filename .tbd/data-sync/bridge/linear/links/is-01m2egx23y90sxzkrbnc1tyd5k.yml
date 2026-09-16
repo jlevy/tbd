@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:01244832661c3ead88d301baf0245843ffc893505cb7f67fa5bf79adb6c5b93d
+  labels:
+    - phase-1
+  priority: 1
+  status: open
+  title: Sync selectors scope the linked set, fetch, creates, and replay in every mode
+bead_id: is-01m2egx23y90sxzkrbnc1tyd5k
+external_id: a2733920-36d1-453c-b1c7-76e187d86c82
+external_key: OS-459
+external_url: https://linear.app/finterm-ai/issue/OS-459/sync-selectors-scope-the-linked-set-fetch-creates-and-replay-in-every
+remote_updated_at: 2026-09-16T08:28:18.060Z
+state: linked
+synced_at: 2026-09-16T08:28:18.323Z
+type: lk

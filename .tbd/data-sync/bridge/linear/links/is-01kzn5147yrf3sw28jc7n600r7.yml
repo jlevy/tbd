@@ -3,13 +3,16 @@ base:
   description_hash: sha256v7:e5789d41a9b3bdb02848a3b152d74360cd04e4c50b900db748befdf402983daa
   labels: []
   priority: 2
+  slot: done
   status: closed
   title: Phase 2 documentation and sync golden tests
 bead_id: is-01kzn5147yrf3sw28jc7n600r7
 external_id: cb7fc720-11d6-48bf-88ad-5860f2160a4f
 external_key: OS-127
 external_url: https://linear.app/finterm-ai/issue/OS-127/phase-2-documentation-and-sync-golden-tests
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
 remote_updated_at: 2026-08-16T02:11:08.474Z
 state: linked
-synced_at: 2026-08-16T02:11:08.737Z
+synced_at: 2026-09-16T08:24:44.322Z
 type: lk

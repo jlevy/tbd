@@ -5,13 +5,16 @@ base:
     - pr-207
     - review
   priority: 1
+  slot: done
   status: closed
   title: "Address review: PR #207 — final Bugbot body-fetch finding"
 bead_id: is-01kzrs2jrjg3pzase83ebxdjyg
 external_id: d207b5f2-dcc4-4e68-9b30-eb80a250b892
 external_key: OS-133
 external_url: https://linear.app/finterm-ai/issue/OS-133/address-review-pr-207-final-bugbot-body-fetch-finding
-remote_updated_at: 2026-08-16T00:12:54.929Z
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
+remote_updated_at: 2026-09-16T08:24:47.204Z
 state: linked
-synced_at: 2026-08-16T01:14:01.634Z
+synced_at: 2026-09-16T08:24:47.389Z
 type: lk

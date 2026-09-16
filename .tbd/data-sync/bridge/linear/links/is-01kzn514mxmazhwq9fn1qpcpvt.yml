@@ -5,13 +5,16 @@ base:
     - github
     - integration
   priority: 2
+  slot: todo
   status: open
   title: "integrations/github/: client, adapter, mapping"
 bead_id: is-01kzn514mxmazhwq9fn1qpcpvt
 external_id: d4d7b290-87b0-4fba-9978-af3809155d1d
 external_key: OS-128
 external_url: https://linear.app/finterm-ai/issue/OS-128/integrationsgithub-client-adapter-mapping
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T02:11:09.019Z
 state: linked
-synced_at: 2026-08-16T02:11:09.233Z
+synced_at: 2026-09-16T08:24:44.545Z
 type: lk

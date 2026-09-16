@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:f7ab782be3d75d1a640744990a719ce27b4c78b0f9d663488d20dd709e5e4464
+  labels: []
+  priority: 2
+  status: open
+  title: tbd setup --auto overwrites pinned get-tbd version in generated skill docs
+bead_id: is-01m06cbj8xnn407gqpw7m98zcc
+external_id: 8aae8bec-02c7-4c8a-a403-22d3af49a7f5
+external_key: OS-397
+external_url: https://linear.app/finterm-ai/issue/OS-397/tbd-setup-auto-overwrites-pinned-get-tbd-version-in-generated-skill
+remote_updated_at: 2026-09-16T08:26:19.692Z
+state: linked
+synced_at: 2026-09-16T08:26:19.898Z
+type: lk

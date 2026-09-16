@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:fe9ca3beb385f1ca8f5c2107fefe9e157ea9030e2ffc926f1a4019957589ad33
+  labels: []
+  priority: 1
+  status: in_progress
+  title: "[epic] gh CLI hardening and stacked-PR support"
+bead_id: is-01m1d1tam7230zrcj70ecmkt8b
+external_id: cc291f47-d621-49f7-bc89-998ad050ce68
+external_key: OS-415
+external_url: https://linear.app/finterm-ai/issue/OS-415/epic-gh-cli-hardening-and-stacked-pr-support
+remote_updated_at: 2026-09-16T08:26:48.871Z
+state: linked
+synced_at: 2026-09-16T08:26:49.089Z
+type: lk

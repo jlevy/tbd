@@ -4,13 +4,16 @@ base:
   labels:
     - phase-3
   priority: 3
+  slot: todo
   status: open
   title: Verify orphaned pairs cost zero requests per sync
 bead_id: is-01m05x3x47jz7nk999rmb7bbex
 external_id: b7156dc3-9e35-4ac8-b657-0891b031d57f
 external_key: OS-303
 external_url: https://linear.app/finterm-ai/issue/OS-303/verify-orphaned-pairs-cost-zero-requests-per-sync
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T19:41:30.646Z
 state: linked
-synced_at: 2026-08-16T19:41:30.872Z
+synced_at: 2026-09-16T08:25:27.454Z
 type: lk

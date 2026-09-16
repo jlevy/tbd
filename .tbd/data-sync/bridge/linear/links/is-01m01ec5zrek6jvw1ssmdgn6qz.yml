@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:5e1034a87b840f5767961db7374433c1255b1908f54a882db5679fe75be63ab0
+  labels: []
+  priority: 2
+  status: open
+  title: Handle missing origin/tbd-sync in single-branch clones
+bead_id: is-01m01ec5zrek6jvw1ssmdgn6qz
+external_id: 009d0a98-4bbb-4250-8fa3-ada725e38405
+external_key: OS-394
+external_url: https://linear.app/finterm-ai/issue/OS-394/handle-missing-origintbd-sync-in-single-branch-clones
+remote_updated_at: 2026-09-16T08:26:13.381Z
+state: linked
+synced_at: 2026-09-16T08:26:13.628Z
+type: lk

@@ -5,7 +5,7 @@ title: Ship incremental bead coordination and native comments
 kind: epic
 status: open
 priority: 1
-version: 13
+version: 14
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 docs:
   - path: docs/project/research/current/research-2026-09-06-bead-agent-coordination.md
@@ -24,10 +24,10 @@ child_order_hints:
   - is-01m1zt44e1ngjeyqmzf2dhn2eg
   - is-01m2erp0t0njvw8medbk3x70vz
 created_at: 2026-09-06T19:32:07.319Z
-updated_at: 2026-09-16T08:24:08.477Z
+updated_at: 2026-09-16T08:26:49.438Z
 extensions:
   linear:
     id: ee220833-56de-43d7-92d7-34c0a6f7be7f
-    linked_at: 2026-09-16T08:24:08.477Z
+    linked_at: 2026-09-16T08:26:49.438Z
 ---
 Implement the phased September 6 coordination plan: stabilize existing preservation/delivery/claims, add native append-only comments, provide budgeted Git-only publication and observation across cloud clones, project linked-bead comments to Linear, and add opt-in runtime workers. Preserve existing plan owners and reuse their defects; every phase has standalone acceptance and rollout gates. Creating the plan does not enable automation, alter Linear policy, or authorize package publication.

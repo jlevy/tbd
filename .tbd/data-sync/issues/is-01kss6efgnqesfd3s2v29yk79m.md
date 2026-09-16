@@ -5,7 +5,7 @@ title: "[bug] tests/lockfile.test.ts EPERM flake on Windows still hangs main CI 
 kind: bug
 status: open
 priority: 2
-version: 7
+version: 8
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels:
   - ci
@@ -14,13 +14,13 @@ labels:
 dependencies: []
 parent_id: null
 created_at: 2026-05-29T06:23:49.268Z
-updated_at: 2026-09-16T08:24:08.253Z
+updated_at: 2026-09-16T08:25:53.419Z
 closed_at: 2026-05-29T16:22:02.977Z
 close_reason: "Addressed in #140 (merged 2f5746e): withLockfile atomic stale-break + resilient release + low-staleMs/timeout test hardening; Windows CI green."
 extensions:
   linear:
     id: bf03db71-dbae-4b15-8152-19b77bd3a0a5
-    linked_at: 2026-09-16T08:24:08.253Z
+    linked_at: 2026-09-16T08:25:53.419Z
 ---
 Same flake observed twice in the v0.2.0 push window: tests/lockfile.test.ts > withLockfile > serializes concurrent access within a single process fails with 'EPERM: operation not permitted, mkdir' on Windows. Hit on PR CI (passed on rerun) and on main CI after merge (hung 20+ min, had to be cancelled).
 

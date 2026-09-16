@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:20d2f54e1cffdfc150036e96ce6ba46f801771bae30723f777fe9cb21e2e5ddc
+  labels:
+    - phase-5
+  priority: 2
+  status: open
+  title: Closing reminder fires on gh pr create and gh pr ready
+bead_id: is-01m1yzy45ckd396d3y7mkpr95r
+external_id: 556ae974-624b-4cfa-b3c5-46ac42d6055e
+external_key: OS-452
+external_url: https://linear.app/finterm-ai/issue/OS-452/closing-reminder-fires-on-gh-pr-create-and-gh-pr-ready
+remote_updated_at: 2026-09-16T08:27:53.892Z
+state: linked
+synced_at: 2026-09-16T08:27:54.798Z
+type: lk

@@ -6,13 +6,16 @@ base:
     - import
     - phase-11
   priority: 1
+  slot: done
   status: closed
   title: "Phase 11: Import Command"
 bead_id: is-01kf5zyg8kg4z3smhmh22dysry
 external_id: afd7df47-fd30-417e-855e-6d3852ffe251
 external_key: OS-72
 external_url: https://linear.app/finterm-ai/issue/OS-72/phase-11-import-command
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
 remote_updated_at: 2026-08-16T00:10:53.018Z
 state: linked
-synced_at: 2026-08-16T01:13:37.599Z
+synced_at: 2026-09-16T08:24:11.660Z
 type: lk

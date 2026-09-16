@@ -5,13 +5,16 @@ base:
     - bead-watch
     - validation
   priority: 1
+  slot: done
   status: closed
   title: Release-validate bead watch infrastructure
 bead_id: is-01kzmm8zqnf8q210etncddjn6h
 external_id: 0c7780af-e280-430f-9356-2c1d096d9928
 external_key: OS-79
 external_url: https://linear.app/finterm-ai/issue/OS-79/release-validate-bead-watch-infrastructure
-remote_updated_at: 2026-08-16T02:10:59.087Z
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
+remote_updated_at: 2026-09-16T08:24:40.552Z
 state: linked
-synced_at: 2026-08-16T02:10:59.309Z
+synced_at: 2026-09-16T08:24:40.790Z
 type: lk

@@ -5,18 +5,18 @@ title: "list --specs: location markers on group headers; --specs --json emits gr
 kind: task
 status: open
 priority: 3
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 labels:
   - phase-2
 dependencies: []
 parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 created_at: 2026-09-07T22:30:49.680Z
-updated_at: 2026-09-16T08:24:08.651Z
+updated_at: 2026-09-16T08:27:39.754Z
 extensions:
   linear:
     id: 453c7271-8978-490b-8f42-251d2a806bb3
-    linked_at: 2026-09-16T08:24:08.651Z
+    linked_at: 2026-09-16T08:27:39.754Z
 ---
 GH #271. renderGroupedBySpec (list.ts:145-189) keys groups on the exact stored string and lives only in the text formatter, so --specs --json silently emits the flat array (list.ts:108-112) and a stale path shows no marker. Add the resolver's class to non-present group headers ('(moved -> done/...)', '(on branch x)', '(missing)') and emit groups under --json. Zero-bead spec files are spec status's job. Update tests/cli-list-specs.tryscript.md and tests/specs-flag.test.ts.
 

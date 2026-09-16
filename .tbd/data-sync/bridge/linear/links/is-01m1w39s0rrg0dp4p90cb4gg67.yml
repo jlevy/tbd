@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:11fe31d7b2f1a29a78ae02c9b31246b6c1f7b617b73036a3423726c2c97b8ccb
+  labels: []
+  priority: 1
+  status: open
+  title: Ship incremental bead coordination and native comments
+bead_id: is-01m1w39s0rrg0dp4p90cb4gg67
+external_id: ee220833-56de-43d7-92d7-34c0a6f7be7f
+external_key: OS-416
+external_url: https://linear.app/finterm-ai/issue/OS-416/ship-incremental-bead-coordination-and-native-comments
+remote_updated_at: 2026-09-16T08:26:50.237Z
+state: linked
+synced_at: 2026-09-16T08:26:50.467Z
+type: lk

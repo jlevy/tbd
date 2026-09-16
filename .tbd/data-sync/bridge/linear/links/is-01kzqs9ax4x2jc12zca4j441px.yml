@@ -5,13 +5,16 @@ base:
     - integration
     - release-blocker
   priority: 1
+  slot: done
   status: closed
   title: sync should detect multiple beads linked to one external item
 bead_id: is-01kzqs9ax4x2jc12zca4j441px
 external_id: d81f3bf1-4d78-41a5-81ae-f5254dcd6d89
 external_key: OS-132
 external_url: https://linear.app/finterm-ai/issue/OS-132/sync-should-detect-multiple-beads-linked-to-one-external-item
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
 remote_updated_at: 2026-08-16T02:11:12.587Z
 state: linked
-synced_at: 2026-08-16T02:11:12.793Z
+synced_at: 2026-09-16T08:24:46.829Z
 type: lk

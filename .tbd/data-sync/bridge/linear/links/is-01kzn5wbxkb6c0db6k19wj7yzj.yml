@@ -4,13 +4,16 @@ base:
   labels:
     - viewer
   priority: 1
+  slot: done
   status: closed
   title: "Spec: tbd web — production-ready live bead view"
 bead_id: is-01kzn5wbxkb6c0db6k19wj7yzj
 external_id: 87a13af9-a3b4-4897-873a-f8bfeb82fa65
 external_key: OS-78
 external_url: https://linear.app/finterm-ai/issue/OS-78/spec-tbd-web-production-ready-live-bead-view
-remote_updated_at: 2026-08-16T00:12:50.713Z
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
+remote_updated_at: 2026-09-16T08:24:45.395Z
 state: linked
-synced_at: 2026-08-16T01:14:00.882Z
+synced_at: 2026-09-16T08:24:45.623Z
 type: lk

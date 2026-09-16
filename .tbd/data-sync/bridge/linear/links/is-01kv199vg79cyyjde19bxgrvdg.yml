@@ -4,13 +4,16 @@ base:
   labels:
     - pause
   priority: 4
+  slot: todo
   status: open
   title: Delivery provenance (--by-pr) and documented verb [ids...] spine
 bead_id: is-01kv199vg79cyyjde19bxgrvdg
 external_id: 7736131a-ed1b-4a83-bdea-6e5f7bf3c304
 external_key: OS-10
 external_url: https://linear.app/finterm-ai/issue/OS-10/delivery-provenance-by-pr-and-documented-verb-ids-spine
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T02:10:54.634Z
 state: linked
-synced_at: 2026-08-16T02:10:54.842Z
+synced_at: 2026-09-16T08:24:36.259Z
 type: lk

@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:aec4902b8294ee2f8819563f899f2243ce4cc1cd22cebbd8f384a2399725e055
+  labels: []
+  priority: 2
+  status: open
+  title: Run phase-gated cross-agent coordination and native-comment experiments
+bead_id: is-01m1vtb2rddhs388xtwkhabz5q
+external_id: 289b8723-4e27-4d24-80fe-daf6b94c1055
+external_key: OS-417
+external_url: https://linear.app/finterm-ai/issue/OS-417/run-phase-gated-cross-agent-coordination-and-native-comment
+remote_updated_at: 2026-09-16T08:26:51.512Z
+state: linked
+synced_at: 2026-09-16T08:26:51.765Z
+type: lk

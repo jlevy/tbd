@@ -5,17 +5,17 @@ title: "Stability sprint plan text is stale after #286-#290; record the 2026-09-
 kind: task
 status: open
 priority: 2
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 labels: []
 dependencies: []
 parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 created_at: 2026-09-15T21:26:36.800Z
-updated_at: 2026-09-16T08:24:08.822Z
+updated_at: 2026-09-16T08:28:40.524Z
 extensions:
   linear:
     id: 6086b533-e680-4064-9a8f-9008d1f7eab9
-    linked_at: 2026-09-16T08:24:08.822Z
+    linked_at: 2026-09-16T08:28:40.524Z
 ---
 The stability sprint plan (docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md) is stale after #286-#290 (found by the 2026-09-15 release-readiness review of main @ 1238038e):
 - Status block (~:13-18) omits #286-#290; the #290 note (~:19) does not mention the new `--push` and mixed-version contention.

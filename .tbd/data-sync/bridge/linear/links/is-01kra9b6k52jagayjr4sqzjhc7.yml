@@ -4,13 +4,16 @@ base:
   labels:
     - pause
   priority: 2
+  slot: backlog
   status: open
   title: tbd source add/list/remove/show with bundle-name auto-suggestion + preview
 bead_id: is-01kra9b6k52jagayjr4sqzjhc7
 external_id: 77151309-625d-4c2b-8ae3-80585539241d
 external_key: OS-103
 external_url: https://linear.app/finterm-ai/issue/OS-103/tbd-source-addlistremoveshow-with-bundle-name-auto-suggestion-preview
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:40.379Z
 state: linked
-synced_at: 2026-08-16T01:13:48.427Z
+synced_at: 2026-09-16T08:24:27.215Z
 type: lk

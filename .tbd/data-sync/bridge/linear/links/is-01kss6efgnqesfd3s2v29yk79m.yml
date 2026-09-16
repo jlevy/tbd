@@ -1,0 +1,19 @@
+base:
+  assignee: null
+  description_hash: sha256v7:42ac46f81cde75b0a2448d5284723133796cb8b2b3a093a0b93c4f039a9105c6
+  labels:
+    - ci
+    - windows
+    - testing
+  priority: 2
+  status: open
+  title: "[bug] tests/lockfile.test.ts EPERM flake on Windows still hangs main CI for 20+
+    minutes"
+bead_id: is-01kss6efgnqesfd3s2v29yk79m
+external_id: bf03db71-dbae-4b15-8152-19b77bd3a0a5
+external_key: OS-383
+external_url: https://linear.app/finterm-ai/issue/OS-383/bug-testslockfiletestts-eperm-flake-on-windows-still-hangs-main-ci-for
+remote_updated_at: 2026-09-16T08:25:54.225Z
+state: linked
+synced_at: 2026-09-16T08:25:54.478Z
+type: lk

@@ -7,13 +7,16 @@ base:
     - isolation
     - web
   priority: 1
+  slot: done
   status: closed
   title: "Phase 6.2: prove packaged install, lifecycle, wake, and Git isolation"
 bead_id: is-01kzrsajhday2nyvfnbk2c097t
 external_id: 6a507fb2-ddf1-4fa0-a230-2feef233958b
 external_key: OS-151
 external_url: https://linear.app/finterm-ai/issue/OS-151/phase-62-prove-packaged-install-lifecycle-wake-and-git-isolation
-remote_updated_at: 2026-08-16T00:13:04.889Z
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
+remote_updated_at: 2026-09-16T08:25:01.755Z
 state: linked
-synced_at: 2026-08-16T01:14:05.114Z
+synced_at: 2026-09-16T08:25:02.044Z
 type: lk

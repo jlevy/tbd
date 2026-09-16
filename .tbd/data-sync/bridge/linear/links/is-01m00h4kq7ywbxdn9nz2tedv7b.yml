@@ -1,16 +1,19 @@
 base:
   assignee: null
-  description_hash: sha256v7:7cb3b7da91760c53bcd17c8003852842d517f1e3d9de4ac5f65f81f19744c347
+  description_hash: sha256v7:4a00d87c3f3117d773264b7b1e648381bd21f669ce318da19d505664126a2f03
   labels:
     - phase-1
   priority: 1
+  slot: todo
   status: open
   title: Fix tbd-session.sh PATH order and make hook failure visible
 bead_id: is-01m00h4kq7ywbxdn9nz2tedv7b
 external_id: dc4bbd81-49ba-4668-bf0a-ed5a04e23a86
 external_key: OS-210
 external_url: https://linear.app/finterm-ai/issue/OS-210/fix-tbd-sessionsh-path-order-and-make-hook-failure-visible
-remote_updated_at: 2026-08-16T07:50:28.918Z
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+remote_updated_at: 2026-09-16T08:25:09.481Z
 state: linked
-synced_at: 2026-08-16T07:50:29.076Z
+synced_at: 2026-09-16T08:25:09.826Z
 type: lk

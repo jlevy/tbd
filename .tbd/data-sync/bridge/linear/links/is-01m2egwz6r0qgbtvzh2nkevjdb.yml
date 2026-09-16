@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:6f073745d1d3b9759f539a23251038d0988ae88b938d32eb399803ea1ac8e217
+  labels:
+    - phase-1
+  priority: 1
+  status: open
+  title: "One sync planner: --push and --pull filter one plan; base advances per applied
+    field"
+bead_id: is-01m2egwz6r0qgbtvzh2nkevjdb
+external_id: 583270dd-d2ed-4669-a375-d52300d2d719
+external_key: OS-458
+external_url: https://linear.app/finterm-ai/issue/OS-458/one-sync-planner-push-and-pull-filter-one-plan-base-advances-per
+remote_updated_at: 2026-09-16T08:28:16.753Z
+state: linked
+synced_at: 2026-09-16T08:28:16.968Z
+type: lk

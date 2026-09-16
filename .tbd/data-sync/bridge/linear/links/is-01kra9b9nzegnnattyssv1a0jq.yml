@@ -4,13 +4,16 @@ base:
   labels:
     - pause
   priority: 3
+  slot: todo
   status: open
   title: tbd doc new <type> <name> [--bundle <name>] (scaffold with template frontmatter)
 bead_id: is-01kra9b9nzegnnattyssv1a0jq
 external_id: f2e1256b-4fb4-4f3e-82a6-2dff23b254d4
 external_key: OS-110
 external_url: https://linear.app/finterm-ai/issue/OS-110/tbd-doc-new-type-name-bundle-name-scaffold-with-template-frontmatter
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:45.639Z
 state: linked
-synced_at: 2026-08-16T01:13:49.546Z
+synced_at: 2026-09-16T08:24:28.519Z
 type: lk

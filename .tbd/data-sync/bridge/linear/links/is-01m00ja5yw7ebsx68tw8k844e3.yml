@@ -4,13 +4,16 @@ base:
   labels:
     - phase-1
   priority: 1
+  slot: done
   status: closed
   title: tbd sync --push silently performs the outbound-only mirror the docs warn against
 bead_id: is-01m00ja5yw7ebsx68tw8k844e3
 external_id: 2a74d5e3-c260-4db1-b6df-1b3cb5403ce6
 external_key: OS-227
 external_url: https://linear.app/finterm-ai/issue/OS-227/tbd-sync-push-silently-performs-the-outbound-only-mirror-the-docs-warn
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
 remote_updated_at: 2026-08-16T07:50:41.887Z
 state: linked
-synced_at: 2026-08-16T07:50:42.068Z
+synced_at: 2026-09-16T08:25:20.958Z
 type: lk

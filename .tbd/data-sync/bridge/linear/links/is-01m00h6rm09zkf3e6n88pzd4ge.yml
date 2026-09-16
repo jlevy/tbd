@@ -4,13 +4,16 @@ base:
   labels:
     - phase-4
   priority: 3
+  slot: todo
   status: open
   title: "Zombie claim sweep: surface stale in_progress claims"
 bead_id: is-01m00h6rm09zkf3e6n88pzd4ge
 external_id: 82fec4e9-db54-4ec0-adb4-f627f3738a36
 external_key: OS-223
 external_url: https://linear.app/finterm-ai/issue/OS-223/zombie-claim-sweep-surface-stale-in-progress-claims
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T07:50:39.064Z
 state: linked
-synced_at: 2026-08-16T07:50:39.230Z
+synced_at: 2026-09-16T08:25:20.304Z
 type: lk

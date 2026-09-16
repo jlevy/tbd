@@ -5,18 +5,18 @@ title: "Confirm the #265 mechanism on the reporter's mirror: the 13 pairs are li
 kind: task
 status: open
 priority: 1
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 labels:
   - phase-0
 dependencies: []
 parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 created_at: 2026-09-07T22:30:21.103Z
-updated_at: 2026-09-16T08:24:08.550Z
+updated_at: 2026-09-16T08:27:06.734Z
 extensions:
   linear:
     id: daba69bb-ef76-4d03-b7d8-eb8e5e8317f6
-    linked_at: 2026-09-16T08:24:08.550Z
+    linked_at: 2026-09-16T08:27:06.734Z
 ---
 Human step (private data), no new build needed. List the linked open beads without a hold that `tbd ready` omits and confirm they are exactly the 13 alternating pairs and sit in Linear's Todo column. After tbd-bdkj lands, `tbd --dry-run integration sync --explain` should show status flipping between backlog and todo on those pairs. Record the result on tbd-u9eg. If the pairs are something else, file a new bead with a reproduction; tbd-od0z stands on its own code evidence.
 

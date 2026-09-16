@@ -5,16 +5,16 @@ title: Investigate tbd sync false push-failure reporting under concurrent metada
 kind: bug
 status: open
 priority: 2
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels:
   - sync
 dependencies: []
 created_at: 2026-08-14T06:19:23.848Z
-updated_at: 2026-09-16T08:24:08.324Z
+updated_at: 2026-09-16T08:26:11.023Z
 extensions:
   linear:
     id: 6a43676e-07fb-43f4-ac3d-ffa7dd38e9cc
-    linked_at: 2026-09-16T08:24:08.324Z
+    linked_at: 2026-09-16T08:26:11.023Z
 ---
 During the v0.6.0 release review, two tbd sync attempts reported failed-to-push and claimed two commits remained local, but origin/tbd-sync subsequently resolved to the exact local HEAD and a retry reported already in sync. Reproduce concurrent git-common-dir-v1 syncs, distinguish hook rejection from non-fast-forward races, and make success/failure reporting reflect the final remote ref. This is operational follow-up; the issue branch is currently verified synchronized.

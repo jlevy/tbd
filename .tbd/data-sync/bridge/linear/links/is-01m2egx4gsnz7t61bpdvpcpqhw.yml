@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:69c7fc6a9b4e0042568df830d8123300b7a04552fe98d14806edf84f2537603f
+  labels:
+    - phase-1
+  priority: 1
+  status: open
+  title: "Port mirror-only behavior into the engine: create labels, delegate, actor
+    priming, attachments, parent"
+bead_id: is-01m2egx4gsnz7t61bpdvpcpqhw
+external_id: da9ae5d3-140c-4ba2-93d4-a0019c97501a
+external_key: OS-460
+external_url: https://linear.app/finterm-ai/issue/OS-460/port-mirror-only-behavior-into-the-engine-create-labels-delegate-actor
+remote_updated_at: 2026-09-16T08:28:20.889Z
+state: linked
+synced_at: 2026-09-16T08:28:21.139Z
+type: lk

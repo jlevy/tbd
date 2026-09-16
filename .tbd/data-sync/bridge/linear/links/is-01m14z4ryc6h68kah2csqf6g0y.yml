@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:f1efc24454fd78c5473f4e55bb80d54a474f028ee4b864e27837fb6bac509c10
+  labels: []
+  priority: 1
+  status: open
+  title: Repo resolution crosses git boundaries and the ID prefix is ignored on input
+bead_id: is-01m14z4ryc6h68kah2csqf6g0y
+external_id: cdaae0ca-bae1-496f-944d-de1ca0ff3cf2
+external_key: OS-413
+external_url: https://linear.app/finterm-ai/issue/OS-413/repo-resolution-crosses-git-boundaries-and-the-id-prefix-is-ignored-on
+remote_updated_at: 2026-09-16T08:26:46.343Z
+state: linked
+synced_at: 2026-09-16T08:26:46.548Z
+type: lk

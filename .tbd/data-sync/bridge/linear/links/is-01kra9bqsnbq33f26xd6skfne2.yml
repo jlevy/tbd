@@ -4,6 +4,7 @@ base:
   labels:
     - pause
   priority: 3
+  slot: backlog
   status: open
   title: Migration path for existing installs (tbd setup --auto / tbd doctor adds external
     source)
@@ -11,7 +12,9 @@ bead_id: is-01kra9bqsnbq33f26xd6skfne2
 external_id: 136b03c1-4293-44be-b2f6-75d1982dc87d
 external_key: OS-118
 external_url: https://linear.app/finterm-ai/issue/OS-118/migration-path-for-existing-installs-tbd-setup-auto-tbd-doctor-adds
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:51.814Z
 state: linked
-synced_at: 2026-08-16T01:13:50.847Z
+synced_at: 2026-09-16T08:24:30.280Z
 type: lk

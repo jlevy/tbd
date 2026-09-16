@@ -4,13 +4,16 @@ base:
   labels:
     - pause
   priority: 2
+  slot: todo
   status: open
   title: "Q19: Decide as: field disambiguation (keep vs mode: discriminator vs KDEX-aligned)"
 bead_id: is-01kra99kg4z987hjrwwrj5wh4q
 external_id: 0c0d0100-26fa-4991-bee8-ce9e225de7c6
 external_key: OS-31
 external_url: https://linear.app/finterm-ai/issue/OS-31/q19-decide-as-field-disambiguation-keep-vs-mode-discriminator-vs-kdex
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:31.274Z
 state: linked
-synced_at: 2026-08-16T01:13:45.811Z
+synced_at: 2026-09-16T08:24:23.963Z
 type: lk

@@ -5,17 +5,17 @@ title: Run phase-gated cross-agent coordination and native-comment experiments
 kind: task
 status: open
 priority: 2
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 labels: []
 dependencies: []
 parent_id: is-01m1w39s0rrg0dp4p90cb4gg67
 created_at: 2026-09-06T16:55:32.876Z
-updated_at: 2026-09-16T08:24:08.484Z
+updated_at: 2026-09-16T08:26:50.788Z
 extensions:
   linear:
     id: 289b8723-4e27-4d24-80fe-daf6b94c1055
-    linked_at: 2026-09-16T08:24:08.484Z
+    linked_at: 2026-09-16T08:26:50.788Z
 ---
 Execute the experiment matrix in docs/project/research/current/research-2026-09-06-bead-agent-coordination.md at the release gates in the September 6 phased coordination plan. The requested plan proposes independent append-only records; compare them with the repaired embedded baseline before freezing the Phase 2 format. Preserve the remaining Git snapshot versus durable discovery, same-store versus independent-clone ownership, actual Claude/Codex continuation, and linked-only Linear direction/relink/backfill/disable cases. Agent Mail Rust v0.3.32 is a reference for inbox/idempotency contracts, not an assumed throughput equivalent. Capture session/bead/message IDs, destination delivery keys, Git tips, claim outcomes, checkpoints, latency, duplicate work, recovery, API/Git cost, and unrun cases. Initial source research is complete; candidate/host/load experiments are not. This issue does not itself activate an unattended deployment.
 

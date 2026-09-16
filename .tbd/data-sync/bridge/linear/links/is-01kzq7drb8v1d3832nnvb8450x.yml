@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:645884472e1e0af20449e7e7f5fc4432e6af1f3a7c8e18fb4a659d7844bcf434
+  labels:
+    - testing
+    - watch
+  priority: 2
+  status: open
+  title: Harden immediate tbd watch integration test against suite-load flake
+bead_id: is-01kzq7drb8v1d3832nnvb8450x
+external_id: 0ca683d2-250e-4fb6-8a9c-cf9ea4fb1356
+external_key: OS-391
+external_url: https://linear.app/finterm-ai/issue/OS-391/harden-immediate-tbd-watch-integration-test-against-suite-load-flake
+remote_updated_at: 2026-09-16T08:26:08.968Z
+state: linked
+synced_at: 2026-09-16T08:26:09.225Z
+type: lk

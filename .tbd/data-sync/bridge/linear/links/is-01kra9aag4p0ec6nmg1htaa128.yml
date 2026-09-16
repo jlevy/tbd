@@ -4,6 +4,7 @@ base:
   labels:
     - pause
   priority: 1
+  slot: backlog
   status: open
   title: Existing doc commands work via new resolution path (tbd
     shortcut/guidelines/template/reference)
@@ -11,7 +12,9 @@ bead_id: is-01kra9aag4p0ec6nmg1htaa128
 external_id: d6695d69-490c-4950-bed1-dfea18535899
 external_key: OS-96
 external_url: https://linear.app/finterm-ai/issue/OS-96/existing-doc-commands-work-via-new-resolution-path-tbd
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:36.560Z
 state: linked
-synced_at: 2026-08-16T01:13:47.348Z
+synced_at: 2026-09-16T08:24:26.039Z
 type: lk

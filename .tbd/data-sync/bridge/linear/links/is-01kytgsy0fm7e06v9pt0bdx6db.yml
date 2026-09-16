@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:e467182f5aa57ef75490574391f84f0700eba79d55f15d51eb5f5158f8ecc470
+  labels:
+    - review
+  priority: 1
+  status: open
+  title: "Flaky tryscript: cli-edge-cases 'Non-existent short ID' collides with
+    did-you-mean suggestions"
+bead_id: is-01kytgsy0fm7e06v9pt0bdx6db
+external_id: 1f68aec6-7723-481c-90d8-d19b1341c3c1
+external_key: OS-388
+external_url: https://linear.app/finterm-ai/issue/OS-388/flaky-tryscript-cli-edge-cases-non-existent-short-id-collides-with-did
+remote_updated_at: 2026-09-16T08:26:04.020Z
+state: linked
+synced_at: 2026-09-16T08:26:04.249Z
+type: lk

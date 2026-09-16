@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:791d4f0b605eb9677ff218e65ec46be3cd53164c40ed1fdb6620e32be3669234
+  labels: []
+  priority: 2
+  status: open
+  title: Running the test suite from the repo stamps the real .tbd/config.yml with a dev
+    version
+bead_id: is-01kxrxs3w5b32mp7344bfk6rd0
+external_id: 68ea7a17-dfbf-408e-9da7-779644fd1ee3
+external_key: OS-387
+external_url: https://linear.app/finterm-ai/issue/OS-387/running-the-test-suite-from-the-repo-stamps-the-real-tbdconfigyml-with
+remote_updated_at: 2026-09-16T08:26:02.260Z
+state: linked
+synced_at: 2026-09-16T08:26:02.890Z
+type: lk

@@ -5,17 +5,17 @@ title: Stabilize load-sensitive full-suite timeouts
 kind: bug
 status: open
 priority: 2
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
 parent_id: is-01m0qxb2r48hpyfvzbpbcrnh3w
 created_at: 2026-08-23T19:08:59.711Z
-updated_at: 2026-09-16T08:24:08.439Z
+updated_at: 2026-09-16T08:26:41.026Z
 extensions:
   linear:
     id: 90300b49-0204-408c-bd8e-238eeb0836fe
-    linked_at: 2026-09-16T08:24:08.439Z
+    linked_at: 2026-09-16T08:26:41.026Z
 ---
 A full pnpm run ci completed 2,428/2,430 tests but doc-references exceeded 60s and git-remote large-repository setup exceeded 5s under suite-wide load. The same two files passed 22/22 in isolation; doc references completed in 18.7s and the status filter itself took 13ms after fixture creation. Reproduce under full concurrency, separate fixture/setup timeout accounting from the measured assertion, and retain bounded failure detection rather than globally raising timeouts.
 

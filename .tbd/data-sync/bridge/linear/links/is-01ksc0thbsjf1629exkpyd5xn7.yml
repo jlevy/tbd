@@ -5,13 +5,16 @@ base:
     - dogfood
     - setup
   priority: 1
+  slot: done
   status: closed
   title: Self-apply tbd setup to this repository
 bead_id: is-01ksc0thbsjf1629exkpyd5xn7
 external_id: dcaca6c7-6b64-45aa-8dd7-095d5698f3de
 external_key: OS-23
 external_url: https://linear.app/finterm-ai/issue/OS-23/self-apply-tbd-setup-to-this-repository
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
 remote_updated_at: 2026-08-16T02:10:40.521Z
 state: linked
-synced_at: 2026-08-16T02:10:40.896Z
+synced_at: 2026-09-16T08:24:32.446Z
 type: lk

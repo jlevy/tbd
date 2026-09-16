@@ -4,6 +4,7 @@ base:
   labels:
     - pause
   priority: 3
+  slot: todo
   status: open
   title: Stand up github:jlevy/tbd-docs (initial content = current packages/tbd/docs/ ex
     tbd-internal shortcuts)
@@ -11,7 +12,9 @@ bead_id: is-01kra9bnvxgvmt8mdby5hjshna
 external_id: 985003a3-c994-4aec-981b-224b073b19c0
 external_key: OS-113
 external_url: https://linear.app/finterm-ai/issue/OS-113/stand-up-githubjlevytbd-docs-initial-content-current-packagestbddocs
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:47.913Z
 state: linked
-synced_at: 2026-08-16T01:13:49.980Z
+synced_at: 2026-09-16T08:24:29.030Z
 type: lk

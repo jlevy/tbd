@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:90222866ff787881d9e7a83c0e1feb28e2191179dbfc849da2020218fd0cdfb9
+  labels:
+    - phase-2
+  priority: 1
+  status: open
+  title: "resolveSpecLocation: one resolver classifying a stored spec_path; specs.dir config"
+bead_id: is-01m1yzxdnqr4h9q88qqq6wpx4h
+external_id: 68565197-3876-4826-a4b0-2e06ed7933c1
+external_key: OS-439
+external_url: https://linear.app/finterm-ai/issue/OS-439/resolvespeclocation-one-resolver-classifying-a-stored-spec-path
+remote_updated_at: 2026-09-16T08:27:33.680Z
+state: linked
+synced_at: 2026-09-16T08:27:33.921Z
+type: lk

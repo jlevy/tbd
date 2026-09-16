@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:22ddc938353742c12ac93151c3dccc2fe8618411ab22d2961efb2dcb6240c81d
+  labels:
+    - performance
+    - testing
+  priority: 2
+  status: open
+  title: Stabilize 5,000-bead performance test under transient suite load
+bead_id: is-01kzxh4bkrfd346fb6ckcns3nb
+external_id: 695ec74d-4cdc-4c25-967e-b8aba6ef922c
+external_key: OS-392
+external_url: https://linear.app/finterm-ai/issue/OS-392/stabilize-5000-bead-performance-test-under-transient-suite-load
+remote_updated_at: 2026-09-16T08:26:10.345Z
+state: linked
+synced_at: 2026-09-16T08:26:10.653Z
+type: lk

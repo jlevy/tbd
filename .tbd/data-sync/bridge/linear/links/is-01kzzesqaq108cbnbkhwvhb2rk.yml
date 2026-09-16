@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:53607f29d7d810cf5b07a5a7b402148b0b5143d24fc2a59ea51dd9c234a35b24
+  labels:
+    - sync
+  priority: 2
+  status: open
+  title: Investigate tbd sync false push-failure reporting under concurrent metadata sync
+bead_id: is-01kzzesqaq108cbnbkhwvhb2rk
+external_id: 6a43676e-07fb-43f4-ac3d-ffa7dd38e9cc
+external_key: OS-393
+external_url: https://linear.app/finterm-ai/issue/OS-393/investigate-tbd-sync-false-push-failure-reporting-under-concurrent
+remote_updated_at: 2026-09-16T08:26:11.791Z
+state: linked
+synced_at: 2026-09-16T08:26:12.000Z
+type: lk

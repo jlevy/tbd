@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:ab7af56c03035ff191799a5a2cb8625cec13e3bd89967f94f5038f85c4855c78
+  labels:
+    - phase-2
+  priority: 2
+  status: open
+  title: create/update --spec accepts a spec on another branch via git lookup; --no-verify
+bead_id: is-01m1yzxm8735zgxvmxgqy5k5wb
+external_id: 62ea68cc-bcfc-4b8b-a272-b1ba1d699d4a
+external_key: OS-443
+external_url: https://linear.app/finterm-ai/issue/OS-443/createupdate-spec-accepts-a-spec-on-another-branch-via-git-lookup-no
+remote_updated_at: 2026-09-16T08:27:39.140Z
+state: linked
+synced_at: 2026-09-16T08:27:39.425Z
+type: lk

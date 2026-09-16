@@ -4,13 +4,16 @@ base:
   labels:
     - pause
   priority: 2
+  slot: backlog
   status: open
   title: "Scheme-specific fetcher: git: and gitlab: (same machinery as github:)"
 bead_id: is-01kra9b5vg4adws2hxtyn51e1r
 external_id: 92dd4238-d24f-4180-b52b-a69d5bd8938b
 external_key: OS-101
 external_url: https://linear.app/finterm-ai/issue/OS-101/scheme-specific-fetcher-git-and-gitlab-same-machinery-as-github
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:39.366Z
 state: linked
-synced_at: 2026-08-16T01:13:48.150Z
+synced_at: 2026-09-16T08:24:26.907Z
 type: lk

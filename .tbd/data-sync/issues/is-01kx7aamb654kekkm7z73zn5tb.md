@@ -5,18 +5,18 @@ title: doc-references test dirties the working repo (setup --auto at monorepo ro
 kind: bug
 status: open
 priority: 2
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels:
   - tests
   - hygiene
 dependencies: []
 created_at: 2026-07-11T00:48:04.965Z
-updated_at: 2026-09-16T08:24:08.276Z
+updated_at: 2026-09-16T08:25:56.520Z
 extensions:
   linear:
     id: 05f19558-b0d9-4b97-a044-acb044c09b99
-    linked_at: 2026-09-16T08:24:08.276Z
+    linked_at: 2026-09-16T08:25:56.520Z
 ---
 `tests/doc-references.test.ts` has a `beforeAll` that runs `node dist/bin.mjs setup --auto` with `cwd: MONOREPO_ROOT` (the real repo checkout) to install the gitignored docs cache before validating doc references. Side effect: every `pnpm test` run mutates tracked files in the developer's working tree:
 

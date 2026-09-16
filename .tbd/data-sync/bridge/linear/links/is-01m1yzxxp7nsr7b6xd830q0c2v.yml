@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:07997c3a5873fd41c7dcba341e2f7cdcfc961a5cb24c6688aa1cd8cafc7c65d5
+  labels:
+    - phase-4
+  priority: 2
+  status: open
+  title: tbd status prints the resolved root; repo_root and id_prefix in status --json and
+    doctor --json
+bead_id: is-01m1yzxxp7nsr7b6xd830q0c2v
+external_id: 84208f7a-c423-49dd-b73e-887ca96161f5
+external_key: OS-448
+external_url: https://linear.app/finterm-ai/issue/OS-448/tbd-status-prints-the-resolved-root-repo-root-and-id-prefix-in-status
+remote_updated_at: 2026-09-16T08:27:48.141Z
+state: linked
+synced_at: 2026-09-16T08:27:48.349Z
+type: lk

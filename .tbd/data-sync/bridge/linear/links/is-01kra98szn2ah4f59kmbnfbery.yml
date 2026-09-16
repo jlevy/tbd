@@ -4,13 +4,16 @@ base:
   labels:
     - pause
   priority: 1
+  slot: todo
   status: open
   title: "Phase 1: Basic capabilities and migration (f06+ framework backing impl)"
 bead_id: is-01kra98szn2ah4f59kmbnfbery
 external_id: ba931b64-4c5b-49cc-9b3f-bcaf4d36dc0c
 external_key: OS-38
 external_url: https://linear.app/finterm-ai/issue/OS-38/phase-1-basic-capabilities-and-migration-f06-framework-backing-impl
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-19T04:56:01.184Z
 state: linked
-synced_at: 2026-08-19T16:30:00.223Z
+synced_at: 2026-09-16T08:24:22.852Z
 type: lk

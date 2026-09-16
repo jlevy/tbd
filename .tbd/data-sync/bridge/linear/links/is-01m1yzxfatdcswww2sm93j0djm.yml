@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:265d38f42d1fecd40a3488f6a1ca0d3ae7596d17ca71c55228e6a7436155b2d1
+  labels:
+    - phase-2
+  priority: 1
+  status: open
+  title: "doctor: Spec links group (dangling spec_path, epics without a spec, duplicate
+    spec filenames) with --fix for moved paths"
+bead_id: is-01m1yzxfatdcswww2sm93j0djm
+external_id: 18474a38-1eeb-4d85-9111-a0cf269cb6eb
+external_key: OS-440
+external_url: https://linear.app/finterm-ai/issue/OS-440/doctor-spec-links-group-dangling-spec-path-epics-without-a-spec
+remote_updated_at: 2026-09-16T08:27:35.041Z
+state: linked
+synced_at: 2026-09-16T08:27:35.387Z
+type: lk

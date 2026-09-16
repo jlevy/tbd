@@ -4,13 +4,16 @@ base:
   labels:
     - validation
   priority: 1
+  slot: done
   status: closed
   title: "Stage 5: Validation"
 bead_id: is-01kf5zyg8kes75a7kkvmrzaycx
 external_id: 45bd6d51-3612-49a0-8674-26e1318e8703
 external_key: OS-74
 external_url: https://linear.app/finterm-ai/issue/OS-74/stage-5-validation
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
 remote_updated_at: 2026-08-16T00:10:51.700Z
 state: linked
-synced_at: 2026-08-16T01:13:37.260Z
+synced_at: 2026-09-16T08:24:11.312Z
 type: lk

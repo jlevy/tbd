@@ -4,13 +4,16 @@ base:
   labels:
     - pause
   priority: 2
+  slot: todo
   status: open
   title: "Q20: Decide categories/types/folders, glob-first matching, CLI aliases"
 bead_id: is-01kra99kvf2ys81vcakyb8vbzz
 external_id: e317500b-8de7-4581-b1fb-100d11cf3b9c
 external_key: OS-30
 external_url: https://linear.app/finterm-ai/issue/OS-30/q20-decide-categoriestypesfolders-glob-first-matching-cli-aliases
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-19T04:56:04.400Z
 state: linked
-synced_at: 2026-08-19T16:30:01.682Z
+synced_at: 2026-09-16T08:24:24.140Z
 type: lk

@@ -4,13 +4,16 @@ base:
   labels:
     - pause
   priority: 2
+  slot: todo
   status: open
   title: "URL → docref normalization (GitHub/GitLab URL → github:/gitlab: forms)"
 bead_id: is-01kra9b4s31c7he5hrx9en34ck
 external_id: 9b8758be-d457-46b4-a649-5896d67938df
 external_key: OS-98
 external_url: https://linear.app/finterm-ai/issue/OS-98/url-docref-normalization-githubgitlab-url-githubgitlab-forms
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:37.594Z
 state: linked
-synced_at: 2026-08-16T01:13:47.724Z
+synced_at: 2026-09-16T08:24:26.352Z
 type: lk

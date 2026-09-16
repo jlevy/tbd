@@ -5,16 +5,16 @@ title: "Publish and verify the tbd skill on skills.sh: 23 checklist items in an 
 kind: task
 status: open
 priority: 3
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-02-08-tbd-on-skills-sh.md
 labels: []
 dependencies: []
 created_at: 2026-09-14T04:24:47.183Z
-updated_at: 2026-09-16T08:24:08.804Z
+updated_at: 2026-09-16T08:28:34.303Z
 extensions:
   linear:
     id: 90bfa55b-9eb0-4ff6-82dc-3b9abff94dba
-    linked_at: 2026-09-16T08:24:08.804Z
+    linked_at: 2026-09-16T08:28:34.303Z
 ---
 `docs/project/specs/active/plan-2026-02-08-tbd-on-skills-sh.md` sits in `active/` with 23 unchecked items and zero beads, so none of its remaining work is visible to `tbd ready` or to any spec-based selector. Found by the 2026-09-14 reconciliation pass; filed so the residue is tracked rather than silently refiled as a draft.
 

@@ -5,7 +5,7 @@ title: Release notes and release gate for the coordination stack
 kind: task
 status: in_progress
 priority: 1
-version: 10
+version: 11
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 delegate: claude-code@spud10.local
 labels: []
@@ -14,12 +14,12 @@ parent_id: is-01m2erp0t0njvw8medbk3x70vz
 hold: null
 hold_until: null
 created_at: 2026-09-14T01:45:31.686Z
-updated_at: 2026-09-16T08:24:08.784Z
+updated_at: 2026-09-16T08:28:28.343Z
 started_at: 2026-09-16T06:37:08.142Z
 extensions:
   linear:
     id: 2f20c626-78c2-4a48-9904-5f80572914a7
-    linked_at: 2026-09-16T08:24:08.784Z
+    linked_at: 2026-09-16T08:28:28.343Z
 ---
 The repository composes release notes at release time from CHANGELOG (no changesets). Items the coordination stack adds, from the release-compatibility review:
 - identity.agent_map is now honored: invalid values fail integration commands (tbd-tia7), valid values send delegateId on --push, which can start Linear Agent Sessions (tbd-80vz).

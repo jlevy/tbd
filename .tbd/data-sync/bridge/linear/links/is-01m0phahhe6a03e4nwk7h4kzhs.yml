@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:f6bd34fa7cb7d57deef8f485b6ea81fcc1286c5088ccc6684893ead1bfb826ad
+  labels:
+    - playbook
+  priority: 2
+  status: open
+  title: "Playbook: rewrite guidelines/README.md as a router"
+bead_id: is-01m0phahhe6a03e4nwk7h4kzhs
+external_id: c4bbcb59-895f-47c5-9f0e-5bd4f6707ed7
+external_key: OS-406
+external_url: https://linear.app/finterm-ai/issue/OS-406/playbook-rewrite-guidelinesreadmemd-as-a-router
+remote_updated_at: 2026-09-16T08:26:35.427Z
+state: linked
+synced_at: 2026-09-16T08:26:35.640Z
+type: lk

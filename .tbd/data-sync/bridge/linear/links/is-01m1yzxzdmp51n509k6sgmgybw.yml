@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:75faac55198144a0ede9c4f6a401109693f0b7dc3d42477f9e3dd4cab45e17e5
+  labels:
+    - phase-4
+  priority: 3
+  status: open
+  title: "tbd -C <path>: select a repository without cd"
+bead_id: is-01m1yzxzdmp51n509k6sgmgybw
+external_id: bc859d97-a3ca-43ca-a750-c1cdb0dfae2b
+external_key: OS-449
+external_url: https://linear.app/finterm-ai/issue/OS-449/tbd-c-path-select-a-repository-without-cd
+remote_updated_at: 2026-09-16T08:27:49.547Z
+state: linked
+synced_at: 2026-09-16T08:27:49.823Z
+type: lk

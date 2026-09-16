@@ -1,16 +1,19 @@
 base:
   assignee: null
-  description_hash: sha256v7:53ac95fed8ff3181615d76d4c7848e1f33da301aaa3053b7b3c1412f20cd9050
+  description_hash: sha256v7:d07c81a14be524cdb2caf9b260467f474f9bfb54c4d91dec4b95c9c39b020f17
   labels:
     - phase-1
   priority: 1
-  status: open
+  slot: done
+  status: closed
   title: Teach the claim step in all four instruction surfaces
 bead_id: is-01m00h4phk5sx8cf4meq0gpk9b
 external_id: 1e31c9b2-e2d6-422f-8208-a9db058763f5
 external_key: OS-212
 external_url: https://linear.app/finterm-ai/issue/OS-212/teach-the-claim-step-in-all-four-instruction-surfaces
-remote_updated_at: 2026-08-16T07:50:30.244Z
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+remote_updated_at: 2026-09-16T08:25:15.329Z
 state: linked
-synced_at: 2026-08-16T07:50:31.324Z
+synced_at: 2026-09-16T08:25:18.527Z
 type: lk

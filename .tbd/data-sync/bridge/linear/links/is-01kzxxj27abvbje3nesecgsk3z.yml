@@ -5,13 +5,16 @@ base:
     - integration
     - dogfood
   priority: 1
+  slot: done
   status: closed
   title: Dogfood Linear synchronization against the legacy tbd repository
 bead_id: is-01kzxxj27abvbje3nesecgsk3z
 external_id: 583ad9a1-b8fa-4261-bfd6-a5c43fdec4a8
 external_key: OS-162
 external_url: https://linear.app/finterm-ai/issue/OS-162/dogfood-linear-synchronization-against-the-legacy-tbd-repository
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
 remote_updated_at: 2026-08-19T16:37:59.357Z
 state: linked
-synced_at: 2026-08-19T16:38:42.775Z
+synced_at: 2026-09-16T08:25:04.816Z
 type: lk

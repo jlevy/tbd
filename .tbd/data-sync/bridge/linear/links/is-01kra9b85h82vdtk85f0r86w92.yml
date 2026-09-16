@@ -4,6 +4,7 @@ base:
   labels:
     - pause
   priority: 2
+  slot: backlog
   status: open
   title: "tbd source diff <key> (two-way diff: local override vs cached current;
     unified/side-by-side flag)"
@@ -11,7 +12,9 @@ bead_id: is-01kra9b85h82vdtk85f0r86w92
 external_id: bd6ce62a-9813-4912-b43d-441ef7a94c8a
 external_key: OS-107
 external_url: https://linear.app/finterm-ai/issue/OS-107/tbd-source-diff-key-two-way-diff-local-override-vs-cached-current
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:42.461Z
 state: linked
-synced_at: 2026-08-16T01:13:49.112Z
+synced_at: 2026-09-16T08:24:27.849Z
 type: lk

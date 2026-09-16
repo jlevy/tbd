@@ -4,13 +4,16 @@ base:
   labels:
     - pause
   priority: 1
+  slot: backlog
   status: open
   title: "Phase 1 tests: migration golden (f03→f05, f04→f05), source resolution, doc map"
 bead_id: is-01kra9aave6br1ysqedyccf8y5
 external_id: 86750d7d-601f-49f3-9cae-7a06a9dae633
 external_key: OS-97
 external_url: https://linear.app/finterm-ai/issue/OS-97/phase-1-tests-migration-golden-f03f05-f04f05-source-resolution-doc-map
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:37.086Z
 state: linked
-synced_at: 2026-08-16T01:13:47.578Z
+synced_at: 2026-09-16T08:24:26.186Z
 type: lk

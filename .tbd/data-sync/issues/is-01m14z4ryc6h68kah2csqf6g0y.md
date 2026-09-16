@@ -5,17 +5,17 @@ title: Repo resolution crosses git boundaries and the ID prefix is ignored on in
 kind: bug
 status: open
 priority: 1
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
 parent_id: is-01m14yzbwwg92e5k7z7d4kyn00
 created_at: 2026-08-28T19:56:57.164Z
-updated_at: 2026-09-16T08:24:08.459Z
+updated_at: 2026-09-16T08:26:45.606Z
 extensions:
   linear:
     id: cdaae0ca-bae1-496f-944d-de1ca0ff3cf2
-    linked_at: 2026-09-16T08:24:08.459Z
+    linked_at: 2026-09-16T08:26:45.606Z
 ---
 GH #204. Two data-safety defects in one surface; the observability half of that issue (status printing cwd under 'Repository:', no --repo flag, no repo identity in --json) is lower value and tracked in the same issue.
 

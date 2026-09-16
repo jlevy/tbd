@@ -4,13 +4,16 @@ base:
   labels:
     - pause
   priority: 4
+  slot: backlog
   status: open
   title: Update tbd-docs release notes and link from tbd's docs
 bead_id: is-01kra9br63f467mxc3fjwga2wz
 external_id: 21a0f147-b56a-4ccc-94da-ad274aca2653
 external_key: OS-119
 external_url: https://linear.app/finterm-ai/issue/OS-119/update-tbd-docs-release-notes-and-link-from-tbds-docs
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:53.093Z
 state: linked
-synced_at: 2026-08-16T01:13:51.013Z
+synced_at: 2026-09-16T08:24:30.465Z
 type: lk

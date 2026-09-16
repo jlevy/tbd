@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:f1b25d18d4d0c42ddfc7150edcc92b5248cd9287bd7d93c54ac9aabc9fcd8173
+  labels: []
+  priority: 1
+  status: open
+  title: "Stability release: sync convergence, lock recovery, and gate integrity"
+bead_id: is-01m14yzbwwg92e5k7z7d4kyn00
+external_id: 1adba480-fa92-4840-bf07-7a520a6a9c91
+external_key: OS-411
+external_url: https://linear.app/finterm-ai/issue/OS-411/stability-release-sync-convergence-lock-recovery-and-gate-integrity
+remote_updated_at: 2026-09-16T08:26:43.189Z
+state: linked
+synced_at: 2026-09-16T08:26:43.380Z
+type: lk

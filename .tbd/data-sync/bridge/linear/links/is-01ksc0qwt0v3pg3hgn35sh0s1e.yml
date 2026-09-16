@@ -6,13 +6,16 @@ base:
     - setup
     - codex
   priority: 1
+  slot: todo
   status: open
   title: Modernize multi-agent skills and hooks setup
 bead_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 external_id: 666ffd07-a190-48fe-9ce5-657967438c81
 external_key: OS-29
 external_url: https://linear.app/finterm-ai/issue/OS-29/modernize-multi-agent-skills-and-hooks-setup
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-19T04:56:06.283Z
 state: linked
-synced_at: 2026-08-19T16:30:09.562Z
+synced_at: 2026-09-16T08:24:30.833Z
 type: lk

@@ -5,7 +5,7 @@ title: "Every slot round-trips: write slots through slotToLinear, compare in bot
 kind: bug
 status: in_progress
 priority: 1
-version: 12
+version: 13
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 delegate: claude-code@spud10.local
 labels:
@@ -23,12 +23,12 @@ parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 hold: null
 hold_until: null
 created_at: 2026-09-07T22:30:34.353Z
-updated_at: 2026-09-16T08:24:08.598Z
+updated_at: 2026-09-16T08:27:26.861Z
 started_at: 2026-09-16T07:18:41.338Z
 extensions:
   linear:
     id: 2f970134-325e-47da-8b11-920305d0fcaa
-    linked_at: 2026-09-16T08:24:08.598Z
+    linked_at: 2026-09-16T08:27:26.861Z
 ---
 GH #265 (the alternation) and the In Review drag. Plan 1a.
 

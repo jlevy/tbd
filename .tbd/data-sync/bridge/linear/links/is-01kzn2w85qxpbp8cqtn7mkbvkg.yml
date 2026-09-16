@@ -3,13 +3,16 @@ base:
   description_hash: sha256v7:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   labels: []
   priority: 1
+  slot: todo
   status: open
   title: "Epic: External tracker integrations (Linear first, GitHub next)"
 bead_id: is-01kzn2w85qxpbp8cqtn7mkbvkg
 external_id: 7202337e-d1ee-4192-bb6c-c6ae42b97469
 external_key: OS-3
 external_url: https://linear.app/finterm-ai/issue/OS-3/epic-external-tracker-integrations-linear-first-github-next
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-19T04:56:08.831Z
 state: linked
-synced_at: 2026-08-19T16:30:18.579Z
+synced_at: 2026-09-16T08:24:40.973Z
 type: lk

@@ -4,13 +4,16 @@ base:
   labels:
     - linear-sync
   priority: 2
+  slot: todo
   status: open
   title: Generic extensions read/write/display on the CLI
 bead_id: is-01kzbyhsm660v90763b5tr11rk
 external_id: 267d0a07-a3e7-408a-b5ac-feb3711368d3
 external_key: OS-4
 external_url: https://linear.app/finterm-ai/issue/OS-4/generic-extensions-readwritedisplay-on-the-cli
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T02:10:58.506Z
 state: linked
-synced_at: 2026-08-16T02:10:58.775Z
+synced_at: 2026-09-16T08:24:40.159Z
 type: lk

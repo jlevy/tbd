@@ -4,13 +4,16 @@ base:
   labels:
     - pause
   priority: 3
+  slot: backlog
   status: open
   title: "Query-driven mutation: close/update --where (reuse list grammar)"
 bead_id: is-01kv199rkcm7z63tmp6hs2dbr1
 external_id: 1f760527-47c0-47a2-8e1a-01b086c6eb05
 external_key: OS-12
 external_url: https://linear.app/finterm-ai/issue/OS-12/query-driven-mutation-closeupdate-where-reuse-list-grammar
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T02:10:53.143Z
 state: linked
-synced_at: 2026-08-16T02:10:53.363Z
+synced_at: 2026-09-16T08:24:35.934Z
 type: lk

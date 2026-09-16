@@ -4,13 +4,16 @@ base:
   labels:
     - pause
   priority: 3
+  slot: backlog
   status: open
   title: Tag v1.0.0 of github:jlevy/tbd-docs
 bead_id: is-01kra9bp8j6g8fv8pq61srprrw
 external_id: 56262cab-082c-4507-bd4f-3a74ee005707
 external_key: OS-114
 external_url: https://linear.app/finterm-ai/issue/OS-114/tag-v100-of-githubjlevytbd-docs
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:48.384Z
 state: linked
-synced_at: 2026-08-16T01:13:50.141Z
+synced_at: 2026-09-16T08:24:29.190Z
 type: lk

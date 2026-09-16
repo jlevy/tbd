@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:0c51107dd83a186128853d08968ee583bdf632e4d551c9afd5b846e65a14d664
+  labels:
+    - phase-1
+  priority: 2
+  status: open
+  title: "Interim: --push dry run and confirmation say it overwrites Linear-side edits"
+bead_id: is-01m2egwxf9gt205a11kspr9rqb
+external_id: f45188fa-a754-465e-b63d-73914611c3ed
+external_key: OS-457
+external_url: https://linear.app/finterm-ai/issue/OS-457/interim-push-dry-run-and-confirmation-say-it-overwrites-linear-side
+remote_updated_at: 2026-09-16T08:28:14.999Z
+state: linked
+synced_at: 2026-09-16T08:28:15.243Z
+type: lk

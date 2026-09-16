@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:11ac2da8f6a8b76d768c56ea5546d9b6b4e215a64dccf31354acb4106d4f408d
+  labels: []
+  priority: 2
+  status: open
+  title: Linear resume keeps the tbd:paused carrier label, so the next sync pulls the hold
+    back onto the bead
+bead_id: is-01m2kfdt4b7w8tt5yz9ad0g68g
+external_id: 99c9d426-e7b6-49c5-a784-a633e354f918
+external_key: OS-469
+external_url: https://linear.app/finterm-ai/issue/OS-469/linear-resume-keeps-the-tbdpaused-carrier-label-so-the-next-sync-pulls
+remote_updated_at: 2026-09-16T08:28:36.718Z
+state: linked
+synced_at: 2026-09-16T08:28:36.938Z
+type: lk

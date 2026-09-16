@@ -4,13 +4,16 @@ base:
   labels:
     - pause
   priority: 1
+  slot: todo
   status: open
   title: "Lockfile: write/read .tbd/docs.lock.yml per format spec §3 (workflow W1)"
 bead_id: is-01kra9a9d5hkb9exmv0ah7h0z6
 external_id: 46503ac5-6e07-4f78-ab64-29c23dc2f5b5
 external_key: OS-93
 external_url: https://linear.app/finterm-ai/issue/OS-93/lockfile-writeread-tbddocslockyml-per-format-spec-3-workflow-w1
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:34.977Z
 state: linked
-synced_at: 2026-08-16T01:13:46.929Z
+synced_at: 2026-09-16T08:24:25.551Z
 type: lk

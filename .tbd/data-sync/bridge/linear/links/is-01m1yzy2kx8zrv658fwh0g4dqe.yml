@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:f42f2babdb278edec19a22df128975c84f7974028ecc83b815195d6ee0d44814
+  labels:
+    - phase-5
+  priority: 1
+  status: open
+  title: Rewrite update-specs-status to use tbd spec status, list --children and spec
+    move; pin it with a test
+bead_id: is-01m1yzy2kx8zrv658fwh0g4dqe
+external_id: 64a00b5a-5d94-4315-a118-3e121b8902f6
+external_key: OS-451
+external_url: https://linear.app/finterm-ai/issue/OS-451/rewrite-update-specs-status-to-use-tbd-spec-status-list-children-and
+remote_updated_at: 2026-09-16T08:27:52.256Z
+state: linked
+synced_at: 2026-09-16T08:27:52.463Z
+type: lk

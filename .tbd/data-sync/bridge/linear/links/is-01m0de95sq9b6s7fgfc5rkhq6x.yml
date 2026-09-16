@@ -3,6 +3,7 @@ base:
   description_hash: sha256v7:3443cb2a76c17f125ec266d6d9d979ad9568f7cd674087152323529e9d6f5e43
   labels: []
   priority: 0
+  slot: done
   status: closed
   title: "Sync clears Linear assignees: a null local assignee is pushed as an explicit
     unassign"
@@ -10,7 +11,9 @@ bead_id: is-01m0de95sq9b6s7fgfc5rkhq6x
 external_id: 8a51f977-f9e5-411d-8c72-4e8e67be7837
 external_key: OS-351
 external_url: https://linear.app/finterm-ai/issue/OS-351/sync-clears-linear-assignees-a-null-local-assignee-is-pushed-as-an
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
 remote_updated_at: 2026-08-19T23:49:35.418Z
 state: linked
-synced_at: 2026-08-19T23:49:35.798Z
+synced_at: 2026-09-16T08:25:42.046Z
 type: lk

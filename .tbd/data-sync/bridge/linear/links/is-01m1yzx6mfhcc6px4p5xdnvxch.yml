@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:98c334479c5525f4916ed7ef654d29438477c15cdc0748cdb9350ef71185aa48
+  labels:
+    - phase-1
+  priority: 1
+  status: open
+  title: "Duplicate close survives the Linear round trip: applyTerminalAxis and
+    BeadPatch.duplicate_of"
+bead_id: is-01m1yzx6mfhcc6px4p5xdnvxch
+external_id: 8ace775b-994d-4d19-8cbc-7e77f7cbe644
+external_key: OS-434
+external_url: https://linear.app/finterm-ai/issue/OS-434/duplicate-close-survives-the-linear-round-trip-applyterminalaxis-and
+remote_updated_at: 2026-09-16T08:27:26.306Z
+state: linked
+synced_at: 2026-09-16T08:27:26.544Z
+type: lk

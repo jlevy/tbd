@@ -4,13 +4,16 @@ base:
   labels:
     - pause
   priority: 2
+  slot: todo
   status: open
   title: "CLI output consistency: stats formatting and status icons"
 bead_id: is-01kfxpq9c0j5wdsqy6vsqc3d1g
 external_id: 301e57f4-deb2-4606-8b08-8a93b9f9ff02
 external_key: OS-57
 external_url: https://linear.app/finterm-ai/issue/OS-57/cli-output-consistency-stats-formatting-and-status-icons
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-19T04:55:57.381Z
 state: linked
-synced_at: 2026-08-19T16:29:57.087Z
+synced_at: 2026-09-16T08:24:14.283Z
 type: lk

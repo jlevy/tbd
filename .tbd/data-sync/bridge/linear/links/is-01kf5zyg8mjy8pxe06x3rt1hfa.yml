@@ -6,13 +6,16 @@ base:
     - phase-15
     - validation
   priority: 1
+  slot: done
   status: closed
   title: "Phase 15: Import Validation"
 bead_id: is-01kf5zyg8mjy8pxe06x3rt1hfa
 external_id: 244be55c-cfeb-49ad-b7f8-eaac4e99df0b
 external_key: OS-69
 external_url: https://linear.app/finterm-ai/issue/OS-69/phase-15-import-validation
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
 remote_updated_at: 2026-08-16T00:10:55.162Z
 state: linked
-synced_at: 2026-08-16T01:13:38.663Z
+synced_at: 2026-09-16T08:24:12.432Z
 type: lk

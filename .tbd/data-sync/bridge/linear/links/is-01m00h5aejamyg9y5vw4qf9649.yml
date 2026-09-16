@@ -4,13 +4,16 @@ base:
   labels:
     - phase-4
   priority: 1
+  slot: todo
   status: open
   title: tbd prime reports claimed work and sync freshness
 bead_id: is-01m00h5aejamyg9y5vw4qf9649
 external_id: a6d862c7-f15a-4728-8cba-044190d989f8
 external_key: OS-214
 external_url: https://linear.app/finterm-ai/issue/OS-214/tbd-prime-reports-claimed-work-and-sync-freshness
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T07:50:32.578Z
 state: linked
-synced_at: 2026-08-16T07:50:32.763Z
+synced_at: 2026-09-16T08:25:18.853Z
 type: lk

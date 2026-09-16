@@ -4,13 +4,16 @@ base:
   labels:
     - phase-1
   priority: 1
+  slot: done
   status: closed
   title: "Add tbd start: the claim primitive"
 bead_id: is-01m00h57nkvtvkbqn992w5fm2e
 external_id: 4fd428a0-cc81-4317-b53f-78118f9b0b9b
 external_key: OS-213
 external_url: https://linear.app/finterm-ai/issue/OS-213/add-tbd-start-the-claim-primitive
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
 remote_updated_at: 2026-08-16T07:50:31.831Z
 state: linked
-synced_at: 2026-08-16T07:50:31.953Z
+synced_at: 2026-09-16T08:25:18.693Z
 type: lk

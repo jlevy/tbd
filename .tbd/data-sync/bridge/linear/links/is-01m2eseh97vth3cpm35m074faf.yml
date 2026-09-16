@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:979c5b02a9cef6dc9bba924b6ab18c3311dfc22a680829b123ea69955647c33b
+  labels: []
+  priority: 1
+  status: in_progress
+  title: Release notes and release gate for the coordination stack
+bead_id: is-01m2eseh97vth3cpm35m074faf
+external_id: 2f20c626-78c2-4a48-9904-5f80572914a7
+external_key: OS-465
+external_url: https://linear.app/finterm-ai/issue/OS-465/release-notes-and-release-gate-for-the-coordination-stack
+remote_updated_at: 2026-09-16T08:28:29.377Z
+state: linked
+synced_at: 2026-09-16T08:28:29.814Z
+type: lk

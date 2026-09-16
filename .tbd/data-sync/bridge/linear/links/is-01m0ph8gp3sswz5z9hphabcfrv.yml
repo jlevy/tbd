@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:6e3fe0007a853e8ea946fe391045460caecda0d81cf6a737e716ca6ac46452f3
+  labels: []
+  priority: 2
+  status: open
+  title: Bundle or retire the three unbundled docs/general documents
+bead_id: is-01m0ph8gp3sswz5z9hphabcfrv
+external_id: 29100f55-3f98-4773-9d04-b4ee4cfe9bb1
+external_key: OS-402
+external_url: https://linear.app/finterm-ai/issue/OS-402/bundle-or-retire-the-three-unbundled-docsgeneral-documents
+remote_updated_at: 2026-09-16T08:26:29.801Z
+state: linked
+synced_at: 2026-09-16T08:26:30.254Z
+type: lk

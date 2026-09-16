@@ -6,13 +6,16 @@ base:
     - lifecycle
     - web
   priority: 1
+  slot: done
   status: closed
   title: "Phase 3.5: register WebHandler CLI surface and process lifecycle"
 bead_id: is-01kzrs8phwbdy9hdkxm6c6k8pe
 external_id: 9675a81a-a8b8-4da5-9982-5b68215cf678
 external_key: OS-143
 external_url: https://linear.app/finterm-ai/issue/OS-143/phase-35-register-webhandler-cli-surface-and-process-lifecycle
-remote_updated_at: 2026-08-16T00:13:00.837Z
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
+remote_updated_at: 2026-09-16T08:24:55.950Z
 state: linked
-synced_at: 2026-08-16T01:14:03.391Z
+synced_at: 2026-09-16T08:24:56.148Z
 type: lk

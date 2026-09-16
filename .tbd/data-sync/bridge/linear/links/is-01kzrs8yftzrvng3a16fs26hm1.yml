@@ -6,13 +6,16 @@ base:
     - testing
     - web
   priority: 1
+  slot: done
   status: closed
   title: "Phase 4.1: implement transport-injected web client store and race tests"
 bead_id: is-01kzrs8yftzrvng3a16fs26hm1
 external_id: 36a1280d-99c2-4389-84d3-17967abd13e4
 external_key: OS-144
 external_url: https://linear.app/finterm-ai/issue/OS-144/phase-41-implement-transport-injected-web-client-store-and-race-tests
-remote_updated_at: 2026-08-16T00:13:01.384Z
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
+remote_updated_at: 2026-09-16T08:24:56.509Z
 state: linked
-synced_at: 2026-08-16T01:14:03.531Z
+synced_at: 2026-09-16T08:24:56.683Z
 type: lk

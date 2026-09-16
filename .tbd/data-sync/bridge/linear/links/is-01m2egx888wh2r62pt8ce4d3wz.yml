@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:de1ce8d522a0c93d209577a9c526c305355876b58a66ee5ae8aa1978ddb78803
+  labels:
+    - phase-1
+  priority: 1
+  status: open
+  title: Retire planMirror/applyMirror and push-only printers; SyncRunReport for --push
+    --json; docs
+bead_id: is-01m2egx888wh2r62pt8ce4d3wz
+external_id: 7e862619-6eed-4642-9f59-fab18463809c
+external_key: OS-462
+external_url: https://linear.app/finterm-ai/issue/OS-462/retire-planmirrorapplymirror-and-push-only-printers-syncrunreport-for
+remote_updated_at: 2026-09-16T08:28:23.905Z
+state: linked
+synced_at: 2026-09-16T08:28:24.118Z
+type: lk

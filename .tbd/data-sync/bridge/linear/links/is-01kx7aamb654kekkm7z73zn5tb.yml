@@ -1,0 +1,18 @@
+base:
+  assignee: null
+  description_hash: sha256v7:3eaea99e19a56b5371909f552b4c0d8b81a6e8d0dbf335f9ae79d140e1364467
+  labels:
+    - tests
+    - hygiene
+  priority: 2
+  status: open
+  title: doc-references test dirties the working repo (setup --auto at monorepo root in
+    beforeAll)
+bead_id: is-01kx7aamb654kekkm7z73zn5tb
+external_id: 05f19558-b0d9-4b97-a044-acb044c09b99
+external_key: OS-385
+external_url: https://linear.app/finterm-ai/issue/OS-385/doc-references-test-dirties-the-working-repo-setup-auto-at-monorepo
+remote_updated_at: 2026-09-16T08:25:57.240Z
+state: linked
+synced_at: 2026-09-16T08:25:57.485Z
+type: lk

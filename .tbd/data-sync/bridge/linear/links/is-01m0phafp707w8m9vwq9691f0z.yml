@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:926d91ab9fc62a63aca0cb600507682b964c384077abe29c33c864994e84a94e
+  labels:
+    - playbook
+  priority: 2
+  status: open
+  title: "Playbook: record the disposition of every moved document"
+bead_id: is-01m0phafp707w8m9vwq9691f0z
+external_id: 3e54e964-ffa5-4765-84e1-9d49500b1b51
+external_key: OS-405
+external_url: https://linear.app/finterm-ai/issue/OS-405/playbook-record-the-disposition-of-every-moved-document
+remote_updated_at: 2026-09-16T08:26:34.088Z
+state: linked
+synced_at: 2026-09-16T08:26:34.417Z
+type: lk

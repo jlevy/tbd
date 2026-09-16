@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:7aa8c68990457b7a2fc3979a0692a2051c1be0fc8f1553b91224c3c8a4507bf9
+  labels:
+    - phase-1
+  priority: 1
+  status: open
+  title: "max_nesting visibility: notice at create/update --parent, Tracker nesting doctor
+    check, shared skip remedy"
+bead_id: is-01m1yzx2zt9d5w1jzgsb76060b
+external_id: d332b418-cbe4-41ce-80c4-73c9cd725b9b
+external_key: OS-432
+external_url: https://linear.app/finterm-ai/issue/OS-432/max-nesting-visibility-notice-at-createupdate-parent-tracker-nesting
+remote_updated_at: 2026-09-16T08:27:18.392Z
+state: linked
+synced_at: 2026-09-16T08:27:18.853Z
+type: lk

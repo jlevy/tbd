@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:044681e7a0f1cc028eb30343f174c283b4b547094fdcc90b22426fa71f5df611
+  labels: []
+  priority: 2
+  status: open
+  title: Committed agent surfaces are stale relative to bundled docs
+bead_id: is-01m0pj1ksy7tdf5skcgb90ed0s
+external_id: 20c7ca12-d738-4fd8-bc91-b438dc842e46
+external_key: OS-409
+external_url: https://linear.app/finterm-ai/issue/OS-409/committed-agent-surfaces-are-stale-relative-to-bundled-docs
+remote_updated_at: 2026-09-16T08:26:40.325Z
+state: linked
+synced_at: 2026-09-16T08:26:40.605Z
+type: lk

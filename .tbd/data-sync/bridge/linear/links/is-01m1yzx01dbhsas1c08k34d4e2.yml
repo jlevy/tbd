@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:ac5670b473a112aa4e5c959b015a75809dd3cf8f7ffcf078ecf9146f8f29d4bc
+  labels:
+    - phase-1
+  priority: 1
+  status: open
+  title: Blocked or failing fold prints pending counts and every failure; remedy names the
+    invoked command
+bead_id: is-01m1yzx01dbhsas1c08k34d4e2
+external_id: 38a3db43-24ee-4221-be54-ad5e7c4815ce
+external_key: OS-430
+external_url: https://linear.app/finterm-ai/issue/OS-430/blocked-or-failing-fold-prints-pending-counts-and-every-failure-remedy
+remote_updated_at: 2026-09-16T08:27:15.214Z
+state: linked
+synced_at: 2026-09-16T08:27:15.563Z
+type: lk

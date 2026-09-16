@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:2976c9206e76d32237dc54b4433ebca81298dcde3163cf9143d99beadf1a8097
+  labels:
+    - playbook
+  priority: 2
+  status: open
+  title: "Playbook: reduce test_rust_guidelines.py to what remains local"
+bead_id: is-01m0phan84kmbf3jpzgm8bzztc
+external_id: b0562010-e7eb-4d4e-b318-6ecd2b482849
+external_key: OS-408
+external_url: https://linear.app/finterm-ai/issue/OS-408/playbook-reduce-test-rust-guidelinespy-to-what-remains-local
+remote_updated_at: 2026-09-16T08:26:38.346Z
+state: linked
+synced_at: 2026-09-16T08:26:38.533Z
+type: lk

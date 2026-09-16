@@ -5,16 +5,16 @@ title: Route typescript-lint-format-rules at ci-and-gates-rules
 kind: task
 status: open
 priority: 2
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-08-23-rust-quality-floor-and-guideline-mapping.md
 labels: []
 dependencies: []
 parent_id: is-01m0ph6ehhhryj0z52a1c3b3rv
 created_at: 2026-08-23T05:24:52.039Z
-updated_at: 2026-09-16T08:24:08.374Z
+updated_at: 2026-09-16T08:26:26.594Z
 extensions:
   linear:
     id: 7d73dbda-e420-41f6-8e9e-b3cf855ad566
-    linked_at: 2026-09-16T08:24:08.374Z
+    linked_at: 2026-09-16T08:26:26.594Z
 ---
 Floor rules 6 and 8 and the Hooks and Gates Reference section restate hook, gate, and ratchet material that becomes language-neutral. Point them at ci-and-gates-rules rather than repeating it, per common-doc-guidelines on avoiding duplication.

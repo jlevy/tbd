@@ -5,16 +5,16 @@ title: pre-push test run stamps real .tbd/config.yml with dev tbd_version (isola
 kind: bug
 status: open
 priority: 2
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md
 labels: []
 dependencies: []
 created_at: 2026-07-12T19:33:40.329Z
-updated_at: 2026-09-16T08:24:08.282Z
+updated_at: 2026-09-16T08:25:57.836Z
 extensions:
   linear:
     id: eb5eca48-5174-44d9-a692-a3c877403a11
-    linked_at: 2026-09-16T08:24:08.282Z
+    linked_at: 2026-09-16T08:25:57.836Z
 ---
 Observed twice in a Claude Code remote session on 2026-07-12 (ordinary checkout, not a linked worktree), while pushing docs commits from branch claude/tbd-v0.4.0-release-d3wwrx:
 

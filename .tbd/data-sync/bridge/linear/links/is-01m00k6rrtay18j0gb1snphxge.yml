@@ -5,13 +5,16 @@ base:
     - traceability
     - phase-3
   priority: 2
+  slot: todo
   status: open
   title: Give tbd web an addressable bead so Linear can link into it
 bead_id: is-01m00k6rrtay18j0gb1snphxge
 external_id: 61b9801f-a7e5-4b43-b0bf-f9df8dac4a5d
 external_key: OS-231
 external_url: https://linear.app/finterm-ai/issue/OS-231/give-tbd-web-an-addressable-bead-so-linear-can-link-into-it
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T07:50:44.706Z
 state: linked
-synced_at: 2026-08-16T07:50:44.810Z
+synced_at: 2026-09-16T08:25:21.664Z
 type: lk

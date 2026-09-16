@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:a726b422218aa7fb43cc47d6a41b78715744afd8fb1dc18fd411920e9f04ae85
+  labels:
+    - phase-0
+  priority: 1
+  status: in_progress
+  title: "Land the 2026-08-28 stability branch: rebase claude/tbd-sync-bugs-review-f1qb1f
+    onto main and merge"
+bead_id: is-01m1yzwsqz1fcgc03e0mck82tn
+external_id: f25c4987-f9fd-46d3-8542-d147e908eae9
+external_key: OS-426
+external_url: https://linear.app/finterm-ai/issue/OS-426/land-the-2026-08-28-stability-branch-rebase-claudetbd-sync-bugs-review
+remote_updated_at: 2026-09-16T08:27:06.040Z
+state: linked
+synced_at: 2026-09-16T08:27:06.380Z
+type: lk

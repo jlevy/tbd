@@ -5,7 +5,7 @@ title: "Rust guideline family in tbd: extraction, migration, and consistency"
 kind: epic
 status: in_progress
 priority: 1
-version: 27
+version: 28
 spec_path: docs/project/specs/active/plan-2026-08-23-rust-quality-floor-and-guideline-mapping.md
 labels: []
 dependencies: []
@@ -35,10 +35,10 @@ child_order_hints:
   - is-01m0phakcptq9kf2219qpva7wk
   - is-01m0phan84kmbf3jpzgm8bzztc
 created_at: 2026-08-23T05:23:49.937Z
-updated_at: 2026-09-16T08:24:08.362Z
+updated_at: 2026-09-16T08:26:21.889Z
 extensions:
   linear:
     id: b07e9da1-371e-4d26-a6b7-59c7ac4b3857
-    linked_at: 2026-09-16T08:24:08.362Z
+    linked_at: 2026-09-16T08:26:21.889Z
 ---
 Add a Rust guideline family to tbd by migrating the Rust Porting Playbook suite, extracting the undocumented practices from tbd's enforced config, and splitting the language-neutral core into shared guidelines. Tracks the five phases in the linked spec.

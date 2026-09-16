@@ -5,17 +5,17 @@ title: tbd sync neither archives nor reports bridge-file (link record, intent) c
 kind: bug
 status: open
 priority: 2
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 labels: []
 dependencies: []
 parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 created_at: 2026-09-15T21:26:35.854Z
-updated_at: 2026-09-16T08:24:08.815Z
+updated_at: 2026-09-16T08:28:37.263Z
 extensions:
   linear:
     id: c7cdc612-a4d5-46d0-baca-e6918a3abb53
-    linked_at: 2026-09-16T08:24:08.815Z
+    linked_at: 2026-09-16T08:28:37.263Z
 ---
 Unmet remainder of tbd-ajq2 (closed for bead conflicts, which #288 archives). Verified by reading main @ 1238038e.
 

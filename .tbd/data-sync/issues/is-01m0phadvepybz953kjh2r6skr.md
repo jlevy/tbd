@@ -5,7 +5,7 @@ title: "Playbook: consume the migrated Rust guidelines from tbd"
 kind: task
 status: open
 priority: 2
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-08-23-rust-quality-floor-and-guideline-mapping.md
 labels:
   - playbook
@@ -18,10 +18,10 @@ dependencies:
     target: is-01m0phan84kmbf3jpzgm8bzztc
 parent_id: is-01m0ph6ehhhryj0z52a1c3b3rv
 created_at: 2026-08-23T05:26:00.302Z
-updated_at: 2026-09-16T08:24:08.395Z
+updated_at: 2026-09-16T08:26:31.840Z
 extensions:
   linear:
     id: 5a9a7352-ed65-43df-b31c-dc043f5804da
-    linked_at: 2026-09-16T08:24:08.395Z
+    linked_at: 2026-09-16T08:26:31.840Z
 ---
 Once tbd serves the Rust family, replace each migrated guideline in the playbook's guidelines/ with an internal: docref in .tbd/config.yml, so the playbook loads tbd's copy the way it already loads the TypeScript family. This is what turns the migration into a consolidation rather than a fork. The porting documents stay local permanently: they exist only when another implementation is authoritative.

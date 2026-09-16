@@ -4,6 +4,7 @@ base:
   labels:
     - pause
   priority: 3
+  slot: todo
   status: open
   title: Consolidate close/reopen/update bulk orchestration into a shared runBulkMutation
     driver
@@ -11,7 +12,9 @@ bead_id: is-01kx6ssctsapjkqwrt9vs32h0d
 external_id: 17e7162f-5364-47ed-ae68-78a1c7167ef5
 external_key: OS-9
 external_url: https://linear.app/finterm-ai/issue/OS-9/consolidate-closereopenupdate-bulk-orchestration-into-a-shared
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T02:10:55.132Z
 state: linked
-synced_at: 2026-08-16T02:10:55.332Z
+synced_at: 2026-09-16T08:24:36.443Z
 type: lk

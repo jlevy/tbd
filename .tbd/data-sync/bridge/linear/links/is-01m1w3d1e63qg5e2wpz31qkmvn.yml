@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v7:51db3073c3075f652c77b415a66b139c6a686a9a2351f48606b70ad1cf088ab2
+  labels: []
+  priority: 1
+  status: open
+  title: "Coordination phase 1: stabilize existing sync, comments, and claims"
+bead_id: is-01m1w3d1e63qg5e2wpz31qkmvn
+external_id: c5993825-b202-4e0e-8ed5-b0329bacc51c
+external_key: OS-419
+external_url: https://linear.app/finterm-ai/issue/OS-419/coordination-phase-1-stabilize-existing-sync-comments-and-claims
+remote_updated_at: 2026-09-16T08:26:54.933Z
+state: linked
+synced_at: 2026-09-16T08:26:55.134Z
+type: lk

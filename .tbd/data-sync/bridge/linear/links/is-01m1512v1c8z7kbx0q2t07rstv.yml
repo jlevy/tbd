@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:503f01bfd78d111ae2ef8f93440483100648d69e640ba6b86628975aeda1b3e9
+  labels: []
+  priority: 2
+  status: open
+  title: resolveLabelIds silently drops an uncreatable label and the pair is still
+    reported as pushed
+bead_id: is-01m1512v1c8z7kbx0q2t07rstv
+external_id: 2cec9836-f527-43db-a420-cdd532cec7df
+external_key: OS-414
+external_url: https://linear.app/finterm-ai/issue/OS-414/resolvelabelids-silently-drops-an-uncreatable-label-and-the-pair-is
+remote_updated_at: 2026-09-16T08:26:47.553Z
+state: linked
+synced_at: 2026-09-16T08:26:47.859Z
+type: lk

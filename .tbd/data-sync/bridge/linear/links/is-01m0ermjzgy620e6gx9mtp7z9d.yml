@@ -1,0 +1,18 @@
+base:
+  assignee: null
+  description_hash: sha256v7:f91192682882bd27b2a5945984e7684c9ca94986b8bc47891f4aa50d7cb6fd35
+  labels: []
+  priority: 1
+  slot: done
+  status: closed
+  title: Close out the state/actor axis loose ends
+bead_id: is-01m0ermjzgy620e6gx9mtp7z9d
+external_id: 7347e45a-b0d0-45ca-b0ac-9d0f0cad4075
+external_key: OS-364
+external_url: https://linear.app/finterm-ai/issue/OS-364/close-out-the-stateactor-axis-loose-ends
+refinement_slot: in_progress
+refinement_state_id: 3d68307f-c21e-4fa1-a9e4-6e9b4f5f6e69
+remote_updated_at: 2026-09-16T08:25:51.535Z
+state: linked
+synced_at: 2026-09-16T08:25:51.733Z
+type: lk

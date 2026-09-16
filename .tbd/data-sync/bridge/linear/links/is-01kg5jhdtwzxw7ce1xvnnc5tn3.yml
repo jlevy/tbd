@@ -3,13 +3,16 @@ base:
   description_hash: sha256v7:c3266ce758579513107f83bdc74192fd237d76ae8425760df335f3d415b6820c
   labels: []
   priority: 2
+  slot: done
   status: closed
   title: "Phase 5: Update setup command to use shared function"
 bead_id: is-01kg5jhdtwzxw7ce1xvnnc5tn3
 external_id: 932943f1-8b90-4b7b-a13d-77f78cbf7fd5
 external_key: OS-48
 external_url: https://linear.app/finterm-ai/issue/OS-48/phase-5-update-setup-command-to-use-shared-function
-remote_updated_at: 2026-08-16T00:11:15.200Z
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
+remote_updated_at: 2026-09-16T08:24:19.137Z
 state: linked
-synced_at: 2026-08-16T01:13:42.384Z
+synced_at: 2026-09-16T08:24:19.333Z
 type: lk

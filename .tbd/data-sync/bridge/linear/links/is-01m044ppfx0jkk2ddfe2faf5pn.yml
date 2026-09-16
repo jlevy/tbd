@@ -4,13 +4,16 @@ base:
   labels:
     - phase-3
   priority: 3
-  status: open
+  slot: canceled
+  status: closed
   title: Populate identity.user_map so assignee sync stops being skipped
 bead_id: is-01m044ppfx0jkk2ddfe2faf5pn
 external_id: 8884680f-5cbe-418b-bfed-9262f24db5da
 external_key: OS-248
 external_url: https://linear.app/finterm-ai/issue/OS-248/populate-identityuser-map-so-assignee-sync-stops-being-skipped
-remote_updated_at: 2026-08-16T07:50:58.057Z
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+remote_updated_at: 2026-09-16T08:25:25.525Z
 state: linked
-synced_at: 2026-08-16T07:50:58.255Z
+synced_at: 2026-09-16T08:25:25.754Z
 type: lk

@@ -5,17 +5,17 @@ title: tbd status prints the resolved root; repo_root and id_prefix in status --
 kind: task
 status: open
 priority: 2
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 labels:
   - phase-4
 dependencies: []
 parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 created_at: 2026-09-07T22:30:56.452Z
-updated_at: 2026-09-16T08:24:08.680Z
+updated_at: 2026-09-16T08:27:47.401Z
 extensions:
   linear:
     id: 84208f7a-c423-49dd-b73e-887ca96161f5
-    linked_at: 2026-09-16T08:24:08.680Z
+    linked_at: 2026-09-16T08:27:47.400Z
 ---
 GH #204 observability half. status.ts:109 sets working_directory to cwd and sections.ts:89 renders it as 'Repository:', so status inside a subdirectory prints a non-repository path while doctor (doctor.ts:295) prints the resolved root. Print the resolved root; add repo_root and id_prefix to status --json and doctor --json. The data-safety half (git-boundary walk, prefix validation) is tbd-pjan; tbd -C and identity in every --json payload are follow-on beads.

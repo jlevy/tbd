@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:cba242518848a7da28d59168332ba735163d854afd10cf248557c3dbf592dd88
+  labels:
+    - phase-2
+  priority: 2
+  status: open
+  title: "tbd spec move <old> <new>: git mv, inbound link rewrite, bead repoint, with
+    --dry-run"
+bead_id: is-01m1yzxjanhry6w9ns0dpppq6h
+external_id: b434ecbb-5c72-4398-abad-811eae3b5f75
+external_key: OS-442
+external_url: https://linear.app/finterm-ai/issue/OS-442/tbd-spec-move-old-new-git-mv-inbound-link-rewrite-bead-repoint-with
+remote_updated_at: 2026-09-16T08:27:37.824Z
+state: linked
+synced_at: 2026-09-16T08:27:38.057Z
+type: lk

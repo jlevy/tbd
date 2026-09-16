@@ -5,6 +5,7 @@ base:
     - phase-3
     - multi-repo
   priority: 2
+  slot: todo
   status: open
   title: "Remap safety: detect team mismatch, never push state ids across teams, document
     semantics"
@@ -12,7 +13,9 @@ bead_id: is-01m00v3z032qt4610478q3vsw6
 external_id: 3c2c0a49-4eff-4537-91e7-e3e7a33a8c64
 external_key: OS-239
 external_url: https://linear.app/finterm-ai/issue/OS-239/remap-safety-detect-team-mismatch-never-push-state-ids-across-teams
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T07:50:49.976Z
 state: linked
-synced_at: 2026-08-16T07:50:50.411Z
+synced_at: 2026-09-16T08:25:23.194Z
 type: lk

@@ -6,13 +6,16 @@ base:
     - security
     - web
   priority: 1
+  slot: done
   status: closed
   title: "Phase 3.2: implement read-only HTTP router and resumable SSE hub"
 bead_id: is-01kzrs7yrc2hjjks6qc38mhc2y
 external_id: a3abf765-1007-4147-9f68-b11f8fa6b651
 external_key: OS-140
 external_url: https://linear.app/finterm-ai/issue/OS-140/phase-32-implement-read-only-http-router-and-resumable-sse-hub
-remote_updated_at: 2026-08-16T00:12:58.983Z
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
+remote_updated_at: 2026-09-16T08:24:54.165Z
 state: linked
-synced_at: 2026-08-16T01:14:02.954Z
+synced_at: 2026-09-16T08:24:54.372Z
 type: lk

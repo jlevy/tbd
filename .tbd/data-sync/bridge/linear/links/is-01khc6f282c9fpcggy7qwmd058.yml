@@ -4,13 +4,16 @@ base:
   labels:
     - pause
   priority: 2
+  slot: todo
   status: open
   title: "Review & research pass: Claude Code Sub-Agents research doc"
 bead_id: is-01khc6f282c9fpcggy7qwmd058
 external_id: bdb9a312-0ae7-41d1-adfb-4f229a1d62d5
 external_key: OS-44
 external_url: https://linear.app/finterm-ai/issue/OS-44/review-and-research-pass-claude-code-sub-agents-research-doc
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-19T04:55:58.350Z
 state: linked
-synced_at: 2026-08-19T16:29:59.226Z
+synced_at: 2026-09-16T08:24:21.320Z
 type: lk

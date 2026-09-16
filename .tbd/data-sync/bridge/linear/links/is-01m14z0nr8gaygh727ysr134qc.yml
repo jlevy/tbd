@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:ed5b5d09d2055d97e256fcbc8e9a7edaad704b04d8a55ba68b0cf0a8633fbeea
+  labels: []
+  priority: 0
+  status: open
+  title: "Linear mirror alternates push/pull on 13 agreeing pairs: mechanism not yet
+    reproduced"
+bead_id: is-01m14z0nr8gaygh727ysr134qc
+external_id: 49c11354-db1a-43f3-bf1c-889bc0066dc9
+external_key: OS-412
+external_url: https://linear.app/finterm-ai/issue/OS-412/linear-mirror-alternates-pushpull-on-13-agreeing-pairs-mechanism-not
+remote_updated_at: 2026-09-16T08:26:45.057Z
+state: linked
+synced_at: 2026-09-16T08:26:45.270Z
+type: lk

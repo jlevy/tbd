@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:4c908907dff677ac1e90511b3737a3931838bade5fff71e67b6c373dcba4a04c
+  labels:
+    - phase-1
+  priority: 2
+  status: open
+  title: A pulled description containing a '## Notes' heading is truncated on read-back
+bead_id: is-01m1yzxaq89j76rrca4yb48ww2
+external_id: da793fb0-536d-48bb-9347-941c2ea4a74d
+external_key: OS-437
+external_url: https://linear.app/finterm-ai/issue/OS-437/a-pulled-description-containing-a-notes-heading-is-truncated-on-read
+remote_updated_at: 2026-09-16T08:27:31.079Z
+state: linked
+synced_at: 2026-09-16T08:27:31.279Z
+type: lk

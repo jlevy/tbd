@@ -1,0 +1,17 @@
+base:
+  assignee: null
+  description_hash: sha256v7:235fd886080499672b585f8f62bd35ea49b3c2d7942a93799f3df8499377aaf8
+  labels:
+    - phase-1
+  priority: 3
+  status: open
+  title: "policy.outbound.deep: flatten (opt-in) mirrors deep beads as top-level tracker
+    issues"
+bead_id: is-01m1yzx57t4174xcg4fydgqrw9
+external_id: 2b928def-6a8d-4ebf-8add-083dfc9da883
+external_key: OS-433
+external_url: https://linear.app/finterm-ai/issue/OS-433/policyoutbounddeep-flatten-opt-in-mirrors-deep-beads-as-top-level
+remote_updated_at: 2026-09-16T08:27:21.242Z
+state: linked
+synced_at: 2026-09-16T08:27:22.360Z
+type: lk

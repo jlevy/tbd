@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v7:0c02b6180bbbc23e4968eccb037b992a80d755b8dc1d1d64965eb7f9e12d9b8e
+  labels:
+    - phase-1
+  priority: 2
+  status: open
+  title: tbd sync --yes
+bead_id: is-01m1yzx1c3c59et6ry4v3j4xd9
+external_id: 6b522038-111a-40d8-967c-36377a4fa285
+external_key: OS-431
+external_url: https://linear.app/finterm-ai/issue/OS-431/tbd-sync-yes
+remote_updated_at: 2026-09-16T08:27:16.960Z
+state: linked
+synced_at: 2026-09-16T08:27:17.243Z
+type: lk
