@@ -3,13 +3,16 @@ base:
   description_hash: sha256v7:b8792abb896400f38c873453b41adde48c8db399044af555d40872f5da35f090
   labels: []
   priority: 1
+  slot: backlog
   status: open
   title: "Coordination phase 5: opt-in cross-agent workers and incremental adoption"
 bead_id: is-01m1w3gfnt79bzspk72y328gac
 external_id: 0bc0d3ef-d773-423f-86ec-4c3aebba20a6
 external_key: OS-423
 external_url: https://linear.app/finterm-ai/issue/OS-423/coordination-phase-5-opt-in-cross-agent-workers-and-incremental
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T08:27:00.686Z
 state: linked
-synced_at: 2026-09-16T08:27:02.028Z
+synced_at: 2026-09-16T08:58:35.788Z
 type: lk

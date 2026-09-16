@@ -4,13 +4,16 @@ base:
   labels:
     - phase-4
   priority: 3
+  slot: todo
   status: open
   title: Repo identity in every --json payload
 bead_id: is-01m1yzy11bfgyhx7cxeyrbenca
 external_id: 78ee2ed1-28af-4a31-9605-7fe2935af9fc
 external_key: OS-450
 external_url: https://linear.app/finterm-ai/issue/OS-450/repo-identity-in-every-json-payload
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:27:51.004Z
 state: linked
-synced_at: 2026-09-16T08:27:51.245Z
+synced_at: 2026-09-16T08:58:43.096Z
 type: lk

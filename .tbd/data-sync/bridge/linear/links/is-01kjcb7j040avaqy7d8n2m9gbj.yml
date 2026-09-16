@@ -3,13 +3,16 @@ base:
   description_hash: sha256v7:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   labels: []
   priority: 2
+  slot: todo
   status: open
   title: Stabilize flaky full-suite timeouts in doc-add/performance/setup-hooks tests
 bead_id: is-01kjcb7j040avaqy7d8n2m9gbj
 external_id: 9e862834-ff88-4557-a9f9-f57c50636776
 external_key: OS-382
 external_url: https://linear.app/finterm-ai/issue/OS-382/stabilize-flaky-full-suite-timeouts-in-doc-addperformancesetup-hooks
-remote_updated_at: 2026-09-16T08:25:52.867Z
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+remote_updated_at: 2026-09-16T08:57:10.019Z
 state: linked
-synced_at: 2026-09-16T08:25:53.060Z
+synced_at: 2026-09-16T08:57:10.217Z
 type: lk

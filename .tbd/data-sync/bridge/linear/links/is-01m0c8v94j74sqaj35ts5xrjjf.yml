@@ -10,9 +10,9 @@ bead_id: is-01m0c8v94j74sqaj35ts5xrjjf
 external_id: 0112d9da-1ea5-4cc2-9317-6a0ecd59cf78
 external_key: OS-349
 external_url: https://linear.app/finterm-ai/issue/OS-349/phase-4-dogfood-the-actor-axis-shares-the-state-phase-5-gate
-refinement_slot: todo
-refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
 remote_updated_at: 2026-09-16T08:25:40.894Z
 state: linked
-synced_at: 2026-09-16T08:25:41.100Z
+synced_at: 2026-09-16T08:58:26.216Z
 type: lk

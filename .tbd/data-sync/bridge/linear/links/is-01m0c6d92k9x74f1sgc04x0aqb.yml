@@ -1,6 +1,6 @@
 base:
   assignee: josh
-  description_hash: sha256v7:41a94b42cbd0e6891db12aad9c37dd25803a209af96827d043e25a9c266290f9
+  description_hash: sha256v7:1e306eacc42b76cb3ecdb255616022c7c917545ad5db56ba6e629ecaf0f4a90d
   labels: []
   priority: 0
   slot: done
@@ -11,9 +11,9 @@ bead_id: is-01m0c6d92k9x74f1sgc04x0aqb
 external_id: b5a35ee8-341e-4988-aac6-fa5202af4d4a
 external_key: OS-347
 external_url: https://linear.app/finterm-ai/issue/OS-347/sync-fetch-writes-fetch-head-only-so-aheadbehind-and-push-retry
-refinement_slot: todo
-refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
 remote_updated_at: 2026-09-16T08:25:37.362Z
 state: linked
-synced_at: 2026-09-16T08:25:37.716Z
+synced_at: 2026-09-16T08:58:25.911Z
 type: lk

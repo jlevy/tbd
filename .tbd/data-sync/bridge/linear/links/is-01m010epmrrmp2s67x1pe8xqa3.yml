@@ -4,7 +4,7 @@ base:
   labels:
     - phase-3
   priority: 2
-  slot: backlog
+  slot: todo
   status: open
   title: "Inbound selectors: label or assignee triggers, kind overrides, consume on import"
 bead_id: is-01m010epmrrmp2s67x1pe8xqa3
@@ -15,5 +15,5 @@ refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T07:50:51.490Z
 state: linked
-synced_at: 2026-09-16T08:25:23.519Z
+synced_at: 2026-09-16T08:58:15.712Z
 type: lk

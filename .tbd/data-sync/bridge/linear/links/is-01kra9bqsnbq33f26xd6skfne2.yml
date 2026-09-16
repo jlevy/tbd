@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 3
-  slot: backlog
+  slot: todo
   status: open
   title: Migration path for existing installs (tbd setup --auto / tbd doctor adds external
     source)
@@ -16,5 +16,5 @@ refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:51.814Z
 state: linked
-synced_at: 2026-09-16T08:24:30.280Z
+synced_at: 2026-09-16T08:57:43.344Z
 type: lk

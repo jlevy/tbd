@@ -4,6 +4,7 @@ base:
   labels:
     - phase-1
   priority: 1
+  slot: todo
   status: open
   title: Blocked or failing fold prints pending counts and every failure; remedy names the
     invoked command
@@ -11,7 +12,9 @@ bead_id: is-01m1yzx01dbhsas1c08k34d4e2
 external_id: 38a3db43-24ee-4221-be54-ad5e7c4815ce
 external_key: OS-430
 external_url: https://linear.app/finterm-ai/issue/OS-430/blocked-or-failing-fold-prints-pending-counts-and-every-failure-remedy
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:27:15.214Z
 state: linked
-synced_at: 2026-09-16T08:27:15.563Z
+synced_at: 2026-09-16T08:58:38.067Z
 type: lk

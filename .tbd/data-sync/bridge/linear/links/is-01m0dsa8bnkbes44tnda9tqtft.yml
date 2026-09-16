@@ -3,7 +3,7 @@ base:
   description_hash: sha256v7:cd8ae4823c63795ad7cb3f871bf30d9735ed8a24d175f773435db749bfbe61e7
   labels: []
   priority: 2
-  slot: backlog
+  slot: todo
   status: open
   title: Codex Cloud session adapter
 bead_id: is-01m0dsa8bnkbes44tnda9tqtft
@@ -14,5 +14,5 @@ refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:25:48.332Z
 state: linked
-synced_at: 2026-09-16T08:25:48.567Z
+synced_at: 2026-09-16T08:58:28.076Z
 type: lk

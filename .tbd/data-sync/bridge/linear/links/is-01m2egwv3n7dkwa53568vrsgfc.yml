@@ -4,13 +4,16 @@ base:
   labels:
     - phase-1
   priority: 1
+  slot: todo
   status: open
   title: Engine create path drops resolution and hold and skips the assignee merge gate
 bead_id: is-01m2egwv3n7dkwa53568vrsgfc
 external_id: 11b14cdc-5e88-4dc2-a658-0280673e8eb1
 external_key: OS-456
 external_url: https://linear.app/finterm-ai/issue/OS-456/engine-create-path-drops-resolution-and-hold-and-skips-the-assignee
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T08:28:02.264Z
 state: linked
-synced_at: 2026-09-16T08:28:02.525Z
+synced_at: 2026-09-16T08:58:43.995Z
 type: lk

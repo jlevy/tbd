@@ -4,6 +4,7 @@ base:
   labels:
     - phase-1
   priority: 2
+  slot: backlog
   status: open
   title: "tbd integration sync --take local|remote: run-scoped overwrite with per-field
     report"
@@ -11,7 +12,9 @@ bead_id: is-01m2egx69q1wdj3p0tccxdkgg7
 external_id: 8a341f32-d29f-4ff2-9c02-28574b146181
 external_key: OS-461
 external_url: https://linear.app/finterm-ai/issue/OS-461/tbd-integration-sync-take-localremote-run-scoped-overwrite-with-per
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T08:28:22.548Z
 state: linked
-synced_at: 2026-09-16T08:28:22.784Z
+synced_at: 2026-09-16T08:58:45.170Z
 type: lk

@@ -3,13 +3,16 @@ base:
   description_hash: sha256v7:f48d89f4bf06a73693899943373310388560f8f4e2dc1ef77afc0e432b25f623
   labels: []
   priority: 1
+  slot: todo
   status: open
   title: update-specs-status encodes tbd shortcomings that belong in the tool
 bead_id: is-01m0es4z70jsnf8e7gna1sskbn
 external_id: 9432b8e7-9193-4ee4-ae46-c5da09b228a5
 external_key: OS-398
 external_url: https://linear.app/finterm-ai/issue/OS-398/update-specs-status-encodes-tbd-shortcomings-that-belong-in-the-tool
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:26:21.028Z
 state: linked
-synced_at: 2026-09-16T08:26:21.580Z
+synced_at: 2026-09-16T08:58:28.986Z
 type: lk

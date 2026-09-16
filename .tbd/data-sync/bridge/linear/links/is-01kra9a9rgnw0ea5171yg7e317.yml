@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 1
-  slot: backlog
+  slot: todo
   status: open
   title: "Doc map: build .tbd/docs/map.yml per format spec §4 (three-layer metadata
     resolution)"
@@ -16,5 +16,5 @@ refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:35.539Z
 state: linked
-synced_at: 2026-09-16T08:24:25.725Z
+synced_at: 2026-09-16T08:57:12.752Z
 type: lk

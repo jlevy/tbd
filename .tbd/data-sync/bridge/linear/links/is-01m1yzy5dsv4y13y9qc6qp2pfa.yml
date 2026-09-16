@@ -4,6 +4,7 @@ base:
   labels:
     - phase-5
   priority: 2
+  slot: todo
   status: open
   title: Forked-shortcut customization docs; docs/tbd/README.md regeneration in setup
     --auto; honest setup exit on failed writes
@@ -11,7 +12,9 @@ bead_id: is-01m1yzy5dsv4y13y9qc6qp2pfa
 external_id: 8c2d94e2-1e7a-4a54-ae74-0bc6b58acf42
 external_key: OS-453
 external_url: https://linear.app/finterm-ai/issue/OS-453/forked-shortcut-customization-docs-docstbdreadmemd-regeneration-in
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:27:56.189Z
 state: linked
-synced_at: 2026-09-16T08:27:56.386Z
+synced_at: 2026-09-16T08:58:43.558Z
 type: lk

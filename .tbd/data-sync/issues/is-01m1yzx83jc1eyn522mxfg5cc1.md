@@ -5,7 +5,7 @@ title: "Every slot round-trips: write slots through slotToLinear, compare in bot
 kind: bug
 status: closed
 priority: 1
-version: 14
+version: 15
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 delegate: claude-code@spud10.local
 labels:
@@ -23,7 +23,7 @@ parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 hold: null
 hold_until: null
 created_at: 2026-09-07T22:30:34.353Z
-updated_at: 2026-09-16T08:42:26.494Z
+updated_at: 2026-09-16T08:58:40.169Z
 started_at: 2026-09-16T07:18:41.338Z
 closed_at: 2026-09-16T08:42:26.492Z
 close_reason: "Exact-slot reconciliation now converges: Backlog and Paused settle, In Review remains stable, unavailable mirror states are preflighted and reported as skipped fields, and no silent state substitution occurs. Landed in PR #298 at 118929d68c6cc4aa02c176f4df6587d094ed943e."
@@ -42,7 +42,7 @@ Fix: CanonicalPatch carries the slot and the adapter writes it via slotToLinear 
 
 Tests, red first: open epic blocked by an open bead synced five times, runs 3-5 quiet; In Review stays over four runs; team with only Doing and In Review started states reports a skipped field; pure property test that slotFromLinear(write(slot)) returns the slot or a declared tolerated one for a default team and a team with no optional states (tests/slots.test.ts:105-118 passes the refinement back in, which production never does); Paused settles after one pull (guard).
 
-f08 compatibility review 2026-09-14 (see 'f08 Compatibility Contract for Sprint Fixes' in the stability sprint plan): DESIGN CHANGE. Keep base.slot in the local vocabulary and do the two-vocabulary comparison in memory only; 0.8.1 compares base.slot exactly (reconcile.ts:262-265, slots.ts:242), so a base stored in remote terms makes a 0.8.x teammate push every run. If a remote-form value must persist, add an optional field whose absence means derive (old clients drop undeclared fields: BridgeBaseSchema/LinkRecordSchema are not passthrough, and 0.7.0 already drops slot and refinement_*). Readiness differs across versions (main treats a future deferred_until as not ready, 0.8.1 does not) and 0.8.x --push writes Todo, so the Backlog write can ping-pong with 0.8.x clients: gated by tbd-s4kb (T3); if T3 cannot converge, Release 1 states a minimum version for every clone that runs integration sync, or the Backlog write is opt-in.
+f08 compatibility review 2026-09-14 (see 'f08 Compatibility Contract for Sprint Fixes' in the stability sprint plan): DESIGN CHANGE. Keep base.slot in the local vocabulary and do the two-vocabulary comparison in memory only; 0.8.1 compares base.slot exactly (reconcile.ts:262-265, slots.ts:242), so a base stored in remote terms makes a 0.8.x teammate push every run. If a remote-form value must persist, add an optional field whose absence means derive (old clients drop undeclared fields: BridgeBaseSchema/LinkRecordSchema are not passthrough, and 0.7.0 already drops slot and refinement\_\*). Readiness differs across versions (main treats a future deferred_until as not ready, 0.8.1 does not) and 0.8.x --push writes Todo, so the Backlog write can ping-pong with 0.8.x clients: gated by tbd-s4kb (T3); if T3 cannot converge, Release 1 states a minimum version for every clone that runs integration sync, or the Backlog write is opt-in.
 
 ## Notes
 

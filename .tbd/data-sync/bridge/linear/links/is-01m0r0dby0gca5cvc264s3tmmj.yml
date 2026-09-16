@@ -3,13 +3,16 @@ base:
   description_hash: sha256v7:ce3302e03397629351eecf42fb4f92c4083be24f61273d7d549bf7d20f16fbee
   labels: []
   priority: 2
+  slot: todo
   status: open
   title: Stabilize load-sensitive full-suite timeouts
 bead_id: is-01m0r0dby0gca5cvc264s3tmmj
 external_id: 90300b49-0204-408c-bd8e-238eeb0836fe
 external_key: OS-410
 external_url: https://linear.app/finterm-ai/issue/OS-410/stabilize-load-sensitive-full-suite-timeouts
-remote_updated_at: 2026-09-16T08:26:41.760Z
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+remote_updated_at: 2026-09-16T08:58:31.492Z
 state: linked
-synced_at: 2026-09-16T08:26:41.999Z
+synced_at: 2026-09-16T08:58:31.702Z
 type: lk

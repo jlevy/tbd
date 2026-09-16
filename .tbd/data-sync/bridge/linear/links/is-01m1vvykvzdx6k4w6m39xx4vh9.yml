@@ -3,13 +3,16 @@ base:
   description_hash: sha256v7:a028021130901cb7f3b6784e7f91ea829ca040ddf239c50c210f75f403010945
   labels: []
   priority: 2
+  slot: todo
   status: open
   title: Complete residual actor binding UX and verify identity acceptance
 bead_id: is-01m1vvykvzdx6k4w6m39xx4vh9
 external_id: 3c93d696-645d-42d4-84fb-dff57be6a249
 external_key: OS-418
 external_url: https://linear.app/finterm-ai/issue/OS-418/complete-residual-actor-binding-ux-and-verify-identity-acceptance
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:26:53.351Z
 state: linked
-synced_at: 2026-09-16T08:26:53.586Z
+synced_at: 2026-09-16T08:58:34.648Z
 type: lk

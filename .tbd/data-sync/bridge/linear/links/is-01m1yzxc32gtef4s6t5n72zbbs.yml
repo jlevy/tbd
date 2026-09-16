@@ -1,15 +1,18 @@
 base:
   assignee: null
-  description_hash: sha256v7:a05fd1e87a069e1448f4799360881a265894bfe284f753bb512abb3809635f7d
+  description_hash: sha256v7:6d5792a73d1224c0bfabd35b2532a27f8d3650112eaf5252506e9d006bedcee3
   labels: []
   priority: 2
+  slot: todo
   status: open
   title: Outbound duplicate relation from duplicate_of is marked done but unimplemented
 bead_id: is-01m1yzxc32gtef4s6t5n72zbbs
 external_id: 43d68f95-aa01-4785-b048-1d21077d2309
 external_key: OS-438
 external_url: https://linear.app/finterm-ai/issue/OS-438/outbound-duplicate-relation-from-duplicate-of-is-marked-done-but
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:27:32.313Z
 state: linked
-synced_at: 2026-09-16T08:27:32.519Z
+synced_at: 2026-09-16T08:58:40.647Z
 type: lk

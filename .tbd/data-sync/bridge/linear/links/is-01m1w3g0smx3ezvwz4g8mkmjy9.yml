@@ -3,13 +3,16 @@ base:
   description_hash: sha256v7:7cb317fa809b2a01fb6b3521d747e41cb37325865aa39c8470c269b7dea3d2df
   labels: []
   priority: 1
+  slot: backlog
   status: open
   title: "Coordination phase 2: native comments with complete manual Git exchange"
 bead_id: is-01m1w3g0smx3ezvwz4g8mkmjy9
 external_id: 4441a455-6e61-40ac-acab-e9e440e0fbb9
 external_key: OS-420
 external_url: https://linear.app/finterm-ai/issue/OS-420/coordination-phase-2-native-comments-with-complete-manual-git-exchange
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T08:26:56.350Z
 state: linked
-synced_at: 2026-09-16T08:26:56.568Z
+synced_at: 2026-09-16T08:58:35.113Z
 type: lk

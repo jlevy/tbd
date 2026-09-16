@@ -3,13 +3,16 @@ base:
   description_hash: sha256v7:7de79e181700eda5f2e2d6f25dce7425ff08377f4219513a6c4d032c3a7873e0
   labels: []
   priority: 2
+  slot: todo
   status: open
   title: Expand general-testing-rules with extracted testing practices
 bead_id: is-01m0ph8997307ztgsna0adh6pq
 external_id: 19a271bc-c703-4c80-9b51-ee320beea30c
 external_key: OS-400
 external_url: https://linear.app/finterm-ai/issue/OS-400/expand-general-testing-rules-with-extracted-testing-practices
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:26:25.282Z
 state: linked
-synced_at: 2026-09-16T08:26:25.494Z
+synced_at: 2026-09-16T08:58:29.325Z
 type: lk

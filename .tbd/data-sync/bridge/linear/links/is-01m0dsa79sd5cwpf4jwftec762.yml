@@ -3,7 +3,7 @@ base:
   description_hash: sha256v7:d781c7608b27a0e166437ce045f1e0b1c06e563fe008ed5114d5ed6290302943
   labels: []
   priority: 1
-  slot: backlog
+  slot: todo
   status: open
   title: Managed block renders the session line with freshness
 bead_id: is-01m0dsa79sd5cwpf4jwftec762
@@ -14,5 +14,5 @@ refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:25:46.413Z
 state: linked
-synced_at: 2026-09-16T08:25:46.677Z
+synced_at: 2026-09-16T08:58:27.478Z
 type: lk

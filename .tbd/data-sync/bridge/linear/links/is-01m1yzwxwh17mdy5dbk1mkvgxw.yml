@@ -4,13 +4,16 @@ base:
   labels:
     - phase-1
   priority: 1
+  slot: backlog
   status: open
   title: One tracker report renderer for tbd sync and tbd integration sync
 bead_id: is-01m1yzwxwh17mdy5dbk1mkvgxw
 external_id: 8ce7375a-a727-4131-b6e1-0bddfa972e5a
 external_key: OS-429
 external_url: https://linear.app/finterm-ai/issue/OS-429/one-tracker-report-renderer-for-tbd-sync-and-tbd-integration-sync
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T08:27:10.452Z
 state: linked
-synced_at: 2026-09-16T08:27:10.680Z
+synced_at: 2026-09-16T08:58:37.893Z
 type: lk

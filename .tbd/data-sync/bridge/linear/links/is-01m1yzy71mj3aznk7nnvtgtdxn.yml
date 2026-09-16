@@ -4,13 +4,16 @@ base:
   labels:
     - phase-5
   priority: 2
+  slot: todo
   status: open
   title: "Close #238, #255, #195 and bead tbd-a0sl with citations to the fixes on main"
 bead_id: is-01m1yzy71mj3aznk7nnvtgtdxn
 external_id: 3915608c-b4f4-4aae-9442-14fa7edc07b6
 external_key: OS-454
 external_url: https://linear.app/finterm-ai/issue/OS-454/close-238-255-195-and-bead-tbd-a0sl-with-citations-to-the-fixes-on
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:27:57.871Z
 state: linked
-synced_at: 2026-09-16T08:27:58.101Z
+synced_at: 2026-09-16T08:58:43.698Z
 type: lk

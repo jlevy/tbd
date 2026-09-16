@@ -4,6 +4,7 @@ base:
   labels:
     - phase-5
   priority: 3
+  slot: todo
   status: open
   title: "GH #181 remaining asks: surface --check, generated vs cache distinction, skill
     docs row, changed-file output"
@@ -11,7 +12,9 @@ bead_id: is-01m2egxayhvgzz3zh9jq15jmyb
 external_id: 66ded711-18a6-485f-af14-5e388a41cf26
 external_key: OS-464
 external_url: https://linear.app/finterm-ai/issue/OS-464/gh-181-remaining-asks-surface-check-generated-vs-cache-distinction
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:28:27.141Z
 state: linked
-synced_at: 2026-09-16T08:28:28.077Z
+synced_at: 2026-09-16T08:58:45.641Z
 type: lk

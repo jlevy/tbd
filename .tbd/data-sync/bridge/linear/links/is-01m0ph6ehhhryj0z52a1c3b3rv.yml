@@ -3,13 +3,16 @@ base:
   description_hash: sha256v7:cea969b0e2cbb6b2ac2bb9b0e7fc13bdfdc897240dccbf18300ce95c1d0ddeaa
   labels: []
   priority: 1
+  slot: in_progress
   status: in_progress
   title: "Rust guideline family in tbd: extraction, migration, and consistency"
 bead_id: is-01m0ph6ehhhryj0z52a1c3b3rv
 external_id: b07e9da1-371e-4d26-a6b7-59c7ac4b3857
 external_key: OS-399
 external_url: https://linear.app/finterm-ai/issue/OS-399/rust-guideline-family-in-tbd-extraction-migration-and-consistency
+refinement_slot: in_progress
+refinement_state_id: 3d68307f-c21e-4fa1-a9e4-6e9b4f5f6e69
 remote_updated_at: 2026-09-16T08:26:22.576Z
 state: linked
-synced_at: 2026-09-16T08:26:22.827Z
+synced_at: 2026-09-16T08:58:29.173Z
 type: lk

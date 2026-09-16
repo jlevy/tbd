@@ -4,13 +4,16 @@ base:
   labels:
     - playbook
   priority: 2
+  slot: todo
   status: open
   title: "Playbook: consume the migrated Rust guidelines from tbd"
 bead_id: is-01m0phadvepybz953kjh2r6skr
 external_id: 5a9a7352-ed65-43df-b31c-dc043f5804da
 external_key: OS-404
 external_url: https://linear.app/finterm-ai/issue/OS-404/playbook-consume-the-migrated-rust-guidelines-from-tbd
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:26:32.656Z
 state: linked
-synced_at: 2026-09-16T08:26:32.898Z
+synced_at: 2026-09-16T08:58:29.890Z
 type: lk

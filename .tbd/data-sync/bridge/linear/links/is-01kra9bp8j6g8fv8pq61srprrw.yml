@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 3
-  slot: backlog
+  slot: todo
   status: open
   title: Tag v1.0.0 of github:jlevy/tbd-docs
 bead_id: is-01kra9bp8j6g8fv8pq61srprrw
@@ -15,5 +15,5 @@ refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:48.384Z
 state: linked
-synced_at: 2026-09-16T08:24:29.190Z
+synced_at: 2026-09-16T08:57:17.453Z
 type: lk

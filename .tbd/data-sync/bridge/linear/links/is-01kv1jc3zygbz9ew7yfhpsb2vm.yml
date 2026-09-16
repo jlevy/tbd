@@ -3,13 +3,16 @@ base:
   description_hash: sha256v7:20444f3e67aa3769bfe14b6f3fb2e8bcdfad43fed08a04e05289186c9f646932
   labels: []
   priority: 2
+  slot: todo
   status: open
   title: show --json returns null for notes on first write
 bead_id: is-01kv1jc3zygbz9ew7yfhpsb2vm
 external_id: cbe648b8-65c4-4717-a00a-a5b9fddf1de9
 external_key: OS-384
 external_url: https://linear.app/finterm-ai/issue/OS-384/show-json-returns-null-for-notes-on-first-write
-remote_updated_at: 2026-09-16T08:25:55.642Z
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+remote_updated_at: 2026-09-16T08:57:51.761Z
 state: linked
-synced_at: 2026-09-16T08:25:56.234Z
+synced_at: 2026-09-16T08:57:51.957Z
 type: lk

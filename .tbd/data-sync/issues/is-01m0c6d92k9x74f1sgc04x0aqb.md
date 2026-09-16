@@ -5,12 +5,12 @@ title: "sync: fetch writes FETCH_HEAD only, so ahead/behind and push-retry compa
 kind: epic
 status: closed
 priority: 0
-version: 5
+version: 6
 assignee: josh
 labels: []
 dependencies: []
 created_at: 2026-08-19T05:02:55.056Z
-updated_at: 2026-08-26T07:15:44.042Z
+updated_at: 2026-09-16T08:58:25.895Z
 closed_at: 2026-08-26T07:15:44.041Z
 close_reason: |-
   Fixed before v0.8.0; verified against the code and by running this bead's own repro on the 0.8.1 build.
@@ -67,7 +67,7 @@ The retry loop at git.ts:1181 fetches, calls onMergeNeeded(), then retries the p
 
 The real git error is:
 
-! [rejected] tbd-sync -> tbd-sync (non-fast-forward)
+! \[rejected\] tbd-sync -> tbd-sync (non-fast-forward)
   hint: Updates were rejected because a pushed branch tip is behind its remote counterpart.
 
 There were no conflicting changes — local was strictly behind. The message points away from the fix.

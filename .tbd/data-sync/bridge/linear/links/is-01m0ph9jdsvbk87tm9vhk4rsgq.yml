@@ -3,13 +3,16 @@ base:
   description_hash: sha256v7:ba7a39badae19b3c51f38c5bec4e61501b87379eea27f37ff44a2489cab57f15
   labels: []
   priority: 2
+  slot: todo
   status: open
   title: Build the Rust config-contract probe
 bead_id: is-01m0ph9jdsvbk87tm9vhk4rsgq
 external_id: a2680696-8e0b-4f75-bba0-f1a4cecaaf29
 external_key: OS-403
 external_url: https://linear.app/finterm-ai/issue/OS-403/build-the-rust-config-contract-probe
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:26:31.352Z
 state: linked
-synced_at: 2026-09-16T08:26:31.586Z
+synced_at: 2026-09-16T08:58:29.744Z
 type: lk

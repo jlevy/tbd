@@ -5,16 +5,19 @@ title: tbd sessions and tbd sessions refresh commands
 kind: feature
 status: open
 priority: 2
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-08-19-agent-session-refs-and-runtimes.md
 labels: []
 dependencies: []
 parent_id: is-01m0drveqd06azafyxnbqx0e4h
+hold: null
 created_at: 2026-08-19T19:52:31.964Z
-updated_at: 2026-08-19T23:49:43.761Z
+updated_at: 2026-09-16T08:58:27.321Z
+resolution: null
+duplicate_of: null
 extensions:
   linear:
     id: a39455e8-7f3d-4e1b-bc37-89136aa1f3de
     linked_at: 2026-08-19T23:49:43.761Z
 ---
-tbd sessions lists known sessions with status and age, --json for scripting. tbd sessions refresh [id] polls adapters and updates local state. Works with only the local provider before any adapter exists.
+tbd sessions lists known sessions with status and age, --json for scripting. tbd sessions refresh \[id\] polls adapters and updates local state. Works with only the local provider before any adapter exists.

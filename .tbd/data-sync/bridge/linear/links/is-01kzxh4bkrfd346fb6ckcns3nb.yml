@@ -5,13 +5,16 @@ base:
     - performance
     - testing
   priority: 2
+  slot: todo
   status: open
   title: Stabilize 5,000-bead performance test under transient suite load
 bead_id: is-01kzxh4bkrfd346fb6ckcns3nb
 external_id: 695ec74d-4cdc-4c25-967e-b8aba6ef922c
 external_key: OS-392
 external_url: https://linear.app/finterm-ai/issue/OS-392/stabilize-5000-bead-performance-test-under-transient-suite-load
-remote_updated_at: 2026-09-16T08:26:10.345Z
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+remote_updated_at: 2026-09-16T08:58:07.090Z
 state: linked
-synced_at: 2026-09-16T08:26:10.653Z
+synced_at: 2026-09-16T08:58:07.306Z
 type: lk

@@ -1,17 +1,20 @@
 base:
   assignee: null
-  description_hash: sha256v7:6b3034222ca23f23c11fbe7f247e9098f859110401f639efab9bca87d4d92285
+  description_hash: sha256v7:451ea2b3951148b536bddda89d0da0756e97ddd362a75b5d9efe307903f84af7
   labels:
     - phase-1
   priority: 1
-  status: in_progress
+  slot: done
+  status: closed
   title: "Every slot round-trips: write slots through slotToLinear, compare in both
     vocabularies, never report an unresolved state push"
 bead_id: is-01m1yzx83jc1eyn522mxfg5cc1
 external_id: 2f970134-325e-47da-8b11-920305d0fcaa
 external_key: OS-435
 external_url: https://linear.app/finterm-ai/issue/OS-435/every-slot-round-trips-write-slots-through-slottolinear-compare-in
-remote_updated_at: 2026-09-16T08:27:27.590Z
+refinement_slot: in_progress
+refinement_state_id: 3d68307f-c21e-4fa1-a9e4-6e9b4f5f6e69
+remote_updated_at: 2026-09-16T08:58:39.803Z
 state: linked
-synced_at: 2026-09-16T08:27:27.810Z
+synced_at: 2026-09-16T08:58:40.182Z
 type: lk

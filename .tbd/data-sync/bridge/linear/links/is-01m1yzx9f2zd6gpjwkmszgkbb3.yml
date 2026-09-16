@@ -4,13 +4,16 @@ base:
   labels:
     - phase-1
   priority: 2
+  slot: todo
   status: open
   title: tbd sync prints 'Already in sync' after a fold that wrote
 bead_id: is-01m1yzx9f2zd6gpjwkmszgkbb3
 external_id: b58e5988-d120-4331-a3c8-df8d7ff18427
 external_key: OS-436
 external_url: https://linear.app/finterm-ai/issue/OS-436/tbd-sync-prints-already-in-sync-after-a-fold-that-wrote
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:27:29.847Z
 state: linked
-synced_at: 2026-09-16T08:27:30.083Z
+synced_at: 2026-09-16T08:58:40.333Z
 type: lk

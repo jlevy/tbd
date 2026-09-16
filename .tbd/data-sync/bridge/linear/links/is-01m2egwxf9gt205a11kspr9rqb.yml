@@ -4,13 +4,16 @@ base:
   labels:
     - phase-1
   priority: 2
+  slot: todo
   status: open
   title: "Interim: --push dry run and confirmation say it overwrites Linear-side edits"
 bead_id: is-01m2egwxf9gt205a11kspr9rqb
 external_id: f45188fa-a754-465e-b63d-73914611c3ed
 external_key: OS-457
 external_url: https://linear.app/finterm-ai/issue/OS-457/interim-push-dry-run-and-confirmation-say-it-overwrites-linear-side
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:28:14.999Z
 state: linked
-synced_at: 2026-09-16T08:28:15.243Z
+synced_at: 2026-09-16T08:58:44.145Z
 type: lk

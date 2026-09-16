@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 2
-  slot: backlog
+  slot: todo
   status: open
   title: "Phase 2: External bundles and override roundtrip"
 bead_id: is-01kra98tffpc00qar6ee3zk8tv
@@ -15,5 +15,5 @@ refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-19T04:56:01.991Z
 state: linked
-synced_at: 2026-09-16T08:24:23.035Z
+synced_at: 2026-09-16T08:57:10.622Z
 type: lk

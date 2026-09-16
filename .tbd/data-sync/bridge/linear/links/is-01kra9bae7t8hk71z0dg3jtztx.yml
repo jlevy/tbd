@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 2
-  slot: backlog
+  slot: todo
   status: open
   title: "Phase 2 tests: e2e eject→edit→diff→unfork, bundle-add preview golden, status
     golden, lockfile round-trip"
@@ -16,5 +16,5 @@ refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:47.437Z
 state: linked
-synced_at: 2026-09-16T08:24:28.846Z
+synced_at: 2026-09-16T08:57:16.234Z
 type: lk

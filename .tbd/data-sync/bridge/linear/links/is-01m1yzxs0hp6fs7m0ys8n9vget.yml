@@ -1,9 +1,10 @@
 base:
   assignee: null
-  description_hash: sha256v7:35e2623c5a5bc6d7dcdc1e84e874a5dffad26e69d22e0c3d5835353ee2fdff14
+  description_hash: sha256v7:655cf1dbe380101f5a41006cdf5733407dab22e80d0240c6a319a4f213d65d29
   labels:
     - phase-3
   priority: 1
+  slot: todo
   status: open
   title: "Bulk update accepts --parent and --spec: set-wide cycle check,
     lib/child-order.ts with old-parent hint removal, generated eligibility list"
@@ -11,7 +12,9 @@ bead_id: is-01m1yzxs0hp6fs7m0ys8n9vget
 external_id: b2a3b99f-b9dd-4e54-a3e4-44e8d672e7fd
 external_key: OS-445
 external_url: https://linear.app/finterm-ai/issue/OS-445/bulk-update-accepts-parent-and-spec-set-wide-cycle-check-libchild
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:27:42.319Z
 state: linked
-synced_at: 2026-09-16T08:27:42.574Z
+synced_at: 2026-09-16T08:58:41.932Z
 type: lk

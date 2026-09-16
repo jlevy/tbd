@@ -1,16 +1,19 @@
 base:
   assignee: null
-  description_hash: sha256v7:72aaba7f2edaf85620ef66f2e7b28fcfc52d5cc0b9426823cbf0cc681e584441
+  description_hash: sha256v7:829ebcbfaa727cdee858155f7d8c12f35e2e75435e554cae804585c5aaab23f6
   labels:
     - phase-1
   priority: 1
+  slot: todo
   status: open
   title: "Convergence contract: excluded items never hold nothingToDo false"
 bead_id: is-01m1yzww834nfmwxqsrp4pxa8y
 external_id: 6e20ee34-77e0-4319-a19c-14cdd7663b73
 external_key: OS-428
 external_url: https://linear.app/finterm-ai/issue/OS-428/convergence-contract-excluded-items-never-hold-nothingtodo-false
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:27:08.943Z
 state: linked
-synced_at: 2026-09-16T08:27:09.260Z
+synced_at: 2026-09-16T08:58:37.739Z
 type: lk

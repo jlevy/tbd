@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 4
-  slot: backlog
+  slot: todo
   status: open
   title: Update tbd-docs release notes and link from tbd's docs
 bead_id: is-01kra9br63f467mxc3fjwga2wz
@@ -15,5 +15,5 @@ refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:53.093Z
 state: linked
-synced_at: 2026-09-16T08:24:30.465Z
+synced_at: 2026-09-16T08:57:43.518Z
 type: lk

@@ -3,6 +3,7 @@ base:
   description_hash: sha256v7:c2c1dcce655f1b1126267a18146924a871dde5b08fa05c123c69a3f96bcc38b2
   labels: []
   priority: 3
+  slot: todo
   status: open
   title: "Publish and verify the tbd skill on skills.sh: 23 checklist items in an active
     spec with no beads"
@@ -10,7 +11,9 @@ bead_id: is-01m2f2j4tgh6adpj0jhkz04sw1
 external_id: 90bfa55b-9eb0-4ff6-82dc-3b9abff94dba
 external_key: OS-468
 external_url: https://linear.app/finterm-ai/issue/OS-468/publish-and-verify-the-tbd-skill-on-skillssh-23-checklist-items-in-an
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:28:35.264Z
 state: linked
-synced_at: 2026-09-16T08:28:35.508Z
+synced_at: 2026-09-16T08:58:47.292Z
 type: lk

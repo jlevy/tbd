@@ -5,15 +5,17 @@ title: "Phase 5: self-docs migration (reference kind, register tbd-docs/tbd-desi
 kind: task
 status: open
 priority: 2
-version: 7
+version: 8
 spec_path: docs/project/specs/done/plan-2026-06-11-forkable-docs.md
 labels:
   - pause
 dependencies: []
 parent_id: null
-hold: paused
+hold: null
 created_at: 2026-06-12T08:46:01.710Z
-updated_at: 2026-09-14T04:23:35.641Z
+updated_at: 2026-09-16T08:57:49.938Z
+resolution: null
+duplicate_of: null
 extensions:
   linear:
     id: 921619b6-8e78-46c0-9a0f-d17bd5fba362

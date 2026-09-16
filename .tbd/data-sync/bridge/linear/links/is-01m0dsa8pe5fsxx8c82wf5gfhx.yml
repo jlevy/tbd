@@ -3,16 +3,16 @@ base:
   description_hash: sha256v7:8b189d7e2c4b68c7841b8448a8dc64f632dbffb00f4d9570a02d269e64eaaed3
   labels: []
   priority: 3
-  slot: backlog
+  slot: todo
   status: open
   title: Universal wrapper session adapter (Rivet, bb, or Omnigent)
 bead_id: is-01m0dsa8pe5fsxx8c82wf5gfhx
 external_id: b43e0948-9ed6-4d81-a8cc-34dfe705f9e0
 external_key: OS-361
-external_url: https://linear.app/finterm-ai/issue/OS-361/rivet-sandbox-agent-session-adapter
+external_url: https://linear.app/finterm-ai/issue/OS-361/universal-wrapper-session-adapter-rivet-bb-or-omnigent
 refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:25:49.198Z
 state: linked
-synced_at: 2026-09-16T08:25:49.476Z
+synced_at: 2026-09-16T08:58:28.219Z
 type: lk

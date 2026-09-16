@@ -3,13 +3,16 @@ base:
   description_hash: sha256v7:337a21eecd7529705e7a52fa6d55872ab49e2c2e52d72a771081b07c31fa7501
   labels: []
   priority: 2
+  slot: todo
   status: open
   title: Route typescript-lint-format-rules at ci-and-gates-rules
 bead_id: is-01m0ph8b67vwpn8qswpfq60tw3
 external_id: 7d73dbda-e420-41f6-8e9e-b3cf855ad566
 external_key: OS-401
 external_url: https://linear.app/finterm-ai/issue/OS-401/route-typescript-lint-format-rules-at-ci-and-gates-rules
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:26:28.119Z
 state: linked
-synced_at: 2026-09-16T08:26:28.349Z
+synced_at: 2026-09-16T08:58:29.472Z
 type: lk

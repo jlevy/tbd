@@ -3,13 +3,16 @@ base:
   description_hash: sha256v7:3bb81c828f916f90dc719ea58d775ca20c80d245289a3f2db26545a1c1c58e50
   labels: []
   priority: 2
+  slot: todo
   status: open
   title: pre-push test run stamps real .tbd/config.yml with dev tbd_version (isolation leak)
 bead_id: is-01kxbx4bv9h4zj4822mqj20bxw
 external_id: eb5eca48-5174-44d9-a692-a3c877403a11
 external_key: OS-386
 external_url: https://linear.app/finterm-ai/issue/OS-386/pre-push-test-run-stamps-real-tbdconfigyml-with-dev-tbd-version
-remote_updated_at: 2026-09-16T08:26:00.516Z
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+remote_updated_at: 2026-09-16T08:57:53.180Z
 state: linked
-synced_at: 2026-09-16T08:26:00.745Z
+synced_at: 2026-09-16T08:57:53.350Z
 type: lk

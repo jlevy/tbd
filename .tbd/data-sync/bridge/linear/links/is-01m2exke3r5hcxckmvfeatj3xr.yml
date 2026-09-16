@@ -4,14 +4,17 @@ base:
   labels:
     - phase-0
   priority: 1
-  status: in_progress
+  slot: done
+  status: closed
   title: "f08 contract T3: mixed-version Linear convergence between packed 0.8.1 and the
     candidate"
 bead_id: is-01m2exke3r5hcxckmvfeatj3xr
 external_id: eac51d85-8674-4d75-988e-932a35e125c7
 external_key: OS-467
 external_url: https://linear.app/finterm-ai/issue/OS-467/f08-contract-t3-mixed-version-linear-convergence-between-packed-081
-remote_updated_at: 2026-09-16T08:28:33.612Z
+refinement_slot: in_progress
+refinement_state_id: 3d68307f-c21e-4fa1-a9e4-6e9b4f5f6e69
+remote_updated_at: 2026-09-16T08:58:46.740Z
 state: linked
-synced_at: 2026-09-16T08:28:33.974Z
+synced_at: 2026-09-16T08:58:47.004Z
 type: lk

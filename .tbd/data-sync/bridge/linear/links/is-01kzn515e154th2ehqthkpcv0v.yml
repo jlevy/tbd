@@ -5,7 +5,7 @@ base:
     - github
     - integration
   priority: 3
-  slot: backlog
+  slot: todo
   status: open
   title: Phase 3 documentation
 bead_id: is-01kzn515e154th2ehqthkpcv0v
@@ -16,5 +16,5 @@ refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T02:11:10.783Z
 state: linked
-synced_at: 2026-09-16T08:24:45.019Z
+synced_at: 2026-09-16T08:58:00.303Z
 type: lk

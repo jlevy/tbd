@@ -4,6 +4,7 @@ base:
   labels:
     - phase-2
   priority: 1
+  slot: backlog
   status: open
   title: "doctor: Spec links group (dangling spec_path, epics without a spec, duplicate
     spec filenames) with --fix for moved paths"
@@ -11,7 +12,9 @@ bead_id: is-01m1yzxfatdcswww2sm93j0djm
 external_id: 18474a38-1eeb-4d85-9111-a0cf269cb6eb
 external_key: OS-440
 external_url: https://linear.app/finterm-ai/issue/OS-440/doctor-spec-links-group-dangling-spec-path-epics-without-a-spec
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T08:27:35.041Z
 state: linked
-synced_at: 2026-09-16T08:27:35.387Z
+synced_at: 2026-09-16T08:58:40.958Z
 type: lk

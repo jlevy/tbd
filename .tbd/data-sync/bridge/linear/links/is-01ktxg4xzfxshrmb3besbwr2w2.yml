@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 2
-  slot: backlog
+  slot: todo
   status: open
   title: "Phase 5: self-docs migration (reference kind, register tbd-docs/tbd-design,
     retire bare-docs manual viewer)"
@@ -16,5 +16,5 @@ refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T02:10:49.939Z
 state: linked
-synced_at: 2026-09-16T08:24:35.207Z
+synced_at: 2026-09-16T08:57:49.947Z
 type: lk

@@ -4,13 +4,16 @@ base:
   labels:
     - sync
   priority: 2
+  slot: todo
   status: open
   title: Orphaned empty data-sync.lock blocks all syncs; doctor reports healthy
 bead_id: is-01kzp7rd5ap1sgzqgs3ejdwn5a
 external_id: ac24d02e-ed81-4d9a-8145-1b8515560cc1
 external_key: OS-390
 external_url: https://linear.app/finterm-ai/issue/OS-390/orphaned-empty-data-synclock-blocks-all-syncs-doctor-reports-healthy
-remote_updated_at: 2026-09-16T08:26:06.928Z
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+remote_updated_at: 2026-09-16T08:58:00.765Z
 state: linked
-synced_at: 2026-09-16T08:26:07.152Z
+synced_at: 2026-09-16T08:58:00.955Z
 type: lk

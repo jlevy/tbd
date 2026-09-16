@@ -5,7 +5,7 @@ base:
     - web
     - integration
   priority: 2
-  slot: backlog
+  slot: todo
   status: open
   title: Render accessible Linear and GitHub link marks in bead rows and details
 bead_id: is-01kzx8nc1vetjsc86by8085sg1
@@ -16,5 +16,5 @@ refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T02:11:20.374Z
 state: linked
-synced_at: 2026-09-16T08:25:03.866Z
+synced_at: 2026-09-16T08:58:06.562Z
 type: lk

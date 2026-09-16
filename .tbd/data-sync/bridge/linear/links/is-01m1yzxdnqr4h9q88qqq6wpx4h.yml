@@ -4,13 +4,16 @@ base:
   labels:
     - phase-2
   priority: 1
+  slot: todo
   status: open
   title: "resolveSpecLocation: one resolver classifying a stored spec_path; specs.dir config"
 bead_id: is-01m1yzxdnqr4h9q88qqq6wpx4h
 external_id: 68565197-3876-4826-a4b0-2e06ed7933c1
 external_key: OS-439
 external_url: https://linear.app/finterm-ai/issue/OS-439/resolvespeclocation-one-resolver-classifying-a-stored-spec-path
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:27:33.680Z
 state: linked
-synced_at: 2026-09-16T08:27:33.921Z
+synced_at: 2026-09-16T08:58:40.792Z
 type: lk

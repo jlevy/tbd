@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 3
-  slot: backlog
+  slot: todo
   status: open
   title: "Phase 3 tests: tryscripts that depend on bundled-doc content point at new bundle
     name"
@@ -16,5 +16,5 @@ refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:55.540Z
 state: linked
-synced_at: 2026-09-16T08:24:30.643Z
+synced_at: 2026-09-16T08:57:43.663Z
 type: lk

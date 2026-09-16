@@ -1,9 +1,10 @@
 base:
   assignee: null
-  description_hash: sha256v7:3c0d391d976fff7c0337b51961bc07612197ebfbb390514adf1e5374e6855524
+  description_hash: sha256v7:069d5dfc30e5a1683ccc8decadd5ecc90cc97fa65988510cb34741da2cf4e806
   labels:
     - phase-2
   priority: 1
+  slot: backlog
   status: open
   title: "tbd spec status: one row per spec file with lifecycle folder, open/closed beads,
     epics, unchecked count, state"
@@ -11,7 +12,9 @@ bead_id: is-01m1yzxgm4mb8az2mxy9dggpjk
 external_id: 7f448f43-c361-48ec-8874-a4559424ec3f
 external_key: OS-441
 external_url: https://linear.app/finterm-ai/issue/OS-441/tbd-spec-status-one-row-per-spec-file-with-lifecycle-folder-openclosed
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T08:27:36.530Z
 state: linked
-synced_at: 2026-09-16T08:27:36.771Z
+synced_at: 2026-09-16T08:58:41.207Z
 type: lk

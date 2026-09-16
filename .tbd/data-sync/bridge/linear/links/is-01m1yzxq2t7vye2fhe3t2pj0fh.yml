@@ -4,13 +4,16 @@ base:
   labels:
     - phase-2
   priority: 3
+  slot: backlog
   status: open
   title: "list --specs: location markers on group headers; --specs --json emits groups"
 bead_id: is-01m1yzxq2t7vye2fhe3t2pj0fh
 external_id: 453c7271-8978-490b-8f42-251d2a806bb3
 external_key: OS-444
 external_url: https://linear.app/finterm-ai/issue/OS-444/list-specs-location-markers-on-group-headers-specs-json-emits-groups
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T08:27:40.761Z
 state: linked
-synced_at: 2026-09-16T08:27:41.026Z
+synced_at: 2026-09-16T08:58:41.755Z
 type: lk

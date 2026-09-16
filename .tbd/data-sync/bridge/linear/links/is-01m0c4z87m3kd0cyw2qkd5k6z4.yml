@@ -1,6 +1,6 @@
 base:
   assignee: josh
-  description_hash: sha256v7:1716e64ed51608b3b55dae7efd0c6eb5c93a5f792dcbecbb33da60f593d39bed
+  description_hash: sha256v7:48c1683348385d23a0825bd314f3a203c4fe536322729f8a8a5db096cce52ad7
   labels: []
   priority: 0
   slot: in_progress
@@ -14,5 +14,5 @@ refinement_slot: in_progress
 refinement_state_id: 3d68307f-c21e-4fa1-a9e4-6e9b4f5f6e69
 remote_updated_at: 2026-09-16T08:25:29.739Z
 state: linked
-synced_at: 2026-09-16T08:25:30.204Z
+synced_at: 2026-09-16T08:58:24.717Z
 type: lk

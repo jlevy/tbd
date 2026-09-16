@@ -4,7 +4,7 @@ base:
   labels:
     - phase-4
   priority: 2
-  slot: backlog
+  slot: todo
   status: open
   title: Stop-event completion gate for Claude Code and Codex
 bead_id: is-01m00h60xmsj85fqn07wkrtjqd
@@ -15,5 +15,5 @@ refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T07:50:35.091Z
 state: linked
-synced_at: 2026-09-16T08:25:19.538Z
+synced_at: 2026-09-16T08:58:12.203Z
 type: lk

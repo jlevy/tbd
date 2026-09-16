@@ -4,6 +4,7 @@ base:
   labels:
     - phase-5
   priority: 2
+  slot: todo
   status: open
   title: "Docs for the sprint's surfaces: tbd-design.md, tbd-docs.md, skill-baseline.md,
     CHANGELOG"
@@ -11,7 +12,9 @@ bead_id: is-01m1yzy8dhwgyc47bmf1rcjhr3
 external_id: 3155803e-6542-4ea5-98cb-ce3eabb98477
 external_key: OS-455
 external_url: https://linear.app/finterm-ai/issue/OS-455/docs-for-the-sprints-surfaces-tbd-designmd-tbd-docsmd-skill-baselinemd
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:27:59.765Z
 state: linked
-synced_at: 2026-09-16T08:28:00.984Z
+synced_at: 2026-09-16T08:58:43.849Z
 type: lk

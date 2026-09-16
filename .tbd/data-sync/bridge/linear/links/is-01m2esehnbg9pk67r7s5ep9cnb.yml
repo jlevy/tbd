@@ -4,13 +4,16 @@ base:
   labels:
     - phase-5
   priority: 2
+  slot: todo
   status: open
   title: tbd status suggests nonexistent 'tbd setup beads --disable'
 bead_id: is-01m2esehnbg9pk67r7s5ep9cnb
 external_id: 62ba1e21-385b-4d7a-8725-0ac4df812ef4
 external_key: OS-466
 external_url: https://linear.app/finterm-ai/issue/OS-466/tbd-status-suggests-nonexistent-tbd-setup-beads-disable
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:28:31.150Z
 state: linked
-synced_at: 2026-09-16T08:28:32.483Z
+synced_at: 2026-09-16T08:58:45.966Z
 type: lk

@@ -3,7 +3,7 @@ base:
   description_hash: sha256v7:d664b799ab2441dd7c000da3aed48e15279a207659921e8a1c2837ea27792102
   labels: []
   priority: 2
-  slot: backlog
+  slot: todo
   status: open
   title: tbd web renders a session row on the bead view
 bead_id: is-01m0dsa7n1nr69wfbgytp55f9j
@@ -14,5 +14,5 @@ refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:25:47.032Z
 state: linked
-synced_at: 2026-09-16T08:25:47.235Z
+synced_at: 2026-09-16T08:58:27.616Z
 type: lk

@@ -1,16 +1,19 @@
 base:
   assignee: null
-  description_hash: sha256v7:90d016db89cd516444c2a1978e5690c166dcc376e954fb89fb951d88e242e55d
+  description_hash: sha256v7:92453317bc3fff71dc96d0570005755afd51f2eabfdaf7b7e31000defe54488d
   labels:
     - playbook
   priority: 2
+  slot: backlog
   status: open
   title: "Playbook: repoint playbooks, references, and case studies at tbd names"
 bead_id: is-01m0phakcptq9kf2219qpva7wk
 external_id: 4a42bcaa-b619-4f5e-a082-425fb08d1b98
 external_key: OS-407
 external_url: https://linear.app/finterm-ai/issue/OS-407/playbook-repoint-playbooks-references-and-case-studies-at-tbd-names
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T08:26:37.120Z
 state: linked
-synced_at: 2026-09-16T08:26:37.313Z
+synced_at: 2026-09-16T08:58:30.363Z
 type: lk

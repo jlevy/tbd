@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 1
-  slot: backlog
+  slot: todo
   status: open
   title: "Phase 1 tests: migration golden (f03→f05, f04→f05), source resolution, doc map"
 bead_id: is-01kra9aave6br1ysqedyccf8y5
@@ -15,5 +15,5 @@ refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T00:11:37.086Z
 state: linked
-synced_at: 2026-09-16T08:24:26.186Z
+synced_at: 2026-09-16T08:57:13.187Z
 type: lk

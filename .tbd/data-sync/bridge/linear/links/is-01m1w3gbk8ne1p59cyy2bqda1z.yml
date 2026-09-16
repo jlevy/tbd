@@ -3,13 +3,16 @@ base:
   description_hash: sha256v7:e91809a1aab469910f8b54377016e591ef525ec1b41ee8f13547eab4bf5b4156
   labels: []
   priority: 1
+  slot: backlog
   status: open
   title: "Coordination phase 4: native comments projected to linked Linear beads"
 bead_id: is-01m1w3gbk8ne1p59cyy2bqda1z
 external_id: 61637834-c011-4cbb-9dc5-66fb25b4ab59
 external_key: OS-422
 external_url: https://linear.app/finterm-ai/issue/OS-422/coordination-phase-4-native-comments-projected-to-linked-linear-beads
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T08:26:59.498Z
 state: linked
-synced_at: 2026-09-16T08:26:59.704Z
+synced_at: 2026-09-16T08:58:35.448Z
 type: lk

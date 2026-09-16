@@ -4,6 +4,7 @@ base:
   labels:
     - phase-5
   priority: 2
+  slot: todo
   status: open
   title: "GH #180 remaining asks: Codex hook key deletes user .codex/ hooks; prune,
     collision warning, shared spec, opt-out"
@@ -11,7 +12,9 @@ bead_id: is-01m2egx9ye6n87mfbmq7txd3y9
 external_id: fc900ec5-12c3-4d56-9477-4bd696263bcc
 external_key: OS-463
 external_url: https://linear.app/finterm-ai/issue/OS-463/gh-180-remaining-asks-codex-hook-key-deletes-user-codex-hooks-prune
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:28:25.293Z
 state: linked
-synced_at: 2026-09-16T08:28:25.945Z
+synced_at: 2026-09-16T08:58:45.479Z
 type: lk

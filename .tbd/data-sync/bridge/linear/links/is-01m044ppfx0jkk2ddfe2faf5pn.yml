@@ -11,9 +11,9 @@ bead_id: is-01m044ppfx0jkk2ddfe2faf5pn
 external_id: 8884680f-5cbe-418b-bfed-9262f24db5da
 external_key: OS-248
 external_url: https://linear.app/finterm-ai/issue/OS-248/populate-identityuser-map-so-assignee-sync-stops-being-skipped
-refinement_slot: todo
-refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+refinement_slot: canceled
+refinement_state_id: c29443ea-a9df-422c-80bb-fd3f95deedb0
 remote_updated_at: 2026-09-16T08:25:25.525Z
 state: linked
-synced_at: 2026-09-16T08:25:25.754Z
+synced_at: 2026-09-16T08:58:18.415Z
 type: lk

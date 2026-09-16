@@ -3,6 +3,7 @@ base:
   description_hash: sha256v7:cf7b7e985418b77983d457b8bed5a129273447d355cf32cc1560cfbf9c0d4bc8
   labels: []
   priority: 1
+  slot: todo
   status: open
   title: "Stability sprint 2026-09: spec lifecycle, triage views, bulk contract, tracker
     convergence"
@@ -10,7 +11,9 @@ bead_id: is-01m1yzwqtnk81a6yg790yn4a9x
 external_id: dd42e056-d545-47ff-a532-ffe0d6a519dc
 external_key: OS-425
 external_url: https://linear.app/finterm-ai/issue/OS-425/stability-sprint-2026-09-spec-lifecycle-triage-views-bulk-contract
-remote_updated_at: 2026-09-16T08:27:04.675Z
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+remote_updated_at: 2026-09-16T08:58:36.267Z
 state: linked
-synced_at: 2026-09-16T08:27:04.884Z
+synced_at: 2026-09-16T08:58:36.479Z
 type: lk

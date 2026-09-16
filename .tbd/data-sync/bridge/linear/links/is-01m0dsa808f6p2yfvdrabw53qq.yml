@@ -3,7 +3,7 @@ base:
   description_hash: sha256v7:c5a77b616fcb2efc82661c5efaed837553272c072d76dae2ea550da945305e99
   labels: []
   priority: 2
-  slot: backlog
+  slot: todo
   status: open
   title: Session adapter registry
 bead_id: is-01m0dsa808f6p2yfvdrabw53qq
@@ -14,5 +14,5 @@ refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-09-16T08:25:47.569Z
 state: linked
-synced_at: 2026-09-16T08:25:47.753Z
+synced_at: 2026-09-16T08:58:27.762Z
 type: lk

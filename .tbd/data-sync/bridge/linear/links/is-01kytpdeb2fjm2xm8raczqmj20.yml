@@ -1,8 +1,9 @@
 base:
   assignee: null
-  description_hash: sha256v7:84dbbdda6d92dec873d652572095f22ff7c6bfe3e5a64db97cdb961c63bab4d3
+  description_hash: sha256v7:5fa4b62b94965e90c7e63fd23400829801b524b255e190251236fe03f3ec9e5c
   labels: []
   priority: 2
+  slot: todo
   status: open
   title: tbd sync issues phase hangs in proxied remote session; killed sync leaves stale
     lock that silently blocks all issue writes
@@ -10,7 +11,9 @@ bead_id: is-01kytpdeb2fjm2xm8raczqmj20
 external_id: 1325b4df-7b5a-4eb7-ad01-6dc4d1af1aef
 external_key: OS-389
 external_url: https://linear.app/finterm-ai/issue/OS-389/tbd-sync-issues-phase-hangs-in-proxied-remote-session-killed-sync
-remote_updated_at: 2026-09-16T08:26:05.559Z
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+remote_updated_at: 2026-09-16T08:57:56.437Z
 state: linked
-synced_at: 2026-09-16T08:26:05.760Z
+synced_at: 2026-09-16T08:57:56.703Z
 type: lk

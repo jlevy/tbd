@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 2
-  slot: backlog
+  slot: todo
   status: open
   title: "Phase 2: tbd docs status + bare overview + tbd status Docs line (docmap --json)"
 bead_id: is-01ktxg4rgaz91wm7577qdfpqzx
@@ -15,5 +15,5 @@ refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T02:10:46.590Z
 state: linked
-synced_at: 2026-09-16T08:24:34.885Z
+synced_at: 2026-09-16T08:57:49.613Z
 type: lk

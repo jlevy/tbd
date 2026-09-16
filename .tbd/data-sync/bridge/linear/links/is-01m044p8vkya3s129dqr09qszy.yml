@@ -3,13 +3,16 @@ base:
   description_hash: sha256v7:c73d927041a990a7fc4aced259ce06135d73c716664a70a1e49a10128fd4158d
   labels: []
   priority: 2
+  slot: todo
   status: open
   title: Wall-clock perf assertions flake under parallel load and coverage
 bead_id: is-01m044p8vkya3s129dqr09qszy
 external_id: 8174f6b4-e2fd-4a21-a29c-87d888763c5f
 external_key: OS-396
 external_url: https://linear.app/finterm-ai/issue/OS-396/wall-clock-perf-assertions-flake-under-parallel-load-and-coverage
-remote_updated_at: 2026-09-16T08:26:17.838Z
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+remote_updated_at: 2026-09-16T08:58:17.930Z
 state: linked
-synced_at: 2026-09-16T08:26:18.064Z
+synced_at: 2026-09-16T08:58:18.133Z
 type: lk

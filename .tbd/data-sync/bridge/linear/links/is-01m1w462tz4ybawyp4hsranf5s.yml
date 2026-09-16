@@ -3,6 +3,7 @@ base:
   description_hash: sha256v7:189dfdb7916ce098b3cbf65fbbb1d80cb19eb27d06040177912966c14eb931ef
   labels: []
   priority: 2
+  slot: backlog
   status: open
   title: Validate mixed human and agent coordination after native workers and Linear
     projection
@@ -10,7 +11,9 @@ bead_id: is-01m1w462tz4ybawyp4hsranf5s
 external_id: 3fc42a1a-7d40-4aaf-8d03-f9e9cac2ffe5
 external_key: OS-424
 external_url: https://linear.app/finterm-ai/issue/OS-424/validate-mixed-human-and-agent-coordination-after-native-workers-and
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T08:27:03.438Z
 state: linked
-synced_at: 2026-09-16T08:27:03.654Z
+synced_at: 2026-09-16T08:58:35.944Z
 type: lk

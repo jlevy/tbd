@@ -4,13 +4,16 @@ base:
   labels:
     - playbook
   priority: 2
+  slot: backlog
   status: open
   title: "Playbook: rewrite guidelines/README.md as a router"
 bead_id: is-01m0phahhe6a03e4nwk7h4kzhs
 external_id: c4bbcb59-895f-47c5-9f0e-5bd4f6707ed7
 external_key: OS-406
 external_url: https://linear.app/finterm-ai/issue/OS-406/playbook-rewrite-guidelinesreadmemd-as-a-router
+refinement_slot: backlog
+refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T08:26:35.427Z
 state: linked
-synced_at: 2026-09-16T08:26:35.640Z
+synced_at: 2026-09-16T08:58:30.193Z
 type: lk

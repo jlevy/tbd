@@ -3,13 +3,16 @@ base:
   description_hash: sha256v7:bbb65e261d581bc37542ffa000cc6f00b321e4fee7e64e32e3bc6e5ea94efc7a
   labels: []
   priority: 3
+  slot: todo
   status: open
   title: diff3-style conflict markers bypass MergeConflictError detection
 bead_id: is-01m01w3jp8zjp74yw33z3tw15j
 external_id: 0510b229-d1d7-4010-b176-f780de68d11e
 external_key: OS-395
 external_url: https://linear.app/finterm-ai/issue/OS-395/diff3-style-conflict-markers-bypass-mergeconflicterror-detection
-remote_updated_at: 2026-09-16T08:26:15.628Z
+refinement_slot: todo
+refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+remote_updated_at: 2026-09-16T08:58:16.899Z
 state: linked
-synced_at: 2026-09-16T08:26:16.558Z
+synced_at: 2026-09-16T08:58:17.186Z
 type: lk

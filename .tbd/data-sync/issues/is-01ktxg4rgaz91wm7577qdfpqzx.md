@@ -5,7 +5,7 @@ title: "Phase 2: tbd docs status + bare overview + tbd status Docs line (docmap 
 kind: task
 status: open
 priority: 2
-version: 9
+version: 10
 spec_path: docs/project/specs/done/plan-2026-06-11-forkable-docs.md
 labels:
   - pause
@@ -13,9 +13,11 @@ dependencies:
   - type: blocks
     target: is-01ktxg4s1ng4wz60bnh3frcsc0
 parent_id: null
-hold: paused
+hold: null
 created_at: 2026-06-12T08:45:56.106Z
-updated_at: 2026-09-14T04:23:35.632Z
+updated_at: 2026-09-16T08:57:49.599Z
+resolution: null
+duplicate_of: null
 extensions:
   linear:
     id: 73b556d4-430f-44ca-8c21-295431eba66d

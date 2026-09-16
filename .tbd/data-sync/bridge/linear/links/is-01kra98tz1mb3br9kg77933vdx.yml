@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 3
-  slot: backlog
+  slot: todo
   status: open
   title: "Phase 3: Migrate bundled docs to external repo (tbd-docs)"
 bead_id: is-01kra98tz1mb3br9kg77933vdx
@@ -15,5 +15,5 @@ refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-19T04:56:03.505Z
 state: linked
-synced_at: 2026-09-16T08:24:23.201Z
+synced_at: 2026-09-16T08:57:10.768Z
 type: lk

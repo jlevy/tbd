@@ -5,7 +5,7 @@ title: "tracker: actor axis (assignee/delegate) and board projection"
 kind: epic
 status: in_progress
 priority: 0
-version: 10
+version: 11
 spec_path: docs/project/specs/active/plan-2026-08-18-actor-axis-and-identity.md
 docs:
   - path: docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md
@@ -21,7 +21,8 @@ child_order_hints:
   - is-01m2esegb93vkm6se4pc0gsn5h
   - is-01m2esfargtg9zyb4n1s8z2ra2
 created_at: 2026-08-19T04:37:46.867Z
-updated_at: 2026-09-14T01:45:57.776Z
+updated_at: 2026-09-16T08:58:24.678Z
+duplicate_of: null
 extensions:
   linear:
     id: 4a516464-c913-4c5d-8ef4-63a7f36101be
@@ -30,7 +31,7 @@ extensions:
 The second of two axes tbd collapses into single fields. Sibling: tbd-og20 (state axis: resolution, hold, name-based Linear mapping). Same file format, same schema module, same adapter — planned as a pair, tracked separately because they were found separately.
 
 ACTOR AXIS (#246, PR #247)
-assignee: z.string() maps to Linear's assigneeId alone. Linear has two actor fields — assignee (accountable) and delegate (acting) — and its agent platform hangs off the second. Measured on a ~900-bead repo where agents do the work: assignee used on ZERO beads, because the human is constant (carries no information) and the agent is inexpressible. delegateId, agentSession, app:assignable, actor=app appear in zero files in the dist.
+assignee: z.string() maps to Linear's assigneeId alone. Linear has two actor fields — assignee (accountable) and delegate (acting) — and its agent platform hangs off the second. Measured on a \~900-bead repo where agents do the work: assignee used on ZERO beads, because the human is constant (carries no information) and the agent is inexpressible. delegateId, agentSession, app:assignable, actor=app appear in zero files in the dist.
 Adds delegate beside assignee, plus an actor 'kind' on user_map so 'never publish this actor' is a property of the actor rather than its absence from a table. Governing rule: issues in Linear are managed per human, not per agent.
 
 BOARD PROJECTION (PR #247)

@@ -10,9 +10,9 @@ bead_id: is-01m0c5qw38xxxfgr8grwwnyz7x
 external_id: b6189c18-9329-4e70-88a3-8cadd8d907d6
 external_key: OS-343
 external_url: https://linear.app/finterm-ai/issue/OS-343/phase-4-board-setup-provisioning-and-re-config
-refinement_slot: todo
-refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
+refinement_slot: done
+refinement_state_id: 21955228-e94e-4d99-8441-c2649de18c54
 remote_updated_at: 2026-09-16T08:25:31.882Z
 state: linked
-synced_at: 2026-09-16T08:25:32.106Z
+synced_at: 2026-09-16T08:58:25.125Z
 type: lk

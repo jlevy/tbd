@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 2
-  slot: backlog
+  slot: todo
   status: open
   title: "kdex: tbd integration + migration (Phase 3)"
 bead_id: is-01khjmbxbgm5tvpg8j1r2svn7k
@@ -15,5 +15,5 @@ refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
 remote_updated_at: 2026-08-16T02:10:22.995Z
 state: linked
-synced_at: 2026-09-16T08:24:21.895Z
+synced_at: 2026-09-16T08:57:09.403Z
 type: lk
