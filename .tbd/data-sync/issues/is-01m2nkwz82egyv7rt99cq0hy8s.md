@@ -3,9 +3,9 @@ type: is
 id: is-01m2nkwz82egyv7rt99cq0hy8s
 title: Verify pinned gh-stack extension identity before use
 kind: bug
-status: closed
+status: in_progress
 priority: 1
-version: 8
+version: 10
 delegate: codex@spud10
 labels:
   - supply-chain
@@ -14,10 +14,10 @@ dependencies: []
 hold: null
 hold_until: null
 created_at: 2026-09-16T17:23:14.305Z
-updated_at: 2026-09-16T17:59:23.647Z
+updated_at: 2026-09-16T18:05:28.443Z
 started_at: 2026-09-16T17:23:37.498Z
-closed_at: 2026-09-16T17:59:23.645Z
-close_reason: Resolved independent High finding by staging gh extension registration off the canonical dispatch path and atomically publishing only a fully verified directory.
+closed_at: null
+close_reason: null
 resolution: null
 duplicate_of: null
 ---
