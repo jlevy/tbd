@@ -18,17 +18,17 @@ The provider facts were re-verified on 2026-09-15 and several had changed.
 
 **Related:**
 
-- [External tracker integrations](../../specs/active/plan-2026-08-10-external-tracker-integrations.md)
-  — the adapter seam, policy, bridge layout, and the Phase 3 GitHub work map
-- [External sync and traceability](../../specs/active/plan-2026-08-14-external-sync-and-traceability.md)
-  — `docs` and `refs`, and why a GitHub *reference* is not a GitHub *integration*
-- [Tracker state model and Linear mapping](../../specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md)
-  — `resolution`, `hold`, and the slot vocabulary
-- [Actor axis and identity mapping](../../specs/active/plan-2026-08-18-actor-axis-and-identity.md)
-  — `assignee` versus `delegate`, and per-provider identity binding
-- [Linear as a task surface](research-2026-08-09-linear-task-surfaces.md) — the same
+- [External tracker integrations](../../specs/active/plan-2026-08-10-external-tracker-integrations.md):
+  the adapter seam, policy, bridge layout, and the Phase 3 GitHub work map
+- [External sync and traceability](../../specs/active/plan-2026-08-14-external-sync-and-traceability.md):
+  `docs` and `refs`, and why a GitHub *reference* is not a GitHub *integration*
+- [Tracker state model and Linear mapping](../../specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md):
+  `resolution`, `hold`, and the slot vocabulary
+- [Actor axis and identity mapping](../../specs/active/plan-2026-08-18-actor-axis-and-identity.md):
+  `assignee` versus `delegate`, and per-provider identity binding
+- [Linear as a task surface](research-2026-08-09-linear-task-surfaces.md): the same
   exercise for the first provider, including live-probed corrections to published docs
-- [API references for bridge integrations](api-references-bridge-integrations.md) —
+- [API references for bridge integrations](api-references-bridge-integrations.md):
   January 2026 GitHub App, webhook, and Slack reference notes.
   Its GitHub sections are older than this brief; prefer the facts here where they
   disagree.
@@ -69,13 +69,13 @@ Three findings drive most of the design work below:
 Every fact below was checked on **2026-09-15** by one of three methods, named per
 section:
 
-- **docs** — fetched from docs.github.com on 2026-09-15. Endpoint pages render for API
+- **docs:** fetched from docs.github.com on 2026-09-15. Endpoint pages render for API
   version `2026-03-10` unless noted.
-- **introspection** — live GraphQL schema introspection through
+- **introspection:** live GraphQL schema introspection through
   `gh api graphql -f query='{ __type(name:"…"){…} }'` against api.github.com.
   This is the schema as served, not a doc page about it.
-- **changelog** — dated entries on github.blog/changelog, used only for when a
-  capability shipped.
+- **changelog:** dated entries on github.blog/changelog, used only for when a capability
+  shipped.
 
 Nothing here was probed by mutating a repository.
 Behaviors that need a write to confirm are listed in
@@ -162,7 +162,8 @@ exposes `stateReason` and `duplicateOf`.
 This is a genuine change since February 2026, and it is the one that most affects tbd:
 `duplicate` is a supported closed reason with a pointer to the canonical issue, which is
 precisely the shape of `resolution: duplicate` plus `duplicate_of`
-(`lib/schemas.ts:327-336`, whose comment already anticipates `duplicateIssueId`).
+(`lib/schemas.ts:327-336` for the two field shapes; the `IssueSchema.superRefine`
+comment at `:358-363` already names GitHub’s `duplicateIssueId`).
 
 ### 2.3 Sub-Issues and Parents
 
@@ -276,12 +277,14 @@ tbd’s conflict-report lifecycle depends on Linear’s `commentResolve`
 (`integrations/core/types.ts:320-336`), so GitHub needs a different convention.
 
 `GET …/issues/{number}/timeline` returns the merged event stream.
-`IssueTimelineItems` introspects to 48 members, including the ones this work cares
-about: `ClosedEvent`, `ReopenedEvent`, `MarkedAsDuplicateEvent`,
-`UnmarkedAsDuplicateEvent`, `SubIssueAddedEvent`, `SubIssueRemovedEvent`,
-`ParentIssueAddedEvent`, `ParentIssueRemovedEvent`, `BlockedByAddedEvent`,
-`BlockingAddedEvent` (plus their removals),
-`IssueTypeAddedEvent`/`ChangedEvent`/`RemovedEvent`,
+`IssueTimelineItems` introspects to 51 possible types as of 2026-09-15. Treat that as a
+dated observation rather than a fixed fact: the union grows as GitHub ships events, and
+this brief has already had to correct the number twice.
+What matters is that every member this work cares about is present in the live schema:
+`ClosedEvent`, `ReopenedEvent`, `MarkedAsDuplicateEvent`, `UnmarkedAsDuplicateEvent`,
+`SubIssueAddedEvent`, `SubIssueRemovedEvent`, `ParentIssueAddedEvent`,
+`ParentIssueRemovedEvent`, `BlockedByAddedEvent`, `BlockingAddedEvent` (plus their
+removals), `IssueTypeAddedEvent`/`ChangedEvent`/`RemovedEvent`,
 `IssueFieldAddedEvent`/`ChangedEvent`/`RemovedEvent`, `CrossReferencedEvent`,
 `ConnectedEvent`, `DisconnectedEvent`, `TransferredEvent`, `RenamedTitleEvent`.
 
@@ -347,7 +350,7 @@ argument for GraphQL in the PR-association work (`tbd-v75l`).
 | Dependencies | Full | `blockedBy`, `blocking` | REST |
 | Comments | Full, paginated | Full | REST |
 | Linked PRs for an issue | **Absent** | `closedByPullRequestsReferences` | GraphQL required |
-| Agent assignment | Assignee endpoints plus `agentAssignment` | `replaceActorsForAssignable`, `agentAssignment` | GraphQL, with a feature header |
+| Agent assignment | Assignee endpoints plus `agentAssignment` | `replaceActorsForAssignable`, `agentAssignment` | GraphQL; a feature header gates the call, not the schema |
 | Projects v2 | Since 2025-09-11, items and fields | Full | Either; both need extra scope |
 | Timeline | Full | `timelineItems` | Diagnostics only |
 
@@ -523,9 +526,10 @@ the same item.
 Neither GitHub API offers this.
 REST create documents no idempotency key; `CreateIssueInput` introspects as
 `repositoryId`, `title`, `body`, `assigneeIds`, `milestoneId`, `labelIds`, `projectIds`,
-`issueTemplate`, `issueTypeId`, `parentIssueId`, `issueFields`, `agentAssignment`,
-`clientMutationId`, and `clientMutationId` is echoed to the caller, not deduplicated by
-the server. The same holds for comments.
+`projectV2Ids`, `issueTemplate`, `issueTypeId`, `parentIssueId`, `issueFields`,
+`agentAssignment`, and `clientMutationId` (fourteen fields, 2026-09-15), and
+`clientMutationId` is echoed to the caller, not deduplicated by the server.
+The same holds for comments.
 So the GitHub adapter needs a recovery path rather than an idempotency key: after a
 crash, find the item the journal may have created (for example by a journal-UUID marker
 written into the body, or by listing the caller’s recent issues with `since`), adopt it
@@ -603,15 +607,22 @@ Both now have concrete API surfaces:
 - **Assignee.** `assignees`, capped at 10, silently ignoring users without access.
   The singular `assignee` field is removed in API version `2026-03-10`, so an adapter
   must read and write the array.
-  Identity binds per provider by login and id, which is exactly what `ActorBinding`
-  already models (`integrations/core/actor-binding.ts:25-47`).
+  Identity resolution is already modelled (`integrations/core/actor-binding.ts:25-47`),
+  though not quite field for field: `ProviderMember` carries the `id` and the `login`
+  used for matching, while `ActorBinding` persists `handle`, `provider_user_id`,
+  `display_name`, and `bound_at`. A GitHub login is a matching input, not a stored
+  binding field.
 - **Delegate.** `Issue.assignedActors` and an `agentAssignment` input on
   `CreateIssueInput`, `UpdateIssueInput`, and `ReplaceActorsForAssignableInput` (all
   introspected). Assigning an issue to Copilot through the API shipped 2025-12-03 and,
   per the documentation, requires a user token and a `GraphQL-Features` header
-  (`issues_copilot_assignment_api_support`). A feature-header-gated surface is not a
-  stable base for a release gate, so treating agent publication as deferred, and
-  reporting the skip, is the conservative reading.
+  (`issues_copilot_assignment_api_support`). The header gates behavior, not
+  discoverability: `ReplaceActorsForAssignableInput` introspects identically with and
+  without it (checked both ways, 2026-09-15), so the schema cannot tell you whether a
+  call will be accepted.
+  That is a weaker gate than a hidden surface would be, but it still means acceptance is
+  only knowable by attempting the write, so treating agent publication as deferred, and
+  reporting the skip, remains the conservative reading.
 
 ### 10.4 `extensions.github` Versus `refs`: An Unresolved Discrepancy
 
@@ -621,8 +632,9 @@ Two shipped documents describe different homes for a bead’s pull request links
 
 - `plan-2026-08-10-external-tracker-integrations.md:697-713` decides “the
   `extensions.github` namespace”, with a YAML example carrying `prs: [...]` and
-  `issue: ...`, and `:1557` makes `tbd-v75l` “Store `extensions.github.prs`”. Bead
-  `tbd-v75l` repeats it in its own description.
+  `issue: ...`, and the `tbd-v75l` bullet under the “Phase 3: GitHub adapter” heading
+  makes it “Store `extensions.github.prs`”. Bead `tbd-v75l` repeats it in its own
+  description.
 - `plan-2026-08-14-external-sync-and-traceability.md:325-330` decides the opposite:
   “GitHub issues are `refs`, not `extensions.github`”, reserving `extensions.<provider>`
   for the single tracker item a bead *is*. The f08 schema encodes that reading
@@ -647,9 +659,14 @@ Both are reachable at the PR #83 head commit and are worth reading once, at the 
 the owning bead starts.
 
 **URL-parsing cases** (`tbd-lmo9`):
-`git show 4795e47f:packages/tbd/tests/github-issues.test.ts`. The file holds 48 cases,
-not the 44 the PR’s own QA document claimed: 24 for URL parsing and formatting, 19 for
-status mapping, 5 for label diffing.
+`git show 4795e47f:packages/tbd/tests/github-issues.test.ts`. The file holds 48 cases:
+24 for URL parsing and formatting, 19 for status mapping, 5 for label diffing.
+The PR’s own QA document counted by area rather than by file
+(`4795e47f:docs/project/qa/external-issues.qa.md:492-500`, a six-row table totalling 89
+across several test files), and none of its three rows for this file match it: 44
+claimed for URL parsing against 24 actual, 12 for status mapping against 19, 3 for label
+diffing against 5. The row that matters for reuse is the one that overcounts, so the
+salvageable parsing table is about half the size the old QA summary implies.
 Only the parsing cases are reusable, and they encode strict choices worth re-deciding
 rather than inheriting: `^https?://github\.com/…/(issues|pull)/(\d+)$` rejects a
 trailing slash, any query string, and any fragment, so a URL copied from a browser with
@@ -675,8 +692,10 @@ Use the old script only for its repository-provisioning and teardown mechanics.
 
 ## 12. What Could Not Be Verified
 
-Each of these needs a write against a disposable repository, which this brief did not
-do.
+Two categories, kept apart on purpose.
+The numbered list needs a write against a disposable repository, which this brief did
+not do. The block after it needs no write, but rests on a single documentation page that
+no second reader has re-opened.
 
 1. **Label auto-creation.** PR #83 asserted that adding an unknown label to an issue
    returns 422 and that creation must be a separate step.
@@ -704,6 +723,26 @@ do.
    Enterprise Server hosts, versions, and feature availability are unverified.
 9. **`gh` token scopes as a general fact.** [§8](#8-authentication) records one
    machine’s login, not a guarantee about anyone else’s.
+
+**Single-sourced, and not re-confirmed in review.** Independent review on 2026-09-15
+re-checked fifteen API claims in this brief and reproduced fourteen; the one that did
+not was the timeline-member count, now corrected in [§2.8](#28-comments-and-timeline).
+The following were outside what that review checked, so they carry one source each and
+no second reading. Re-open the cited page before relying on any of them:
+
+- The GraphQL point and node limits in [§6](#6-rate-limits-and-conditional-requests):
+  the 5,000 points/hour user bucket, the connection cost formula, and the 500,000-node
+  ceiling.
+- The issue-fields dates in [§2.5](#25-issue-fields-structured-metadata): the 2026-03-12
+  preview start and the 2026-08-07 multi-select GA. The 2026-05-21 all-orgs and
+  2026-07-02 GA dates were confirmed; these two were not.
+- The 100-children and 8-level sub-issue limits in [§2.3](#23-sub-issues-and-parents),
+  which are UI documentation only.
+  Item 3 above covers how the API refuses an over-limit write; this covers the numbers
+  themselves.
+- The 10-issue cap on manual PR linking in [§3](#3-pull-requests).
+- The label `color` and `description` constraints in
+  [§2.7](#27-labels-assignees-milestones).
 
 * * *
 
