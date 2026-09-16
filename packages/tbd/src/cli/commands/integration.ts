@@ -555,7 +555,9 @@ function printSyncReport(report: SyncRunReport, dryRun: boolean, explain = false
       `${report.provider}: nothing to do${standing.length > 0 ? `, ${standing.join(', ')}` : ''}`,
     );
     for (const skipped of report.skippedPushes) {
-      console.log(`  - ${skipped.beadId}: ${skipped.field} push unsupported; left divergent`);
+      console.log(
+        `  - ${skipped.beadId}: ${skipped.field} push skipped; ${skipped.reason ?? 'unsupported by the provider'}; left divergent`,
+      );
     }
     for (const warning of report.warnings) {
       console.log(`  ! ${warning.externalKey ?? warning.externalId}: ${warning.message}`);
@@ -595,7 +597,9 @@ function printSyncReport(report: SyncRunReport, dryRun: boolean, explain = false
     );
   }
   for (const skipped of report.skippedPushes) {
-    console.log(`  - ${skipped.beadId}: ${skipped.field} push unsupported; left divergent`);
+    console.log(
+      `  - ${skipped.beadId}: ${skipped.field} push skipped; ${skipped.reason ?? 'unsupported by the provider'}; left divergent`,
+    );
   }
   // "push 13" says how many; this says which, and which field, and under which rule.
   // Behind --explain because a healthy run does not need it and a large mirror would

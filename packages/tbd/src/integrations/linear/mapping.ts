@@ -432,6 +432,67 @@ export function slotToLinear(
   }
 }
 
+export interface LinearSlotWriteResolution {
+  target: LinearStatusTarget;
+  /** Carrier labels the selected state needs for a lossless read-back. */
+  labels: string[];
+  state?: WorkflowStateInfo;
+  /** What a subsequent Linear read maps the selected state and carriers back to. */
+  projectedSlot?: Slot;
+  /** Why no state can be selected without guessing. */
+  reason?: string;
+}
+
+/**
+ * Resolve the exact state a slot write will use, then project that write back through
+ * the read mapping.
+ *
+ * This is the adapter's round-trip contract in one pure function. Named optional
+ * columns win, then an explicitly configured/default state; ambiguity or a missing
+ * state is returned rather than silently dropping the state write.
+ */
+export function resolveSlotToLinear(
+  states: readonly WorkflowStateInfo[],
+  slot: Slot,
+  carriers: { hold?: IssueHoldType | null; status?: IssueStatusType } = {},
+  options: { configuredName?: string; preferredStateId?: string } = {},
+): LinearSlotWriteResolution {
+  const target = slotToLinear(slot, carriers);
+  const preferred = options.preferredStateId
+    ? states.find((state) => state.id === options.preferredStateId)
+    : undefined;
+  const named = target.stateName
+    ? states.find(
+        (state) =>
+          state.type === target.stateType &&
+          state.name.toLowerCase() === target.stateName!.toLowerCase(),
+      )
+    : undefined;
+  const fallback = resolveStateId(states, target.stateType, options.configuredName);
+  const state = preferred ?? named ?? fallback.state;
+  if (!state) {
+    const candidates = fallback.ambiguous?.map((candidate) => candidate.name);
+    return {
+      target,
+      labels: target.labels,
+      reason:
+        candidates && candidates.length > 0
+          ? `no unambiguous ${target.stateType} workflow state (${candidates.join(', ')})`
+          : `no ${target.stateType} workflow state`,
+    };
+  }
+
+  // A real named column carries the refinement itself. A fallback state needs the
+  // carrier labels, which is how Paused and Blocked survive teams without those columns.
+  const labels = named?.id === state.id ? [] : target.labels;
+  return {
+    target,
+    labels,
+    state,
+    projectedSlot: slotFromLinear(state.type, state.name, labels),
+  };
+}
+
 /**
  * The colour to give a workflow state tbd creates.
  *

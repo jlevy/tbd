@@ -413,8 +413,8 @@ field the matrix compares widens from the five-value enum to the slot vocabulary
 
 - **Local slot** is computed by the precedence ladder above.
 - **Remote slot** is resolved from the state type, known state names, and carrier
-  labels. A state whose name resolves to no slot is an **owned refinement**: for the
-  matrix it reads as its type’s band slot, and its exact state id is recorded so
+  labels. A named refinement the bead cannot store compares as its bead-side band slot
+  while remaining exact in the remote vocabulary, and its exact state ID is recorded so
   outbound writes send it back verbatim.
   In Review and Draft are just the named cases of this rule; a team’s own “In QA” gets
   the same treatment for free.
@@ -425,9 +425,8 @@ field the matrix compares widens from the five-value enum to the slot vocabulary
 - **Applying a push** prefers the slot’s named state when present, otherwise uses the
   safely resolved state for its type plus any carrier label (`tbd:paused`, `tbd:blocked`
   — the mechanism `blocked`/`deferred` already use).
-  If the type itself is ambiguous, it omits the state ID rather than guessing.
-  The current run does not separately report a named-state fallback; that residual UX is
-  listed below.
+  If the type itself is ambiguous, the field is reported as skipped rather than silently
+  omitting the state ID or guessing.
 
 The refinement record needs a durable home, and there are two candidates that both
 travel on the sync branch, so the trade-off is merge behavior rather than reach:
@@ -548,8 +547,8 @@ this repository’s own data and board.
   provide them; adapters without slots keep the legacy status path.
 - [x] Local slot computation with the fixed precedence; pull decomposition back onto
   bead fields.
-- [x] Remote slot resolution by name; unmapped names become owned refinements (band slot
-  for the matrix, exact state id preserved outbound).
+- [x] Remote slot resolution by name; named refinements compare in both the remote and
+  bead vocabularies, with the exact state ID preserved outbound.
 - [x] Store refinement state ID and slot in the pair’s bridge record, with concurrent
   merge behavior tested.
 - [x] Base migration on first slot run: statuses rewrite mechanically, zero writes on an
@@ -558,7 +557,7 @@ this repository’s own data and board.
   `deferred` → `backlog`) in a `state_map` repository; pinned by test.
 - [x] Outbound ladder: named state when present; otherwise the resolved state for its
   type plus any carrier label.
-  If the type has no safe resolution, omit the state ID rather than guess.
+  If the type has no safe resolution, report the field as skipped rather than guess.
 - [ ] Report each named-state fallback explicitly rather than degrading silently.
 
 ### Phase 4: Setup, provisioning, and re-config

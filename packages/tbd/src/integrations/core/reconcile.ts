@@ -137,7 +137,7 @@ export interface ReconcileResult {
    * merged takes the REMOTE value so the base reflects external reality and
    * the divergence re-reports on every run until it is resolved.
    */
-  skippedPushes: { field: SyncedField; localValue: unknown }[];
+  skippedPushes: { field: SyncedField; localValue: unknown; reason?: string }[];
   /** Canonical values after both patches apply — the next base. */
   merged: {
     title: string;
@@ -181,6 +181,8 @@ interface FieldOps {
   applyRemote: (value: unknown) => void; // write into externalPatch
   /** False when the provider surface cannot apply an outbound value yet. */
   canPush: boolean;
+  /** Why an otherwise-needed outbound write is unavailable. */
+  pushReason?: string;
   /** Record the remote value into the merged base when a push is skipped. */
   applyBase?: (value: unknown) => void;
 }
@@ -196,6 +198,8 @@ export type FieldEquivalences = Partial<Record<SyncedField, (a: unknown, b: unkn
 
 /** Provider write capabilities that depend on configuration or field value. */
 export interface ReconcileCapabilities {
+  status?: boolean;
+  statusReason?: string;
   assignee?: boolean;
   /** False when the remote identity cannot safely enter canonical state. */
   assigneePull?: boolean;
@@ -218,7 +222,7 @@ export function reconcile(
   const externalPatch: CanonicalPatch = {};
   const conflicts: FieldConflict[] = [];
   const overwrites: OwnerOverwrite[] = [];
-  const skippedPushes: { field: SyncedField; localValue: unknown }[] = [];
+  const skippedPushes: { field: SyncedField; localValue: unknown; reason?: string }[] = [];
 
   const remoteProse = stripManagedBlock(remote.description);
   const localWins =
@@ -316,7 +320,9 @@ export function reconcile(
           local: local.slot,
           remote: remote.slot,
           base: baseSlot,
-          equal: (a, b) => slotsAgree(a as Slot, b as Slot, baseIsCoarse),
+          equal: (a, b) =>
+            slotsAgree(a as Slot, b as Slot, baseIsCoarse) ||
+            (equivalences.status?.(a, b) ?? false),
           applyLocal: (value) => {
             beadPatch.slot = value as Slot;
             merged.slot = value as Slot;
@@ -324,7 +330,8 @@ export function reconcile(
           applyRemote: (value) => {
             externalPatch.slot = value as Slot;
           },
-          canPush: true,
+          canPush: capabilities.status ?? true,
+          pushReason: capabilities.statusReason,
         }
       : {
           local: local.status,
@@ -338,7 +345,8 @@ export function reconcile(
           applyRemote: (value) => {
             externalPatch.status = value as IssueStatusType;
           },
-          canPush: true,
+          canPush: capabilities.status ?? true,
+          pushReason: capabilities.statusReason,
         },
     priority: {
       local: local.priority,
@@ -388,7 +396,11 @@ export function reconcile(
   };
 
   const skipPush = (field: SyncedField, ops: FieldOps): void => {
-    skippedPushes.push({ field, localValue: ops.local });
+    skippedPushes.push({
+      field,
+      localValue: ops.local,
+      ...(ops.pushReason ? { reason: ops.pushReason } : {}),
+    });
     // The base must reflect external reality, so the divergence stays visible and
     // re-reports on every run rather than being absorbed silently.
     //

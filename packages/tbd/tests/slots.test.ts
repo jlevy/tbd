@@ -14,11 +14,13 @@ import {
   decomposeSlot,
   bandOf,
   migrateBaseSlot,
+  slotVocabulariesAgree,
   slotsAgree,
   SLOTS,
   isSlot,
 } from '../src/integrations/core/slots.js';
 import {
+  resolveSlotToLinear,
   slotFromLinear,
   slotToLinear,
   PAUSED_LABEL,
@@ -193,6 +195,15 @@ describe('base migration', () => {
   });
 });
 
+describe('two-vocabulary slot agreement', () => {
+  it('keeps remote-only refinements without weakening readiness', () => {
+    expect(slotVocabulariesAgree('in_progress', 'in_review')).toBe(true);
+    expect(slotVocabulariesAgree('backlog', 'draft')).toBe(true);
+    expect(slotVocabulariesAgree('todo', 'draft')).toBe(false);
+    expect(slotVocabulariesAgree('todo', 'backlog')).toBe(false);
+  });
+});
+
 describe('slot mapping to and from Linear', () => {
   it('reads the started columns apart by name, which the type cannot do', () => {
     expect(slotFromLinear('started', 'In Progress', [])).toBe('in_progress');
@@ -231,6 +242,40 @@ describe('slot mapping to and from Linear', () => {
     for (const slot of SLOTS) {
       const target = slotToLinear(slot);
       expect(slotFromLinear(target.stateType, target.stateName, target.labels)).toBe(slot);
+    }
+  });
+
+  it('round-trips every slot through the workflow state the adapter will actually use', () => {
+    const defaultStates = [
+      { id: 'backlog', name: 'Backlog', type: 'backlog', position: 0 },
+      { id: 'todo', name: 'Todo', type: 'unstarted', position: 1 },
+      { id: 'progress', name: 'In Progress', type: 'started', position: 2 },
+      { id: 'review', name: 'In Review', type: 'started', position: 3 },
+      { id: 'done', name: 'Done', type: 'completed', position: 4 },
+      { id: 'canceled', name: 'Canceled', type: 'canceled', position: 5 },
+      { id: 'duplicate', name: 'Duplicate', type: 'duplicate', position: 6 },
+    ];
+    const minimalStates = [
+      { id: 'todo', name: 'Todo', type: 'unstarted', position: 1 },
+      { id: 'doing', name: 'Doing', type: 'started', position: 2 },
+      { id: 'done', name: 'Done', type: 'completed', position: 3 },
+      { id: 'canceled', name: 'Canceled', type: 'canceled', position: 4 },
+    ];
+
+    for (const slot of SLOTS) {
+      const defaultWrite = resolveSlotToLinear(defaultStates, slot);
+      expect(
+        defaultWrite.projectedSlot && slotVocabulariesAgree(defaultWrite.projectedSlot, slot),
+      ).toBe(true);
+
+      const minimalWrite = resolveSlotToLinear(minimalStates, slot);
+      if (minimalWrite.state) {
+        const tolerated = slot === 'in_review' ? 'in_progress' : slot;
+        expect(minimalWrite.projectedSlot).toBe(tolerated);
+      } else {
+        expect(['backlog', 'draft', 'duplicate']).toContain(slot);
+        expect(minimalWrite.reason).toBeDefined();
+      }
     }
   });
 

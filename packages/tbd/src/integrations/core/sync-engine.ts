@@ -37,7 +37,14 @@ import type {
   PolicyDefinition,
   ProviderNameType,
 } from '../../lib/types.js';
-import { bandOf, decomposeSlot, isSlot, outboundPosition, type Slot } from './slots.js';
+import {
+  bandOf,
+  decomposeSlot,
+  isSlot,
+  outboundPosition,
+  slotVocabulariesAgree,
+  type Slot,
+} from './slots.js';
 import { readyIssueIds } from '../../lib/issue-selection.js';
 import {
   descriptionHash,
@@ -211,7 +218,7 @@ export interface SyncRunReport {
   }[];
   conflicts: { beadId: string; field: string; winner: string }[];
   overwrites: { beadId: string; field: string; direction: string }[];
-  skippedPushes: { beadId: string; field: string }[];
+  skippedPushes: { beadId: string; field: string; reason?: string }[];
   /** Safe provider-to-canonical mapping diagnostics, deduplicated per external item. */
   warnings: { externalId: string; externalKey?: string; message: string }[];
   commentsPulled: number;
@@ -887,7 +894,48 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       })();
     const local = localViewOf(bead, readyIds);
     const remoteView = remoteViewOf(remote);
-    const result = reconcile(base, local, remoteView, policy.field_sync, options.equivalences, {
+    const preferredStateId =
+      record?.refinement_slot === local.slot
+        ? (record?.refinement_state_id ?? undefined)
+        : undefined;
+    const slotWrite =
+      local.slot && adapter.resolveSlotWrite
+        ? await adapter.resolveSlotWrite(
+            local.slot,
+            { status: local.status, hold: bead.hold },
+            preferredStateId,
+          )
+        : undefined;
+    const configuredStatusEquivalence = options.equivalences?.status;
+    const pairEquivalences: FieldEquivalences = {
+      ...options.equivalences,
+      ...(local.slot && remoteView.slot
+        ? {
+            status: (a: unknown, b: unknown): boolean => {
+              if (configuredStatusEquivalence?.(a, b)) {
+                return true;
+              }
+              if (typeof a !== 'string' || typeof b !== 'string' || !isSlot(a) || !isSlot(b)) {
+                return false;
+              }
+              const first = a;
+              const second = b;
+              if (slotVocabulariesAgree(first, second)) {
+                return true;
+              }
+              const projected = slotWrite?.projectedSlot;
+              return (
+                projected !== undefined &&
+                ((first === local.slot && second === projected) ||
+                  (second === local.slot && first === projected))
+              );
+            },
+          }
+        : {}),
+    };
+    const result = reconcile(base, local, remoteView, policy.field_sync, pairEquivalences, {
+      status: slotWrite?.canPush ?? true,
+      statusReason: slotWrite?.reason,
       // The flow rule gates the push, not just the pull. `FieldSyncClauseSchema`
       // promises nothing person-identifying moves without an explicit `user_map`
       // AND an explicit `assignee: merge`, but that guard only ever covered the
@@ -1129,10 +1177,15 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   const managedBlocks = new Map<string, string>();
   const malformedManagedBeads = new Set<string>();
   for (const pair of pairs) {
+    const statusPushSkipped = pair.result.skippedPushes.some(
+      (skipped) => skipped.field === 'status',
+    );
     const projectedBead: Issue = {
       ...pair.bead,
       title: pair.result.merged.title,
-      status: pair.result.merged.status,
+      // Do not let the managed prose claim a position the provider cannot enter. Other
+      // fields may still sync, but the status line reflects the state that remains.
+      status: statusPushSkipped ? pair.remote.status : pair.result.merged.status,
       priority: pair.result.merged.priority,
       labels: pair.result.merged.labels,
       assignee: pair.result.merged.assignee ?? undefined,
@@ -1212,7 +1265,11 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       // diagnose a stuck mirror, could not name the stuck field (#265). It also made
       // the `skippedPushes.length === 0` term in this branch's own `nothingToDo` inert.
       for (const skipped of pair.result.skippedPushes) {
-        report.skippedPushes.push({ beadId: id, field: skipped.field });
+        report.skippedPushes.push({
+          beadId: id,
+          field: skipped.field,
+          ...(skipped.reason ? { reason: skipped.reason } : {}),
+        });
       }
       recordDivergence(id, pair, managedBlocks.get(pair.bead.id));
       if (pair.parentOverwrite) {
@@ -1547,7 +1604,11 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         report.overwrites.push({ beadId: displayId, field: 'parent', direction: 'push' });
       }
       for (const skipped of pair.result.skippedPushes) {
-        report.skippedPushes.push({ beadId: displayId, field: skipped.field });
+        report.skippedPushes.push({
+          beadId: displayId,
+          field: skipped.field,
+          ...(skipped.reason ? { reason: skipped.reason } : {}),
+        });
       }
       recordDivergence(displayId, pair, managedBlocks.get(pair.bead.id));
 

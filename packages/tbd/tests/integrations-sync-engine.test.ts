@@ -1156,13 +1156,83 @@ describe('the sync engine', () => {
     const inReview = server.states.find((state) => state.name === 'In Review')!;
     server.issues.get(externalId)!.state = { ...inReview };
 
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const settled = await run([store.get(epic.id)!], policy);
+
+      // The issue stays where the person put it, and every run is quiet about it — not
+      // merely the first pull before an exact base makes the next run push it back.
+      expect(server.issues.get(externalId)?.state.name).toBe('In Review');
+      expect(settled.pushed).toEqual([]);
+      expect(settled.pulled).toEqual([]);
+      // And the bead still reads as started, not dragged to some other position.
+      expect(store.get(epic.id)?.status).toBe('in_progress');
+    }
+  });
+
+  it('reports an unresolved workflow state as a skipped status push', async () => {
+    const todo = server.states.find((state) => state.name === 'Todo')!;
+    server.states = [
+      ...server.states.filter((state) => state.type !== 'started'),
+      { id: 'state-doing', name: 'Doing', type: 'started', position: 2 },
+      { id: 'state-review', name: 'In Review', type: 'started', position: 3 },
+    ];
+    server.addIssue({
+      id: 'issue-unresolved-state',
+      identifier: 'FIN-711',
+      title: 'An epic',
+      state: todo,
+    });
+    const linked = writeLink(bead('is-01hx5zzkbkactav9wevgemmvrz'), {
+      provider: 'linear',
+      id: 'issue-unresolved-state',
+      linked_at: '2026-08-10T00:00:00.000Z',
+    });
+    store.set(linked.id, linked);
+    await run([linked]);
+    const started = {
+      ...store.get(linked.id)!,
+      status: 'in_progress' as const,
+      version: store.get(linked.id)!.version + 1,
+      updated_at: new Date(Date.now() + 60_000).toISOString(),
+    };
+    store.set(linked.id, started);
+
+    const report = await run([started]);
+
+    expect(report.pushed).toEqual([]);
+    expect(report.skippedPushes).toEqual([
+      {
+        beadId: 'mvrz',
+        field: 'status',
+        reason: 'Linear team FIN has no unambiguous started workflow state (Doing, In Review).',
+      },
+    ]);
+    expect(report.nothingToDo).toBe(true);
+    expect(server.issues.get('issue-unresolved-state')?.state.name).toBe('Todo');
+  });
+
+  it('settles after pulling a Paused column once', async () => {
+    const paused = { id: 'state-paused', name: 'Paused', type: 'started', position: 4 };
+    server.states.push(paused);
+    const policy = PolicyDefinitionSchema.parse({
+      outbound: { kinds: ['epic'], statuses: ['in_progress'], specs: 'none', linked: true },
+    });
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz', { status: 'in_progress' });
+    store.set(epic.id, epic);
+    await run([epic], policy);
+    await run([store.get(epic.id)!], policy);
+    const externalId = readLink(store.get(epic.id)!, 'linear')!.id;
+    server.issues.get(externalId)!.state = { ...paused };
+
+    const pulled = await run([store.get(epic.id)!], policy);
     const settled = await run([store.get(epic.id)!], policy);
 
-    // The issue stays where the person put it, and the run is quiet about it.
-    expect(server.issues.get(externalId)?.state.name).toBe('In Review');
+    expect(pulled.pulled).toEqual(['mvrz']);
+    expect(store.get(epic.id)?.hold).toBe('paused');
+    expect(server.issues.get(externalId)?.state.name).toBe('Paused');
     expect(settled.pushed).toEqual([]);
-    // And the bead still reads as started, not dragged to some other position.
-    expect(store.get(epic.id)?.status).toBe('in_progress');
+    expect(settled.pulled).toEqual([]);
+    expect(settled.nothingToDo).toBe(true);
   });
 
   // The reported data loss, end to end, under both flow modes because OS-351 asks for
