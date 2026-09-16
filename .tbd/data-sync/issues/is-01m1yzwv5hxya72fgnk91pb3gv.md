@@ -3,9 +3,9 @@ type: is
 id: is-01m1yzwv5hxya72fgnk91pb3gv
 title: "Confirm the #265 mechanism on the reporter's mirror: the 13 pairs are linked open beads without a hold that tbd ready omits"
 kind: task
-status: in_progress
+status: closed
 priority: 1
-version: 8
+version: 9
 spec_path: docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md
 delegate: codex@spud10
 labels:
@@ -15,8 +15,12 @@ parent_id: is-01m1yzwqtnk81a6yg790yn4a9x
 hold: null
 hold_until: null
 created_at: 2026-09-07T22:30:21.103Z
-updated_at: 2026-09-16T18:09:16.855Z
+updated_at: 2026-09-16T18:11:58.481Z
 started_at: 2026-09-16T18:09:16.854Z
+closed_at: 2026-09-16T18:11:58.480Z
+close_reason: "Confirmed on the configured OS Linear mirror with get-tbd 0.9.0 using a controlled --dry-run integration sync --explain: no historic 13-pair Backlog/Todo oscillation remains. The preview showed only expected local closure/managed-block projections, zero pulls, zero conflicts, and bounded configured nesting/assignee skips; the obsolete unknown mechanism bead tbd-u9eg is closed."
+resolution: null
+duplicate_of: null
 extensions:
   linear:
     id: daba69bb-ef76-4d03-b7d8-eb8e5e8317f6
