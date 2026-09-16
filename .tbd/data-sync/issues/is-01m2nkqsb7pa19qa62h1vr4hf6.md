@@ -3,9 +3,9 @@ type: is
 id: is-01m2nkqsb7pa19qa62h1vr4hf6
 title: Align Rust CLI packaging, release, and CI guidelines
 kind: task
-status: in_progress
+status: closed
 priority: 1
-version: 5
+version: 6
 delegate: codex@spud10
 labels:
   - guidelines
@@ -14,10 +14,10 @@ dependencies: []
 hold: null
 hold_until: null
 created_at: 2026-09-16T17:20:24.422Z
-updated_at: 2026-09-16T18:45:50.545Z
+updated_at: 2026-09-16T19:23:29.728Z
 started_at: 2026-09-16T17:20:35.752Z
-closed_at: null
-close_reason: null
+closed_at: 2026-09-16T19:23:29.727Z
+close_reason: "Rust CLI terminal color and progress follow-up committed, pushed in PR #305, and all CI checks passed."
 resolution: null
 duplicate_of: null
 ---
