@@ -1,5 +1,84 @@
 # get-tbd
 
+## 0.9.0
+
+This release makes git-native and Linear synchronization safer to operate, diagnose, and
+recover. It also adds the first immutable native-comment storage foundation and a
+complete GitHub CLI/stacked-PR workflow.
+There is no format change: repositories remain on `f08`.
+
+> [!IMPORTANT]
+> Upgrade every clone that runs `tbd integration sync` to 0.9.0 before any of those
+> clones syncs again. Version 0.8.1 can still write legacy Todo/Canceled projections;
+> 0.9.0 repairs that state after the older writer stops, but the two versions are not
+> safe concurrent integration-sync writers.
+
+After installing, regenerate the agent surfaces in each repository and commit their
+diff:
+
+```bash
+npm install -g get-tbd@0.9.0
+tbd setup --auto
+```
+
+## What’s Changed
+
+### Features
+
+- **Linear convergence and diagnosis**: Exact workflow slots now round-trip instead of
+  collapsing to broad status bands.
+  Backlog, Paused, Duplicate, and `In Review` settle; unavailable workflow states are
+  reported as skipped fields rather than silently substituted.
+  `tbd integration sync --explain` shows each divergent field with its local, remote,
+  and base values and the rule that decided it.
+- **Recoverable git-native sync**: Values discarded by a merge are archived in the
+  attic, provider comments survive workspace recovery and remain scoped to their link
+  lineage, and required merge attributes are enforced before every sync merge.
+  Sync fails closed if those attributes cannot be written.
+- **Immutable comment substrate**: The package now includes bounded native-comment
+  records, transition validation, quarantine handling, and a scalable inventory for
+  future coordination features.
+- **GitHub CLI and stacked PRs**: Generated setup enforces GitHub CLI 2.97.0 or newer
+  and ships a `stacked-prs` workflow alongside updated PR creation, review, and recovery
+  shortcuts.
+
+### Fixes
+
+- **Mirror state stability**: Blocked and future-deferred work no longer alternates
+  between Todo and Backlog; `In Review` remains in place; Paused and duplicate state
+  converge; and push-only sync writes a delegate only when it actually changed.
+- **Data-loss boundaries**: Beads import no longer overwrites a native issue when short
+  IDs collide, worktree repair refuses deletion if its backup failed, third-party
+  `extensions.<namespace>.comments` data is no longer rewritten as a provider log, and
+  relinked comments cannot be delivered through another clone’s stale link.
+- **Honest sync output**: Ordinary syncs report the tracker result, `--dry-run` says
+  when the tracker was not evaluated, inbound-only work and skipped pushes use distinct
+  wording, settled mirrors can remain settled while reporting standing warnings, and
+  unresolved fields are visible in both preview and execution reports.
+- **Configuration and selection**: `deferred_until` is honored when computing readiness;
+  grouped `identity.agent_map` values survive setup and are validated by their full
+  config key; invalid mappings fail before a network call.
+
+### Guidelines and content
+
+- **Agent-run operations**: A new `agent-run-operations-rules` guideline covers
+  authorization boundaries, evidence, external side effects, recovery, and handoff for
+  agent-operated workflows.
+- **Task-aware routing**: Guideline selection now follows each document’s declared
+  category, and generated skills include the updated claim, setup, sync-recovery, and
+  GitHub collaboration procedures.
+
+### Security
+
+- **YAML parser hardening**: Resolution overrides update `js-yaml` to patched releases
+  for CVE-2026-84375. `pnpm audit --prod` reports no runtime advisories, and the package
+  age gate passes all 31 pinned dependencies.
+  The remaining 36 advisories are confined to build/test tooling and are tracked in
+  `tbd-0am0`.
+
+**Full commit history**:
+[https://github.com/jlevy/tbd/compare/v0.8.1 … v0.9.0](https://github.com/jlevy/tbd/compare/v0.8.1...v0.9.0)
+
 ## 0.8.1
 
 A patch release about what an agent reads before it touches your code.
