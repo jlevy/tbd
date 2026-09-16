@@ -83,6 +83,38 @@ describeUnlessWindows('ensureDataSyncMergeAttributes', () => {
     expect(await git('status', '--porcelain')).toBe('');
   });
 
+  it('takes the published copy of a missing file, so the merge that follows is clean', async () => {
+    // The remote already carries the file with other contents: a hand edit, or a later
+    // release's rules. Writing the default here would make the merge an add/add conflict,
+    // which the sync's conflict-marker check refuses to commit.
+    const custom = '*.md merge=binary\n# kept by the team\n';
+    await git('checkout', '-q', '-b', 'published');
+    await writeFile(join(repo, ISSUES_ATTRIBUTES), custom);
+    await git('add', ISSUES_ATTRIBUTES);
+    await git('commit', '-q', '-m', 'Published with local additions');
+    await git('checkout', '-q', 'tbd-sync');
+
+    expect(await ensureDataSyncMergeAttributes(repo, 'published')).toEqual([ISSUES_ATTRIBUTES]);
+    expect(await readFile(join(repo, ISSUES_ATTRIBUTES), 'utf8')).toBe(custom);
+
+    await git('merge', '-q', '--no-edit', 'published');
+    expect(await readFile(join(repo, ISSUES_ATTRIBUTES), 'utf8')).toBe(custom);
+    expect(await git('status', '--porcelain')).toBe('');
+  });
+
+  it('writes the default when the published ref lacks the file or does not exist', async () => {
+    await git('branch', 'published');
+
+    expect(await ensureDataSyncMergeAttributes(repo, 'published')).toEqual([ISSUES_ATTRIBUTES]);
+    expect(await readFile(join(repo, ISSUES_ATTRIBUTES), 'utf8')).toBe('*.md merge=binary\n');
+
+    await unlink(join(repo, MAPPINGS_ATTRIBUTES));
+    expect(await ensureDataSyncMergeAttributes(repo, 'origin/missing')).toEqual([
+      MAPPINGS_ATTRIBUTES,
+    ]);
+    expect(await readFile(join(repo, MAPPINGS_ATTRIBUTES), 'utf8')).toBe('ids.yml merge=union\n');
+  });
+
   it('does not commit unrelated staged work along with the attribute', async () => {
     await writeFile(join(repo, '.tbd/data-sync/issues/is-staged.md'), 'staged\n');
     await git('add', '.tbd/data-sync/issues/is-staged.md');

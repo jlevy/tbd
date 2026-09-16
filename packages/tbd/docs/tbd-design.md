@@ -2638,10 +2638,19 @@ the rules in §3.5.
 
 Git takes attributes from the worktree doing the merge, not from the branch being merged
 in, so the file has to be on the merging clone’s own branch first.
-The data scaffold writes it when a worktree is created, and `tbd sync` writes it before
-it merges: on every full sync, and again before the merge a rejected push triggers.
-Each writes the file only when it is missing and commits it once
-(`tbd sync: add merge attributes`); after that both are no-ops.
+The data scaffold writes it when a worktree is created, in the scaffold’s own
+initialization or repair commit.
+`tbd sync` writes it too, only when it is missing, and commits it once as
+`tbd sync: add merge attributes`:
+
+- on every full sync whose fetch succeeds, before the merge step, so a clone that is
+  never behind still publishes it;
+- again before the merge a rejected push triggers, which `tbd sync --push` reaches
+  without a full sync.
+
+When the fetched remote branch already carries the file, sync takes that committed copy
+rather than its default, so both sides add the same blob and the merge stays clean.
+A failure to write or commit it fails the sync rather than skipping the merge.
 A sync branch created by tbd 0.8.1 or earlier, which never wrote the file, therefore
 gets it from its first sync with a current client.
 
@@ -2650,6 +2659,13 @@ still on an older release.
 Git applies it to that client’s merges, and 0.7.x and 0.8.x already resolve a conflicted
 bead through the same ref-based `mergeBeadAcrossRefs` path, so they reach their own
 structured merge too.
+Those releases do not write attic entries for sync merge conflicts, though: a value
+their merge discards survives only in `tbd-sync` history.
+With the attribute, a quiet two-sided edit to separate lines of one field (two
+paragraphs of a description, say, from hand or foreign-tool edits that leave
+`updated_at` alone), which git used to combine, reaches their last-writer-wins merge
+instead, and the losing side is kept only in that history.
+Edits made through tbd bump `updated_at`, so they already conflicted.
 Until the file reaches its branch, an older client line-merges as before.
 
 Do not rely on writers to force this by touching `updated_at`. They do, and that is why
@@ -2674,6 +2690,8 @@ independently.
 2. Fetch refs/heads/<sync-branch> explicitly into
    refs/remotes/<remote>/<sync-branch>.
 3. Reject unrelated histories and route them to `tbd doctor --fix` rescue.
+   Add any missing merge attribute file to the sync branch (preferring the fetched
+   remote's copy) and commit it; a failure here stops the sync.
 4. If the fetched tip is ahead, merge it into the hidden worktree.
 5. If Git reports file conflicts:
    a. For each conflicted issue, read ours, theirs, and the merge base from Git objects.

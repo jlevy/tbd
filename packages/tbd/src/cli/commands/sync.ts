@@ -925,7 +925,7 @@ class SyncHandler extends BaseCommand {
     // bead file two clones both changed reaches the structured merge below only if
     // `issues/.gitattributes` is here first. Checked here as well as in fullSync because
     // a rejected `tbd sync --push` merges through this function without passing there.
-    await ensureDataSyncMergeAttributes(worktreePath);
+    await this.ensureMergeAttributes(syncBranch, remote);
 
     // Track HEAD before merge for debug log
     let headBeforeMerge = '';
@@ -1164,6 +1164,24 @@ class SyncHandler extends BaseCommand {
     return conflicts;
   }
 
+  /**
+   * Put the merge attributes on the sync branch before a merge, taking the fetched remote's
+   * copy of a file it already publishes (see `ensureDataSyncMergeAttributes`).
+   *
+   * A failure is raised as a SyncError on purpose. Both callers run inside the full sync's
+   * `try`, whose `catch` reads any other error as a first-sync fetch failure and carries
+   * on, so a plain error here would skip the merge and still report the sync as done.
+   */
+  private async ensureMergeAttributes(syncBranch: string, remote: string): Promise<void> {
+    try {
+      await ensureDataSyncMergeAttributes(this.worktreePath, `${remote}/${syncBranch}`);
+    } catch (error) {
+      throw new SyncError(
+        `Could not add the tbd-sync merge attributes before merging: ${(error as Error).message}`,
+      );
+    }
+  }
+
   private async doPushWithRetry(syncBranch: string, remote: string): Promise<PushResult> {
     return pushWithRetry(
       syncBranch,
@@ -1210,8 +1228,6 @@ class SyncHandler extends BaseCommand {
     const spinner = this.output.spinner('Syncing with remote...');
     const summary: SyncSummary = emptySummary();
     const conflicts: ConflictEntry[] = [];
-    // Use tbdRoot for consistent path resolution
-    const worktreePath = this.worktreePath;
 
     try {
       // STEP 1: Commit local changes FIRST (before pulling)
@@ -1275,7 +1291,7 @@ class SyncHandler extends BaseCommand {
       // sync. The merge below checks again; this call is here so every full sync publishes
       // them, even from a clone that never has to merge, because an older client applies
       // them only once they reach its own branch.
-      await ensureDataSyncMergeAttributes(worktreePath);
+      await this.ensureMergeAttributes(syncBranch, remote);
 
       // STEP 3: If remote has changes, merge them in
       if (behindCommits > 0) {

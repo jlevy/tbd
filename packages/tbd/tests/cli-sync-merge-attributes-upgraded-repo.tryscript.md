@@ -7,7 +7,7 @@ path:
   - ../dist
 timeout: 60000
 before: |
-  rm -rf ../origin-upgraded.git ../upgraded-sessionB ../upgraded-bead.txt ../upgraded-ulid.txt ../upgraded-relink.mjs
+  rm -rf ../origin-upgraded.git ../upgraded-sessionB ../upgraded-bead.txt ../upgraded-ulid.txt ../upgraded-relink.mjs ../upgraded-locked.txt
   mkdir -p ../origin-upgraded.git
   git init --bare --initial-branch=main ../origin-upgraded.git
 
@@ -109,8 +109,8 @@ absent
 # Test: Session B clones, leaving the sync branch as 0.8.1 would
 
 A fresh worktree writes any missing scaffold file, the attribute included.
-Session B undoes that, so the only clone that can put the attribute back is one running
-the sync-time check.
+Session B undoes that and publishes, so the sync branch is back to lacking the file, as
+0.8.1 left it.
 
 ```console
 $ git clone -q ../origin-upgraded.git ../upgraded-sessionB && ( cd ../upgraded-sessionB && git config user.email "b@example.com" && git config user.name "Session B" && git config commit.gpgsign false && tbd sync >/dev/null 2>&1 && WT="$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree" && git -C "$WT" rm -q .tbd/data-sync/issues/.gitattributes && git -C "$WT" commit -q -m "Sync branch as tbd 0.8.1 left it" && git push -q origin tbd-sync ) && git fetch -q origin && (git show origin/tbd-sync:.tbd/data-sync/issues/.gitattributes 2>/dev/null || echo absent)
@@ -118,19 +118,25 @@ absent
 ? 0
 ```
 
-# Test: Session B queues a comment on the current link and pushes
+# Test: Session B queues a comment, and its sync publishes the attribute
+
+Session B is not behind, so its sync does not merge.
+The file reaches the remote from the full sync’s own check, which is what carries it to
+clones that never merge and to older clients.
 
 ```console
-$ ( cd ../upgraded-sessionB && node ../upgraded-relink.mjs "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/$(cat ../upgraded-ulid.txt).md" issue-P OS-9 - "queued against issue-P" 01quietquietquietquietqui 2026-03-02T00:00:00.000Z && tbd sync >/dev/null 2>&1 ) && echo done
-done
+$ ( cd ../upgraded-sessionB && node ../upgraded-relink.mjs "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/$(cat ../upgraded-ulid.txt).md" issue-P OS-9 - "queued against issue-P" 01quietquietquietquietqui 2026-03-02T00:00:00.000Z && tbd sync >/dev/null 2>&1 ) && git fetch -q origin && git show origin/tbd-sync:.tbd/data-sync/issues/.gitattributes
+*.md merge=binary
 ? 0
 ```
 
 # Test: Session A relinks the bead without pulling
 
-Session A has never had the attribute in its worktree.
-Its edit and Session B’s are several unchanged lines apart, which git’s line merge
-combines into a namespace no writer would emit.
+Session A’s worktree lost the attribute in setup, while the branch it is about to merge
+now carries it. Git takes attributes from the merging worktree, not from the incoming
+branch, so without its own check Session A would still line-merge: its edit and Session
+B’s are several unchanged lines apart, which git combines into a namespace no writer
+would emit.
 
 ```console
 $ node ../upgraded-relink.mjs "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/$(cat ../upgraded-ulid.txt).md" issue-Q OS-8 -; git -C "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree" ls-files -- .tbd/data-sync/issues/.gitattributes | wc -l | tr -d ' '
@@ -166,7 +172,7 @@ issue-P queued against issue-P
 ? 0
 ```
 
-# Test: the attribute is now on the published sync branch
+# Test: Session A’s merge and push leave the published attribute as it was
 
 ```console
 $ git show origin/tbd-sync:.tbd/data-sync/issues/.gitattributes
@@ -221,5 +227,40 @@ issue-R https://linear.app/example/issue/OS-7 0
 ```console
 $ tbd attic list "$(cat ../upgraded-bead.txt)" --json | jq '[.[] | select(.field == "extensions.linear")] | length'
 2
+? 0
+```
+
+* * *
+
+## A failure to add the attribute stops the sync
+
+The full sync runs the check inside its fetch-and-merge error handling, which reads an
+unexpected error as a first-sync fetch failure and carries on.
+A failed write there must not skip the merge and still report the sync as done.
+
+# Test: Session A loses the attribute again, and Session B publishes a new bead
+
+Session A publishes its removal with plain git, so it has nothing of its own to push.
+
+```console
+$ WT="$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree"; git -C "$WT" rm -q .tbd/data-sync/issues/.gitattributes && git -C "$WT" commit -q -m "Sync branch as tbd 0.8.1 left it" && git push -q origin tbd-sync && ( cd ../upgraded-sessionB && tbd create "Made by Session B" >/dev/null && tbd sync >/dev/null 2>&1 ) && echo done
+done
+? 0
+```
+
+# Test: with Session A’s worktree index locked, tbd sync fails instead of skipping the merge
+
+```console
+$ LOCK="$(git -C "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree" rev-parse --path-format=absolute --git-dir)/index.lock"; touch "$LOCK"; tbd sync > ../upgraded-locked.txt 2>&1; code=$?; rm -f "$LOCK"; echo "exit $code"; grep -c 'Could not add the tbd-sync merge attributes' ../upgraded-locked.txt
+exit 1
+1
+? 0
+```
+
+# Test: once the lock is gone, the next sync merges Session B’s bead
+
+```console
+$ tbd sync >/dev/null 2>&1 && tbd list --json | jq -r '.[] | select(.title == "Made by Session B") | .title'
+Made by Session B
 ? 0
 ```

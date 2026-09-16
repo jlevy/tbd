@@ -2050,18 +2050,44 @@ async function writeScaffoldFileIfMissing(path: string, contents: string): Promi
  * Idempotent: a file already on disk is left alone, whatever it holds, and nothing is
  * committed unless a write changed the branch.
  *
+ * When `publishedRef` (the fetched remote sync branch) already carries a missing file, its
+ * committed copy is taken instead of the default. Both sides then add the same blob, which
+ * git merges cleanly; writing the default over a published file with other contents (a
+ * hand edit, or a later release's rules) would be an add/add conflict that stops the sync.
+ *
+ * MUST be called while holding `withSharedDataSyncLock`: it writes and commits in the
+ * shared worktree.
+ *
  * @returns the worktree-relative paths written
  */
-export async function ensureDataSyncMergeAttributes(worktreePath: string): Promise<string[]> {
+export async function ensureDataSyncMergeAttributes(
+  worktreePath: string,
+  publishedRef?: string,
+): Promise<string[]> {
   const written: string[] = [];
   for (const file of DATA_SYNC_MERGE_ATTRIBUTES) {
     const path = join(worktreePath, file.relative);
-    // A sync branch from an older client can lack the directory itself: git tracks no
-    // empty directories, and a failed write here would abandon the merge it protects.
-    await mkdir(dirname(path), { recursive: true });
-    if (await writeScaffoldFileIfMissing(path, file.contents)) {
-      written.push(file.relative);
+    if (await pathExists(path)) {
+      continue;
     }
+    // A sync branch from an older client can lack the directory itself: git tracks no
+    // empty directories.
+    await mkdir(dirname(path), { recursive: true });
+    const publishedCopy =
+      publishedRef !== undefined &&
+      (await git('-C', worktreePath, 'cat-file', '-e', `${publishedRef}:${file.relative}`).then(
+        () => true,
+        () => false,
+      ))
+        ? publishedRef
+        : undefined;
+    if (publishedCopy !== undefined) {
+      // `checkout`, not a read and rewrite: it copies the blob byte for byte.
+      await git('-C', worktreePath, 'checkout', publishedCopy, '--', file.relative);
+    } else {
+      await writeFile(path, file.contents);
+    }
+    written.push(file.relative);
   }
   if (written.length === 0) {
     return written;
