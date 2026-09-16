@@ -37,14 +37,7 @@ import type {
   PolicyDefinition,
   ProviderNameType,
 } from '../../lib/types.js';
-import {
-  bandOf,
-  computeSlot,
-  decomposeSlot,
-  isSlot,
-  outboundPosition,
-  type Slot,
-} from './slots.js';
+import { bandOf, decomposeSlot, isSlot, outboundPosition, type Slot } from './slots.js';
 import { readyIssueIds } from '../../lib/issue-selection.js';
 import {
   descriptionHash,
@@ -222,16 +215,9 @@ function localViewOf(bead: Issue, ready?: ReadonlySet<string>): LocalView {
     status: bead.status,
     // Computed only when the caller supplied readiness. Without it the Todo/Backlog
     // split cannot be decided, and guessing would be worse than staying on statuses.
-    ...(ready
-      ? {
-          slot: computeSlot({
-            status: bead.status,
-            hold: bead.hold,
-            resolution: bead.resolution,
-            ready: ready.has(bead.id),
-          }),
-        }
-      : {}),
+    // The same helper the create path and the push-only mirror use, so the pair path
+    // cannot compute a different slot for the same bead.
+    ...(ready ? { slot: outboundPosition(bead, ready.has(bead.id)).slot } : {}),
     priority: bead.priority,
     labels: bead.labels ?? [],
     assignee: bead.assignee ?? null,

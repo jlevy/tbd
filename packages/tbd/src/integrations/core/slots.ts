@@ -139,10 +139,13 @@ export function computeSlot(inputs: SlotInputs): Slot {
  * the slot was computed from.
  *
  * The slot is what tells Backlog from Todo; the other three ride alongside because a
- * reader that predates slots ignores `slot` and files the item by them instead. Every
- * writer that projects a bead without first comparing it to the tracker (a create, the
- * push-only mirror) takes its position from here, so no two of them can disagree about
- * where the same bead sits.
+ * reader that predates slots ignores `slot` and files the item by them instead.
+ *
+ * Every outbound path takes its slot from here: a create, the push-only mirror, and the
+ * reconciler's local view of a linked pair. So they agree on the slot. They do not all
+ * send the same carriers: the pair path rebuilds status and hold from the slot
+ * (`decomposeSlot`), so a legacy `status: deferred` bead goes out as `open` there, without
+ * the deferred carrier label that a create or the mirror sends.
  */
 export function outboundPosition(
   bead: {
