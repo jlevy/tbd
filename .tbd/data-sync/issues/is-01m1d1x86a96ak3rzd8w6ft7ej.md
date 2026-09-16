@@ -5,12 +5,12 @@ title: "QA playbook: validate the whole gh setup on a fresh Linux instance"
 kind: task
 status: open
 priority: 1
-version: 1
+version: 2
 labels: []
 dependencies: []
 parent_id: is-01m1d1tam7230zrcj70ecmkt8b
 created_at: 2026-08-31T23:19:11.817Z
-updated_at: 2026-08-31T23:19:11.817Z
+updated_at: 2026-09-16T18:03:07.919Z
 ---
 Deliverable that makes this PR verifiable by a different agent on a clean machine, which is the
 acceptance test for the whole epic.
@@ -29,3 +29,7 @@ Add a QA playbook under tests/qa/ that a fresh-environment agent runs end to end
 
 The playbook must state expected output per step so the result is pass/fail, and must note that
 an agent validating this should report what actually happened rather than confirming the doc.
+
+## Notes
+
+Core gh/gh-stack setup and documentation shipped in PR #266 and 0.9.0. Keep this bead open only for the remaining fresh-Linux end-to-end QA proof; PR #301's packed-upgrade and multi-platform CI are supporting evidence, not a substitute for that environment.

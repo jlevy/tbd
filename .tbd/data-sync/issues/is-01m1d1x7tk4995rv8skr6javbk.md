@@ -3,9 +3,9 @@ type: is
 id: is-01m1d1x7tk4995rv8skr6javbk
 title: Stack awareness in the PR review lifecycle docs
 kind: task
-status: in_progress
+status: closed
 priority: 2
-version: 2
+version: 3
 delegate: codex@spud10
 labels: []
 dependencies: []
@@ -13,8 +13,12 @@ parent_id: is-01m1d1tam7230zrcj70ecmkt8b
 hold: null
 hold_until: null
 created_at: 2026-08-31T23:19:11.442Z
-updated_at: 2026-09-16T18:02:50.015Z
+updated_at: 2026-09-16T18:03:07.593Z
 started_at: 2026-09-16T18:02:50.015Z
+closed_at: 2026-09-16T18:03:07.593Z
+close_reason: "Delivered by PR #266 (c218e90b) and released in 0.9.0: pinned gh-stack skill provisioning, stacked-prs workflow, reproducible setup guidance, and stack-aware PR lifecycle docs; PR #301 adds reviewed hardening."
+resolution: null
+duplicate_of: null
 ---
 pr-review-workflows.md maps the review lifecycle but has no notion of a stack, and the review and
 address shortcuts inherit that blind spot.
