@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 1
-  slot: todo
+  slot: backlog
   status: open
   title: "Doc map: build .tbd/docs/map.yml per format spec §4 (three-layer metadata
     resolution)"
@@ -14,7 +14,7 @@ external_key: OS-94
 external_url: https://linear.app/finterm-ai/issue/OS-94/doc-map-build-tbddocsmapyml-per-format-spec-4-three-layer-metadata
 refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
-remote_updated_at: 2026-08-16T00:11:35.539Z
+remote_updated_at: 2026-09-16T09:02:18.234Z
 state: linked
-synced_at: 2026-09-16T08:57:12.752Z
+synced_at: 2026-09-16T09:02:18.405Z
 type: lk

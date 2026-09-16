@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 2
-  slot: todo
+  slot: backlog
   status: open
   title: "kdex: tbd integration + migration (Phase 3)"
 bead_id: is-01khjmbxbgm5tvpg8j1r2svn7k
@@ -13,7 +13,7 @@ external_key: OS-41
 external_url: https://linear.app/finterm-ai/issue/OS-41/kdex-tbd-integration-migration-phase-3
 refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
-remote_updated_at: 2026-08-16T02:10:22.995Z
+remote_updated_at: 2026-09-16T09:02:11.711Z
 state: linked
-synced_at: 2026-09-16T08:57:09.403Z
+synced_at: 2026-09-16T09:02:11.880Z
 type: lk

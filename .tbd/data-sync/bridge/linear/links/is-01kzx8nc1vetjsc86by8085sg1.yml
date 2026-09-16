@@ -5,7 +5,7 @@ base:
     - web
     - integration
   priority: 2
-  slot: todo
+  slot: backlog
   status: open
   title: Render accessible Linear and GitHub link marks in bead rows and details
 bead_id: is-01kzx8nc1vetjsc86by8085sg1
@@ -14,7 +14,7 @@ external_key: OS-160
 external_url: https://linear.app/finterm-ai/issue/OS-160/render-accessible-linear-and-github-link-marks-in-bead-rows-and
 refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
-remote_updated_at: 2026-08-16T02:11:20.374Z
+remote_updated_at: 2026-09-16T09:02:57.903Z
 state: linked
-synced_at: 2026-09-16T08:58:06.562Z
+synced_at: 2026-09-16T09:02:58.125Z
 type: lk

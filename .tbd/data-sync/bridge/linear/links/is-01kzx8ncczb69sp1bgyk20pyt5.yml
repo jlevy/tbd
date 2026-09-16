@@ -5,7 +5,7 @@ base:
     - web
     - integration
   priority: 3
-  slot: todo
+  slot: backlog
   status: open
   title: Document and package the web external-link design contract
 bead_id: is-01kzx8ncczb69sp1bgyk20pyt5
@@ -14,7 +14,7 @@ external_key: OS-161
 external_url: https://linear.app/finterm-ai/issue/OS-161/document-and-package-the-web-external-link-design-contract
 refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
-remote_updated_at: 2026-08-16T02:11:20.878Z
+remote_updated_at: 2026-09-16T09:02:58.520Z
 state: linked
-synced_at: 2026-09-16T08:58:06.728Z
+synced_at: 2026-09-16T09:02:58.742Z
 type: lk

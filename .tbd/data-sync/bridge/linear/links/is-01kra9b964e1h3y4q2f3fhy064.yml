@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 3
-  slot: todo
+  slot: backlog
   status: open
   title: tbd source unfork <key> (git rm local override, source update <bundle>)
 bead_id: is-01kra9b964e1h3y4q2f3fhy064
@@ -13,7 +13,7 @@ external_key: OS-109
 external_url: https://linear.app/finterm-ai/issue/OS-109/tbd-source-unfork-key-git-rm-local-override-source-update-bundle
 refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
-remote_updated_at: 2026-08-16T00:11:44.338Z
+remote_updated_at: 2026-09-16T09:02:26.376Z
 state: linked
-synced_at: 2026-09-16T08:57:15.837Z
+synced_at: 2026-09-16T09:02:26.556Z
 type: lk

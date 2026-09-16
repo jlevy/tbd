@@ -5,7 +5,7 @@ base:
     - github
     - integration
   priority: 2
-  slot: todo
+  slot: backlog
   status: open
   title: "PR links: extensions.github.prs to attachmentLinkGitHubPR"
 bead_id: is-01kzn5152hkvnx553tj4gwgc28
@@ -14,7 +14,7 @@ external_key: OS-129
 external_url: https://linear.app/finterm-ai/issue/OS-129/pr-links-extensionsgithubprs-to-attachmentlinkgithubpr
 refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
-remote_updated_at: 2026-08-16T02:11:10.231Z
+remote_updated_at: 2026-09-16T09:02:44.219Z
 state: linked
-synced_at: 2026-09-16T08:57:59.978Z
+synced_at: 2026-09-16T09:02:44.411Z
 type: lk

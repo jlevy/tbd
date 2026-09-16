@@ -4,7 +4,7 @@ base:
   labels:
     - phase-0
   priority: 1
-  slot: todo
+  slot: backlog
   status: open
   title: "Confirm the #265 mechanism on the reporter's mirror: the 13 pairs are linked
     open beads without a hold that tbd ready omits"
@@ -16,5 +16,5 @@ refinement_slot: backlog
 refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T08:27:07.585Z
 state: linked
-synced_at: 2026-09-16T08:58:37.569Z
+synced_at: 2026-09-16T09:03:32.154Z
 type: lk

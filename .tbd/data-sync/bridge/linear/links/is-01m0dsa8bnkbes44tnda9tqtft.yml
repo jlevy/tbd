@@ -3,7 +3,7 @@ base:
   description_hash: sha256v7:cd8ae4823c63795ad7cb3f871bf30d9735ed8a24d175f773435db749bfbe61e7
   labels: []
   priority: 2
-  slot: todo
+  slot: backlog
   status: open
   title: Codex Cloud session adapter
 bead_id: is-01m0dsa8bnkbes44tnda9tqtft
@@ -12,7 +12,7 @@ external_key: OS-360
 external_url: https://linear.app/finterm-ai/issue/OS-360/codex-cloud-session-adapter
 refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
-remote_updated_at: 2026-09-16T08:25:48.332Z
+remote_updated_at: 2026-09-16T09:03:24.932Z
 state: linked
-synced_at: 2026-09-16T08:58:28.076Z
+synced_at: 2026-09-16T09:03:25.130Z
 type: lk

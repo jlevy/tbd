@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 1
-  slot: todo
+  slot: backlog
   status: open
   title: "Source resolution: walk sources in order, produce (bundle, type, name) → path map"
 bead_id: is-01kra9a8ae405nqc2mh0jfd8zf
@@ -13,7 +13,7 @@ external_key: OS-90
 external_url: https://linear.app/finterm-ai/issue/OS-90/source-resolution-walk-sources-in-order-produce-bundle-type-name-path
 refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
-remote_updated_at: 2026-08-16T00:11:33.426Z
+remote_updated_at: 2026-09-16T09:02:16.873Z
 state: linked
-synced_at: 2026-09-16T08:57:12.096Z
+synced_at: 2026-09-16T09:02:17.071Z
 type: lk

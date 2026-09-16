@@ -3,7 +3,7 @@ base:
   description_hash: sha256v7:a6d62962bc1894421df17cc9153104111b4eebff744d587d22bf9a2340ded01e
   labels: []
   priority: 1
-  slot: todo
+  slot: backlog
   status: open
   title: Session status map in local state, with the derived stale rule
 bead_id: is-01m0dsa6kqmmmt269gx5hfq53y
@@ -12,7 +12,7 @@ external_key: OS-355
 external_url: https://linear.app/finterm-ai/issue/OS-355/session-status-map-in-local-state-with-the-derived-stale-rule
 refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
-remote_updated_at: 2026-09-16T08:25:45.175Z
+remote_updated_at: 2026-09-16T09:03:21.179Z
 state: linked
-synced_at: 2026-09-16T08:58:27.174Z
+synced_at: 2026-09-16T09:03:21.493Z
 type: lk

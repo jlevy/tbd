@@ -4,7 +4,7 @@ base:
   labels:
     - phase-1
   priority: 1
-  slot: todo
+  slot: backlog
   status: open
   title: "Duplicate close survives the Linear round trip: applyTerminalAxis and
     BeadPatch.duplicate_of"
@@ -16,5 +16,5 @@ refinement_slot: backlog
 refinement_state_id: 30434c7c-0bd1-48d7-9b9e-1d658e48c852
 remote_updated_at: 2026-09-16T08:27:26.306Z
 state: linked
-synced_at: 2026-09-16T08:58:38.898Z
+synced_at: 2026-09-16T09:03:33.221Z
 type: lk

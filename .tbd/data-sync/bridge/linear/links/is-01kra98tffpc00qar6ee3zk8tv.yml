@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 2
-  slot: todo
+  slot: backlog
   status: open
   title: "Phase 2: External bundles and override roundtrip"
 bead_id: is-01kra98tffpc00qar6ee3zk8tv
@@ -13,7 +13,7 @@ external_key: OS-37
 external_url: https://linear.app/finterm-ai/issue/OS-37/phase-2-external-bundles-and-override-roundtrip
 refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
-remote_updated_at: 2026-08-19T04:56:01.991Z
+remote_updated_at: 2026-09-16T09:02:12.971Z
 state: linked
-synced_at: 2026-09-16T08:57:10.622Z
+synced_at: 2026-09-16T09:02:13.191Z
 type: lk

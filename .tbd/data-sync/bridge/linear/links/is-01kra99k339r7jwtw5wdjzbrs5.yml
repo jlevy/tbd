@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 1
-  slot: todo
+  slot: backlog
   status: open
   title: "Q18: Decide override provenance (computed-by-name vs recorded edge)"
 bead_id: is-01kra99k339r7jwtw5wdjzbrs5
@@ -13,7 +13,7 @@ external_key: OS-32
 external_url: https://linear.app/finterm-ai/issue/OS-32/q18-decide-override-provenance-computed-by-name-vs-recorded-edge
 refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
-remote_updated_at: 2026-08-16T00:11:30.736Z
+remote_updated_at: 2026-09-16T09:02:15.755Z
 state: linked
-synced_at: 2026-09-16T08:57:11.383Z
+synced_at: 2026-09-16T09:02:15.967Z
 type: lk

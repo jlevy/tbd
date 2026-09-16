@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 3
-  slot: todo
+  slot: backlog
   status: open
   title: "Validation period: one tbd release with both internal + external sources active"
 bead_id: is-01kra9bq0wa8tcqevenxecy6j5
@@ -13,7 +13,7 @@ external_key: OS-116
 external_url: https://linear.app/finterm-ai/issue/OS-116/validation-period-one-tbd-release-with-both-internal-external-sources
 refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
-remote_updated_at: 2026-08-16T00:11:50.301Z
+remote_updated_at: 2026-09-16T09:02:29.739Z
 state: linked
-synced_at: 2026-09-16T08:57:43.007Z
+synced_at: 2026-09-16T09:02:29.979Z
 type: lk

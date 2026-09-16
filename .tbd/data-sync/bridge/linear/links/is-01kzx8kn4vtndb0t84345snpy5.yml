@@ -5,7 +5,7 @@ base:
     - github
     - integration
   priority: 2
-  slot: todo
+  slot: backlog
   status: open
   title: Implement GitHub issue link, explicit inbound selection, outbound projection, and
     bidirectional sync
@@ -15,7 +15,7 @@ external_key: OS-155
 external_url: https://linear.app/finterm-ai/issue/OS-155/implement-github-issue-link-explicit-inbound-selection-outbound
 refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
-remote_updated_at: 2026-08-16T02:11:16.704Z
+remote_updated_at: 2026-09-16T09:02:55.603Z
 state: linked
-synced_at: 2026-09-16T08:58:05.674Z
+synced_at: 2026-09-16T09:02:55.810Z
 type: lk

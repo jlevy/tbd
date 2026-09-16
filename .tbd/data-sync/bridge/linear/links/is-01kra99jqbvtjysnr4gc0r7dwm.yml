@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 1
-  slot: todo
+  slot: backlog
   status: open
   title: "Q17: Decide lockfile identity (docref-only vs source_id vs full config_hash)"
 bead_id: is-01kra99jqbvtjysnr4gc0r7dwm
@@ -13,7 +13,7 @@ external_key: OS-33
 external_url: https://linear.app/finterm-ai/issue/OS-33/q17-decide-lockfile-identity-docref-only-vs-source-id-vs-full-config
 refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
-remote_updated_at: 2026-08-16T00:11:30.241Z
+remote_updated_at: 2026-09-16T09:02:15.111Z
 state: linked
-synced_at: 2026-09-16T08:57:11.224Z
+synced_at: 2026-09-16T09:02:15.333Z
 type: lk

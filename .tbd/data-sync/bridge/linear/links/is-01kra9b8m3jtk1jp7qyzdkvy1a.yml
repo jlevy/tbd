@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 3
-  slot: todo
+  slot: backlog
   status: open
   title: "tbd source upstream <key> (github: → branch+commit+push+open PR via gh; others →
     patch)"
@@ -14,7 +14,7 @@ external_key: OS-108
 external_url: https://linear.app/finterm-ai/issue/OS-108/tbd-source-upstream-key-github-branchcommitpushopen-pr-via-gh-others
 refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
-remote_updated_at: 2026-08-16T00:11:43.820Z
+remote_updated_at: 2026-09-16T09:02:25.611Z
 state: linked
-synced_at: 2026-09-16T08:57:15.692Z
+synced_at: 2026-09-16T09:02:25.809Z
 type: lk

@@ -4,7 +4,7 @@ base:
   labels:
     - pause
   priority: 3
-  slot: todo
+  slot: backlog
   status: open
   title: tbd doctor checks for source health (clones, refs, lockfile hashes, orphaned bundles)
 bead_id: is-01kra9ba2a6fbrkb1qvxeactgn
@@ -13,7 +13,7 @@ external_key: OS-111
 external_url: https://linear.app/finterm-ai/issue/OS-111/tbd-doctor-checks-for-source-health-clones-refs-lockfile-hashes
 refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
-remote_updated_at: 2026-08-16T00:11:46.770Z
+remote_updated_at: 2026-09-16T09:02:27.134Z
 state: linked
-synced_at: 2026-09-16T08:57:16.092Z
+synced_at: 2026-09-16T09:02:27.352Z
 type: lk

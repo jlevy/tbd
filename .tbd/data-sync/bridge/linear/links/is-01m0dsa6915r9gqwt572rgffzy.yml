@@ -3,7 +3,7 @@ base:
   description_hash: sha256v7:da3dae1abc2123a8e2c3f3624845d445437602bedd9ea233f2b0e22eb8a804e8
   labels: []
   priority: 1
-  slot: todo
+  slot: backlog
   status: open
   title: tbd start writes a local session ref
 bead_id: is-01m0dsa6915r9gqwt572rgffzy
@@ -12,7 +12,7 @@ external_key: OS-354
 external_url: https://linear.app/finterm-ai/issue/OS-354/tbd-start-writes-a-local-session-ref
 refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
-remote_updated_at: 2026-09-16T08:25:44.321Z
+remote_updated_at: 2026-09-16T09:03:20.469Z
 state: linked
-synced_at: 2026-09-16T08:58:26.993Z
+synced_at: 2026-09-16T09:03:20.722Z
 type: lk

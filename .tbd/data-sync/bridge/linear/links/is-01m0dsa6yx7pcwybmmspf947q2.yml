@@ -3,7 +3,7 @@ base:
   description_hash: sha256v7:c6d6a27f93cebdb30448e6d0a727c9a15cb72e69d3add4af7bf8c5095333d333
   labels: []
   priority: 2
-  slot: todo
+  slot: backlog
   status: open
   title: tbd sessions and tbd sessions refresh commands
 bead_id: is-01m0dsa6yx7pcwybmmspf947q2
@@ -12,7 +12,7 @@ external_key: OS-356
 external_url: https://linear.app/finterm-ai/issue/OS-356/tbd-sessions-and-tbd-sessions-refresh-commands
 refinement_slot: todo
 refinement_state_id: d24208e4-ebb9-4575-8c71-fcfec97ce82e
-remote_updated_at: 2026-09-16T08:25:45.793Z
+remote_updated_at: 2026-09-16T09:03:21.882Z
 state: linked
-synced_at: 2026-09-16T08:58:27.334Z
+synced_at: 2026-09-16T09:03:22.079Z
 type: lk
