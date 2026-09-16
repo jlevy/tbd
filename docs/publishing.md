@@ -251,7 +251,7 @@ Update `TBD_UPGRADE_SAME_FORMAT_FROM`, `TBD_UPGRADE_COMMON_FROM`, or
 `TBD_UPGRADE_PREVIOUS_FORMAT_FROM` when validating a different usage or compatibility
 boundary.
 
-The gate runs seven scenarios, and they prove four different things.
+The gate runs eight scenarios, and they prove five different things.
 Four are *upgrade*: a repository created by a published baseline, upgraded once by the
 candidate — one per compatibility boundary (same-format, common pre-bump, last
 pre-bump), plus a legacy remote whose `tbd-sync` branch lost its data scaffold and has
@@ -297,6 +297,17 @@ since the older field order does not mention them; and a bridge link record lose
 and `BridgeBaseSchema` are deliberately not `.passthrough()`. That last list is the one
 to watch: adding a field to a bridge record fails this gate until the
 minimum-client-version consequence is recorded with it.
+
+The eighth is the *mixed-version Linear proof*. It alternates the exact published
+same-format client and the packed candidate against one shared repository and one mock
+Linear workspace. It covers blocked and future-deferred work, an `In Review` refinement,
+duplicate half-state recovery, the deep-child exclusion boundary, and a team without a
+Backlog state.
+The published client deliberately writes legacy state in the middle of the
+run; the candidate must repair it after that client stops and then settle.
+If the two versions cannot be safe concurrent integration-sync writers, this scenario
+records the candidate as the minimum version for every clone that runs integration sync
+instead of pretending they converge.
 
 For changes to setup, generated launchers, installation, fallback selection, format
 migration, or upgrade recovery, also exercise the packed candidate in a first-party
