@@ -80,8 +80,11 @@ To check one version’s age: `npm view <pkg> time.<ver>`.
 6. **No unpinned zero-install runners.** Avoid `npx` / `pnpm dlx` / `bunx` / `uvx` /
    `go run <remote>` without an explicit `@version` pin and a review of the resolved
    `package@version`—they fetch and execute the latest code, bypassing the cool-off.
-   (When a skill references a CLI via a runner, pin it—see
-   `tbd guidelines cli-agent-skill-patterns` §6.7.)
+   Exact, isolated execution such as `uvx --isolated tool@X.Y.Z` satisfies the version
+   part of this rule; it does not waive review, release-age, provenance, or sandbox
+   policy. Persistent installs need the same exact constraint, for example
+   `uv tool install tool==X.Y.Z`. When a skill references a CLI, use the local-first
+   acquisition order in `tbd guidelines cli-agent-skill-patterns`.
 7. **No `curl | sh` from untrusted sources.** Verify the installer URL belongs to the
    documented project; check signatures/checksums where available.
 
@@ -272,7 +275,9 @@ legitimate CI with a forged “verified” provenance badge—a green badge is n
 Those need lockfile review, typosquat checks, build-time controls, and—if you publish
 packages—the publish-side controls in the guidebook’s `hardening-ci-cd.md` (OIDC trusted
 publishing, staged publishing, SHA-pinned actions, runner egress limits, provenance
-monitoring).
+monitoring). `release-engineering-rules` owns the release state machine, channel
+authority, artifact promotion, and recovery; do not duplicate that architecture in
+dependency policy.
 
 ## Apply It Here (tbd)
 

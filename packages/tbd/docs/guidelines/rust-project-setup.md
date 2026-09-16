@@ -1,6 +1,8 @@
 ---
 title: Rust Project Setup
-description: Rules for structuring, validating, and maintaining modern Rust packages and workspaces
+description: >-
+  A practical setup path for Rust packages and CLIs: Cargo shape, features, pinned
+  toolchains and MSRV, one local quality entry point, and the CI baseline
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: rust
 ---
@@ -19,6 +21,28 @@ boundaries, toolchains, linting, CI, documentation, and dependency policy.
 - `code-review-rules`, `rust-code-review-rules` (review)
 - `ci-and-gates-rules` (how the gate is wired and how you prove it is live)
 - `supply-chain-hardening`, `commit-conventions` (dependency and commit policy)
+
+## Use This Shortest Path for a New Rust CLI
+
+Start with the smallest complete path; add packaging channels and matrix entries only
+for named users or compatibility risks.
+
+1. Choose one binary package, or a library plus a thin binary when domain behavior is
+   reusable. Split a workspace only at a real API, dependency, platform, or release
+   boundary.
+2. Apply `rust-cli-rules` to the executable contract and `rust-testing-rules` to its
+   tests.
+3. Declare edition, `rust-version`, license, repository, README, and published package
+   metadata. Commit `Cargo.lock` for a shipped CLI.
+4. Pin the current development toolchain; test the separate MSRV declared by
+   `rust-version`.
+5. Provide one local entry point in `fix` and `check` modes.
+   Make `check` the same verify-only handoff gate CI runs.
+6. Put required Linux, macOS, Windows, and feature coverage in separate jobs so each
+   failure identifies a contract boundary.
+7. Select release channels from the intended audience.
+   Use `release-engineering-rules` and `rust-release-rules` only when the project is
+   ready to ship artifacts.
 
 ## Choose the Smallest Package Shape That Fits
 
@@ -168,6 +192,24 @@ semver checks, and tests for the release and maintenance scripts.
 Keep auto-fix and verification separate—`ci-and-gates-rules` explains why a project with
 only fix-mode commands cannot detect drift.
 CI verifies; it never commits.
+
+For a maintained CLI, the default `check` contract covers:
+
+- rustfmt in check mode and Clippy with warnings denied;
+- documentation with warnings denied where practical;
+- tests for the default feature set and each supported no-default or selected-feature
+  combination;
+- executable-contract tests and stable goldens where output is a compatibility surface;
+- the pinned current toolchain plus a separate MSRV build and test job;
+- dependency, advisory, license, and source policy;
+- package-content and installed-artifact tests for every channel the project ships; and
+- known-failure probes for gates whose silent failure would invalidate the handoff.
+
+This is a risk-based baseline, not a demand for every tool in every repository.
+A library with no CLI does not need CLI goldens; a project with no release channel does
+not need publication jobs.
+Omit a gate only because the named risk is absent or covered elsewhere, and keep that
+decision visible.
 
 ## Test the MSRV and Supported Feature Sets in Separate CI Jobs
 

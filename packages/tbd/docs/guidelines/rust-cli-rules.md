@@ -302,6 +302,25 @@ definition with `clap_complete` or the parser’s equivalent.
   them.
 - Test that generation succeeds for every supported shell.
 
+## Route Packaging to the Release Guides
+
+This document owns what the executable does, not how registries deliver it.
+Before a release, make the behavior above observable through the packaged program:
+`--version`, one representative real command, stdout and stderr routing, exit status,
+and any machine-readable output contract.
+Then use:
+
+- `rust-project-setup` for package shape, toolchains, features, and the local quality
+  entry point;
+- `release-engineering-rules` for release identity, promotion, channel coordination, and
+  recovery; and
+- `rust-release-rules` for Cargo, native archives, crates.io, and the optional Maturin
+  binary-wheel channel.
+
+A Python wheel can carry this Rust executable without changing its process contract or
+making Python part of the program.
+That distribution choice belongs in `rust-release-rules`.
+
 ## Test Arguments, Streams, Exit Status, and Side Effects Through the Executable
 
 CLI integration tests should cover:

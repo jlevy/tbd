@@ -1,6 +1,6 @@
 ---
 title: CI and Quality Gate Rules
-description: How to wire a quality gate that actually holds—one entry point in two modes, thin workflow and build-file orchestration backed by tested project-native programs, config-contract checks that prove the floor is live, the traps that keep a gate green while it checks nothing (pipeline exit status, self-recorded evidence, single-platform blindness, scope holes), suppression ratchets, generated-file ownership, and least-privilege workflow authority. Language-neutral; load it with the language floor document whenever wiring, debugging, or reviewing a gate.
+description: How to wire a quality gate that actually holds—one entry point in two modes, thin workflows backed by tested project-native programs, negative probes, platform and feature coverage, packaged-artifact evidence, and least-privilege job authority
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: general
 ---
@@ -244,6 +244,26 @@ Make caches performance-only.
 A gate whose correctness depends on cache state is not reproducible, and a poisoned
 cache turns into a mystery rather than a failure.
 
+## Treat Each Shipped Package as an Entry Point
+
+Source-tree tests do not prove that an archive, wheel, crate, or installer contains the
+right files or exposes the expected command.
+For every selected release channel, make the ordinary gate build the package in a
+non-publishing mode and validate it as a user would receive it:
+
+- install or extract into an empty temporary environment;
+- keep the source checkout and any preinstalled command off import paths and `PATH`;
+- verify filenames, archive or wheel contents, entry-point or script metadata when
+  applicable, and declared dynamic-library or runtime floors;
+- run `--version` and at least one representative real command; and
+- exercise documented stream and exit behavior when automation depends on it.
+
+Run a natively executable artifact on the corresponding host.
+If a cross-built target cannot be run, record the evidence gap and add a native
+validation job before calling that target supported.
+`release-engineering-rules` owns promotion and channel state; this document owns whether
+the validation gate can pass without that evidence.
+
 ## Gate Only Attributable and Reproducible Measurements
 
 Adding a check that fails for reasons the change did not cause teaches everyone to
@@ -365,6 +385,22 @@ catch. `general-testing-rules` carries the rule and a worked example.
 - Start with read-only permissions at the workflow level and grant additional
   permissions per job.
   A test job never needs `contents: write`.
+- Keep plan, gate, build, and artifact-validation jobs at `contents: read` with no OIDC
+  or publication authority.
+  A protected environment is not a reason to give an earlier build job credentials.
+- Grant `id-token: write` only to a job that exchanges OIDC identity for a registry
+  token or creates an attestation.
+  Grant `contents: write` only to the job that creates or updates the repository
+  release, and `attestations: write` only to the attestation job.
+  Do not put these permissions at workflow scope.
+- Put publication jobs behind an environment whose tag restrictions and approval rules
+  match the release policy.
+  Environment secrets become available only to jobs that reference the environment and,
+  when approval is required, only after approval.
+  See GitHub’s
+  [environment documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments)
+  and
+  [least-privilege `GITHUB_TOKEN` guidance](https://docs.github.com/en/actions/tutorials/authenticate-with-github_token).
 - Check out without persisting credentials (`persist-credentials: false`) so later steps
   cannot use the checkout token.
 - Pin third-party actions to reviewed immutable commit SHAs, with the release tag in a
