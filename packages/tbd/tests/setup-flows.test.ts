@@ -211,6 +211,14 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
         `<!-- BEGIN TBD INTEGRATION format=${CURRENT_FORMAT} surface=agents-md -->`,
       );
       expect(agents).toContain('tbd prime');
+      expect(agents).toContain(
+        'When creating or updating a pull request, run `tbd shortcut create-or-update-pr-simple`',
+      );
+      expect(agents).toContain('tbd shortcut stacked-prs');
+      expect(agents).toContain('not a formal stack');
+      expect(agents).not.toContain(
+        'For pull requests, run `tbd shortcut create-or-update-pr-simple`',
+      );
 
       const block = agents.slice(
         agents.indexOf('<!-- BEGIN TBD INTEGRATION'),
@@ -255,6 +263,10 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       // The referenced scripts exist.
       await access(join(tempDir, '.codex/tbd-session.sh'));
       await access(join(tempDir, '.codex/tbd-closing-reminder.sh'));
+
+      const ghScript = await readFile(join(tempDir, '.codex/ensure-gh-cli.sh'), 'utf-8');
+      expect(ghScript).toContain('GH_SKILL_AGENT="${GH_SKILL_AGENT:-codex}"');
+      expect(ghScript).not.toContain('GH_SKILL_AGENT="${GH_SKILL_AGENT:-claude-code}"');
     });
 
     it('does not duplicate Codex hook entries on repeated setup', async () => {
@@ -1014,7 +1026,12 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       const bundledPath = join(__dirname, '..', 'docs', 'install', 'ensure-gh-cli.sh');
       const bundled = await readFile(bundledPath, 'utf-8');
       expect(await readFile(claudeScript, 'utf-8')).toBe(bundled);
-      expect(await readFile(codexScript, 'utf-8')).toBe(bundled);
+      expect(await readFile(codexScript, 'utf-8')).toBe(
+        bundled.replace(
+          'GH_SKILL_AGENT="${GH_SKILL_AGENT:-claude-code}"',
+          'GH_SKILL_AGENT="${GH_SKILL_AGENT:-codex}"',
+        ),
+      );
     });
   });
 });

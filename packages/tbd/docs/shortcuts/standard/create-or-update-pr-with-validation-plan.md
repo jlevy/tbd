@@ -32,25 +32,71 @@ Create a to-do list with the following items then perform all of them:
 
 2. Check branch state: if this branch has uncommitted work, commit it first via
    `tbd shortcut code-review-and-commit` (leave files that look like another agent’s
-   in-progress work); if the branch is behind its base with likely conflicts, run
-   `tbd shortcut merge-upstream` first.
+   in-progress work). Do not merge the trunk yet: step 3 must classify local and remote
+   stack membership first, because merging the trunk into one layer breaks a stack.
 
 3. Check if a PR already exists for this branch, and whether the branch is stacked:
-   - Run: `gh pr view $BRANCH --repo $REPO --json number,url 2>/dev/null`
-   - If it returns JSON, a PR exists (you’ll update it).
-     If it errors, you’ll create one.
-   - Check for a stack: `gh stack view --json 2>/dev/null` Always pass `--json`; bare
-     `gh stack view` opens a TUI that blocks forever.
-     Exit 0 with a stack containing `$BRANCH` means step 6 takes the stacked path.
-     Exit 2 (`not part of a stack`) or a missing `gh stack` means the normal path
-     applies.
+   - Record whether the user explicitly asked for a stacked PR, dependent PRs, or to
+     stack the current work.
+   - Run: `gh pr view $BRANCH --repo $REPO --json number,url,baseRefName 2>/dev/null`.
+     If it returns JSON, retain its `number`, `url`, and `baseRefName` as `$PR_NUMBER`,
+     `$PR_URL`, and `$PR_BASE`; the PR exists and you will update it.
+     If it errors, you will create one.
+   - Check local stack tracking with `gh stack view --json 2>/dev/null`. Always pass
+     `--json`; bare `gh stack view` opens a TUI that blocks forever.
+     Exit 0 with a stack containing `$BRANCH` means the branch is locally tracked.
+     Exit 2 means only that the branch is not tracked *locally*; `gh stack link` can
+     create a formal GitHub stack without creating local tracking.
+   - When a PR exists, check its authoritative remote membership:
+     ```bash
+     REMOTE_STACK_NUMBER=$(gh api "repos/$REPO/stacks?pull_request=$PR_NUMBER" \
+       --jq '.[0].number // empty')
+     ```
+     If this API call fails, stop; do not assume the PR is unstacked.
+     A nonempty result means the PR belongs to a formal GitHub stack, even when the
+     local check exits 2.
+   - If the user requested a stack and neither check finds one, run
+     `tbd shortcut stacked-prs` and use the official `gh-stack` skill to initialize and
+     submit a local stack or link existing PRs with `gh stack link`. Chained branch
+     bases alone are not a formal GitHub stack.
+   - Only after this classification, update a branch that is behind its base:
+     - For an unstacked branch, run `tbd shortcut merge-upstream` when needed.
+     - For a locally tracked stack, use `gh stack sync`.
+     - For a formal remote stack without local tracking, never merge the trunk into the
+       layer. Before `gh stack checkout "$PR_URL"`, apply the official skill’s conflict
+       preflight: if any target branch is tracked in a different local stack, switch to
+       a non-shared branch in that stack and run `gh stack unstack --local`, then return
+       to this branch. If you cannot prove the checkout is conflict-free or safely remove
+       the conflicting local tracking, stop instead of invoking a command that can
+       prompt indefinitely.
+       Then check out the remote stack, verify with `gh stack view --json`, and run
+       `gh stack sync`. Stop if checkout, verification, or sync fails.
+   - For every `gh stack sync` above, capture and inspect its combined output before
+     continuing. A divergent non-interactive sync can print
+     `Sync aborted — no changes were made` and exit 0. Treat any `Sync aborted` output
+     as failure, resolve the divergence using the official skill, retry, and require a
+     final `gh stack view --json` containing `$BRANCH`.
 
 4. Review all commits on this branch since it diverged from its base:
-   - Run `git log $TRUNK..HEAD --oneline` to see commits
-   - Run `git diff $TRUNK...HEAD` to see all changes
-   - On a stacked branch, use the layer below instead of `$TRUNK` for both.
-     Against the trunk they enumerate every lower layer, so you would describe the whole
-     stack in a PR whose diff is one layer.
+   - Choose a base candidate:
+     - Use `$TRUNK` for an unstacked branch.
+     - For a formal remote stack, use the existing PR’s recorded `$PR_BASE`. This
+       remains correct for a remote-only linked stack.
+     - When local tracking exists but remote formal membership does not, use
+       `gh stack view --json` to find `$BRANCH` in `.branches`; use the previous
+       branch’s `.name`, or `.trunk` when `$BRANCH` is the bottom layer.
+       This applies whether or not an open PR already exists.
+   - Run `git fetch origin`, then resolve the candidate to an existing commit.
+     For an existing PR, and for a trunk or already-published base, use the fetched
+     `origin/<candidate>` ref so the description matches GitHub’s diff.
+     Never prefer a same-named local branch over that fetched remote ref.
+     Use the local `<candidate>` only for a genuinely unpublished, locally tracked stack
+     layer; stop if the state-appropriate revision does not exist.
+     Assign the resolved revision to `$DIFF_BASE`.
+   - Run `git log $DIFF_BASE..HEAD --oneline` to see commits.
+   - Run `git diff $DIFF_BASE...HEAD` to see all changes.
+     Diffing a stacked layer against the trunk includes every lower layer and produces
+     the wrong PR description.
    - Review any related specs in docs/project/specs/active/
 
 5. Write a PR title and description with these sections.
@@ -80,16 +126,27 @@ Create a to-do list with the following items then perform all of them:
    Link any related beads using their IDs.
 
 6. Create or update the PR:
-   - **If the branch is part of a stack**, do not create the PR by hand, and never pass
-     `--base $TRUNK`. Targeting the trunk retargets the PR, shows the reviewer every
-     lower layer’s diff, and breaks the stack on GitHub.
-     Run `gh stack submit --auto --open`, then set the title and body with `gh pr edit`.
-     Without `--open` the PRs are created as drafts, which `gh stack merge` refuses to
-     merge. See `tbd shortcut stacked-prs`.
+   - **Locally tracked stack:** run `gh stack submit --auto`, then set the title and
+     body with `gh pr edit`. This creates new PRs as drafts and preserves existing PR
+     review state. Add `--open` only when the user explicitly asks to mark every new and
+     existing PR in the stack ready for review.
+   - **Formal remote stack without local tracking:** push the branch through the normal
+     commit workflow and update its existing PR with `gh pr edit`. Do not pass
+     `--base $TRUNK` or call the flat-PR creation path; either would retarget or replace
+     the linked layer.
+   - **Explicit stack request with no stack yet:** follow `tbd shortcut stacked-prs` and
+     the official `gh-stack` skill.
+     Use `gh stack init` or `gh stack add` followed by `gh stack submit --auto`, or use
+     `gh stack link` for existing PRs.
+     Creating branch-based PRs without one of these formal stack operations does not
+     satisfy the request.
    - If creating (not stacked):
      `gh pr create --repo $REPO --head $BRANCH --base $TRUNK --title "..." --body "..."`
    - If updating: `gh pr edit $BRANCH --repo $REPO --title "..." --body "..."` Do not
      add `--base` here unless you actually intend to retarget the PR.
+   - After every stacked path, resolve the current `$PR_NUMBER` and repeat the remote
+     `gh api "repos/$REPO/stacks?pull_request=$PR_NUMBER"` lookup from step 3. Stop if
+     the call fails or returns empty; the formal GitHub stack is not verified.
 
 7. Report the PR URL to the user, summarize the validation plan, and inform them you are
    now waiting for CI.

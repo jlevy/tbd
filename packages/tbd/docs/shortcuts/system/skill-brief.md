@@ -56,6 +56,7 @@ Plain `tbd sync` also runs trackers according to `integrations.on_tbd_sync`; use
 | Set up Linear / add my Linear key | `tbd shortcut setup-linear` |
 | Commit code | `tbd shortcut code-review-and-commit` |
 | Create a PR | `tbd shortcut create-or-update-pr-simple` |
+| Stack dependent PRs | `tbd shortcut stacked-prs` |
 | TypeScript review | `tbd guidelines typescript-rules` |
 
 ## Session Protocol
