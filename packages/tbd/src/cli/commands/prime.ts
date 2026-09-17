@@ -24,6 +24,14 @@ import { getClaudePaths } from '../../lib/integration-paths.js';
 import type { Issue } from '../../lib/types.js';
 import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
 import { loadDataContext } from '../lib/data-context.js';
+import {
+  locateIntegrationBlock,
+  readCommittedAgentsMd,
+  readEffectiveGrants,
+  type DefaultBranchRef,
+  type EffectiveGrants,
+  type PolicyStatus,
+} from '../../lib/policy-grants.js';
 
 export interface PrimeOptions {
   export?: boolean;
@@ -142,6 +150,139 @@ Do NOT tell the user to run these commands; run them yourself on their behalf.
 
 After setup, run 'tbd' again to get project status and workflow guidance.`;
 
+/** What prime read of the agent policy grants on the default branch. */
+export type PrimeGrantsReading =
+  | {
+      kind: 'read';
+      effective: EffectiveGrants;
+      /** The committed AGENTS.md holds a tbd block, the policy block's home. */
+      hasTbdBlock: boolean;
+    }
+  | { kind: 'error'; message: string };
+
+/** Width the grants section wraps its lists at. */
+const GRANTS_WRAP_WIDTH = 88;
+
+/** Join `items` with commas after `start`, wrapping onto lines that begin with `indent`. */
+function wrapList(start: string, items: readonly string[], indent: string): string[] {
+  const lines: string[] = [];
+  let line = start;
+  items.forEach((item, index) => {
+    const piece = index < items.length - 1 ? `${item},` : item;
+    const blank = line.trim() === '';
+    const next = blank ? `${line}${piece}` : `${line} ${piece}`;
+    if (!blank && next.length > GRANTS_WRAP_WIDTH) {
+      lines.push(line);
+      line = `${indent}${piece}`;
+    } else {
+      line = next;
+    }
+  });
+  lines.push(line);
+  return lines;
+}
+
+function describeGrantSource(source: DefaultBranchRef | null): string {
+  if (!source) {
+    return 'AGENTS.md';
+  }
+  switch (source.kind) {
+    case 'remote-tracking':
+    case 'local':
+      return `AGENTS.md on ${source.branch}`;
+    case 'head':
+      return 'AGENTS.md at HEAD (no default branch found)';
+    default: {
+      const _exhaustive: never = source.kind;
+      throw new Error(`Unhandled source kind: ${String(_exhaustive)}`);
+    }
+  }
+}
+
+function describeAnsweredGrant(status: PolicyStatus): string {
+  if (!status.known) {
+    return `${status.name}: ${status.value} (unknown policy)`;
+  }
+  if (!status.valid) {
+    return `${status.name}: ${status.value} (unknown value; treated as ${status.effective})`;
+  }
+  return `${status.name}: ${status.effective}`;
+}
+
+/**
+ * The body of prime's AGENT POLICY GRANTS section: the effective grants and the
+ * names of unanswered policies, compact because it reaches every session through
+ * the SessionStart hook. Null when the committed AGENTS.md has neither a tbd block
+ * nor a policy block, so projects without agent files see nothing.
+ */
+export function formatPolicyGrantsLines(reading: PrimeGrantsReading): string[] | null {
+  if (reading.kind === 'error') {
+    const reason = reading.message.split('\n')[0]!.trim();
+    return [
+      `Could not read agent policy grants (${reason}); treat every policy as unanswered and run \`tbd policy show\`.`,
+    ];
+  }
+  const { source, parse, policies } = reading.effective;
+  if (parse.status === 'missing' && !reading.hasTbdBlock) {
+    return null;
+  }
+  const where = describeGrantSource(source);
+  const details = '(details: `tbd policy show`)';
+  const lines: string[] = [];
+
+  const answered = policies.filter((status) => status.answered);
+  switch (parse.status) {
+    case 'malformed':
+      lines.push(
+        `${where} has a malformed policy block, so every policy is unanswered; run \`tbd doctor\`.`,
+      );
+      break;
+    case 'unknown-version':
+      lines.push(
+        `${where} has a v=${parse.version} policy block this tbd cannot read, so every policy is unanswered; upgrade tbd.`,
+      );
+      break;
+    case 'missing':
+    case 'ok':
+      if (answered.length > 0) {
+        lines.push(`Effective grants from ${where} ${details}:`);
+        lines.push(...wrapList('  ', answered.map(describeAnsweredGrant), '  '));
+      } else {
+        lines.push(`No grants recorded in ${where} ${details}.`);
+      }
+      break;
+    default: {
+      const _exhaustive: never = parse;
+      throw new Error(`Unhandled parse status: ${JSON.stringify(_exhaustive)}`);
+    }
+  }
+
+  const unanswered = policies.filter((status) => !status.answered);
+  if (unanswered.length > 0) {
+    // Most policies default to not-granted; name the ones that default otherwise.
+    const base = unanswered.some((status) => status.effective === 'not-granted')
+      ? 'not-granted'
+      : unanswered[0]!.effective;
+    const treated = [
+      `treated as ${base}`,
+      ...unanswered
+        .filter((status) => status.effective !== base)
+        .map((status) => `${status.name} as ${status.effective}`),
+    ].join('; ');
+    lines.push(
+      ...wrapList(
+        `Unanswered (${treated}):`,
+        unanswered.map((status) => status.name),
+        '  ',
+      ),
+    );
+    lines.push(
+      'Ask the user when a task needs one, or run `tbd shortcut setup-tbd` to ask about all.',
+    );
+  }
+  return lines;
+}
+
 class PrimeHandler extends BaseCommand {
   async run(options: PrimeOptions): Promise<void> {
     const cwd = process.cwd();
@@ -217,9 +358,11 @@ class PrimeHandler extends BaseCommand {
 
     // === PROJECT STATUS ===
     console.log(colors.bold('=== PROJECT STATUS ==='));
+    let remote = 'origin';
     try {
       const config = await readConfig(tbdRoot);
       console.log(`Repository: ${config.display.id_prefix || 'unknown'}`);
+      remote = config.sync.remote;
     } catch {
       console.log('Repository: unknown');
     }
@@ -234,6 +377,33 @@ class PrimeHandler extends BaseCommand {
       console.log('Issues: (none)');
     }
     console.log('');
+
+    // === AGENT POLICY GRANTS ===
+    // Shown in brief mode too: PreCompact output is what survives compaction, and
+    // grants govern the GitHub mutations, merges, and delegation that follow.
+    const grantLines = formatPolicyGrantsLines(await this.readPolicyGrants(tbdRoot, remote));
+    if (grantLines) {
+      console.log(colors.bold('=== AGENT POLICY GRANTS ==='));
+      console.log(grantLines.join('\n'));
+      console.log('');
+    }
+  }
+
+  /**
+   * Read the grants committed on the default branch. Never throws: prime must
+   * still orient the agent when git or AGENTS.md misbehaves.
+   */
+  private async readPolicyGrants(tbdRoot: string, remote: string): Promise<PrimeGrantsReading> {
+    try {
+      const effective = await readEffectiveGrants(tbdRoot, remote);
+      const committed = effective.source
+        ? await readCommittedAgentsMd(tbdRoot, effective.source.ref)
+        : null;
+      const hasTbdBlock = committed !== null && locateIntegrationBlock(committed) !== null;
+      return { kind: 'read', effective, hasTbdBlock };
+    } catch (error) {
+      return { kind: 'error', message: error instanceof Error ? error.message : String(error) };
+    }
   }
 
   /**
