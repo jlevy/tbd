@@ -3,10 +3,11 @@ type: is
 id: is-01m2pr28mh17t3tye60mc3jggs
 title: "P1: Contract tests for the review lifecycle"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 4
+version: 6
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:mechanical
 dependencies:
@@ -15,8 +16,15 @@ dependencies:
   - type: blocks
     target: is-01m2q1n82ewxqyytff9f2sftj2
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T03:55:16.496Z
-updated_at: 2026-09-17T06:43:54.210Z
+updated_at: 2026-09-17T11:44:55.809Z
+started_at: 2026-09-17T11:34:29.170Z
+closed_at: 2026-09-17T11:44:55.808Z
+close_reason: Coordinator ran both files (49 tests passed), typecheck, eslint, prettier clean; agents mutation-tested the checks; committed
+resolution: null
+duplicate_of: null
 ---
 Plan: Testing Strategy > Contract tests; Implementation Plan Phase 1 item 6. Decision: a new review-lifecycle test file rather than integration-files.test.ts, so it does not collide with other beads.
 

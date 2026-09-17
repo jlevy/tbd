@@ -3,10 +3,11 @@ type: is
 id: is-01m2pr2cx3yxc65xrmh4kpd9ef
 title: "P2: Policy alignment, setup-tbd, and new-document route tests"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 4
+version: 6
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:mechanical
 dependencies:
@@ -15,8 +16,15 @@ dependencies:
   - type: blocks
     target: is-01m2q1n82ewxqyytff9f2sftj2
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T03:55:20.866Z
-updated_at: 2026-09-17T06:44:13.644Z
+updated_at: 2026-09-17T11:44:55.819Z
+started_at: 2026-09-17T11:34:41.513Z
+closed_at: 2026-09-17T11:44:55.819Z
+close_reason: Coordinator ran both files (49 tests passed), typecheck, eslint, prettier clean; agents mutation-tested the checks; committed
+resolution: null
+duplicate_of: null
 ---
 Plan: Testing Strategy > Policy alignment and Setup process (docs); Implementation Plan Phase 2 item "Add tests for the new documents and their routes". Code tests for policy grants live with each code bead; packaging lives in its own bead.
 

@@ -5,7 +5,7 @@ title: "P3: Generate README reference tables and extend contract tests to the RE
 kind: task
 status: open
 priority: 1
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 labels:
   - exec:judgment
@@ -14,7 +14,7 @@ dependencies:
     target: is-01m2pr2d9920ppbyepz0w9ne4f
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
 created_at: 2026-09-17T06:43:01.127Z
-updated_at: 2026-09-17T06:45:01.917Z
+updated_at: 2026-09-17T11:44:56.097Z
 ---
 Plan: Implementation Plan Phase 3 item 4; Open Question 3 default (reference tables generated at build time); README Changes items 10, 18, and 19; Final Documentation Updates > Verification (first two bullets).
 
@@ -30,3 +30,7 @@ Acceptance: `pnpm --filter get-tbd exec vitest run tests/readme-reference-tables
 
 Rules: the coordinator commits and syncs. Do not commit, push, run `tbd sync`, or edit the plan spec unless the write set lists it. Keep scratch files in the session scratch directory. Run only the targeted checks listed, not the full suite.
 Markdown check: `uvx --exclude-newer-package flowmark-rs=2026-05-31 flowmark-rs@0.3.1 --auto --check <files>` (per-file form of `pnpm format:md:check`). TypeScript checks: `pnpm exec prettier --check <files>`, `pnpm exec eslint <files>`, `pnpm --filter get-tbd typecheck`. Tests that read `packages/tbd/dist/` (integration-files, doc-references, setup-flows, golden-output, tryscripts) need a current build: run `pnpm --filter get-tbd build` once if dist is stale.
+
+## Notes
+
+From tbd-9t4e: review-lifecycle-contract.test.ts routes through ROUTING_SURFACES; add README.md as one entry (comment shows it). README.md:654 says 'fix, rebut, or defer' (three options); fix in the README revision so the disposition check can cover the README.
