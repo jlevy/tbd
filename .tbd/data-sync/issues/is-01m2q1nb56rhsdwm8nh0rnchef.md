@@ -3,10 +3,11 @@ type: is
 id: is-01m2q1nb56rhsdwm8nh0rnchef
 title: "P3: Revise README.md to the target structure"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 7
+version: 9
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:judgment
 dependencies:
@@ -15,8 +16,15 @@ dependencies:
   - type: blocks
     target: is-01m2q1nfp9ay24j5mem0kf6z5n
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T06:42:58.852Z
-updated_at: 2026-09-17T11:24:21.386Z
+updated_at: 2026-09-17T15:10:31.831Z
+started_at: 2026-09-17T14:52:48.352Z
+closed_at: 2026-09-17T15:10:31.830Z
+close_reason: README revised by a tbd-strong sub-agent (864 to 668 lines); coordinator checked sections, stale content removed, formatting, and integration-files plus doc-references tests (25 passed); tables left for tbd-llia; committed
+resolution: null
+duplicate_of: null
 ---
 Plan: Final Documentation Updates > README Problems Today, Target Structure (12 sections, about 450 to 500 lines), README Changes items 1-9, 11-17, 20, and 21, Verification (format check and `tbd readme`); Implementation Plan Phase 3 item 1; Open Questions defaults (npm page identical to the GitHub README, neutral voice, a short policy and delegation summary linking agent-policy-grants and delegate-to-subagents, dated examples removed). Also the README part of Phase 1 item 5 and the README in Document Changes row "skill-baseline, skill-brief, skill-minimal, README".
 

@@ -5,7 +5,7 @@ title: "P3: Generate README reference tables and extend contract tests to the RE
 kind: task
 status: open
 priority: 1
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 labels:
   - exec:judgment
@@ -14,7 +14,7 @@ dependencies:
     target: is-01m2pr2d9920ppbyepz0w9ne4f
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
 created_at: 2026-09-17T06:43:01.127Z
-updated_at: 2026-09-17T11:44:56.097Z
+updated_at: 2026-09-17T15:10:32.355Z
 ---
 Plan: Implementation Plan Phase 3 item 4; Open Question 3 default (reference tables generated at build time); README Changes items 10, 18, and 19; Final Documentation Updates > Verification (first two bullets).
 
@@ -34,3 +34,4 @@ Markdown check: `uvx --exclude-newer-package flowmark-rs=2026-05-31 flowmark-rs@
 ## Notes
 
 From tbd-9t4e: review-lifecycle-contract.test.ts routes through ROUTING_SURFACES; add README.md as one entry (comment shows it). README.md:654 says 'fix, rebut, or defer' (three options); fix in the README revision so the disposition check can cover the README.
+From tbd-v8am: section 9 tables still hand-written: add review-and-merge-prs, delegate-to-subagents, setup-tbd, review-code-security/performance/correctness, review-code-rust, new-qa-playbook, suggest-upstream-improvements (43 standard shortcuts); add agent-model-tiers and agent-policy-grants (46 guidelines); template architecture -> architecture-doc, add qa-playbook. README body outside tables is 521 lines.

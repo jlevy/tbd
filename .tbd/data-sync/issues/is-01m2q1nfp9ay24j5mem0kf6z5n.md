@@ -3,18 +3,26 @@ type: is
 id: is-01m2q1nfp9ay24j5mem0kf6z5n
 title: "P3: Update tbd-design, docs-overview, development docs, and the changelog"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 3
+version: 6
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:mechanical
 dependencies:
   - type: blocks
     target: is-01m2pr2d9920ppbyepz0w9ne4f
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T06:43:03.478Z
-updated_at: 2026-09-17T06:45:02.113Z
+updated_at: 2026-09-17T15:27:22.581Z
+started_at: 2026-09-17T15:12:12.842Z
+closed_at: 2026-09-17T15:27:22.581Z
+close_reason: "Verified by the coordinator after a rebuild: 154 tests in 8 files including doc-references passed; typecheck, eslint, eslint contract, prettier clean; the agent ran full upgrade validation locally (passed) and proved CRLF fixes against CRLF doc copies; committed"
+resolution: null
+duplicate_of: null
 ---
 Plan: Final Documentation Updates > Other Documentation Updates (tbd-design.md, docs/docs-overview.md, docs/development.md, CHANGELOG.md); Document Changes row "tbd-design.md" (the design doc half; tbd-format-versioning.md is in the format-split bead (tbd-eeoi)); README Changes item 1 (design doc capability list); Rollout Plan (changelog entry); Implementation Plan Phase 3 item 2 for these files.
 
@@ -31,3 +39,7 @@ Acceptance: Markdown check on all four files.
 
 Rules: the coordinator commits and syncs. Do not commit, push, run `tbd sync`, or edit the plan spec unless the write set lists it. Keep scratch files in the session scratch directory. Run only the targeted checks listed, not the full suite.
 Markdown check: `uvx --exclude-newer-package flowmark-rs=2026-05-31 flowmark-rs@0.3.1 --auto --check <files>` (per-file form of `pnpm format:md:check`). TypeScript checks: `pnpm exec prettier --check <files>`, `pnpm exec eslint <files>`, `pnpm --filter get-tbd typecheck`. Tests that read `packages/tbd/dist/` (integration-files, doc-references, setup-flows, golden-output, tryscripts) need a current build: run `pnpm --filter get-tbd build` once if dist is stale.
+
+## Notes
+
+Committed; doc-references test to run with the CI fix batch before closing.
