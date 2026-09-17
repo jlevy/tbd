@@ -3,10 +3,11 @@ type: is
 id: is-01m2q1n82ewxqyytff9f2sftj2
 title: "P2: Packaging check and regenerate committed agent surfaces"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 5
+version: 7
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:mechanical
 dependencies:
@@ -15,8 +16,15 @@ dependencies:
   - type: blocks
     target: is-01m2pr2dmqqap2nf1xmjbwztaj
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T06:42:55.693Z
-updated_at: 2026-09-17T11:33:54.784Z
+updated_at: 2026-09-17T11:50:35.723Z
+started_at: 2026-09-17T11:45:31.235Z
+closed_at: 2026-09-17T11:50:35.722Z
+close_reason: Guidelines registered; setup --auto with the local build regenerated AGENTS.md (f100), skill copies, and tier agent definitions; doctor healthy; acceptance and contract tests (109) passed; cli-doc-output golden updated (9/9); committed
+resolution: null
+duplicate_of: null
 ---
 Plan: Testing Strategy > Packaging; docs/development.md > "Testing new shortcuts, guidelines, or templates". Runs after every Phase 1 and Phase 2 bead.
 
