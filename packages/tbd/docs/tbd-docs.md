@@ -182,7 +182,8 @@ Options:
 - `--force` - Permit a valid but non-recommended prefix outside the 2-8-letter form
 - `--no-gh-cli` - Disable the generated GitHub CLI installation hook
 - `--surfaces <list>` - Comma-separated agent surfaces: `portable`, `agents-md`,
-  `claude`, `codex`, or `all`. Omitting the flag installs all four
+  `claude`, `claude-agents`, `codex`, `codex-agents`, or `all`. Omitting the flag
+  installs every surface
 - `--policies <set>` - Record agent policy grants in `AGENTS.md`; implies `--auto`. The
   only set is `recommended`: the recommended value of each unanswered policy, as
   `tbd guidelines agent-policy-grants` defines it.
@@ -227,7 +228,7 @@ Options:
 Note: For most users, `tbd setup --auto` is recommended instead.
 On a fresh repository it requires an explicit prefix; on an existing tbd repository it
 reads the configured prefix.
-It installs all four agent surfaces unless `--surfaces` narrows the set.
+It installs every agent surface unless `--surfaces` narrows the set.
 
 ### create
 
@@ -1269,11 +1270,13 @@ It installs every surface by default; it does not probe for an agent before writ
 agent’s surface.
 
 ```bash
-tbd setup --auto                            # All four surfaces
+tbd setup --auto                            # All six surfaces
 tbd setup --auto --surfaces=portable        # .agents/skills/tbd/SKILL.md
 tbd setup --auto --surfaces=agents-md       # Managed block in AGENTS.md
 tbd setup --auto --surfaces=claude          # Claude skill mirror, hooks, and scripts
+tbd setup --auto --surfaces=claude-agents   # Claude Code tier agent definitions
 tbd setup --auto --surfaces=codex           # Codex hooks and scripts
+tbd setup --auto --surfaces=codex-agents    # Codex tier agent definitions
 tbd setup --auto --surfaces=portable,claude # A comma-separated subset
 ```
 
@@ -1285,6 +1288,27 @@ hook entries are preserved, and a surface stamped by a newer integration format 
 overwritten.
 A portable or Claude skill file without tbd’s ownership marker is treated as
 user-owned and setup stops rather than replacing it.
+
+#### Tier agent definitions
+
+The `claude-agents` and `codex-agents` surfaces generate the four sub-agent definitions
+that `tbd guidelines agent-model-tiers` describes: `tbd-strong-max` (`max`),
+`tbd-strong` (`xhigh`), `tbd-moderate` (`xhigh`), and `tbd-fast` (`medium`). Claude Code
+gets `.claude/agents/tbd-*.md` with `model` and `effort` frontmatter, which is how a
+tier’s reasoning level is set there, since the Agent tool cannot set effort per spawn.
+Codex gets `.codex/agents/tbd-*.toml` with `model` and `model_reasoning_effort`, which
+take precedence over the values named at spawn.
+Each definition’s description states its tier, model, reasoning level, and the work it
+is for, and its short body tells the sub-agent to work from its brief, run the tbd
+shortcut the brief names, and report in the requested format.
+The models and levels are the guideline’s dated suggestions; setup refreshes the files
+on every run, so upgrading tbd updates them.
+To override one, remove its `DO NOT EDIT` marker: setup then keeps the file and reports
+it as user-owned, and `tbd doctor` counts it rather than warning.
+No surface selection is saved, so turning these surfaces off means leaving them out of
+`--surfaces` on each run, for example
+`tbd setup --auto --surfaces=portable,agents-md,claude,codex`. `tbd doctor` reports the
+definitions only once some exist, and `tbd uninstall` removes the generated ones.
 
 ### Documentation Commands
 
@@ -1417,6 +1441,12 @@ Options:
 - `--keep-branch` - Keep the local sync branch
 - `--remove-remote` - Also remove the remote sync branch
 
+Uninstall removes `.tbd/`, the hidden worktree, the local sync branch unless
+`--keep-branch`, and the tier agent definitions that setup generated (the
+`.claude/agents/tbd-*.md` and `.codex/agents/tbd-*.toml` files carrying tbd’s marker; a
+user-owned file under one of those names stays).
+The other agent surfaces stay in place.
+
 ## Global Options
 
 The parser accepts these global options with every command, but each option has an
@@ -1508,17 +1538,19 @@ The ID and session name are local to the checkout; `start` writes only the frien
 
 ### Claude Code Integration
 
-Install the Claude surface, or let the default setup install all four surfaces:
+Install the Claude surfaces, or let the default setup install every surface:
 
 ```bash
-tbd setup --auto --surfaces=claude          # Claude files only
-tbd setup --auto                            # Existing project; all agent surfaces
+tbd setup --auto --surfaces=claude,claude-agents  # Claude files only
+tbd setup --auto                                  # Existing project; all agent surfaces
 ```
 
 The Claude surface installs project-local hooks that run `tbd prime` at session start
 and before context compaction, initialize the machine-local agent identity, and emit the
 closing reminder after tool use.
 It can also install the GitHub CLI helper unless `--no-gh-cli` is given.
+The `claude-agents` surface adds the tier agent definitions in `.claude/agents/` (see
+“Tier agent definitions” under setup surfaces).
 
 ### Bulk Close, Update, and Reopen
 

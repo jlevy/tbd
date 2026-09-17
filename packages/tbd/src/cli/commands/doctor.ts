@@ -41,6 +41,8 @@ import {
   AGENTS_SKILL_REL,
   CODEX_HOOKS_REL,
   AGENT_INTEGRATION_FORMAT,
+  TIER_AGENTS_DISPLAY,
+  type TierAgentPlatform,
 } from '../../lib/integration-paths.js';
 import { validateIssueId, extractUlidFromInternalId, formatDisplayId } from '../../lib/ids.js';
 import { isDirOnPath, npmGlobalBinDir, readNpmGlobalPrefix } from '../../lib/npm-global-bin.js';
@@ -96,6 +98,9 @@ import {
   getCodexTbdSection,
   getCodexTbdSectionPreservingGrants,
   inspectCodexHooksSurface,
+  inspectTierAgentSurface,
+  TIER_AGENT_SURFACE_ID,
+  type TierAgentFileState,
 } from './setup.js';
 import {
   POLICY_BLOCK_VERSION,
@@ -296,6 +301,66 @@ function managedArtifactFinding(
         suggestion: 'Upgrade tbd to manage this file: npm install -g get-tbd@latest',
       };
   }
+}
+
+const TIER_AGENTS_CHECK: Record<TierAgentPlatform, string> = {
+  claude: 'Claude Code tier agents',
+  codex: 'Codex tier agents',
+};
+
+/**
+ * One finding for a platform's four generated tier definitions, or null when
+ * none of them exist: leaving the surface out of `--surfaces` is how it is
+ * turned off, so absence is not a finding. Otherwise the worst state wins: a
+ * file written by a newer tbd is an error, a stale or missing one a warning,
+ * and a user-owned file under a tbd name is the user's override, only counted.
+ */
+export function tierAgentsFinding(
+  platform: TierAgentPlatform,
+  files: readonly TierAgentFileState[],
+): DiagnosticResult | null {
+  const name = TIER_AGENTS_CHECK[platform];
+  const path = TIER_AGENTS_DISPLAY[platform];
+  const inState = (state: TierAgentFileState['inspection']['state']) =>
+    files.filter((file) => file.inspection.state === state);
+
+  const missing = inState('missing');
+  if (missing.length === files.length) {
+    return null;
+  }
+  const tooNew = inState('too-new');
+  if (tooNew.length > 0) {
+    return {
+      name,
+      status: 'error',
+      message: `managed file uses newer integration format ${tooNew[0]?.inspection.format} (supported: ${AGENT_INTEGRATION_FORMAT})`,
+      path,
+      details: tooNew.map((file) => file.rel),
+      suggestion: 'Upgrade tbd to manage this file: npm install -g get-tbd@latest',
+    };
+  }
+  const stale = inState('stale');
+  if (stale.length > 0 || missing.length > 0) {
+    return {
+      name,
+      status: 'warn',
+      message: stale.length > 0 ? 'stale managed file' : 'missing',
+      path,
+      details: [
+        ...stale.map((file) => `stale: ${file.rel}`),
+        ...missing.map((file) => `missing: ${file.rel}`),
+      ],
+      suggestion: `Run: tbd setup --auto --surfaces=${TIER_AGENT_SURFACE_ID[platform]}`,
+    };
+  }
+  const kept = inState('user-owned').length;
+  return {
+    name,
+    status: 'ok',
+    message:
+      kept > 0 ? `current (${kept} user-owned file${kept === 1 ? '' : 's'} kept)` : 'current',
+    path,
+  };
 }
 
 const POLICY_GRANTS_CHECK = 'Policy grants';
@@ -970,6 +1035,10 @@ class DoctorHandler extends BaseCommand {
       await this.safeCheck('Claude Code skill', () => this.checkClaudeSkill()),
     );
 
+    // Integration 2b: Claude Code tier agent definitions. A check group: no
+    // line when the project has none (see tierAgentsFinding).
+    integrationChecks.push(...(await this.checkTierAgents('claude')));
+
     // Integration 3: Codex AGENTS.md (also used by Cursor since v1.6)
     integrationChecks.push(await this.safeCheck('AGENTS.md', () => this.checkCodexAgents()));
 
@@ -990,6 +1059,9 @@ class DoctorHandler extends BaseCommand {
 
     // Integration 4: Codex hooks
     integrationChecks.push(await this.safeCheck('Codex hooks', () => this.checkCodexHooks()));
+
+    // Integration 4b: Codex tier agent definitions, a check group like 2b.
+    integrationChecks.push(...(await this.checkTierAgents('codex')));
 
     // Combine for overall status
     const allChecks = [...healthChecks, ...integrationChecks];
@@ -2145,6 +2217,30 @@ class DoctorHandler extends BaseCommand {
       'codex',
       await inspectCodexHooksSurface(this.cwd),
     );
+  }
+
+  /**
+   * Zero or one finding for a platform's tier agent definitions; an unexpected
+   * throw degrades to one error finding, as for the policy grants group.
+   */
+  private async checkTierAgents(platform: TierAgentPlatform): Promise<DiagnosticResult[]> {
+    try {
+      const finding = tierAgentsFinding(
+        platform,
+        await inspectTierAgentSurface(this.cwd, platform),
+      );
+      return finding ? [finding] : [];
+    } catch (error) {
+      return [
+        {
+          name: TIER_AGENTS_CHECK[platform],
+          status: 'error',
+          message: `check could not complete: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        },
+      ];
+    }
   }
 
   private async checkCodexAgents(): Promise<DiagnosticResult> {

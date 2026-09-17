@@ -5,16 +5,18 @@
  */
 
 import { Command } from 'commander';
-import { rm, access, readdir, stat } from 'node:fs/promises';
+import { rm, rmdir, access, readdir, stat } from 'node:fs/promises';
 import { execSync } from 'node:child_process';
 
 import { gitSafeEnv } from '../../lib/git-env.js';
-import { join, relative } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 
 import { BaseCommand } from '../lib/base-command.js';
 import { NotInitializedError, CLIError } from '../lib/errors.js';
 import { findTbdRoot, readConfig } from '../../file/config.js';
+import { TIER_AGENTS_DISPLAY } from '../../lib/integration-paths.js';
 import { SYNC_BRANCH, resolveSharedTbdPaths } from '../../lib/paths.js';
+import { listGeneratedTierAgentFiles } from './setup.js';
 
 interface UninstallOptions {
   confirm?: boolean;
@@ -121,6 +123,18 @@ class UninstallHandler extends BaseCommand {
     // Count .tbd contents
     const tbdStats = await this.getDirectoryStats(tbdDir);
     items.push(`  - Directory: ${displayPath(tbdDir)}/ (${tbdStats.files} files)`);
+
+    // Generated tier agent definitions. Only files carrying tbd's marker: a
+    // user-owned file under a tbd name is the user's override and stays. The
+    // other generated surfaces (skills, hooks, the AGENTS.md block) are not
+    // removed here today.
+    const tierAgentFiles = await listGeneratedTierAgentFiles(tbdRoot);
+    if (tierAgentFiles.length > 0) {
+      items.push(
+        `  - Tier agent definitions: ${tierAgentFiles.length} files ` +
+          `(${TIER_AGENTS_DISPLAY.claude}, ${TIER_AGENTS_DISPLAY.codex})`,
+      );
+    }
 
     // Show what will be removed
     console.log(colors.bold('The following will be removed:'));
@@ -246,6 +260,28 @@ class UninstallHandler extends BaseCommand {
       } catch {
         console.log(`  ${colors.warn('⚠')} Could not remove shared common-dir metadata`);
       }
+    }
+
+    // 6. Remove the generated tier agent definitions, then any agents directory
+    // this emptied (rmdir is not recursive, so one holding other files stays).
+    if (tierAgentFiles.length > 0) {
+      let removed = 0;
+      for (const file of tierAgentFiles) {
+        try {
+          await rm(file.path, { force: true });
+          removed++;
+        } catch {
+          console.log(`  ${colors.warn('⚠')} Could not remove ${file.rel}`);
+        }
+      }
+      for (const dir of new Set(tierAgentFiles.map((file) => dirname(file.path)))) {
+        try {
+          await rmdir(dir);
+        } catch {
+          // Not empty, or already gone.
+        }
+      }
+      console.log(`  ${colors.success('✓')} Removed ${removed} tier agent definitions`);
     }
 
     console.log('');

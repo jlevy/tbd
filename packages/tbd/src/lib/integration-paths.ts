@@ -138,6 +138,40 @@ export const CODEX_HOOKS_REL = '.codex/hooks.json';
  */
 export const CODEX_CONFIG_REL = '.codex/config.toml';
 
+// =============================================================================
+// Tier Agent Definition Paths (project-local)
+// =============================================================================
+
+/**
+ * Claude Code project agent definitions directory. `tbd setup` writes the
+ * generated tier definitions (`tbd-*.md`) here and never to `~/.claude/agents/`:
+ * a user-level definition appears in every project's agent list, so it would
+ * carry one project's instructions into every other project's sessions.
+ */
+export const CLAUDE_AGENTS_DIR_REL = '.claude/agents';
+
+/**
+ * Codex project custom agents directory; the generated tier definitions are
+ * `tbd-*.toml`. Project-scoped for the same reason as the Claude Code ones.
+ */
+export const CODEX_AGENTS_DIR_REL = '.codex/agents';
+
+/** The two platforms that get generated tier agent definitions. */
+export type TierAgentPlatform = 'claude' | 'codex';
+
+/** Relative path of one generated tier agent definition, by platform and name. */
+export function getTierAgentRel(platform: TierAgentPlatform, name: string): string {
+  return platform === 'claude'
+    ? `${CLAUDE_AGENTS_DIR_REL}/${name}.md`
+    : `${CODEX_AGENTS_DIR_REL}/${name}.toml`;
+}
+
+/** Display path for a platform's generated tier definitions in doctor output. */
+export const TIER_AGENTS_DISPLAY: Record<TierAgentPlatform, string> = {
+  claude: `${CLAUDE_AGENTS_DIR_REL}/tbd-*.md`,
+  codex: `${CODEX_AGENTS_DIR_REL}/tbd-*.toml`,
+};
+
 // Note on hook scripts: each agent surface writes its own copy of the hook
 // scripts under its own directory (Claude Code under `.claude/scripts/` and
 // Codex under `.codex/`) rather than sharing a single neutral `scripts/agent/`

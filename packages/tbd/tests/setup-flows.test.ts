@@ -392,7 +392,7 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
   });
 
   describe('--surfaces selector', () => {
-    it('default (no --surfaces) installs all four surfaces', async () => {
+    it('default (no --surfaces) installs all six surfaces', async () => {
       initGitRepo();
 
       const result = runTbd(['setup', '--auto', '--prefix=test']);
@@ -401,7 +401,9 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       await access(join(tempDir, '.agents/skills/tbd/SKILL.md'));
       await access(join(tempDir, 'AGENTS.md'));
       await access(join(tempDir, '.claude/settings.json'));
+      await access(join(tempDir, '.claude/agents/tbd-strong.md'));
       await access(join(tempDir, '.codex/hooks.json'));
+      await access(join(tempDir, '.codex/agents/tbd-strong.toml'));
     });
 
     it('--surfaces=portable keeps formal stack guidance without AGENTS.md', async () => {
@@ -424,8 +426,10 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       const result = runTbd(['setup', '--auto', '--prefix=test', '--surfaces=codex']);
       expect(result.status).toBe(0);
 
-      // Codex hooks present; every other surface suppressed.
+      // Codex hooks present; every other surface suppressed, including the
+      // Codex tier agents, which are a separate surface.
       await access(join(tempDir, '.codex/hooks.json'));
+      await expect(access(join(tempDir, '.codex/agents'))).rejects.toThrow();
       await expect(access(join(tempDir, 'AGENTS.md'))).rejects.toThrow();
       await expect(access(join(tempDir, '.claude/settings.json'))).rejects.toThrow();
       await expect(access(join(tempDir, '.agents/skills/tbd/SKILL.md'))).rejects.toThrow();
