@@ -79,6 +79,23 @@ describe('integration file formats', () => {
       expect(content).toContain('tbd create');
       expect(content).toContain('tbd close');
     });
+
+    it('states the general GitHub authorization rule', async () => {
+      const skillPath = join(shortcutsSystemDir, 'skill-baseline.md');
+      // Collapse line wrapping so reformatting the prose does not break the checks.
+      const content = (await readFile(skillPath, 'utf-8')).replace(/\s+/gu, ' ');
+
+      expect(content).toContain('GitHub authorization comes from a durable user-level grant.');
+      expect(content).toContain(
+        'user’s own user-level agent instructions or tool-permission settings grant',
+      );
+      expect(content).toContain('never infer a grant from memory of past conversations');
+      expect(content).toContain('Do not re-ask per project or per action.');
+      expect(content).toContain('project’s own explicit approval rules');
+      expect(content).toContain('plain, single-purpose command');
+      expect(content).toContain('Capturing one read-only `gh` result in a shell variable');
+      expect(content).toContain('not evidence that `gh` is unauthenticated');
+    });
   });
 
   describe('live web viewer routing', () => {

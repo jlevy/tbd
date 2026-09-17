@@ -208,6 +208,36 @@ Three facts decide most of these:
 Run `tbd shortcut setup-github-cli` and follow “Proxied Remote Sessions” before
 concluding gh is unavailable.
 
+**GitHub authorization comes from a durable user-level grant.** When a project’s
+workflow uses GitHub, run GitHub operations without asking only when `gh` is installed
+and authenticated and the user’s own user-level agent instructions or tool-permission
+settings grant agent GitHub operations.
+Such a grant applies uniformly across that user’s projects and sessions.
+Keeping it at user level avoids repeated prompts while keeping consent explicit and
+inspectable.
+
+- If no such grant is present, ask once, and suggest the user record the grant at user
+  level, in their global agent instructions or tool-permission settings.
+  A new session cannot see consent given in an earlier conversation, so never infer a
+  grant from memory of past conversations, and never record one as a per-project or
+  per-incident memory or note.
+- A grant covers routine, workflow-appropriate operations: pushing branches, creating
+  and editing PRs, posting PR comments or review records, and reading and watching CI.
+  Do not re-ask per project or per action.
+  Merging and other irreversible or policy-gated actions still follow the project’s own
+  explicit approval rules.
+- Run each GitHub operation as a plain, single-purpose command, so a person or a
+  permission system can evaluate it at a glance.
+  Do not chain unrelated edits, file mutations, or other mutating commands into a `gh`
+  invocation. Capturing one read-only `gh` result in a shell variable is fine.
+- If a tool or permission layer blocks an authorized action, ask the user for that
+  specific permission rather than stalling silently, dropping the workflow step, or
+  working around the block.
+- Keep authentication (`gh auth status`), authorization (the user’s grant), and
+  tool-permission prompts distinct.
+  A blocked tool call is not evidence that `gh` is unauthenticated, and a working `gh`
+  login is not a grant.
+
 ## Bead Tracking Rules
 
 - Track all task work not done immediately as beads (discovered work, TODOs,
