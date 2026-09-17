@@ -28,6 +28,11 @@ import type { BridgeBase, Issue, PolicyDefinition } from '../src/lib/types.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SETUP_LINEAR = join(__dirname, '..', 'docs', 'shortcuts', 'standard', 'setup-linear.md');
 
+/** A doc with LF line endings, since a Windows checkout has CRLF. */
+async function readDoc(path: string): Promise<string> {
+  return (await readFile(path, 'utf-8')).replace(/\r\n?/gu, '\n');
+}
+
 /** The `epics` grant as the guideline states it: an outbound clause and nothing else. */
 const EPICS_POLICY: PolicyDefinition = PolicyDefinitionSchema.parse({
   outbound: { kinds: ['epic'], specs: 'none', statuses: ['open', 'in_progress', 'blocked'] },
@@ -77,7 +82,7 @@ function selectedIds(policy: PolicyDefinition, beads: readonly Issue[] = BEADS):
 
 describe('the YAML setup-linear ships for linear: epics', () => {
   it('resolves to the epics outbound clause with the other clauses at their defaults', async () => {
-    const doc = await readFile(SETUP_LINEAR, 'utf-8');
+    const doc = await readDoc(SETUP_LINEAR);
     const yamlBlocks = [...doc.matchAll(/```yaml\n([\s\S]*?)```/g)].map((match) => match[1] ?? '');
     const epicsBlock = yamlBlocks.find((block) => block.includes('kinds: [epic]'));
     expect(epicsBlock, 'setup-linear must ship the epics selection as YAML').toBeDefined();

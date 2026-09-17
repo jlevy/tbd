@@ -33,6 +33,20 @@
  */
 const CANDIDATE_FORMAT = 'f08';
 
+/**
+ * The generated integration format a candidate build stamps into AGENTS.md and the
+ * generated skill and tier agent files, separate from the repository format since the
+ * release after 0.9.0. Kept beside the scenarios for the same reason as CANDIDATE_FORMAT.
+ */
+const CANDIDATE_INTEGRATION_FORMAT = 'f100';
+
+/**
+ * The newest release whose integration format was the repository format (f08). It refuses
+ * to rewrite a surface stamped with a newer format, which is what keeps it from deleting
+ * a policy block, so its `setup --auto` must stop on a repository this candidate set up.
+ */
+const LAST_PRE_SPLIT_RELEASE = '0.9.0';
+
 import { execFile } from 'node:child_process';
 import {
   access,
@@ -66,11 +80,19 @@ const previousFormatBaseline = process.env.TBD_UPGRADE_PREVIOUS_FORMAT_FROM ?? '
 const managedUpgradePaths = new Set([
   '.agents/skills/tbd/SKILL.md',
   '.claude/.gitignore',
+  '.claude/agents/tbd-fast.md',
+  '.claude/agents/tbd-moderate.md',
+  '.claude/agents/tbd-strong-max.md',
+  '.claude/agents/tbd-strong.md',
   '.claude/hooks/tbd-closing-reminder.sh',
   '.claude/scripts/ensure-gh-cli.sh',
   '.claude/scripts/tbd-session.sh',
   '.claude/settings.json',
   '.claude/skills/tbd/SKILL.md',
+  '.codex/agents/tbd-fast.toml',
+  '.codex/agents/tbd-moderate.toml',
+  '.codex/agents/tbd-strong-max.toml',
+  '.codex/agents/tbd-strong.toml',
   '.codex/ensure-gh-cli.sh',
   '.codex/hooks.json',
   '.codex/tbd-closing-reminder.sh',
@@ -85,6 +107,18 @@ function invariant(condition, message) {
   if (!condition) {
     throw new Error(message);
   }
+}
+
+/** Whether release `version` is at or before `boundary`, comparing major.minor.patch. */
+function releasedAtOrBefore(version, boundary) {
+  const parts = (value) => {
+    const match = /^(\d+)\.(\d+)\.(\d+)/u.exec(value);
+    invariant(match, `Not a release version: ${JSON.stringify(value)}`);
+    return match.slice(1).map(Number);
+  };
+  const [a, b] = [parts(version), parts(boundary)];
+  const differing = a.findIndex((part, index) => part !== b[index]);
+  return differing < 0 || a[differing] < b[differing];
 }
 
 async function run(command, args, options = {}) {
@@ -1212,6 +1246,13 @@ function readPath(value, path) {
  * when their manifest versions match. Equal version strings do not imply equal artifacts:
  * before the release bump, the candidate contains the current branch changes while npm
  * still serves the prior published build.
+ *
+ * A release at or before LAST_PRE_SPLIT_RELEASE cannot finish `setup --auto` here: the
+ * candidate stamped the generated surfaces with CANDIDATE_INTEGRATION_FORMAT and recorded
+ * policy grants in AGENTS.md, and that release would delete the grants if it rewrote the
+ * block. Its setup still rewrites config before it reaches the surfaces, so the probes
+ * cover that write path; what changes is that it must then stop with the upgrade message
+ * and leave every stamped surface, grants included, byte for byte.
  */
 async function validateOldClientConfigRoundTrip({
   baseline,
@@ -1226,8 +1267,32 @@ async function validateOldClientConfigRoundTrip({
   await initializeRepository(repository);
   await mkdir(home, { recursive: true });
 
-  const setup = await invokeCli(candidate, repository, home, ['setup', '--auto', '--prefix=qat']);
+  const setup = await invokeCli(candidate, repository, home, [
+    'setup',
+    '--auto',
+    '--prefix=qat',
+    '--policies=recommended',
+  ]);
   invariant(setup.code === 0, `${label}: candidate setup failed\n${setup.stdout}\n${setup.stderr}`);
+  // The stamped surfaces a pre-split release manages and would otherwise rewrite.
+  const stampedSurfaces = [
+    'AGENTS.md',
+    '.agents/skills/tbd/SKILL.md',
+    '.claude/skills/tbd/SKILL.md',
+  ];
+  const surfacesBefore = new Map();
+  for (const surface of stampedSurfaces) {
+    const content = await readFile(join(repository, surface), 'utf8');
+    invariant(
+      content.includes(`format=${CANDIDATE_INTEGRATION_FORMAT}`),
+      `${label}: candidate did not stamp ${surface} with ${CANDIDATE_INTEGRATION_FORMAT}`,
+    );
+    surfacesBefore.set(surface, content);
+  }
+  invariant(
+    surfacesBefore.get('AGENTS.md').includes('<!-- BEGIN TBD POLICY GRANTS'),
+    `${label}: candidate setup --policies=recommended recorded no policy block`,
+  );
 
   // Written on top of the candidate's own config rather than instead of it, so the round
   // trip carries everything a real repository has, not just the probes.
@@ -1261,10 +1326,29 @@ async function validateOldClientConfigRoundTrip({
     `${label}: baseline ${baselineVersion} config set failed\n${set.stdout}\n${set.stderr}`,
   );
   const baselineSetup = await invokeCli(baseline, repository, home, ['setup', '--auto']);
-  invariant(
-    baselineSetup.code === 0,
-    `${label}: baseline ${baselineVersion} setup failed\n${baselineSetup.stdout}\n${baselineSetup.stderr}`,
-  );
+  const baselineSetupOutput = `${baselineSetup.stdout}\n${baselineSetup.stderr}`;
+  if (releasedAtOrBefore(baselineVersion, LAST_PRE_SPLIT_RELEASE)) {
+    invariant(
+      baselineSetup.code !== 0 &&
+        baselineSetupOutput.includes(
+          `generated by a newer tbd (integration format ${CANDIDATE_INTEGRATION_FORMAT};`,
+        ),
+      `${label}: baseline ${baselineVersion} setup did not stop at the ` +
+        `${CANDIDATE_INTEGRATION_FORMAT} surfaces with the upgrade message\n${baselineSetupOutput}`,
+    );
+    for (const [surface, content] of surfacesBefore) {
+      invariant(
+        (await readFile(join(repository, surface), 'utf8')) === content,
+        `${label}: baseline ${baselineVersion} rewrote ${surface}, which carries ` +
+          `${CANDIDATE_INTEGRATION_FORMAT}`,
+      );
+    }
+  } else {
+    invariant(
+      baselineSetup.code === 0,
+      `${label}: baseline ${baselineVersion} setup failed\n${baselineSetupOutput}`,
+    );
+  }
 
   const after = parseYaml(await readFile(configPath, 'utf8'));
   for (const [name, path] of Object.entries(CONFIG_PROBES)) {

@@ -40,6 +40,7 @@ import {
   CODEX_BEGIN_MARKER,
   CODEX_END_MARKER,
   getCodexTbdSection,
+  getCodexTbdSectionPreservingGrants,
 } from '../src/cli/commands/setup.js';
 import { subprocessTestTimeout } from './test-helpers.js';
 
@@ -444,6 +445,39 @@ describe('withPolicyBlock', () => {
 
   it('refuses content without a tbd block', () => {
     expect(() => withPolicyBlock('# Project\n', GUIDELINE_BLOCK)).toThrow(/tbd setup/);
+  });
+});
+
+describe('an AGENTS.md with CRLF line endings, as a Windows checkout has', () => {
+  const crlf = (text: string) => text.replace(/\n/g, '\r\n');
+  const block = renderPolicyBlock([{ name: 'subagents', value: 'granted' }], '2026-09-17');
+
+  it('parses to the same result as the LF file', () => {
+    const lf = agentsMdWith(GUIDELINE_BLOCK);
+    expect(parsePolicyBlock(crlf(lf))).toEqual(parsePolicyBlock(lf));
+  });
+
+  it('gets the same tbd block from setup, grants included', () => {
+    const lf = `# Project\n\n${withPolicyBlock(getCodexTbdSection(), GUIDELINE_BLOCK)}\nAfter.\n`;
+    expect(getCodexTbdSectionPreservingGrants(crlf(lf))).toBe(
+      getCodexTbdSectionPreservingGrants(lf),
+    );
+  });
+
+  it('keeps CRLF when a block is inserted or replaced, adding no blank lines', () => {
+    for (const lf of [agentsMdWith(''), agentsMdWith(GUIDELINE_BLOCK)]) {
+      const updated = withPolicyBlock(crlf(lf), block);
+      expect(updated).toBe(crlf(withPolicyBlock(lf, block)));
+      expect(withPolicyBlock(updated, block)).toBe(updated);
+    }
+  });
+
+  it('uses CRLF throughout for a CRLF file that holds an LF tbd block', () => {
+    // What setup writes into a CRLF file: the generated tbd block has LF line endings.
+    const mixed = `# Project\r\n\r\n${getCodexTbdSection()}\r\nAfter.\r\n`;
+    expect(withPolicyBlock(mixed, block)).toBe(
+      crlf(withPolicyBlock(mixed.replace(/\r\n/g, '\n'), block)),
+    );
   });
 });
 
