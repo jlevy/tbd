@@ -316,8 +316,9 @@ the user, not bypassed.
 Check the effective grants with `tbd policy show`. Policy values, grant sources, and
 precedence are defined in `tbd guidelines agent-policy-grants`.
 
-- Publishing reviews, pushing fixes, and posting disposition replies require
-  `github-editing` or `github-workflows`; without either, ask once before the first
+- Publishing reviews, pushing fixes, and posting disposition replies are PR actions and
+  require `github-editing`; re-running CI or editing issues and labels requires
+  `github-workflows`. Without the grant an action needs, ask once before the first
   GitHub mutation in a task.
 - Merge mode requires `github-merge`. With `per-request`, the user’s “reviewed and
   merged” request is the authorization for the PRs it names.
