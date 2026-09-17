@@ -1,16 +1,18 @@
 /**
- * Setup preserves the policy block inside the AGENTS.md tbd block.
+ * Setup preserves the policy block inside the AGENTS.md tbd block, and records
+ * grants only when `--policies` asks it to.
  *
  * `tbd setup` regenerates the tbd block on every run (and on every upgrade).
  * The policy block that `tbd policy` records inside it is the only record of a
  * project's grants, so setup must carry it over byte for byte, including policy
  * names this tbd does not know, and must never rewrite a block it cannot read.
+ * `--policies=recommended` records the recommended set for unanswered policies.
  * The guideline is packages/tbd/docs/guidelines/agent-policy-grants.md
- * (The Policy Block, Persistence).
+ * (Recording Grants, The Policy Block, Persistence).
  */
 
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -21,6 +23,7 @@ import {
   CODEX_END_MARKER,
   getCodexTbdSection,
   getCodexTbdSectionPreservingGrants,
+  planRecommendedGrants,
 } from '../src/cli/commands/setup.js';
 import { CLIError } from '../src/cli/lib/errors.js';
 import {
@@ -33,7 +36,10 @@ import { AGENT_INTEGRATION_FORMAT } from '../src/lib/integration-paths.js';
 import {
   POLICY_BEGIN_MARKER,
   POLICY_END_MARKER,
+  RECOMMENDED_GRANTS,
   parsePolicyBlock,
+  renderPolicyBlock,
+  resolvePolicyStatuses,
   withPolicyBlock,
 } from '../src/lib/policy-grants.js';
 import { subprocessTestTimeout } from './test-helpers.js';
@@ -86,8 +92,8 @@ function runTbd(cwd: string, args: string[]): { stdout: string; stderr: string; 
   return { stdout: result.stdout || '', stderr: result.stderr || '', status: result.status ?? 1 };
 }
 
-/** A git repository with tbd initialized and a current AGENTS.md block, as a fresh setup leaves it. */
-async function setUpRepo(): Promise<string> {
+/** An empty git repository, with no tbd. */
+async function gitRepo(): Promise<string> {
   const dir = await realpath(await mkdtemp(join(tmpdir(), 'tbd-setup-policy-')));
   cleanupPaths.push(dir);
   for (const args of [
@@ -98,9 +104,19 @@ async function setUpRepo(): Promise<string> {
     const git = spawnSync('git', args, { cwd: dir, encoding: 'utf-8' });
     expect(git.status, git.stderr).toBe(0);
   }
+  return dir;
+}
+
+/** A git repository with tbd initialized and a current AGENTS.md block, as a fresh setup leaves it. */
+async function setUpRepo(): Promise<string> {
+  const dir = await gitRepo();
   const setup = runTbd(dir, ['setup', '--auto', '--prefix=test', '--surfaces=agents-md']);
   expect(setup.status, setup.stderr).toBe(0);
   return dir;
+}
+
+function recommendedExcept(...names: string[]): typeof RECOMMENDED_GRANTS {
+  return RECOMMENDED_GRANTS.filter((grant) => !names.includes(grant.name));
 }
 
 afterEach(async () => {
@@ -288,6 +304,203 @@ describe('tbd setup --auto preserves the policy block', () => {
       expect(result.stderr).toContain('v=2');
       expect(result.stderr).toContain('get-tbd@latest');
       expect(await readFile(agentsPath, 'utf-8')).toBe(newer);
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+});
+
+describe('planRecommendedGrants', () => {
+  it('adds exactly the recommended set to an AGENTS.md without a block, leaving linear unanswered', () => {
+    for (const content of ['', staleAgentsMd('')]) {
+      const plan = planRecommendedGrants(content);
+      expect(plan.added).toEqual(RECOMMENDED_GRANTS);
+      expect(plan.kept).toEqual([]);
+      expect(plan.grants).toEqual(RECOMMENDED_GRANTS);
+      expect(plan.grants.map((grant) => grant.name)).not.toContain('linear');
+    }
+  });
+
+  it('fills only unanswered policies and keeps answered values and unknown names', () => {
+    const block = renderPolicyBlock(
+      [
+        { name: 'github-merge', value: 'unconditional' },
+        { name: 'linear', value: 'epics' },
+        { name: 'future-policy', value: 'keep me' },
+      ],
+      '2025-01-02',
+    );
+    const plan = planRecommendedGrants(staleAgentsMd(block));
+
+    expect(plan.kept).toEqual([{ name: 'github-merge', value: 'unconditional' }]);
+    expect(plan.added).toEqual(recommendedExcept('github-merge'));
+    expect(plan.grants).toEqual(
+      expect.arrayContaining([
+        { name: 'github-merge', value: 'unconditional' },
+        { name: 'linear', value: 'epics' },
+        { name: 'future-policy', value: 'keep me' },
+        ...recommendedExcept('github-merge'),
+      ]),
+    );
+    expect(plan.grants).toHaveLength(RECOMMENDED_GRANTS.length + 2);
+  });
+
+  it('adds nothing when every recommended policy is answered', () => {
+    const plan = planRecommendedGrants(
+      staleAgentsMd(renderPolicyBlock(RECOMMENDED_GRANTS, '2025-01-02')),
+    );
+    expect(plan.added).toEqual([]);
+    expect(plan.kept).toEqual(RECOMMENDED_GRANTS);
+  });
+
+  it('refuses a block it cannot read', () => {
+    expect(() => planRecommendedGrants(staleAgentsMd(DUPLICATE_BLOCK))).toThrow(CLIError);
+    expect(() => planRecommendedGrants(staleAgentsMd(DUPLICATE_BLOCK))).toThrow(/twice/);
+    expect(() => planRecommendedGrants(staleAgentsMd(UNKNOWN_VERSION_BLOCK))).toThrow(/v=2/);
+  });
+});
+
+describe('tbd setup --policies', () => {
+  it(
+    'records exactly the recommended set on a fresh setup and leaves linear unanswered',
+    async () => {
+      const dir = await gitRepo();
+      const result = runTbd(dir, [
+        'setup',
+        '--auto',
+        '--prefix=test',
+        '--surfaces=agents-md',
+        '--policies=recommended',
+      ]);
+      expect(result.status, result.stderr).toBe(0);
+
+      const parse = parsePolicyBlock(await readFile(join(dir, 'AGENTS.md'), 'utf-8'));
+      expect(parse).toMatchObject({ status: 'ok', grants: RECOMMENDED_GRANTS });
+      const unanswered = resolvePolicyStatuses(parse)
+        .filter((status) => !status.answered)
+        .map((status) => status.name);
+      expect(unanswered).toEqual(['linear']);
+
+      expect(result.stdout).toContain('Policy grants (--policies=recommended):');
+      for (const grant of RECOMMENDED_GRANTS) {
+        expect(result.stdout).toContain(`  ✓ Recorded ${grant.name}: ${grant.value}\n`);
+      }
+      expect(result.stdout).toContain(
+        '  linear is not in the recommended set and stays unanswered; ask the user separately.',
+      );
+      expect(result.stdout).toContain('`tbd shortcut setup-github-cli`');
+      expect(result.stdout).toContain('1 policy is unanswered; setup-tbd asks the user about it.');
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'records nothing without the flag',
+    async () => {
+      const dir = await setUpRepo();
+      expect(parsePolicyBlock(await readFile(join(dir, 'AGENTS.md'), 'utf-8'))).toEqual({
+        status: 'missing',
+      });
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'keeps answered policies on an existing project, fills the rest, and implies --auto',
+    async () => {
+      const dir = await setUpRepo();
+      const agentsPath = join(dir, 'AGENTS.md');
+      for (const args of [
+        ['policy', 'set', 'github-merge', 'unconditional'],
+        ['policy', 'set', 'linear', 'epics'],
+      ]) {
+        const recorded = runTbd(dir, args);
+        expect(recorded.status, recorded.stderr).toBe(0);
+      }
+
+      const result = runTbd(dir, ['setup', '--policies=recommended', '--surfaces=agents-md']);
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toContain('All set!');
+      expect(result.stdout).toContain(
+        '  - Kept github-merge: unconditional (already answered; change it with `tbd policy`)',
+      );
+      expect(result.stdout).not.toContain('Recorded github-merge');
+      expect(result.stdout).not.toContain('stays unanswered');
+
+      const recorded = await readFile(agentsPath, 'utf-8');
+      const statuses = resolvePolicyStatuses(parsePolicyBlock(recorded));
+      expect(statuses.every((status) => status.answered)).toBe(true);
+      expect(statuses.find((status) => status.name === 'github-merge')?.value).toBe(
+        'unconditional',
+      );
+      expect(statuses.find((status) => status.name === 'linear')?.value).toBe('epics');
+
+      // With every recommended policy answered, a second run leaves AGENTS.md alone.
+      const again = runTbd(dir, [
+        'setup',
+        '--auto',
+        '--policies=recommended',
+        '--surfaces=agents-md',
+      ]);
+      expect(again.status, again.stderr).toBe(0);
+      expect(again.stdout).toContain(
+        '  Every recommended policy is already answered; nothing recorded.',
+      );
+      expect(await readFile(agentsPath, 'utf-8')).toBe(recorded);
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'reports the grants it would record under --dry-run and writes nothing',
+    async () => {
+      const dir = await setUpRepo();
+      const agentsPath = join(dir, 'AGENTS.md');
+      const before = await readFile(agentsPath, 'utf-8');
+
+      const result = runTbd(dir, [
+        'setup',
+        '--auto',
+        '--dry-run',
+        '--surfaces=agents-md',
+        '--policies=recommended',
+      ]);
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toContain('Would record policy grants in AGENTS.md');
+      expect(result.stdout).toContain('github-workflows: granted');
+      expect(await readFile(agentsPath, 'utf-8')).toBe(before);
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'fails before changing anything when --surfaces excludes agents-md',
+    async () => {
+      const dir = await gitRepo();
+      const result = runTbd(dir, [
+        'setup',
+        '--auto',
+        '--prefix=test',
+        '--surfaces=portable,claude',
+        '--policies=recommended',
+      ]);
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain(
+        '--policies records grants in AGENTS.md, but --surfaces excludes agents-md.',
+      );
+      await expect(access(join(dir, '.tbd'))).rejects.toThrow();
+      await expect(access(join(dir, 'AGENTS.md'))).rejects.toThrow();
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'rejects a value other than recommended',
+    async () => {
+      const dir = await gitRepo();
+      const result = runTbd(dir, ['setup', '--auto', '--prefix=test', '--policies=all']);
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain('recommended');
+      await expect(access(join(dir, '.tbd'))).rejects.toThrow();
     },
     CLI_TEST_TIMEOUT_MS,
   );

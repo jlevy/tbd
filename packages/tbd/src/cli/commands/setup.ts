@@ -8,11 +8,13 @@
  * Options:
  * - `tbd setup --auto` - Non-interactive setup (for agents/scripts)
  * - `tbd setup --from-beads` - Migrate from Beads to tbd
+ * - `tbd setup --auto --policies=recommended` - Also record the recommended
+ *   policy grants for unanswered policies in AGENTS.md
  *
  * See: tbd-design.md §6.4.2 Claude Code Integration
  */
 
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 import { readFile, mkdir, access, rm, rename, chmod, readdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -80,8 +82,15 @@ import {
 } from '../lib/managed-artifact.js';
 import {
   POLICY_BLOCK_VERSION,
+  PolicyBlockError,
+  RECOMMENDED_GRANTS,
   parsePolicyBlock,
+  readWorkingTreeGrants,
+  renderPolicyBlock,
+  upsertGrant,
   withPolicyBlock,
+  type PolicyBlockParse,
+  type PolicyGrant,
 } from '../../lib/policy-grants.js';
 
 /**
@@ -267,29 +276,19 @@ actions rather than telling them to run commands.
 
 const POLICY_GUIDELINE_HINT = 'tbd guidelines agent-policy-grants';
 
-/**
- * The tbd block setup writes for an AGENTS.md whose current content is
- * `existing`: the generated section with the file's policy block carried over
- * byte for byte, including policy names this tbd does not know (they may come
- * from a newer release). Setup never adds, removes, or changes a grant; only
- * `tbd policy` does. A block this tbd cannot read is never rewritten: this
- * throws a CLIError so setup stops and AGENTS.md keeps every grant.
- */
-export function getCodexTbdSectionPreservingGrants(existing: string): string {
-  const parse = parsePolicyBlock(existing);
+/** The error setup stops with for a policy block it cannot read, before AGENTS.md is written. */
+function unreadablePolicyBlockError(
+  parse: Extract<PolicyBlockParse, { status: 'unknown-version' | 'malformed' }>,
+): CLIError {
   switch (parse.status) {
-    case 'missing':
-      return getCodexTbdSection();
-    case 'ok':
-      return withPolicyBlock(getCodexTbdSection(), parse.text);
     case 'unknown-version':
-      throw new CLIError(
+      return new CLIError(
         `AGENTS.md has a policy block with version v=${parse.version}; this tbd reads ` +
           `v=${POLICY_BLOCK_VERSION}. Setup left AGENTS.md unchanged.\n` +
           'Upgrade tbd to manage it: npm install -g get-tbd@latest',
       );
     case 'malformed':
-      throw new CLIError(
+      return new CLIError(
         [
           'AGENTS.md has a malformed policy block:',
           ...parse.problems.map((problem) => `  - ${problem}`),
@@ -303,6 +302,121 @@ export function getCodexTbdSectionPreservingGrants(existing: string): string {
       throw new Error(`Unhandled parse status: ${JSON.stringify(_exhaustive)}`);
     }
   }
+}
+
+/**
+ * The tbd block setup writes for an AGENTS.md whose current content is
+ * `existing`: the generated section with the file's policy block carried over
+ * byte for byte, including policy names this tbd does not know (they may come
+ * from a newer release). Regenerating the block never adds, removes, or changes
+ * a grant; only `tbd policy` and setup's explicit `--policies` flag do. A block
+ * this tbd cannot read is never rewritten: this throws a CLIError so setup
+ * stops and AGENTS.md keeps every grant.
+ */
+export function getCodexTbdSectionPreservingGrants(existing: string): string {
+  const parse = parsePolicyBlock(existing);
+  switch (parse.status) {
+    case 'missing':
+      return getCodexTbdSection();
+    case 'ok':
+      return withPolicyBlock(getCodexTbdSection(), parse.text);
+    case 'unknown-version':
+    case 'malformed':
+      throw unreadablePolicyBlockError(parse);
+    default: {
+      const _exhaustive: never = parse;
+      throw new Error(`Unhandled parse status: ${JSON.stringify(_exhaustive)}`);
+    }
+  }
+}
+
+/**
+ * Values of `tbd setup --policies`. The flag records a whole set; a single
+ * policy is recorded with `tbd policy grant|revoke|set`.
+ */
+const SETUP_POLICY_SETS = ['recommended'] as const;
+type SetupPolicySet = (typeof SETUP_POLICY_SETS)[number];
+
+function isSetupPolicySet(value: string): value is SetupPolicySet {
+  return (SETUP_POLICY_SETS as readonly string[]).includes(value);
+}
+
+/** What `tbd setup --policies=recommended` records in one AGENTS.md. */
+export interface RecommendedGrantsPlan {
+  /** Recommended grants for the policies the block leaves unanswered; setup records these. */
+  added: PolicyGrant[];
+  /** Recommended policies the block already answers, with the recorded values setup keeps. */
+  kept: PolicyGrant[];
+  /** Every grant in the block once `added` is recorded, unknown policy names included. */
+  grants: PolicyGrant[];
+}
+
+/**
+ * Plan `--policies=recommended` for AGENTS.md content: the recommended value
+ * for each policy the block leaves unanswered, keeping every answered policy
+ * whatever its value (the setup process asks only about unanswered policies,
+ * and `tbd policy` changes answered ones). `linear` is outside the recommended
+ * set and stays as it is. Throws a CLIError for a block this tbd cannot read.
+ */
+export function planRecommendedGrants(agentsMd: string): RecommendedGrantsPlan {
+  const parse = parsePolicyBlock(agentsMd);
+  let existing: PolicyGrant[];
+  switch (parse.status) {
+    case 'missing':
+      existing = [];
+      break;
+    case 'ok':
+      existing = parse.grants;
+      break;
+    case 'unknown-version':
+    case 'malformed':
+      throw unreadablePolicyBlockError(parse);
+    default: {
+      const _exhaustive: never = parse;
+      throw new Error(`Unhandled parse status: ${JSON.stringify(_exhaustive)}`);
+    }
+  }
+
+  const added: PolicyGrant[] = [];
+  const kept: PolicyGrant[] = [];
+  let grants = existing;
+  for (const recommended of RECOMMENDED_GRANTS) {
+    const answered = existing.find((grant) => grant.name === recommended.name);
+    if (answered) {
+      kept.push(answered);
+    } else {
+      added.push(recommended);
+      grants = upsertGrant(grants, recommended.name, recommended.value);
+    }
+  }
+  return { added, kept, grants };
+}
+
+/** Today's date as YYYY-MM-DD (UTC), for the policy block's Recorded line. */
+function todayDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** Known policies that the working-tree AGENTS.md leaves unanswered (all of them without a readable block). */
+async function countUnansweredPolicies(projectDir: string): Promise<number> {
+  const { policies } = await readWorkingTreeGrants(projectDir);
+  return policies.filter((status) => status.known && !status.answered).length;
+}
+
+/**
+ * The WHAT'S NEXT lines that send the agent to the `setup-tbd` process, which
+ * asks the user about unanswered policies. `purpose` completes "run ... to".
+ */
+function setupTbdPointerLines(purpose: string, unanswered: number): string[] {
+  let status: string;
+  if (unanswered === 0) {
+    status = 'Every policy is answered; setup-tbd reviews the grants with the user.';
+  } else if (unanswered === 1) {
+    status = '1 policy is unanswered; setup-tbd asks the user about it.';
+  } else {
+    status = `${unanswered} policies are unanswered; setup-tbd asks the user about them.`;
+  }
+  return [`  Agent: run \`tbd shortcut setup-tbd\` to ${purpose}.`, `  ${status}`];
 }
 
 interface SetupClaudeOptions {
@@ -1524,6 +1638,8 @@ interface SetupDefaultOptions {
   prefix?: string;
   force?: boolean;
   ghCli?: boolean; // Commander sets to false when --no-gh-cli is passed
+  surfaces?: string;
+  policies?: string;
 }
 
 /**
@@ -1557,6 +1673,9 @@ class SetupDefaultHandler extends BaseCommand {
     // Header
     console.log(colors.bold('tbd: Git-native issue tracking for AI agents and humans'));
     console.log('');
+
+    // Reject flag combinations before anything is initialized or written.
+    resolveSetupRequest(options);
 
     // Check if in git repo and resolve to git root
     const inGitRepo = await isInGitRepo(cwd);
@@ -1660,7 +1779,7 @@ class SetupDefaultHandler extends BaseCommand {
       }
 
       console.log('');
-      await this.handleAlreadyInitialized(projectDir, isAutoMode);
+      await this.handleAlreadyInitialized(projectDir, isAutoMode, migrated || setupVersionChanged);
     } else if (hasBeads || options.fromBeads) {
       // Beads migration flow
       console.log(`  ${colors.dim('✗')} tbd not initialized`);
@@ -1675,7 +1794,11 @@ class SetupDefaultHandler extends BaseCommand {
     }
   }
 
-  private async handleAlreadyInitialized(projectDir: string, _isAutoMode: boolean): Promise<void> {
+  private async handleAlreadyInitialized(
+    projectDir: string,
+    _isAutoMode: boolean,
+    upgraded: boolean,
+  ): Promise<void> {
     const colors = this.output.getColors();
 
     // Ensure .tbd/.gitignore is up-to-date (may have new patterns from newer versions)
@@ -1755,6 +1878,18 @@ class SetupDefaultHandler extends BaseCommand {
 
     console.log('');
     console.log(colors.success('All set!'));
+
+    // After an upgrade, route the agent to the setup process to review it with the user.
+    if (upgraded && !this.ctx.dryRun) {
+      const unanswered = await countUnansweredPolicies(projectDir);
+      console.log('');
+      console.log(colors.bold("WHAT'S NEXT"));
+      console.log('');
+      for (const line of setupTbdPointerLines('review this upgrade with the user', unanswered)) {
+        console.log(line);
+      }
+      console.log('');
+    }
   }
 
   private async handleBeadsMigration(
@@ -1858,7 +1993,7 @@ class SetupDefaultHandler extends BaseCommand {
     console.log('');
     console.log(colors.success('Setup complete!'));
 
-    this.showWhatsNext(colors);
+    await this.showWhatsNext(cwd);
 
     // Show dashboard after setup
     await runPrime(this.cmd);
@@ -1951,7 +2086,7 @@ class SetupDefaultHandler extends BaseCommand {
     console.log('');
     console.log(colors.success('Setup complete!'));
 
-    this.showWhatsNext(colors);
+    await this.showWhatsNext(cwd);
 
     // Show dashboard after setup
     await runPrime(this.cmd);
@@ -1965,21 +2100,30 @@ class SetupDefaultHandler extends BaseCommand {
   }
 
   /**
-   * Show "What's Next" guidance after setup completion.
-   * Framed as what users can SAY to get help, not as CLI commands to run.
+   * Show "What's Next" guidance after setup completion: send the agent to the
+   * setup-tbd process (which asks about unanswered policies), then what users
+   * can SAY to get help, not CLI commands to run.
    */
-  private showWhatsNext(colors: ReturnType<typeof this.output.getColors>): void {
+  private async showWhatsNext(projectDir: string): Promise<void> {
+    const colors = this.output.getColors();
+    const unanswered = await countUnansweredPolicies(projectDir);
     console.log('');
     console.log(colors.bold("WHAT'S NEXT"));
     console.log('');
+    for (const line of setupTbdPointerLines('finish setting up tbd with the user', unanswered)) {
+      console.log(line);
+    }
+    console.log('');
     console.log('  Try saying things like:');
+    console.log('    "Set up tbd"                    → Reviews setup and asks about policy grants');
     console.log('    "There\'s a bug where ..."       → Creates and tracks a bug');
     console.log('    "Let\'s plan a new feature"      → Walks through a planning spec');
     console.log('    "Let\'s work on current issues"  → Shows ready issues to tackle');
     console.log('    "Show my beads in a browser"    → Opens the live, read-only viewer');
     console.log('    "Set up Linear" / "Add my Linear key" → Guided team or personal setup');
-    console.log('    "Commit this code"               → Reviews and commits properly');
-    console.log('    "Review for best practices"      → Code review with guidelines');
+    console.log('    "Commit this code"              → Reviews and commits properly');
+    console.log('    "Review for best practices"     → Code review with guidelines');
+    console.log('    "Make sure PR #12 is reviewed and merged" → Reviews, fixes, and merges it');
     console.log('');
   }
 
@@ -2114,6 +2258,70 @@ const SURFACE_DISPLAY_NAME: Record<SurfaceId, string> = {
   claude: 'Claude Code',
   codex: 'Codex hooks',
 };
+
+/**
+ * Resolve the set of surfaces to install from `--surfaces=<comma-list>`. With
+ * the flag omitted, every surface is installed. `all` is an alias for the full
+ * set; an unknown surface ID is a hard error.
+ */
+function resolveSetupSurfaces(surfaces: string | undefined): Set<SurfaceId> {
+  if (surfaces === undefined) {
+    return new Set(SETUP_SURFACE_IDS);
+  }
+  const valid = new Set<string>(SETUP_SURFACE_IDS);
+  const requested = surfaces
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  const selected = new Set<SurfaceId>();
+  for (const name of requested) {
+    if (name === 'all') {
+      for (const id of SETUP_SURFACE_IDS) {
+        selected.add(id);
+      }
+      continue;
+    }
+    if (valid.has(name)) {
+      selected.add(name as SurfaceId);
+      continue;
+    }
+    throw new CLIError(
+      `Unknown surface "${name}". Valid surfaces: ${SETUP_SURFACE_IDS.join(', ')}, all.`,
+    );
+  }
+  return selected;
+}
+
+/** The surfaces and policy set one setup run installs and records. */
+interface SetupRequest {
+  surfaces: Set<SurfaceId>;
+  /** The `--policies` set to record, or null without the flag. */
+  policySet: SetupPolicySet | null;
+}
+
+/**
+ * Validate `--surfaces` and `--policies` together. Grants live in AGENTS.md,
+ * so `--policies` in a run that does not write AGENTS.md is an error rather
+ * than a flag that silently records nothing.
+ */
+function resolveSetupRequest(options: { surfaces?: string; policies?: string }): SetupRequest {
+  const surfaces = resolveSetupSurfaces(options.surfaces);
+  if (options.policies === undefined) {
+    return { surfaces, policySet: null };
+  }
+  if (!isSetupPolicySet(options.policies)) {
+    throw new CLIError(
+      `Unknown --policies value "${options.policies}". Valid values: ${SETUP_POLICY_SETS.join(', ')}.`,
+    );
+  }
+  if (!surfaces.has('agents-md')) {
+    throw new CLIError(
+      '--policies records grants in AGENTS.md, but --surfaces excludes agents-md.\n' +
+        'Add agents-md to --surfaces, or record grants later with `tbd policy grant <policy>`.',
+    );
+  }
+  return { surfaces, policySet: options.policies };
+}
 
 class SetupAutoHandler extends BaseCommand {
   private cmd: Command;
@@ -2265,7 +2473,8 @@ class SetupAutoHandler extends BaseCommand {
     // Install the selected surfaces. With no --surfaces flag, all are installed;
     // there is no detection gating; project-local integration files are cheap
     // and harmless, and installing them all is what makes the skill portable.
-    const selected = this.resolveSurfaces();
+    const opts: { surfaces?: string; policies?: string } = this.cmd.optsWithGlobals();
+    const { surfaces: selected, policySet } = resolveSetupRequest(opts);
     const skippedSurfaces: string[] = [];
     for (const id of SETUP_SURFACE_IDS) {
       if (!selected.has(id)) {
@@ -2304,6 +2513,20 @@ class SetupAutoHandler extends BaseCommand {
     if (failed.length > 0) {
       for (const r of failed) {
         console.log(colors.warn(`  ! ${r.name}: ${r.error}`));
+      }
+    }
+
+    // Record policy grants only when --policies asks for them; the agents-md
+    // surface above has just written (or refreshed) the tbd block they go in.
+    switch (policySet) {
+      case null:
+        break;
+      case 'recommended':
+        await this.recordRecommendedGrants(cwd);
+        break;
+      default: {
+        const _exhaustive: never = policySet;
+        throw new Error(`Unhandled policy set: ${String(_exhaustive)}`);
       }
     }
 
@@ -2434,37 +2657,72 @@ class SetupAutoHandler extends BaseCommand {
   }
 
   /**
-   * Resolve the set of surfaces to install from `--surfaces=<comma-list>`. With
-   * the flag omitted, every surface is installed. `all` is an alias for the full
-   * set; an unknown surface ID is a hard error.
+   * Record `--policies=recommended` in AGENTS.md: the recommended value for each
+   * unanswered policy, keeping answered ones (see planRecommendedGrants). Writes
+   * nothing when every recommended policy is already answered.
    */
-  private resolveSurfaces(): Set<SurfaceId> {
-    const opts: { surfaces?: string } = this.cmd.optsWithGlobals();
-    if (opts.surfaces === undefined) {
-      return new Set(SETUP_SURFACE_IDS);
+  private async recordRecommendedGrants(cwd: string): Promise<void> {
+    const colors = this.output.getColors();
+    const agentsPath = getAgentsMdPath(cwd);
+    let content = '';
+    try {
+      content = await readFile(agentsPath, 'utf-8');
+    } catch (error) {
+      // A dry run reaches here before AGENTS.md exists; a real run has just written it.
+      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
+        throw error;
+      }
     }
-    const valid = new Set<string>(SETUP_SURFACE_IDS);
-    const requested = opts.surfaces
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
-    const selected = new Set<SurfaceId>();
-    for (const name of requested) {
-      if (name === 'all') {
-        for (const id of SETUP_SURFACE_IDS) {
-          selected.add(id);
+    const plan = planRecommendedGrants(content);
+
+    if (this.ctx.dryRun) {
+      if (plan.added.length > 0) {
+        const grants = plan.added.map((grant) => `${grant.name}: ${grant.value}`).join(', ');
+        this.output.dryRun(`Would record policy grants in AGENTS.md: ${grants}`);
+      }
+      return;
+    }
+
+    if (plan.added.length > 0) {
+      let updated: string;
+      try {
+        updated = withPolicyBlock(content, renderPolicyBlock(plan.grants, todayDate()));
+      } catch (error) {
+        if (error instanceof PolicyBlockError) {
+          throw new CLIError(error.message);
         }
-        continue;
+        throw error;
       }
-      if (valid.has(name)) {
-        selected.add(name as SurfaceId);
-        continue;
-      }
-      throw new CLIError(
-        `Unknown surface "${name}". Valid surfaces: ${SETUP_SURFACE_IDS.join(', ')}, all.`,
+      await writeFile(agentsPath, updated);
+    }
+
+    console.log(colors.bold('Policy grants (--policies=recommended):'));
+    for (const grant of plan.added) {
+      console.log(`  ${colors.success('✓')} Recorded ${grant.name}: ${grant.value}`);
+    }
+    for (const grant of plan.kept) {
+      console.log(
+        colors.dim(
+          `  - Kept ${grant.name}: ${grant.value} (already answered; change it with \`tbd policy\`)`,
+        ),
       );
     }
-    return selected;
+    if (plan.added.length === 0) {
+      console.log('  Every recommended policy is already answered; nothing recorded.');
+    }
+    if (!plan.grants.some((grant) => grant.name === 'linear')) {
+      console.log(
+        '  linear is not in the recommended set and stays unanswered; ask the user separately.',
+      );
+    }
+    if (plan.added.some((grant) => grant.name.startsWith('github-'))) {
+      console.log('  GitHub grants need gh authentication; see `tbd shortcut setup-github-cli`.');
+    }
+    if (plan.added.length > 0) {
+      console.log(
+        '  Commit AGENTS.md and merge it to the default branch for the grants to take effect.',
+      );
+    }
   }
 
   /** Dispatch the install for a single surface by ID. */
@@ -2712,6 +2970,12 @@ export const setupCommand = new Command('setup')
     '--surfaces <list>',
     'Comma-separated agent surfaces to install: portable, agents-md, claude, codex (or "all"). Default: all',
   )
+  .addOption(
+    new Option(
+      '--policies <set>',
+      'Record policy grants in AGENTS.md for unanswered policies; implies --auto',
+    ).choices(SETUP_POLICY_SETS),
+  )
   .action(async (options: SetupDefaultOptions, command) => {
     // If --auto flag is set, run the default handler
     if (options.auto) {
@@ -2720,8 +2984,8 @@ export const setupCommand = new Command('setup')
       return;
     }
 
-    // If --from-beads is set without --auto, treat as --auto
-    if (options.fromBeads) {
+    // --from-beads and --policies without --auto are treated as --auto
+    if (options.fromBeads || options.policies !== undefined) {
       const handler = new SetupDefaultHandler(command);
       await handler.run({ ...options, auto: true });
       return;
@@ -2747,10 +3011,14 @@ export const setupCommand = new Command('setup')
     console.log(
       '  --surfaces <list>   Agent surfaces to install: portable,agents-md,claude,codex,all (default: all)',
     );
+    console.log(
+      '  --policies <set>    Record policy grants for unanswered policies: recommended (implies --auto)',
+    );
     console.log('');
     console.log('Examples:');
     console.log('  tbd setup --auto --prefix=tbd   # Full automatic setup with prefix');
     console.log('  tbd setup --from-beads          # Migrate from Beads (uses beads prefix)');
+    console.log('  tbd setup --auto --policies=recommended  # Also record the recommended grants');
     console.log('');
     console.log('For surgical initialization without integrations, see: tbd init --help');
   });
