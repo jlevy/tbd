@@ -103,8 +103,13 @@ value := "not-granted" | "epics" | "epics" "+" "specs" | "custom"
 
 - `epics`: open epic beads only, in both directions.
   In the integration’s terms, an outbound selection of `kinds: [epic]`, `specs: none`,
-  and open statuses, with linked pairs reconciled both ways by `tbd sync`; it does not
-  create beads from new Linear issues unless the user asks.
+  and open statuses (`open`, `in_progress`, `blocked`), with linked pairs reconciled by
+  `tbd sync` under the integration’s default `field_sync`: title, description, status,
+  priority, and comments merge both ways, while labels and assignee stay bead-owned and
+  flow to Linear only.
+  The selection constrains the outbound direction only: sync lists unlinked Linear
+  issues in the project as importable and creates no beads from them unless the user
+  asks.
 - `epics + specs`: open epics plus beads whose spec is active (a `spec_path` under
   `specs/active/`, which propagates to their descendants).
   This is the integration’s `policy: default`.

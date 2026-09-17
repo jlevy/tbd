@@ -1,6 +1,6 @@
 ---
 title: Setup Linear
-description: Set up the Linear integration end to end—first-time configuration for a repository, or adding your own API key to a repository your team already configured
+description: Set up the Linear integration end to end—the linear policy grant, first-time configuration for a repository with the epics selection as the default, or adding your own API key to a repository your team already configured
 category: session
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
@@ -24,6 +24,28 @@ places by different people:
 
 That split is the whole shape of this workflow.
 A user joining a team that already uses Linear needs only the second one.
+A third thing precedes both: the user’s consent, recorded as the `linear` policy grant.
+
+## The `linear` policy grant
+
+Linear sync is not on by default.
+The `linear` policy in the project’s policy block (`tbd guidelines agent-policy-grants`)
+records that the user wants it and names the selection:
+
+- `epics`: open epic beads only, in both directions.
+  This is the default when the user wants Linear; Step 2 gives its exact configuration.
+- `epics + specs`: open epics plus beads whose spec is active, the integration’s
+  `policy: default`.
+- `custom`: whatever selection `.tbd/config.yml` configures.
+
+Run `tbd policy show` first.
+If `linear` is unanswered or `not-granted`, ask whether the user uses Linear and wants
+tbd to sync beads with it, before you configure or run anything.
+Record the answer with `tbd policy set linear epics` (or the value the user chose) and
+commit the policy block with the rest of this change.
+A repository that already enables Linear in `.tbd/config.yml` (cases B, C, and D below)
+keeps syncing either way: the grant is consent for agents, not a switch inside tbd.
+There, ask the user to record the value that matches the committed selection.
 
 ## Step 0: Make sure tbd is initialized
 
@@ -72,7 +94,8 @@ You cannot infer the team or project—**ask the user**:
 - **Project** (optional but recommended): scopes both new issue creation and automatic
   inbound discovery to one project, so tbd never wanders into unrelated team work.
 
-Then add to `.tbd/config.yml`:
+Then add to `.tbd/config.yml`. With the `linear: epics` grant, the default, the
+selection is open epic beads only:
 
 ```yaml
 integrations:
@@ -82,16 +105,31 @@ integrations:
     target:
       team_key: FIN # theirs, from the user
       project: my-project # optional; omit if they did not name one
+    policy:
+      outbound:
+        kinds: [epic] # selected by kind
+        specs: none # never by spec
+        statuses: [open, in_progress, blocked] # open work only
+```
+
+This is exactly the `epics` mapping in `tbd guidelines agent-policy-grants`. The
+`inbound` and `field_sync` clauses are left to the integration’s defaults, which give
+the two directions described under **What flows in each direction** below.
+Use this selection unless the user chose another grant value.
+
+With `linear: epics + specs`, or when the user asks to track spec-driven work as well,
+use the preset in place of the `policy:` mapping above:
+
+```yaml
     policy: default # open epics + anything with a live plan spec
 ```
 
-Leave `policy: default` unless the user asks for something else.
-It selects open epics plus anything whose `spec_path` points into `specs/active/`—the
-right starting point for “track our specs and major work”.
+It selects open epics plus anything whose `spec_path` points into `specs/active/`, the
+starting point for “track our specs and major work”.
 
-**Size that selection before the first sync, because it is easy to underestimate.**
-`spec_path` propagates from a parent bead to its descendants, so the spec clause selects
-every descendant of every epic carrying a live spec.
+**Size the `default` selection before the first sync, because it is easy to
+underestimate.** `spec_path` propagates from a parent bead to its descendants, so the
+spec clause selects every descendant of every epic carrying a live spec.
 In a spec-driven repository that can be a large share of open work rather than a small
 one. Two things to check with the user when the preview looks bigger than expected:
 
@@ -100,6 +138,24 @@ one. Two things to check with the user when the preview looks bigger than expect
   *within the selected set* are reported as skipped rather than created, so the number
   of Linear issues is normally smaller than the number of selected beads.
   Both numbers appear in the dry run.
+
+**What flows in each direction.** The selection decides only which beads get a Linear
+issue. For every linked pair, `tbd sync` reconciles with the integration’s default
+`field_sync`: title, description, status, priority, and comments merge in both
+directions, with the newer edit winning a conflict; labels and assignee stay bead-owned
+and flow to Linear only, so a label or assignee changed in Linear is overwritten on the
+next sync and reported.
+Inbound, the default `inbound.mode: report` lists unlinked Linear issues in the project
+as importable and never creates a bead from them, whatever their type.
+Import one only when the user asks; it becomes a bead of the `inbound.as_kind` kind
+(`task` by default), linked to the issue:
+
+```bash
+tbd integration sync --pull --external FIN-123   # Creates one bead, linked to FIN-123
+```
+
+Set `policy.inbound.mode: auto` only when the user wants every new issue in the project
+to become a bead.
 
 **Then run `tbd setup --auto` before committing.** Writing the block leaves the
 repository at whatever format it was on; setup migrates it to the current fresh-repo
@@ -319,6 +375,8 @@ Pull request linking and issue sync are separate features; this step is only the
 ## What to tell the user when you are done
 
 - Which case it was, and what you changed (config, `.env`, or nothing).
+- Which `linear` grant is recorded and which selection it names (for `epics`, open epic
+  beads only, in both directions).
 - That the config is committed and shared, but their key is personal and stays local.
 - That `tbd sync` now covers Linear too.
 - For case A: that `.tbd/config.yml` needs committing so teammates inherit it.
@@ -335,7 +393,8 @@ Pull request linking and issue sync are separate features; this step is only the
 | `reachable` fails with a valid-looking key | Key revoked, missing a required permission, or no access to that team | Re-issue under Settings > Account > Security & Access; confirm permissions and `linear.target.team_key` |
 | Integration block vanished from `config.yml` | A pre-0.6.0 tbd rewrote config before the repository was stamped `f07` | `git checkout .tbd/config.yml`, upgrade that machine (`npm install -g get-tbd@latest`), then `tbd setup --auto` to stamp the format |
 | A teammate reports “This repository requires a newer version of tbd” | Working as intended: their tbd predates `f07` and would strip the block | Have them upgrade: `npm install -g get-tbd@latest` |
-| Sync says `nothing to do` but Linear looks stale | The policy does not select those beads | Check `policy.outbound` against what the user expects; `--dry-run integration sync --push` lists the selected set |
+| Sync says `nothing to do` but Linear looks stale | The policy does not select those beads (under `epics`, only open epic beads are mirrored) | Check `policy.outbound` against what the user expects; `--dry-run integration sync --push` lists the selected set |
+| A Linear issue never shows up as a bead | `inbound.mode` is `report`, the default: sync lists it as importable and creates nothing | Import it on request with `tbd integration sync --pull --external <KEY>`; set `policy.inbound.mode: auto` only if the user wants every new issue imported |
 | A bead reports malformed managed-block markers | A human edited inside the `⟦tbd⟧` … `⟦/tbd⟧` region in Linear | Repair the region in Linear (one `⟦tbd⟧` and one `⟦/tbd⟧`, in that order) or delete it entirely; the next sync rewrites it |
 | A reopened bead stops syncing, warning that its item is archived | Under the default `policy.archive: manual` the tracker’s archive is yours to manage | Restore the issue in Linear, or set `policy.archive: on_close` to let tbd own the lifecycle |
 | Newly mirrored issues all show today’s dates | A tbd older than 0.7.0 stamped them at sync time instead of sending the bead’s own | Upgrade; dates are sent on create, so already-mirrored issues keep their original stamps |
