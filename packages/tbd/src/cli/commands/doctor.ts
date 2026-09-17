@@ -47,6 +47,7 @@ import { isAgentId } from '../../lib/agent-identity.js';
 import { KNOWN_STATE_TYPES, CONVENTIONAL_STATE_NAMES } from '../../integrations/linear/mapping.js';
 import { findHierarchyProblems } from '../../lib/issue-hierarchy.js';
 import { findDependencyCycles } from '../../lib/issue-dependency-graph.js';
+import type { IdMapping } from '../../file/id-mapping.js';
 import { duplicateExternalLinks, readLink } from '../../integrations/core/link-store.js';
 import { integrationsInert } from '../../integrations/core/registry.js';
 import { integrationStatus } from '../../integrations/core/status.js';
@@ -121,6 +122,24 @@ export function droppedIntegrationConfigFinding(
       'Restore: git checkout .tbd/config.yml (then upgrade tbd: npm install -g get-tbd@latest). ' +
       'If you removed it deliberately, commit the change.',
   };
+}
+
+/**
+ * Build the best-effort public-ID formatter for dependency diagnostics.
+ *
+ * Formatting must never hide or blur the finding it names. A bead missing from the
+ * mapping, or a mapping that could not be loaded (`null`, for example a conflicted
+ * ids.yml), falls back to the internal ID, which stays distinct per bead and which
+ * `tbd dep remove` accepts. Doctor reports the mapping problem in its own checks.
+ */
+export function dependencyIdFormatter(
+  mapping: IdMapping | null,
+  prefix: string,
+): (issueId: string) => string {
+  return (issueId) =>
+    mapping?.ulidToShort.has(extractUlidFromInternalId(issueId))
+      ? formatDisplayId(issueId, mapping, prefix)
+      : issueId;
 }
 
 /**
@@ -1049,16 +1068,11 @@ class DoctorHandler extends BaseCommand {
 
   private async checkDependencies(issues: Issue[]): Promise<DiagnosticResult> {
     const { loadIdMapping } = await import('../../file/id-mapping.js');
-    const mapping = await loadIdMapping(this.dataSyncDir);
+    // Public IDs are presentation only: an unloadable mapping, which the ID mapping
+    // checks report, must not turn a graph finding into "check could not complete".
+    const mapping = await loadIdMapping(this.dataSyncDir).catch(() => null);
     const prefix = this.config?.display.id_prefix ?? 'tbd';
-    const formatIssueId = (issueId: string): string => {
-      const ulid = extractUlidFromInternalId(issueId);
-      if (!mapping.ulidToShort.has(ulid)) {
-        return '<unmapped bead>';
-      }
-      return formatDisplayId(issueId, mapping, prefix);
-    };
-    return dependencyFinding(issues, formatIssueId);
+    return dependencyFinding(issues, dependencyIdFormatter(mapping, prefix));
   }
 
   /**

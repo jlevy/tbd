@@ -4,7 +4,8 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { dependencyFinding } from '../src/cli/commands/doctor.js';
+import { dependencyFinding, dependencyIdFormatter } from '../src/cli/commands/doctor.js';
+import type { IdMapping } from '../src/file/id-mapping.js';
 import { findDependencyCycles } from '../src/lib/issue-dependency-graph.js';
 import { createTestIssue, testId, TEST_ULIDS } from './test-helpers.js';
 
@@ -169,5 +170,23 @@ describe('dependencyFinding', () => {
       name: 'Dependencies',
       ...expected,
     });
+  });
+
+  it('names beads without a short ID, or with no usable mapping, by internal ID', () => {
+    const issues = dependencyGraph([
+      ['a', 'b'],
+      ['b', 'a'],
+    ]);
+    const partialMapping: IdMapping = {
+      shortToUlid: new Map([['aaaa', TEST_ULIDS.DOCTOR_1]]),
+      ulidToShort: new Map([[TEST_ULIDS.DOCTOR_1, 'aaaa']]),
+    };
+
+    expect(
+      dependencyFinding(issues, dependencyIdFormatter(partialMapping, 'test')).details,
+    ).toEqual([`depends-on cycle: test-aaaa -> ${LETTER_IDS.b} -> test-aaaa`]);
+    expect(dependencyFinding(issues, dependencyIdFormatter(null, 'test')).details).toEqual([
+      `depends-on cycle: ${LETTER_IDS.a} -> ${LETTER_IDS.b} -> ${LETTER_IDS.a}`,
+    ]);
   });
 });

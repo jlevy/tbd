@@ -578,4 +578,56 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       expect(await exists(directDataSync)).toBe(false);
     });
   });
+
+  describe('doctor dependency cycles', () => {
+    it('fails on a cycle and still reports it when ids.yml is conflicted', async () => {
+      const [first, second] = ['Cycle A', 'Cycle B'].map((title) => {
+        const created = runTbd(dir, ['create', title, '--type', 'task', '--json']);
+        expect(created.status).toBe(0);
+        return (JSON.parse(created.stdout) as { id: string }).id;
+      }) as [string, string];
+      expect(runTbd(dir, ['dep', 'add', first, second]).status).toBe(0);
+      expect(runTbd(dir, ['dep', 'add', second, first]).status).toBe(0);
+
+      const dependenciesFinding = (stdout: string) =>
+        (
+          JSON.parse(stdout) as {
+            healthChecks: { name: string; status: string; message?: string; details?: string[] }[];
+          }
+        ).healthChecks.find((finding) => finding.name === 'Dependencies');
+
+      const diagnose = runTbd(dir, ['doctor', '--json']);
+      expect(diagnose.status).toBe(1);
+      const finding = dependenciesFinding(diagnose.stdout);
+      expect(finding).toMatchObject({ status: 'error', message: '1 directed cycle(s)' });
+      expect([
+        [`depends-on cycle: ${first} -> ${second} -> ${first}`],
+        [`depends-on cycle: ${second} -> ${first} -> ${second}`],
+      ]).toContainEqual(finding?.details);
+
+      // Formatting is best-effort: an unreadable mapping must not hide the cycle.
+      const mappingPath = join(
+        dir,
+        '.git',
+        'tbd',
+        'data-sync-worktree',
+        '.tbd',
+        'data-sync',
+        'mappings',
+        'ids.yml',
+      );
+      const mapping = await readFile(mappingPath, 'utf-8');
+      await writeFile(mappingPath, `<<<<<<< ours\n${mapping}=======\n${mapping}>>>>>>> theirs\n`);
+
+      const conflicted = runTbd(dir, ['doctor', '--json']);
+      expect(conflicted.status).toBe(1);
+      const conflictedFinding = dependenciesFinding(conflicted.stdout);
+      expect(conflictedFinding).toMatchObject({ status: 'error', message: '1 directed cycle(s)' });
+      expect(conflictedFinding?.details).toEqual([
+        expect.stringMatching(
+          /^depends-on cycle: is-[0-9a-z]{26} -> is-[0-9a-z]{26} -> is-[0-9a-z]{26}$/,
+        ),
+      ]);
+    });
+  });
 });
