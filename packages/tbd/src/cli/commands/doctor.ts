@@ -46,6 +46,8 @@ import { isDirOnPath, npmGlobalBinDir, readNpmGlobalPrefix } from '../../lib/npm
 import { isAgentId } from '../../lib/agent-identity.js';
 import { KNOWN_STATE_TYPES, CONVENTIONAL_STATE_NAMES } from '../../integrations/linear/mapping.js';
 import { findHierarchyProblems } from '../../lib/issue-hierarchy.js';
+import { findDependencyCycles } from '../../lib/issue-dependency-graph.js';
+import type { IdMapping } from '../../file/id-mapping.js';
 import { duplicateExternalLinks, readLink } from '../../integrations/core/link-store.js';
 import { integrationsInert } from '../../integrations/core/registry.js';
 import { integrationStatus } from '../../integrations/core/status.js';
@@ -119,6 +121,85 @@ export function droppedIntegrationConfigFinding(
     suggestion:
       'Restore: git checkout .tbd/config.yml (then upgrade tbd: npm install -g get-tbd@latest). ' +
       'If you removed it deliberately, commit the change.',
+  };
+}
+
+/**
+ * Build the best-effort public-ID formatter for dependency diagnostics.
+ *
+ * Formatting must never hide or blur the finding it names. A bead missing from the
+ * mapping, or a mapping that could not be loaded (`null`, for example a conflicted
+ * ids.yml), falls back to the internal ID, which stays distinct per bead and which
+ * `tbd dep remove` accepts. Doctor reports the mapping problem in its own checks.
+ */
+export function dependencyIdFormatter(
+  mapping: IdMapping | null,
+  prefix: string,
+): (issueId: string) => string {
+  return (issueId) =>
+    mapping?.ulidToShort.has(extractUlidFromInternalId(issueId))
+      ? formatDisplayId(issueId, mapping, prefix)
+      : issueId;
+}
+
+/**
+ * Diagnose missing dependency targets and directed depends-on cycles.
+ *
+ * Orphans alone are a fixable warning. A cycle is an error because it makes the work
+ * plan self-contradictory and can leave every participating open bead blocked. Cycle
+ * repair remains manual because doctor cannot infer which dependency edge was
+ * unintended, but orphans reported alongside a cycle keep their repair guidance.
+ */
+export function dependencyFinding(
+  issues: readonly Issue[],
+  formatIssueId: (issueId: string) => string = (issueId) => issueId,
+): DiagnosticResult {
+  const issueIds = new Set(issues.map((issue) => issue.id));
+  const orphans: string[] = [];
+
+  for (const issue of issues) {
+    for (const dependency of issue.dependencies) {
+      if (!issueIds.has(dependency.target)) {
+        orphans.push(`${formatIssueId(issue.id)} -> ${formatIssueId(dependency.target)} (missing)`);
+      }
+    }
+  }
+
+  const cycles = findDependencyCycles(issues);
+  if (cycles.length === 0 && orphans.length === 0) {
+    return { name: 'Dependencies', status: 'ok' };
+  }
+  if (cycles.length === 0) {
+    return {
+      name: 'Dependencies',
+      status: 'warn',
+      message: `${orphans.length} orphaned reference(s)`,
+      details: orphans,
+      fixable: true,
+      suggestion: 'Run: tbd doctor --fix',
+    };
+  }
+
+  const cycleDetails = cycles.map(
+    (cycle) => `depends-on cycle: ${cycle.map(formatIssueId).join(' -> ')}`,
+  );
+  const cycleSuggestion = 'Break each cycle with: tbd dep remove <issue> <depends-on>.';
+  if (orphans.length === 0) {
+    return {
+      name: 'Dependencies',
+      status: 'error',
+      message: `${cycles.length} directed cycle(s)`,
+      details: cycleDetails,
+      suggestion: cycleSuggestion,
+    };
+  }
+  return {
+    name: 'Dependencies',
+    status: 'error',
+    message: `${cycles.length} directed cycle(s) and ${orphans.length} orphaned reference(s)`,
+    details: [...cycleDetails, ...orphans],
+    fixable: true,
+    suggestion: `${cycleSuggestion} Run: tbd doctor --fix to repair the orphaned reference(s).`,
   };
 }
 
@@ -465,9 +546,9 @@ class DoctorHandler extends BaseCommand {
     // Check 3: Issues directory
     healthChecks.push(await this.safeCheck('Issues directory', () => this.checkIssuesDirectory()));
 
-    // Check 4: Orphaned dependencies
+    // Check 4: Orphaned dependencies and directed cycles
     healthChecks.push(
-      await this.safeCheck('Dependencies', async () => this.checkOrphanedDependencies(this.issues)),
+      await this.safeCheck('Dependencies', () => this.checkDependencies(this.issues)),
       await this.safeCheck('Actor axis', async () => this.checkAgentShapedAssignees(this.issues)),
       await this.safeCheck('State resolution', () => Promise.resolve(this.checkStateResolution())),
     );
@@ -985,30 +1066,13 @@ class DoctorHandler extends BaseCommand {
     };
   }
 
-  private checkOrphanedDependencies(issues: Issue[]): DiagnosticResult {
-    const issueIds = new Set(issues.map((i) => i.id));
-    const orphans: string[] = [];
-
-    for (const issue of issues) {
-      for (const dep of issue.dependencies) {
-        if (!issueIds.has(dep.target)) {
-          orphans.push(`${issue.id} -> ${dep.target} (missing)`);
-        }
-      }
-    }
-
-    if (orphans.length === 0) {
-      return { name: 'Dependencies', status: 'ok' };
-    }
-
-    return {
-      name: 'Dependencies',
-      status: 'warn',
-      message: `${orphans.length} orphaned reference(s)`,
-      details: orphans,
-      fixable: true,
-      suggestion: 'Run: tbd doctor --fix',
-    };
+  private async checkDependencies(issues: Issue[]): Promise<DiagnosticResult> {
+    const { loadIdMapping } = await import('../../file/id-mapping.js');
+    // Public IDs are presentation only: an unloadable mapping, which the ID mapping
+    // checks report, must not turn a graph finding into "check could not complete".
+    const mapping = await loadIdMapping(this.dataSyncDir).catch(() => null);
+    const prefix = this.config?.display.id_prefix ?? 'tbd';
+    return dependencyFinding(issues, dependencyIdFormatter(mapping, prefix));
   }
 
   /**

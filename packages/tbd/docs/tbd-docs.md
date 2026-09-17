@@ -994,6 +994,36 @@ tbd doctor --fix                            # Attempt to fix issues
 Options:
 - `--fix` - Attempt to automatically fix detected issues
 
+#### Directed dependency cycles
+
+A directed dependency cycle makes the work plan self-contradictory; when every blocker
+in the cycle is open, every participating bead waits on another member of the same
+cycle. `tbd doctor` reports cycles as an error-level finding under `Dependencies`, so it
+exits nonzero, and prints one closed depends-on path for each cyclic component.
+The arrows follow CLI semantics: `A -> B` means A depends on B. A bead without a short
+ID appears by its internal ID (`is-…`), which `tbd dep remove` also accepts.
+
+To reproduce the check, create three beads, note their IDs as A, B, and C, then make
+each one depend on the next:
+
+```bash
+tbd dep add <A> <B>
+tbd dep add <B> <C>
+tbd dep add <C> <A>
+tbd doctor
+```
+
+Repair requires deciding which dependency was unintended.
+Remove one edge from every reported path, then run doctor again:
+
+```bash
+tbd dep remove <issue> <depends-on>
+tbd doctor
+```
+
+`tbd doctor --fix` deliberately does not choose an edge to remove because that choice
+changes the work plan.
+
 ### config
 
 Manage tbd configuration.
