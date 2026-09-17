@@ -57,4 +57,21 @@ actions rather than telling them to run commands.
 - Before editing a bead, pull and re-read it, run `tbd start <id>`, then run `tbd sync`
   so other replicas can see the claim.
 
+<!-- BEGIN TBD POLICY GRANTS v=1 -->
+### Agent Policy Grants
+
+The user granted these policies explicitly for this project. A user instruction in the
+current conversation overrides them. For what each policy means, run
+`tbd guidelines agent-policy-grants`; to change them, run `tbd policy`.
+
+- `github-workflows`: granted
+- `github-editing`: granted
+- `github-merge`: per-request
+- `github-stacked-prs`: granted
+- `subagents`: granted
+- `pr-review-requirements`: standard
+- `linear`: epics + specs
+
+Recorded 2026-09-17.
+<!-- END TBD POLICY GRANTS -->
 <!-- END TBD INTEGRATION -->
