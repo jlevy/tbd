@@ -20,8 +20,11 @@ Within the Phase 2 stack, only `tbd-e1tu` and `tbd-4r3w` are complete; the Git g
 recovery, compatibility, format, command, polling, and provider-projection gates remain
 open. PRs #278, #279, #282, and #283 merged to `main` together in `9753fad5` on
 2026-09-14 (landing bead `tbd-m88s`). A release-compatibility review found no format or
-read-path break. #279 merged before its gates closed, so `tbd-s3zx`, `tbd-apnu`, and
-`tbd-cskr` now gate the next release, with the rest of the release gate in `tbd-lz1q`.
+read-path break. The follow-up gates `tbd-s3zx`, `tbd-apnu`, `tbd-cskr`, and `tbd-lz1q`
+closed before 0.9.0 shipped on 2026-09-16. That release includes the dormant storage and
+recovery foundations, not usable native-comment behavior; the Git guards, format
+activation, commands, polling, and provider projection remain open under their phase
+owners.
 
 **Tracking:** `tbd-khi1`; completed historical plan preparation `tbd-q90q`.
 

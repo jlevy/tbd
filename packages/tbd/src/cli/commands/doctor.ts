@@ -47,6 +47,8 @@ import { isDirOnPath, npmGlobalBinDir, readNpmGlobalPrefix } from '../../lib/npm
 import { isAgentId } from '../../lib/agent-identity.js';
 import { KNOWN_STATE_TYPES, CONVENTIONAL_STATE_NAMES } from '../../integrations/linear/mapping.js';
 import { findHierarchyProblems } from '../../lib/issue-hierarchy.js';
+import { findDependencyCycles } from '../../lib/issue-dependency-graph.js';
+import type { IdMapping } from '../../file/id-mapping.js';
 import { duplicateExternalLinks, readLink } from '../../integrations/core/link-store.js';
 import { integrationsInert } from '../../integrations/core/registry.js';
 import { integrationStatus } from '../../integrations/core/status.js';
@@ -121,6 +123,109 @@ export function droppedIntegrationConfigFinding(
     suggestion:
       'Restore: git checkout .tbd/config.yml (then upgrade tbd: npm install -g get-tbd@latest). ' +
       'If you removed it deliberately, commit the change.',
+  };
+}
+
+/**
+ * Build the best-effort public-ID formatter for dependency diagnostics.
+ *
+ * Formatting must never hide or blur the finding it names. A bead missing from the
+ * mapping, or a mapping that could not be loaded (`null`, for example a conflicted
+ * ids.yml), falls back to the internal ID, which stays distinct per bead and which
+ * `tbd dep remove` accepts. Doctor reports the mapping problem in its own checks.
+ */
+export function dependencyIdFormatter(
+  mapping: IdMapping | null,
+  prefix: string,
+): (issueId: string) => string {
+  return (issueId) =>
+    mapping?.ulidToShort.has(extractUlidFromInternalId(issueId))
+      ? formatDisplayId(issueId, mapping, prefix)
+      : issueId;
+}
+
+/**
+ * Diagnose missing dependency targets and directed depends-on cycles.
+ *
+ * Orphans alone are a fixable warning. A cycle is an error because it makes the work
+ * plan self-contradictory and can leave every participating open bead blocked. Cycle
+ * repair remains manual because doctor cannot infer which dependency edge was
+ * unintended, but orphans reported alongside a cycle keep their repair guidance.
+ *
+ * A target whose file is present but could not be read or parsed is a third case: the
+ * issue is broken, not deleted, so its inbound edges are reported separately and are
+ * never offered for repair, because removing them would lose an edge that the file's
+ * own repair (`Issue validity`) is about to make whole again.
+ */
+export function dependencyFinding(
+  issues: readonly Issue[],
+  formatIssueId: (issueId: string) => string = (issueId) => issueId,
+  invalidIssueFiles: readonly InvalidIssueFile[] = [],
+): DiagnosticResult {
+  const issueIds = new Set(issues.map((issue) => issue.id));
+  const invalidIds = invalidIssueFileIds(invalidIssueFiles);
+  const orphans: string[] = [];
+  const blocked: string[] = [];
+
+  for (const issue of issues) {
+    for (const dependency of issue.dependencies) {
+      if (issueIds.has(dependency.target)) {
+        continue;
+      }
+      const edge = `${formatIssueId(issue.id)} -> ${formatIssueId(dependency.target)}`;
+      if (invalidIds.has(dependency.target)) {
+        blocked.push(`${edge} (target file present but invalid)`);
+      } else {
+        orphans.push(`${edge} (missing)`);
+      }
+    }
+  }
+
+  const blockedClause = blocked.length === 0 ? '' : `, ${blocked.length} into invalid file(s)`;
+  const cycles = findDependencyCycles(issues);
+  if (cycles.length === 0 && orphans.length === 0 && blocked.length === 0) {
+    return { name: 'Dependencies', status: 'ok' };
+  }
+  if (cycles.length === 0 && orphans.length === 0) {
+    return {
+      name: 'Dependencies',
+      status: 'warn',
+      message: `${blocked.length} reference(s) into invalid issue file(s)`,
+      details: blocked,
+      suggestion: 'Repair the files listed under Issue validity; these edges are kept until then.',
+    };
+  }
+  if (cycles.length === 0) {
+    return {
+      name: 'Dependencies',
+      status: 'warn',
+      message: `${orphans.length} orphaned reference(s)${blockedClause}`,
+      details: [...orphans, ...blocked],
+      fixable: true,
+      suggestion: 'Run: tbd doctor --fix',
+    };
+  }
+
+  const cycleDetails = cycles.map(
+    (cycle) => `depends-on cycle: ${cycle.map(formatIssueId).join(' -> ')}`,
+  );
+  const cycleSuggestion = 'Break each cycle with: tbd dep remove <issue> <depends-on>.';
+  if (orphans.length === 0) {
+    return {
+      name: 'Dependencies',
+      status: 'error',
+      message: `${cycles.length} directed cycle(s)${blockedClause}`,
+      details: [...cycleDetails, ...blocked],
+      suggestion: cycleSuggestion,
+    };
+  }
+  return {
+    name: 'Dependencies',
+    status: 'error',
+    message: `${cycles.length} directed cycle(s) and ${orphans.length} orphaned reference(s)${blockedClause}`,
+    details: [...cycleDetails, ...orphans, ...blocked],
+    fixable: true,
+    suggestion: `${cycleSuggestion} Run: tbd doctor --fix to repair the orphaned reference(s).`,
   };
 }
 
@@ -415,12 +520,19 @@ function invalidIssueFileIds(invalidIssueFiles: readonly InvalidIssueFile[]): Se
   return ids;
 }
 
+/** The more serious of two diagnostic statuses. */
+function worseStatus(
+  first: DiagnosticResult['status'],
+  second: DiagnosticResult['status'],
+): DiagnosticResult['status'] {
+  const rank = { ok: 0, warn: 1, error: 2 };
+  return rank[first] >= rank[second] ? first : second;
+}
+
 /** What one `doctor --fix` pass over the dependency edges actually did. */
 interface OrphanRepairOutcome {
   /** `source -> target` for every edge removed from a file that was rewritten. */
   removed: string[];
-  /** Edges kept because the target file is present but does not parse. */
-  blocked: string[];
   /** Edges kept because no single `<id>.md` owns the issue holding them. */
   unrepairable: string[];
   /** Per-file write failures; earlier writes in the same pass still landed. */
@@ -501,10 +613,10 @@ class DoctorHandler extends BaseCommand {
     // Check 3: Issues directory
     healthChecks.push(await this.safeCheck('Issues directory', () => this.checkIssuesDirectory()));
 
-    // Check 4: Orphaned dependencies
+    // Check 4: Orphaned dependencies and directed cycles
     healthChecks.push(
       await this.safeCheck('Dependencies', () =>
-        this.checkOrphanedDependencies(this.issues, this.invalidIssueFiles, options.fix),
+        this.checkDependencies(this.issues, this.invalidIssueFiles, options.fix),
       ),
       await this.safeCheck('Actor axis', async () => this.checkAgentShapedAssignees(this.issues)),
       await this.safeCheck('State resolution', () => Promise.resolve(this.checkStateResolution())),
@@ -1023,60 +1135,30 @@ class DoctorHandler extends BaseCommand {
     };
   }
 
-  private async checkOrphanedDependencies(
+  private async checkDependencies(
     issues: Issue[],
     invalidIssueFiles: readonly InvalidIssueFile[],
     fix?: boolean,
   ): Promise<DiagnosticResult> {
-    const issueIds = new Set(issues.map((i) => i.id));
-    const invalidIds = invalidIssueFileIds(invalidIssueFiles);
-    const orphans: string[] = [];
-    const blocked: string[] = [];
+    const { loadIdMapping } = await import('../../file/id-mapping.js');
+    // Public IDs are presentation only: an unloadable mapping, which the ID mapping
+    // checks report, must not turn a graph finding into "check could not complete".
+    const mapping = await loadIdMapping(this.dataSyncDir).catch(() => null);
+    const prefix = this.config?.display.id_prefix ?? 'tbd';
+    const formatIssueId = dependencyIdFormatter(mapping, prefix);
+    const describe = (current: readonly Issue[]): DiagnosticResult =>
+      dependencyFinding(current, formatIssueId, invalidIssueFiles);
 
-    for (const issue of issues) {
-      for (const dep of issue.dependencies) {
-        if (issueIds.has(dep.target)) {
-          continue;
-        }
-        if (invalidIds.has(dep.target)) {
-          blocked.push(`${issue.id} -> ${dep.target} (target file present but invalid)`);
-        } else {
-          orphans.push(`${issue.id} -> ${dep.target} (missing)`);
-        }
-      }
+    const finding = describe(issues);
+    // Only the orphaned references are repairable: a cycle stays a manual decision,
+    // and an edge into a file that is present but invalid is kept by design.
+    if (fix !== true || finding.fixable !== true) {
+      return finding;
     }
-
-    if (orphans.length === 0 && blocked.length === 0) {
-      return { name: 'Dependencies', status: 'ok' };
+    if (this.checkDryRun('Remove orphaned dependency references')) {
+      return finding;
     }
-
-    if (orphans.length === 0) {
-      // Nothing to repair: those targets are still on disk, they just do not parse.
-      return {
-        name: 'Dependencies',
-        status: 'warn',
-        message: `${blocked.length} reference(s) into invalid issue file(s)`,
-        details: blocked,
-        suggestion:
-          'Repair the files listed under Issue validity; these edges are kept until then.',
-      };
-    }
-
-    if (fix && !this.checkDryRun('Remove orphaned dependency references')) {
-      return this.repairOrphanedDependencies(orphans, blocked);
-    }
-
-    return {
-      name: 'Dependencies',
-      status: 'warn',
-      message:
-        blocked.length === 0
-          ? `${orphans.length} orphaned reference(s)`
-          : `${orphans.length} orphaned reference(s), ${blocked.length} into invalid issue file(s)`,
-      details: [...orphans, ...blocked],
-      fixable: true,
-      suggestion: 'Run: tbd doctor --fix',
-    };
+    return this.repairOrphanedDependencies(finding, describe, formatIssueId);
   }
 
   /**
@@ -1090,10 +1172,15 @@ class DoctorHandler extends BaseCommand {
    * touch. When the gate refuses, the repair is reported as still pending instead of
    * claimed: the worktree and config checks further down this same run repair those
    * states, and the next `tbd doctor --fix` removes the edges for real.
+   *
+   * What the repair did is folded into a finding taken again over the repaired store,
+   * so anything the repair does not touch, a directed cycle above all, is still
+   * reported with its own severity and guidance.
    */
   private async repairOrphanedDependencies(
-    orphans: string[],
-    blocked: string[],
+    finding: DiagnosticResult,
+    describe: (issues: readonly Issue[]) => DiagnosticResult,
+    formatIssueId: (issueId: string) => string,
   ): Promise<DiagnosticResult> {
     let gateOpen = false;
     let repair: OrphanRepairOutcome;
@@ -1101,7 +1188,7 @@ class DoctorHandler extends BaseCommand {
       repair = await withDataSyncContext(this.cwd, { lock: true }, async (context) => {
         gateOpen = true;
         this.dataSyncDir = context.dataSyncDir;
-        return this.removeOrphanedEdges(context.dataSyncDir);
+        return this.removeOrphanedEdges(context.dataSyncDir, formatIssueId);
       });
     } catch (error) {
       if (gateOpen) {
@@ -1109,59 +1196,60 @@ class DoctorHandler extends BaseCommand {
         throw error;
       }
       return {
-        name: 'Dependencies',
-        status: 'warn',
-        message: `${orphans.length} orphaned reference(s); repair skipped, the shared store is not ready for writes`,
-        details: [...orphans, ...blocked, error instanceof Error ? error.message : String(error)],
-        fixable: true,
+        ...finding,
+        message: `${finding.message ?? 'dependency problems'}; repair skipped, the shared store is not ready for writes`,
+        details: [
+          ...(finding.details ?? []),
+          error instanceof Error ? error.message : String(error),
+        ],
         suggestion:
           'Resolve the worktree and config findings in this report, then rerun: tbd doctor --fix',
       };
     }
 
     this.issues = repair.issues;
-    const kept = [...repair.blocked, ...repair.unrepairable];
-    const failures = repair.failed.map((failure) => `${failure.id}: ${failure.message}`);
-    const details = [...repair.removed, ...kept, ...failures];
-
+    const failures = repair.failed.map(
+      (failure) => `${formatIssueId(failure.id)}: ${failure.message}`,
+    );
+    const removedCount = repair.removed.length;
+    let status: DiagnosticResult['status'] = 'ok';
+    let message = removedCount === 0 ? 'already fixed by another tbd command' : '';
+    let suggestion: string | undefined;
     if (repair.failed.length > 0) {
       // Each write is atomic and independent, so the writes that landed stay landed:
       // name them and the ones that did not, rather than reporting a bare error.
-      return {
-        name: 'Dependencies',
-        status: 'error',
-        message: `removed ${repair.removed.length} orphaned reference(s), ${repair.failed.length} issue file(s) could not be written`,
-        details,
-        fixable: true,
-        suggestion: 'Resolve the write failures above, then rerun: tbd doctor --fix',
-      };
+      status = 'error';
+      message = `removed ${removedCount} orphaned reference(s), ${repair.failed.length} issue file(s) could not be written`;
+      suggestion = 'Resolve the write failures above, then rerun: tbd doctor --fix';
+    } else if (repair.unrepairable.length > 0) {
+      status = 'warn';
+      message = `removed ${removedCount} orphaned reference(s), kept ${repair.unrepairable.length}`;
+      suggestion =
+        'Repair the files reported under Issue validity and Unique IDs, then rerun: tbd doctor --fix';
+    } else if (removedCount > 0) {
+      message = `removed ${removedCount} orphaned reference(s)`;
     }
 
-    if (kept.length > 0) {
-      return {
-        name: 'Dependencies',
-        status: 'warn',
-        message: `removed ${repair.removed.length} orphaned reference(s), kept ${kept.length}`,
-        details,
-        suggestion:
-          'Repair the files reported under Issue validity and Unique IDs, then rerun: tbd doctor --fix',
-      };
-    }
-
-    if (repair.removed.length === 0) {
-      return {
-        name: 'Dependencies',
-        status: 'ok',
-        message: 'already fixed by another tbd command',
-      };
-    }
-
-    return {
+    // Re-diagnose: an edge this repair could not remove, and every problem it never
+    // owned, must still carry its own severity and guidance.
+    const after = describe(repair.issues);
+    const combined: DiagnosticResult = {
       name: 'Dependencies',
-      status: 'ok',
-      message: `removed ${repair.removed.length} orphaned reference(s)`,
-      details: repair.removed,
+      status: worseStatus(after.status, status),
+      message: after.status === 'ok' ? message : `${after.message ?? ''}; ${message}`,
+      details: [...(after.details ?? []), ...repair.removed, ...repair.unrepairable, ...failures],
     };
+    if (after.fixable === true) {
+      combined.fixable = true;
+    }
+    const combinedSuggestion = suggestion ?? after.suggestion;
+    if (combinedSuggestion !== undefined) {
+      combined.suggestion = combinedSuggestion;
+    }
+    if (combined.details?.length === 0) {
+      delete combined.details;
+    }
+    return combined;
   }
 
   /**
@@ -1175,7 +1263,10 @@ class DoctorHandler extends BaseCommand {
    * files by id: a duplicate or misnamed file would otherwise have doctor write one
    * issue's file from another file's contents.
    */
-  private async removeOrphanedEdges(dataSyncDir: string): Promise<OrphanRepairOutcome> {
+  private async removeOrphanedEdges(
+    dataSyncDir: string,
+    formatIssueId: (issueId: string) => string,
+  ): Promise<OrphanRepairOutcome> {
     // Re-read the complete graph inside the writer transaction. A create, delete, or
     // another doctor repair may have changed either end of an edge since the
     // diagnostic snapshot was loaded.
@@ -1201,16 +1292,7 @@ class DoctorHandler extends BaseCommand {
     const droppedEdges = (issue: Issue): string[] =>
       issue.dependencies
         .filter((dep) => !liveIds.has(dep.target))
-        .map((dep) => `${issue.id} -> ${dep.target}`);
-
-    const blocked: string[] = [];
-    for (const issue of current) {
-      for (const dep of issue.dependencies) {
-        if (!parsedIds.has(dep.target) && liveIds.has(dep.target)) {
-          blocked.push(`${issue.id} -> ${dep.target} (target file present but invalid)`);
-        }
-      }
-    }
+        .map((dep) => `${formatIssueId(issue.id)} -> ${formatIssueId(dep.target)}`);
 
     // `validateFileName` keeps only the issues stored in their own `<id>.md`, and the
     // id must be claimed by exactly one file. Sorted so the mutation order is a
@@ -1232,7 +1314,9 @@ class DoctorHandler extends BaseCommand {
         continue;
       }
       for (const edge of droppedEdges(issue)) {
-        unrepairable.add(`${edge} (kept: ${issue.id} is not stored in a single ${issue.id}.md)`);
+        unrepairable.add(
+          `${edge} (kept: ${formatIssueId(issue.id)} is not stored in a single issue file)`,
+        );
       }
     }
 
@@ -1260,7 +1344,6 @@ class DoctorHandler extends BaseCommand {
     );
     return {
       removed: outcome.changed.flatMap((internalId) => droppedByCandidate.get(internalId) ?? []),
-      blocked,
       unrepairable: [...unrepairable],
       failed: outcome.failed,
       issues: current.map((issue) => repairedById.get(issue.id) ?? issue),

@@ -24,6 +24,14 @@ The post-v0.5 review added fail-closed duplicate-link handling, exact conflict
 archive/replay, strict read-only pulls, explicit inbound selection, cross-repository
 link claims, live-claim validation for every replayed provider write, and retryable
 cancellation-first unlink.
+The 0.9.0 release added exact-slot convergence, visible skipped-field reporting,
+mixed-version recovery coverage, and the requirement that every integration-sync writer
+use 0.9.0 or newer. On 2026-09-16, a controlled preview against the configured OS team
+found only expected closure and managed-block projections, with no oscillating status
+pairs. The explicit sync applied eight existing-bead updates with no pulls, creates,
+conflicts, or failures; a repeat explain-preview showed no pushes, pulls, creates, or
+divergences. The 24 nesting exclusions and 21 unmapped-assignee notices remain bounded
+standing conditions.
 Follow-up review also made provisional creates distinct from orphans and made link
 enrichment preserve comments and future provider-namespace state.
 If the provider accepted a create but follow-up work failed before the first bridge
