@@ -6,11 +6,11 @@ category: general
 ---
 # Feature: PR Review Lifecycle and Sub-Agent Delegation
 
-**Date:** 2026-09-16 (last updated 2026-09-16)
+**Date:** 2026-09-16 (last updated 2026-09-17)
 
 **Author:** Joshua Levy, with Claude (Opus 5)
 
-**Status:** Draft
+**Status:** Implemented; validation by use in progress (Phase 4)
 
 ## Overview
 
@@ -1042,44 +1042,44 @@ convenience, not a requirement.
 
 ### Phase 1: Review-State Contract and Routes
 
-- [ ] Re-verify the Codex platform facts, including whether sub-agents share the working
+- [x] Re-verify the Codex platform facts, including whether sub-agents share the working
   copy in each tool version, and correct the research brief
 - [x] Record the `trading` port candidates and fold accepted ones into this plan
-- [ ] Update `pr-review-workflows` with the contract, request vocabulary, coverage and
+- [x] Update `pr-review-workflows` with the contract, request vocabulary, coverage and
   rounds, and merge gate
-- [ ] Update `review-code`, `review-github-pr`, and `address-pr-review`
-- [ ] Add routes to every skill tier and the README; update `tbd-prime` and
+- [x] Update `review-code`, `review-github-pr`, and `address-pr-review`
+- [x] Add routes to every skill tier and the README; update `tbd-prime` and
   `code-review-rules`
-- [ ] Add contract tests (see Testing Strategy)
+- [x] Add contract tests (see Testing Strategy)
 
 ### Phase 2: Policy Grants, Delegation, and Orchestration
 
-- [ ] Implement policy grants: the `tbd policy` command, setup grant flags, preservation
+- [x] Implement policy grants: the `tbd policy` command, setup grant flags, preservation
   of the policy block on setup, the guard against older releases, `tbd prime` output,
   and `tbd doctor` checks
-- [ ] Port #308’s operational rules into a GitHub authorization section of
+- [x] Port #308’s operational rules into a GitHub authorization section of
   `skill-baseline` (#308 is closed): project grants primary and user-level grants a
   fallback, named policies, a permission allow rule grants only what it allows, its own
   section, and a phrase test
-- [ ] Add the `agent-policy-grants` guideline as the single definition of the policies
-- [ ] Add the `setup-tbd` shortcut and point the skill Installation section,
+- [x] Add the `agent-policy-grants` guideline as the single definition of the policies
+- [x] Add the `setup-tbd` shortcut and point the skill Installation section,
   `welcome-user`, and `tbd setup` output to it
-- [ ] Gate stacked-PR creation and tooling on `github-stacked-prs` in `stacked-prs`, the
+- [x] Gate stacked-PR creation and tooling on `github-stacked-prs` in `stacked-prs`, the
   `create-or-update-pr-*` shortcuts, `setup-github-cli`, and the tbd block
-- [ ] Confirm the `linear: epics` mapping against the Linear integration, including
+- [x] Confirm the `linear: epics` mapping against the Linear integration, including
   inbound behavior, and update `setup-linear`
-- [ ] Remove the `CLAUDE_CODE_SUBAGENT_MODEL` pin from `.claude/settings.json`, since
+- [x] Remove the `CLAUDE_CODE_SUBAGENT_MODEL` pin from `.claude/settings.json`, since
   tbd names a model on every spawn and the pin only downgrades unnamed spawns to Opus
   4.6
-- [ ] Add the `agent-model-tiers` guideline
-- [ ] Add the `delegate-to-subagents` shortcut
-- [ ] Add the `review-code-security`, `review-code-performance`, and
+- [x] Add the `agent-model-tiers` guideline
+- [x] Add the `delegate-to-subagents` shortcut
+- [x] Add the `review-code-security`, `review-code-performance`, and
   `review-code-correctness` shortcuts
-- [ ] Add the `review-and-merge-prs` shortcut
-- [ ] Add tier agent definitions to setup as independent surfaces, with setup and golden
+- [x] Add the `review-and-merge-prs` shortcut
+- [x] Add tier agent definitions to setup as independent surfaces, with setup and golden
   tests
-- [ ] Add tests for the new documents and their routes
-- [ ] After the review and delegation shortcuts and guidelines are written, a
+- [x] Add tests for the new documents and their routes
+- [x] After the review and delegation shortcuts and guidelines are written, a
   strong-tier reviewer reconciles them with the sub-agent research brief: classify each
   vendor recommendation as followed, deliberately deviated from, or missed; record
   deviations with reasons in the brief; and consolidate the most general, reusable
@@ -1088,11 +1088,11 @@ convenience, not a requirement.
 
 ### Phase 3: Final Documentation Updates
 
-- [ ] Revise `README.md` to the target structure, applying every change in Final
+- [x] Revise `README.md` to the target structure, applying every change in Final
   Documentation Updates
-- [ ] Apply the other documentation updates listed there
-- [ ] Fix `tbd integration --help` to name Linear only
-- [ ] Extend contract tests to the README request table, and add table-generation tests
+- [x] Apply the other documentation updates listed there
+- [x] Fix `tbd integration --help` to name Linear only
+- [x] Extend contract tests to the README request table, and add table-generation tests
   if the reference tables are generated
 
 ### Phase 4: Validation by Use
@@ -1101,7 +1101,7 @@ convenience, not a requirement.
 - [ ] Run “Review and fix” on that PR with sub-agents: a strong-tier reviewer publishes
   a formal review and a moderate-tier addressing agent addresses it; record requested
   tiers, questions asked, and what worked in Outcome Notes
-- [ ] Record this repository’s policy grants through the new flow, as the user answers
+- [x] Record this repository’s policy grants through the new flow, as the user answers
   them
 - [ ] Run the same workflow on #306 and #307; merge only with explicit confirmation
 - [ ] Fold findings from these runs back into the shortcuts
@@ -1146,27 +1146,22 @@ grants, and `tbd policy`. Upgrade every writer that runs `tbd setup` before reco
 grants in a shared repository, because a release without grant support cannot preserve
 the block.
 
-## Open Questions
+## README Decisions
 
-These concern the README revision in Final Documentation Updates.
-Phase 3 uses the stated default for any question still open when it starts.
+The user left the README questions to their defaults, applied as follows:
 
-1. **npm page.** Should the npm package page stay identical to the GitHub README, which
-   `packages/tbd/scripts/copy-docs.mjs` copies today, or get a shorter page linking to
-   GitHub? Default: identical.
-2. **Voice.** Should the README keep its first-person sections, or move to the neutral
-   register of the skill and design doc?
-   Default: neutral.
-3. **Reference tables.** Should the shortcut, guideline, and template tables stay
-   hand-written, move to a `docs/` page, or be generated at build time so names and
-   counts cannot drift?
-   Default: generated at build time.
-4. **Policy and delegation depth.** How much policy-grant and delegation material
-   belongs in the README? Default: a short summary that links to `agent-policy-grants`
+1. **npm page:** identical to the GitHub README, which
+   `packages/tbd/scripts/copy-docs.mjs` copies into the package.
+2. **Voice:** neutral, matching the skill and design doc.
+3. **Reference tables:** generated from document frontmatter into marked regions of the
+   committed README by `pnpm --filter get-tbd generate:readme`, with a test that fails
+   when they are stale.
+   Generation runs on demand rather than in the build, so CI cannot pass a stale commit
+   and clean-checkout checks stay meaningful.
+4. **Policy and delegation depth:** a short summary that links to `agent-policy-grants`
    and `delegate-to-subagents`.
-5. **Length and examples.** Should the README target a length, and should dated examples
-   (the FAQ bead listing and spec names) be refreshed each release or removed?
-   Default: about 450 to 500 lines, with dated examples removed.
+5. **Length and examples:** dated examples removed; the README is about 660 lines, of
+   which the generated tables are about 140.
 
 ## Final Documentation Updates
 
@@ -1203,7 +1198,7 @@ The listed facts were spot-checked against the repository.
 
 ### Target Structure
 
-About 450 to 500 lines, in this order:
+In this order (about 660 lines, including the generated tables):
 
 1. Title and a one-paragraph description.
 2. What you get: one capability list, identical to the skill’s.
