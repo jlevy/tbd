@@ -3,10 +3,11 @@ type: is
 id: is-01m2q1mqca5bz0trff5z8tfq0t
 title: "P2: Validate the policy block in tbd doctor"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 4
+version: 6
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:mechanical
 dependencies:
@@ -15,8 +16,15 @@ dependencies:
   - type: blocks
     target: is-01m2pr2c6gds2vz3y9x0nxdwka
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T06:42:38.592Z
-updated_at: 2026-09-17T10:32:13.788Z
+updated_at: 2026-09-17T10:42:09.164Z
+started_at: 2026-09-17T10:33:03.830Z
+closed_at: 2026-09-17T10:42:09.163Z
+close_reason: "Batch 4 (part) verified by the coordinator after a rebuild: doctor-policy-grants, doctor-managed-surfaces, doc-categories, integration-files (42 tests) and cli-orientation-golden tryscript passed; typecheck, eslint, prettier, flowmark clean; merge gate deduplicated; committed"
+resolution: null
+duplicate_of: null
 ---
 Plan: Policy Grants > Reading grants (Validation) and Source of truth; Implementation Plan Phase 2 item 1 ("tbd doctor checks").
 
