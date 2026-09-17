@@ -744,6 +744,260 @@ resolution order above:
   v2.1.246+) or `--max-turns` for `-p` runs; `effort: low` or `medium` in definitions
   for simple stages; and asking whether agent teams are justified over plain sub-agents.
 
+### System Prompts and Prompt Caching for Sub-Agents
+
+*(Added 2026-09-17.)* This section answers two questions the tier agent definitions
+raise: what system prompt a sub-agent actually runs under, and what a fresh sub-agent
+costs once prompt caching is taken into account.
+The Claude Code facts come from the sub-agents page [V1] and the Claude Code prompt
+caching page [V39], the API facts from the prompt caching reference [V40], and the Codex
+facts from the source [V16], [V41]. The OpenAI prompt caching documentation could not be
+reached from the sandbox that wrote this section (egress blocked), so the OpenAI-side
+caching figures are marked as not re-verified.
+
+#### What System Prompt a Sub-Agent Runs Under
+
+**Claude Code.** A custom sub-agent does not get the Claude Code system prompt.
+The docs say: “Subagents receive only this system prompt plus basic environment details
+like the working directory, not the Claude Code system prompt” [V1]. Its request is
+assembled from:
+
+- the definition body, plus the environment details Claude Code appends (working
+  directory, platform, date);
+- the tool definitions it inherits (every tool available to sub-agents, narrowed by a
+  `tools` allowlist and, for background sub-agents, the built-in tool filter);
+- every `CLAUDE.md` the main conversation loads, unless `omitClaudeMd: true`;
+- the git status snapshot from parent session start;
+- preloaded skill content, only for skills named in a `skills` field;
+- the task message the coordinator wrote.
+
+Everything the main session’s system prompt supplies is absent: the harness rules, the
+git conventions ("commit only when asked"), the reporting rules, the tone and format
+guidance, and the delegation restraint.
+The sub-agent can still discover and invoke skills through the Skill tool, so the tbd
+skill is reachable, but nothing loads it.
+Two consequences for the tier definitions:
+
+1. The body is not redundant with anything.
+   It is the sub-agent’s entire behavioral system prompt, so a rule that the main
+   session gets for free (do not commit, do not push, do not start sub-agents) has to be
+   stated there or in the brief to exist at all.
+2. The body is where a project-neutral bootstrap belongs, and only that.
+   The line that names `tbd shortcut <name>` is what turns an otherwise generic model
+   with tools into a tbd agent, because `CLAUDE.md` says to read the project docs but
+   does not say how to load a shortcut.
+   A claim in the body about its own model is unreliable: a per-call `model` on the
+   Agent tool overrides the definition, and `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides
+   both [V1], so a body that says “opus at medium reasoning” can be wrong about the
+   model while right about the effort.
+
+`CLAUDE.md` is loaded into every sub-agent, so whatever it instructs is paid on every
+spawn. In this repository, `CLAUDE.md` tells the agent to read `docs/development.md`,
+`docs/docs-overview.md`, and `tbd guidelines general-eng-agent-principles` before any
+engineering work, which a reviewer sub-agent will do on each spawn (roughly 10k tokens
+of reads) before it loads its shortcut.
+
+**Codex.** A fresh (non-fork) child starts from the parent’s effective config and
+receives the session’s current base instructions, the same Codex system prompt the
+parent runs under: `build_agent_spawn_config` sets
+`config.base_instructions = Some(base_instructions.text.clone())` for a fresh spawn
+[V41]. The child shares the parent’s `cwd`, so the project `AGENTS.md` applies to it the
+way it applies to any Codex session in that directory.
+A custom agent role’s `developer_instructions` **replaces** the developer instructions
+rather than appending: `build_next_config` assigns
+`next_config.developer_instructions = Some(instructions.clone())` when the role sets
+them [V41]. So a `.codex/agents/tbd-*.toml` body sits on top of the full Codex prompt
+and `AGENTS.md`, unlike the Claude Code body, which sits on top of nothing.
+Codex’s own built-in `awaiter` role (currently commented out of the role list, but still
+shipped) is the closest analogue to a fast-tier definition: it sets
+`model_reasoning_effort = "low"`, a long background-terminal timeout, and a body that
+tells the agent to await one task, poll with growing timeouts, and never report
+completion it has not seen [V41].
+
+**What this means for portability.** On both platforms the brief is the only
+cross-platform artifact: it carries the task, the shortcut name, the boundaries, and the
+report format, and the same brief works whether or not a definition exists.
+A definition binds a model and a reasoning level (both platforms), replaces the
+developer instructions (Codex), or supplies the whole behavioral prompt (Claude Code).
+Guidance that must hold on every platform therefore belongs in the brief and in the
+shortcut the brief names, never only in a definition.
+
+#### What Each Definition Buys, Platform by Platform
+
+| Platform | Model per spawn | Reasoning level per spawn | What a `tbd-*` definition adds |
+| --- | --- | --- | --- |
+| Claude Code | Yes, `model` on the Agent tool | **No** | `effort` (the only per-sub-agent reasoning control), a stable name in the coordinator’s agent list with a description that says when to pick it, and optionally a per-sub-agent cache TTL (`experimental.cacheTtl`) [V1], [V39] |
+| Codex | Yes, `model` on `spawn_agent` | Yes, `reasoning_effort` on `spawn_agent` | A name; its `model` and `model_reasoning_effort` take precedence over the spawn values, and its `developer_instructions` replace the parent’s [V13], [V41] |
+| Other platforms | Platform-dependent | Platform-dependent | Nothing generated; apply the tier by the platform’s own controls |
+
+On Claude Code, the definitions matter only where the tier’s level differs from the
+session’s. A session already running at `xhigh` gets the same result from `model: fable`
+or `model: opus` on the Agent call as from `tbd-strong` or `tbd-moderate`; only
+`tbd-strong-max` (`max`) and `tbd-fast` (`medium`) change something for such a session.
+For a session at `high` or below, all four do.
+
+#### Prompt Caching: How the Cache Is Organized
+
+The API caches by exact prefix match, in the order tools, then system, then messages,
+and any change invalidates everything after it [V40]. Claude Code orders each request so
+the stable content comes first: the system prompt and tool definitions, then the project
+context (`CLAUDE.md`, auto memory), then the conversation [V39]. Skills, plan mode
+instructions, and file reads append as messages, so they never disturb the cached prefix
+[V39].
+
+Pricing (Claude API) [V40]: a cache write costs 1.25 times the base input price with the
+5-minute TTL and 2 times with the 1-hour TTL; a cache read costs 0.1 times base (0.025
+times on Fable 5.1 and Mythos 5.1). The minimum cacheable prefix is 512 tokens on the
+Claude 5 family (1,024 on Sonnet 5 and Opus 4.8; 4,096 on Opus 4.6 and Haiku 4.5). The
+TTL is measured from the start of the request that wrote or read the entry, and reading
+within the TTL refreshes it at no extra cost.
+Caches are per model: identical prompts to Fable and to Opus are two entries [V40].
+Caches are effectively per machine and directory in Claude Code, because the system
+prompt names the working directory and the auto memory paths; two sessions in the same
+directory build matching prefixes and read each other’s cache, and worktrees do not
+[V39].
+
+Two settings split the cache without changing the prompt text [V39], [V40]:
+
+- **Model.** Each model has its own cache; a switch recomputes the entire request.
+- **Effort.** On most models each effort level has its own cache, so a change recomputes
+  the entire request. On Fable 5.1 with an API key or a Claude subscription the cache
+  survives an effort change (v2.1.260+); this does not hold on Bedrock, Google Cloud, or
+  a Claude apps gateway, or with `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS`. At the API
+  level, a change to `output_config.effort` always invalidates the messages cache, and
+  whether it invalidates the tools and system caches is model-specific.
+
+#### Prompt Caching: What Happens When a Sub-Agent Starts
+
+The Claude Code prompt caching page has a section on this [V39], and its rules are:
+
+- **A fresh sub-agent starts its own conversation with its own prefix.** Its first
+  request does not read the parent’s cache, because the two prefixes differ (different
+  system prompt, possibly different tools and model), and it warms a cache of its own
+  across its turns.
+- **The parent’s cache is unaffected.** The Agent call and the sub-agent’s report append
+  to the parent’s conversation, so the parent’s prefix stays intact.
+  Spawning a sub-agent is listed among the actions that keep the cache.
+- **A fork reads the parent’s cache.** It inherits the parent’s system prompt, tools,
+  and history exactly, so its first request is a cache read of the whole parent context.
+- **A resumed sub-agent reads the cache its first run warmed** (SendMessage), and stays
+  on the tool set and per-invocation model of its first run.
+- **Sub-agents get the 5-minute TTL by default, even on a subscription.** Claude Code
+  splits requests into two buckets: the main conversation, which gets the 1-hour TTL on
+  a Claude subscription within plan usage, and everything else (sub-agents, workflows,
+  in-process teammates, forks, compaction), which gets 5 minutes unless
+  `subagentPromptCacheTtl` or `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL` says `1h`, or the
+  definition’s `experimental.cacheTtl` does (v2.1.248+; a `1h` there is ignored while
+  the subscription is on usage credits).
+  On an API key or a cloud provider both buckets get 5 minutes.
+- **Same-prefix sub-agents share a cache.** Two spawns of the same definition on the
+  same model in the same directory build the same prefix (tools, body, `CLAUDE.md`, git
+  snapshot), so the second reads what the first wrote, if it starts within the TTL. A
+  cache entry becomes available only after the first response begins [V40], so
+  sub-agents spawned in the same instant all miss; the Workflow tool holds all but the
+  first of a same-prefix fan-out for up to 5 seconds for this reason, and the Agent tool
+  does not.
+- **Different tiers do not share.** `tbd-strong` (Fable) and `tbd-moderate` (Opus) are
+  on different models; `tbd-moderate` (`xhigh`) and `tbd-fast` (`medium`) are on the
+  same model at different effort levels, which on Opus are different caches.
+  Nothing is lost by this, because they were never going to share a prefix with the
+  coordinator either.
+
+Cache hits and misses are visible per turn as `cache_read_input_tokens` and
+`cache_creation_input_tokens`, per session in `/usage` (the `Prompt cache (main)` line
+covers the main conversation only, v2.1.251+), and in
+`claude -p ... --output-format json` under `usage.cache_creation`
+(`ephemeral_5m_input_tokens` and `ephemeral_1h_input_tokens` show which TTL was used)
+[V39].
+
+#### What a Fresh Sub-Agent Actually Costs
+
+The fresh-context “tax” is smaller than it sounds, and the fork alternative is not
+cheaper. Working through a tbd reviewer on Claude Code, with sizes from this repository
+as of 2026-09-17 (about 4 bytes per token):
+
+| Item | Approximate tokens | When paid |
+| --- | --- | --- |
+| Definition body and environment details | under 300 | Once per spawn, as a cache write |
+| Built-in tool definitions | on the order of 10k to 15k (MCP tools are deferred behind tool search on supported models, so they add little) | Once per spawn, as a cache write; shared with earlier same-prefix spawns within the TTL |
+| `CLAUDE.md` (this repository) | about 180 | Once per spawn |
+| Docs `CLAUDE.md` tells the agent to read (`development.md`, `docs-overview.md`, `general-eng-agent-principles`) | about 10k | Once per spawn, as ordinary input that is then cached |
+| `tbd shortcut review-github-pr` + `pr-review-workflows` + `code-review-rules` | about 3k + 5k + 3k | Once per spawn, then cached |
+| The diff and the files it reads | task-dependent | Once, then cached |
+| Every later turn | the whole prefix at 0.1x (0.025x on Fable 5.1) plus the new tool result | Per turn |
+
+At Opus 5 list prices ($5 per million input tokens), the one-time write of a 20k-token
+prefix is about $0.13 with the 5-minute TTL, and each later turn re-reads it for about
+$0.01. The reviewer’s cost is dominated by its own work (the diff, the files, the tests
+it runs, and its output), not by starting fresh.
+
+A fork of a 150k-token coordinator context, by comparison, pays a cache read of 150k
+tokens on its first request (about $0.075 at Opus, less on Fable 5.1) and again on every
+turn, so a 30-turn review costs roughly $2.25 in cache reads as a fork against roughly
+$0.30 as a fresh sub-agent with a 20k to 40k prefix, before the work itself.
+The fork also cannot change model or effort and is anchored on the coordinator’s
+reading. For review, fresh is both cheaper per turn and better.
+
+Where the multiplier in Anthropic’s “3 to 15 times” figure [V10], [V11] actually comes
+from, given caching:
+
+- **More turns, not more expensive turns.** Each sub-agent gathers its own context
+  (reads the diff, the files, the docs) that the coordinator may already hold, and each
+  of those reads is a turn.
+- **N prefixes.** Every sub-agent carries its own tool definitions and project context,
+  so N sub-agents pay the prefix N times rather than once.
+- **Reports land in the coordinator.** A report is appended to the coordinator’s
+  conversation and re-read at the cached rate on every later coordinator turn for the
+  rest of the session, which is why the shortcuts ask for reports of a page or two and
+  for evidence rather than transcripts.
+- **Expiry between phases.** A reviewer that finishes, then an addressing agent that
+  starts 20 minutes later on a different definition, shares nothing; and a coordinator
+  that waits more than 5 minutes between turns of its own on an API key loses its own
+  prefix (the main conversation on a subscription has an hour).
+
+Three practical rules follow:
+
+1. **Prefer the shortest prefix that does the job.** The definition body should stay
+   small, `CLAUDE.md` content is paid on every spawn, and a `skills` preload is paid on
+   every spawn whether the sub-agent needs it or not.
+   Loading the shortcut from the brief (as tbd does) costs the same tokens as preloading
+   it but only for the sub-agents that need it, and keeps the definition portable.
+2. **Spawn same-prefix sub-agents a few seconds apart, or accept the miss.** The miss is
+   one prefix write, on the order of $0.10, so this matters only for large fan-outs.
+3. **Set the sub-agent TTL to an hour when sub-agents wait.** A fast-tier sub-agent that
+   polls CI every few minutes is exactly the case the API docs name for the 1-hour TTL
+   ("an agentic side-agent will take longer than 5 minutes") [V40]; each poll under the
+   5-minute TTL keeps the entry warm anyway, but a poll interval above 5 minutes does
+   not, and then every poll rewrites the prefix.
+   The cost is a 2x write instead of 1.25x, on a prefix that is small.
+
+#### Prompt Caching on Codex and the OpenAI API
+
+*(Not re-verified from the OpenAI documentation; the sandbox that wrote this section
+could not reach `developers.openai.com` or `platform.openai.com`. Verify before relying
+on the figures.)*
+
+- OpenAI prompt caching is automatic: no cache-control markers, prefix matching from the
+  start of the request, activating at 1,024 tokens and extending in 128-token increments
+  [V42]. Cached input tokens are billed at a discount that depends on the model (the
+  current reasoning models discount cached input heavily; the exact factor is per model
+  on the pricing page).
+- Retention is minutes by default (documented as 5 to 10 minutes of inactivity, up to
+  about an hour off-peak), with an extended retention option on some models; a
+  `prompt_cache_key` routes same-key requests to the same cache.
+- Reasoning effort is a request parameter rather than prompt text, so a Codex sub-agent
+  at a different `reasoning_effort` on the same model should share the parent’s prefix
+  up to the point where their prompts diverge; this was not verified.
+- Because a fresh Codex child receives the same base instructions as the parent and the
+  same `AGENTS.md`, a child spawned with a built-in role on the same model shares the
+  parent’s instructions prefix; a `tbd-*` role diverges where its
+  `developer_instructions` replace the parent’s, which is early in the prompt, so the
+  shared part is small either way.
+- Codex tells its model to prefer minute-scale waits over busy polling [V20], which
+  keeps a waiting sub-agent inside a short retention window.
+
+The same rules about report size, prefix size, and expiry between phases apply.
+
 ### What the System Prompts Say
 
 Three sources were compared on 2026-09-16:
@@ -1647,6 +1901,16 @@ applied; rows 3 and 8 are design choices that can be revisited without one.
   also cannot reliably report its own model, and availability or content-based fallback
   can move it to a weaker model silently [V23], so record what was requested.
 
+- **A Claude Code sub-agent runs under its definition body, not the Claude Code system
+  prompt,** so the body is its whole behavioral prompt; a Codex child keeps the full
+  Codex prompt and `AGENTS.md`, with a role’s `developer_instructions` replacing the
+  parent’s [V1], [V41]. Only the brief and the shortcut it names are portable.
+
+- **Starting fresh is cheap under caching.** A sub-agent’s prefix (tools, body,
+  `CLAUDE.md`) is written once and re-read at a tenth of the input price per turn; a
+  fork re-reads the coordinator’s whole context every turn instead.
+  Sub-agents get the 5-minute TTL by default even on a subscription [V39], [V40].
+
 - **Delegating trivial commands is discouraged** on both platforms [V20], [V21], which
   is in tension with giving routine administrative steps to a separate fast-tier
   sub-agent.
@@ -1710,6 +1974,9 @@ coordination, but they are experimental and cost more tokens.
   the classification and the deviations, and consolidate the general delegation advice
   into `delegate-to-subagents` (bead `tbd-ycxf`; done 2026-09-17; see Classification of
   Vendor Recommendations and Deviations From Vendor Guidance).
+- [ ] Re-read the OpenAI prompt caching documentation and confirm the retention,
+  discount, `prompt_cache_key`, and reasoning-effort figures marked as not re-verified
+  in Prompt Caching on Codex and the OpenAI API.
 - [ ] Track openai/codex#20077: the handler applies overrides on full-history forks, but
   the V2 instructions still say it does not; re-check when the instructions change.
 - [ ] Re-check model names and reasoning levels whenever a provider releases or retires
@@ -1995,6 +2262,33 @@ added at consolidation for sources that only the Claude Code research cited.
   [#37252](https://github.com/openai/codex/pull/37252), “Allow agent roles on
   full-history forks”, merged 2026-08-06 and first released in rust-v0.148.0
   (2026-08-18): removed the V2 rejection of `agent_type` on full-history forks.
+
+- **[V39] ✓ (2026-09-17)** Claude Code,
+  [How Claude Code uses prompt caching](https://code.claude.com/docs/en/prompt-caching):
+  request layering, actions that invalidate or keep the cache, the two TTL buckets and
+  `subagentPromptCacheTtl`, cache scope, the “Subagents and the cache” section, and how
+  to read cache usage.
+
+- **[V40] ✓ (2026-09-17)** Claude Platform,
+  [Prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching):
+  pricing multipliers, minimum cacheable length per model, prefix order and invalidation
+  (including thinking and effort changes), TTL and refresh, concurrency, and per-model
+  and per-workspace isolation.
+
+- **[V41] ✓ (2026-09-17)** openai/codex at `main` on 2026-09-17:
+  `codex-rs/core/src/agent/child_config.rs` (a fresh child receives the session’s
+  current base instructions; developer instructions copy to the child only on a V2
+  full-history fork), `codex-rs/core/src/agent/role.rs` (a role’s
+  `developer_instructions` replace the config value; the built-in roles and their
+  embedded config files), and `codex-rs/core/assets/agent/builtins/awaiter.toml` (the
+  built-in awaiter at `low` reasoning effort).
+
+- **[V42]** OpenAI,
+  [Prompt caching](https://platform.openai.com/docs/guides/prompt-caching) and the
+  Cookbook’s Prompt Caching 101 notebook: automatic prefix caching from 1,024 tokens.
+  Not re-read on 2026-09-17 (network egress blocked from the writing sandbox); the
+  retention, discount, and `prompt_cache_key` details are from memory and marked as such
+  in the text.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
