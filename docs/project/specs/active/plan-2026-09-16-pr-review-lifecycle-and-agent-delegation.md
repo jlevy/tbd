@@ -296,13 +296,16 @@ The facts this plan depends on, as of 2026-09-16:
 
 - Claude Code sets a sub-agent’s model per spawn but its reasoning level only through an
   agent definition or the session [V1]; Codex sets both per spawn [V16].
-- A forked sub-agent keeps the parent’s model and tools (Claude Code) or rejects model
-  and effort overrides (Codex), so tier work uses fresh sub-agents [V1], [V16].
-- Codex spawns sub-agents only when the user, `AGENTS.md`, or a skill explicitly asks
-  [V13], [V16].
-- Claude Code sub-agents share the working tree unless given a worktree, which starts
-  from the default branch [V1]; Codex sub-agents appear to share the parent’s checkout
+- A forked sub-agent keeps the parent’s model and tools (Claude Code); Codex’s own
+  instructions say a full-history fork inherits the parent’s model and effort and that
+  overrides need `fork_turns` of `none` or a number, although its runtime now applies
+  them either way (openai/codex#20077); so tier work uses fresh sub-agents [V1], [V16].
+- Codex spawns sub-agents only when the user, `AGENTS.md`, or a skill explicitly asks,
+  except at the `ultra` reasoning level, which turns on proactive delegation [V13],
   [V16].
+- Claude Code sub-agents share the working tree unless given a worktree, which starts
+  from the default branch [V1]; Codex sub-agents share the parent’s working directory in
+  both tool versions [V16].
 - `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` can override a model named at spawn [V1].
 - Multi-agent work costs roughly 3 to 15 times the tokens of one agent [V10], [V11].
 
@@ -317,7 +320,7 @@ The facts this plan depends on, as of 2026-09-16:
 | Reviewers follow instructions rather than tool restrictions | Tool allowlists and sandboxes are available [V1], [V13]; none of the sources requires them | Reviewers may run tests and must leave the tree as they found it |
 | One review round by default; more after confirmation | Fresh-context reviewers are recommended [V2], [V8]; self-verification instructions cause over-verification [V7] | Additional rounds are offered when fixes look like they need one; briefs for addressing agents add no self-check instructions |
 | Reviewers report every finding | Filtering in the reviewer prompt causes under-reporting [V7] | Reviews carry every finding with its severity |
-| Self-contained briefs in fresh sub-agents | Supported [V5], [V10]; forks ignore or reject tier settings [V1], [V16] | Tier work starts in a fresh, named sub-agent |
+| Self-contained briefs in fresh sub-agents | Supported [V5], [V10]; forks ignore tier settings (Claude Code) or are instructed not to carry them (Codex) [V1], [V16] | Tier work starts in a fresh, named sub-agent |
 | Verify sub-agent claims | Supported: evidence over assertions [V2], audited progress claims [V8] | The coordinator checks GitHub, git, CI, and beads |
 | Single-agent fallback | Supported when steps chain or share context [V3], [V15] | Same artifacts in one session |
 | Named model on every spawn; condensed reports; few concurrent sub-agents | [V1], [V12], [V16] | Delegation procedure |
@@ -334,11 +337,12 @@ The facts this plan depends on, as of 2026-09-16:
   (`updatetbdSection` in `setup.ts`), so content inside the block survives an upgrade
   only if setup deliberately preserves it, and a tbd release without that preservation
   deletes it.
-- The block’s `format=` value is the repository format (`AGENT_INTEGRATION_FORMAT`
-  equals `CURRENT_FORMAT`). A tbd that finds a newer format refuses to rewrite the
-  block, but bumping `CURRENT_FORMAT` migrates every repository, and
-  `tbd-format-versioning.md` reserves the next format for native comments and calls for
-  splitting the generated integration format from the repository format first.
+- Through tbd 0.9.0 the block’s `format=` value was the repository format
+  (`AGENT_INTEGRATION_FORMAT` aliased `CURRENT_FORMAT`, f08). A tbd that finds a newer
+  format refuses to rewrite the block, but bumping `CURRENT_FORMAT` migrates every
+  repository, and `tbd-format-versioning.md` reserves f09 for native comments.
+  This plan therefore splits the two: generated surfaces carry their own integration
+  format, starting at f100, while the repository format stays f08 (see Persistence).
 - This repository’s committed `.claude/settings.json` sets
   `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-6`, so any Claude Code sub-agent spawned
   here without a named model runs Opus 4.6. Phase 2 removes the pin.
@@ -722,10 +726,10 @@ Setup never adds, removes, or changes a grant without an explicit flag or comman
 A tbd release without grant support would delete the policy block when it regenerates
 the tbd block, so the generated integration format is split from the repository format,
 as `tbd-format-versioning.md` already requires before f09. The release that introduces
-grants bumps only the integration format stamped in the block’s begin marker; the
-repository format stays f08. Because tbd refuses to rewrite a managed block stamped with
-a newer format, tbd 0.9.0 and older stop with an upgrade message instead of deleting
-grants.
+grants bumps only the integration format, to f100, stamped in the block’s begin marker;
+the repository format stays f08. Because tbd refuses to rewrite a managed block stamped
+with a newer format, tbd 0.9.0 and older stop with an upgrade message instead of
+deleting grants.
 
 **Source of truth.** The policy block is the only record of project grants.
 People may edit it by hand, and `tbd doctor` validates it; `.tbd/config.yml` holds no
@@ -758,8 +762,9 @@ copy.
 
 **Grants in the review workflows.**
 
-- Publishing reviews, pushing fixes, and posting disposition replies require
-  `github-editing` or `github-workflows`; without either, the agent asks once before the
+- Publishing reviews, pushing fixes, and posting disposition replies are PR actions and
+  require `github-editing`; re-running CI or editing issues and labels requires
+  `github-workflows`. Without the grant an action needs, the agent asks once before the
   first GitHub mutation in a task.
 - Merge mode requires `github-merge`. With `per-request`, the user’s “reviewed and
   merged” request is the authorization for the PRs it names.
@@ -845,8 +850,10 @@ reviews:
      be recorded. A sub-agent given `isolation: worktree` starts from the default branch
      and must check out the PR branch first.
    - **Codex:** `spawn_agent` with `model` and `reasoning_effort`, without full-history
-     forking. Sub-agents share the parent’s checkout, so parallel work across PRs needs a
-     `git worktree` per PR created by the coordinator.
+     forking (`fork_turns` of `none` or a number in V2; `fork_context` omitted in V1);
+     the model must be one the session lists, and the effort one that model supports.
+     Sub-agents share the parent’s working directory, so parallel work across PRs needs
+     a `git worktree` per PR created by the coordinator.
    - **Other platforms:** use the platform’s documented sub-agent mechanism under the
      same rules, and record which model and reasoning settings it could and could not
      control.
@@ -855,7 +862,8 @@ reviews:
 
    On every platform:
    - Start tier work in a fresh, named sub-agent, not a fork: a fork inherits the
-     parent’s model and tools and ignores or rejects tier settings [V1], [V16].
+     parent’s model and tools and ignores tier settings (Claude Code) or is instructed
+     to keep the parent’s model and effort (Codex) [V1], [V16].
    - Name the model on every spawn, and check for environment overrides
      (`CLAUDE_CODE_SUBAGENT_MODEL`, `CLAUDE_CODE_SUBAGENT_MODEL_FORCE`) that would
      change or block it [V1].
@@ -988,8 +996,10 @@ that can be turned off independently of the tbd skill: `tbd-strong-max` (`max`),
 
 - `.claude/agents/tbd-*.md` with `model` and `effort` frontmatter and a short body:
   follow the brief, run the named tbd shortcut, report in the requested format;
-- `.codex/agents/tbd-*.toml` with `model`, `model_reasoning_effort`, and
-  `developer_instructions`.
+- `.codex/agents/tbd-*.toml` with the required `name`, `description`, and
+  `developer_instructions`, plus `model` and `model_reasoning_effort`; a custom agent
+  file’s model and effort take precedence over the values named at spawn, so a spawn
+  that selects a `tbd-*` agent runs at that tier [V13].
 
 The model and reasoning level in these files come from the dated suggestions, and setup
 refreshes them on upgrade, so updating tbd also updates the suggestions.
