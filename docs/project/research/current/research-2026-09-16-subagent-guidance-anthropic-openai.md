@@ -1019,9 +1019,10 @@ and a long session’s per-turn cost grows linearly but slowly.
 **Why writes cost more than reads and why the 1-hour entry costs twice.** A write is the
 full prefill plus storage; a read is storage retrieval.
 The write premium (25% for five minutes, 100% for an hour) prices the storage time.
-The break-even is one read for a 5-minute entry and two reads for a 1-hour entry [V43],
-so an agent that takes more than two turns inside the hour always comes out ahead with
-the longer entry, and one that takes one turn and stops pays double for nothing.
+A 5-minute entry pays for itself after one read (1.25 + 0.1 = 1.35 against 2 uncached)
+and a 1-hour entry after two (2 + 0.2 = 2.2 against 3) [V43], so an agent that takes
+more than three turns inside the hour always comes out ahead with the longer entry, and
+one that takes one turn and stops pays double for nothing.
 
 **Per-model prices as of 2026-09-17** [V43], per million tokens:
 
@@ -1096,9 +1097,14 @@ for sub-agents:
   A different model is always a different cache.
   Effort is rendered into the prompt on most models, so a change to
   `output_config.effort` invalidates the messages cache and, on models that render it
-  ahead of the system prompt, the tools and system caches too [V40]; Fable 5.1 on an API
-  key or subscription keeps the cache across an effort change (v2.1.260+) [V39].
-  Thinking configuration (`budget_tokens`, mode) behaves the same way.
+  ahead of the system prompt, the tools and system caches too [V40]. The API offers an
+  escape hatch on Fable 5.1, Mythos 5.1, and Opus 5: a `{"role": "system"}` message with
+  empty content and an `output_config.effort`, appended to `messages` (beta
+  `mid-conversation-output-config-2026-07-01`), changes the effort from that point on
+  without touching the cached prefix [V45]. Claude Code uses this so that Fable 5.1 on
+  an API key or subscription keeps the cache across an effort change (v2.1.260+), and
+  documents the exception for Fable 5.1 only [V39]. Thinking configuration
+  (`budget_tokens`, mode) behaves the same way as a top-level effort change.
   For tiers: `tbd-moderate` at `xhigh` and `tbd-fast` at `medium` on Opus are two
   caches, and `tbd-strong` at `xhigh` and `tbd-strong-max` at `max` on Fable 5.1 are
   one, on the API or a subscription.
@@ -1108,6 +1114,11 @@ for sub-agents:
   message strips prior thinking blocks and invalidates the messages cache [V40]. Inside
   a tool loop this never triggers, because every turn is a tool result; it matters when
   the coordinator sends a follow-up message to a resumed sub-agent on an older model.
+  Fable 5.1 adds a stricter rule in the other direction: editing or deleting an earlier
+  turn (an injected-then-removed reminder, a rewritten tool result) invalidates every
+  later thinking block, and accounts created from 2026-08-31 get a 400 on such history
+  [V45]. A harness for it must be append-only, which is the same rule caching already
+  rewards.
 
 **Single session versus sub-agents: the same mechanism, different prefixes.** A single
 session has one prefix that grows.
@@ -1179,6 +1190,11 @@ What expiry costs, and when it happens in a tbd workflow:
   then reads. A poll every 4 minutes under the 5-minute TTL is cheapest of all (reads
   only), which is why a waiting sub-agent should poll inside the TTL or have the TTL
   raised, and why Codex’s built-in awaiter polls with growing timeouts.
+  At the API level there is a third option that Claude Code does not expose: re-send the
+  previous request with `max_tokens: 0` just before the entry would expire, which
+  refreshes the timer for the price of one cache read and no output; on Fable 5.1, where
+  a read is 2.5% of base, this beats the 1-hour TTL unless pauses approach an hour
+  [V45]. In Claude Code the levers are the TTL settings and the poll interval.
 - *The coordinator between phases* expires on an API key when it waits more than five
   minutes for a sub-agent, which it usually does, and then pays a full write of its own
   context on its next turn.
@@ -1202,11 +1218,12 @@ It also displaces context.
 This is the arithmetic behind the “page or two” rule in `delegate-to-subagents`.
 
 **Bedrock, Google Cloud, Foundry, and gateways.** The mechanism is the same but the
-cache lives in the provider’s infrastructure, the minimum cacheable prefix and 1-hour
-availability vary by model on Bedrock, the effort-change exception for Fable 5.1 does
-not apply, and a gateway that strips `cache_control` markers silently turns every turn
-into full-price input [V39]. Check `cache_read_input_tokens` in the response before
-assuming caching works through any intermediary.
+cache lives in the provider’s infrastructure, prompt caching support and 1-hour
+availability vary by model on Bedrock (the per-model minimum prefix is the same on every
+platform [V45]), the effort-change exception for Fable 5.1 does not apply, and a gateway
+that strips `cache_control` markers silently turns every turn into full-price input
+[V39]. Check `cache_read_input_tokens` in the response before assuming caching works
+through any intermediary.
 
 **Codex and the OpenAI API.** *(Partly from memory; the OpenAI pages were unreachable
 from the sandbox that wrote this section, and the Codex facts are from source [V44].)*
@@ -1568,7 +1585,7 @@ communication, and nesting depth were stale.)*
 | Parallelism | Background by default in interactive sessions | Native (in-process, tmux, or iTerm2) | Shell backgrounding |
 | Custom compaction | No | No | Yes (explicit handoffs) |
 | Session persistence | Sub-agent transcripts (resumable in the same session) | Teammate transcripts; in-process teammates not restored by `/resume` | Full session persistence |
-| Token efficiency | Good (shared caching) | Low (separate instances) | Low (separate processes) |
+| Token efficiency | Each sub-agent warms its own prefix, separate from the parent’s; same-definition spawns in one directory share it within the TTL (see Caching From First Principles) | Each teammate is a separate instance with its own prefix | Each invocation has its own prefix; invocations in one directory share it within the TTL [V39] |
 | Maturity | Stable | Experimental, disabled by default | DIY (all stable primitives) |
 | Permission control | Inherited plus overrides | Inherited from the lead at spawn | Fully independent |
 
@@ -1601,7 +1618,7 @@ This differs from native sub-agents on every axis:
 | Session persistence | Transcript in the sub-agent directory | Optional (`--session-id`, `--continue`) |
 | Output format | Returns to the parent via the Agent tool (completion notification when in the background) | stdout (text, json, stream-json) |
 | Compaction | Built-in auto-compaction | Built-in auto-compaction |
-| Cost | Shares the API connection and caching | Separate API calls |
+| Cost | Own prefix cache per sub-agent, separate from the parent’s (see Caching From First Principles) | Own prefix per invocation; parallel invocations in one directory share it within the TTL [V39] |
 | Nesting | Up to 3 layers by default (configurable) | Arbitrarily deep |
 | Permission | Inherits from the parent plus sub-agent config | Fully independent permission mode |
 | MCP servers | Inherits from the parent; a definition can scope its own `mcpServers` | Must be configured independently |
@@ -1616,9 +1633,10 @@ spend cap per invocation.
 
 **Disadvantages:** higher latency (each invocation starts a process, loads
 configuration, and connects); no shared context, so everything crosses through prompts,
-files, or pipes; no prompt caching between invocations; process lifecycle, error
-recovery, and output parsing to manage; and no automatic resume, so if the outer agent
-compacts it loses track of inner invocations unless state is persisted to files.
+files, or pipes; no cache sharing with the outer session (invocations in one directory
+can share a prefix with each other within the TTL); process lifecycle, error recovery,
+and output parsing to manage; and no automatic resume, so if the outer agent compacts it
+loses track of inner invocations unless state is persisted to files.
 
 #### Custom Compaction and Handoff Cycles
 
@@ -1655,8 +1673,8 @@ to files rather than keeping it in context.
 Each inner invocation gets a fresh context window, the handoff provides curated context
 (better than auto-compaction), phases can use different models and prompts, and state
 survives even if the outer agent compacts; the costs are setup and debugging complexity,
-no shared prompt caching, process startup latency, careful handoff design, and the fact
-that the outer agent itself eventually hits context limits.
+no cache shared with the outer session, process startup latency, careful handoff design,
+and the fact that the outer agent itself eventually hits context limits.
 
 #### What Exists Today
 
@@ -2551,6 +2569,14 @@ added at consolidation for sources that only the Claude Code research cited.
   `<source>:<parent_thread_id>` for an internally spawned thread), `store: false`,
   `reasoning.encrypted_content` included, full history except over WebSocket with
   `previous_response_id`, no `prompt_cache_retention`.
+
+- **[V45] ✓ (2026-09-17)** Anthropic, the bundled `claude-api` reference skill (Claude
+  Code v2.1.274, `shared/prompt-caching.md` and the model migration notes): invalidation
+  hierarchy and the three cache-preserving escape hatches (tools and system prompt as
+  mid-conversation system messages; per-message effort behind
+  `mid-conversation-output-config-2026-07-01` on Fable 5.1, Mythos 5.1, and Opus 5); the
+  per-model minimum cacheable prefix applying on every platform; the `max_tokens: 0`
+  keep-alive; preserved thinking and the history-editing check on Fable 5.1.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
