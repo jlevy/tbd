@@ -3,10 +3,11 @@ type: is
 id: is-01m2pr2906rqnap8ry6ym5ceby
 title: "P2: Policy grants library and tbd policy command"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 8
+version: 11
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:judgment
 dependencies:
@@ -23,8 +24,15 @@ dependencies:
   - type: blocks
     target: is-01m2q1mwg7g79zbsqy77xwrdbw
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T03:55:16.869Z
-updated_at: 2026-09-17T06:43:55.648Z
+updated_at: 2026-09-17T10:15:06.911Z
+started_at: 2026-09-17T09:56:09.561Z
+closed_at: 2026-09-17T10:15:06.910Z
+close_reason: "Batch 2 verified by the coordinator: rebuilt dist and skills copy; 146 tests in the 9 acceptance files passed; typecheck, eslint, prettier, and flowmark clean; tbd policy smoke-tested; committed one commit per bead"
+resolution: null
+duplicate_of: null
 ---
 Plan: Policy Grants (Policies table, Answered and unanswered policies, The recommended set, The block, Recording grants, Source of truth, Reading grants); Implementation Plan Phase 2 item 1 (the `tbd policy` command part); Document Changes row "setup.ts, a new tbd policy command, tbd prime, tbd doctor (code)". Other parts of that item are split out: integration-format split, setup preservation, setup flags, prime, doctor.
 
@@ -39,3 +47,7 @@ Acceptance (Testing Strategy > Policy grants (code), these assertions): `tbd pol
 
 Rules: the coordinator commits and syncs. Do not commit, push, run `tbd sync`, or edit the plan spec unless the write set lists it. Keep scratch files in the session scratch directory. Run only the targeted checks listed, not the full suite.
 Markdown check: `uvx --exclude-newer-package flowmark-rs=2026-05-31 flowmark-rs@0.3.1 --auto --check <files>` (per-file form of `pnpm format:md:check`). TypeScript checks: `pnpm exec prettier --check <files>`, `pnpm exec eslint <files>`, `pnpm --filter get-tbd typecheck`. Tests that read `packages/tbd/dist/` (integration-files, doc-references, setup-flows, golden-output, tryscripts) need a current build: run `pnpm --filter get-tbd build` once if dist is stale.
+
+## Notes
+
+Custom-value grammar is defined in packages/tbd/docs/guidelines/agent-policy-grants.md (Custom Values and The Policy Block sections); implement exactly that. Grants are consent for agents: do not make tbd sync or other engine behavior refuse to run when a grant is missing.

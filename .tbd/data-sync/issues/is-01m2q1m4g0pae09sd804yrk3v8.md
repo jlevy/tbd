@@ -3,10 +3,11 @@ type: is
 id: is-01m2q1m4g0pae09sd804yrk3v8
 title: "P2: Split the generated integration format from the repository format"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 4
+version: 6
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:judgment
 dependencies:
@@ -15,8 +16,15 @@ dependencies:
   - type: blocks
     target: is-01m2pr2906rqnap8ry6ym5ceby
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T06:42:19.263Z
-updated_at: 2026-09-17T06:44:49.071Z
+updated_at: 2026-09-17T09:54:28.914Z
+started_at: 2026-09-17T06:54:05.086Z
+closed_at: 2026-09-17T09:54:28.913Z
+close_reason: Fable sub-agent split AGENT_INTEGRATION_FORMAT (f100) from CURRENT_FORMAT (f08) with tests proving 0.9.0-style parsing refuses f100; coordinator reviewed the diff and reran the 4 acceptance test files (112 passed); committed
+resolution: null
+duplicate_of: null
 ---
 Plan: Policy Grants > Persistence; Background > tbd Constraints on Delegation (the format bullets); Implementation Plan Phase 2 item 1 ("the guard against older releases"); Document Changes row tbd-format-versioning.md. See also docs/tbd-format-versioning.md ("split these roles in code", Generated integration format).
 

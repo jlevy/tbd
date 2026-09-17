@@ -3,10 +3,11 @@ type: is
 id: is-01m2pr27xvvhz6zh7xpnvfnwdv
 title: "P1: Update address-pr-review for markers, lettered IDs, and four dispositions"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 5
+version: 7
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:mechanical
 dependencies:
@@ -17,8 +18,15 @@ dependencies:
   - type: blocks
     target: is-01m2q2590d5x1nx544vc8f42a3
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T03:55:15.770Z
-updated_at: 2026-09-17T06:51:40.940Z
+updated_at: 2026-09-17T10:15:06.960Z
+started_at: 2026-09-17T09:56:56.919Z
+closed_at: 2026-09-17T10:15:06.960Z
+close_reason: "Batch 2 verified by the coordinator: rebuilt dist and skills copy; 146 tests in the 9 acceptance files passed; typecheck, eslint, prettier, and flowmark clean; tbd policy smoke-tested; committed one commit per bead"
+resolution: null
+duplicate_of: null
 ---
 Plan: Document Changes row address-pr-review; Review-State Contract (Dispositions, Disposition replies, Discovery sweep); Roles (escalation); README Changes item 18 (describe address-pr-review with four dispositions).
 

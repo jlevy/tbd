@@ -3,10 +3,11 @@ type: is
 id: is-01m2pr2b3n3e6xjq7t4khw113p
 title: "P2: Add agent-model-tiers guideline"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 6
+version: 8
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:mechanical
 dependencies:
@@ -19,8 +20,15 @@ dependencies:
   - type: blocks
     target: is-01m2q2590d5x1nx544vc8f42a3
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T03:55:19.028Z
-updated_at: 2026-09-17T06:51:40.940Z
+updated_at: 2026-09-17T07:00:26.255Z
+started_at: 2026-09-17T06:54:39.102Z
+closed_at: 2026-09-17T07:00:26.242Z
+close_reason: agent-model-tiers guideline written by an Opus sub-agent; coordinator checked content against the plan's Model Tiers section and formatting; committed
+resolution: null
+duplicate_of: null
 ---
 Plan: Design > Model Tiers; Document Changes row agent-model-tiers.
 

@@ -3,10 +3,11 @@ type: is
 id: is-01m2pr26wk9nmdax9rmpxmmx5y
 title: "P1: Update pr-review-workflows with the review-state contract"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 9
+version: 11
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:mechanical
 dependencies:
@@ -25,8 +26,15 @@ dependencies:
   - type: blocks
     target: is-01m2q2590d5x1nx544vc8f42a3
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T03:55:14.706Z
-updated_at: 2026-09-17T06:51:40.940Z
+updated_at: 2026-09-17T07:02:55.731Z
+started_at: 2026-09-17T06:54:31.675Z
+closed_at: 2026-09-17T07:02:55.711Z
+close_reason: pr-review-workflows rewritten by an Opus sub-agent; coordinator checked markers, dispositions, and links against the plan, replaced the model name in the example header with a placeholder, and gave suggestions IDs and dispositions; integration-files test passed per agent; committed
+resolution: null
+duplicate_of: null
 ---
 Plan: Design > Review-State Contract (header and marker, finding IDs, dispositions table, disposition replies, pinning and the working tree, channel, discovery sweep); Request Vocabulary (table and the user guidance that overrides defaults); Review Coverage and Rounds (coverage under pr-review-requirements, dedicated reviews and sensitivity lists, additional-round signals and the confirmation rule); Roles and escalation; Orchestrated Workflow step 5 (merge gate); Single-Agent Fallback; Policy Grants > "Grants in the review workflows". Document Changes row pr-review-workflows.
 

@@ -3,10 +3,11 @@ type: is
 id: is-01m2pr26h75crmcgbdddxq7z1n
 title: "P1: Re-verify Codex platform facts and correct the research brief"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 6
+version: 8
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:judgment
 dependencies:
@@ -19,8 +20,15 @@ dependencies:
   - type: blocks
     target: is-01m2q2590d5x1nx544vc8f42a3
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T03:55:14.341Z
-updated_at: 2026-09-17T06:51:40.940Z
+updated_at: 2026-09-17T09:55:12.468Z
+started_at: 2026-09-17T06:54:30.201Z
+closed_at: 2026-09-17T09:55:12.467Z
+close_reason: Fable sub-agent re-verified Codex/OpenAI facts against docs and openai/codex b0659c53; coordinator checked plan edits were confined to the named sections, citations stable (V16 repinned, V38 added), formatting; committed with plan alignment fixes
+resolution: null
+duplicate_of: null
 ---
 Plan: Implementation Plan > Phase 1 item 1; Background > "Sub-Agent Platforms and Vendor Guidance".
 

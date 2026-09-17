@@ -3,10 +3,11 @@ type: is
 id: is-01m2pr29b7r2ekzcr1yvrkhqdn
 title: "P2: Add agent-policy-grants guideline"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 9
+version: 11
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:judgment
 dependencies:
@@ -25,8 +26,15 @@ dependencies:
   - type: blocks
     target: is-01m2q2590d5x1nx544vc8f42a3
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T03:55:17.222Z
-updated_at: 2026-09-17T06:51:40.940Z
+updated_at: 2026-09-17T07:04:58.024Z
+started_at: 2026-09-17T06:54:18.450Z
+closed_at: 2026-09-17T07:04:58.023Z
+close_reason: agent-policy-grants guideline written by a Fable sub-agent (custom-value grammar defined for tbd-42j9); coordinator checked it against the decisions, reworded the Linear line so grants are agent consent rather than a tbd sync gate, and aligned pr-review-workflows; committed
+resolution: null
+duplicate_of: null
 ---
 Plan: Design > Policy Grants (all subsections); Consolidated Setup Process step 4; Document Changes row agent-policy-grants.
 

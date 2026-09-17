@@ -3,10 +3,11 @@ type: is
 id: is-01m2pr2bfbf2jf2hp8khqwh9mf
 title: "P2: Add delegate-to-subagents shortcut and link agent-run-operations-rules"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 9
+version: 11
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:mechanical
 dependencies:
@@ -21,8 +22,15 @@ dependencies:
   - type: blocks
     target: is-01m2q2590d5x1nx544vc8f42a3
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T03:55:19.402Z
-updated_at: 2026-09-17T06:51:40.940Z
+updated_at: 2026-09-17T10:15:06.936Z
+started_at: 2026-09-17T09:56:30.656Z
+closed_at: 2026-09-17T10:15:06.936Z
+close_reason: "Batch 2 verified by the coordinator: rebuilt dist and skills copy; 146 tests in the 9 acceptance files passed; typecheck, eslint, prettier, and flowmark clean; tbd policy smoke-tested; committed one commit per bead"
+resolution: null
+duplicate_of: null
 ---
 Plan: Design > Sub-Agent Authorization; Delegation Procedure (steps 1-7 and every sub-bullet); Single-Agent Fallback; Background > tbd Constraints on Delegation. Document Changes rows delegate-to-subagents and agent-run-operations-rules.
 

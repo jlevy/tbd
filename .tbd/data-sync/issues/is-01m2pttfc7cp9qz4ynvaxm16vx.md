@@ -3,18 +3,26 @@ type: is
 id: is-01m2pttfc7cp9qz4ynvaxm16vx
 title: "P2: Remove the CLAUDE_CODE_SUBAGENT_MODEL pin from .claude/settings.json"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 3
+version: 5
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:mechanical
 dependencies:
   - type: blocks
     target: is-01m2q1n82ewxqyytff9f2sftj2
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T04:43:26.982Z
-updated_at: 2026-09-17T06:44:14.782Z
+updated_at: 2026-09-17T06:52:52.865Z
+started_at: 2026-09-17T06:52:25.893Z
+closed_at: 2026-09-17T06:52:52.843Z
+close_reason: Removed the env pin from .claude/settings.json in the commit after a5b198b5; JSON and prettier checks pass
+resolution: null
+duplicate_of: null
 ---
 Plan: Implementation Plan > Phase 2 item "Remove the CLAUDE_CODE_SUBAGENT_MODEL pin"; Background > tbd Constraints on Delegation. Decision made: remove the pin (tbd names a model on every spawn; the pin only downgrades unnamed spawns to Opus 4.6).
 

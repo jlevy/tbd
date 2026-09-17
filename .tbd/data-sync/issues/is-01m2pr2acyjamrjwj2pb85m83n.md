@@ -3,18 +3,26 @@ type: is
 id: is-01m2pr2acyjamrjwj2pb85m83n
 title: "P2: Gate stacked-PR shortcuts on github-stacked-prs"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 3
+version: 5
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:mechanical
 dependencies:
   - type: blocks
     target: is-01m2pr2cx3yxc65xrmh4kpd9ef
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T03:55:18.301Z
-updated_at: 2026-09-17T06:44:02.293Z
+updated_at: 2026-09-17T10:15:06.966Z
+started_at: 2026-09-17T09:57:17.433Z
+closed_at: 2026-09-17T10:15:06.966Z
+close_reason: "Batch 2 verified by the coordinator: rebuilt dist and skills copy; 146 tests in the 9 acceptance files passed; typecheck, eslint, prettier, and flowmark clean; tbd policy smoke-tested; committed one commit per bead"
+resolution: null
+duplicate_of: null
 ---
 Plan: Policy Grants > "Stacked PRs under the grant"; Implementation Plan Phase 2 item 5; Document Changes row for stacked-prs, create-or-update-pr-*, setup-github-cli; Other Documentation Updates (last bullet).
 
