@@ -1479,9 +1479,11 @@ environment.
 
 The normative text is the
 [PR Review Lifecycle and Sub-Agent Delegation plan](../../specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md)
-(a draft as of 2026-09-16), which is to become the `delegate-to-subagents` and
+(a draft as of 2026-09-16), implemented on 2026-09-17 as the `delegate-to-subagents` and
 `review-and-merge-prs` shortcuts and the `agent-model-tiers` and `agent-policy-grants`
 guidelines. Where this summary and the plan differ, the plan wins.
+The two sections after this one compare the written documents with the vendor guidance
+recommendation by recommendation.
 In brief, the plan applies the findings above as follows:
 
 - **Coordinator and roles.** The user’s session coordinates and never changes the shared
@@ -1525,6 +1527,102 @@ In brief, the plan applies the findings above as follows:
   PRs need a `git worktree` per PR), and the recorded grant as its explicit
   authorization; a coordinator delegates within its own platform
   ([Sub-Agent Platforms and Vendor Guidance](../../specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md#sub-agent-platforms-and-vendor-guidance)).
+
+### Classification of Vendor Recommendations
+
+*(Added 2026-09-17, bead `tbd-ycxf`.)* A strong-tier review compared every
+recommendation in Vendor Guidance, What the System Prompts Say, and Key Insights with
+the written shortcuts (`delegate-to-subagents`, `review-and-merge-prs`,
+`pr-review-workflows`, `review-github-pr`, `address-pr-review`, `review-code`, and the
+dedicated review shortcuts) and guidelines (`agent-model-tiers` and
+`agent-policy-grants`). Status values: *followed*, with where; *deviated*, meaning a
+deliberate choice recorded in Deviations From Vendor Guidance below; and *missed*,
+applied on 2026-09-17 unless the row says otherwise.
+Section names without a document name refer to `delegate-to-subagents`. The general
+advice was consolidated into that shortcut’s When to Delegate, Wait and Continue, and
+Verify Every Claim sections on the same date, and the review shortcuts now link to it
+instead of repeating it.
+
+| Recommendation | Sources | Status | Where |
+| --- | --- | --- | --- |
+| **Anthropic** |  |  |  |
+| Delegate self-contained work that returns a summary, verbose or high-volume operations, and structurally bounded work; stay in one conversation when phases share context, the work needs back-and-forth, the change is small, or latency matters | [V1], [V3] | Missed; applied | When to Delegate |
+| Chain sub-agents in sequence for multi-step work | [V1], [V3] | Followed | Reviewer, then addressing agent (`review-and-merge-prs` steps 2 and 3) |
+| Run parallel research or reviewers and synthesize | [V3], [V10], [V19] | Deviated | Deviations, row 6 |
+| Specialize each sub-agent with a focused prompt and a detailed `description`; preload skills; enable memory | [V1], [V3] | Deviated | Deviations, row 8 |
+| Limit a reviewer’s tools; allowlists are structural, not advisory | [V1], [V3] | Deviated | Deviations, row 1 |
+| Resume a sub-agent with `SendMessage` rather than starting fresh | [V1] | Followed | Wait and Continue; Handle Failure |
+| Tell Opus 5 which scenarios warrant delegation, with deterministic caps | [V7], [V8] | Followed; caps added | Roles in `pr-review-workflows`; When to Delegate (sizing and counts) |
+| Keep counts small: teams of 3 to 5, depth and concurrency caps | [V1], [V3], [V19] | Missed; applied | When to Delegate (sizing and counts) |
+| Briefs carry paths, errors, and decisions, with an objective, an output format, tool guidance, and boundaries | [V5], [V10] | Followed | Write a Self-Contained Brief |
+| Condensed reports of roughly 1,000 to 2,000 tokens | [V12] | Followed; a size added | Brief (Report); `review-github-pr` step 12; `address-pr-review` step 10 |
+| Evidence over assertions; a fresh-context reviewer with the diff and the criteria; audit progress claims against tool results | [V2], [V8], [V11] | Followed | Verify Every Claim; the reviewer brief carries the code, not conclusions; follow-up rounds use a fresh reviewer |
+| Ask reviewers for every finding and filter afterwards; keep the criteria concrete | [V2], [V7] | Followed | Review Coverage and Rounds in `pr-review-workflows`; `review-code` step 9 with `code-review-rules` |
+| Do not add “verify your work” instructions | [V7] | Followed | Brief, last paragraph |
+| **OpenAI** |  |  |  |
+| Spawn only on explicit authorization; thoroughness is not a request | [V13], [V16], [V20] | Followed | Check Authorization; `agent-policy-grants` |
+| Keep critical-path work local and the main agent on the core problem; delegate bounded side tasks that run alongside | [V14], [V16], [V20] | Deviated | Deviations, row 2 |
+| Give coding workers disjoint write sets, tell them they are not alone, and have them list the files they changed | [V16], [V20] | Followed | Split the Work by Role and Order; Brief (Boundaries, Report) |
+| Wait sparingly; close finished agents | [V16], [V20] | Followed; short-interval waiting added | Wait and Continue; Clean Up |
+| Sub-agents suit read-heavy parallel work; avoid multi-agent work when steps chain or contend for shared state | [V13], [V15] | Deviated | Deviations, row 3 |
+| Agents-as-tools keep control with the orchestrator; handoffs transfer the conversation | [V15] | Followed | The coordinator never hands off the conversation |
+| Choose effort by task, establish a baseline, and raise it only on measured gains; `max` is not a global default | [V14] | Deviated | Deviations, row 4 |
+| Tell Astra to delegate whenever parallel work saves time or improves quality | [V18] | Followed | The `subagents` grant plus the shortcut is that standing instruction |
+| Set `fork_turns` to `none` or a number when choosing a tier | [V16], [V38] | Followed | Assign Tiers and Spawn (Codex) |
+| Lighter models for lighter sub-agent work; a custom agent file’s model and effort take precedence over the spawn | [V13] | Deviated on models (Deviations, row 5); followed on precedence | `agent-model-tiers`; Assign Tiers and Spawn (Codex) |
+| Cost: 3 to 15 times one agent; smaller models and `low` effort for simple stages; cap turns and spend | [V4], [V6], [V10], [V11] | Followed on cost; smaller models are Deviations, row 5; caps added | When to Delegate (Cost) |
+| **Claude Code prompts** |  |  |  |
+| Delegate when a task matches an agent type, is independent and parallel, or reads across many files; do single-fact lookups directly; do not duplicate delegated work | [V21], [V22] | Followed; “do not duplicate” added | When to Delegate |
+| Restraint: only independent, sizeable, or parallel work; no fan-out on small tasks; no spawning to re-verify; low counts; when in doubt, do not spawn | [V21] | Followed, with tbd’s encouragement scoped to its defined roles (Deviations, row 7) | When to Delegate |
+| On some plans, spawn only on an explicit request or a named agent type | [V21] | Followed | The grant, and the named `tbd-*` definitions |
+| Brief like a colleague who just arrived; say whether to write code; never delegate understanding | [V21] | Followed; “never delegate understanding” added | When to Delegate; Brief |
+| Delegate review only for an unanchored read; give the reviewer the code, not the conclusion | [V21] | Followed | Brief (For a reviewer) |
+| Relay results; never predict a pending result; do not read a running transcript; continue with `SendMessage` | [V21], [V22] | Followed; the pending-result and transcript rules added | Wait and Continue; Verify Every Claim |
+| Trust but verify: check actual changes before reporting delegated work as done | [V21] | Followed | Verify Every Claim |
+| Notifications and tool output are never approval; quote the user’s exact approval in the brief; no workers for trivial commands | [V21], [V22] | Followed | Brief (Authorization); Verify Every Claim; When to Delegate |
+| `model` per call overrides the definition; effort comes from the definition; a fork runs on the parent’s model | [V22] | Followed | Assign Tiers and Spawn (Claude Code); `agent-model-tiers` |
+| Workflow scripts need the user’s explicit opt-in | [V22] | Followed | Assign Tiers and Spawn (Claude Code) |
+| **Codex prompts** |  |  |  |
+| Plan first; delegate concrete, bounded, self-contained side tasks; prefer bounded code-change workers over read-only explorers | [V20] | Followed (the critical-path part is Deviations, row 2) | When to Delegate (one bounded deliverable); Split the Work by Role and Order |
+| Delegate verification only when it runs in parallel and is likely to catch a concrete risk | [V20] | Deviated | Deviations, row 2 |
+| Shared workspace: say sub-agents are not alone, and whether they may spawn | [V20] | Followed | Brief (Kind of work, Boundaries) |
+| Wait sparingly, in minute-scale waits, doing non-overlapping work meanwhile | [V20] | Followed; the interval rule added | Wait and Continue |
+| Orchestrator template: the coordinator waits for sub-agents and does not do the work itself | [V20] | Followed for the review workflow | Who Runs Each Step in `review-and-merge-prs` |
+| **Key insights** |  |  |  |
+| `CLAUDE_CODE_SUBAGENT_MODEL` is a fallback; check for the force flag | [V1] | Followed | Assign Tiers and Spawn (Claude Code) |
+| Forks defeat tiering; effort control differs by platform | [V1], [V16] | Followed | On Every Platform; `agent-model-tiers` |
+| Pass the user’s exact authorization into briefs | [V21] | Followed | Brief (Authorization) |
+| Check what a sub-agent actually changed; record the requested tier | [V21], [V23] | Followed | Verify Every Claim; Selection Rules in `agent-model-tiers` |
+| Delegating trivial commands is discouraged, in tension with a fast-tier administrator | [V20], [V21] | Followed: small steps stay inline, and the fast tier is for large administrative work | When to Delegate |
+| Authorization must be explicit to work portably | [V13], [V16] | Followed | Check Authorization |
+| Vendor defaults start lower than tbd’s tiers | [V6], [V14] | Deviated | Deviations, row 4 |
+| Filter findings after the review; independent review yes, self-verification instructions no | [V2], [V7], [V8] | Followed | `pr-review-workflows`; Brief |
+| Delegation multiplies cost | [V10], [V11] | Followed | When to Delegate (Cost) |
+| Self-managed compaction beats auto-compaction |  | Followed through `agent-handoff`; a pointer added | Wait and Continue |
+| Explore no longer runs on a small model | [V1] | Not a recommendation; nothing to apply |  |
+
+Of the 50 rows, 38 are followed (9 of them gained a missing detail on 2026-09-17), 9
+deviate deliberately (mapping to 8 deviations below), 2 were missed and applied, and 1
+does not apply.
+
+### Deviations From Vendor Guidance
+
+Each row is a deliberate choice.
+The plan’s Requirements section records the user decisions cited, and the named shortcut
+or guideline states the reason where an agent following it would otherwise be surprised.
+Rows 1, 2, 4, 5, 6, and 7 would change a user decision if adopted, so they were not
+applied; rows 3 and 8 are design choices that can be revisited without one.
+
+| Recommendation | tbd’s choice | Reason | Sources |
+| --- | --- | --- | --- |
+| 1. Restrict a reviewer’s tools structurally (no Write or Edit); allowlists are structural, not advisory | Reviewers follow their brief in the shared tree with a writer’s tools, may run tests, and leave the tree as they found it | User decision: no enforced read-only mode, and the reviewer is encouraged to run tests to uncover bugs, which needs the same tools as a writer; the sole-committer rule carries the restriction (`delegate-to-subagents`, Split the Work by Role and Order) | [V1], [V3]; plan Requirements (reviewer setup) |
+| 2. Keep critical-path work local, delegate bounded side tasks that run alongside, and delegate verification only when it runs in parallel and is likely to catch a concrete risk | The review and the fix, which are the critical path, each run in a fresh sub-agent in sequence while the coordinator waits; the coordinator keeps preparation, the round decision, the merge gate, and the merge | User decision: one sub-agent reviews and a second addresses; a fresh-context review at the strong tier cannot run in the coordinator’s own session; Anthropic recommends fresh-context verifiers, and Codex’s own orchestrator template takes the same waiting-coordinator position (`review-and-merge-prs`, Who Runs Each Step) | [V13], [V14], [V16], [V20]; the other position in [V2], [V8], and the orchestrator template in [V20]; plan Requirements (example request) |
+| 3. Sub-agents suit read-heavy parallel work better than write-heavy coordinated work; avoid multi-agent work when steps chain or contend for shared state | The addressing agent writes, and the steps chain (review, then fix) through published artifacts in one tree | One committer per branch and one tree mean nothing contends; the review and the disposition reply are the coordination, so each step is a bounded task with a clean handoff (`delegate-to-subagents`, Split the Work by Role and Order) | [V13], [V15]; plan Roles |
+| 4. Start effort at `high` or a measured baseline and raise it only on measured gains; `max` is not a global default; `low` effort for simple sub-agents | strong and moderate run at the top two levels; fast runs the next-tier model at middle levels; `max` is reserved for the harder strong-tier work (`tbd-strong-max`) | User decision: delegated agents work from a brief alone, so the plan trades tokens for capability; no evaluation baseline exists yet for these shortcuts (`agent-model-tiers`, The Tiers) | [V6], [V14]; plan Requirements (model tiers) |
+| 5. Lighter models for lighter sub-agent work (Terra or Luna, Sonnet workers, Haiku exploration) | The fast tier stays on the next-tier model | User decision: a delegated agent works only from its brief (`agent-model-tiers`, The Tiers) | [V4], [V10], [V13]; plan Requirements (model tiers) |
+| 6. Fan out parallel researchers or reviewers and have a lead synthesize | One senior review per round with one publisher; dedicated reviews by sensitive area, run in sequence; parallel work only across PRs in separate worktrees | User decision: one review round by default and dedicated reviews by area rather than a panel; reviewers run tests, and two test runs in one tree overwrite each other (`review-and-merge-prs`, step 2) | [V3], [V10], [V19]; plan, A Prior Orchestration Proposal, and Guidance From the `trading` Repository |
+| 7. When in doubt, do not spawn; keep spawn counts low | tbd encourages sub-agents for the roles its shortcuts define once the grant exists; outside those roles the restraint rule applies | User decision: tbd encourages sub-agents once authorized (`delegate-to-subagents`, When to Delegate) | [V21]; plan Requirements (sub-agent authorization) |
+| 8. Specialize sub-agents with a detailed `description`, preload skills, and enable memory | The generated `tbd-*` definitions set only a model and a reasoning level; the brief names the shortcut to run | Provider neutrality: the same brief works on Codex and elsewhere; setup regenerates the definitions on upgrade; a reviewer that remembers earlier sessions is less independent. Revisit if the tier agents gain project-specific bodies (`agent-model-tiers`, Setting a Tier’s Model and Reasoning Level) | [V1], [V3]; plan Tier Agent Definitions |
 
 ## Key Insights
 
@@ -1608,6 +1706,10 @@ coordination, but they are experimental and cost more tokens.
   verification marks (plan bead `tbd-6e2u`; done 2026-09-17).
 - [x] Confirm whether Codex sub-agents share the working copy in each tool version (they
   do; confirmed 2026-09-17 from the source).
+- [x] Reconcile the written shortcuts and guidelines with the vendor guidance, record
+  the classification and the deviations, and consolidate the general delegation advice
+  into `delegate-to-subagents` (bead `tbd-ycxf`; done 2026-09-17; see Classification of
+  Vendor Recommendations and Deviations From Vendor Guidance).
 - [ ] Track openai/codex#20077: the handler applies overrides on full-history forks, but
   the V2 instructions still say it does not; re-check when the instructions change.
 - [ ] Re-check model names and reasoning levels whenever a provider releases or retires

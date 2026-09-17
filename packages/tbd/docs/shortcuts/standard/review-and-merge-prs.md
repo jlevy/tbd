@@ -51,11 +51,13 @@ unclear, ask.
 | 6. Merge | Coordinator, inline |  |
 | 7. Close out | Coordinator; a fast-tier sub-agent only for bookkeeping across several PRs | fast, when delegated |
 
-Commands and lookups that take a few tool calls (`gh` reads, `tbd policy show`, the
-sweep for one PR) run inline, never in a sub-agent.
-Delegation costs several times the tokens of one agent, so for a small PR the
-single-session path (Without Sub-Agents) is often the better choice even when sub-agents
-are granted.
+Vendor guidance generally keeps critical-path work in the main session and delegates
+side tasks; this workflow delegates the review and the fix on purpose, so that each runs
+in fresh context at its tier, and the coordinator waits for them.
+Whether to delegate at all, and what stays inline, follows When to Delegate in
+`tbd shortcut delegate-to-subagents`: `gh` reads, `tbd policy show`, and the sweep for
+one PR run inline, never in a sub-agent, and for a small PR the single-session path
+(Without Sub-Agents) is often the better choice even when sub-agents are granted.
 
 ## Instructions
 
@@ -80,9 +82,8 @@ Several PRs when the request names more than one):
      - `github-merge` in merge mode: `per-request` is satisfied by a request that names
        this PR; with `not-granted` or unanswered, the user confirms before the merge;
        `unconditional` needs nothing more;
-     - `subagents` to delegate, checked as in Check Authorization in
-       `tbd shortcut delegate-to-subagents`; when the user grants it in the
-       conversation, record it with `tbd policy grant subagents` and tell the user;
+     - `subagents` to delegate, checked and recorded as in Check Authorization in
+       `tbd shortcut delegate-to-subagents`;
      - `pr-review-requirements` decides the reviews and rounds required: `standard` (the
        default) or a value with additions such as `standard + security` or
        `standard + 2 rounds`
@@ -141,8 +142,8 @@ Several PRs when the request names more than one):
      in the header; that it may run tests but does not commit or push and leaves the
      tree as it found it; and the condensed report from step 12 of `review-github-pr`
 
-   - Reviews run in sequence in the tree; do not change the tree while a reviewer works
-     in it
+   - Reviews run in sequence in the tree, because they share it and each may run tests;
+     do not change the tree while a reviewer works in it
 
    - Verify each review before starting the next: it exists, carries its marker with the
      expected `id`, `kind`, `pr`, `round`, and `head=HEAD_SHA`, and is bound to that
@@ -282,9 +283,9 @@ Several PRs when the request names more than one):
    - With several PRs, re-pin the remaining ones after each merge (see Several PRs)
 
 7. **Close out:**
-   - Clean up (Clean Up in `delegate-to-subagents`): remove each worktree whose branch
-     is pushed or merged and has nothing uncommitted (`git worktree remove <path>`),
-     close idle sub-agents, and return the shared tree to the branch it was on
+   - Clean up as in Clean Up in `delegate-to-subagents` (worktrees with
+     `git worktree remove <path>`, idle sub-agents), and return the shared tree to the
+     branch it was on
    - Close the request beads (`tbd close <id> --reason "..."`) and run `tbd sync`; never
      kill a running sync
    - Report per PR: the mode and end state; each review’s letter, kind, round, and URL;
@@ -323,8 +324,8 @@ Several PRs when the request names more than one):
   CI must pass again at the new head; a conflict resolution is a signal for another
   round (step 4).
 
-- **Remove each worktree** once its PR is merged or its branch is pushed with nothing
-  uncommitted.
+- **Remove each worktree** when its PR is done, as in Clean Up in
+  `delegate-to-subagents`.
 
 ## Without Sub-Agents
 

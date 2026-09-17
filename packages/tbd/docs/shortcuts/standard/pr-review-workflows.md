@@ -287,7 +287,7 @@ After the header and marker, every published review includes:
 | Reviewer | strong | No commits; may run tests and scratch scripts | Its senior engineering review |
 | Dedicated reviewer | strong | Same as the reviewer | Its security, performance, or correctness review |
 | Addressing agent | moderate | Commits to the PR branch (sole committer); beads | Disposition replies |
-| Administrator | fast | Beads; no code | Administrative work large enough to justify a sub-agent, such as bookkeeping across several PRs; the coordinator does small administrative steps inline |
+| Administrator | fast | Beads; no code | Administrative work large enough to justify a sub-agent, such as bookkeeping across several PRs; smaller steps stay with the coordinator (When to Delegate in `tbd shortcut delegate-to-subagents`) |
 
 Tiers are defined in `tbd guidelines agent-model-tiers`.
 
@@ -343,9 +343,10 @@ roles above; see `tbd shortcut delegate-to-subagents`.
 
 ### Single-Agent Fallback
 
-Without sub-agents, one session performs every step in order, with the same artifacts.
-The review header records the session’s actual model and reasoning level, and a review
-of fixes the same session wrote says that it is not independent.
+Without sub-agents, one session performs every step in order, with the same artifacts
+(Single-Agent Fallback in `tbd shortcut delegate-to-subagents`). The review header then
+records the session’s actual model and reasoning level, and a review of fixes the same
+session wrote says that it is not independent.
 
 ## Stacked PRs
 

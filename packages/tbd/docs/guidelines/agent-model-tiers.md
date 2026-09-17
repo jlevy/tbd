@@ -32,9 +32,8 @@ same provider.
 | fast | The next-tier model | Middle levels, below the moderate setting (for example `medium` or `high`) | Administrative work: collecting PR and CI state, waiting on CI, bead bookkeeping, posting prepared replies, conflict-free rebases |
 
 The coordinator is the user’s own session, and it is not assigned a tier.
-It does small administrative steps inline and uses a fast-tier sub-agent only when the
-work is large enough to justify a fresh context, such as bookkeeping across several PRs
-or a long CI wait it would otherwise block on.
+What it does inline and what it hands to a fast-tier sub-agent is in When to Delegate in
+`delegate-to-subagents`.
 
 These settings are deliberately higher than vendor defaults, which start at `high` and
 suggest smaller models or low reasoning levels for simple stages.
@@ -80,6 +79,9 @@ A fork inherits the parent’s model and tools and ignores or rejects tier setti
 The generated definitions take their models and levels from the suggestions below, and
 setup refreshes them on upgrade, so updating tbd also updates them.
 Users can override them.
+They are deliberately small: each sets a model and a level, and the brief names the
+shortcut to run, so they preload no skills and keep no memory, and the same brief works
+on every platform.
 
 ## Suggested Models as of 2026-09-16
 
