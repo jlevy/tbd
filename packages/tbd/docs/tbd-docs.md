@@ -998,10 +998,10 @@ Options:
 
 A directed dependency cycle makes the work plan self-contradictory; when every blocker
 in the cycle is open, every participating bead waits on another member of the same
-cycle.
-`tbd doctor` reports cycles as an error under `Dependencies` and prints one closed
-depends-on path for each cyclic component.
-The arrows follow CLI semantics: `A -> B` means A depends on B.
+cycle. `tbd doctor` reports cycles as an error-level finding under `Dependencies`, so it
+exits nonzero, and prints one closed depends-on path for each cyclic component.
+The arrows follow CLI semantics: `A -> B` means A depends on B. A bead without a short
+ID appears by its internal ID (`is-…`), which `tbd dep remove` also accepts.
 
 To reproduce the check, create three beads, note their IDs as A, B, and C, then make
 each one depend on the next:
@@ -1012,11 +1012,6 @@ tbd dep add <B> <C>
 tbd dep add <C> <A>
 tbd doctor
 ```
-
-The dependency record stores the inverse `blocks` direction on each blocker.
-Earlier versions of doctor checked only that every stored target existed, so a graph
-whose targets were all valid could still contain a directed cycle and pass the
-dependency check.
 
 Repair requires deciding which dependency was unintended.
 Remove one edge from every reported path, then run doctor again:

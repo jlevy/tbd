@@ -4079,6 +4079,7 @@ Only runs if worktree is healthy:
 | --- | --- | --- | --- |
 | Schema version incompatible | error | no | `meta.yml` version > supported |
 | Orphaned dependencies | warning | yes | Dependency target doesn’t exist |
+| Dependency cycle | error | no | Directed depends-on cycle |
 | Duplicate IDs | error | yes | Multiple files with same short ID |
 | Invalid references | warning | yes | `parent_id` points to missing issue |
 
