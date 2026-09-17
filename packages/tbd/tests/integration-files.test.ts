@@ -79,6 +79,43 @@ describe('integration file formats', () => {
       expect(content).toContain('tbd create');
       expect(content).toContain('tbd close');
     });
+
+    it('states GitHub authorization in its own section before the closing protocol', async () => {
+      const skillPath = join(shortcutsSystemDir, 'skill-baseline.md');
+      const raw = await readFile(skillPath, 'utf-8');
+      const start = raw.indexOf('\n## GitHub Authorization\n');
+      const closing = raw.indexOf('\n## CRITICAL: Session Closing Protocol\n');
+      expect(start).toBeGreaterThan(-1);
+      expect(closing).toBeGreaterThan(start);
+      // Scope the checks to the section, and collapse line wrapping so reformatting the
+      // prose does not break them.
+      const section = raw.slice(start, raw.indexOf('\n## ', start + 1)).replace(/\s+/gu, ' ');
+
+      // Grant sources and precedence: project block first, user level as a fallback.
+      expect(section).toContain('tbd policy show');
+      expect(section).toContain('as committed on the default branch, is the primary record');
+      expect(section).toContain('shared by every human and agent on the repository');
+      expect(section).toContain('apply only to policies the project has not answered');
+      expect(section).toContain('The current conversation overrides both for that task.');
+      expect(section).toContain('infer a grant from memory of past conversations');
+      // Named policies, with the full definitions left to the guideline.
+      for (const policy of ['github-editing', 'github-workflows', 'github-merge']) {
+        expect(section).toContain(`\`${policy}\``);
+      }
+      expect(section).toContain('`per-request`');
+      expect(section).toContain('tbd guidelines agent-policy-grants');
+      expect(section).toContain(
+        'A tool-permission allow rule grants only the operations it allows.',
+      );
+      // Operational rules carried over from #308.
+      expect(section).toContain('plain, single-purpose command');
+      expect(section).toContain('Capturing one read-only `gh` result in a shell variable');
+      expect(section).toContain('ask the user for that specific permission');
+      expect(section).toContain('not evidence that `gh` is unauthenticated');
+      expect(section).toContain('a working `gh` login is not a grant');
+      // The user-level-only rule from #308 is not kept.
+      expect(raw.replace(/\s+/gu, ' ')).not.toContain('durable user-level grant');
+    });
   });
 
   describe('live web viewer routing', () => {

@@ -169,6 +169,42 @@ merges, and pushes are how bead state gets tangled.
 committed to your working branch.
 See `tbd guidelines tbd-sync-troubleshooting` for details.
 
+## GitHub Authorization
+
+**Before a GitHub mutation, a merge, or a delegation, check grants with
+`tbd policy show`.** A grant records the user’s explicit consent for a class of agent
+actions.
+
+- **Where grants come from:** the policy block in `AGENTS.md`, as committed on the
+  default branch, is the primary record, shared by every human and agent on the
+  repository. User-level grants, in a user’s own agent instructions or tool-permission
+  settings, apply only to policies the project has not answered (not listed in the
+  block). The current conversation overrides both for that task.
+  Never infer a grant from memory of past conversations.
+- **The policies:** `github-editing` covers branches and PRs short of merging, and
+  `github-workflows` covers issues, labels, and re-running or cancelling CI, each
+  through any tool (`gh`, the GitHub API, or MCP servers).
+  Merging needs `github-merge`; its recommended value, `per-request`, covers only a PR
+  the user authorized in the current request.
+  `github-stacked-prs` and `subagents` cover stacked PRs and delegation.
+  For values, coverage, and recording grants, run `tbd guidelines agent-policy-grants`.
+- **Without the grant an action needs,** ask once, before the first action it covers.
+- **A tool-permission allow rule grants only the operations it allows.** An allow rule
+  for read-only `gh` commands does not authorize pushes or PR edits.
+
+**Running GitHub operations:**
+
+- Run each GitHub operation as a plain, single-purpose command, so a person or a
+  permission system can evaluate it at a glance.
+  Do not chain unrelated edits, file mutations, or other mutating commands into a `gh`
+  invocation. Capturing one read-only `gh` result in a shell variable is fine.
+- If a permission layer blocks a granted action, ask the user for that specific
+  permission rather than stalling, dropping the workflow step, or working around the
+  block. A grant never bypasses a tool permission or sandbox.
+- Keep authentication (`gh auth status`), authorization (grants), and tool permissions
+  distinct: a blocked tool call is not evidence that `gh` is unauthenticated, and a
+  working `gh` login is not a grant.
+
 ## CRITICAL: Session Closing Protocol
 
 **Before saying “done”, you MUST complete this checklist:**
