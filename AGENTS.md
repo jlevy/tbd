@@ -33,7 +33,7 @@ Work is NOT complete until `git push` succeeds.
 - NEVER say “ready to push when you are” - YOU must push
 - If push fails, resolve and retry until it succeeds
 
-<!-- BEGIN TBD INTEGRATION format=f08 surface=agents-md -->
+<!-- BEGIN TBD INTEGRATION format=f100 surface=agents-md -->
 ## tbd
 
 This repository uses **tbd** for git-native issue tracking (beads), spec-driven
@@ -44,10 +44,14 @@ actions rather than telling them to run commands.
 - Run `tbd prime` to load current project state and the full tbd workflow.
 - Run `tbd skill` for the complete reusable tbd skill instructions.
 - Run `tbd shortcut --list` and `tbd guidelines --list` for on-demand resources.
-- When creating or updating a pull request, run `tbd shortcut create-or-update-pr-simple`.
-  When that creation or update concerns stacked or dependent PRs, run
-  `tbd shortcut stacked-prs` first. Chained branch bases are not a formal stack; link
-  the PRs with `gh stack`.
+- Before a GitHub mutation, a merge, or a delegation to sub-agents, check the project’s
+  policy grants with `tbd policy show`; `tbd guidelines agent-policy-grants` defines
+  them. A grant is the user’s standing consent; the current conversation overrides it.
+- To create or update a pull request, run `tbd shortcut create-or-update-pr-simple`.
+  Create a stack of dependent PRs with `tbd shortcut stacked-prs` only when
+  `github-stacked-prs` is granted; otherwise propose separate PRs.
+  A PR that is already stacked keeps its stack handling either way.
+  Chained branch bases are not a formal stack.
 - Track all work as beads: `tbd create`, `tbd ready`, `tbd start`, `tbd close`, and
   `tbd sync`.
 - Before editing a bead, pull and re-read it, run `tbd start <id>`, then run `tbd sync`
