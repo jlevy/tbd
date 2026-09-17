@@ -1,5 +1,9 @@
 # Research: Claude Code Sub-Agents — Architecture, Models, and Orchestration Patterns
 
+> **Superseded on 2026-09-16** by
+> [Sub-Agents in Claude Code and Codex: Mechanics, Vendor Guidance, and Practice](../current/research-2026-09-16-subagent-guidance-anthropic-openai.md);
+> kept for history.
+
 **Date:** 2026-02-13 (last updated 2026-09-16)
 
 **Author:** Research brief (AI-assisted)
@@ -13,7 +17,7 @@ Section 11 tracks the PR review lifecycle plan, which is still a draft.
 
 **Related:**
 
-- [Sub-agent guidance from Anthropic and OpenAI](research-2026-09-16-subagent-guidance-anthropic-openai.md):
+- [Sub-agent guidance from Anthropic and OpenAI](../current/research-2026-09-16-subagent-guidance-anthropic-openai.md):
   cross-vendor platform facts and vendor guidance, with the [V1] to [V16] citations this
   document refers to
 - [PR Review Lifecycle and Sub-Agent Delegation](../../specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md):
@@ -2310,7 +2314,7 @@ Added 2026-09-16:
 
 ### Related Internal Research
 
-- [Sub-agent guidance from Anthropic and OpenAI](research-2026-09-16-subagent-guidance-anthropic-openai.md):
+- [Sub-agent guidance from Anthropic and OpenAI](../current/research-2026-09-16-subagent-guidance-anthropic-openai.md):
   cross-vendor platform facts and vendor guidance, sources [V1] to [V16]
 - [PR Review Lifecycle and Sub-Agent Delegation](../../specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md):
   the plan summarized in Section 11
