@@ -3,18 +3,26 @@ type: is
 id: is-01m2q1mss64y4n0wfeecq12kpk
 title: "P2: Show effective and unanswered grants in tbd prime; point tbd-prime to delegate-to-subagents"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 2
+version: 4
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:mechanical
 dependencies:
   - type: blocks
     target: is-01m2q1n82ewxqyytff9f2sftj2
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T06:42:41.061Z
-updated_at: 2026-09-17T06:42:55.693Z
+updated_at: 2026-09-17T11:33:54.220Z
+started_at: 2026-09-17T11:24:51.678Z
+closed_at: 2026-09-17T11:33:54.219Z
+close_reason: "Verified by the coordinator after a rebuild: prime, golden-output, integration-files, doc-categories, guideline-budget (52 tests) and cli-prime tryscript (27) passed; typecheck, eslint, prettier, flowmark clean; skills/tbd/SKILL.md regenerated; committed"
+resolution: null
+duplicate_of: null
 ---
 Plan: Policy Grants > Reading grants (Visibility); Consolidated Setup Process (prime mentions unanswered policies); Other Documentation Updates > tbd-prime; Implementation Plan Phase 1 item 5 ("update tbd-prime") and Phase 2 item 1 ("tbd prime output"); Document Changes row tbd-prime.
 

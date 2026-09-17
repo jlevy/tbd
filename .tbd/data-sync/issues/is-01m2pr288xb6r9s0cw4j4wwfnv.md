@@ -3,10 +3,11 @@ type: is
 id: is-01m2pr288xb6r9s0cw4j4wwfnv
 title: "P1: Route the review vocabulary, setup-tbd, and delegation in every skill tier"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 5
+version: 7
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:mechanical
 dependencies:
@@ -15,8 +16,15 @@ dependencies:
   - type: blocks
     target: is-01m2pr2cx3yxc65xrmh4kpd9ef
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T03:55:16.124Z
-updated_at: 2026-09-17T11:24:04.914Z
+updated_at: 2026-09-17T11:33:54.229Z
+started_at: 2026-09-17T11:25:02.619Z
+closed_at: 2026-09-17T11:33:54.229Z
+close_reason: "Verified by the coordinator after a rebuild: prime, golden-output, integration-files, doc-categories, guideline-budget (52 tests) and cli-prime tryscript (27) passed; typecheck, eslint, prettier, flowmark clean; skills/tbd/SKILL.md regenerated; committed"
+resolution: null
+duplicate_of: null
 ---
 Plan: Request Vocabulary; Implementation Plan Phase 1 item 5 (skill tiers; the README rows are in the README revision bead (tbd-v8am), tbd-prime in the prime bead (tbd-7va1), code-review-rules in tbd-me2l); Other Documentation Updates > skill-baseline, skill-brief, skill-minimal; Document Changes rows "skill-baseline, skill-brief, skill-minimal, README" and "Skill Installation section".
 

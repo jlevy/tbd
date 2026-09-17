@@ -5,7 +5,7 @@ title: "P3: Revise README.md to the target structure"
 kind: task
 status: open
 priority: 1
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 labels:
   - exec:judgment
@@ -16,7 +16,7 @@ dependencies:
     target: is-01m2q1nfp9ay24j5mem0kf6z5n
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
 created_at: 2026-09-17T06:42:58.852Z
-updated_at: 2026-09-17T11:24:05.280Z
+updated_at: 2026-09-17T11:24:21.386Z
 ---
 Plan: Final Documentation Updates > README Problems Today, Target Structure (12 sections, about 450 to 500 lines), README Changes items 1-9, 11-17, 20, and 21, Verification (format check and `tbd readme`); Implementation Plan Phase 3 item 1; Open Questions defaults (npm page identical to the GitHub README, neutral voice, a short policy and delegation summary linking agent-policy-grants and delegate-to-subagents, dated examples removed). Also the README part of Phase 1 item 5 and the README in Document Changes row "skill-baseline, skill-brief, skill-minimal, README".
 
@@ -39,4 +39,5 @@ Markdown check: `uvx --exclude-newer-package flowmark-rs=2026-05-31 flowmark-rs@
 
 ## Notes
 
-From tbd-6q8n: README (~397, ~482) says four surfaces; there are now six (claude-agents, codex-agents). tbd status INTEGRATIONS does not list tier agents. uninstall removes tier agent files but leaves skills, hooks, and the AGENTS.md block (existing inconsistency).
+1. From tbd-fwo5 and tbd-gyvw: register review-code-security, review-code-performance, review-code-correctness, review-code-rust (already missing), delegate-to-subagents, review-and-merge-prs, and setup-tbd in the README shortcut table (or its generated replacement in tbd-llia); tbd-docs.md Code Review Workflow could mention the dedicated reviews.
+2. From tbd-6q8n: README (~397, ~482) says four setup surfaces; there are now six (claude-agents, codex-agents). tbd status INTEGRATIONS does not list tier agents. uninstall removes tier agent files but leaves skills, hooks, and the AGENTS.md block (existing inconsistency).

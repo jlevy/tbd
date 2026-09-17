@@ -5,14 +5,14 @@ title: "P4: Fold validation findings back into the shortcuts"
 kind: task
 status: open
 priority: 1
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 labels:
   - exec:judgment
 dependencies: []
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
 created_at: 2026-09-17T03:55:22.416Z
-updated_at: 2026-09-17T07:03:09.840Z
+updated_at: 2026-09-17T11:24:22.769Z
 ---
 Plan: Implementation Plan > Phase 4 item 5.
 
@@ -28,3 +28,4 @@ Findings from implementation runs (2026-09-17):
 1. Parallel sub-agents in one checkout collide on builds: packages/tbd/tests/global-setup.ts runs build-if-needed.mjs, which rebuilds dist whenever any doc or source file is newer than dist/bin.mjs, so two agents running vitest while editing docs clobber each other's dist. Mitigation used: only the code agent in a batch runs vitest; docs-only agents run formatting checks and the coordinator runs their tests after the batch. Consider stating this in delegate-to-subagents (parallel writers in one tree must not run build-triggering tests concurrently) and/or a skip-build env in global-setup.
 2. User-level agent definitions from another project (~/.claude/agents/*.md created by the squares session) appear in every project's agent list with repo-specific instructions; delegate-to-subagents should tell coordinators to read a definition's body before using an unfamiliar agent type, and tbd's tier definitions should stay project-scoped.
 3. Pre-push full suite times out under high machine load; CI is the reliable full-suite check (see user push policy for #309).
+4. tbd update --notes replaces a bead's notes rather than appending; the coordinator overwrote notes once (restored). Consider an append option or warn in docs.

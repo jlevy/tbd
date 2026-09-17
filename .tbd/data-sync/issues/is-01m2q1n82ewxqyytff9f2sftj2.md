@@ -5,7 +5,7 @@ title: "P2: Packaging check and regenerate committed agent surfaces"
 kind: task
 status: open
 priority: 1
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 labels:
   - exec:mechanical
@@ -16,7 +16,7 @@ dependencies:
     target: is-01m2pr2dmqqap2nf1xmjbwztaj
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
 created_at: 2026-09-17T06:42:55.693Z
-updated_at: 2026-09-17T10:32:14.051Z
+updated_at: 2026-09-17T11:33:54.784Z
 ---
 Plan: Testing Strategy > Packaging; docs/development.md > "Testing new shortcuts, guidelines, or templates". Runs after every Phase 1 and Phase 2 bead.
 
@@ -38,3 +38,4 @@ Markdown check: `uvx --exclude-newer-package flowmark-rs=2026-05-31 flowmark-rs@
 ## Notes
 
 From tbd-r8y0 and tbd-eeoi: regenerate the committed AGENTS.md, .agents/skills/tbd/SKILL.md, and .claude/skills/tbd/SKILL.md (still f08 with old block text). Outside earlier write sets, flowmark would reformat getCodexNewAgentsFile's template and POLICY_BLOCK_PROSE (pinned byte for byte by the guideline and tests); decide whether to make them canonical together.
+From tbd-7va1: packages/tbd/.claude/ (hooks, settings.json, skills/tbd/SKILL.md) is tracked in git and stale (old sub-agents tip, four surfaces); decide whether to refresh it or stop tracking it.
