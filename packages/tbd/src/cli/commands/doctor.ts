@@ -90,8 +90,23 @@ import {
   CODEX_BEGIN_MARKER,
   CODEX_END_MARKER,
   getCodexTbdSection,
+  getCodexTbdSectionPreservingGrants,
   inspectCodexHooksSurface,
 } from './setup.js';
+import {
+  POLICY_BLOCK_VERSION,
+  POLICY_NAMES,
+  checkPolicyValue,
+  diffPolicyStatuses,
+  isKnownPolicy,
+  parsePolicyBlock,
+  readEffectiveGrants,
+  readWorkingTreeGrants,
+  type DefaultBranchRef,
+  type EffectiveGrants,
+  type PolicyStatus,
+  type WorkingTreeGrants,
+} from '../../lib/policy-grants.js';
 import {
   listLockSidecars,
   lockOwnerIsDefinitelyDead,
@@ -174,6 +189,194 @@ function managedArtifactFinding(
         suggestion: 'Upgrade tbd to manage this file: npm install -g get-tbd@latest',
       };
   }
+}
+
+const POLICY_GRANTS_CHECK = 'Policy grants';
+const POLICY_GUIDELINE_HINT = 'tbd guidelines agent-policy-grants';
+const TBD_UPGRADE_SUGGESTION = 'Upgrade tbd: npm install -g get-tbd@latest';
+
+/** How findings name the ref effective grants are read from (`origin/main`, `main`, `HEAD`). */
+function grantSourceLabel(source: DefaultBranchRef | null): string {
+  if (!source) {
+    return 'the default branch (nothing committed yet)';
+  }
+  switch (source.kind) {
+    case 'remote-tracking':
+      return source.ref.replace(/^refs\/remotes\//, '');
+    case 'local':
+      return source.branch;
+    case 'head':
+      return 'HEAD (no default branch found)';
+    default: {
+      const _exhaustive: never = source.kind;
+      throw new Error(`Unhandled source kind: ${String(_exhaustive)}`);
+    }
+  }
+}
+
+/** What makes a working tree block effective: committing, and merging unless grants are read from HEAD. */
+function effectiveOnce(source: DefaultBranchRef | null): string {
+  if (source?.kind === 'head') {
+    return 'committed';
+  }
+  return `committed and merged to ${source?.branch ?? 'the default branch'}`;
+}
+
+function describeUnknownValue(status: PolicyStatus): string {
+  const check =
+    isKnownPolicy(status.name) && status.value !== null
+      ? checkPolicyValue(status.name, status.value)
+      : null;
+  const reason = check && !check.ok ? `; ${check.reason}` : '';
+  return `${status.name}: ${status.value ?? ''} (treated as ${status.effective ?? 'unanswered'}${reason})`;
+}
+
+/**
+ * Validate the policy block in AGENTS.md, as `tbd guidelines agent-policy-grants`
+ * requires: a malformed or unknown-version block, unknown values for known
+ * policies, and a working tree block that differs from the block committed on the
+ * default branch (the one agents act on).
+ *
+ * A check group: no finding when neither the working tree nor the default branch
+ * holds a block, so doctor output for projects without grants does not grow; one
+ * ok line when the block is valid and matches the default branch.
+ *
+ * Unrecognized policy names get an ok-level note rather than a warning: setup and
+ * `tbd policy` preserve them because a newer tbd may define them, so warning would
+ * mark a project unhealthy for running an older release. The note still names
+ * them so a misspelled policy is visible.
+ *
+ * Grants are consent for agents, so doctor only reports; nothing here or in
+ * `--fix` changes the block.
+ */
+export function policyGrantFindings(
+  effective: EffectiveGrants,
+  workingTree: WorkingTreeGrants,
+): DiagnosticResult[] {
+  const name = POLICY_GRANTS_CHECK;
+  const path = AGENTS_MD_REL;
+  const working = workingTree.parse;
+  switch (working.status) {
+    case 'malformed':
+      return [
+        {
+          name,
+          status: 'error',
+          message: 'malformed policy block (agents treat every policy as unanswered)',
+          path,
+          details: working.problems,
+          suggestion: `Fix it by hand (see: ${POLICY_GUIDELINE_HINT}) or delete the block and record the grants again with tbd policy`,
+        },
+      ];
+    case 'unknown-version':
+      return [
+        {
+          name,
+          status: 'error',
+          message: `policy block version v=${working.version} is not supported (this tbd reads v=${POLICY_BLOCK_VERSION})`,
+          path,
+          suggestion: TBD_UPGRADE_SUGGESTION,
+        },
+      ];
+    case 'ok':
+    case 'missing':
+      break;
+    default: {
+      const _exhaustive: never = working;
+      throw new Error(`Unhandled parse status: ${JSON.stringify(_exhaustive)}`);
+    }
+  }
+
+  const findings: DiagnosticResult[] = [];
+  const unknownValues = workingTree.policies.filter((status) => status.known && !status.valid);
+  if (unknownValues.length > 0) {
+    findings.push({
+      name,
+      status: 'warn',
+      message:
+        unknownValues.length === 1
+          ? 'unknown value for 1 policy'
+          : `unknown values for ${unknownValues.length} policies`,
+      path,
+      details: unknownValues.map(describeUnknownValue),
+      suggestion: `Record a valid value: tbd policy set <policy> <value> (see: ${POLICY_GUIDELINE_HINT})`,
+    });
+  }
+
+  const source = grantSourceLabel(effective.source);
+  const committed = effective.parse;
+  switch (committed.status) {
+    case 'malformed':
+      findings.push({
+        name,
+        status: 'warn',
+        message: `malformed policy block on ${source} (agents treat every policy as unanswered)`,
+        path,
+        details: committed.problems,
+        suggestion: `A fixed block takes effect once ${effectiveOnce(effective.source)} (see: ${POLICY_GUIDELINE_HINT})`,
+      });
+      break;
+    case 'unknown-version':
+      findings.push({
+        name,
+        status: 'warn',
+        message: `policy block version v=${committed.version} on ${source} is not supported (this tbd reads v=${POLICY_BLOCK_VERSION})`,
+        path,
+        suggestion: TBD_UPGRADE_SUGGESTION,
+      });
+      break;
+    case 'ok':
+    case 'missing': {
+      if (committed.status === 'missing' && working.status === 'missing') {
+        return [];
+      }
+      const differences = diffPolicyStatuses(effective.policies, workingTree.policies);
+      if (differences.length > 0) {
+        findings.push({
+          name,
+          status: 'warn',
+          message: `working tree block differs from ${source} in ${
+            differences.length === 1 ? '1 policy' : `${differences.length} policies`
+          }`,
+          path,
+          details: differences.map(
+            (difference) =>
+              `${difference.name}: ${difference.from ?? 'unanswered'} -> ${difference.to ?? 'unanswered'}`,
+          ),
+          suggestion: `These grants take effect once ${effectiveOnce(effective.source)}; see: tbd policy show`,
+        });
+      }
+      break;
+    }
+    default: {
+      const _exhaustive: never = committed;
+      throw new Error(`Unhandled parse status: ${JSON.stringify(_exhaustive)}`);
+    }
+  }
+
+  if (findings.length === 0) {
+    const answered = workingTree.policies.filter((status) => status.known && status.answered);
+    findings.push({
+      name,
+      status: 'ok',
+      message: `${answered.length} of ${POLICY_NAMES.length} policies answered, matching ${source}`,
+      path,
+    });
+  }
+
+  const unrecognized = workingTree.policies
+    .filter((status) => !status.known)
+    .map((status) => status.name);
+  if (unrecognized.length > 0) {
+    const [noun, pronoun] = unrecognized.length === 1 ? ['policy', 'it'] : ['policies', 'them'];
+    findings.push({
+      name,
+      status: 'ok',
+      message: `unrecognized ${noun} kept: ${unrecognized.join(', ')} (a newer tbd may define ${pronoun}; otherwise check the spelling)`,
+      path,
+    });
+  }
+  return findings;
 }
 
 /**
@@ -612,6 +815,21 @@ class DoctorHandler extends BaseCommand {
 
     // Integration 3: Codex AGENTS.md (also used by Cursor since v1.6)
     integrationChecks.push(await this.safeCheck('AGENTS.md', () => this.checkCodexAgents()));
+
+    // Integration 3b: the policy block inside AGENTS.md. A check group: no line
+    // when no block is recorded, so doctor output for projects without grants
+    // does not grow. Unexpected throws degrade to one error finding.
+    try {
+      integrationChecks.push(...(await this.checkPolicyGrants()));
+    } catch (error) {
+      integrationChecks.push({
+        name: POLICY_GRANTS_CHECK,
+        status: 'error',
+        message: `check could not complete: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      });
+    }
 
     // Integration 4: Codex hooks
     integrationChecks.push(await this.safeCheck('Codex hooks', () => this.checkCodexHooks()));
@@ -1573,16 +1791,47 @@ class DoctorHandler extends BaseCommand {
 
   private async checkCodexAgents(): Promise<DiagnosticResult> {
     const agentsPath = getAgentsMdPath(this.cwd);
-    const expected = getCodexTbdSection();
+    let existing = '';
+    try {
+      existing = await readFile(agentsPath, 'utf-8');
+    } catch (error) {
+      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
+        throw error;
+      }
+    }
+    // Compare with the block setup would write, recorded grants included, so a
+    // project with grants is current. Setup refuses to rewrite a policy block it
+    // cannot read, so there is then no block to compare with; the Policy grants
+    // finding reports the block itself.
+    const policyBlock = parsePolicyBlock(existing).status;
+    const comparable = policyBlock === 'ok' || policyBlock === 'missing';
     const inspection = await inspectManagedArtifact({
       path: agentsPath,
-      expectedContent: expected,
+      expectedContent: comparable
+        ? getCodexTbdSectionPreservingGrants(existing)
+        : getCodexTbdSection(),
       ownershipMarker: CODEX_BEGIN_MARKER,
       supportedFormat: AGENT_INTEGRATION_FORMAT,
       selectManagedContent: (content) =>
         extractManagedBlock(content, CODEX_BEGIN_MARKER, CODEX_END_MARKER),
     });
+    if (!comparable && inspection.state === 'stale') {
+      return {
+        name: 'AGENTS.md',
+        status: 'warn',
+        message: 'freshness unknown: the policy block cannot be read',
+        path: AGENTS_MD_REL,
+        suggestion: `Fix the policy block (see the ${POLICY_GRANTS_CHECK} finding), then run: tbd setup --auto --surfaces=agents-md`,
+      };
+    }
     return managedArtifactFinding('AGENTS.md', AGENTS_MD_REL, 'agents-md', inspection);
+  }
+
+  private async checkPolicyGrants(): Promise<DiagnosticResult[]> {
+    const remote = this.config?.sync.remote ?? 'origin';
+    const effective = await readEffectiveGrants(this.cwd, remote);
+    const workingTree = await readWorkingTreeGrants(this.cwd);
+    return policyGrantFindings(effective, workingTree);
   }
 
   /**
