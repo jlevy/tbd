@@ -68,6 +68,7 @@ Setup & Configuration:
   config                             Manage configuration
   setup [options]                    Configure tbd integration with editors and
                                      tools
+  policy                             Show and record agent policy grants
 
 Working With Issues:
   create [options] [title]           Create a new issue
