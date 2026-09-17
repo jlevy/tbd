@@ -971,32 +971,282 @@ Three practical rules follow:
    not, and then every poll rewrites the prefix.
    The cost is a 2x write instead of 1.25x, on a prefix that is small.
 
-#### Prompt Caching on Codex and the OpenAI API
+#### Caching From First Principles: What Is Paid, When, and Why
 
-*(Not re-verified from the OpenAI documentation; the sandbox that wrote this section
-could not reach `developers.openai.com` or `platform.openai.com`. Verify before relying
-on the figures.)*
+*(Added 2026-09-17.)* The rules above follow from one mechanism, and working from it
+explains every cost figure in this brief.
+Prices are Claude API list prices on 2026-09-17 [V43]; the OpenAI figures are marked
+where they are from memory.
 
-- OpenAI prompt caching is automatic: no cache-control markers, prefix matching from the
-  start of the request, activating at 1,024 tokens and extending in 128-token increments
-  [V42]. Cached input tokens are billed at a discount that depends on the model (the
-  current reasoning models discount cached input heavily; the exact factor is per model
-  on the pricing page).
-- Retention is minutes by default (documented as 5 to 10 minutes of inactivity, up to
-  about an hour off-peak), with an extended retention option on some models; a
-  `prompt_cache_key` routes same-key requests to the same cache.
-- Reasoning effort is a request parameter rather than prompt text, so a Codex sub-agent
-  at a different `reasoning_effort` on the same model should share the parent’s prefix
-  up to the point where their prompts diverge; this was not verified.
-- Because a fresh Codex child receives the same base instructions as the parent and the
-  same `AGENTS.md`, a child spawned with a built-in role on the same model shares the
-  parent’s instructions prefix; a `tbd-*` role diverges where its
-  `developer_instructions` replace the parent’s, which is early in the prompt, so the
-  shared part is small either way.
-- Codex tells its model to prefer minute-scale waits over busy polling [V20], which
-  keeps a waiting sub-agent inside a short retention window.
+**Why a cache exists.** A model has no memory between requests.
+Every turn of an agent loop is a new request carrying the entire conversation so far:
+system prompt, tool definitions, every message, every tool result, and the new input.
+Without a cache the provider re-runs the prefill (the forward pass over the input) for
+all of it on every turn, and the bill is the full input each time.
+The prefill for an identical prefix produces identical internal state, so a provider can
+store that state and skip the recomputation.
+Prompt caching is exactly that: a store of computed state keyed by an exact byte prefix
+of the request, on a specific model, with a time to live.
+It is a cache of computation, not of text, which is why it must be per model (the state
+is model-specific) and why any change before a given point changes everything after it
+(the state at token *n* depends on all tokens before *n*).
 
-The same rules about report size, prefix size, and expiry between phases apply.
+**How a Claude turn is billed.** A request’s input tokens fall into three buckets, and
+`usage` reports each [V40]:
+
+| Bucket | Field | Price (multiplier of base input) |
+| --- | --- | --- |
+| Read from cache | `cache_read_input_tokens` | 0.1x (0.025x on Fable 5.1 and Mythos 5.1) |
+| Written to cache now | `cache_creation_input_tokens` | 1.25x for a 5-minute entry, 2x for a 1-hour entry |
+| Neither (after the last breakpoint) | `input_tokens` | 1x |
+
+Output tokens, including thinking, are billed at the output price and are never cached.
+The provider decides the buckets by looking for a cache entry at the request’s cache
+breakpoint (Claude Code places one at the end of the conversation on every request),
+walking back up to 20 blocks if the exact prefix is not there, and treating everything
+before the entry it finds as a read and everything from there to the breakpoint as a
+write. Runs of tool calls and tool results count as one block each for that walk, and
+Claude Code adds fewer than 20 blocks per turn, so a steady conversation always finds
+the previous turn’s entry [V40].
+
+The consequence for an agent loop: on a normal turn, the whole prior conversation is a
+read and only the last exchange (the model’s previous output plus the new tool result)
+is a write. A turn costs roughly `0.1 × prefix + 1.25 × new` (Opus) or
+`0.025 × prefix + 1.25 × new` (Fable 5.1), in units of the base input price, plus
+output. Growing context therefore costs about a tenth of what the context size suggests,
+and a long session’s per-turn cost grows linearly but slowly.
+
+**Why writes cost more than reads and why the 1-hour entry costs twice.** A write is the
+full prefill plus storage; a read is storage retrieval.
+The write premium (25% for five minutes, 100% for an hour) prices the storage time.
+The break-even is one read for a 5-minute entry and two reads for a 1-hour entry [V43],
+so an agent that takes more than two turns inside the hour always comes out ahead with
+the longer entry, and one that takes one turn and stops pays double for nothing.
+
+**Per-model prices as of 2026-09-17** [V43], per million tokens:
+
+| Model | Base input | 5m write | 1h write | Read | Output | Min cacheable prefix |
+| --- | --- | --- | --- | --- | --- | --- |
+| Fable 5.1 | $10 | $12.50 | $20 | $0.25 | $50 | 512 |
+| Fable 5 | $10 | $12.50 | $20 | $1 | $50 | 512 |
+| Opus 5 | $5 | $6.25 | $10 | $0.50 | $25 | 512 |
+| Opus 4.8 | $5 | $6.25 | $10 | $0.50 | $25 | 1,024 |
+| Sonnet 5 | $2 | $2.50 | $4 | $0.20 | $10 | 1,024 |
+| Haiku 4.5 | $1 | $1.25 | $2 | $0.10 | $5 | 4,096 |
+
+Three things in this table change the arithmetic between tiers:
+
+- **Fable 5.1 reads at 2.5%, not 10%.** Its base input is twice Opus 5’s, but a cached
+  read is half the price of an Opus 5 read.
+  A long strong-tier review on Fable 5.1 therefore pays less per turn for its context
+  than the same review on Opus 5, and the Fable premium is concentrated in the first
+  write and in output.
+  Fable 5 (not 5.1) reads at 10%, so this applies to 5.1 only.
+- **Models from Opus 4.7 on tokenize about 30% more tokens for the same text** [V43], so
+  a token count measured on Sonnet 4.6 or earlier understates what Opus 5 and Fable
+  bill. The estimates in this brief were made with the newer tokenizer’s rate in mind
+  (roughly 4 characters per token is a fair average across both).
+- **Prefixes under the minimum are never cached** and are silently billed at full price
+  [V40]. A tier definition body alone is far under 512 tokens; it is cacheable only
+  because it sits behind the tool definitions and `CLAUDE.md`.
+
+**How Claude Code arranges the request so most of it is stable.** Claude Code orders
+each request as system prompt and tool definitions, then project context (`CLAUDE.md`,
+auto memory, rules), then the conversation, with one breakpoint at the end [V39].
+Content that must change every turn is placed at the end, and content that changes
+mid-session is appended as a message rather than edited in place: skills, plan-mode
+instructions, output-style changes, file-change notices, and (on the Claude 5 family)
+mid-conversation system additions all go into `messages`, sometimes as a
+`{"role": "system"}` message, so the cached prefix is untouched [V39], [V40]. This is
+the design rule behind “Actions that keep the cache” on the Claude Code page, and it is
+the rule an orchestrator should copy: **append, never edit**.
+
+**Variable expansion and small changes.** Because the key is the exact byte prefix, a
+single changed character anywhere in the system prompt or tool definitions is a full
+miss: every token after the change is rewritten at 1.25x or 2x. The cases that matter
+for sub-agents:
+
+- *Per-request values in the prefix.* A timestamp, a run ID, a random nonce, or a
+  “today’s date” rendered into the system prompt at every spawn makes every spawn a full
+  write. The API docs give this exact example: a timestamp before the breakpoint means
+  “no cache hit” on every request [V40]. Claude Code renders the working directory,
+  platform, OS version, and the git-status snapshot into the prefix, which is why its
+  cache is per machine and directory [V39]; those values are stable within a session and
+  across sessions on one machine, so they cost nothing after the first write, but they
+  do mean that two machines never share a cache.
+- *The tier definition body.* It is rendered into the sub-agent’s system prompt.
+  A body that varies per spawn (a model name that a per-spawn `model` overrode, a date,
+  the coordinator’s session ID) would put the variable part ahead of `CLAUDE.md` and the
+  conversation and make every spawn of that definition a full write.
+  The generated tbd bodies are constant per definition, so every spawn of `tbd-strong`
+  on the same machine within the TTL reads the previous spawn’s prefix.
+  This is a second reason, besides unreliability, for the body not to name the model.
+- *Tool definitions.* Any change to the set or text of tool definitions invalidates
+  everything, because tools come first.
+  In Claude Code this happens when an MCP server connects or disconnects with its tools
+  loaded into the prefix (deferred tools, the default, only append), when a tool is
+  denied outright without tool search, and on a Claude Code upgrade [V39]. A sub-agent
+  with a `tools` allowlist has a different tool set from the parent and from a sub-agent
+  without one, so it has a different prefix, which costs nothing by itself but means the
+  two never share.
+- *`CLAUDE.md` edits.* Read once at session start and held in memory, so an edit neither
+  invalidates the cache nor takes effect until `/clear`, `/compact`, or a restart; a
+  sub-agent spawned later in the session gets the version loaded at session start [V39].
+- *Model and effort.* Not text changes, but part of the cache key.
+  A different model is always a different cache.
+  Effort is rendered into the prompt on most models, so a change to
+  `output_config.effort` invalidates the messages cache and, on models that render it
+  ahead of the system prompt, the tools and system caches too [V40]; Fable 5.1 on an API
+  key or subscription keeps the cache across an effort change (v2.1.260+) [V39].
+  Thinking configuration (`budget_tokens`, mode) behaves the same way.
+  For tiers: `tbd-moderate` at `xhigh` and `tbd-fast` at `medium` on Opus are two
+  caches, and `tbd-strong` at `xhigh` and `tbd-strong-max` at `max` on Fable 5.1 are
+  one, on the API or a subscription.
+- *Thinking blocks across turns.* On Opus 4.5 and later and Sonnet 4.6 and later,
+  earlier thinking blocks stay in the context and the cache holds across a
+  non-tool-result user turn; on earlier models and Haiku 4.5, a non-tool-result user
+  message strips prior thinking blocks and invalidates the messages cache [V40]. Inside
+  a tool loop this never triggers, because every turn is a tool result; it matters when
+  the coordinator sends a follow-up message to a resumed sub-agent on an older model.
+
+**Single session versus sub-agents: the same mechanism, different prefixes.** A single
+session has one prefix that grows.
+Every turn pays a read of everything so far plus a write of the newest exchange, and the
+read grows with the session.
+A sub-agent starts a second prefix that is short, grows during its run, and is then
+abandoned. The two never share, because a sub-agent’s system prompt is its definition
+body rather than the Claude Code system prompt [V1], [V39]. The trade is:
+
+|  | Single session (or fork) | Fresh sub-agent |
+| --- | --- | --- |
+| First request | Reads the existing prefix (a fork reads all of it) | Writes its own prefix: tools, body, `CLAUDE.md`, git snapshot, brief |
+| Each later turn | Reads the whole session so far | Reads only its own, shorter, conversation |
+| At the end | Everything stays in the coordinator’s context and is re-read on every later turn | Only the report enters the coordinator’s context |
+| Model and level | The session’s | Any |
+| Prefix lifetime | 1 hour on a subscription within plan usage, else 5 minutes | 5 minutes unless raised |
+
+Worked through for a 30-turn review on Opus 5, base $5 per million:
+
+- *As a fork of a 150k-token coordinator:* first request reads 150k (about $0.075), and
+  every later turn reads 150k plus what the review has added; about 30 × $0.08 =
+  **$2.40** in context reads, plus the review’s own reads and output, and afterwards the
+  coordinator carries the review’s 30 turns of tool output for the rest of the session.
+- *As a fresh sub-agent with a 20k prefix that grows to 60k:* one write of 20k (about
+  $0.13), then reads averaging 40k per turn, about 30 × $0.02 = **$0.60**, plus the same
+  review work, and afterwards the coordinator carries a two-page report.
+- *On Fable 5.1* the fork’s reads fall to a quarter (about $0.60 for the same 30 turns,
+  because reads are $0.25 per million) and the fresh sub-agent’s to about $0.15, while
+  the one-time write rises to about $0.25; the ranking does not change.
+
+The review’s own work (reading a diff of 20k tokens, running tests that return 5k tokens
+each, writing 5k tokens of findings at $25 per million output on Opus) costs on the
+order of $0.50 to $1.50 either way and dominates.
+So for anything longer than a few turns, the fresh sub-agent is cheaper as well as
+independent, and the “3 to 15 times” multiplier for multi-agent work [V10], [V11] comes
+from doing more work (N agents each reading the code, plus the coordinator), not from
+paying a fresh-context penalty.
+
+Where a fork *is* cheaper: a one- or two-turn task that needs the conversation, such as
+“summarize what we decided” or “check the thing we discussed against this file”, where a
+fresh sub-agent would have to be told everything the fork already has.
+That is the case the `delegate-to-subagents` shortcut reserves forks for.
+
+**The TTL, end to end.** An entry’s TTL is measured from the start of the request that
+wrote or last read it, not from the end of the response, so a four-minute response
+leaves one minute of a 5-minute TTL for the next request to start [V40]. Reading within
+the TTL refreshes it for free.
+Claude Code decides the TTL per request in two buckets [V39]:
+
+| Request | Subscription, within plan usage | API key, cloud provider, or subscription on usage credits |
+| --- | --- | --- |
+| Main conversation | 1 hour | 5 minutes |
+| Sub-agents, forks, workflows, teammates, compaction | 5 minutes | 5 minutes |
+
+The overrides, first match wins: `FORCE_PROMPT_CACHING_5M=1`;
+`CLAUDE_CODE_PROMPT_CACHE_TTL` or `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL`; the
+`promptCacheTtl` or `subagentPromptCacheTtl` setting; the definition’s
+`experimental.cacheTtl` (ignored for `1h` on usage credits);
+`ENABLE_PROMPT_CACHING_1H=1`; the bucket default [V39].
+
+What expiry costs, and when it happens in a tbd workflow:
+
+- *A sub-agent that works continuously* never expires: every turn refreshes the entry.
+  The 5-minute default is fine for a reviewer or an addressing agent.
+- *A sub-agent that waits* expires whenever a single wait exceeds the TTL. A CI poll
+  every 10 minutes under a 5-minute TTL rewrites the whole prefix on every poll (at
+  1.25x), which for a 30k prefix on Opus is about $0.19 per poll, or about $1.10 per
+  hour of waiting; under a 1-hour TTL the same hour costs one 2x write (about $0.30) and
+  then reads. A poll every 4 minutes under the 5-minute TTL is cheapest of all (reads
+  only), which is why a waiting sub-agent should poll inside the TTL or have the TTL
+  raised, and why Codex’s built-in awaiter polls with growing timeouts.
+- *The coordinator between phases* expires on an API key when it waits more than five
+  minutes for a sub-agent, which it usually does, and then pays a full write of its own
+  context on its next turn.
+  On a subscription within plan usage the coordinator has an hour.
+  On an API key, `promptCacheTtl: 1h` is worth setting for any session that delegates.
+- *Between the reviewer and the addressing agent* nothing is shared regardless of TTL,
+  because they are different definitions on different models.
+  The addressing agent reads the review from GitHub, not from the reviewer’s context,
+  which is by design.
+- *A resumed sub-agent* (SendMessage) reads its own earlier prefix if the TTL has not
+  passed, and rewrites it if it has [V39]. Continuing a sub-agent within five minutes is
+  nearly free; continuing it an hour later costs the same as a fresh start plus the
+  transcript it carries.
+
+**Reports as a recurring cost.** A sub-agent’s report is appended to the coordinator’s
+conversation and read at the cached rate on every later coordinator turn.
+At Opus 5 rates, a 2,000-token report costs the coordinator $0.001 per turn thereafter;
+a 20,000-token transcript costs $0.01 per turn, and after 100 coordinator turns that is
+$1 for having asked for the transcript instead of the summary.
+It also displaces context.
+This is the arithmetic behind the “page or two” rule in `delegate-to-subagents`.
+
+**Bedrock, Google Cloud, Foundry, and gateways.** The mechanism is the same but the
+cache lives in the provider’s infrastructure, the minimum cacheable prefix and 1-hour
+availability vary by model on Bedrock, the effort-change exception for Fable 5.1 does
+not apply, and a gateway that strips `cache_control` markers silently turns every turn
+into full-price input [V39]. Check `cache_read_input_tokens` in the response before
+assuming caching works through any intermediary.
+
+**Codex and the OpenAI API.** *(Partly from memory; the OpenAI pages were unreachable
+from the sandbox that wrote this section, and the Codex facts are from source [V44].)*
+
+- OpenAI’s caching is automatic and implicit: no breakpoints, prefix matching from the
+  start of the request in 128-token increments once the prompt exceeds 1,024 tokens, and
+  the response reports `cached_tokens` in `usage.prompt_tokens_details` [V42]. Cached
+  input is billed at a per-model discount (for the recent GPT-5-family models a cached
+  input token costs a tenth of an uncached one on the published price lists; verify the
+  current factor for `gpt-5.6-sol` and `gpt-6-astra`). There is no write premium: the
+  first request pays normal input, and every later request pays the discounted rate on
+  the matched prefix.
+- Retention is a few minutes of inactivity by default (documented as 5 to 10 minutes,
+  extending to about an hour off-peak), and some models accept
+  `prompt_cache_retention: "24h"` for a longer window; the Codex client does not set it
+  as of the source read on 2026-09-17 [V44].
+- Routing is by `prompt_cache_key`: requests with the same key go to the same cache
+  shard, so a prefix written under one key is not found under another even if identical.
+  Codex sets the key to the session ID, and for an internally spawned thread (a
+  sub-agent) to `<source>:<parent_thread_id>`, so a Codex sub-agent’s requests route to
+  the same shard as its siblings under one parent [V44]. Because a fresh Codex child
+  also receives the same base instructions as the parent and works in the same
+  directory, the prefix a Codex sub-agent shares with its parent runs from the start of
+  the system prompt to the point where the developer instructions differ (a `tbd-*` role
+  replaces them, so the shared part is the base prompt; a built-in role shares further).
+  Codex sends the full history on each turn except over a WebSocket, where it sends only
+  new items against `previous_response_id`, with `store: false` and
+  `reasoning.encrypted_content` included so prior reasoning items round-trip [V44].
+- Reasoning effort is a request parameter, not prompt text, so a Codex sub-agent at a
+  different `reasoning_effort` on the same model should still match the parent’s prefix;
+  whether the cache key includes effort is not documented and was not verified.
+- Codex’s model tells its sub-agents to prefer minute-scale waits over busy polling
+  [V20], which keeps a waiting Codex sub-agent inside the retention window in the same
+  way a Claude Code sub-agent polling under five minutes does.
+
+The practical difference between the providers is that Claude bills writes at a premium
+and gives a longer, explicit lifetime in exchange, while OpenAI bills no premium, gives
+a shorter and less predictable lifetime, and routes by key; on both, the rules for an
+orchestrator are the same: keep the prefix constant per definition, append rather than
+edit, keep reports short, and never let a waiting agent idle past the lifetime.
 
 ### What the System Prompts Say
 
@@ -1976,7 +2226,7 @@ coordination, but they are experimental and cost more tokens.
   Vendor Recommendations and Deviations From Vendor Guidance).
 - [ ] Re-read the OpenAI prompt caching documentation and confirm the retention,
   discount, `prompt_cache_key`, and reasoning-effort figures marked as not re-verified
-  in Prompt Caching on Codex and the OpenAI API.
+  in Caching From First Principles (the Codex and the OpenAI API paragraph).
 - [ ] Track openai/codex#20077: the handler applies overrides on full-history forks, but
   the V2 instructions still say it does not; re-check when the instructions change.
 - [ ] Re-check model names and reasoning levels whenever a provider releases or retires
@@ -2289,6 +2539,18 @@ added at consolidation for sources that only the Claude Code research cited.
   Not re-read on 2026-09-17 (network egress blocked from the writing sandbox); the
   retention, discount, and `prompt_cache_key` details are from memory and marked as such
   in the text.
+
+- **[V43] ✓ (2026-09-17)** Claude Platform,
+  [Pricing](https://platform.claude.com/docs/en/about-claude/pricing): per-model base,
+  cache write, cache read, and output prices; the Fable 5.1 and Mythos 5.1 0.025x read
+  rate; the tokenizer note for Opus 4.7 and later; break-even for the two cache
+  durations.
+
+- **[V44] ✓ (2026-09-17)** openai/codex at `main` on 2026-09-17,
+  `codex-rs/core/src/client.rs`: `prompt_cache_key` (session ID, or
+  `<source>:<parent_thread_id>` for an internally spawned thread), `store: false`,
+  `reasoning.encrypted_content` included, full history except over WebSocket with
+  `previous_response_id`, no `prompt_cache_retention`.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
