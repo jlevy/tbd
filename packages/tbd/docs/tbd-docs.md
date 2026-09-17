@@ -1066,6 +1066,55 @@ Common config keys:
 - `sync.branch` - Sync branch name
 - `sync.remote` - Remote name
 
+### policy
+
+Show and record agent policy grants: the user’s standing consent for classes of agent
+actions (GitHub workflows and editing, merging, stacked PRs, sub-agents, PR review
+requirements, and Linear sync).
+The policies, their values, and the block syntax are defined in
+`tbd guidelines agent-policy-grants`.
+
+```bash
+tbd policy                                  # Same as `tbd policy show`
+tbd policy show                             # Answered and unanswered policies
+tbd policy grant subagents                  # Record the recommended value
+tbd policy revoke github-merge              # Record the not-granted value
+tbd policy set linear epics                 # Record any valid value
+tbd policy set pr-review-requirements standard + 2 rounds
+```
+
+Subcommands:
+- `show` - List answered policies with their recorded values and unanswered policies
+  with the value agents assume until one is recorded
+- `grant <policy>` - Record the policy’s recommended value (`linear` records `epics`)
+- `revoke <policy>` - Record the policy’s not-granted value (`pr-review-requirements`
+  has none; use `set`)
+- `set <policy> <value...>` - Record any valid value; several words are joined with
+  spaces, so quoting is optional
+
+Grants live in a policy block inside the tbd block in `AGENTS.md`, immediately before
+its `END TBD INTEGRATION` marker; `.tbd/config.yml` holds no copy.
+`grant`, `revoke`, and `set` edit the working tree copy and stamp the tbd block with the
+current integration format, so an older tbd refuses to regenerate the block instead of
+dropping the grants.
+Recording a grant is an ordinary commit to `AGENTS.md`.
+
+Effective grants are read from `AGENTS.md` as committed on the default branch: the
+remote’s copy (`refs/remotes/<remote>/<branch>`, as of the last fetch) when it exists,
+otherwise the local branch.
+The default branch is the one `<remote>/HEAD` names, else `init.defaultBranch`, `main`,
+or `master`, whichever exists; with none of these, grants are read from `HEAD` and
+`show` says so. A grant in the working tree or on an unmerged branch is therefore not
+effective; `show` lists such differences and `--json` reports them under
+`workingTree.differences`.
+
+If `AGENTS.md` has no tbd block, `show` still reports the effective grants and `grant`,
+`revoke`, and `set` stop with a pointer to `tbd setup --auto`. A malformed block (see
+the guideline) or one with a newer block version is reported and never rewritten; every
+policy is treated as unanswered until it is fixed.
+Grants are consent for agents, not a switch inside tbd: no tbd command refuses to run
+because a grant is missing.
+
 ### attic
 
 Manage the conflict archive.
