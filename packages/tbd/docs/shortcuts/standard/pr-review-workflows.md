@@ -1,6 +1,6 @@
 ---
 title: PR Review Workflows
-description: The PR review lifecycle and the review-state contract every review shortcut uses (pinned review headers and markers, lettered finding IDs, four dispositions, disposition replies), plus request routes, review coverage and rounds, roles, and the merge gate. Start here to pick the right review shortcut.
+description: The PR review lifecycle and the review-state contract every review shortcut uses (pinned review headers and markers, lettered finding IDs, four dispositions, disposition replies), plus request routes, review coverage and rounds, roles, and a summary of the merge gate. Start here to pick the right review shortcut.
 category: review
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
@@ -298,27 +298,14 @@ user.
 
 ## Merge Gate
 
-In the merge-ready and merge modes of `tbd shortcut review-and-merge-prs`, the
-coordinator checks the merge gate at the moment of merging:
-
-- the `pr-review-requirements` policy is met: under `standard`, a senior engineering
-  review at a pinned head and a pass addressing all its findings, plus each dedicated
-  review the PR’s sensitive areas call for, plus any rounds the user requested or
-  approved;
-- every finding has a disposition, and every deferral has an open bead;
-- no review content newer than the last disposition reply is unaddressed;
-- any question to the user about another round has been answered;
-- the head is unchanged since the final CI run, and required checks are final and green
-  for that head;
-- GitHub reports the PR mergeable, with no blocking review state;
-- for a stack layer, every layer below has merged;
-- in merge mode, the `github-merge` policy permits this merge: the user’s request named
-  this PR (`per-request`), or the user confirmed it when asked (`not-granted`), or an
-  effective `unconditional` grant exists.
-
-Merge with the repository’s merge method, never `--admin`. A branch-protection block
-(for example, a required approval that the author’s account cannot give) is reported to
-the user, not bypassed.
+The merge gate is checked in the merge-ready and merge modes of
+`tbd shortcut review-and-merge-prs`, which holds the authoritative list of conditions
+and the check for each one (step 5). In summary: the `pr-review-requirements` policy is
+met, every finding has a disposition, CI is final and green at an unchanged head, GitHub
+reports the PR mergeable, lower stack layers have merged, and in merge mode the
+`github-merge` policy permits this merge.
+Merges never use `--admin`; a branch-protection block is reported to the user, not
+bypassed.
 
 ## Grants in the Review Workflows
 
