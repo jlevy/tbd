@@ -113,7 +113,7 @@ Sync and Status:
                                      when claiming work
   stats                              Show repository statistics
   integration                        Manage external tracker integrations
-                                     (Linear, GitHub)
+                                     (Linear)
 
 Maintenance:
   doctor [options]                   Diagnose and repair repository
