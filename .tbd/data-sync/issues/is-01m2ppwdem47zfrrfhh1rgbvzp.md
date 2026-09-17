@@ -5,7 +5,7 @@ title: PR review lifecycle and sub-agent delegation
 kind: epic
 status: open
 priority: 1
-version: 46
+version: 47
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 labels: []
 dependencies: []
@@ -55,7 +55,8 @@ child_order_hints:
   - is-01m2q2590d5x1nx544vc8f42a3
   - is-01m2qxmd5z1ywx25gq7ccaazbq
   - is-01m2qyrjgpqvwfbtsy9wb9x4zd
+  - is-01m2r1sp8g7848q4cg0f50fjmv
 created_at: 2026-09-17T03:34:36.242Z
-updated_at: 2026-09-17T15:11:33.397Z
+updated_at: 2026-09-17T16:04:35.727Z
 ---
 Make PR review requests systematic (pinned reviews, unique finding IDs, one disposition vocabulary, request end states, merge gate) and add portable sub-agent delegation with model tiers. Plan: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md

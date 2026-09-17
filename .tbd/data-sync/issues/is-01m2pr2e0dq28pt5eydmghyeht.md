@@ -3,18 +3,31 @@ type: is
 id: is-01m2pr2e0dq28pt5eydmghyeht
 title: "P4: Run the workflow on PRs #306 and #307"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 3
+version: 8
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:judgment
 dependencies:
   - type: blocks
     target: is-01m2pr2edgrgckr42003704bwh
+  - type: blocks
+    target: is-01m2r1sp8g7848q4cg0f50fjmv
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+child_order_hints:
+  - is-01m2r1s536rk53281z5g5q1m5q
+  - is-01m2r1s6skhxtw7573hhyg62jr
+hold: null
+hold_until: null
 created_at: 2026-09-17T03:55:21.997Z
-updated_at: 2026-09-17T06:44:19.544Z
+updated_at: 2026-09-17T22:37:02.729Z
+started_at: 2026-09-17T16:04:22.416Z
+closed_at: 2026-09-17T22:37:02.729Z
+close_reason: "#306 merged 9b4e6154 and #307 merged 528083ce, both at their gated heads via the new review-and-merge-prs workflow: 3 reviews (senior x2, correctness x1), 13 findings dispositioned, 1 deferral (tbd-08gn), 1 unmarked bot finding caught by the gate and fixed"
+resolution: null
+duplicate_of: null
 ---
 Plan: Implementation Plan > Phase 4 item 4. Coordinator-run; needs the user.
 

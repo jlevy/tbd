@@ -3,9 +3,9 @@ type: is
 id: is-01m2pr2dmqqap2nf1xmjbwztaj
 title: "P4: Record this repository's policy grants via setup-tbd"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 labels:
   - exec:judgment
@@ -14,7 +14,11 @@ dependencies:
     target: is-01m2pr2e0dq28pt5eydmghyeht
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
 created_at: 2026-09-17T03:55:21.623Z
-updated_at: 2026-09-17T06:45:06.012Z
+updated_at: 2026-09-17T16:43:34.323Z
+closed_at: 2026-09-17T16:43:34.322Z
+close_reason: "User answered the setup questions in this session (all recommended; linear: epics + specs); recorded with tbd policy in AGENTS.md (3cf63211, pushed); effective once #309 merges"
+resolution: null
+duplicate_of: null
 ---
 Plan: Implementation Plan > Phase 4 item 3. Coordinator-run; needs the user's answers.
 

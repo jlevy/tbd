@@ -3,18 +3,26 @@ type: is
 id: is-01m2q1ndc8pr5ck5eeta69ww1r
 title: "P3: Generate README reference tables and extend contract tests to the README"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 4
+version: 6
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:judgment
 dependencies:
   - type: blocks
     target: is-01m2pr2d9920ppbyepz0w9ne4f
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T06:43:01.127Z
-updated_at: 2026-09-17T15:10:32.355Z
+updated_at: 2026-09-17T16:01:42.180Z
+started_at: 2026-09-17T15:33:01.053Z
+closed_at: 2026-09-17T16:01:42.179Z
+close_reason: "Coordinator verified: readme-reference-tables, review-lifecycle-contract, integration-files (55 tests) and doc-references passed; generator idempotent; typecheck, eslint, prettier, flowmark clean; committed"
+resolution: null
+duplicate_of: null
 ---
 Plan: Implementation Plan Phase 3 item 4; Open Question 3 default (reference tables generated at build time); README Changes items 10, 18, and 19; Final Documentation Updates > Verification (first two bullets).
 
