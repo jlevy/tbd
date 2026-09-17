@@ -479,6 +479,7 @@ describe('integration file formats', () => {
       for (const script of ['format:md', 'format:md:check'] as const) {
         expect(pkg.scripts[script], script).toContain("-not -path '*/.claude/*'");
       }
+
       const root = await mkdtemp(join(tmpdir(), 'tbd-lefthook-contract-'));
 
       try {
