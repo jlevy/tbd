@@ -3,10 +3,11 @@ type: is
 id: is-01m2q1mm7cq1jm2g9seh2ra5sk
 title: "P2: Add setup policy flags and route setup output to setup-tbd"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 5
+version: 7
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:mechanical
 dependencies:
@@ -19,8 +20,15 @@ dependencies:
   - type: blocks
     target: is-01m2pr2cx3yxc65xrmh4kpd9ef
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T06:42:35.366Z
-updated_at: 2026-09-17T06:44:59.895Z
+updated_at: 2026-09-17T10:58:07.159Z
+started_at: 2026-09-17T10:42:41.825Z
+closed_at: 2026-09-17T10:58:07.158Z
+close_reason: "Verified by the coordinator after a rebuild: setup-policy-grants, setup-flows, golden-output, doc-categories, integration-files, guideline-budget (104 tests) and cli-setup-commands tryscript passed; typecheck, eslint, prettier, flowmark clean; committed"
+resolution: null
+duplicate_of: null
 ---
 Plan: Policy Grants > Recording grants ("At setup"); Consolidated Setup Process (the note that `tbd setup --auto` output tells the agent to run it after an upgrade); Implementation Plan Phase 2 items 1 ("setup grant flags") and 4 ("and tbd setup output"); Document Changes row "Skill Installation section, welcome-user, tbd setup output" (the setup output part).
 
