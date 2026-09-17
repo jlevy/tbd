@@ -16,6 +16,20 @@ The coordination stack (#278, #279, #282, #283) merged the same day.
 A follow-up revision (2026-09-14) adds the f08 compatibility contract that every sprint
 fix must satisfy and changes the 1a, 1e, 1f, and 1B designs to meet it.
 
+**0.9.0 release reconciliation, 2026-09-16.** Phase 0 and the release-critical
+convergence slice of Phase 1A shipped through PR #298; PR #299 published 0.9.0 at
+`f005c19d`. The former blockers `tbd-bdkj`, `tbd-s4kb`, and `tbd-od0z` are closed.
+The T3 gate establishes 0.9.0 as the minimum version for every clone that runs
+integration sync, while exact slots, `In Review`, Paused, Duplicate, and unavailable
+workflow states now settle or report a bounded skip.
+The remaining Phase 1A, 1B, spec lifecycle, CLI ergonomics, and coordination beads stay
+active for later releases.
+A controlled 0.9.0 Linear preview on 2026-09-16 found no recurrence of the historical
+13-pair status oscillation.
+The explicit sync then applied only the eight expected existing-bead updates, and a
+repeat explain-preview showed no remaining pushes, pulls, creates, or divergences.
+The obsolete mechanism and mirror-confirmation beads are closed.
+
 **Linear convergence update, 2026-09-15 (#290).** The outbound adapter now writes the
 canonical slot, including on create, and suppresses bead rewrites when an inbound
 projection changes no persisted field.
@@ -671,17 +685,14 @@ migrating back.
 
 ### B. Release 1 (f08)
 
-Contents: `main` since v0.8.1 (#264, #266, #280), the merged stack, and whichever of
-this sprint’s Phase 0 and 1A have landed.
+**Shipped as 0.9.0 on 2026-09-16.** Contents were `main` since v0.8.1 (#264, #266,
+#280), the coordination stack, Phase 0, and the release-critical convergence slice of
+Phase 1A. PR #298 closed `tbd-bdkj`, `tbd-s4kb`, and `tbd-od0z`; PR #299 published the
+tag and package.
+The complete package, downstream, hosted-CI, and live-Linear evidence is
+recorded on `tbd-lz1q` and summarized in the top-level `TODO.md`.
 
-Status on 2026-09-15 at `main` `7120d16f`: #292, #293, and #294 closed the upgraded-repo
-merge-attributes, push-only slot, and repeated-delegate gates (`tbd-yqq7`, `tbd-evn3`,
-and `tbd-80vz`). Release 1 remains blocked by the unfinished `tbd-od0z` contract,
-mixed-version T3 (`tbd-s4kb`), and the unlanded Phase 0 stability branch (`tbd-bdkj`).
-The full evidence and package-gate snapshot is in the top-level `TODO.md` release
-readiness section and `tbd-lz1q`.
-
-Before tagging:
+Satisfied release gates:
 
 - `tbd-od0z` has landed, because #264 already widens the #265 alternation on `main`.
 - `tbd-s3zx`, `tbd-apnu`, and `tbd-cskr` have closed: #279 is on `main`, so its comment
@@ -702,10 +713,11 @@ Before tagging:
 
 User upgrade: `npm install -g get-tbd@latest`, then `tbd setup --auto` in each
 repository and commit the generated-surface diff.
-There is no format migration, and a teammate still on 0.8.x keeps working against the
-same repository. A clone that runs `tbd integration sync` needs at least 0.8.1 (0.7.x
-drops `base.slot` and `refinement_*`), plus any further minimum T3 establishes for the
-Backlog mapping.
+There is no format migration.
+The T3 result is stricter than the earlier draft: every clone that runs
+`tbd integration sync` must use 0.9.0 or newer.
+Version 0.8.1 does not implement the exact-slot contract and is not a safe concurrent
+integration-sync writer with 0.9.0.
 
 ### C. Preservation release (f08)
 
@@ -1399,20 +1411,20 @@ that PR because they edit the documents it rewrites.
 - [x] `tbd-stdj`: f08 contract T2, old parser and schemas read candidate-written data
   (done 2026-09-14; pins the exact link-record fields 0.7.0 strips:
   `refinement_state_id`, `refinement_slot`, `base.slot`)
-- [ ] `tbd-s4kb`: f08 contract T3, mixed-version Linear convergence
+- [x] `tbd-s4kb`: f08 contract T3, mixed-version Linear convergence (done in #298;
+  establishes 0.9.0 as the minimum integration-sync writer)
 - [x] `tbd-9fpp`: f08 contract T4, two-clone merge with a same-format baseline clone
   (done 2026-09-14)
-- [ ] `tbd-bdkj`: rebase `claude/tbd-sync-bugs-review-f1qb1f` onto `main`, close the
-  four review gaps, run the integration suites and `cli-sync*` tryscripts, open and
-  merge the PR
-- [ ] `tbd-xn8m`: confirm on the #265 mirror that the 13 pairs are linked open beads
-  without a hold that `tbd ready` omits; record on `tbd-u9eg` (human step; private data)
+- [x] `tbd-bdkj`: rebase and land the stability branch with its review gaps and
+  integration gates (done in #298)
+- [x] `tbd-xn8m`: controlled 0.9.0 preview on the configured OS mirror found no
+  recurrence of the historical 13-pair status oscillation; `tbd-u9eg` is obsolete and
+  closed (done 2026-09-16)
 
 ### Phase 1A: Tracker correctness
 
-- [ ] `tbd-od0z`: every slot round-trips (the #265 slot-write and single-client
-  convergence portion landed in #290; missing-state handling and the remaining
-  state-model reconciliation stay open)
+- [x] `tbd-od0z`: every slot round-trips; missing states report bounded skips and the
+  single-client convergence matrix passes (done in #298)
 - [ ] `tbd-alws`: duplicates keep their pointer (`applyTerminalAxis`,
   `BeadPatch.duplicate_of`), same PR as `tbd-od0z`; correct state-model spec lines 511
   and 513 (after #283)
@@ -1534,16 +1546,15 @@ No test in this plan is evidence until it has been seen to fail for the stated r
 The native comment stages that share these releases are mapped in “Native Comment Work:
 Merge, Release, and Format Upgrade Map”; Release 1 below is stage B there.
 
-Two releases, ordered by what reaches users’ trackers:
+The first release below shipped as 0.9.0. The second remains the next implementation
+front, ordered by what reaches users’ trackers:
 
-1. **Phase 0 and Phase 1A** as the next minor release (`tbd sync --yes` is a new CLI
-   capability). `main` already carries [#264](https://github.com/jlevy/tbd/pull/264),
-   which widens the #265 loop to every linked bead with a future `deferred_until`, so no
-   release should be cut from `main` before 1a lands.
-   Release notes lead with: mirrors that never settled will settle; open work that is
-   not ready moves to Backlog and duplicates move to Duplicate on the first run; a
-   previously silent `tbd sync` prints a tracker line and names what blocks it; `--push`
-   overwrites Linear-side edits until the next release.
+1. **0.9.0: Phase 0 plus the release-critical convergence slice of Phase 1A.** Mirrors
+   that did not settle now settle; open work that is not ready moves to Backlog;
+   duplicates, Paused, and `In Review` retain their exact slots; and unresolved states
+   report bounded skipped fields.
+   The remaining Phase 1A items stay open rather than being implied by the release
+   label.
 2. **Phase 1B with Phases 2 and 3** as the following minor release: one sync, `--take`,
    selectors everywhere, `tbd spec`, and `--children`. Release notes state the `--push`
    change and the `--push --json` shape change plainly.

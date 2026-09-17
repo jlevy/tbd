@@ -11,8 +11,10 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Status:** The field model, slot reconciliation, refinement persistence, name-based
 state resolution, and configured-state provisioning are delivered.
-Full default-map setup, noninteractive ambiguity reporting, richer diagnostics, and live
-acceptance remain, reviewed 2026-09-10.
+The 0.9.0 release completed exact-slot convergence for Backlog, Paused, Duplicate, and
+`In Review`, with bounded reporting when a mapped state is unavailable.
+Outbound projection of the `duplicate_of` relation remains open as `tbd-vp4p`; the
+broader core and phase epics are closed (reconciled 2026-09-16).
 
 The tracked core and phase beads are closed.
 Later closeouts include the interactive state-ambiguity prompt (`tbd-2qlk`) and opt-in
