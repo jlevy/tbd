@@ -43,8 +43,12 @@ const SHORTCUTS = 'shortcuts/standard';
 const SETUP_TBD = `${SHORTCUTS}/setup-tbd.md`;
 const LINK = '`tbd guidelines agent-policy-grants`';
 
+/**
+ * A bundled doc with LF line endings. A Windows checkout has CRLF, which the
+ * `\n`-anchored parsing below would otherwise miss.
+ */
 async function readDoc(relPath: string): Promise<string> {
-  return readFile(join(DOCS_DIR, relPath), 'utf-8');
+  return (await readFile(join(DOCS_DIR, relPath), 'utf-8')).replace(/\r\n?/gu, '\n');
 }
 
 /** Collapse line wrapping so reflowing prose does not break phrase checks. */

@@ -26,11 +26,19 @@ const installDir = join(docsDir, 'install');
 const shortcutsSystemDir = join(docsDir, 'shortcuts', 'system');
 const monorepoRoot = join(__dirname, '..', '..', '..');
 
+/**
+ * A doc with LF line endings. A Windows checkout, and the dist copy built from it,
+ * has CRLF, which `\n`-anchored checks such as section headings would otherwise miss.
+ */
+async function readDoc(path: string): Promise<string> {
+  return (await readFile(path, 'utf-8')).replace(/\r\n?/gu, '\n');
+}
+
 describe('integration file formats', () => {
   describe('claude-header.md (source for SKILL.md)', () => {
     it('has valid Claude Code skill frontmatter', async () => {
       const headerPath = join(installDir, 'claude-header.md');
-      const content = await readFile(headerPath, 'utf-8');
+      const content = await readDoc(headerPath);
 
       const frontmatter = parseFrontmatter(content);
       expect(frontmatter).not.toBeNull();
@@ -42,7 +50,7 @@ describe('integration file formats', () => {
 
     it('uses the canonical narrow allowed-tools form', async () => {
       const headerPath = join(installDir, 'claude-header.md');
-      const content = await readFile(headerPath, 'utf-8');
+      const content = await readDoc(headerPath);
       const frontmatter = parseFrontmatter(content);
 
       expect(frontmatter).toContain('allowed-tools: Bash(tbd:*) Read Write');
@@ -52,7 +60,7 @@ describe('integration file formats', () => {
 
     it('activates for natural requests to view beads in a browser', async () => {
       const headerPath = join(installDir, 'claude-header.md');
-      const content = await readFile(headerPath, 'utf-8');
+      const content = await readDoc(headerPath);
       const frontmatter = parseFrontmatter(content);
 
       expect(frontmatter).toContain('viewing beads in a live browser');
@@ -63,7 +71,7 @@ describe('integration file formats', () => {
   describe('skill-baseline.md (shared skill content)', () => {
     it('contains tbd workflow content', async () => {
       const skillPath = join(shortcutsSystemDir, 'skill-baseline.md');
-      const content = await readFile(skillPath, 'utf-8');
+      const content = await readDoc(skillPath);
 
       expect(content).toContain('tbd');
       expect(content).toContain('Session Closing Protocol');
@@ -72,7 +80,7 @@ describe('integration file formats', () => {
 
     it('contains essential command documentation', async () => {
       const skillPath = join(shortcutsSystemDir, 'skill-baseline.md');
-      const content = await readFile(skillPath, 'utf-8');
+      const content = await readDoc(skillPath);
 
       // Essential commands should be documented
       expect(content).toContain('tbd ready');
@@ -82,7 +90,7 @@ describe('integration file formats', () => {
 
     it('states GitHub authorization in its own section before the closing protocol', async () => {
       const skillPath = join(shortcutsSystemDir, 'skill-baseline.md');
-      const raw = await readFile(skillPath, 'utf-8');
+      const raw = await readDoc(skillPath);
       const start = raw.indexOf('\n## GitHub Authorization\n');
       const closing = raw.indexOf('\n## CRITICAL: Session Closing Protocol\n');
       expect(start).toBeGreaterThan(-1);
@@ -121,7 +129,7 @@ describe('integration file formats', () => {
   describe('live web viewer routing', () => {
     it('teaches the full installed skill to open and operate the viewer for the user', async () => {
       const skillPath = join(shortcutsSystemDir, 'skill-baseline.md');
-      const content = await readFile(skillPath, 'utf-8');
+      const content = await readDoc(skillPath);
 
       expect(content).toContain('Show my beads in a browser');
       expect(content).toContain('tbd web --open');
@@ -132,7 +140,7 @@ describe('integration file formats', () => {
 
     it('keeps the browser route and ownership boundary in both compact skill tiers', async () => {
       for (const name of ['skill-brief.md', 'shortcuts/system/skill-minimal.md']) {
-        const content = await readFile(join(docsDir, name), 'utf-8');
+        const content = await readDoc(join(docsDir, name));
         expect(content, `${name} must route browser requests`).toContain('tbd web --open');
         expect(content, `${name} must support another working directory`).toContain(
           'tbd web <path> --open',
@@ -150,8 +158,8 @@ describe('integration file formats', () => {
       const sourcePath = join(__dirname, '..', 'docs', 'shortcuts', 'system', 'skill-minimal.md');
       const bundledPath = join(shortcutsSystemDir, 'skill-minimal.md');
       const [sourceContent, bundledContent] = await Promise.all([
-        readFile(sourcePath, 'utf-8'),
-        readFile(bundledPath, 'utf-8'),
+        readDoc(sourcePath),
+        readDoc(bundledPath),
       ]);
       const packageJson = JSON.parse(
         await readFile(join(__dirname, '..', 'package.json'), 'utf-8'),
@@ -165,10 +173,7 @@ describe('integration file formats', () => {
     });
 
     it('includes the natural-language browser request in installed onboarding', async () => {
-      const content = await readFile(
-        join(docsDir, 'shortcuts', 'standard', 'welcome-user.md'),
-        'utf-8',
-      );
+      const content = await readDoc(join(docsDir, 'shortcuts', 'standard', 'welcome-user.md'));
       expect(content).toContain('Show my beads in a browser');
       expect(content).toContain('tbd web --open');
       expect(content).toContain('not an editor');
@@ -177,7 +182,7 @@ describe('integration file formats', () => {
 
   describe('Linear onboarding routing', () => {
     it('activates the installed skill for natural Linear setup requests', async () => {
-      const header = await readFile(join(installDir, 'claude-header.md'), 'utf-8');
+      const header = await readDoc(join(installDir, 'claude-header.md'));
       const frontmatter = parseFrontmatter(header);
 
       expect(frontmatter).toContain('Linear');
@@ -192,7 +197,7 @@ describe('integration file formats', () => {
       ];
 
       for (const skillFile of skillFiles) {
-        const content = await readFile(skillFile, 'utf-8');
+        const content = await readDoc(skillFile);
         expect(content, `${skillFile} must route Linear setup`).toContain(
           'tbd shortcut setup-linear',
         );
@@ -203,10 +208,7 @@ describe('integration file formats', () => {
     });
 
     it('ships a two-path setup shortcut with the credential safety boundary', async () => {
-      const content = await readFile(
-        join(docsDir, 'shortcuts', 'standard', 'setup-linear.md'),
-        'utf-8',
-      );
+      const content = await readDoc(join(docsDir, 'shortcuts', 'standard', 'setup-linear.md'));
 
       expect(content).toContain('First-time setup');
       expect(content).toContain('Joining a configured repo');
@@ -219,20 +221,17 @@ describe('integration file formats', () => {
     });
 
     it('surfaces optional Linear setup in onboarding and the user manual', async () => {
-      const welcome = await readFile(
-        join(docsDir, 'shortcuts', 'standard', 'welcome-user.md'),
-        'utf-8',
-      );
+      const welcome = await readDoc(join(docsDir, 'shortcuts', 'standard', 'welcome-user.md'));
       expect(welcome).toContain('tbd integration status --offline');
       expect(welcome).toContain('tbd shortcut setup-linear');
       expect(welcome).toContain('Add my Linear key');
 
-      const manual = await readFile(join(docsDir, 'tbd-docs.md'), 'utf-8');
+      const manual = await readDoc(join(docsDir, 'tbd-docs.md'));
       expect(manual).toContain('tbd shortcut setup-linear');
       expect(manual).toContain('Joining a repository that already syncs');
       expect(manual).toContain('First-time setup for a repository');
 
-      const readme = await readFile(join(__dirname, '..', '..', '..', 'README.md'), 'utf-8');
+      const readme = await readDoc(join(__dirname, '..', '..', '..', 'README.md'));
       expect(readme).toContain('Optional Linear Setup');
       expect(readme).toContain('tbd shortcut setup-linear');
       expect(readme).toContain('.agents/');
@@ -249,7 +248,7 @@ describe('integration file formats', () => {
       ];
 
       for (const skillFile of skillFiles) {
-        const content = await readFile(skillFile, 'utf-8');
+        const content = await readDoc(skillFile);
         expect(content, `${skillFile} must route ordinary PR creation and updates`).toContain(
           'tbd shortcut create-or-update-pr-simple',
         );
@@ -275,7 +274,7 @@ describe('integration file formats', () => {
         'create-or-update-pr-with-validation-plan.md',
         'stacked-prs.md',
       ]) {
-        const content = await readFile(join(standardDir, name), 'utf-8');
+        const content = await readDoc(join(standardDir, name));
         expect(content, `${name} must use the non-interactive stack submit path`).toContain(
           'gh stack submit --auto',
         );
@@ -294,7 +293,7 @@ describe('integration file formats', () => {
         'create-or-update-pr-simple.md',
         'create-or-update-pr-with-validation-plan.md',
       ]) {
-        const content = await readFile(join(standardDir, name), 'utf-8');
+        const content = await readDoc(join(standardDir, name));
         expect(content, `${name} must retain the existing PR base`).toContain(
           '--json number,url,baseRefName',
         );
@@ -339,7 +338,7 @@ describe('integration file formats', () => {
         );
       }
 
-      const stacked = await readFile(join(standardDir, 'stacked-prs.md'), 'utf-8');
+      const stacked = await readDoc(join(standardDir, 'stacked-prs.md'));
       expect(stacked).toContain('Local tracking and formal GitHub membership are separate states');
       expect(stacked).toContain('stacks?pull_request=$PR_NUMBER');
       expect(stacked).toContain('gh stack link');
@@ -350,7 +349,7 @@ describe('integration file formats', () => {
     it('protects remote-only stacks in merge and review follow-up workflows', async () => {
       const standardDir = join(docsDir, 'shortcuts', 'standard');
       for (const name of ['merge-upstream.md', 'address-pr-review.md']) {
-        const content = await readFile(join(standardDir, name), 'utf-8');
+        const content = await readDoc(join(standardDir, name));
         expect(content, `${name} must inspect authoritative remote membership`).toContain(
           'stacks?pull_request=$PR_NUMBER',
         );
@@ -375,12 +374,12 @@ describe('integration file formats', () => {
         );
       }
 
-      const merge = await readFile(join(standardDir, 'merge-upstream.md'), 'utf-8');
+      const merge = await readDoc(join(standardDir, 'merge-upstream.md'));
       expect(merge).toContain(
         'The normal path applies only when local tracking is absent and the current PR, if any,',
       );
 
-      const review = await readFile(join(standardDir, 'address-pr-review.md'), 'utf-8');
+      const review = await readDoc(join(standardDir, 'address-pr-review.md'));
       expect(review).toContain(
         'Only when local tracking is absent and `$REMOTE_STACK_NUMBER` is empty',
       );
@@ -392,7 +391,7 @@ describe('integration file formats', () => {
 
     it('skill baseline routes TypeScript work through the lint/format floor', async () => {
       const skillPath = join(shortcutsSystemDir, 'skill-baseline.md');
-      const content = await readFile(skillPath, 'utf-8');
+      const content = await readDoc(skillPath);
 
       expect(content).toContain(combinedRoute);
       expect(content).toContain('tbd guidelines typescript-lint-format-rules');
@@ -401,7 +400,7 @@ describe('integration file formats', () => {
     it('review shortcuts load the lint/format floor for TS/JS changes', async () => {
       const standardDir = join(docsDir, 'shortcuts', 'standard');
       for (const name of ['review-code.md', 'review-code-typescript.md']) {
-        const content = await readFile(join(standardDir, name), 'utf-8');
+        const content = await readDoc(join(standardDir, name));
         expect(content, `${name} must load the TS/JS lint-format floor`).toContain(combinedRoute);
       }
     });
@@ -411,15 +410,15 @@ describe('integration file formats', () => {
     const distSkillPath = join(monorepoRoot, 'skills', 'tbd', 'SKILL.md');
 
     it('is committed and free of drift from the composed skill', async () => {
-      const committed = await readFile(distSkillPath, 'utf-8');
-      const composed = await readFile(join(docsDir, 'SKILL.md'), 'utf-8');
+      const committed = await readDoc(distSkillPath);
+      const composed = await readDoc(join(docsDir, 'SKILL.md'));
       // The committed distribution copy must match the freshly built skill.
       // If this fails, run `pnpm build` and commit skills/tbd/SKILL.md.
       expect(committed).toBe(composed);
     });
 
     it('has valid Agent Skills frontmatter', async () => {
-      const committed = await readFile(distSkillPath, 'utf-8');
+      const committed = await readDoc(distSkillPath);
       const frontmatter = parseFrontmatter(committed);
       expect(frontmatter).not.toBeNull();
       expect(frontmatter).toContain('name:');

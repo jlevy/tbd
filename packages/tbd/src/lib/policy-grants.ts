@@ -385,13 +385,30 @@ const GRANT_LINE_CANDIDATE = /^-\s+`/;
 const GRANT_LINE = /^-\s+`([^`]*)`:\s+(\S.*)$/;
 const RECORDED_LINE = /^Recorded (\d{4}-\d{2}-\d{2})\.$/;
 
+/** `text` with CRLF line breaks converted to LF. */
+function toLf(text: string): string {
+  return text.replace(/\r\n/gu, '\n');
+}
+
+/**
+ * Whether a write to `text` should use CRLF: true when any line break in it is
+ * CRLF. A Windows checkout has CRLF, and the LF lines such a file can also hold
+ * come from tbd's own writes (setup writes the tbd block with LF), so a single
+ * CRLF line marks the file as CRLF.
+ */
+function usesCrlf(text: string): boolean {
+  return text.includes('\r\n');
+}
+
 /**
  * Read the policy block from the full AGENTS.md text, applying the guideline's
  * rules: the block must sit inside the tbd block, appear once, carry a known
  * version, and hold well-formed grant lines with no policy listed twice.
- * Lines between the markers that are not grant lines are ignored.
+ * Lines between the markers that are not grant lines are ignored. CRLF line
+ * endings read the same as LF, and the returned `text` has LF line endings.
  */
-export function parsePolicyBlock(agentsMd: string): PolicyBlockParse {
+export function parsePolicyBlock(content: string): PolicyBlockParse {
+  const agentsMd = toLf(content);
   const begins = indexOfAll(agentsMd, POLICY_BEGIN_MARKER_PREFIX);
   const ends = indexOfAll(agentsMd, POLICY_END_MARKER);
   if (begins.length === 0 && ends.length === 0) {
@@ -528,17 +545,26 @@ export const SETUP_AGENTS_MD_HINT =
   'run `tbd setup --auto` (or `tbd setup --auto --surfaces=agents-md`) to create it, then record grants';
 
 /**
- * Return AGENTS.md with `block` (from renderPolicyBlock) as its policy block:
+ * Return AGENTS.md `content` with `block` (from renderPolicyBlock) as its policy block:
  * replacing the existing block in place, or inserting it after one blank line
  * immediately before END TBD INTEGRATION. The tbd block's begin line is
  * restamped with the current integration format so that an older tbd, which
  * would drop the block when regenerating, refuses to rewrite it instead.
  *
+ * The result uses CRLF throughout when `content` has any CRLF line break, as a
+ * Windows checkout does, and LF otherwise, whatever line endings `block` has.
+ *
  * Throws PolicyBlockError when there is no tbd block or it was stamped by a
  * newer tbd. Callers parse first and refuse to write over a malformed or
  * unknown-version block.
  */
-export function withPolicyBlock(agentsMd: string, block: string): string {
+export function withPolicyBlock(content: string, block: string): string {
+  const updated = withPolicyBlockLf(toLf(content), toLf(block));
+  return usesCrlf(content) ? updated.replace(/\n/gu, '\r\n') : updated;
+}
+
+/** withPolicyBlock for LF text. */
+function withPolicyBlockLf(agentsMd: string, block: string): string {
   const integration = locateIntegrationBlock(agentsMd);
   if (!integration) {
     throw new PolicyBlockError(`AGENTS.md has no tbd block; ${SETUP_AGENTS_MD_HINT}`);
