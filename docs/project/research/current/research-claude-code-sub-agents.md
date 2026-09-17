@@ -1,13 +1,24 @@
 # Research: Claude Code Sub-Agents — Architecture, Models, and Orchestration Patterns
 
-**Date:** 2026-02-13 (last updated 2026-02-13)
+**Date:** 2026-02-13 (last updated 2026-09-16)
 
 **Author:** Research brief (AI-assisted)
 
-**Status:** In Progress
+**Status:** Complete as a Claude Code reference.
+The Claude Code facts were re-verified on 2026-09-16 against the live documentation
+(sub-agents, model configuration, agent teams, run agents in parallel, environment
+variables, CLI reference, hooks, and cloud pages); passages that could not be
+re-verified carry a dated note rather than a silent change.
+Section 11 tracks the PR review lifecycle plan, which is still a draft.
 
 **Related:**
 
+- [Sub-agent guidance from Anthropic and OpenAI](research-2026-09-16-subagent-guidance-anthropic-openai.md):
+  cross-vendor platform facts and vendor guidance, with the [V1] to [V16] citations this
+  document refers to
+- [PR Review Lifecycle and Sub-Agent Delegation](../../specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md):
+  the plan that defines tbd’s roles, model tiers, policy grants, and delegation
+  procedure (summarized in Section 11)
 - [Running Claude Code Across Environments](../archive/research-running-claude-code.md)
   — Multi-agent orchestration ecosystem survey
 - [Claude Code Orchestration Interfaces and UIs](../archive/research-claude-code-orchestration-and-uis.md)
@@ -24,57 +35,84 @@ and how the system behaves across different environments (local CLI, VS Code, cl
 It also explores advanced orchestration patterns including loops, nested invocations
 ("Ralph Wiggum loops"), and custom compaction cycles.
 
+The Claude Code sections were written in February 2026 and re-verified in September
+2026\. Where behavior changed in between (model precedence, nesting, background tool
+sets, the Explore model, the `effort` field, forks, the `/agents` command), the text now
+describes the current behavior and names the version that changed it.
+Cross-vendor facts (Codex, OpenAI guidance) live in the companion brief rather than
+here. Section 11 summarizes how tbd applies these mechanics.
+
 ## Key Takeaways
 
 **These are the most actionable findings.
 Read these first.**
 
-### Forcing Opus on All Sub-Agents (Including Cloud)
+### Controlling the Model on Every Sub-Agent (Including Cloud)
 
-By default, Claude Code delegates codebase exploration and help queries to **Haiku** (a
-faster but less capable model)
-([sub-agents docs](https://code.claude.com/docs/en/sub-agents#built-in-subagents)). To
-force Opus everywhere, you need **two settings** — one for the main agent, one for
-sub-agents ([model-config docs](https://code.claude.com/docs/en/model-config),
-[settings docs — `env` field](https://code.claude.com/docs/en/settings#available-settings)):
+*(Rewritten 2026-09-16. The February 2026 version said Explore always ran on Haiku and
+that `CLAUDE_CODE_SUBAGENT_MODEL` overrode everything; both have changed.)*
+
+Since v2.1.198 the built-in Explore sub-agent inherits the main conversation’s model
+(capped at Opus on the Claude API); only `claude-code-guide` (Haiku) and
+`statusline-setup` (Sonnet) still run on fixed smaller models
+([sub-agents docs](https://code.claude.com/docs/en/sub-agents#built-in-subagents)).
+Since v2.1.251 a sub-agent’s model resolves in this order
+([sub-agents docs](https://code.claude.com/docs/en/sub-agents#choose-a-model)):
+
+1. the per-invocation `model` parameter on the Agent tool;
+2. the definition’s `model` frontmatter (`inherit` selects the main model);
+3. `CLAUDE_CODE_SUBAGENT_MODEL`, when set to an alias or model ID;
+4. the main conversation’s model.
+
+So the environment variable is now a fallback, not an override.
+To put every sub-agent on one model, set both variables (v2.1.257+). With the force flag
+on, Claude Code ignores every definition’s `model` field, including Explore and Plan,
+and Claude cannot pass a model when it starts a sub-agent:
 
 ```json
-// .claude/settings.json — commit this to your repo
+// .claude/settings.json: commit this to your repo
 {
   "model": "opus",
   "env": {
-    "CLAUDE_CODE_SUBAGENT_MODEL": "claude-opus-4-6"
+    "CLAUDE_CODE_SUBAGENT_MODEL": "opus",
+    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE": "1"
   }
 }
 ```
 
-This works in **all environments** — local CLI, VS Code, desktop, and Cloud.
+Two consequences for this repository:
 
-**In Claude Code Cloud specifically**, there are two reliable methods:
+- This repository’s `.claude/settings.json` pins `CLAUDE_CODE_SUBAGENT_MODEL` to
+  `claude-opus-4-6`, added in February 2026 when the variable overrode everything.
+  Today it applies only to spawns that name no model in the call or the definition, and
+  it then runs them on an older Opus than the `opus` alias resolves to.
+  The plan spec flags the same trap in the `trading` repository; see Next Steps.
+- The reasoning level (`effort`) cannot be passed per spawn.
+  It comes from the definition’s `effort` field or the session’s effort level, which is
+  why the plan proposes predefined tier agents (Section 11).
 
-1. **Project settings.json** (shown above) — best for teams, committed to git,
-   automatically picked up when the Cloud VM clones your repo
-   ([settings docs](https://code.claude.com/docs/en/settings#settings-scope)).
-2. **Cloud environment dialog** — on claude.ai, edit your environment and add env vars
-   in `.env` format
-   ([cloud docs](https://code.claude.com/docs/en/claude-code-on-the-web)):
-   ```
-   CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-6
-   ANTHROPIC_MODEL=opus
-   ```
+Settings `env` entries work in every environment (local CLI, VS Code, desktop, and cloud
+sessions), because project settings travel with the repository
+([settings docs](https://code.claude.com/docs/en/settings#settings-scope)). In cloud
+sessions, the cloud environment’s own variables are the other reliable channel
+([cloud environments](https://code.claude.com/docs/en/cloud-environments#set-environment-variables)).
 
 **What does NOT work:**
-- `export` in Bash — each Bash runs in a fresh shell; the variable is invisible to
-  Claude Code’s agentic loop that spawns sub-agents.
-- `~/.claude/settings.json` — not available in Cloud (it’s not in your repo).
-- `CLAUDE_ENV_FILE` — may only affect subsequent Bash commands, not sub-agent spawning
-  (read at startup). *(Caveat: this claim is inferred from architecture, not explicitly
-  documented.)*
 
-**To verify:** Run `/agents` in session to see all sub-agents and their configured
-models. Or ask: “What model are your sub-agents configured to use?”
-The [sub-agents docs](https://code.claude.com/docs/en/sub-agents#use-the-agents-command)
-confirm `/agents` shows all available sub-agents with their configuration.
+- `export` in Bash: each Bash call runs in a fresh shell, so the variable never reaches
+  the agentic loop that spawns sub-agents.
+- `~/.claude/settings.json` in cloud sessions: it is not in the repository.
+- `CLAUDE_ENV_FILE`: as of 2026-09-16 the variable no longer appears on the
+  [environment variables page](https://code.claude.com/docs/en/env-vars), so the
+  February 2026 caveat in Section 4 (that it affects only later Bash commands, not
+  sub-agent spawning) could not be re-verified either way.
+
+**To verify:** `/agents` no longer opens a panel; since v2.1.198 it prints a notice with
+the definition locations.
+Use `/tasks`, which shows each sub-agent’s model and effort level (v2.1.242+), or read
+the transcripts at
+`~/.claude/projects/{project}/{sessionId}/subagents/agent-{agentId}.jsonl`
+([sub-agents docs](https://code.claude.com/docs/en/sub-agents#resume-subagents)).
 
 ### Self-Managed Compaction Is Better Than Auto-Compaction
 
@@ -111,15 +149,19 @@ Each fresh instance reads current state, does one unit of work, writes updated s
 8. Can we implement custom compaction/handoff cycles?
 9. How can a custom sub-agent delegation framework be built?
 10. How can an agent manage its own compaction — self-restart with a handoff?
+11. How does tbd apply sub-agents in its PR review and delegation workflow?
 
 ## Scope
 
-- **Included:** Claude Code’s built-in sub-agent system (Task tool), custom sub-agents,
-  agent teams, headless mode (`claude -p`), Agent SDK, model configuration across
-  environments
+- **Included:** Claude Code’s built-in sub-agent system (the Agent tool, formerly Task),
+  custom sub-agents, agent teams, headless mode (`claude -p`), Agent SDK, model
+  configuration across environments, and a summary of tbd’s sub-agent workflow
 - **Excluded:** Third-party orchestrators (Gas Town, Claude Squad, etc.)
   covered in the companion research doc; MCP server architecture; Anthropic API-level
-  multi-agent patterns outside Claude Code
+  multi-agent patterns outside Claude Code; Codex platform facts and vendor guidance,
+  which the
+  [2026-09-16 guidance brief](research-2026-09-16-subagent-guidance-anthropic-openai.md)
+  holds
 
 * * *
 
@@ -127,17 +169,34 @@ Each fresh instance reads current state, does one unit of work, writes updated s
 
 ### 1. Sub-Agent Architecture and Built-in Types
 
-Claude Code’s sub-agent system works through the **Task tool**, which spawns specialized
-AI assistants that handle specific types of tasks.
+*(Re-verified 2026-09-16 against the
+[sub-agents docs](https://code.claude.com/docs/en/sub-agents).)*
+
+Claude Code’s sub-agent system works through the **Agent tool** (renamed from the Task
+tool in v2.1.63; `Task(...)` still works as an alias in permission rules), which spawns
+specialized AI assistants that handle specific types of tasks.
 Each sub-agent runs in its **own context window** with a custom system prompt, specific
 tool access, and independent permissions.
 When Claude encounters a task matching a sub-agent’s description, it delegates to that
 sub-agent, which works independently and returns results.
 
-**Critical architectural constraint:** Sub-agents **cannot spawn other sub-agents**.
-This prevents infinite nesting.
-If a workflow requires nested delegation, the main conversation must chain sub-agents
-sequentially.
+**Nesting and concurrency.** The February 2026 version of this document said sub-agents
+cannot spawn other sub-agents.
+That is no longer true.
+By default a sub-agent can spawn sub-agents of its own, up to three layers below the
+main conversation; at the depth limit Claude Code withholds the Agent tool from every
+sub-agent except a fork, so the deepest sub-agent does the delegated work itself and
+returns one summary.
+`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` changes the limit (`1` turns nesting off).
+Separately, at most 20 sub-agents run at once by default
+(`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`; the error is
+`Concurrent subagent limit reached`); a resumed sub-agent takes a fresh slot, and
+sessions with ultracode active are exempt.
+Version history: nesting up to 5 layers in v2.1.172 through v2.1.216 (not configurable),
+default 1 in v2.1.217 and v2.1.218, default 3 from v2.1.219
+([sub-agents docs](https://code.claude.com/docs/en/sub-agents#let-subagents-spawn-their-own-subagents)).
+A nested sub-agent can message the agent that launched it, and its results go back to
+that launcher, not to the main conversation.
 
 #### Built-in Sub-Agent Types
 
@@ -146,70 +205,97 @@ Source:
 
 | Sub-Agent | Default Model | Tools Available | Purpose |
 | --- | --- | --- | --- |
-| **Explore** | **Haiku** | Read-only (no Write/Edit) | File discovery, code search, codebase exploration |
-| **Plan** | Inherits | Read-only (no Write/Edit) | Codebase research for plan mode |
-| **General-purpose** | Inherits | All tools | Complex research, multi-step operations |
-| **Bash** | Inherits | Bash | Running terminal commands in separate context |
-| **statusline-setup** | **Sonnet** | Read, Edit | Configuring status line |
-| **Claude Code Guide** | **Haiku** | Glob, Grep, Read, WebFetch, WebSearch | Answering questions about Claude Code features |
+| **Explore** | Inherits from the main conversation, capped at Opus on the Claude API (v2.1.198+) | Read-only; Write and Edit denied | File discovery, code search, codebase exploration |
+| **Plan** | Inherits | Read-only; Write and Edit denied | Codebase research for plan mode |
+| **General-purpose** | `CLAUDE_CODE_SUBAGENT_MODEL` if set, otherwise the main model | Every tool available to sub-agents | Complex research, multi-step operations, code modifications |
+| **claude** | The normal resolution order (Section 2) when spawned as a sub-agent | Every tool available to sub-agents | Catch-all for tasks that fit no specialized agent |
+| **statusline-setup** | **Sonnet** | Read, Edit (February 2026 listing) | Configuring the status line via `/statusline` |
+| **claude-code-guide** | **Haiku** | Glob, Grep, Read, WebFetch, WebSearch (February 2026 listing) | Answering questions about Claude Code features |
 
-**Key insight: Yes, sub-agents do use less capable models by default.** The Explore
-sub-agent (one of the most commonly invoked) defaults to **Haiku**, not Opus.
-The Claude Code Guide sub-agent also uses Haiku.
-This means that when Claude Code delegates codebase exploration or self-help queries,
-it’s running on a faster but less capable model.
-The Plan and General-purpose sub-agents **inherit** the parent model (e.g., Opus if
-that’s what you’re running).
+*(Notes, 2026-09-16: the page no longer lists tools for the last two rows, so the
+February 2026 tool lists are kept as given.
+The February 2026 table also listed a “Bash” built-in that inherited the model and ran
+terminal commands in a separate context; it no longer appears on the page.)*
 
-**Verified against official docs (Feb 2026):** The default models listed above match the
-[sub-agents documentation](https://code.claude.com/docs/en/sub-agents#built-in-subagents)
-exactly. Explore: “Haiku (fast, low-latency)”; Plan: “Inherits from main conversation”;
-General-purpose: “Inherits from main conversation”; Bash: “Inherits”; statusline-setup:
-“Sonnet”; Claude Code Guide: “Haiku”.
+**What changed.** In February 2026 Explore always ran on Haiku, so the most common
+delegation (codebase exploration) ran on a smaller model unless overridden.
+As of v2.1.198 Explore inherits the main conversation’s model, and built-in Explore and
+Plan are one-shot: they return no agent ID and cannot be resumed.
+Only `claude-code-guide` (Haiku) and `statusline-setup` (Sonnet) still run on fixed
+smaller models. `CLAUDE_CODE_DISABLE_EXPLORE_PLAN_AGENTS=1` (v2.1.198+) removes Explore
+and Plan entirely so Claude reads and explores directly.
+Explore and Plan also skip every `CLAUDE.md` and the git status snapshot that other
+sub-agents receive (Section 3).
 
 ### 2. Model Selection and Control
 
 #### How Sub-Agent Models Are Determined
 
-The model for each sub-agent is determined by a priority chain:
+*(Re-verified 2026-09-16. The February 2026 order, with `CLAUDE_CODE_SUBAGENT_MODEL`
+first and the rest inferred, was correct before v2.1.251 and is now documented and
+different.)*
 
-1. **`CLAUDE_CODE_SUBAGENT_MODEL`** environment variable — overrides model for **all**
-   sub-agents globally
-   ([model-config docs](https://code.claude.com/docs/en/model-config#environment-variables))
-2. **Per-invocation `model` parameter on the Task tool** — when the parent agent spawns
-   a sub-agent, it can pass `model: "opus"` (or `"sonnet"`, `"haiku"`) directly on the
-   Task tool call. This is the most direct way the parent agent controls a specific
-   sub-agent invocation’s model, independent of the sub-agent’s definition.
-   The Task tool schema accepts `{"enum": ["sonnet", "opus", "haiku"]}`.
-3. **Per-sub-agent `model` field** — set in the sub-agent’s frontmatter configuration
-   (for custom sub-agents) or hardcoded (for built-in sub-agents)
-   ([sub-agents docs](https://code.claude.com/docs/en/sub-agents#choose-a-model))
-4. **`inherit`** — if model is omitted or set to `inherit`, uses the main conversation’s
-   model ([sub-agents docs](https://code.claude.com/docs/en/sub-agents#choose-a-model):
-   “If not specified, defaults to `inherit`”)
+Claude Code resolves a sub-agent’s model in this order
+([sub-agents docs](https://code.claude.com/docs/en/sub-agents#choose-a-model)):
 
-**Note on priority:** The docs confirm that `CLAUDE_CODE_SUBAGENT_MODEL` is “the model
-to use for subagents” and that per-agent `model` field defaults to `inherit` if omitted.
-The exact override precedence between `CLAUDE_CODE_SUBAGENT_MODEL`, the Task tool’s
-per-invocation `model` parameter, and an explicit per-agent `model` field (e.g.,
-`model: sonnet` in a custom sub-agent) is not explicitly documented.
-The priority chain above is inferred from specificity: env var as global override,
-per-invocation as call-site override, per-agent as definition-time default.
+1. **Per-invocation `model` parameter on the Agent tool.** The parent passes an alias
+   (`fable`, `opus`, `sonnet`, `haiku`) or a full model ID. Since v2.1.211 the value
+   also applies when the sub-agent is resumed or messaged, so it stays on that model.
+2. **Per-sub-agent `model` field** in the definition’s frontmatter; `inherit` (the
+   default when omitted) selects the main conversation’s model.
+3. **`CLAUDE_CODE_SUBAGENT_MODEL`**, when set to an alias or model ID. It is the default
+   for sub-agents, agent team teammates, and workflow agents that are not assigned a
+   model another way
+   ([model-config docs](https://code.claude.com/docs/en/model-config#environment-variables)).
+   Since v2.1.196, setting it to `inherit` is the same as leaving it unset.
+4. **The main conversation’s model.**
 
-Available model values for the `model` field: `sonnet`, `opus`, `haiku` (aliases), or
-`inherit` (use parent model).
-See
-[sub-agents docs — Choose a model](https://code.claude.com/docs/en/sub-agents#choose-a-model).
+Two overrides sit outside this order:
 
-#### How to Force Opus on All Sub-Agents
+- **`CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`** (v2.1.257+) makes every sub-agent, teammate,
+  and workflow agent use `CLAUDE_CODE_SUBAGENT_MODEL` (or the main model when that is
+  unset), ignoring definitions and per-call values
+  ([sub-agents docs](https://code.claude.com/docs/en/sub-agents#run-every-subagent-on-one-model)).
+- **Organization `availableModels` allowlists.** A blocked family alias such as `opus`
+  is replaced by the newest allowed model of that family (on the Anthropic API and
+  Claude Platform on AWS); any other blocked value falls back to the inherited model, or
+  to `CLAUDE_CODE_SUBAGENT_MODEL` if set.
 
-**Method 1: Environment variable (recommended for blanket override)**
+Accepted values for the `model` field: `sonnet`, `opus`, `haiku`, `fable`, a full model
+ID such as `claude-opus-5`, or `inherit`
+([sub-agents docs](https://code.claude.com/docs/en/sub-agents#supported-frontmatter-fields)).
 
-Set `CLAUDE_CODE_SUBAGENT_MODEL` to the full model name
-([model-config docs](https://code.claude.com/docs/en/model-config#environment-variables)):
+#### Reasoning Level (`effort`) for Sub-Agents
+
+*(Added 2026-09-16.)* Effort is set per definition or per session, never per spawn.
+The `effort` frontmatter field overrides the session effort level for that sub-agent and
+accepts `low`, `medium`, `high`, `xhigh`, and `max`; the available levels depend on the
+model (Fable 5.1, Fable 5, Opus 5, Sonnet 5, Opus 4.8, and Opus 4.7 accept all five;
+Opus 4.6 and Sonnet 4.6 have no `xhigh`)
+([sub-agents docs](https://code.claude.com/docs/en/sub-agents#supported-frontmatter-fields),
+[model-config docs](https://code.claude.com/docs/en/model-config#adjust-effort-level)).
+The Agent tool has no effort parameter, so a sub-agent without an `effort` field
+inherits the session level, which comes from `CLAUDE_CODE_EFFORT_LEVEL`, `--effort`,
+`/effort`, the `effortLevel` or `modelSettings` settings, or the model’s default (`high`
+on most models). Agent team teammates always inherit the lead’s effort level.
+`/tasks` shows each sub-agent’s model and effort (v2.1.242+). This is why the tbd plan
+proposes one predefined agent per tier and reasoning level (Section 11).
+
+#### How to Put Every Sub-Agent on One Model
+
+*(Rewritten 2026-09-16; the February 2026 title was “How to Force Opus on All
+Sub-Agents”, and its Method 1 no longer works on its own.)*
+
+**Method 1: `CLAUDE_CODE_SUBAGENT_MODEL` with the force flag (blanket override)**
+
+On its own, `CLAUDE_CODE_SUBAGENT_MODEL` is only a default for spawns that name no
+model. Add `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` (v2.1.257+) to override definitions and
+per-call values as well
+([sub-agents docs](https://code.claude.com/docs/en/sub-agents#run-every-subagent-on-one-model)):
 
 ```bash
-export CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-6
+export CLAUDE_CODE_SUBAGENT_MODEL=opus
+export CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1
 claude
 ```
 
@@ -219,25 +305,29 @@ session ([settings docs](https://code.claude.com/docs/en/settings#available-sett
 ```json
 {
   "env": {
-    "CLAUDE_CODE_SUBAGENT_MODEL": "claude-opus-4-6"
+    "CLAUDE_CODE_SUBAGENT_MODEL": "opus",
+    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE": "1"
   }
 }
 ```
 
-This forces every sub-agent — including Explore and Claude Code Guide — to use Opus
-instead of Haiku.
+Prefer an alias (`opus`, `fable`) to a pinned ID unless you want to stay on an older
+model after the alias moves: a pinned `claude-opus-4-6` now resolves to an older Opus
+than `opus` does.
 
-**Method 2: Custom sub-agents with explicit model**
+**Method 2: Custom sub-agents with explicit model and effort**
 
-Create custom sub-agents in `~/.claude/agents/` or `.claude/agents/` with `model: opus`
+Create custom sub-agents in `~/.claude/agents/` or `.claude/agents/` with `model` and,
+when the reasoning level matters, `effort`
 ([sub-agents docs — Choose the subagent scope](https://code.claude.com/docs/en/sub-agents#choose-the-subagent-scope)):
 
 ```yaml
 ---
 name: my-explorer
-description: Explore codebase using Opus
+description: Explore codebase using Opus at high effort
 tools: Read, Grep, Glob
 model: opus
+effort: xhigh
 ---
 
 You are a codebase exploration specialist...
@@ -260,52 +350,69 @@ claude --agents '{
 **Method 4: Disable specific built-in sub-agents**
 ([sub-agents docs — Disable specific subagents](https://code.claude.com/docs/en/sub-agents#disable-specific-subagents))
 
-You can prevent Claude from using the Haiku-based Explore sub-agent:
+You can prevent Claude from using a built-in or custom sub-agent (`Agent(...)` is the
+current rule syntax; `Task(...)` still works as an alias):
 
 ```json
 {
   "permissions": {
-    "deny": ["Task(Explore)"]
+    "deny": ["Agent(Explore)"]
   }
 }
 ```
 
-Or via CLI: `claude --disallowedTools "Task(Explore)"`
+Or via CLI: `claude --disallowedTools "Agent(Explore)"`
 
-This forces Claude to use the General-purpose sub-agent (which inherits your model)
-instead.
+This makes Claude use the General-purpose sub-agent instead.
+The February 2026 motivation (Explore ran on Haiku) no longer applies, since Explore now
+inherits the main model; `CLAUDE_CODE_DISABLE_EXPLORE_PLAN_AGENTS=1` (v2.1.198+) removes
+Explore and Plan without a permission rule, and denying the `Agent` tool itself stops
+all delegation.
 
 #### Model Alias Resolution
 
 Source:
 [Model configuration — Model aliases](https://code.claude.com/docs/en/model-config#model-aliases)
 
-The model aliases always point to the latest versions:
+*(Table re-verified 2026-09-16; the February 2026 table had `opus` at Opus 4.6 and
+`sonnet` at Sonnet 4.5 and did not list `fable` or `best`.)*
 
-| Alias | Current Model (Feb 2026) |
+| Alias | Resolves to (Anthropic API, 2026-09-16) |
 | --- | --- |
-| `opus` | Opus 4.6 |
-| `sonnet` | Sonnet 4.5 |
-| `haiku` | Haiku (latest) |
+| `default` | Clears the override; the account type’s default (see Section 4) |
+| `best` | `fable` where available, otherwise `opus` |
+| `fable` | Fable 5.1 (Fable 5 through the Claude apps gateway); the top tier above Opus |
+| `opus` | Opus 5 (Opus 4.6 on Microsoft Foundry) |
+| `sonnet` | Sonnet 5 (Sonnet 4.6 on Claude Platform on AWS; 4.5 on Bedrock, Google Cloud, and Foundry) |
+| `haiku` | Latest Haiku |
+| `opus[1m]`, `sonnet[1m]` | The same models with a 1M-token context window |
+| `opusplan` | Opus in plan mode, Sonnet for execution |
 
-To pin to a specific version, use the full model name (e.g., `claude-opus-4-6`).
+To pin to a specific version, use the full model ID (for example `claude-opus-5`).
 Override the aliases via environment variables
 ([model-config docs — Environment variables](https://code.claude.com/docs/en/model-config#environment-variables)):
 
 | Environment Variable | Overrides Alias |
 | --- | --- |
-| `ANTHROPIC_DEFAULT_OPUS_MODEL` | `opus` |
-| `ANTHROPIC_DEFAULT_SONNET_MODEL` | `sonnet` |
-| `ANTHROPIC_DEFAULT_HAIKU_MODEL` | `haiku` |
+| `ANTHROPIC_DEFAULT_FABLE_MODEL` | `fable` (also the ID recognized as a Fable model for fallback on third-party providers) |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL` | `opus` (and `opusplan` plan mode) |
+| `ANTHROPIC_DEFAULT_SONNET_MODEL` | `sonnet` (and `opusplan` execution) |
+| `ANTHROPIC_DEFAULT_HAIKU_MODEL` | `haiku` (and background functionality; replaces the deprecated `ANTHROPIC_SMALL_FAST_MODEL`) |
+| `ANTHROPIC_DEFAULT_MODEL` | The default for new sessions (v2.1.236+); ignored if set to `default`, `inherit`, `opusplan`, or `haiku` |
 
 #### Cost Considerations
 
-Using Opus for all sub-agents significantly increases token costs.
-Anthropic’s multi-agent research system uses Opus as lead with Sonnet sub-agents
-specifically to balance capability and cost
+Running every sub-agent on the top-tier model significantly increases token costs.
+Anthropic’s multi-agent research system (June 2025) used Opus as lead with Sonnet
+sub-agents specifically to balance capability and cost
 ([source](https://www.anthropic.com/engineering/multi-agent-research-system)). The
 `opusplan` alias provides a hybrid: Opus for planning, Sonnet for execution
 ([model-config docs](https://code.claude.com/docs/en/model-config#opusplan-model-setting)).
+Current vendor cost guidance (smaller models or `low` effort for simple stages,
+condensed reports, few concurrent sub-agents) is collected as [V4], [V6], [V11], and
+[V12] in the
+[companion brief](research-2026-09-16-subagent-guidance-anthropic-openai.md); tbd’s
+answer is the model tiers in Section 11.
 
 **Token usage scales with sub-agents:** Each sub-agent has its own context window.
 Running many sub-agents that each return detailed results can consume significant
@@ -320,38 +427,61 @@ Source:
 
 #### What Sub-Agents Receive
 
-Sub-agents receive:
-- Their **system prompt** (from the markdown body of the sub-agent definition) — per
-  docs: “The body becomes the system prompt that guides the subagent’s behavior”
-- Basic **environment details** (working directory, etc.)
-- The **prompt** passed by the parent agent via the Task tool
-- If custom sub-agent: preloaded **skills** content (via `skills` field)
-- If persistent memory enabled: contents of their **memory directory**
+*(Re-verified 2026-09-16 against
+[What loads at startup](https://code.claude.com/docs/en/sub-agents#what-loads-at-startup).
+The February 2026 list omitted `CLAUDE.md` and said background sub-agents lose MCP
+tools; both corrected below.)*
 
-Sub-agents do **NOT** receive:
-- The full Claude Code system prompt — per docs: “Subagents receive only this system
-  prompt (plus basic environment details like working directory), not the full Claude
-  Code system prompt”
-- The parent conversation’s message history (with one exception — see below)
-- MCP tools when running in background mode — per docs: “MCP tools are not available in
-  background subagents”
+A non-fork sub-agent receives:
+- Its **system prompt** (from the markdown body of the sub-agent definition, or the
+  `prompt` field for `--agents` definitions) plus the environment details Claude Code
+  appends, not the full Claude Code system prompt
+- The **task message**: the prompt the parent writes on the Agent tool call
+- Every **`CLAUDE.md`** the main conversation loads (`~/.claude/CLAUDE.md`, project
+  rules, `CLAUDE.local.md`, managed policy files); built-in Explore and Plan skip all of
+  them, and a definition with `omitClaudeMd: true` (v2.1.271+) loads only managed policy
+  files
+- A **git status** snapshot taken at parent session start (Explore and Plan skip it)
+- If custom sub-agent: preloaded **skills** content (via `skills` field); built-ins
+  preload none
+- If persistent memory enabled: contents of its **memory directory**
+- A **sibling roster** (v2.1.206+) naming `main` and every named agent in the session,
+  when the sub-agent has `SendMessage` and at least one other agent has a name
 
-#### “Access to Current Context”
+A non-fork sub-agent does **NOT** receive:
+- The parent conversation’s message history, previously invoked skills, files the parent
+  already read, the output style, or auto memory
+- The main conversation’s context window size (the window is sized by the sub-agent’s
+  own model)
+- `AskUserQuestion`, `EndConversation`, and a few other built-in tools, which Claude
+  Code removes from every sub-agent
+- **Background sub-agents** additionally lose most built-in tools but **keep MCP
+  tools**: the retained built-ins are `Read`, `Grep`, `Glob`, `Bash`, `PowerShell`,
+  `Edit`, `Write`, `NotebookEdit`, `WebFetch`, `WebSearch`, `TodoWrite`, `Skill`,
+  `ToolSearch`, `EnterWorktree`, `ExitWorktree`, `Monitor`, `TaskStop`, `SendMessage`,
+  and `Artifact` (plus `SubagentHandoff` when applicable), so the same definition can
+  resolve to different tools in the foreground and the background
 
-Some sub-agent types are documented as having “access to current context.”
-Based on the official documentation, this means certain sub-agent types can see the
-**full conversation history** before the tool call.
-The documentation states:
+#### Forks: The Only Way to Inherit the Conversation
 
-> “Agents with ‘access to current context’ can see the full conversation history before
-> the tool call. When using these agents, you can write concise prompts that reference
-> earlier context (e.g., ‘investigate the error discussed above’) instead of repeating
-> information. The agent will receive all prior messages and understand the context.”
+*(Rewritten 2026-09-16. The February 2026 text said General-purpose, Plan, and Explore
+had “access to current context”, meaning the full history.
+The current docs draw the line differently: only a fork inherits history.)*
 
-This appears to apply to the General-purpose, Plan, and Explore sub-agent types (based
-on the system prompt descriptions of the Task tool).
-However, the sub-agent still runs in its **own context window** — it sees the parent’s
-history as input context but builds its own separate conversation.
+A **fork** inherits the parent’s full conversation history (including results delivered
+by background sub-agents while it ran), the parent’s exact tool pool (both tool filters
+are skipped), the parent’s model, and the parent’s output style; it ignores the
+definition’s `model` and `tools` fields, and at the depth limit its `Agent` tool returns
+an error instead of spawning
+([sub-agents docs](https://code.claude.com/docs/en/sub-agents#fork-the-current-conversation)).
+The user starts one with `/subtask`; Claude also spawns forks itself where **fork mode**
+is on, which it is by default in an interactive session and off under `-p` and in the
+Agent SDK unless turned on.
+With fork mode on, Claude Code runs every sub-agent in the background, forks and
+non-forks alike, and Claude cannot ask for the foreground
+([sub-agents docs](https://code.claude.com/docs/en/sub-agents#turn-fork-mode-on-or-off)).
+For tiered work this matters: a fork cannot be given a different model or effort, so
+tier work must start in a fresh, named sub-agent (Section 11).
 
 #### Customizing Context Transfer
 
@@ -387,19 +517,43 @@ memory: user  # or: project, local
 Scopes: `user` (~/.claude/agent-memory/), `project` (.claude/agent-memory/), `local`
 (.claude/agent-memory-local/).
 
-**Via the `resume` parameter:** Resuming a sub-agent continues with its **full previous
-context preserved**, including all previous tool calls, results, and reasoning.
+**Via resuming (now `SendMessage`, not a `resume` parameter):** Resuming a sub-agent
+continues with its **full previous context preserved**, including all previous tool
+calls, results, and reasoning.
 This is the most powerful way to maintain continuity.
+*(Updated 2026-09-16.)* The February 2026 text described a `resume` parameter on the
+Task tool; the current docs describe resuming by sending the finished sub-agent a
+message with the `SendMessage` tool, using its agent ID or name as `to`. The sub-agent
+resumes in the background without a new Agent call, keeps the tool set from its first
+run, keeps the prompt cache it warmed, and (v2.1.211+) stays on any per-invocation
+`model`. `SendMessage` does not require agent teams.
+Built-in Explore and Plan return no agent ID and cannot be resumed; a sub-agent stopped
+with `TaskStop` can be resumed once its run has exited
+([sub-agents docs](https://code.claude.com/docs/en/sub-agents#resume-subagents)). Since
+v2.1.199, `SendMessage` refuses to deliver to a name that a newer agent has taken over.
 
 #### Limitations of Context Transfer
 
+*(Items 3 and 4 corrected 2026-09-16.)*
+
 1. Sub-agents don’t inherit skills from the parent — must list them explicitly
 2. Sub-agents don’t inherit the full Claude Code system prompt
-3. Background sub-agents auto-deny permission prompts not pre-approved
-4. MCP tools unavailable in background sub-agents
+3. Background sub-agents surface every permission prompt in the main session
+   (v2.1.186+); before that they auto-denied any call that would have prompted.
+   A lasting answer (for example a grant for the rest of the session) applies to the
+   whole session, including the main conversation
+4. Background sub-agents keep MCP tools but lose most built-in tools (list above)
 5. When sub-agents complete, their results return to the main conversation — running
    many verbose sub-agents can consume significant context
 6. Sub-agent transcripts are independent of the main conversation’s compaction
+7. Each sub-agent’s final report is scanned before Claude reads it (v2.1.210+): text
+   imitating Claude Code output (such as `<system-reminder>` tags or `Human:` lines)
+   gets a backslash so it reads as plain text, and a report that matches
+   instruction-shaped patterns or mentions permission settings gets a leading
+   `[harness: subagent output matched instruction-shaped pattern(s): ...]` line.
+   Nothing is removed or reworded, the scan does not judge intent, and a tool call the
+   report leads Claude to make still passes the session’s permission checks
+   ([sub-agents docs](https://code.claude.com/docs/en/sub-agents))
 
 ### 4. Environments: CLI, VS Code, Desktop, Cloud
 
@@ -416,7 +570,11 @@ The same settings.json and environment variables work across:
 - **Claude Code Cloud** (web-based sessions)
 
 The sub-agent mechanism is the same across all environments.
-The Task tool works identically whether you’re in VS Code, the desktop app, or the CLI.
+The Agent tool works identically whether you’re in VS Code, the desktop app, or the CLI.
+The one behavioral difference is between interactive and non-interactive sessions: fork
+mode is on by default in an interactive session (every sub-agent runs in the background)
+and off under `-p` and in the Agent SDK, and agent teams never spawn teammates under
+`-p` (Sections 3 and 6).
 
 #### Settings Precedence (Same Everywhere)
 
@@ -444,13 +602,15 @@ Source:
 
 #### How to Set Sub-Agent Model in Each Environment
 
-Same approach everywhere:
+Same approach everywhere *(example updated 2026-09-16: an alias instead of a pinned ID,
+and the force flag, without which the variable is only a fallback; see Section 2)*:
 
 ```json
 // settings.json (any scope)
 {
   "env": {
-    "CLAUDE_CODE_SUBAGENT_MODEL": "claude-opus-4-6"
+    "CLAUDE_CODE_SUBAGENT_MODEL": "opus",
+    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE": "1"
   }
 }
 ```
@@ -460,8 +620,18 @@ Claude Code.
 
 #### Cloud-Specific Considerations
 
-Claude Code Cloud runs in isolated, Anthropic-managed VMs that clone your GitHub
-repository. Sub-agents work normally within a cloud session.
+*(Re-verified 2026-09-16 against
+[Use Claude Code in the cloud](https://code.claude.com/docs/en/claude-code-on-the-web).
+The product is now described as “cloud sessions”, started from the browser at
+claude.ai/code, the mobile and desktop apps, `claude --cloud`, or routines; the February
+2026 name “Claude Code Cloud” is kept below.
+The page confirms that sub-agents “work the same way they do locally”, that
+`.claude/agents/` definitions are picked up automatically, and that agent teams can be
+enabled with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in the environment variables.)*
+
+Claude Code Cloud runs in isolated, Anthropic-managed VMs (or an organization’s
+self-hosted environment) that clone your GitHub repository.
+Sub-agents work normally within a cloud session.
 However there are important differences in how configuration reaches the environment.
 
 **What IS available in Cloud sessions:**
@@ -481,10 +651,13 @@ However there are important differences in how configuration reaches the environ
 **Method 1: Cloud environment dialog (recommended for Cloud)**
 
 On claude.ai, when adding or editing an environment, there’s a dialog where you can
-specify environment variables in `.env` format:
+specify environment variables in `.env` format
+([cloud environments](https://code.claude.com/docs/en/cloud-environments#set-environment-variables);
+example updated 2026-09-16):
 
 ```
-CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-6
+CLAUDE_CODE_SUBAGENT_MODEL=opus
+CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1
 ANTHROPIC_MODEL=opus
 ```
 
@@ -497,7 +670,8 @@ Commit this to your repository so it takes effect for all Cloud sessions:
 {
   "model": "opus",
   "env": {
-    "CLAUDE_CODE_SUBAGENT_MODEL": "claude-opus-4-6"
+    "CLAUDE_CODE_SUBAGENT_MODEL": "opus",
+    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE": "1"
   }
 }
 ```
@@ -512,7 +686,7 @@ For dynamic setup, a SessionStart hook can write env vars:
     "SessionStart": [{
       "hooks": [{
         "type": "command",
-        "command": "echo 'export CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-6' >> \"$CLAUDE_ENV_FILE\""
+        "command": "echo 'export CLAUDE_CODE_SUBAGENT_MODEL=opus' >> \"$CLAUDE_ENV_FILE\""
       }]
     }]
   }
@@ -522,6 +696,9 @@ For dynamic setup, a SessionStart hook can write env vars:
 Note: `CLAUDE_ENV_FILE` makes variables available to subsequent Bash commands but may
 not affect Claude Code’s internal sub-agent spawning if the variable is only read at
 startup. The `env` field in settings.json is more reliable.
+*(Not re-verified 2026-09-16: `CLAUDE_ENV_FILE` no longer appears on the
+[environment variables page](https://code.claude.com/docs/en/env-vars), so this method
+may not work at all; treat Methods 1 and 2 as the supported ones.)*
 
 **Important: `export` in Bash does NOT work for sub-agent model control.** Each Bash
 command runs in a fresh shell, and environment variables set within Bash are not visible
@@ -529,39 +706,75 @@ to Claude Code’s agentic loop that spawns sub-agents.
 
 **How to verify which model sub-agents are using:**
 
-1. `/status` — shows current main model and account info
-2. `/agents` — shows all sub-agents with their model configurations
-3. `/model` — shows current model; use arrow keys to see effort slider
-4. Sub-agent transcripts at `~/.claude/projects/{project}/{sessionId}/subagents/`
+*(Updated 2026-09-16.)*
+
+1. `/status`: shows current main model and account info
+2. `/tasks`: lists background items including finished sub-agents, with each sub-agent’s
+   model and effort level (v2.1.242+); `/agents` no longer opens a panel (v2.1.198+), it
+   prints the definition locations
+3. `/model`: shows current model; `/effort` sets or shows the effort level
+4. Sub-agent transcripts at
+   `~/.claude/projects/{project}/{sessionId}/subagents/agent-{agentId}.jsonl`
 5. Ask Claude directly: “What model are your sub-agents configured to use?”
+   A sub-agent cannot reliably report its own configuration, which is why the tbd review
+   header records the *requested* tier, model, and level (Section 11)
 
-**Does `/model` affect sub-agents?** Partially *(inferred from architecture, not
-explicitly documented)*:
-- Sub-agents with `model: inherit` (or no model field) **will** follow `/model`
-- Sub-agents with an explicit model (e.g., `model: sonnet`) **will not**
-- Built-in Explore uses Haiku regardless of `/model`
-- `CLAUDE_CODE_SUBAGENT_MODEL` overrides everything
+**Does `/model` affect sub-agents?** Yes, for those that inherit, following the
+documented resolution order (Section 2):
+- Sub-agents with `model: inherit` (or no model field) **will** follow `/model`, unless
+  `CLAUDE_CODE_SUBAGENT_MODEL` is set, in which case that variable wins over the main
+  model for them
+- Sub-agents with an explicit model in the call or the definition **will not**
+- Built-in Explore follows `/model` too (it inherits as of v2.1.198; the February 2026
+  claim that it stays on Haiku is stale)
+- `CLAUDE_CODE_SUBAGENT_MODEL` alone overrides nothing that names a model; only
+  `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` overrides everything
+- Agent team teammates fix their model at spawn; `/model` changes only the lead
 
-**Other considerations:**
-- No native instance-to-instance communication between cloud sessions
-- No official orchestration API for cloud instances
-- Teleport (`/tp`) brings cloud sessions to local terminal but doesn’t connect sessions
-  to each other
-- Background sub-agents may have additional sandbox restrictions
+**Other considerations** *(updated 2026-09-16)*:
+- Cloud sessions can be started from a terminal with `claude --cloud "task"` (each call
+  makes an independent session; `--remote` is a deprecated alias), and a follow-up
+  message can be queued into a running cloud session with
+  `claude -p "message" --cloud <session-id>`; the CLI cannot push an existing local
+  session to the cloud
+- [Cross-session messaging](https://code.claude.com/docs/en/cross-session-messaging)
+  lets Claude list and message the user’s other sessions, local or cloud, so the
+  February 2026 claim of “no instance-to-instance communication” no longer holds; there
+  is still no orchestration API beyond this and the Agent SDK
+- Teleport (`claude --teleport <id>`, or `/teleport` and `/tp` in a session) pulls a
+  cloud session and its branch into the local terminal as a separate copy; new local
+  work does not flow back to the cloud session
+- When a cloud environment expires, background work that was still running (sub-agents
+  and shell commands) is not restored on reopen
 
 #### Default Model by Account Type
 
 Source:
 [Model configuration — `default` model setting](https://code.claude.com/docs/en/model-config#default-model-setting)
 
-| Account Type | Default Model |
-| --- | --- |
-| Max and Teams | Opus 4.6 |
-| Pro | Opus 4.6 |
-| Enterprise | Opus 4.6 available but not default |
+*(Table re-verified 2026-09-16; the February 2026 table listed Opus 4.6 throughout.)*
 
-Claude Code may automatically **fall back to Sonnet** if you hit a usage threshold with
-Opus. This could affect sub-agents that inherit the parent model.
+| Account Type | Default Model (2026-09-16) |
+| --- | --- |
+| Max, Team Premium, Enterprise, Anthropic API | Opus 5 |
+| Pro, Team Standard | Sonnet 5 |
+| Claude Platform on AWS, Amazon Bedrock, Google Cloud Agent Platform | Opus 5 |
+| Microsoft Foundry | Sonnet 4.5 |
+
+An organization default model (v2.1.196+) replaces these when an admin sets one.
+
+**Fallback.** The February 2026 text said Claude Code may fall back to Sonnet at a usage
+threshold; that is not on the model-config page as of 2026-09-16 and could not be
+re-verified. What the page documents:
+- **Availability fallback:** `--fallback-model sonnet,haiku` or a `fallbackModel` list
+  in settings switches models when the primary is overloaded or returns a non-retryable
+  server error. When a sub-agent’s request fails over (v2.1.247+), the sub-agent
+  continues on the fallback model and the session’s model is unchanged.
+- **Content-based fallback:** safety classifiers can move a Fable 5.x or Opus 5 request
+  to an older model for flagged categories; the session then stays on that model until
+  `/model` is run. Either kind can put strong-tier work on a weaker model without the
+  coordinator noticing, another reason the tbd plan records the requested tier rather
+  than trusting a sub-agent’s self-report.
 
 ### 5. Emerging Best Practices for Sub-Agents
 
@@ -596,8 +809,9 @@ Opus. This could affect sub-agents that inherit the parent model.
 5. **Limit tool access:** Grant only necessary permissions for security and focus.
    A reviewer doesn’t need Write/Edit access.
 
-6. **Use resume for continuity:** When a sub-agent needs to continue previous work, use
-   the `resume` parameter instead of starting fresh.
+6. **Use resume for continuity:** When a sub-agent needs to continue previous work,
+   message it with `SendMessage` (by agent ID or name) instead of starting fresh
+   (Section 3). Give a sub-agent a `name` at spawn when you expect to come back to it.
 
 7. **Preload skills:** Use the `skills` field to inject domain knowledge without the
    sub-agent having to discover and load it during execution.
@@ -614,17 +828,48 @@ Anthropic published their internal multi-agent research system architecture:
 
 #### Cost-Optimization Strategies
 
+*(Updated 2026-09-16.)*
+
 - Use `opusplan` alias (Opus for planning, Sonnet for execution)
-- Keep Haiku for Explore sub-agents unless quality is insufficient
-- Use `max_turns` to limit sub-agent execution
-- Run sub-agents in background only when you don’t need immediate results
+- Explore now inherits the main model (v2.1.198+); to push exploration and other unnamed
+  spawns to a cheaper model, set `CLAUDE_CODE_SUBAGENT_MODEL=haiku` (a default), or add
+  `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` to make it apply everywhere
+- Use `maxTurns` in the definition (partial output is marked as such, v2.1.246+) or
+  `--max-turns` for `-p` runs to bound sub-agent execution; a per-invocation `max_turns`
+  parameter is not documented (Section 6)
+- Use `effort: low` or `medium` in definitions for simple mechanical sub-agents, per
+  Anthropic’s effort guidance ([V6] in the companion brief)
+- Background is now the default in interactive sessions; foreground only applies under
+  `-p` or when fork mode is off
 - Consider whether agent teams (higher token cost) are justified vs simple sub-agents
+
+#### Parallel Surfaces Added Since February 2026
+
+*(Added 2026-09-16 from
+[Run agents in parallel](https://code.claude.com/docs/en/agents).)* Claude Code now
+documents four ways to run work in parallel, plus supporting tools; this document covers
+the first and third in depth.
+
+| Approach | What it gives you | Status |
+| --- | --- | --- |
+| Sub-agents | Delegated workers inside one session, own context, return a summary | Stable |
+| Agent view (`claude agents`) | One screen to dispatch and monitor background sessions; a dispatched session moves into its own worktree before editing | Research preview |
+| Agent teams | Coordinated sessions with a shared task list and messaging, managed by a lead | Experimental, off by default |
+| Dynamic workflows (`/workflows`) | A script that runs many sub-agents and cross-checks their results, for jobs too big for one turn | Documented; see [workflows](https://code.claude.com/docs/en/workflows) |
+
+Supporting tools: [worktrees](https://code.claude.com/docs/en/worktrees) (a separate
+checkout per session or sub-agent), cross-session messaging (Claude messages the user’s
+other sessions), and `/batch` (a packaged skill that splits one large change into 5 to
+30 worktree-isolated sub-agents that each open a PR). The page’s rule of thumb:
+sub-agents when Claude delegates and collects inside one conversation; agent view when
+the user hands off independent tasks; teams when Claude must plan, assign, and
+supervise; workflows when a script should hold the plan.
 
 ### 6. Sub-Agent Orchestration Patterns
 
 #### Loops and Iteration
 
-**Native sub-agents cannot run in loops by themselves.** The Task tool spawns a
+**Native sub-agents cannot run in loops by themselves.** The Agent tool spawns a
 sub-agent, it runs, and it returns a result.
 There is no built-in loop construct.
 However, the **main agent** can implement loops:
@@ -638,44 +883,63 @@ Pattern: Main agent drives the loop
 5. Repeat until done
 ```
 
-The `resume` parameter is key here — resuming a sub-agent continues with full previous
-context, so the sub-agent doesn’t lose track of what it was doing.
+Resuming is key here: messaging a finished sub-agent with `SendMessage` continues it
+with its full previous context, so the sub-agent doesn’t lose track of what it was doing
+(Section 3). Dynamic workflows (Section 5) are the documented way to run a loop that a
+script, rather than Claude’s turn-by-turn judgment, controls.
 
 #### Background Sub-Agents (Parallelism)
 
-The `run_in_background` parameter allows concurrent execution:
+*(Rewritten 2026-09-16 against
+[Run subagents in foreground or background](https://code.claude.com/docs/en/sub-agents#run-subagents-in-foreground-or-background).
+The February 2026 text said results arrive only through an `output_file`, that
+background sub-agents auto-deny permission prompts, and that they lose MCP tools; none
+of that matches the current docs.)*
+
+Background is now the default: with fork mode on (the default in interactive sessions)
+every sub-agent runs in the background and Claude cannot ask for the foreground.
+Claude Code picks foreground only when an in-process teammate spawned the sub-agent,
+when `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` is set, or, with fork mode off, when
+Claude asks for the foreground and the definition does not set `background: true`.
 
 ```
 Main agent:
   ├── Spawns sub-agent A (background) → runs concurrently
   ├── Spawns sub-agent B (background) → runs concurrently
   ├── Continues own work
-  ├── Reads sub-agent A result when ready
-  └── Reads sub-agent B result when ready
+  ├── Receives A's completion notification in a later turn
+  └── Receives B's completion notification in a later turn
 ```
 
 Background sub-agents:
 - Run concurrently while the main agent continues
-- **Write output to a file** — when `run_in_background: true` is set, the Task tool
-  result includes an `output_file` path.
-  The parent agent retrieves results by reading this file with the Read tool or `tail`
-  in Bash. This is the **only** way to get results from a background sub-agent — unlike
-  foreground sub-agents, results are not returned inline.
-- Inherit pre-approved permissions (auto-deny anything not pre-approved)
-- Cannot use MCP tools
-- Cannot ask clarifying questions (those tool calls fail but the sub-agent continues)
-- Can be resumed in the foreground if they fail due to missing permissions
+- **Deliver results as a completion notification in a later turn.** Claude waits for
+  that notification before reporting the sub-agent’s results, and if asked about
+  progress first, it reports that the sub-agent is still running.
+  The February 2026 `output_file` mechanism is no longer documented; read the transcript
+  under `~/.claude/projects/{project}/{sessionId}/subagents/` if raw output is needed
+- **Surface permission prompts in the main session** (v2.1.186+); a lasting answer
+  applies to the whole session
+- Keep MCP tools but get a reduced set of built-in tools (Section 3)
+- Cannot ask clarifying questions, because `AskUserQuestion` is removed from every
+  sub-agent
+- Can be resumed with `SendMessage` once finished or stopped
+- Cannot outlive an in-process teammate: a teammate’s own sub-agents run in the
+  foreground, and a `background: true` definition errors there
 
-#### `max_turns` for Bounded Execution
+#### Bounding Execution: `maxTurns`
 
-The `max_turns` parameter is a **first-class parameter on the Task tool** itself (not
-just a CLI flag).
-When the parent agent spawns a sub-agent via the Task tool, it can pass
-`max_turns: N` to limit the number of agentic turns (API round-trips) the sub-agent can
-take. The Task tool schema defines it as
-`{"exclusiveMinimum": 0, "maximum": 9007199254740991}`.
+*(Updated 2026-09-16.)* The February 2026 text described a per-invocation `max_turns`
+parameter on the Task tool.
+As of 2026-09-16 the documented cap is the definition’s `maxTurns` frontmatter field
+(when a sub-agent stops at the limit, its output is marked partial and Claude can
+message it to continue, v2.1.246+) and, for `-p` runs, the `--max-turns` and
+`--max-budget-usd` flags.
+A per-invocation parameter could not be re-verified in the
+[tools reference](https://code.claude.com/docs/en/tools-reference) and is not in the
+Agent tool schema observed in a 2026-09-16 desktop session.
 
-This is useful for:
+Bounding turns is useful for:
 - Preventing runaway sub-agents that consume too many tokens
 - Creating “time-boxed” exploration tasks
 - Implementing work-then-report patterns
@@ -683,24 +947,50 @@ This is useful for:
 
 #### Agent Teams (Experimental) — For Complex Coordination
 
+*(Re-verified 2026-09-16 against
+[Orchestrate teams of Claude Code sessions](https://code.claude.com/docs/en/agent-teams);
+still experimental and disabled by default.)*
+
 When sub-agents are insufficient because workers need to **communicate with each
 other**, agent teams provide:
-- Shared task lists with self-coordination
+- Shared task lists with self-coordination (for agents that have the Task tools, which
+  are available by default only on older model families; others coordinate by message)
 - Direct inter-agent messaging (not just report-to-parent)
-- Teammates are full, independent Claude Code sessions
+- Teammates are full, independent Claude Code sessions that load `CLAUDE.md`, MCP
+  servers, and skills like a regular session, but not the lead’s history
 - Team lead coordinates, assigns tasks, synthesizes results
-- Currently experimental (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`)
+- Enabled with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`; since v2.1.178 there is no
+  setup step and cleanup is automatic
+
+Two behaviors matter for delegation designs:
+- **Named sub-agents become teammates.** While teams are enabled, any Agent call that
+  carries a `name` (other than a fork or a call that passes `isolation`) launches a
+  teammate, and Claude names sub-agents on its own, so teams can form unasked.
+  Set the variable to `0` to get ordinary sub-agents back.
+- **Teammate models follow the sub-agent order**: the spawn prompt’s model, then a named
+  definition’s `model`, then `CLAUDE_CODE_SUBAGENT_MODEL`, then the lead’s model; the
+  force flag overrides the first two.
+  Teammates inherit the lead’s effort level and fix their model at spawn.
+  Teammates start with the lead’s permission mode (except `dontAsk`), their prompts
+  appear in the lead’s session, and a message from another agent never counts as the
+  user’s approval.
 
 **Sub-agents vs Agent Teams:**
 
 | Aspect | Sub-agents | Agent Teams |
 | --- | --- | --- |
 | Context | Own window, results return to caller | Own window, fully independent |
-| Communication | Report back to main agent only | Teammates message each other directly |
-| Coordination | Main agent manages all work | Shared task list with self-coordination |
+| Communication | Return a result to the caller; named sub-agents can also message each other (v2.1.206+) | Teammates message each other directly |
+| Coordination | Main agent manages all work | Self-coordination by messages, plus a shared task list where the Task tools exist |
 | Best for | Focused tasks where only result matters | Complex work requiring discussion |
 | Token cost | Lower (results summarized) | Higher (each teammate = separate instance) |
-| Nesting | Cannot spawn sub-sub-agents | Cannot spawn sub-teams |
+| Nesting | Up to 3 layers by default (configurable) | No nested teams; teammates can spawn foreground sub-agents |
+| Worktrees | `isolation: worktree` per sub-agent | Not isolated; partition files per teammate |
+
+Documented limits (2026-09-16): no session resumption for in-process teammates, task
+status can lag, shutdown can be slow, one team per session, the lead is fixed,
+per-teammate permission modes cannot be set at spawn, and split panes need tmux or
+iTerm2. The docs suggest starting with 3 to 5 teammates and 5 to 6 tasks per teammate.
 
 ### 7. Claude-Code-Invoking-Claude-Code ("Ralph Wiggum" Loops)
 
@@ -725,25 +1015,25 @@ claude -p "Analyze auth.py and fix security issues" \
 
 This is fundamentally different from native sub-agents:
 
-| Aspect | Native Sub-Agent (Task tool) | Claude-via-Bash (`claude -p`) |
+| Aspect | Native Sub-Agent (Agent tool) | Claude-via-Bash (`claude -p`) |
 | --- | --- | --- |
-| Context isolation | Shares some parent context | Complete isolation (fresh process) |
-| Model control | Via `model` field or env var | Full CLI flag control (`--model opus`) |
+| Context isolation | Fresh context (plus `CLAUDE.md`), unless forked | Complete isolation (fresh process) |
+| Model control | Per-call `model`, definition `model` and `effort`, env var | Full CLI flag control (`--model opus --effort xhigh`) |
 | System prompt | Sub-agent definition only | Full customization (`--system-prompt`) |
 | Tool access | Configured in sub-agent definition | `--allowedTools`, `--disallowedTools` |
 | Session persistence | Transcript in sub-agent directory | Optional (`--session-id`, `--continue`) |
-| Output format | Returns to parent via Task tool | stdout (text, json, stream-json) |
+| Output format | Returns to parent via the Agent tool (completion notification when in the background) | stdout (text, json, stream-json) |
 | Compaction | Built-in auto-compaction | Built-in auto-compaction |
 | Cost | Shares API connection | Separate API calls |
-| Nesting | Cannot spawn sub-sub-agents | Can nest arbitrarily deep |
+| Nesting | Up to 3 layers by default (configurable) | Can nest arbitrarily deep |
 | Permission | Inherits from parent + sub-agent config | Fully independent permission mode |
-| MCP servers | Inherits from parent (with limits) | Must configure independently |
+| MCP servers | Inherits from parent; a definition can scope its own `mcpServers` | Must configure independently |
 | Background execution | `run_in_background` parameter | Shell backgrounding (`&`, etc.) |
 
 #### Advantages of Claude-via-Bash Over Native Sub-Agents
 
-1. **Arbitrary nesting:** Unlike native sub-agents which cannot spawn sub-sub-agents,
-   `claude -p` invocations can nest as deep as needed.
+1. **Arbitrary nesting:** Native sub-agents nest three layers deep by default
+   (configurable, Section 1); `claude -p` invocations can nest as deep as needed.
 
 2. **Full CLI control:** Every CLI flag is available — `--model`, `--system-prompt`,
    `--append-system-prompt`, `--allowedTools`, `--max-turns`, `--max-budget-usd`,
@@ -894,50 +1184,67 @@ For a fully orchestrated outer loop, the outer Claude Code instance would:
 
 1. `claude -p` for non-interactive invocations ✓
 2. `--model` for per-invocation model control ✓
-3. `--system-prompt` / `--append-system-prompt` for custom prompts ✓
+3. `--append-system-prompt` for custom prompts ✓ (2026-09-16: `--system-prompt` and
+   `--system-prompt-file` were not found on the
+   [CLI reference](https://code.claude.com/docs/en/cli-reference); the listed flags are
+   `--append-system-prompt`, `--append-subagent-system-prompt`, and
+   `--append-subagent-system-prompt-file`, so the examples above that use
+   `--system-prompt` should be checked against `claude --help` before use)
 4. `--max-turns` and `--max-budget-usd` for bounded execution ✓
 5. `--output-format json` for structured output ✓
-6. `--resume` and `--continue` for session continuity ✓
+6. `--resume`, `--continue`, and `--fork-session` for session continuity ✓
 7. `--allowedTools` for per-invocation tool control ✓
 8. `--agents` for per-invocation custom sub-agents ✓
-9. Bash tool for invoking `claude -p` from within Claude Code ✓
+9. `--model`, `--effort`, and `--fallback-model` per invocation ✓ (verified 2026-09-16)
+10. Bash tool for invoking `claude -p` from within Claude Code ✓
 
-The **Agent SDK** (Python and TypeScript packages) provides even more programmatic
-control:
+The **Claude Agent SDK** (Python and TypeScript packages) provides even more
+programmatic control.
+*(Updated 2026-09-16: the packages were renamed from the Claude Code SDK to the Claude
+Agent SDK; the Python repository is
+[`anthropics/claude-agent-sdk-python`](https://github.com/anthropics/claude-agent-sdk-python)
+and the docs include a
+[migration guide](https://code.claude.com/docs/en/agent-sdk/migration-guide).
+The SDK supports sub-agents with depth, concurrency, and spend caps; see [V5] in the
+companion brief.)*
 
 ```python
-# PSEUDOCODE — illustrates the concept, not actual API.
-# Real SDK: `pip install claude-code-sdk`, import is `claude_code_sdk`.
-# See https://platform.claude.com/docs/en/agent-sdk/overview for actual usage.
+# PSEUDOCODE: illustrates the concept, not the exact API.
+# Real SDK: `pip install claude-agent-sdk`; see
+# https://code.claude.com/docs/en/agent-sdk/python for the current entry points.
 
-from claude_code_sdk import claude_code  # actual import path
+from claude_agent_sdk import query, ClaudeAgentOptions  # check the current reference
 
-result = claude_code(
+async for message in query(
     prompt="Refactor the auth module",
-    model="opus",
-    options={
-        "system_prompt": "You are a refactoring specialist...",
-        "allowed_tools": ["Read", "Edit", "Bash"],
-        "max_turns": 20,
-    }
-)
+    options=ClaudeAgentOptions(
+        model="opus",
+        system_prompt="You are a refactoring specialist...",
+        allowed_tools=["Read", "Edit", "Bash"],
+        max_turns=20,
+    ),
+):
+    ...
 ```
 
 ### 8. Comparison: Native Sub-Agents vs Agent Teams vs Outer Loop
 
+*(Table updated 2026-09-16; the February 2026 rows for model control, inter-agent
+communication, and nesting depth were stale.)*
+
 | Dimension | Native Sub-Agents | Agent Teams (Experimental) | Outer Loop (claude -p) |
 | --- | --- | --- | --- |
 | Setup complexity | Low (built-in) | Medium (experimental flag) | High (custom orchestration) |
-| Model control | Limited (env var/config) | Per-teammate | Full CLI control |
-| Context isolation | Partial | Full | Full |
-| Inter-agent comms | None (report to parent) | Direct messaging | Via files/handoff docs |
-| Nesting depth | 1 level only | 1 level only | Unlimited |
-| Parallelism | Background mode | Native (tmux/in-process) | Shell backgrounding |
+| Model control | Per-call `model`; definition `model` and `effort`; env var as fallback or forced | Spawn prompt or definition model; effort inherited from the lead | Full CLI control (`--model`, `--effort`) |
+| Context isolation | Full (fresh context plus `CLAUDE.md`), unless forked | Full | Full |
+| Inter-agent comms | Report to parent; named sub-agents can message each other | Direct messaging and shared task list | Via files/handoff docs |
+| Nesting depth | 3 layers by default (configurable) | No nested teams; teammates may spawn foreground sub-agents | Unlimited |
+| Parallelism | Background by default in interactive sessions | Native (in-process, tmux, or iTerm2) | Shell backgrounding |
 | Custom compaction | No | No | Yes (explicit handoffs) |
-| Session persistence | Sub-agent transcripts | Teammate transcripts | Full session persistence |
+| Session persistence | Sub-agent transcripts (resumable in the same session) | Teammate transcripts; in-process teammates not restored by `/resume` | Full session persistence |
 | Token efficiency | Good (shared caching) | Low (separate instances) | Low (separate processes) |
-| Maturity | Stable | Experimental | DIY (all stable primitives) |
-| Permission control | Inherited + overrides | Inherited | Fully independent |
+| Maturity | Stable | Experimental, disabled by default | DIY (all stable primitives) |
+| Permission control | Inherited + overrides | Inherited from the lead at spawn | Fully independent |
 
 ### 9. Creating Custom Sub-Agent Delegation Frameworks
 
@@ -955,7 +1262,7 @@ The delegation flow is:
 
 1. Claude encounters a task in the conversation
 2. Claude evaluates available sub-agents' `description` fields
-3. If a sub-agent matches, Claude delegates via the Task tool
+3. If a sub-agent matches, Claude delegates via the Agent tool
 4. The sub-agent runs with its own system prompt, tools, and model
 5. Results return to the main conversation
 
@@ -966,16 +1273,23 @@ You can influence this at every step:
 - Create personal sub-agents for your own workflows
 - Distribute sub-agents via plugins
 
-**Control which sub-agents can be used** (permissions):
-- `deny` specific sub-agents: `"permissions": { "deny": ["Task(Explore)"] }`
-- `--disallowedTools "Task(my-agent)"` on the CLI
-- Restrict which sub-agents another agent can spawn: `tools: Task(worker, researcher)`
+**Control which sub-agents can be used** (permissions; `Agent(...)` syntax since
+v2.1.63, with `Task(...)` kept as an alias):
+- `deny` specific sub-agents: `"permissions": { "deny": ["Agent(Explore)"] }`
+- `--disallowedTools "Agent(my-agent)"` on the CLI
+- Restrict which sub-agents a main-session agent can spawn:
+  `tools: Agent(worker, researcher)` (see below for where this applies)
+- Deny the `Agent` tool itself to stop all delegation
 
-**Control delegation behavior** (hooks):
-- `SubagentStart` hook fires when any sub-agent begins — run setup scripts
-- `SubagentStop` hook fires when any sub-agent completes — run cleanup
+**Control delegation behavior** (hooks; re-verified 2026-09-16 against the
+[hooks reference](https://code.claude.com/docs/en/hooks)):
+- `SubagentStart` hook fires when any sub-agent begins: run setup scripts; the matcher
+  filters on `agent_type` (the definition’s `name`)
+- `SubagentStop` hook fires when any sub-agent completes: run cleanup; a `Stop` hook
+  written in a sub-agent’s frontmatter is converted to `SubagentStop`
 - `PreToolUse` hooks within sub-agents validate operations before execution
 - `PostToolUse` hooks within sub-agents run after tool operations
+- Hooks in a definition’s `hooks` field are ignored for plugin sub-agents
 
 **Example: A custom delegation framework with pre/post hooks**
 
@@ -1066,7 +1380,7 @@ which sub-agents it can spawn:
 ---
 name: coordinator
 description: Coordinates work across specialized agents
-tools: Task(researcher, implementer, reviewer), Read, Bash
+tools: Agent(researcher, implementer, reviewer), Read, Bash
 ---
 
 You are a coordinator. Delegate research to the researcher,
@@ -1074,10 +1388,13 @@ implementation to the implementer, and review to the reviewer.
 Never implement code directly.
 ```
 
-The `Task(researcher, implementer, reviewer)` syntax is an allowlist — only those three
-sub-agents can be spawned.
+The `Agent(researcher, implementer, reviewer)` syntax is an allowlist: only those three
+sub-agents can be spawned, and the agent sees only those types in its prompt.
 This restriction only applies to agents running as the main thread with
-`claude --agent`.
+`claude --agent`. In an ordinary sub-agent definition, listing `Agent` in `tools` lets
+the sub-agent spawn its own sub-agents up to the depth limit, and the type list in
+parentheses is ignored ([sub-agents docs](https://code.claude.com/docs/en/sub-agents),
+re-verified 2026-09-16).
 
 #### Limitations of Custom Delegation
 
@@ -1086,11 +1403,15 @@ This restriction only applies to agents running as the main thread with
    The delegation is based on Claude’s interpretation of `description` fields — it’s
    LLM-driven, not rule-based.
 
-2. **No sub-agent-to-sub-agent communication:** Sub-agents can only report back to the
-   parent. For inter-agent communication, use agent teams.
+2. **Limited sub-agent-to-sub-agent communication:** Sub-agents report back to the agent
+   that launched them; named sub-agents can also message each other with `SendMessage`
+   (v2.1.206+), but there is no shared task list without agent teams.
+   *(Corrected 2026-09-16.)*
 
-3. **No sub-sub-agents:** Sub-agents cannot spawn their own sub-agents.
-   Pipelines must be orchestrated from the main conversation.
+3. **Bounded nesting:** Sub-agents can spawn their own sub-agents up to three layers
+   below the main conversation by default; results flow back to the launcher, not the
+   main conversation, so a deep pipeline still needs the coordinator to collect them.
+   *(Corrected 2026-09-16; the February 2026 text said nesting was impossible.)*
 
 4. **Hook-based control is limited to shell commands:** Hooks run shell commands and use
    exit codes to allow/block.
@@ -1128,6 +1449,17 @@ This section addresses a fundamental problem: **auto-compaction degrades quality
 progressively**, and there is no built-in way for an agent to “kill itself and
 rejuvenate” with a clean context window.
 We explore every available mechanism for an agent to manage its own context lifecycle.
+
+*(Verification status, 2026-09-16. Re-verified: `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` exists
+and applies to sub-agents as well as the main conversation; the `PreCompact` (matchers
+`manual` and `auto`), `SessionStart` (matcher `compact` among others), `Stop`,
+`SubagentStart`, and `SubagentStop` hook events exist, `prompt`-type hooks are
+supported, and a `PostCompact` event now exists too; `/compact` accepts focus
+instructions and `/context` works in cloud sessions.
+Not re-verified: the ~95% trigger figure and buffer sizes, the status of issue #15174,
+the third-party handoff tools in References, and the practitioner cost figures.
+Nothing in this section was changed on that basis; treat those details as February 2026
+observations.)*
 
 #### The Problem with Auto-Compaction
 
@@ -1441,12 +1773,15 @@ This is strictly better than auto-compaction because:
 #### Cloud-Specific Considerations
 
 **Can a Cloud session restart itself?** Not directly — a Cloud session cannot spawn a
-new Cloud session. However:
+new Cloud session *(not re-verified 2026-09-16; the cloud page documents starting and
+messaging cloud sessions from a terminal, not from inside another cloud session)*.
+However:
 
 - The agent can write a handoff file, commit, and push.
   A new Cloud session (started by the user) will see it.
-- From local: `claude --remote "Read .handoff/current.md and continue"` spawns a new
-  Cloud session.
+- From local: `claude --cloud "Read .handoff/current.md and continue"` spawns a new
+  Cloud session (`--remote` is now a deprecated alias for `--cloud`), and
+  `claude -p "message" --cloud <session-id>` queues a follow-up into a running one.
 - Teleport (`/tp`) pulls a Cloud session to local, where you have full shell control for
   outer loops.
 
@@ -1463,6 +1798,9 @@ Can an agent detect when it’s approaching context limits?
 2. **`/context` command** shows current context usage breakdown in interactive mode.
 3. **`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`** can be set to 70% to trigger compaction
    earlier, before quality degrades.
+   *(Verified 2026-09-16: it accepts 1 to 100, can only lower the threshold, applies to
+   sub-agents too, and is set by cloud sessions themselves, which override any value in
+   the environment’s variables.)*
 4. **Subagents get their own context** — offloading work to sub-agents naturally reduces
    main context pressure.
 
@@ -1626,16 +1964,182 @@ This is far richer than auto-compaction’s generic summary.
 progress is visible everywhere.
 A tbd-native orchestrator could run in any environment.
 
+### 11. Sub-Agent Workflows as Practiced in tbd
+
+*(Added 2026-09-16.)* This section summarizes how tbd applies the mechanics above.
+The normative text is the
+[PR Review Lifecycle and Sub-Agent Delegation plan](../../specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md)
+(a draft as of 2026-09-16), which is to become the `delegate-to-subagents` and
+`review-and-merge-prs` shortcuts and the `agent-model-tiers` and `agent-policy-grants`
+guidelines; where this summary and the plan differ, the plan wins.
+Vendor citations [V1] to [V16] are defined in the plan’s Vendor Guidance section and
+collected in the
+[companion brief](research-2026-09-16-subagent-guidance-anthropic-openai.md).
+
+#### Coordinator and Roles
+
+The user’s session is the **coordinator**. It checks out the PR head, records the head
+SHA and merge base, owns the beads for the overall request, runs the merge in merge
+mode, and never changes the shared tree while a sub-agent works in it.
+Delegated roles (plan, Roles):
+
+| Role | Tier | Changes | Publishes |
+| --- | --- | --- | --- |
+| Reviewer | strong | No commits; may run tests and scratch scripts | One senior engineering review, as a formal GitHub review pinned to the head commit |
+| Dedicated reviewer | strong | Same as the reviewer | A security, performance, or correctness review, when the PR is sensitive in that area |
+| Addressing agent | moderate | Sole committer on the PR branch; beads | Disposition replies (`fixed`, `rebutted`, `declined`, `deferred`) |
+| Administrator | fast | Beads; no code | CI waits, state collection, prepared replies |
+
+Reviewers follow instructions rather than tool restrictions: they may run the test suite
+and reproduction scripts, keep scratch files in the session scratch directory, do not
+commit or push, and leave the tree as they found it.
+The addressing agent escalates to the coordinator for design decisions, before rebutting
+or declining a Blocker or High finding, and when two findings conflict.
+
+#### Model Tiers
+
+Tiers are defined by model rank and reasoning level within whatever provider the
+platform uses, not by model name (plan, Model Tiers):
+
+- **strong:** the provider’s strongest model at its highest or second-highest reasoning
+  level, for reviews, additional review rounds, design decisions, and escalations;
+- **moderate:** the next-tier model at its highest or second-highest level, for
+  addressing findings and confirming fixes;
+- **fast:** the next-tier model at middle levels, for CI waits, state collection, bead
+  bookkeeping, and conflict-free rebases.
+
+Selection rules: rank what the platform offers and pick the best match per tier; use the
+higher level within a tier for riskier work; with one model, strong and moderate use its
+top two levels and fast its middle levels; with no reasoning control, vary only the
+model; if the strongest model is unavailable, use the best available, record the
+substitution, and tell the user; record the tier, model, and level requested for every
+delegated task. The plan’s named examples are suggestions dated 2026-09-16, not
+requirements: Fable at `max` or `xhigh` (strong), Opus at `max` or `xhigh` (moderate),
+and Opus at `high` or `medium` (fast) on Anthropic; GPT-6 Astra and GPT-5.6 Sol in the
+same pattern on OpenAI. They must be updated as the landscape changes.
+
+On Claude Code this maps onto Sections 2 and 3 directly: the model is named on every
+spawn (a per-call `model` outranks `CLAUDE_CODE_SUBAGENT_MODEL`), the reasoning level
+needs a predefined agent with an `effort` field, and tier work starts in a fresh, named
+sub-agent rather than a fork, which would inherit the parent’s model and effort.
+The plan proposes that `tbd setup` generate small `.claude/agents/tbd-*.md` definitions,
+one per tier and level (proposed: `tbd-strong-max`, `tbd-strong` at `xhigh`,
+`tbd-moderate` at `xhigh`, `tbd-fast` at `medium`), refreshed on upgrade so updating tbd
+updates the suggestions, plus matching `.codex/agents/tbd-*.toml` files (plan, Tier
+Agent Definitions). The coordinator also checks `CLAUDE_CODE_SUBAGENT_MODEL` and
+`CLAUDE_CODE_SUBAGENT_MODEL_FORCE`, which can change or block a named model [V1].
+
+#### Authorization: The `subagents` Policy Grant
+
+tbd encourages sub-agents but delegates only under an explicit grant (plan, Policy
+Grants and Sub-Agent Authorization).
+Grants are recorded in a policy block in `AGENTS.md` (between
+`<!-- BEGIN TBD POLICY GRANTS v=1 -->` and `<!-- END TBD POLICY GRANTS -->`), read from
+the default branch, preserved by `tbd setup` across upgrades, shown by `tbd prime` and
+`tbd policy show`, and validated by `tbd doctor`. Before the first delegation in a task,
+the coordinator checks the conversation, then the project block, then a user-level
+grant; if `subagents` is not granted and the user’s wishes are unclear, it asks once,
+and a request for depth or thoroughness is not authorization [V16]. When the user
+authorizes sub-agents, the agent records `subagents: granted` with
+`tbd policy grant subagents` and says so; a conversation instruction overrides the
+recorded grant for that task.
+The same block serves as the explicit authorization Codex requires before spawning
+[V13], [V16]. A grant never bypasses a tool permission or sandbox.
+
+#### Self-Contained Briefs
+
+Sub-agents do not share the coordinator’s context (Section 3), so every brief states:
+the goal and the shortcut to run (`tbd shortcut <name>`); pinned inputs as paths and IDs
+rather than summaries (PR number, head SHA, review letter, working tree path, bead IDs);
+the role’s boundaries; the user’s exact authorization and the effective grants, and
+nothing broader (a sub-agent never merges unless the merge is authorized and delegated);
+and the report fields the coordinator needs (URLs, SHAs, review letters, bead IDs,
+dispositions, CI run IDs, changed files), condensed [V12]. Briefs add no “double-check
+your work” instructions, because current models verify their own work and extra
+instructions cause over-verification [V7]. Addressing agents also receive the
+interruption brief from `agent-run-operations-rules`.
+
+#### Verifying Sub-Agent Claims
+
+The coordinator relies on no claim it has not checked (plan, Delegation Procedure step
+5; [V2], [V8]): the review exists, carries its `<!-- tbd:review ... -->` marker, and is
+bound to the stated commit (`gh api`); the pushed SHA is on the remote
+(`git ls-remote`); CI is final and green for that SHA (`gh pr checks`); the disposition
+reply lists every finding; and the beads exist (`tbd show`). The report scan described
+in Section 3 flags instruction-shaped text in a report but does not judge it, so the
+coordinator still treats report contents as data.
+If a sub-agent failed, the coordinator reads its transcript before deciding why, then
+resumes or replaces it and reports any coverage that is actually missing.
+Because a sub-agent cannot reliably report its own model or effort, the review header
+records the *requested* tier, model, and level.
+
+#### One Committer per Branch, One Tree by Default
+
+For one PR the reviewer and then the addressing agent work in sequence in the same tree,
+which is simpler and faster than a worktree per role; the addressing agent is the sole
+committer on the branch, and the coordinator does not touch the tree while a sub-agent
+works in it (plan, Pinning and the Working Tree; Delegation Procedure step 2). Dedicated
+reviews run in sequence in that tree, or in parallel only in separate worktrees.
+A separate worktree or session is used when the user asks for one.
+On Claude Code, `isolation: worktree` starts from the default branch, so a worktree
+sub-agent must check out the PR branch first (Section 3); bead data lives in
+`$GIT_COMMON_DIR/tbd/` and is shared across the worktrees of one clone, and a running
+`tbd sync` must never be killed (`tbd-pht1`). The coordinator keeps few sub-agents
+running at once, closes finished ones so they stop holding concurrency slots (20 by
+default, Section 1), keeps doing local work while they run, and removes a worktree once
+its branch is pushed or merged and nothing is uncommitted.
+
+#### Several PRs at Once
+
+The shared tree holds one PR head at a time, so PRs are handled one at a time there.
+To work on several at once, each PR gets its own worktree, shared by that PR’s reviewer
+and addressing agent.
+Merges happen one at a time; after each merge the coordinator re-pins the remaining PRs,
+and a base update that needs conflict resolution is a signal for another review round
+(plan, Several PRs).
+
+#### Single-Agent Fallback
+
+Without sub-agents (no grant, a platform without them, or a run where delegation is not
+wanted), one session performs every step in order with the same artifacts: the same
+review header and marker, the same finding IDs and dispositions, the same merge gate.
+The header records the session’s actual model and reasoning level, and a review of fixes
+the same session wrote says that it is not independent (plan, Single-Agent Fallback).
+Vendor guidance supports the fallback when steps chain or share context [V3], [V15].
+
+#### Cross-Platform Note: Codex
+
+The same workflow runs on Codex with different mechanics, summarized here from the
+plan’s Platform Facts table; the
+[companion brief](research-2026-09-16-subagent-guidance-anthropic-openai.md) holds the
+sourced detail and each fact’s re-verification status.
+Codex spawns with `spawn_agent`, which takes `model` and `reasoning_effort` per spawn
+(so tier definitions are a convenience there, not a requirement), while a full-history
+fork rejects both overrides; custom agents live in `.codex/agents/*.toml` with `model`,
+`model_reasoning_effort`, `developer_instructions`, and `sandbox_mode`; sub-agents share
+the parent’s checkout, so parallel PRs need a `git worktree` per PR created by the
+coordinator; and Codex spawns only when the user, `AGENTS.md`, or a skill explicitly
+asks, which the recorded `subagents` grant satisfies.
+A coordinator delegates within its own platform; cross-provider delegation is a non-goal
+of the plan.
+
 * * *
 
 ## Recommendations
 
-### For Most Workflows: Use Native Sub-Agents with Model Overrides
+### For Most Workflows: Use Native Sub-Agents with Explicit Models
 
-1. Set `CLAUDE_CODE_SUBAGENT_MODEL` to ensure sub-agents use Opus when quality matters
+*(Updated 2026-09-16.)*
+
+1. Name the model on every spawn, or in the definition, and add `effort` to the
+   definition when the reasoning level matters; treat `CLAUDE_CODE_SUBAGENT_MODEL` as a
+   fallback unless `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` is set deliberately
 2. Create custom sub-agents in `.claude/agents/` for project-specific specializations
-3. Use the `resume` parameter for continuity across sub-agent invocations
+   (for tbd, the tier agents in Section 11)
+3. Name sub-agents you expect to continue, and resume them with `SendMessage` rather
+   than starting fresh
 4. Preload skills for domain knowledge injection
+5. Verify what sub-agents report against GitHub, git, CI, and beads (Section 11)
 
 ### For Complex Multi-Phase Projects: Consider the Outer Loop
 
@@ -1655,51 +2159,66 @@ When workers need to communicate with each other (not just report to parent), ag
 teams provide native coordination.
 But they’re experimental and have higher token costs.
 
-### Quick-Reference: Ensuring Opus Everywhere
+### Quick-Reference: One Model Everywhere
+
+*(Rewritten 2026-09-16 for the post-v2.1.251 precedence; `opus` is used as the example,
+`fable` works the same way.)*
 
 ```bash
-# Option 1: Environment variable (simplest)
+# Option 1: Environment variables (blanket override needs the force flag)
 export ANTHROPIC_MODEL=opus
-export CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-6
+export CLAUDE_CODE_SUBAGENT_MODEL=opus
+export CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1
 claude
 
 # Option 2: Settings file (persistent)
-# ~/.claude/settings.json
+# .claude/settings.json or ~/.claude/settings.json
 {
   "model": "opus",
   "env": {
-    "CLAUDE_CODE_SUBAGENT_MODEL": "claude-opus-4-6"
+    "CLAUDE_CODE_SUBAGENT_MODEL": "opus",
+    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE": "1"
   }
 }
 
-# Option 3: Disable Haiku-based built-in sub-agents
-# Forces Claude to use inheriting sub-agents instead
+# Option 3: Disable the remaining fixed-model built-in (claude-code-guide is Haiku)
 {
   "permissions": {
-    "deny": ["Task(Explore)", "Task(claude-code-guide)"]
+    "deny": ["Agent(claude-code-guide)"]
   }
 }
 
 # Option 4: Per-session CLI flag
-claude --model opus
-# (sub-agents that "inherit" will use Opus;
-#  built-in Haiku sub-agents still use Haiku
-#  unless CLAUDE_CODE_SUBAGENT_MODEL is also set)
+claude --model opus --effort xhigh
+# (sub-agents that inherit follow the session model and effort;
+#  Explore inherits since v2.1.198; a spawn or definition that
+#  names a model keeps it unless the force flag is set)
 ```
 
 * * *
 
 ## Next Steps
 
-- [ ] Test `CLAUDE_CODE_SUBAGENT_MODEL` override in practice and verify behavior
-- [x] Add `CLAUDE_CODE_SUBAGENT_MODEL` to this project’s `.claude/settings.json` (done:
-  added `"env": { "CLAUDE_CODE_SUBAGENT_MODEL": "claude-opus-4-6" }`)
+*(Updated 2026-09-16.)*
+
+- [ ] Revisit this project’s `.claude/settings.json`: it still pins
+  `CLAUDE_CODE_SUBAGENT_MODEL` to `claude-opus-4-6` (added 2026-02-13), which since
+  v2.1.251 applies only to spawns that name no model and then runs them on an older
+  Opus. Either drop it, switch it to an alias, or decide deliberately whether the force
+  flag is wanted (it would block the per-spawn models the tbd plan relies on)
+- [x] Add `CLAUDE_CODE_SUBAGENT_MODEL` to this project’s `.claude/settings.json` (done
+  2026-02-13; see the item above)
+- [ ] Ship the tier agent definitions and the `delegate-to-subagents` and
+  `review-and-merge-prs` shortcuts from the plan (Section 11), then record what the
+  Phase 3 validation runs show about requested versus actual models
 - [ ] Prototype the Ralph Loop script for this project (using tbd handoff)
 - [ ] Test `PreCompact` and `SessionStart(compact)` hooks for context backup
-- [ ] Evaluate token cost impact of forcing Opus on all sub-agents
+- [ ] Evaluate token cost impact of running all sub-agents on the strongest model
 - [ ] Create project-specific custom sub-agents for common tasks
 - [ ] Configure Stop hook to force handoff before session ends
 - [ ] Experiment with agent teams for collaborative debugging workflows
+- [ ] Re-verify the Section 10 details marked as not re-verified (compaction trigger
+  figures, issue #15174, third-party handoff tools)
 
 * * *
 
@@ -1740,6 +2259,22 @@ claude --model opus
 - [Slash commands](https://code.claude.com/docs/en/slash-commands) — `/compact`,
   `/context`, `/model`, `/agents`, `/status` commands
 
+Added 2026-09-16:
+
+- [Run agents in parallel](https://code.claude.com/docs/en/agents): sub-agents, agent
+  view, agent teams, and dynamic workflows compared
+- [Environment variables](https://code.claude.com/docs/en/env-vars): sub-agent depth and
+  concurrency caps, `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`
+- [Tools reference](https://code.claude.com/docs/en/tools-reference): the Agent tool and
+  the availability of the task-tracking tools (`TaskCreate` and friends)
+- [Run parallel sessions with worktrees](https://code.claude.com/docs/en/worktrees):
+  `isolation: worktree` enforcement and base branch
+- [Cross-session messaging](https://code.claude.com/docs/en/cross-session-messaging)
+- [Orchestrate dynamic workflows](https://code.claude.com/docs/en/workflows)
+- [Agent SDK subagents](https://code.claude.com/docs/en/agent-sdk/subagents) and the
+  [migration guide](https://code.claude.com/docs/en/agent-sdk/migration-guide) from the
+  Claude Code SDK packages
+
 ### Compaction and Handoff Patterns
 
 - [The Ralph Loop](https://awesomeclaude.ai/ralph-wiggum) — Foundational outer-loop
@@ -1775,6 +2310,10 @@ claude --model opus
 
 ### Related Internal Research
 
+- [Sub-agent guidance from Anthropic and OpenAI](research-2026-09-16-subagent-guidance-anthropic-openai.md):
+  cross-vendor platform facts and vendor guidance, sources [V1] to [V16]
+- [PR Review Lifecycle and Sub-Agent Delegation](../../specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md):
+  the plan summarized in Section 11
 - [Running Claude Code Across Environments](../archive/research-running-claude-code.md)
   — Multi-agent orchestration landscape survey
 - [Agent Coordination Kernel](../archive/research-agent-coordination-kernel.md) —
