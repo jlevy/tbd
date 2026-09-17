@@ -1014,6 +1014,58 @@ tbd doctor --fix                            # Attempt to fix issues
 Options:
 - `--fix` - Attempt to automatically fix detected issues
 
+Plain `tbd doctor` is read-only.
+If it reports an orphaned dependency, the stored edge points to an issue that no longer
+exists. `tbd doctor --fix` rechecks the complete graph under the shared data lock,
+removes only those missing-target edges, and preserves dependencies whose targets still
+exist. Each repaired issue receives the normal version and update-time change, and the
+report names every edge that was removed.
+
+An edge is removed only when the target’s file is gone.
+A target whose file is present but cannot be read or parsed, for example one left with
+conflict markers by a merge, is a broken issue rather than a deleted one: its inbound
+edges are kept and reported until the file listed under `Issue validity` is repaired.
+The repair takes the same writer path as `tbd dep add` and `tbd dep remove`, so it is
+skipped and reported as still pending when that path refuses to write, on a store
+written by a newer tbd or a corrupted shared worktree; the same run repairs the
+worktree, and the next `tbd doctor --fix` removes the edges.
+An issue that is not stored in exactly one `<id>.md` file, the duplicate state
+`Unique IDs` reports, is reported rather than rewritten, and a write that fails is
+reported per file alongside the writes that already landed.
+
+#### Directed dependency cycles
+
+A directed dependency cycle makes the work plan self-contradictory; when every blocker
+in the cycle is open, every participating bead waits on another member of the same
+cycle. `tbd doctor` reports cycles as an error-level finding under `Dependencies`, so it
+exits nonzero, and prints one closed depends-on path for each cyclic component.
+The arrows follow CLI semantics: `A -> B` means A depends on B. A bead without a short
+ID appears by its internal ID (`is-…`), which `tbd dep remove` also accepts.
+
+To reproduce the check, create three beads, note their IDs as A, B, and C, then make
+each one depend on the next:
+
+```bash
+tbd dep add <A> <B>
+tbd dep add <B> <C>
+tbd dep add <C> <A>
+tbd doctor
+```
+
+Repair requires deciding which dependency was unintended.
+Remove one edge from every reported path, then run doctor again:
+
+```bash
+tbd dep remove <issue> <depends-on>
+tbd doctor
+```
+
+`tbd doctor --fix` deliberately does not choose an edge to remove because that choice
+changes the work plan.
+Orphaned references reported alongside a cycle are still repaired by `--fix`, and the
+finding stays an error, so the run still exits nonzero, until the cycle is broken by
+hand.
+
 ### config
 
 Manage tbd configuration.

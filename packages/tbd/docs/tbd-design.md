@@ -4086,6 +4086,7 @@ Only runs if worktree is healthy:
 | --- | --- | --- | --- |
 | Schema version incompatible | error | no | `meta.yml` version > supported |
 | Orphaned dependencies | warning | yes | Dependency target doesn’t exist |
+| Dependency cycle | error | no | Directed depends-on cycle |
 | Duplicate IDs | error | yes | Multiple files with same short ID |
 | Invalid references | warning | yes | `parent_id` points to missing issue |
 
@@ -4148,6 +4149,12 @@ The `--fix` flag performs repairs in this order:
    - Commit in worktree
 5. Rebuild ID mappings if corrupted
 6. Remove orphaned dependency references
+   - Attempted through the ordinary writer path, so it is skipped, and reported as still
+     pending, whenever that path refuses to write: a config from a newer tbd, or a
+     corrupted worktree. Steps 1-3 repair the worktree in the same run, so the next
+     `--fix` removes the edges
+   - Only an edge whose target file is gone is removed; a target whose file is present
+     but does not parse keeps its inbound edges until that file is repaired
 
 > **Note:** Migration and repair backups are stored under `$GIT_COMMON_DIR/tbd/backups/`
 > (alongside the shared sync worktree, outside the working tree and never committed).
