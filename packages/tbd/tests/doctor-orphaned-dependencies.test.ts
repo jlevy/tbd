@@ -21,6 +21,7 @@ import { tmpdir, platform } from 'node:os';
 import { join } from 'node:path';
 
 import { deleteIssue, listIssues } from '../src/file/storage.js';
+import { withSharedDataSyncLock } from '../src/file/common-dir-layout.js';
 
 // Every case here drives the real CLI a dozen times over real git repositories, and
 // the setup hook alone runs `git init`, `tbd init`, three creates and two `dep add`s.
@@ -58,6 +59,44 @@ function runTbd(cwd: string, args: string[]): { stdout: string; stderr: string; 
   };
 }
 
+/**
+ * Async variant, for the one case that must drive doctor while this process holds the
+ * shared writer lock; `runTbd` uses `spawnSync` and would deadlock against it.
+ */
+async function runTbdAsync(
+  cwd: string,
+  args: string[],
+): Promise<{ stdout: string; stderr: string; status: number }> {
+  try {
+    const { stdout, stderr } = await execFileAsync('node', [tbdBin, ...args], {
+      cwd,
+      encoding: 'utf-8',
+      env: { ...process.env, FORCE_COLOR: '0' },
+    });
+    return { stdout: stdout ?? '', stderr: stderr ?? '', status: 0 };
+  } catch (error) {
+    // doctor exits non-zero whenever it reports an error finding, which several of
+    // these cases expect; the JSON report is still on stdout.
+    const failure = error as { stdout?: string; stderr?: string; code?: number };
+    return {
+      stdout: failure.stdout ?? '',
+      stderr: failure.stderr ?? '',
+      status: failure.code ?? 1,
+    };
+  }
+}
+
+function parseDoctorReport(result: { stdout: string; stderr: string }): DoctorCheck[] {
+  try {
+    return (JSON.parse(result.stdout) as { healthChecks: DoctorCheck[] }).healthChecks;
+  } catch (error) {
+    throw new Error(
+      `doctor produced no JSON report (${String(error)}).\n` +
+        `stdout: ${result.stdout}\nstderr: ${result.stderr}`,
+    );
+  }
+}
+
 /** Run doctor with `--json` and return the named health check. */
 function doctorCheck(
   cwd: string,
@@ -65,17 +104,8 @@ function doctorCheck(
   name: string,
 ): { check: DoctorCheck | undefined; status: number } {
   const result = runTbd(cwd, [...args, '--json']);
-  let report: { healthChecks: DoctorCheck[] };
-  try {
-    report = JSON.parse(result.stdout) as { healthChecks: DoctorCheck[] };
-  } catch (error) {
-    throw new Error(
-      `doctor ${args.join(' ')} produced no JSON report (${String(error)}).\n` +
-        `stdout: ${result.stdout}\nstderr: ${result.stderr}`,
-    );
-  }
   return {
-    check: report.healthChecks.find((finding) => finding.name === name),
+    check: parseDoctorReport(result).find((finding) => finding.name === name),
     status: result.status,
   };
 }
@@ -204,6 +234,50 @@ describe('doctor --fix orphaned dependency repair', () => {
 
     const reverified = doctorCheck(dir, ['doctor'], 'Dependencies');
     expect(reverified.check).toMatchObject({ status: 'ok' });
+  });
+
+  it('reports the store the repair decided from, not the pre-lock snapshot', async () => {
+    // A writer that lands between doctor's snapshot and its lock is what the re-read
+    // under the lock exists for, so the report has to follow the re-read: the checks
+    // after the repair take both halves of that listing, the issues and the files that
+    // did not parse. Otherwise doctor keeps an edge (correctly, its target file is
+    // there) and then calls that same edge a missing orphan, and `Issue validity` says
+    // nothing about the file that made it so.
+    const doomedId = await internalId(dataSyncDir, 'Doomed target');
+    const liveId = await internalId(dataSyncDir, 'Live target');
+    await deleteIssue(dataSyncDir, doomedId);
+    const livePath = join(issuesDir, `${liveId}.md`);
+    const conflicted = (await readFile(livePath, 'utf-8')).replace(
+      /^title: .*$/m,
+      '<<<<<<< HEAD\ntitle: Ours\n=======\ntitle: Theirs\n>>>>>>> theirs',
+    );
+
+    // Hold the writer lock, so doctor loads its snapshot (both targets still readable)
+    // and then blocks in the Dependencies repair until the file is conflicted. The
+    // doctor promise is deliberately not awaited until the lock is released: doctor
+    // cannot finish while this process holds it.
+    let doctor: Promise<{ stdout: string; stderr: string; status: number }> | undefined;
+    await withSharedDataSyncLock(dir, async () => {
+      doctor = runTbdAsync(dir, ['doctor', '--fix', '--json']);
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      await writeFile(livePath, conflicted);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    });
+    const report = parseDoctorReport(await doctor!);
+
+    const dependencies = report.find((finding) => finding.name === 'Dependencies');
+    const validity = report.find((finding) => finding.name === 'Issue validity');
+    // The genuine orphan is repaired, and the edge into the newly conflicted file is
+    // kept: that part was already right, it is the reporting that follows the re-read.
+    expect(dependencies?.message).toContain('removed 1 orphaned reference(s)');
+    expect(
+      await readFile(join(issuesDir, `${await internalId(dataSyncDir, 'Blocker')}.md`), 'utf-8'),
+    ).toContain(`target: ${liveId}`);
+    expect(dependencies?.message).toContain('reference(s) into invalid issue file(s)');
+    expect(dependencies?.details?.join('\n')).toContain('(target file present but invalid)');
+    expect(dependencies?.fixable).not.toBe(true);
+    expect(validity?.status).toBe('error');
+    expect(validity?.details?.join('\n')).toContain(liveId);
   });
 
   it('keeps an edge whose target file is present but does not parse', async () => {

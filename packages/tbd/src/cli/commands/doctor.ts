@@ -539,6 +539,13 @@ interface OrphanRepairOutcome {
   failed: { id: string; message: string }[];
   /** The store as it stands after the pass, for the checks that run later. */
   issues: Issue[];
+  /**
+   * The invalid files of that same listing. It travels with `issues` because the two
+   * are only meaningful together: every other reload in `run()` replaces both, and a
+   * mixed pair would let `Issue validity` and the dependency finding describe two
+   * different moments of the store.
+   */
+  invalidIssueFiles: InvalidIssueFile[];
 }
 
 class DoctorHandler extends BaseCommand {
@@ -1146,10 +1153,14 @@ class DoctorHandler extends BaseCommand {
     const mapping = await loadIdMapping(this.dataSyncDir).catch(() => null);
     const prefix = this.config?.display.id_prefix ?? 'tbd';
     const formatIssueId = dependencyIdFormatter(mapping, prefix);
-    const describe = (current: readonly Issue[]): DiagnosticResult =>
-      dependencyFinding(current, formatIssueId, invalidIssueFiles);
+    // Both arguments come from one listing: which targets exist and which files are
+    // unreadable are the same question asked of the same moment.
+    const describe = (
+      current: readonly Issue[],
+      currentInvalid: readonly InvalidIssueFile[],
+    ): DiagnosticResult => dependencyFinding(current, formatIssueId, currentInvalid);
 
-    const finding = describe(issues);
+    const finding = describe(issues, invalidIssueFiles);
     // Only the orphaned references are repairable: a cycle stays a manual decision,
     // and an edge into a file that is present but invalid is kept by design.
     if (fix !== true || finding.fixable !== true) {
@@ -1179,7 +1190,10 @@ class DoctorHandler extends BaseCommand {
    */
   private async repairOrphanedDependencies(
     finding: DiagnosticResult,
-    describe: (issues: readonly Issue[]) => DiagnosticResult,
+    describe: (
+      issues: readonly Issue[],
+      invalidIssueFiles: readonly InvalidIssueFile[],
+    ) => DiagnosticResult,
     formatIssueId: (issueId: string) => string,
   ): Promise<DiagnosticResult> {
     let gateOpen = false;
@@ -1207,7 +1221,11 @@ class DoctorHandler extends BaseCommand {
       };
     }
 
+    // Hand the later checks the listing the repair actually decided from, both halves
+    // of it: `Issue validity` must report the files this pass saw, not the ones the
+    // pre-lock snapshot saw.
     this.issues = repair.issues;
+    this.invalidIssueFiles = repair.invalidIssueFiles;
     const failures = repair.failed.map(
       (failure) => `${formatIssueId(failure.id)}: ${failure.message}`,
     );
@@ -1232,7 +1250,7 @@ class DoctorHandler extends BaseCommand {
 
     // Re-diagnose: an edge this repair could not remove, and every problem it never
     // owned, must still carry its own severity and guidance.
-    const after = describe(repair.issues);
+    const after = describe(repair.issues, repair.invalidIssueFiles);
     const combined: DiagnosticResult = {
       name: 'Dependencies',
       status: worseStatus(after.status, status),
@@ -1347,6 +1365,7 @@ class DoctorHandler extends BaseCommand {
       unrepairable: [...unrepairable],
       failed: outcome.failed,
       issues: current.map((issue) => repairedById.get(issue.id) ?? issue),
+      invalidIssueFiles,
     };
   }
 
