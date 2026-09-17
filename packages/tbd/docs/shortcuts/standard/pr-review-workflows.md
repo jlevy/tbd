@@ -145,7 +145,10 @@ Tests run: `pnpm test` (pass); reproduction script for A2 (fails as described)
   components, and re-checks immediately before publishing.
 - `kind` is `senior`, `security`, `performance`, `correctness`, or `follow-up`.
 - `head` is the full SHA reviewed; `base` is the merge base with the base branch.
-- `round` counts review rounds on the PR.
+- `round` counts review rounds on the PR. Round 1 is the first senior engineering review
+  and the dedicated reviews run with it; a follow-up review’s round is one more than the
+  round of the review it follows up; a full re-review is one more than the current
+  round.
 - The reviewer line records the requested tier, model, and reasoning level (see
   `tbd guidelines agent-model-tiers`), because a sub-agent cannot reliably report its
   own configuration.
@@ -190,6 +193,12 @@ A disposition reply carries its own marker and lists every finding of the review
 A review is addressed when a later disposition reply for its letter lists every finding.
 Reply titles do not matter.
 
+A review without a marker has no letter.
+Reply to it with the same line format, using the review’s own finding IDs and its URL in
+the heading (for example `**Dispositions for <review URL>** at <short SHA>`), and no
+marker. Such a review is addressed when a later reply names its URL and lists every
+finding.
+
 ### Pinning and the Working Tree
 
 Before a review starts, the coordinator records the PR’s `headRefOid` and merge base and
@@ -197,11 +206,11 @@ checks out that head in the working tree:
 
 ```bash
 gh pr view <PR_NUMBER> --repo $REPO --json headRefOid,baseRefName
-git fetch origin <baseRefName>
-git merge-base origin/<baseRefName> <headRefOid>
 git status --porcelain            # must be empty before switching the tree
 gh pr checkout <PR_NUMBER> --repo $REPO
 git rev-parse HEAD                # must equal the recorded headRefOid
+git fetch origin <baseRefName>
+git merge-base origin/<baseRefName> HEAD
 ```
 
 If the tree has uncommitted changes, stop and ask the user rather than switching it.
