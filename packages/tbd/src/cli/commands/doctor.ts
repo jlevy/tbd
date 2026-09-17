@@ -126,10 +126,10 @@ export function droppedIntegrationConfigFinding(
 /**
  * Diagnose missing dependency targets and directed depends-on cycles.
  *
- * Orphan-only behavior retains its existing warning and repair path. A cycle is an
- * error because it makes the work plan self-contradictory and can leave every
- * participating open bead blocked. Repair remains manual because doctor cannot infer
- * which dependency edge was unintended.
+ * Orphans alone are a fixable warning. A cycle is an error because it makes the work
+ * plan self-contradictory and can leave every participating open bead blocked. Cycle
+ * repair remains manual because doctor cannot infer which dependency edge was
+ * unintended, but orphans reported alongside a cycle keep their repair guidance.
  */
 export function dependencyFinding(
   issues: readonly Issue[],
@@ -164,13 +164,23 @@ export function dependencyFinding(
   const cycleDetails = cycles.map(
     (cycle) => `depends-on cycle: ${cycle.map(formatIssueId).join(' -> ')}`,
   );
-  const orphanSuffix = orphans.length > 0 ? ` and ${orphans.length} orphaned reference(s)` : '';
+  const cycleSuggestion = 'Break each cycle with: tbd dep remove <issue> <depends-on>.';
+  if (orphans.length === 0) {
+    return {
+      name: 'Dependencies',
+      status: 'error',
+      message: `${cycles.length} directed cycle(s)`,
+      details: cycleDetails,
+      suggestion: cycleSuggestion,
+    };
+  }
   return {
     name: 'Dependencies',
     status: 'error',
-    message: `${cycles.length} directed cycle(s)${orphanSuffix}`,
+    message: `${cycles.length} directed cycle(s) and ${orphans.length} orphaned reference(s)`,
     details: [...cycleDetails, ...orphans],
-    suggestion: 'Break each cycle with: tbd dep remove <issue> <depends-on>.',
+    fixable: true,
+    suggestion: `${cycleSuggestion} Run: tbd doctor --fix to repair the orphaned reference(s).`,
   };
 }
 

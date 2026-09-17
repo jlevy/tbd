@@ -71,3 +71,103 @@ describe('findDependencyCycles', () => {
     expect(dependencyFinding(issues)).toEqual({ name: 'Dependencies', status: 'ok' });
   });
 });
+
+type Letter = 'a' | 'b' | 'c' | 'd';
+
+const LETTER_IDS: Record<Letter, string> = {
+  a: testId(TEST_ULIDS.DOCTOR_1),
+  b: testId(TEST_ULIDS.DOCTOR_2),
+  c: testId(TEST_ULIDS.DOCTOR_3),
+  d: testId(TEST_ULIDS.DOCTOR_4),
+};
+const MISSING_ID = testId(TEST_ULIDS.DOCTOR_999);
+
+/**
+ * Build issues a-d from depends-on edges (`[dependent, dependsOn]`, as `tbd dep add`
+ * takes them). Each orphan holder also stores an edge to an issue that does not exist.
+ */
+function dependencyGraph(dependsOn: [Letter, Letter][], orphanHolders: Letter[] = []) {
+  return (Object.keys(LETTER_IDS) as Letter[]).map((letter) =>
+    createTestIssue({
+      id: LETTER_IDS[letter],
+      title: letter,
+      dependencies: [
+        ...dependsOn
+          .filter(([, blocker]) => blocker === letter)
+          .map(([dependent]) => ({ type: 'blocks' as const, target: LETTER_IDS[dependent] })),
+        ...(orphanHolders.includes(letter)
+          ? [{ type: 'blocks' as const, target: MISSING_ID }]
+          : []),
+      ],
+    }),
+  );
+}
+
+const letterName = (issueId: string): string =>
+  Object.entries(LETTER_IDS).find(([, id]) => id === issueId)?.[0] ?? 'missing';
+
+const CYCLE_SUGGESTION = 'Break each cycle with: tbd dep remove <issue> <depends-on>.';
+
+describe('dependencyFinding', () => {
+  it.each([
+    {
+      name: 'reports a self-loop as a one-node cycle',
+      dependsOn: [['a', 'a']] as [Letter, Letter][],
+      orphanHolders: [] as Letter[],
+      expected: {
+        status: 'error',
+        message: '1 directed cycle(s)',
+        details: ['depends-on cycle: a -> a'],
+        suggestion: CYCLE_SUGGESTION,
+      },
+    },
+    {
+      name: 'reports one path per cyclic component, sorted by first ID',
+      dependsOn: [
+        ['c', 'd'],
+        ['d', 'c'],
+        ['b', 'a'],
+        ['a', 'b'],
+      ] as [Letter, Letter][],
+      orphanHolders: [] as Letter[],
+      expected: {
+        status: 'error',
+        message: '2 directed cycle(s)',
+        details: ['depends-on cycle: a -> b -> a', 'depends-on cycle: c -> d -> c'],
+        suggestion: CYCLE_SUGGESTION,
+      },
+    },
+    {
+      name: 'keeps orphan-only references a fixable warning',
+      dependsOn: [] as [Letter, Letter][],
+      orphanHolders: ['a'] as Letter[],
+      expected: {
+        status: 'warn',
+        message: '1 orphaned reference(s)',
+        details: ['a -> missing (missing)'],
+        fixable: true,
+        suggestion: 'Run: tbd doctor --fix',
+      },
+    },
+    {
+      name: 'keeps orphan repair guidance when a cycle is also present',
+      dependsOn: [
+        ['a', 'b'],
+        ['b', 'a'],
+      ] as [Letter, Letter][],
+      orphanHolders: ['c'] as Letter[],
+      expected: {
+        status: 'error',
+        message: '1 directed cycle(s) and 1 orphaned reference(s)',
+        details: ['depends-on cycle: a -> b -> a', 'c -> missing (missing)'],
+        fixable: true,
+        suggestion: `${CYCLE_SUGGESTION} Run: tbd doctor --fix to repair the orphaned reference(s).`,
+      },
+    },
+  ])('$name', ({ dependsOn, orphanHolders, expected }) => {
+    expect(dependencyFinding(dependencyGraph(dependsOn, orphanHolders), letterName)).toEqual({
+      name: 'Dependencies',
+      ...expected,
+    });
+  });
+});
