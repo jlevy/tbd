@@ -437,131 +437,125 @@ and editable in place: tbd serves your copy instead, and `tbd docs update` merge
 upstream improvements into it after an upgrade.
 `.tbd/config.yml` configures which docs are available.
 
-**Available shortcuts:**
+<!-- BEGIN GENERATED shortcuts (regenerate: pnpm --filter get-tbd generate:readme) -->
+
+**Available shortcuts (43):**
 
 | Category | Shortcut | Purpose |
 | --- | --- | --- |
-| **Planning** | `new-plan-spec` | Create a feature planning spec |
-|  | `plan-implementation-with-beads` | Break a spec into implementation beads |
-|  | `implement-beads` | Implement beads from a spec |
-|  | `new-validation-plan` | Create a test/validation plan |
-|  | `update-specs-status` | Reconcile specs, the work index, and beads into one status map |
-| **Documentation** | `new-research-brief` | Create a research document |
-|  | `new-architecture-doc` | Create an architecture document |
-|  | `revise-architecture-doc` | Update an architecture doc to match current code |
-|  | `revise-all-architecture-docs` | Revise all current architecture documents |
-| **Review** | `pr-review-workflows` | Map of the PR review lifecycle and its shortcuts |
-|  | `review-code` | Comprehensive code review (uncommitted, branch, or PR) |
-|  | `review-github-pr` | Review a GitHub PR and publish the review |
-|  | `address-pr-review` | Address a published PR review (each finding fixed, rebutted, declined, or deferred) |
-|  | `review-code-typescript` | TypeScript-focused code review |
-|  | `review-code-python` | Python-focused code review |
-| **Git** | `precommit-process` | Pre-commit review and testing |
-|  | `code-review-and-commit` | Commit with pre-commit checks |
-|  | `create-or-update-pr-simple` | Basic PR creation |
-|  | `create-or-update-pr-with-validation-plan` | PR with a validation plan |
-|  | `merge-upstream` | Merge origin/main with conflict resolution |
-|  | `stacked-prs` | When to split work into a stack of dependent PRs, and how stacks change the PR shortcuts |
-| **Cleanup** | `code-cleanup-all` | Full code cleanup (duplicates, dead code, quality) |
-|  | `code-cleanup-tests` | Remove trivial/low-value tests |
-|  | `code-cleanup-docstrings` | Add docstrings to major functions |
-| **Session** | `agent-handoff` | Generate handoff prompt for another agent |
-|  | `welcome-user` | Welcome message after tbd installation |
-|  | `setup-github-cli` | Ensure GitHub CLI is installed and working |
-|  | `sync-failure-recovery` | Handle tbd sync failures |
-|  | `checkout-third-party-repo` | Clone library source code for review |
-| **Exploration** | `coding-spike` | Prototype to validate a spec through implementation |
-| **Meta** | `new-guideline` | Create a new coding guideline for tbd |
-|  | `new-shortcut` | Create a new shortcut for tbd |
+| **Planning** | [`coding-spike`](packages/tbd/docs/shortcuts/standard/coding-spike.md) | Prototype to validate a spec through hands-on implementation |
+|  | [`implement-beads`](packages/tbd/docs/shortcuts/standard/implement-beads.md) | Implement beads from a spec, following TDD and project rules |
+|  | [`new-plan-spec`](packages/tbd/docs/shortcuts/standard/new-plan-spec.md) | Create a new feature planning specification document |
+|  | [`new-validation-plan`](packages/tbd/docs/shortcuts/standard/new-validation-plan.md) | Create a validation/test plan showing what’s tested and what remains |
+|  | [`plan-implementation-with-beads`](packages/tbd/docs/shortcuts/standard/plan-implementation-with-beads.md) | Create implementation beads from a feature planning spec |
+|  | [`update-specs-status`](packages/tbd/docs/shortcuts/standard/update-specs-status.md) | Reconcile active specs, the top-level work index (e.g. TODO.md), and tbd beads into one current status map |
+| **Documentation** | [`new-architecture-doc`](packages/tbd/docs/shortcuts/standard/new-architecture-doc.md) | Create an architecture document for a system or component design |
+|  | [`new-research-brief`](packages/tbd/docs/shortcuts/standard/new-research-brief.md) | Create a research document for investigating a topic or technology |
+|  | [`revise-all-architecture-docs`](packages/tbd/docs/shortcuts/standard/revise-all-architecture-docs.md) | Comprehensive revision of all current architecture documents |
+|  | [`revise-architecture-doc`](packages/tbd/docs/shortcuts/standard/revise-architecture-doc.md) | Update an architecture document to reflect current codebase state |
+| **Testing** | [`new-qa-playbook`](packages/tbd/docs/shortcuts/standard/new-qa-playbook.md) | Create a QA test playbook for manual validation workflows |
+| **Review** | [`address-pr-review`](packages/tbd/docs/shortcuts/standard/address-pr-review.md) | Address existing PR reviews from any channel. Track every finding as a bead, give each one of four dispositions (fixed, rebutted, declined, deferred) with its evidence, post a marked disposition reply per review, and get CI green |
+|  | [`pr-review-workflows`](packages/tbd/docs/shortcuts/standard/pr-review-workflows.md) | The PR review lifecycle and the review-state contract every review shortcut uses (pinned review headers and markers, lettered finding IDs, four dispositions, disposition replies), plus request routes, review coverage and rounds, roles, and a summary of the merge gate |
+|  | [`review-and-merge-prs`](packages/tbd/docs/shortcuts/standard/review-and-merge-prs.md) | Orchestrate the PR review lifecycle for one request, per PR |
+|  | [`review-code`](packages/tbd/docs/shortcuts/standard/review-code.md) | Comprehensive code review for uncommitted changes, branch work, or GitHub PRs |
+|  | [`review-code-correctness`](packages/tbd/docs/shortcuts/standard/review-code-correctness.md) | Dedicated correctness review pass (kind=correctness) for intricate logic where a subtle error is costly and hard to detect, such as concurrency and locking, data integrity and persisted formats, migrations, sync and merge algorithms, and numerical calculations |
+|  | [`review-code-performance`](packages/tbd/docs/shortcuts/standard/review-code-performance.md) | Dedicated performance review pass (kind=performance) for a change on a hot path, over large data volumes, on a latency-sensitive path, or in memory and resource use; measures rather than estimates, and runs on top of review-code |
+|  | [`review-code-python`](packages/tbd/docs/shortcuts/standard/review-code-python.md) | Python-focused code review (language-specific rules only) |
+|  | [`review-code-rust`](packages/tbd/docs/shortcuts/standard/review-code-rust.md) | Rust-focused code review (language-specific rules only) |
+|  | [`review-code-security`](packages/tbd/docs/shortcuts/standard/review-code-security.md) | Dedicated security review pass (kind=security) for a change that touches authentication or authorization, secrets, untrusted input, network exposure, sandboxing and permissions, file-system mutation, or dependency and build-time execution |
+|  | [`review-code-typescript`](packages/tbd/docs/shortcuts/standard/review-code-typescript.md) | TypeScript-focused code review (language-specific rules only) |
+|  | [`review-github-pr`](packages/tbd/docs/shortcuts/standard/review-github-pr.md) | Review a GitHub pull request at a pinned head and publish the review with its header and marker, as a formal GitHub review by default or on the channel the user chose |
+| **Git** | [`code-review-and-commit`](packages/tbd/docs/shortcuts/standard/code-review-and-commit.md) | Run pre-commit checks, review changes, and commit code |
+|  | [`create-or-update-pr-simple`](packages/tbd/docs/shortcuts/standard/create-or-update-pr-simple.md) | Create or update a pull request with a concise summary |
+|  | [`create-or-update-pr-with-validation-plan`](packages/tbd/docs/shortcuts/standard/create-or-update-pr-with-validation-plan.md) | Create or update a pull request with a detailed test/validation plan |
+|  | [`merge-upstream`](packages/tbd/docs/shortcuts/standard/merge-upstream.md) | Merge origin/main into the current branch with conflict resolution, then verify, push, and watch CI |
+|  | [`precommit-process`](packages/tbd/docs/shortcuts/standard/precommit-process.md) | Full pre-commit checklist including spec sync, code review, and testing |
+|  | [`stacked-prs`](packages/tbd/docs/shortcuts/standard/stacked-prs.md) | When to use formal GitHub PR stacks, how they align with beads, and how to link and verify them with gh stack; chained branch bases alone do not count |
+| **Cleanup** | [`code-cleanup-all`](packages/tbd/docs/shortcuts/standard/code-cleanup-all.md) | Full cleanup cycle including duplicate removal, dead code, and code quality improvements |
+|  | [`code-cleanup-docstrings`](packages/tbd/docs/shortcuts/standard/code-cleanup-docstrings.md) | Review and add concise docstrings to major functions and types |
+|  | [`code-cleanup-tests`](packages/tbd/docs/shortcuts/standard/code-cleanup-tests.md) | Review and remove tests that do not add meaningful coverage |
+| **Session** | [`agent-handoff`](packages/tbd/docs/shortcuts/standard/agent-handoff.md) | Generate a concise handoff prompt for another coding agent to continue work |
+|  | [`delegate-to-subagents`](packages/tbd/docs/shortcuts/standard/delegate-to-subagents.md) | Delegate parts of any task to sub-agents on any platform. When to delegate and when not to, sizing, counts, and cost |
+|  | [`setup-github-cli`](packages/tbd/docs/shortcuts/standard/setup-github-cli.md) | Ensure GitHub CLI (gh) is installed and working |
+|  | [`setup-linear`](packages/tbd/docs/shortcuts/standard/setup-linear.md) | Set up the Linear integration end to end—the linear policy grant, first-time configuration for a repository with the epics selection as the default, or adding your own API key to a repository your team already configured |
+|  | [`setup-tbd`](packages/tbd/docs/shortcuts/standard/setup-tbd.md) | Set up tbd in a new project, and review the setup after every tbd upgrade |
+|  | [`sync-failure-recovery`](packages/tbd/docs/shortcuts/standard/sync-failure-recovery.md) | Handle tbd sync failures by saving to workspace and recovering later |
+|  | [`welcome-user`](packages/tbd/docs/shortcuts/standard/welcome-user.md) | Welcome message for users after tbd installation or setup |
+| **Workflow** | [`watch-beads`](packages/tbd/docs/shortcuts/standard/watch-beads.md) | Wake an agent when selected remote bead state changes |
+| **Research** | [`checkout-third-party-repo`](packages/tbd/docs/shortcuts/standard/checkout-third-party-repo.md) | Get source code for libraries and third-party repos using git. Essential for reliable source code review |
+| **Meta** | [`new-guideline`](packages/tbd/docs/shortcuts/standard/new-guideline.md) | Create a new coding guideline document for tbd |
+|  | [`new-shortcut`](packages/tbd/docs/shortcuts/standard/new-shortcut.md) | Create a new shortcut (reusable instruction template) for tbd |
+|  | [`suggest-upstream-improvements`](packages/tbd/docs/shortcuts/standard/suggest-upstream-improvements.md) | Review local doc-fork customizations and contribute the generally useful changes back upstream |
 
-**Available guidelines:**
+<!-- END GENERATED shortcuts -->
 
-Engineering process and cross-cutting rules:
+<!-- BEGIN GENERATED guidelines (regenerate: pnpm --filter get-tbd generate:readme) -->
 
-| Guideline | What it covers |
-| --- | --- |
-| [general-eng-agent-principles](packages/tbd/docs/guidelines/general-eng-agent-principles.md) | Senior-engineer responsibility, verification, scope discipline, and when to act or clarify |
-| [general-coding-rules](packages/tbd/docs/guidelines/general-coding-rules.md) | Named constants, magic-number avoidance, and when cryptographic hash checks add real assurance |
-| [general-comment-rules](packages/tbd/docs/guidelines/general-comment-rules.md) | Comments that preserve non-obvious rationale without restating code |
-| [backward-compatibility-rules](packages/tbd/docs/guidelines/backward-compatibility-rules.md) | Compatibility across code, APIs, file formats, and database schemas |
-| [error-handling-rules](packages/tbd/docs/guidelines/error-handling-rules.md) | Failure propagation, error context, cleanup, exit status, and partial success |
-| [ci-and-gates-rules](packages/tbd/docs/guidelines/ci-and-gates-rules.md) | One local and CI entry point, negative probes, packaged-artifact evidence, and job-scoped workflow authority |
-| [code-review-rules](packages/tbd/docs/guidelines/code-review-rules.md) | Severity vocabulary, review baseline, risk-ordered reading, and actionable findings |
-| [filesystem-rules](packages/tbd/docs/guidelines/filesystem-rules.md) | Atomic output publication, crash durability, collision policy, deterministic traversal, and partial failure |
-| [supply-chain-hardening](packages/tbd/docs/guidelines/supply-chain-hardening.md) | Dependency cool-offs, lockfiles, install scripts, provenance, and immutable CI inputs |
-| [release-engineering-rules](packages/tbd/docs/guidelines/release-engineering-rules.md) | Rehearsable release state, immutable artifact identity, build-once promotion, channel evidence, and recovery |
-| [release-notes-guidelines](packages/tbd/docs/guidelines/release-notes-guidelines.md) | User-visible release deltas without listing development-only fixes as shipped changes |
-| [agent-run-operations-rules](packages/tbd/docs/guidelines/agent-run-operations-rules.md) | Pinned launch checkouts, one scheduler per host budget, host-first slowness diagnosis, validating metrics, and reading prompts before blaming a model |
-| [agent-session-bootstrap](packages/tbd/docs/guidelines/agent-session-bootstrap.md) | Installing a repository’s pinned toolchain in agent environments |
+**Available guidelines (46):**
 
-Testing:
+| Group | Guideline | What it covers |
+| --- | --- | --- |
+| **General engineering** | [`general-eng-agent-principles`](packages/tbd/docs/guidelines/general-eng-agent-principles.md) | Core principles for AI agents acting as senior engineers |
+| **Cross-cutting engineering topics** | [`agent-model-tiers`](packages/tbd/docs/guidelines/agent-model-tiers.md) | Provider-neutral model tiers for delegated agent work |
+|  | [`agent-policy-grants`](packages/tbd/docs/guidelines/agent-policy-grants.md) | The single definition of the seven agent policies a project can grant (github-workflows, github-editing, github-merge, github-stacked-prs, subagents, pr-review-requirements, linear)—each policy’s values, recommendation, and coverage |
+|  | [`agent-run-operations-rules`](packages/tbd/docs/guidelines/agent-run-operations-rules.md) | Launching, monitoring, and diagnosing long agent and batch runs |
+|  | [`backward-compatibility-rules`](packages/tbd/docs/guidelines/backward-compatibility-rules.md) | Guidelines for maintaining backward compatibility only for real consumers and data from released versions |
+|  | [`ci-and-gates-rules`](packages/tbd/docs/guidelines/ci-and-gates-rules.md) | How to wire a quality gate that actually holds |
+|  | [`code-review-rules`](packages/tbd/docs/guidelines/code-review-rules.md) | The language-neutral substance of a code review |
+|  | [`commit-conventions`](packages/tbd/docs/guidelines/commit-conventions.md) | Conventional Commits format with extensions for agentic workflows |
+|  | [`error-handling-rules`](packages/tbd/docs/guidelines/error-handling-rules.md) | Rules for handling errors, failures, and exceptional conditions |
+|  | [`filesystem-rules`](packages/tbd/docs/guidelines/filesystem-rules.md) | Language-neutral rules for code that reads directory trees or mutates files |
+|  | [`general-coding-rules`](packages/tbd/docs/guidelines/general-coding-rules.md) | Rules for constants, magic numbers, cryptographic hash checks, and general coding practices |
+|  | [`general-comment-rules`](packages/tbd/docs/guidelines/general-comment-rules.md) | Language-agnostic rules for writing clean, maintainable comments |
+|  | [`general-tdd-guidelines`](packages/tbd/docs/guidelines/general-tdd-guidelines.md) | Test-Driven Development methodology and best practices |
+|  | [`general-testing-rules`](packages/tbd/docs/guidelines/general-testing-rules.md) | Rules for keeping test volume low while preserving broad evidence |
+|  | [`golden-testing-guidelines`](packages/tbd/docs/guidelines/golden-testing-guidelines.md) | Guidelines for implementing golden/snapshot testing for complex systems |
+|  | [`release-engineering-rules`](packages/tbd/docs/guidelines/release-engineering-rules.md) | Language-neutral release orchestration: immutable identity, rehearsable state transitions, build-once artifact promotion, least-privilege publishing, independent channel recovery, and separate artifact and publication evidence |
+|  | [`release-notes-guidelines`](packages/tbd/docs/guidelines/release-notes-guidelines.md) | Rules for release notes that describe the published delta and exclude defects introduced and corrected before release from separate Fixes entries |
+|  | [`supply-chain-hardening`](packages/tbd/docs/guidelines/supply-chain-hardening.md) | Strongly recommended for EVERY repo—apply it if a repo has not been hardened yet. Cross-ecosystem policy for installing dependencies safely (the 14-day cool-off, disabled install scripts, lockfile discipline, untrusted-repo handling) |
+| **TypeScript & JS ecosystem** | [`bun-monorepo-patterns`](packages/tbd/docs/guidelines/bun-monorepo-patterns.md) | Modern patterns for Bun-based TypeScript monorepo architecture |
+|  | [`pnpm-monorepo-patterns`](packages/tbd/docs/guidelines/pnpm-monorepo-patterns.md) | Modern patterns for pnpm-based TypeScript monorepo architecture |
+|  | [`typescript-cli-tool-rules`](packages/tbd/docs/guidelines/typescript-cli-tool-rules.md) | Rules for building CLI tools with Commander.js, picocolors, and TypeScript |
+|  | [`typescript-code-coverage`](packages/tbd/docs/guidelines/typescript-code-coverage.md) | Best practices for code coverage in TypeScript with Vitest and v8 provider |
+|  | [`typescript-lint-format-rules`](packages/tbd/docs/guidelines/typescript-lint-format-rules.md) | The shared lint and auto-formatting floor for all TypeScript and JavaScript projects, across pnpm and Bun and across ESLint/Prettier and Biome toolchains |
+|  | [`typescript-rules`](packages/tbd/docs/guidelines/typescript-rules.md) | TypeScript coding rules and best practices |
+|  | [`typescript-sorting-patterns`](packages/tbd/docs/guidelines/typescript-sorting-patterns.md) | Deterministic sorting patterns and comparison chains for TypeScript |
+|  | [`typescript-yaml-handling-rules`](packages/tbd/docs/guidelines/typescript-yaml-handling-rules.md) | Best practices for parsing and serializing YAML in TypeScript |
+| **Python** | [`python-cli-patterns`](packages/tbd/docs/guidelines/python-cli-patterns.md) | Modern Python CLI architecture, with a clear boundary between Python programs and Rust executables distributed through Python wheels |
+|  | [`python-modern-guidelines`](packages/tbd/docs/guidelines/python-modern-guidelines.md) | Guidelines for modern Python projects using uv, with a few more opinionated practices |
+|  | [`python-rules`](packages/tbd/docs/guidelines/python-rules.md) | General Python coding rules and best practices |
+| **Rust** | [`rust-cli-rules`](packages/tbd/docs/guidelines/rust-cli-rules.md) | Rules for composable, testable, and cross-platform Rust command-line applications |
+|  | [`rust-code-review-rules`](packages/tbd/docs/guidelines/rust-code-review-rules.md) | The Rust-specific half of review—which guideline owns each changed surface, the unsafe and FFI checklist, and a Rust quick-scan table of investigative questions and possible consequences |
+|  | [`rust-filesystem-rules`](packages/tbd/docs/guidelines/rust-filesystem-rules.md) | The Rust-specific half of filesystem work—path and string types, intent-specific write boundaries, the tempfile atomic-replacement sequence, traversal crate choice and error propagation, and platform metadata |
+|  | [`rust-lint-format-rules`](packages/tbd/docs/guidelines/rust-lint-format-rules.md) | The lint and auto-formatting floor for every Rust project—the `[lints]` block, the clippy.toml, rustfmt and toolchain pinning, hooks and CI gates, and how to prove the floor is live |
+|  | [`rust-project-setup`](packages/tbd/docs/guidelines/rust-project-setup.md) | A practical setup path for Rust packages and CLIs: Cargo shape, features, pinned toolchains and MSRV, one local quality entry point, and the CI baseline |
+|  | [`rust-release-rules`](packages/tbd/docs/guidelines/rust-release-rules.md) | Rust-specific release mechanics for Cargo and crates.io, native binary targets, optional Maturin bin wheels for uv users, compatibility floors, trusted-publisher bootstrap, and packaged-artifact tests |
+|  | [`rust-rules`](packages/tbd/docs/guidelines/rust-rules.md) | General Rust coding rules for modern libraries, applications, services, and command-line tools |
+|  | [`rust-testing-rules`](packages/tbd/docs/guidelines/rust-testing-rules.md) | Rules for effective unit, integration, property, snapshot, and cross-platform testing in Rust |
+| **Convex** | [`convex-limits-best-practices`](packages/tbd/docs/guidelines/convex-limits-best-practices.md) | Comprehensive reference for Convex platform limits, workarounds, and performance best practices |
+|  | [`convex-rules`](packages/tbd/docs/guidelines/convex-rules.md) | Guidelines and best practices for building Convex projects, including database schema design, queries, mutations, and real-world examples |
+| **Desktop app frameworks** | [`electrobun-app-development-patterns`](packages/tbd/docs/guidelines/electrobun-app-development-patterns.md) | Building desktop apps with Electrobun—runtime and process model, typed RPC, project layout, packaging and the delta updater, plus an evidence-based maturity and security assessment |
+|  | [`electron-app-development-patterns`](packages/tbd/docs/guidelines/electron-app-development-patterns.md) | Building a clean, minimal, standalone Electron app—process model, modern Vite-based build system, attaching a Node/Bun/Python backend, security baseline, packaging, code signing, and auto-update |
+|  | [`tauri-app-development-patterns`](packages/tbd/docs/guidelines/tauri-app-development-patterns.md) | Building desktop apps with Tauri 2—the Rust core and system webview model, capabilities and permissions, typed commands and IPC, attaching Rust or non-Rust backends, packaging, signing, and the signed updater |
+| **Docs, process & tooling** | [`agent-session-bootstrap`](packages/tbd/docs/guidelines/agent-session-bootstrap.md) | When and how to make a repository install its own pinned toolchain at agent session start, for repos whose agents run in containers they do not control |
+|  | [`cli-agent-skill-patterns`](packages/tbd/docs/guidelines/cli-agent-skill-patterns.md) | A concise decision guide for portable skills, local-first and exact-version CLI acquisition, safe bundle installation, and agent integration |
+|  | [`common-doc-guidelines`](packages/tbd/docs/guidelines/common-doc-guidelines.md) | Common cross-project standards for writing and organizing docs, code comments, and text files—how to organize, structure, write, and format documents, plus the guideline footer convention. Downstream of github.com/jlevy/practical-prose |
+|  | [`tbd-sync-troubleshooting`](packages/tbd/docs/guidelines/tbd-sync-troubleshooting.md) | Common issues and solutions for tbd sync and workspace operations |
 
-| Guideline | What it covers |
-| --- | --- |
-| [general-tdd-guidelines](packages/tbd/docs/guidelines/general-tdd-guidelines.md) | Red-Green-Refactor, small slices, and test-first discipline |
-| [general-testing-rules](packages/tbd/docs/guidelines/general-testing-rules.md) | Low test volume with high coverage, vacuous tests, loop speed, and portability |
-| [golden-testing-guidelines](packages/tbd/docs/guidelines/golden-testing-guidelines.md) | End-to-end golden sessions, stable fields, YAML captures, and mock modes |
-| [typescript-code-coverage](packages/tbd/docs/guidelines/typescript-code-coverage.md) | Coverage with Vitest and the V8 provider |
+<!-- END GENERATED guidelines -->
 
-TypeScript and JavaScript:
+<!-- BEGIN GENERATED templates (regenerate: pnpm --filter get-tbd generate:readme) -->
 
-| Guideline | What it covers |
-| --- | --- |
-| [typescript-rules](packages/tbd/docs/guidelines/typescript-rules.md) | Strict type safety, type guards, null safety, async patterns, and atomic file replacement |
-| [typescript-lint-format-rules](packages/tbd/docs/guidelines/typescript-lint-format-rules.md) | Lint and formatting floor across ESLint/Prettier and Biome toolchains |
-| [typescript-sorting-patterns](packages/tbd/docs/guidelines/typescript-sorting-patterns.md) | Deterministic sorting and comparison chains for multi-field sorts |
-| [typescript-cli-tool-rules](packages/tbd/docs/guidelines/typescript-cli-tool-rules.md) | Commander.js patterns, streams, exit status, and terminal formatting |
-| [typescript-yaml-handling-rules](packages/tbd/docs/guidelines/typescript-yaml-handling-rules.md) | YAML parsing and serialization, Zod validation, and stable formatting |
-| [pnpm-monorepo-patterns](packages/tbd/docs/guidelines/pnpm-monorepo-patterns.md) | pnpm workspaces, tsdown, Vitest, Changesets, publint, and dual ESM/CJS |
-| [bun-monorepo-patterns](packages/tbd/docs/guidelines/bun-monorepo-patterns.md) | Bun workspaces, Bunup, Biome, `bun test`, and standalone executables |
-
-Python:
-
-| Guideline | What it covers |
-| --- | --- |
-| [python-rules](packages/tbd/docs/guidelines/python-rules.md) | Type annotations, imports, exceptions, resource management, and atomic file replacement |
-| [python-modern-guidelines](packages/tbd/docs/guidelines/python-modern-guidelines.md) | uv-based projects, Strif atomic output, and concise human-readable formatting |
-| [python-cli-patterns](packages/tbd/docs/guidelines/python-cli-patterns.md) | Python CLI architecture and the boundary between Python programs and Rust executables distributed in wheels |
-
-Rust:
-
-| Guideline | What it covers |
-| --- | --- |
-| [rust-rules](packages/tbd/docs/guidelines/rust-rules.md) | Ownership, domain types, errors, unsafe code, async, and performance |
-| [rust-lint-format-rules](packages/tbd/docs/guidelines/rust-lint-format-rules.md) | The `[lints]` floor, `clippy.toml`, and measured adoption cost beyond the floor |
-| [rust-project-setup](packages/tbd/docs/guidelines/rust-project-setup.md) | Shortest Rust CLI setup path, Cargo shape, features, current toolchain, MSRV, and the local quality gate |
-| [rust-cli-rules](packages/tbd/docs/guidelines/rust-cli-rules.md) | clap patterns, stream composability, exit status, broken pipes, and destructive commands |
-| [rust-testing-rules](packages/tbd/docs/guidelines/rust-testing-rules.md) | Test boundaries, fixtures, snapshots, properties, features, and platform matrices |
-| [rust-filesystem-rules](packages/tbd/docs/guidelines/rust-filesystem-rules.md) | Path and `OsStr` types, atomic output publication, traversal crates, and error propagation |
-| [rust-release-rules](packages/tbd/docs/guidelines/rust-release-rules.md) | Cargo and crates.io, native target contracts, Maturin binary wheels, uv commands, and registry bootstrap |
-| [rust-code-review-rules](packages/tbd/docs/guidelines/rust-code-review-rules.md) | Unsafe and FFI review plus investigative Rust quick-scan questions |
-
-Frameworks and application platforms:
-
-| Guideline | What it covers |
-| --- | --- |
-| [cli-agent-skill-patterns](packages/tbd/docs/guidelines/cli-agent-skill-patterns.md) | Portable skills, local-first exact CLI acquisition, and safe bundle installation |
-| [electron-app-development-patterns](packages/tbd/docs/guidelines/electron-app-development-patterns.md) | Electron process boundaries, backends, security, signing, and updates |
-| [electrobun-app-development-patterns](packages/tbd/docs/guidelines/electrobun-app-development-patterns.md) | Electrobun runtime, typed RPC, packaging, delta updates, and maturity risks |
-| [tauri-app-development-patterns](packages/tbd/docs/guidelines/tauri-app-development-patterns.md) | Tauri 2 capabilities, sidecars, non-Rust backends, signing, and updates |
-| [convex-rules](packages/tbd/docs/guidelines/convex-rules.md) | Convex functions, schemas, queries, and mutations |
-| [convex-limits-best-practices](packages/tbd/docs/guidelines/convex-limits-best-practices.md) | Convex limits, workarounds, and performance constraints |
-
-Documentation and change history:
-
-| Guideline | What it covers |
-| --- | --- |
-| [common-doc-guidelines](packages/tbd/docs/guidelines/common-doc-guidelines.md) | Concrete documentation structure, style, formatting, and required footer |
-| [commit-conventions](packages/tbd/docs/guidelines/commit-conventions.md) | Conventional Commits format with agentic-workflow extensions |
-| [tbd-sync-troubleshooting](packages/tbd/docs/guidelines/tbd-sync-troubleshooting.md) | Common issues and solutions for tbd sync and workspace operations |
-
-**Available templates:**
+**Available templates (4):**
 
 | Template | Description |
 | --- | --- |
-| `plan-spec` | Feature planning specification |
-| `research-brief` | Research document |
-| `architecture` | Architecture document |
+| [`architecture-doc`](packages/tbd/docs/templates/architecture-doc.md) | Template for architecture documents |
+| [`plan-spec`](packages/tbd/docs/templates/plan-spec.md) | Template for feature planning specification documents |
+| [`qa-playbook`](packages/tbd/docs/templates/qa-playbook.md) | Template for manual testing playbooks and validation workflows |
+| [`research-brief`](packages/tbd/docs/templates/research-brief.md) | Template for research documents |
+
+<!-- END GENERATED templates -->
 
 ## Why tbd
 
