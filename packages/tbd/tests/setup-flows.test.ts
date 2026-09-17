@@ -141,6 +141,15 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       expect(result.stdout).toContain('Commit this code');
       expect(result.stdout).toContain('Set up Linear');
       expect(result.stdout).toContain('Add my Linear key');
+      expect(result.stdout).toContain('"Set up tbd"');
+      expect(result.stdout).toContain('"Make sure PR #12 is reviewed and merged"');
+      // The agent is routed to the setup process, which asks about every unanswered policy.
+      expect(result.stdout).toContain(
+        'Agent: run `tbd shortcut setup-tbd` to finish setting up tbd with the user.',
+      );
+      expect(result.stdout).toContain(
+        '7 policies are unanswered; setup-tbd asks the user about them.',
+      );
 
       const integrationStatus = runTbd(['integration', 'status', '--offline']);
       expect(integrationStatus.status).toBe(0);
@@ -472,10 +481,22 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       expect(upgraded.status).toBe(0);
       expect(upgraded.stdout).toContain(`Recorded tbd setup version 0.0.0 → ${runningVersion}`);
       expect(upgraded.stdout).toContain('Review and commit the generated repository changes.');
+      // The upgrade routes the agent to the setup process and counts unanswered policies.
+      expect(upgraded.stdout).toContain(
+        [
+          'All set!',
+          '',
+          "WHAT'S NEXT",
+          '',
+          '  Agent: run `tbd shortcut setup-tbd` to review this upgrade with the user.',
+          '  7 policies are unanswered; setup-tbd asks the user about them.',
+        ].join('\n'),
+      );
 
       const repeated = runTbd(['setup', '--auto']);
       expect(repeated.status).toBe(0);
       expect(repeated.stdout).not.toContain('Recorded tbd setup version');
+      expect(repeated.stdout).not.toContain('setup-tbd');
     });
   });
 

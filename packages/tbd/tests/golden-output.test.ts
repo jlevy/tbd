@@ -108,15 +108,30 @@ describe('golden output tests', { timeout: subprocessTestTimeout() }, () => {
         ].join('\n'),
       );
 
-      // Verify What's Next section uses "what you can say" framing
-      expect(result.stdout).toContain("WHAT'S NEXT");
-      expect(result.stdout).toContain('Try saying things like:');
-      expect(result.stdout).toContain("There's a bug where");
-      expect(result.stdout).toContain("Let's plan a new feature");
-      expect(result.stdout).toContain("Let's work on current issues");
-      expect(result.stdout).toContain('Show my beads in a browser');
-      expect(result.stdout).toContain('Commit this code');
-      expect(result.stdout).toContain('Review for best practices');
+      // What's Next routes the agent to setup-tbd, counts unanswered policies
+      // (all seven on a fresh setup), and uses "what you can say" framing.
+      expect(result.stdout).toContain(
+        [
+          'Setup complete!',
+          '',
+          "WHAT'S NEXT",
+          '',
+          '  Agent: run `tbd shortcut setup-tbd` to finish setting up tbd with the user.',
+          '  7 policies are unanswered; setup-tbd asks the user about them.',
+          '',
+          '  Try saying things like:',
+          '    "Set up tbd"                    → Reviews setup and asks about policy grants',
+          '    "There\'s a bug where ..."       → Creates and tracks a bug',
+          '    "Let\'s plan a new feature"      → Walks through a planning spec',
+          '    "Let\'s work on current issues"  → Shows ready issues to tackle',
+          '    "Show my beads in a browser"    → Opens the live, read-only viewer',
+          '    "Set up Linear" / "Add my Linear key" → Guided team or personal setup',
+          '    "Commit this code"              → Reviews and commits properly',
+          '    "Review for best practices"     → Code review with guidelines',
+          '    "Make sure PR #12 is reviewed and merged" → Reviews, fixes, and merges it',
+          '',
+        ].join('\n'),
+      );
     });
   });
 

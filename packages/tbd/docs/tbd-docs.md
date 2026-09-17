@@ -168,6 +168,7 @@ tbd setup --auto --prefix=proj    # Fresh repository; prefix is required
 tbd setup --auto                  # Existing tbd repository; refresh and migrate
 tbd setup --from-beads            # Migrate an uninitialized repository from Beads
 tbd setup --auto --surfaces=portable,agents-md  # Install selected agent surfaces
+tbd setup --auto --policies=recommended         # Also record the recommended grants
 ```
 
 Options:
@@ -182,12 +183,30 @@ Options:
 - `--no-gh-cli` - Disable the generated GitHub CLI installation hook
 - `--surfaces <list>` - Comma-separated agent surfaces: `portable`, `agents-md`,
   `claude`, `codex`, or `all`. Omitting the flag installs all four
+- `--policies <set>` - Record agent policy grants in `AGENTS.md`; implies `--auto`. The
+  only set is `recommended`: the recommended value of each unanswered policy, as
+  `tbd guidelines agent-policy-grants` defines it.
+  Answered policies keep their recorded values, and `linear`, which is outside the
+  recommended set, stays unanswered
 
 `--surfaces` controls only generated agent integration files.
 Setup still initializes or migrates configuration, refreshes the docs cache, and cleans
 recognized legacy tbd hooks.
 Bare `tbd setup` displays help; the old positional `setup claude`, `setup codex`,
 `setup auto`, and `setup beads` forms are not commands.
+
+Setup records policy grants only when `--policies` is given.
+Without it, setup writes the existing policy block back unchanged.
+When every recommended policy is already answered, `--policies=recommended` records
+nothing. Setup stops before changing anything when `--policies` is combined with a
+`--surfaces` list that excludes `agents-md`, and it never rewrites a malformed policy
+block or one with a newer block version.
+Use `tbd policy` to change an answered policy or to record a single one, such as
+`linear`.
+
+A fresh setup and every upgrade end with a `WHAT'S NEXT` section that tells the agent to
+run the `setup-tbd` shortcut and says how many policies are unanswered; that process
+asks the user about them.
 
 ### init
 
@@ -1046,6 +1065,8 @@ its `END TBD INTEGRATION` marker; `.tbd/config.yml` holds no copy.
 current integration format, so an older tbd refuses to regenerate the block instead of
 dropping the grants.
 Recording a grant is an ordinary commit to `AGENTS.md`.
+`tbd setup --auto --policies=recommended` records the recommended set for every
+unanswered policy at once (see `setup` above).
 
 Effective grants are read from `AGENTS.md` as committed on the default branch: the
 remote’s copy (`refs/remotes/<remote>/<branch>`, as of the last fetch) when it exists,
