@@ -939,21 +939,25 @@ function tierAgentDescription(platform: TierAgentPlatform, def: TierAgentDefinit
 }
 
 /**
- * The definition body (the sub-agent's system prompt). Short and
+ * The definition body. On Claude Code this is the sub-agent's entire system
+ * prompt (a custom sub-agent gets the definition body plus environment
+ * details, not the Claude Code system prompt); on Codex it replaces the
+ * developer instructions on top of the full Codex prompt. Short and
  * project-neutral on purpose: the brief carries the task and names the
  * shortcut, so the same brief works on every platform, and nothing here can
- * leak one project's rules into another. No backticks or triple quotes, so it
+ * leak one project's rules into another. It states no model or reasoning
+ * level, because a per-spawn model or an environment override can change
+ * them without changing this file. No backticks or triple quotes, so it
  * embeds unescaped in YAML-fronted Markdown and a TOML literal string alike.
  */
-function tierAgentBody(platform: TierAgentPlatform, def: TierAgentDefinition): string {
-  const model = TIER_MODELS[platform][def.tier];
+function tierAgentBody(def: TierAgentDefinition): string {
   return (
-    `You are ${def.name}, a tbd ${def.tier}-tier sub-agent (${model} at ${def.level} reasoning).\n` +
+    `You are ${def.name}, a tbd ${def.tier}-tier sub-agent.\n` +
     'Work only from the brief you were given. Run the tbd shortcut it names, with\n' +
     'tbd shortcut <name>, stay inside the write set and other boundaries it states, and\n' +
     'report in the format it requests. Do not commit, push, run tbd sync, or start\n' +
-    'sub-agents unless the brief says so. The delegation rules are in\n' +
-    'tbd shortcut delegate-to-subagents.\n'
+    'sub-agents unless the brief says so. Report evidence, not assertions: the commands\n' +
+    'you ran and their results, and the URLs, SHAs, and IDs of what you published.\n'
   );
 }
 
@@ -974,7 +978,7 @@ export function renderTierAgentDefinition(
 ): string {
   const model = TIER_MODELS[platform][def.tier];
   const description = tierAgentDescription(platform, def);
-  const body = tierAgentBody(platform, def);
+  const body = tierAgentBody(def);
   switch (platform) {
     case 'claude':
       return (

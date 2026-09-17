@@ -156,12 +156,12 @@ describe('setup tier agent definitions', { timeout: subprocessTestTimeout(45_000
       Run 'tbd setup' to update.
       -->
 
-      You are tbd-strong-max, a tbd strong-tier sub-agent (fable at max reasoning).
+      You are tbd-strong-max, a tbd strong-tier sub-agent.
       Work only from the brief you were given. Run the tbd shortcut it names, with
       tbd shortcut <name>, stay inside the write set and other boundaries it states, and
       report in the format it requests. Do not commit, push, run tbd sync, or start
-      sub-agents unless the brief says so. The delegation rules are in
-      tbd shortcut delegate-to-subagents.
+      sub-agents unless the brief says so. Report evidence, not assertions: the commands
+      you ran and their results, and the URLs, SHAs, and IDs of what you published.
       "
     `);
     expect(await readFile(claudeFile('tbd-strong'), 'utf-8')).toMatchInlineSnapshot(`
@@ -175,12 +175,12 @@ describe('setup tier agent definitions', { timeout: subprocessTestTimeout(45_000
       Run 'tbd setup' to update.
       -->
 
-      You are tbd-strong, a tbd strong-tier sub-agent (fable at xhigh reasoning).
+      You are tbd-strong, a tbd strong-tier sub-agent.
       Work only from the brief you were given. Run the tbd shortcut it names, with
       tbd shortcut <name>, stay inside the write set and other boundaries it states, and
       report in the format it requests. Do not commit, push, run tbd sync, or start
-      sub-agents unless the brief says so. The delegation rules are in
-      tbd shortcut delegate-to-subagents.
+      sub-agents unless the brief says so. Report evidence, not assertions: the commands
+      you ran and their results, and the URLs, SHAs, and IDs of what you published.
       "
     `);
     expect(await readFile(claudeFile('tbd-moderate'), 'utf-8')).toMatchInlineSnapshot(`
@@ -194,12 +194,12 @@ describe('setup tier agent definitions', { timeout: subprocessTestTimeout(45_000
       Run 'tbd setup' to update.
       -->
 
-      You are tbd-moderate, a tbd moderate-tier sub-agent (opus at xhigh reasoning).
+      You are tbd-moderate, a tbd moderate-tier sub-agent.
       Work only from the brief you were given. Run the tbd shortcut it names, with
       tbd shortcut <name>, stay inside the write set and other boundaries it states, and
       report in the format it requests. Do not commit, push, run tbd sync, or start
-      sub-agents unless the brief says so. The delegation rules are in
-      tbd shortcut delegate-to-subagents.
+      sub-agents unless the brief says so. Report evidence, not assertions: the commands
+      you ran and their results, and the URLs, SHAs, and IDs of what you published.
       "
     `);
     expect(await readFile(claudeFile('tbd-fast'), 'utf-8')).toMatchInlineSnapshot(`
@@ -213,12 +213,12 @@ describe('setup tier agent definitions', { timeout: subprocessTestTimeout(45_000
       Run 'tbd setup' to update.
       -->
 
-      You are tbd-fast, a tbd fast-tier sub-agent (opus at medium reasoning).
+      You are tbd-fast, a tbd fast-tier sub-agent.
       Work only from the brief you were given. Run the tbd shortcut it names, with
       tbd shortcut <name>, stay inside the write set and other boundaries it states, and
       report in the format it requests. Do not commit, push, run tbd sync, or start
-      sub-agents unless the brief says so. The delegation rules are in
-      tbd shortcut delegate-to-subagents.
+      sub-agents unless the brief says so. Report evidence, not assertions: the commands
+      you ran and their results, and the URLs, SHAs, and IDs of what you published.
       "
     `);
     expect(await readFile(codexFile('tbd-strong-max'), 'utf-8')).toMatchInlineSnapshot(`
@@ -229,12 +229,12 @@ describe('setup tier agent definitions', { timeout: subprocessTestTimeout(45_000
       model = "gpt-6-astra"
       model_reasoning_effort = "max"
       developer_instructions = '''
-      You are tbd-strong-max, a tbd strong-tier sub-agent (gpt-6-astra at max reasoning).
+      You are tbd-strong-max, a tbd strong-tier sub-agent.
       Work only from the brief you were given. Run the tbd shortcut it names, with
       tbd shortcut <name>, stay inside the write set and other boundaries it states, and
       report in the format it requests. Do not commit, push, run tbd sync, or start
-      sub-agents unless the brief says so. The delegation rules are in
-      tbd shortcut delegate-to-subagents.
+      sub-agents unless the brief says so. Report evidence, not assertions: the commands
+      you ran and their results, and the URLs, SHAs, and IDs of what you published.
       '''
       "
     `);
@@ -246,12 +246,12 @@ describe('setup tier agent definitions', { timeout: subprocessTestTimeout(45_000
       model = "gpt-6-astra"
       model_reasoning_effort = "xhigh"
       developer_instructions = '''
-      You are tbd-strong, a tbd strong-tier sub-agent (gpt-6-astra at xhigh reasoning).
+      You are tbd-strong, a tbd strong-tier sub-agent.
       Work only from the brief you were given. Run the tbd shortcut it names, with
       tbd shortcut <name>, stay inside the write set and other boundaries it states, and
       report in the format it requests. Do not commit, push, run tbd sync, or start
-      sub-agents unless the brief says so. The delegation rules are in
-      tbd shortcut delegate-to-subagents.
+      sub-agents unless the brief says so. Report evidence, not assertions: the commands
+      you ran and their results, and the URLs, SHAs, and IDs of what you published.
       '''
       "
     `);
@@ -263,12 +263,12 @@ describe('setup tier agent definitions', { timeout: subprocessTestTimeout(45_000
       model = "gpt-5.6-sol"
       model_reasoning_effort = "xhigh"
       developer_instructions = '''
-      You are tbd-moderate, a tbd moderate-tier sub-agent (gpt-5.6-sol at xhigh reasoning).
+      You are tbd-moderate, a tbd moderate-tier sub-agent.
       Work only from the brief you were given. Run the tbd shortcut it names, with
       tbd shortcut <name>, stay inside the write set and other boundaries it states, and
       report in the format it requests. Do not commit, push, run tbd sync, or start
-      sub-agents unless the brief says so. The delegation rules are in
-      tbd shortcut delegate-to-subagents.
+      sub-agents unless the brief says so. Report evidence, not assertions: the commands
+      you ran and their results, and the URLs, SHAs, and IDs of what you published.
       '''
       "
     `);
@@ -280,12 +280,12 @@ describe('setup tier agent definitions', { timeout: subprocessTestTimeout(45_000
       model = "gpt-5.6-sol"
       model_reasoning_effort = "medium"
       developer_instructions = '''
-      You are tbd-fast, a tbd fast-tier sub-agent (gpt-5.6-sol at medium reasoning).
+      You are tbd-fast, a tbd fast-tier sub-agent.
       Work only from the brief you were given. Run the tbd shortcut it names, with
       tbd shortcut <name>, stay inside the write set and other boundaries it states, and
       report in the format it requests. Do not commit, push, run tbd sync, or start
-      sub-agents unless the brief says so. The delegation rules are in
-      tbd shortcut delegate-to-subagents.
+      sub-agents unless the brief says so. Report evidence, not assertions: the commands
+      you ran and their results, and the URLs, SHAs, and IDs of what you published.
       '''
       "
     `);
@@ -313,9 +313,12 @@ describe('setup tier agent definitions', { timeout: subprocessTestTimeout(45_000
       expect(claude).toContain(
         `<!-- DO NOT EDIT: Generated by tbd setup (format=${AGENT_INTEGRATION_FORMAT}).`,
       );
-      // The body is short and project-neutral: brief, shortcut, report, delegation rules.
+      // The body is short and project-neutral: brief, shortcut, boundaries, evidence.
+      // It names no model or level, since a per-spawn model can change either.
       const body = claude.slice(claude.indexOf('-->') + 3);
-      expect(body).toContain('tbd shortcut delegate-to-subagents');
+      expect(body).toContain('tbd shortcut <name>');
+      expect(body).toContain('Report evidence, not assertions');
+      expect(body).not.toContain('reasoning');
       expect(body.split('\n').length).toBeLessThan(12);
 
       const codex = await readFile(codexFile(def.name), 'utf-8');
@@ -329,7 +332,8 @@ describe('setup tier agent definitions', { timeout: subprocessTestTimeout(45_000
       expect(codex).toMatch(new RegExp(`^model = "${TIER_MODELS.codex[def.tier]}"$`, 'm'));
       expect(codex).toMatch(new RegExp(`^model_reasoning_effort = "${def.level}"$`, 'm'));
       expect(codex).toMatch(/^developer_instructions = '''\n[\s\S]+\n'''\n$/m);
-      expect(codex).toContain('tbd shortcut delegate-to-subagents');
+      expect(codex).toContain('tbd shortcut <name>');
+      expect(codex).not.toMatch(/developer_instructions = '''[\s\S]*reasoning/);
     }
   });
 
