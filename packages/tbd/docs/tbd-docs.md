@@ -998,7 +998,20 @@ Plain `tbd doctor` is read-only.
 If it reports an orphaned dependency, the stored edge points to an issue that no longer
 exists. `tbd doctor --fix` rechecks the complete graph under the shared data lock,
 removes only those missing-target edges, and preserves dependencies whose targets still
-exist. Each repaired issue receives the normal version and update-time change.
+exist. Each repaired issue receives the normal version and update-time change, and the
+report names every edge that was removed.
+
+An edge is removed only when the target’s file is gone.
+A target whose file is present but cannot be read or parsed, for example one left with
+conflict markers by a merge, is a broken issue rather than a deleted one: its inbound
+edges are kept and reported until the file listed under `Issue validity` is repaired.
+The repair takes the same writer path as `tbd dep add` and `tbd dep remove`, so it is
+skipped and reported as still pending when that path refuses to write, on a store
+written by a newer tbd or a corrupted shared worktree; the same run repairs the
+worktree, and the next `tbd doctor --fix` removes the edges.
+An issue that is not stored in exactly one `<id>.md` file, the duplicate state
+`Unique IDs` reports, is reported rather than rewritten, and a write that fails is
+reported per file alongside the writes that already landed.
 
 ### config
 
