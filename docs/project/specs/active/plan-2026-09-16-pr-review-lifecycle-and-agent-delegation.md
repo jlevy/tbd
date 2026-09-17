@@ -674,9 +674,14 @@ renderer in agreement.
 an outbound selection of `kinds: [epic]`, `specs: none`, and open statuses, reconciled
 in both directions by `tbd sync`. This is narrower than the integration’s
 `policy: default`, which also selects beads linked to an active spec.
-`epics` pairs open epic beads with Linear issues and syncs their fields both ways; it
-does not create beads from new Linear issues unless the user asks.
-Phase 2 confirms this against the integration’s inbound behavior.
+`epics` pairs open epic beads with Linear issues and, under the integration’s default
+`field_sync`, merges title, description, status, priority, and comments in both
+directions; labels and assignee stay bead-owned and flow to Linear only.
+The selection constrains the outbound direction only: `tbd sync` still lists unlinked
+Linear issues in the project as importable (the default `inbound.mode: report`) and
+creates no beads from them unless the user asks.
+Phase 2 confirmed this against the integration’s inbound behavior
+(`linear-epics-selection.test.ts`).
 
 **The block.** Grants live in a policy block inside the generated tbd block in
 `AGENTS.md`, just before its `END TBD INTEGRATION` marker.
