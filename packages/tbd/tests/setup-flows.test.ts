@@ -215,10 +215,18 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       expect(agents).not.toContain(`format=${CURRENT_FORMAT} `);
       expect(agents).toContain('tbd prime');
       expect(agents).toContain(
-        'When creating or updating a pull request, run `tbd shortcut create-or-update-pr-simple`',
+        'To create or update a pull request, run `tbd shortcut create-or-update-pr-simple`',
       );
-      expect(agents).toContain('tbd shortcut stacked-prs');
+      // Stacks are created only under the grant; the block states the condition,
+      // says what to do without it, and links the policy guideline.
+      expect(agents).toMatch(
+        /`tbd shortcut stacked-prs` only when\s+`github-stacked-prs` is granted/u,
+      );
+      expect(agents).toContain('otherwise propose separate PRs');
+      expect(agents).toContain('already stacked keeps its stack handling');
       expect(agents).toContain('not a formal stack');
+      expect(agents).toContain('check the project’s\n  policy grants with `tbd policy show`');
+      expect(agents).toContain('tbd guidelines agent-policy-grants');
       expect(agents).not.toContain(
         'For pull requests, run `tbd shortcut create-or-update-pr-simple`',
       );
