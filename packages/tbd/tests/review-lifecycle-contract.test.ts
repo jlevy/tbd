@@ -5,11 +5,12 @@
  * review and disposition markers, the review kinds, the four dispositions, and the
  * one-round default with its ask-before-another-round rule. The review shortcuts apply
  * that contract, `review-and-merge-prs` holds the one full merge gate, every skill tier
- * routes the request vocabulary to those shortcuts, and `agent-model-tiers` defines the
- * tiers the review roles use.
+ * and the README request table route the request vocabulary to those shortcuts, and
+ * `agent-model-tiers` defines the tiers the review roles use.
  *
- * These tests pin that structure in the source docs under packages/tbd/docs, so they
- * need no build. Prose is collapsed to single spaces before phrase checks, so reflowing
+ * These tests pin that structure in the source docs under packages/tbd/docs and the
+ * README the package also ships, so they need no build. Prose is collapsed to single
+ * spaces before phrase checks, so reflowing
  * a paragraph does not break them; wherever possible they assert structure (table
  * columns, marker fields, references) rather than sentences.
  *
@@ -28,6 +29,7 @@ const DOCS_DIR = join(__dirname, '..', 'docs');
 const STANDARD_DIR = join(DOCS_DIR, 'shortcuts', 'standard');
 const SYSTEM_DIR = join(DOCS_DIR, 'shortcuts', 'system');
 const GUIDELINES_DIR = join(DOCS_DIR, 'guidelines');
+const README_PATH = join(__dirname, '..', '..', '..', 'README.md');
 
 const REVIEW_KINDS = ['senior', 'security', 'performance', 'correctness', 'follow-up'];
 const DEDICATED_KINDS = ['security', 'performance', 'correctness'];
@@ -64,15 +66,12 @@ const ALL_REQUESTS: RequestRoute[] = [
   { phrase: 'You can use sub-agents', shortcut: 'delegate-to-subagents' },
 ];
 
-/**
- * Surfaces that route every request phrase. The revised README joins this list in
- * tbd-llia with one entry:
- * `{ label: 'README', path: join(__dirname, '..', '..', '..', 'README.md') },`
- */
+/** Surfaces that route every request phrase: the skill tiers and the README request table. */
 const ROUTING_SURFACES = [
   { label: 'skill-baseline', path: join(SYSTEM_DIR, 'skill-baseline.md') },
   { label: 'skill-brief', path: join(SYSTEM_DIR, 'skill-brief.md') },
   { label: 'skill-minimal', path: join(SYSTEM_DIR, 'skill-minimal.md') },
+  { label: 'README', path: README_PATH },
 ];
 
 /** The lifecycle shortcuts, besides the review-code-* engines. */
@@ -112,11 +111,17 @@ async function mdNames(dir: string): Promise<string[]> {
     .sort();
 }
 
-/** Every shipped Markdown doc, by path relative to packages/tbd/docs. */
+/**
+ * Every shipped Markdown doc, by path relative to packages/tbd/docs, plus the README,
+ * which the package ships too (copy-docs.mjs) and which summarizes the same contract.
+ */
 async function allDocs(): Promise<{ rel: string; text: string }[]> {
   const entries = await readdir(DOCS_DIR, { recursive: true });
   const files = entries.filter((e) => e.endsWith('.md')).sort();
-  return Promise.all(files.map(async (rel) => ({ rel, text: await read(join(DOCS_DIR, rel)) })));
+  const docs = await Promise.all(
+    files.map(async (rel) => ({ rel, text: await read(join(DOCS_DIR, rel)) })),
+  );
+  return [...docs, { rel: 'README.md', text: await read(README_PATH) }];
 }
 
 async function reviewCodeShortcuts(): Promise<string[]> {
