@@ -13,7 +13,7 @@
  * claimed by two files is reported instead of rewritten.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { execFile, spawnSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import { chmod, copyFile, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
@@ -21,7 +21,12 @@ import { tmpdir, platform } from 'node:os';
 import { join } from 'node:path';
 
 import { deleteIssue, listIssues } from '../src/file/storage.js';
-import { subprocessTestTimeout } from './test-helpers.js';
+
+// Every case here drives the real CLI a dozen times over real git repositories, and
+// the setup hook alone runs `git init`, `tbd init`, three creates and two `dep add`s.
+// Under full-suite parallel load that exceeds both default budgets, so give the file
+// the same generous budget the other CLI end-to-end suites use.
+vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
 
 const execFileAsync = promisify(execFile);
 const isWindows = platform() === 'win32';
@@ -106,264 +111,260 @@ async function readIssueFiles(dataSyncDir: string): Promise<Map<string, string>>
   return contents;
 }
 
-describe(
-  'doctor --fix orphaned dependency repair',
-  { timeout: subprocessTestTimeout(60_000) },
-  () => {
-    let dir: string;
-    let dataSyncDir: string;
-    let issuesDir: string;
-    /** Display ids captured before any issue is deleted. */
-    let display: Map<string, string>;
+describe('doctor --fix orphaned dependency repair', () => {
+  let dir: string;
+  let dataSyncDir: string;
+  let issuesDir: string;
+  /** Display ids captured before any issue is deleted. */
+  let display: Map<string, string>;
 
-    /**
-     * A repo with three issues: `Blocker` blocks both `Doomed target` and `Live target`,
-     * so one file holds one edge that will dangle and one that must survive.
-     */
-    beforeEach(async () => {
-      dir = await mkdtemp(join(tmpdir(), 'tbd-orphan-deps-'));
-      await gitIn(dir, 'init', '--initial-branch=main');
-      await gitIn(dir, 'config', 'user.email', 'test@test.com');
-      await gitIn(dir, 'config', 'user.name', 'Test');
-      expect(runTbd(dir, ['init', '--prefix=test']).status).toBe(0);
-      dataSyncDir = join(dir, '.git', 'tbd', 'data-sync-worktree', '.tbd', 'data-sync');
-      issuesDir = join(dataSyncDir, 'issues');
+  /**
+   * A repo with three issues: `Blocker` blocks both `Doomed target` and `Live target`,
+   * so one file holds one edge that will dangle and one that must survive.
+   */
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), 'tbd-orphan-deps-'));
+    await gitIn(dir, 'init', '--initial-branch=main');
+    await gitIn(dir, 'config', 'user.email', 'test@test.com');
+    await gitIn(dir, 'config', 'user.name', 'Test');
+    expect(runTbd(dir, ['init', '--prefix=test']).status).toBe(0);
+    dataSyncDir = join(dir, '.git', 'tbd', 'data-sync-worktree', '.tbd', 'data-sync');
+    issuesDir = join(dataSyncDir, 'issues');
 
-      createIssue(dir, 'Doomed target');
-      createIssue(dir, 'Live target');
-      createIssue(dir, 'Blocker');
-      display = displayIds(dir);
-      expect(
-        runTbd(dir, ['dep', 'add', display.get('Doomed target')!, display.get('Blocker')!]).status,
-      ).toBe(0);
-      expect(
-        runTbd(dir, ['dep', 'add', display.get('Live target')!, display.get('Blocker')!]).status,
-      ).toBe(0);
+    createIssue(dir, 'Doomed target');
+    createIssue(dir, 'Live target');
+    createIssue(dir, 'Blocker');
+    display = displayIds(dir);
+    expect(
+      runTbd(dir, ['dep', 'add', display.get('Doomed target')!, display.get('Blocker')!]).status,
+    ).toBe(0);
+    expect(
+      runTbd(dir, ['dep', 'add', display.get('Live target')!, display.get('Blocker')!]).status,
+    ).toBe(0);
+  });
+
+  afterEach(async () => {
+    // The write-failure case makes the issues directory read-only; restore it so the
+    // temp tree can be removed even when that test failed part way through.
+    await chmod(issuesDir, 0o755).catch(() => undefined);
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it('removes only the dangling edge and leaves every other file byte-identical', async () => {
+    const doomedId = await internalId(dataSyncDir, 'Doomed target');
+    const liveId = await internalId(dataSyncDir, 'Live target');
+    const blockerId = await internalId(dataSyncDir, 'Blocker');
+    await deleteIssue(dataSyncDir, doomedId);
+    const before = await readIssueFiles(dataSyncDir);
+
+    const diagnosed = doctorCheck(dir, ['doctor'], 'Dependencies');
+    expect(diagnosed.check).toMatchObject({ status: 'warn', fixable: true });
+    expect(diagnosed.check?.details).toContain(
+      `${display.get('Blocker')!} -> ${display.get('Doomed target')!} (missing)`,
+    );
+    expect(await readIssueFiles(dataSyncDir)).toEqual(before);
+
+    const dryRun = runTbd(dir, ['--dry-run', 'doctor', '--fix']);
+    expect(dryRun.status).toBe(0);
+    expect(dryRun.stdout).toContain('[DRY-RUN] Remove orphaned dependency references');
+    expect(await readIssueFiles(dataSyncDir)).toEqual(before);
+
+    const fixed = doctorCheck(dir, ['doctor', '--fix'], 'Dependencies');
+    expect(fixed.status).toBe(0);
+    expect(fixed.check).toMatchObject({
+      status: 'ok',
+      message: 'removed 1 orphaned reference(s)',
     });
+    // The destructive repair names every edge it dropped, not just a count.
+    expect(fixed.check?.details).toEqual([
+      `${display.get('Blocker')!} -> ${display.get('Doomed target')!}`,
+    ]);
 
-    afterEach(async () => {
-      // The write-failure case makes the issues directory read-only; restore it so the
-      // temp tree can be removed even when that test failed part way through.
-      await chmod(issuesDir, 0o755).catch(() => undefined);
-      await rm(dir, { recursive: true, force: true });
-    });
-
-    it('removes only the dangling edge and leaves every other file byte-identical', async () => {
-      const doomedId = await internalId(dataSyncDir, 'Doomed target');
-      const liveId = await internalId(dataSyncDir, 'Live target');
-      const blockerId = await internalId(dataSyncDir, 'Blocker');
-      await deleteIssue(dataSyncDir, doomedId);
-      const before = await readIssueFiles(dataSyncDir);
-
-      const diagnosed = doctorCheck(dir, ['doctor'], 'Dependencies');
-      expect(diagnosed.check).toMatchObject({ status: 'warn', fixable: true });
-      expect(diagnosed.check?.details).toContain(
-        `${display.get('Blocker')!} -> ${display.get('Doomed target')!} (missing)`,
-      );
-      expect(await readIssueFiles(dataSyncDir)).toEqual(before);
-
-      const dryRun = runTbd(dir, ['--dry-run', 'doctor', '--fix']);
-      expect(dryRun.status).toBe(0);
-      expect(dryRun.stdout).toContain('[DRY-RUN] Remove orphaned dependency references');
-      expect(await readIssueFiles(dataSyncDir)).toEqual(before);
-
-      const fixed = doctorCheck(dir, ['doctor', '--fix'], 'Dependencies');
-      expect(fixed.status).toBe(0);
-      expect(fixed.check).toMatchObject({
-        status: 'ok',
-        message: 'removed 1 orphaned reference(s)',
-      });
-      // The destructive repair names every edge it dropped, not just a count.
-      expect(fixed.check?.details).toEqual([
-        `${display.get('Blocker')!} -> ${display.get('Doomed target')!}`,
-      ]);
-
-      const after = await readIssueFiles(dataSyncDir);
-      expect([...after.keys()].sort()).toEqual([...before.keys()].sort());
-      for (const [file, content] of after) {
-        if (file !== `${blockerId}.md`) {
-          expect(content, `${file} must not be rewritten`).toBe(before.get(file));
-        }
+    const after = await readIssueFiles(dataSyncDir);
+    expect([...after.keys()].sort()).toEqual([...before.keys()].sort());
+    for (const [file, content] of after) {
+      if (file !== `${blockerId}.md`) {
+        expect(content, `${file} must not be rewritten`).toBe(before.get(file));
       }
+    }
 
-      // The rewritten file differs from its previous contents in exactly three places:
-      // the dropped edge, the version bump, and the update time.
-      const blockerBefore = before.get(`${blockerId}.md`)!;
-      const blockerAfter = after.get(`${blockerId}.md`)!;
-      const version = Number(/^version: (\d+)$/m.exec(blockerBefore)![1]);
-      const updatedAt = /^updated_at: .*$/m.exec(blockerAfter)![0];
-      expect(blockerAfter).toBe(
-        blockerBefore
-          .replace(`  - type: blocks\n    target: ${doomedId}\n`, '')
-          .replace(/^version: \d+$/m, `version: ${version + 1}`)
-          .replace(/^updated_at: .*$/m, updatedAt),
-      );
-      expect(blockerAfter).toContain(`target: ${liveId}`);
+    // The rewritten file differs from its previous contents in exactly three places:
+    // the dropped edge, the version bump, and the update time.
+    const blockerBefore = before.get(`${blockerId}.md`)!;
+    const blockerAfter = after.get(`${blockerId}.md`)!;
+    const version = Number(/^version: (\d+)$/m.exec(blockerBefore)![1]);
+    const updatedAt = /^updated_at: .*$/m.exec(blockerAfter)![0];
+    expect(blockerAfter).toBe(
+      blockerBefore
+        .replace(`  - type: blocks\n    target: ${doomedId}\n`, '')
+        .replace(/^version: \d+$/m, `version: ${version + 1}`)
+        .replace(/^updated_at: .*$/m, updatedAt),
+    );
+    expect(blockerAfter).toContain(`target: ${liveId}`);
 
-      const reverified = doctorCheck(dir, ['doctor'], 'Dependencies');
-      expect(reverified.check).toMatchObject({ status: 'ok' });
+    const reverified = doctorCheck(dir, ['doctor'], 'Dependencies');
+    expect(reverified.check).toMatchObject({ status: 'ok' });
+  });
+
+  it('keeps an edge whose target file is present but does not parse', async () => {
+    const doomedId = await internalId(dataSyncDir, 'Doomed target');
+    // The state an aborted merge leaves behind: the file exists and doctor reports it
+    // under Issue validity, so it is a broken target, not a deleted one.
+    const doomedPath = join(issuesDir, `${doomedId}.md`);
+    const conflicted = (await readFile(doomedPath, 'utf-8')).replace(
+      /^title: .*$/m,
+      '<<<<<<< HEAD\ntitle: Ours\n=======\ntitle: Theirs\n>>>>>>> theirs',
+    );
+    await writeFile(doomedPath, conflicted);
+    const before = await readIssueFiles(dataSyncDir);
+
+    const diagnosed = doctorCheck(dir, ['doctor'], 'Dependencies');
+    expect(diagnosed.check?.status).toBe('warn');
+    expect(diagnosed.check?.fixable).not.toBe(true);
+    expect(diagnosed.check?.details).toContain(
+      `${display.get('Blocker')!} -> ${display.get('Doomed target')!} (target file present but invalid)`,
+    );
+
+    const fixed = doctorCheck(dir, ['doctor', '--fix'], 'Dependencies');
+    expect(fixed.check?.message ?? '').not.toContain('removed');
+    expect(await readIssueFiles(dataSyncDir)).toEqual(before);
+
+    // The file is still reported as the broken file it is, by the check that owns it.
+    const validity = doctorCheck(dir, ['doctor'], 'Issue validity');
+    expect(validity.check?.status).toBe('error');
+    expect(validity.check?.details?.join('\n')).toContain(doomedId);
+  });
+
+  it('reports every write failure and leaves the store repairable', async () => {
+    if (isWindows) {
+      // A read-only directory does not stop a rename on Windows.
+      return;
+    }
+    const doomedId = await internalId(dataSyncDir, 'Doomed target');
+    await deleteIssue(dataSyncDir, doomedId);
+    const before = await readIssueFiles(dataSyncDir);
+    await chmod(issuesDir, 0o555);
+
+    const failed = doctorCheck(dir, ['doctor', '--fix'], 'Dependencies');
+    expect(failed.status).not.toBe(0);
+    expect(failed.check?.status).toBe('error');
+    expect(failed.check?.message).toContain('1 issue file(s) could not be written');
+    expect(failed.check?.details?.join('\n')).toContain(display.get('Blocker')!);
+    expect(await readIssueFiles(dataSyncDir)).toEqual(before);
+
+    await chmod(issuesDir, 0o755);
+    const repaired = doctorCheck(dir, ['doctor', '--fix'], 'Dependencies');
+    expect(repaired.check).toMatchObject({
+      status: 'ok',
+      message: 'removed 1 orphaned reference(s)',
+    });
+  });
+
+  it('does not rewrite an issue whose id is claimed by two files', async () => {
+    const doomedId = await internalId(dataSyncDir, 'Doomed target');
+    const blockerId = await internalId(dataSyncDir, 'Blocker');
+    await deleteIssue(dataSyncDir, doomedId);
+    await copyFile(join(issuesDir, `${blockerId}.md`), join(issuesDir, 'copy-of-blocker.md'));
+    const before = await readIssueFiles(dataSyncDir);
+
+    const fixed = doctorCheck(dir, ['doctor', '--fix'], 'Dependencies');
+    expect(fixed.check?.status).toBe('warn');
+    expect(fixed.check?.message).toContain('removed 0 orphaned reference(s), kept');
+    expect(fixed.check?.details?.join('\n')).toContain(
+      `${display.get('Blocker')!} -> ${display.get('Doomed target')!}`,
+    );
+    // Neither file is rewritten while it is ambiguous which one owns the id.
+    expect(await readIssueFiles(dataSyncDir)).toEqual(before);
+    expect(doctorCheck(dir, ['doctor'], 'Unique IDs').check?.status).toBe('error');
+
+    await rm(join(issuesDir, 'copy-of-blocker.md'));
+    const repaired = doctorCheck(dir, ['doctor', '--fix'], 'Dependencies');
+    expect(repaired.check).toMatchObject({
+      status: 'ok',
+      message: 'removed 1 orphaned reference(s)',
+    });
+  });
+
+  it('repairs the orphan and still fails on a cycle reported with it', async () => {
+    // The two checks meet in one finding: `--fix` owns the orphaned edge, a cycle
+    // stays a manual decision, and the run must still exit nonzero because of it.
+    createIssue(dir, 'Cycle A');
+    createIssue(dir, 'Cycle B');
+    const withCycles = displayIds(dir);
+    const cycleA = withCycles.get('Cycle A')!;
+    const cycleB = withCycles.get('Cycle B')!;
+    expect(runTbd(dir, ['dep', 'add', cycleA, cycleB]).status).toBe(0);
+    expect(runTbd(dir, ['dep', 'add', cycleB, cycleA]).status).toBe(0);
+    const doomedId = await internalId(dataSyncDir, 'Doomed target');
+    const blockerId = await internalId(dataSyncDir, 'Blocker');
+    await deleteIssue(dataSyncDir, doomedId);
+
+    const diagnosed = doctorCheck(dir, ['doctor'], 'Dependencies');
+    expect(diagnosed.status).toBe(1);
+    expect(diagnosed.check).toMatchObject({
+      status: 'error',
+      message: '1 directed cycle(s) and 1 orphaned reference(s)',
+      fixable: true,
     });
 
-    it('keeps an edge whose target file is present but does not parse', async () => {
-      const doomedId = await internalId(dataSyncDir, 'Doomed target');
-      // The state an aborted merge leaves behind: the file exists and doctor reports it
-      // under Issue validity, so it is a broken target, not a deleted one.
-      const doomedPath = join(issuesDir, `${doomedId}.md`);
-      const conflicted = (await readFile(doomedPath, 'utf-8')).replace(
-        /^title: .*$/m,
-        '<<<<<<< HEAD\ntitle: Ours\n=======\ntitle: Theirs\n>>>>>>> theirs',
-      );
-      await writeFile(doomedPath, conflicted);
-      const before = await readIssueFiles(dataSyncDir);
+    const fixed = doctorCheck(dir, ['doctor', '--fix'], 'Dependencies');
+    expect(fixed.status).toBe(1);
+    expect(fixed.check?.status).toBe('error');
+    expect(fixed.check?.message).toContain('1 directed cycle(s)');
+    expect(fixed.check?.message).toContain('removed 1 orphaned reference(s)');
+    expect(fixed.check?.details?.join('\n')).toContain('depends-on cycle:');
 
-      const diagnosed = doctorCheck(dir, ['doctor'], 'Dependencies');
-      expect(diagnosed.check?.status).toBe('warn');
-      expect(diagnosed.check?.fixable).not.toBe(true);
-      expect(diagnosed.check?.details).toContain(
-        `${display.get('Blocker')!} -> ${display.get('Doomed target')!} (target file present but invalid)`,
-      );
+    // The orphan is gone for good; the cycle is still there, and still an error.
+    const after = doctorCheck(dir, ['doctor'], 'Dependencies');
+    expect(after.status).toBe(1);
+    expect(after.check).toMatchObject({ status: 'error', message: '1 directed cycle(s)' });
+    expect(after.check?.details?.join('\n')).not.toContain(doomedId);
+    expect(await readFile(join(issuesDir, `${blockerId}.md`), 'utf-8')).not.toContain(doomedId);
+  });
 
-      const fixed = doctorCheck(dir, ['doctor', '--fix'], 'Dependencies');
-      expect(fixed.check?.message ?? '').not.toContain('removed');
-      expect(await readIssueFiles(dataSyncDir)).toEqual(before);
+  it('does not claim a repair when the store is from a newer tbd', async () => {
+    const doomedId = await internalId(dataSyncDir, 'Doomed target');
+    await deleteIssue(dataSyncDir, doomedId);
+    const before = await readIssueFiles(dataSyncDir);
+    const configPath = join(dir, '.tbd', 'config.yml');
+    const config = await readFile(configPath, 'utf-8');
+    await writeFile(configPath, config.replace(/^tbd_format: .*$/m, 'tbd_format: f99'));
 
-      // The file is still reported as the broken file it is, by the check that owns it.
-      const validity = doctorCheck(dir, ['doctor'], 'Issue validity');
-      expect(validity.check?.status).toBe('error');
-      expect(validity.check?.details?.join('\n')).toContain(doomedId);
+    // `tbd dep remove` refuses to touch this store; doctor must not be the exception.
+    const fixed = doctorCheck(dir, ['doctor', '--fix'], 'Dependencies');
+    expect(fixed.check?.message ?? '').not.toContain('removed');
+    expect(fixed.check?.fixable).toBe(true);
+    expect(await readIssueFiles(dataSyncDir)).toEqual(before);
+    expect(doctorCheck(dir, ['doctor'], 'Config file').check?.status).toBe('error');
+  });
+
+  it('does not claim a repair while the shared worktree is corrupted', async () => {
+    if (isWindows) {
+      // `repairWorktree` removes and recreates the worktree directory, which races
+      // open handles on Windows; the repair path itself is platform-neutral.
+      return;
+    }
+    const worktree = join(dir, '.git', 'tbd', 'data-sync-worktree');
+    const doomedId = await internalId(dataSyncDir, 'Doomed target');
+    await deleteIssue(dataSyncDir, doomedId);
+    // Commit the orphaned state on the sync branch so worktree repair, which restores
+    // the worktree from that branch, cannot quietly resolve the orphan for us.
+    await gitIn(worktree, 'add', '-A');
+    await gitIn(worktree, 'commit', '-m', 'seed orphaned edge');
+    const before = await readIssueFiles(dataSyncDir);
+    await gitIn(worktree, 'checkout', '--detach');
+
+    const attempted = doctorCheck(dir, ['doctor', '--fix'], 'Dependencies');
+    expect(attempted.check?.message ?? '').not.toContain('removed');
+    expect(attempted.check?.fixable).toBe(true);
+    expect(doctorCheck(dir, ['doctor'], 'Worktree').check?.status).toBe('ok');
+    // Whatever the worktree repair did, it did not discard a repair doctor claimed.
+    expect(await readIssueFiles(dataSyncDir)).toEqual(before);
+
+    const repaired = doctorCheck(dir, ['doctor', '--fix'], 'Dependencies');
+    expect(repaired.check).toMatchObject({
+      status: 'ok',
+      message: 'removed 1 orphaned reference(s)',
     });
-
-    it('reports every write failure and leaves the store repairable', async () => {
-      if (isWindows) {
-        // A read-only directory does not stop a rename on Windows.
-        return;
-      }
-      const doomedId = await internalId(dataSyncDir, 'Doomed target');
-      await deleteIssue(dataSyncDir, doomedId);
-      const before = await readIssueFiles(dataSyncDir);
-      await chmod(issuesDir, 0o555);
-
-      const failed = doctorCheck(dir, ['doctor', '--fix'], 'Dependencies');
-      expect(failed.status).not.toBe(0);
-      expect(failed.check?.status).toBe('error');
-      expect(failed.check?.message).toContain('1 issue file(s) could not be written');
-      expect(failed.check?.details?.join('\n')).toContain(display.get('Blocker')!);
-      expect(await readIssueFiles(dataSyncDir)).toEqual(before);
-
-      await chmod(issuesDir, 0o755);
-      const repaired = doctorCheck(dir, ['doctor', '--fix'], 'Dependencies');
-      expect(repaired.check).toMatchObject({
-        status: 'ok',
-        message: 'removed 1 orphaned reference(s)',
-      });
-    });
-
-    it('does not rewrite an issue whose id is claimed by two files', async () => {
-      const doomedId = await internalId(dataSyncDir, 'Doomed target');
-      const blockerId = await internalId(dataSyncDir, 'Blocker');
-      await deleteIssue(dataSyncDir, doomedId);
-      await copyFile(join(issuesDir, `${blockerId}.md`), join(issuesDir, 'copy-of-blocker.md'));
-      const before = await readIssueFiles(dataSyncDir);
-
-      const fixed = doctorCheck(dir, ['doctor', '--fix'], 'Dependencies');
-      expect(fixed.check?.status).toBe('warn');
-      expect(fixed.check?.message).toContain('removed 0 orphaned reference(s), kept');
-      expect(fixed.check?.details?.join('\n')).toContain(
-        `${display.get('Blocker')!} -> ${display.get('Doomed target')!}`,
-      );
-      // Neither file is rewritten while it is ambiguous which one owns the id.
-      expect(await readIssueFiles(dataSyncDir)).toEqual(before);
-      expect(doctorCheck(dir, ['doctor'], 'Unique IDs').check?.status).toBe('error');
-
-      await rm(join(issuesDir, 'copy-of-blocker.md'));
-      const repaired = doctorCheck(dir, ['doctor', '--fix'], 'Dependencies');
-      expect(repaired.check).toMatchObject({
-        status: 'ok',
-        message: 'removed 1 orphaned reference(s)',
-      });
-    });
-
-    it('repairs the orphan and still fails on a cycle reported with it', async () => {
-      // The two checks meet in one finding: `--fix` owns the orphaned edge, a cycle
-      // stays a manual decision, and the run must still exit nonzero because of it.
-      createIssue(dir, 'Cycle A');
-      createIssue(dir, 'Cycle B');
-      const withCycles = displayIds(dir);
-      const cycleA = withCycles.get('Cycle A')!;
-      const cycleB = withCycles.get('Cycle B')!;
-      expect(runTbd(dir, ['dep', 'add', cycleA, cycleB]).status).toBe(0);
-      expect(runTbd(dir, ['dep', 'add', cycleB, cycleA]).status).toBe(0);
-      const doomedId = await internalId(dataSyncDir, 'Doomed target');
-      const blockerId = await internalId(dataSyncDir, 'Blocker');
-      await deleteIssue(dataSyncDir, doomedId);
-
-      const diagnosed = doctorCheck(dir, ['doctor'], 'Dependencies');
-      expect(diagnosed.status).toBe(1);
-      expect(diagnosed.check).toMatchObject({
-        status: 'error',
-        message: '1 directed cycle(s) and 1 orphaned reference(s)',
-        fixable: true,
-      });
-
-      const fixed = doctorCheck(dir, ['doctor', '--fix'], 'Dependencies');
-      expect(fixed.status).toBe(1);
-      expect(fixed.check?.status).toBe('error');
-      expect(fixed.check?.message).toContain('1 directed cycle(s)');
-      expect(fixed.check?.message).toContain('removed 1 orphaned reference(s)');
-      expect(fixed.check?.details?.join('\n')).toContain('depends-on cycle:');
-
-      // The orphan is gone for good; the cycle is still there, and still an error.
-      const after = doctorCheck(dir, ['doctor'], 'Dependencies');
-      expect(after.status).toBe(1);
-      expect(after.check).toMatchObject({ status: 'error', message: '1 directed cycle(s)' });
-      expect(after.check?.details?.join('\n')).not.toContain(doomedId);
-      expect(await readFile(join(issuesDir, `${blockerId}.md`), 'utf-8')).not.toContain(doomedId);
-    });
-
-    it('does not claim a repair when the store is from a newer tbd', async () => {
-      const doomedId = await internalId(dataSyncDir, 'Doomed target');
-      await deleteIssue(dataSyncDir, doomedId);
-      const before = await readIssueFiles(dataSyncDir);
-      const configPath = join(dir, '.tbd', 'config.yml');
-      const config = await readFile(configPath, 'utf-8');
-      await writeFile(configPath, config.replace(/^tbd_format: .*$/m, 'tbd_format: f99'));
-
-      // `tbd dep remove` refuses to touch this store; doctor must not be the exception.
-      const fixed = doctorCheck(dir, ['doctor', '--fix'], 'Dependencies');
-      expect(fixed.check?.message ?? '').not.toContain('removed');
-      expect(fixed.check?.fixable).toBe(true);
-      expect(await readIssueFiles(dataSyncDir)).toEqual(before);
-      expect(doctorCheck(dir, ['doctor'], 'Config file').check?.status).toBe('error');
-    });
-
-    it('does not claim a repair while the shared worktree is corrupted', async () => {
-      if (isWindows) {
-        // `repairWorktree` removes and recreates the worktree directory, which races
-        // open handles on Windows; the repair path itself is platform-neutral.
-        return;
-      }
-      const worktree = join(dir, '.git', 'tbd', 'data-sync-worktree');
-      const doomedId = await internalId(dataSyncDir, 'Doomed target');
-      await deleteIssue(dataSyncDir, doomedId);
-      // Commit the orphaned state on the sync branch so worktree repair, which restores
-      // the worktree from that branch, cannot quietly resolve the orphan for us.
-      await gitIn(worktree, 'add', '-A');
-      await gitIn(worktree, 'commit', '-m', 'seed orphaned edge');
-      const before = await readIssueFiles(dataSyncDir);
-      await gitIn(worktree, 'checkout', '--detach');
-
-      const attempted = doctorCheck(dir, ['doctor', '--fix'], 'Dependencies');
-      expect(attempted.check?.message ?? '').not.toContain('removed');
-      expect(attempted.check?.fixable).toBe(true);
-      expect(doctorCheck(dir, ['doctor'], 'Worktree').check?.status).toBe('ok');
-      // Whatever the worktree repair did, it did not discard a repair doctor claimed.
-      expect(await readIssueFiles(dataSyncDir)).toEqual(before);
-
-      const repaired = doctorCheck(dir, ['doctor', '--fix'], 'Dependencies');
-      expect(repaired.check).toMatchObject({
-        status: 'ok',
-        message: 'removed 1 orphaned reference(s)',
-      });
-    });
-  },
-);
+  });
+});
