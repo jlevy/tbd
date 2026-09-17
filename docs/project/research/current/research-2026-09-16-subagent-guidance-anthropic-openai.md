@@ -1,14 +1,15 @@
 # Research: Sub-Agents in Claude Code and Codex: Mechanics, Vendor Guidance, and Practice
 
-**Date:** 2026-02-13 (last updated 2026-09-16)
+**Date:** 2026-02-13 (last updated 2026-09-17)
 
 **Author:** Joshua Levy, with Claude (Opus 5 and Fable 5.1) and research sub-agents
 
 **Status:** In Progress; maintained as backing research for the plan below.
 The Claude Code facts were re-verified on 2026-09-16 against the live documentation;
 passages that could not be re-verified carry a dated note rather than a silent change.
-The Codex and OpenAI facts come from a research pass and are re-read as marked in
-References.
+The Codex and OpenAI facts were re-verified on 2026-09-17 against the Codex and OpenAI
+documentation and the openai/codex source at commit `b0659c53`; corrections are noted
+where they were made.
 
 **Related:**
 
@@ -88,25 +89,26 @@ server architecture; Anthropic API-level multi-agent patterns outside Claude Cod
 
 ### Platform Mechanics (as of 2026-09-16)
 
-The Claude Code rows were checked against the documentation.
-The Codex rows come from a research pass over OpenAI’s documentation and the Codex
-source and must be re-verified before they are written into shortcuts.
+The Claude Code rows were checked against the documentation on 2026-09-16. The Codex
+rows were re-verified on 2026-09-17 against the Codex documentation [V13] and the
+openai/codex source at commit `b0659c53` [V16]; the last stable release, rust-v0.154.0
+(2026-09-09), applies the same spawn rules.
 
 | Capability | Claude Code | Codex |
 | --- | --- | --- |
-| Spawn mechanism | Agent tool: `subagent_type` (required), `model`, `name`, `run_in_background`, optional `isolation: worktree` [V1] | `spawn_agent` tool; V1 takes `message`, `agent_type`, `fork_context`, `model`, `reasoning_effort`; V2 adds a required `task_name` and replaces `fork_context` with `fork_turns` (`none`, `all`, or a number) [V16] |
-| Forked context | A fork inherits the parent’s history, model, tools, and output style and ignores the definition’s `model` and `tools` [V1] | A full-history fork inherits model and effort and rejects overrides [V16] |
-| Model per spawn | Yes; aliases such as `fable` and `opus`, or full IDs [V1] | Yes [V16] |
-| Effort per spawn | **No.** Only from the agent definition’s `effort` field or the session’s effort level [V1] | Yes, except that a spawn forking full history rejects model and effort overrides [V16] |
-| Effort levels | `low`, `medium`, `high`, `xhigh`, `max`, model-dependent [V6] | Docs disagree: the subagents page lists `low`, `medium`, `high`, `xhigh`, `max`, `ultra`; the config reference lists `minimal` through `xhigh` [V13] |
-| Predefined agents | `.claude/agents/*.md` (project), `~/.claude/agents/` (user), or `--agents` JSON on the CLI; plugins can ship them, skills cannot [V1] | `.codex/agents/*.toml` (project) or `~/.codex/agents/`; `name`, `description`, `developer_instructions`, optional `model`, `model_reasoning_effort`, `sandbox_mode` [V13] |
+| Spawn mechanism | Agent tool: `subagent_type` (required), `model`, `name`, `run_in_background`, optional `isolation: worktree` [V1] | `spawn_agent` tool. V1 (`features.multi_agent`, on by default) takes `message` or `items`, `agent_type`, `fork_context`, `model`, and `reasoning_effort`; V2 (`features.multi_agent_v2`, off by default in config and chosen per model by the model catalog) requires `task_name` and `message`, replaces `fork_context` with `fork_turns` (`none`, `all`, or a number; `all` when omitted), and rejects `fork_context` [V16] |
+| Forked context | A fork inherits the parent’s history, model, tools, and output style and ignores the definition’s `model` and `tools` [V1] | A full-history fork carries the parent’s history. The runtime applies `model` and `reasoning_effort` on forks in both versions and, since PR #37252, `agent_type` on V2 forks (V1 rejects `agent_type` on a fork); the V2 instructions still say full-history forks do not accept overrides (openai/codex#20077, open) [V16], [V38] |
+| Model per spawn | Yes; aliases such as `fable` and `opus`, or full IDs [V1] | Yes, from the models the session lists; an unknown name is rejected with the available names, and a spawn without a model takes `agents.default_subagent_model`, then the parent’s model [V13], [V16] |
+| Effort per spawn | **No.** Only from the agent definition’s `effort` field or the session’s effort level [V1] | Yes; validated against the model’s supported levels; a `model` without an effort takes that model’s default; without either, `agents.default_subagent_reasoning_effort`, then the parent’s effort [V13], [V16] |
+| Effort levels | `low`, `medium`, `high`, `xhigh`, `max`, model-dependent [V6] | Docs disagree: the subagents page lists `low`, `medium`, `high`, `xhigh`, `max`, `ultra`; the config reference lists `minimal` through `xhigh`; the source accepts `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, `ultra`, and `persistent`, and the model catalog decides which levels each model supports [V13], [V16] |
+| Predefined agents | `.claude/agents/*.md` (project), `~/.claude/agents/` (user), or `--agents` JSON on the CLI; plugins can ship them, skills cannot [V1] | `.codex/agents/*.toml` (project) or `~/.codex/agents/`; required `name`, `description`, `developer_instructions`; any other config key such as `model`, `model_reasoning_effort`, `sandbox_mode`, `mcp_servers`, `skills.config`; built-ins `default`, `worker`, `explorer` [V13] |
 | Definition reload | Edits load within a few seconds; the first file in a new `agents/` directory, directories added with `--add-dir`, and sessions started with `--disable-slash-commands` need a restart [V1] | Not established |
-| Working copy | Shared by default; `isolation: worktree` creates a worktree from the default branch, removed automatically if unchanged [V1] | Source text describes agents sharing one working directory, while the V1 spawn description mentions a forked workspace; confirm per version [V16] |
-| Nesting and concurrency | Default depth 3 and 20 concurrent sub-agents, both configurable [V1] | V1 defaults: depth 1, 6 threads (from source) [V16] |
-| Model overrides from the environment | `CLAUDE_CODE_SUBAGENT_MODEL` applies when no model is named; `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` overrides named models too [V1] | `[agents]` defaults in config; custom agent files override spawn values [V13] |
+| Working copy | Shared by default; `isolation: worktree` creates a worktree from the default branch, removed automatically if unchanged [V1] | Shared in both tool versions: the child config copies the parent turn’s `cwd`, approval policy, and permission profile, and nothing creates a worktree; the V1 tool description’s “forked workspace” is prompt wording with no mechanism in the local CLI [V16] |
+| Nesting and concurrency | Default depth 3 and 20 concurrent sub-agents, both configurable [V1] | V1: depth 1 (`agents.max_depth`, undocumented) and 6 threads (`agents.max_concurrent_threads_per_session`); V2: `max_depth` ignored, and 4 concurrency slots including the root (`features.multi_agent_v2.max_concurrent_threads_per_session`, or `agents.max_concurrent_threads_per_session` plus one) [V13], [V16] |
+| Model overrides from the environment | `CLAUDE_CODE_SUBAGENT_MODEL` applies when no model is named; `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` overrides named models too [V1] | `[agents]` defaults apply when the spawn names none; a custom agent file’s `model` and `model_reasoning_effort` override the spawn values [V13], [V16] |
 | Background sub-agents | The default in interactive sessions; a reduced set of built-in tools, MCP tools kept [V1] | Not applicable |
 | Report handling | The final report is scanned: imitations of Claude Code output get a backslash, and instruction-shaped text or permission-setting mentions get a leading `[harness: ...]` line; nothing is removed or reworded [V1] | Not established |
-| Permissions | Background sub-agents inherit the permission mode and surface their prompts in the main session [V1] | Sub-agents inherit the sandbox and approval policy; a new approval in a non-interactive run fails back to the parent [V13] |
+| Permissions | Background sub-agents inherit the permission mode and surface their prompts in the main session [V1] | Sub-agents inherit the sandbox and approval policy and the parent turn’s live overrides (`/permissions`, `--yolo`), even over a custom agent file’s defaults; a new approval in a non-interactive run fails back to the parent [V13] |
 
 ### Claude Code: Sub-Agent Architecture
 
@@ -368,17 +370,22 @@ self-report.
 - The effort table lists `low` for simple tasks “such as subagents” [V6].
 - Opus 5 review accuracy holds at lower effort [V7].
 
-**OpenAI** (as reported by the research pass; not yet re-read directly):
+**OpenAI** (re-read 2026-09-17):
 
 - GPT-6 Astra (`gpt-6-astra`) is OpenAI’s most capable model, for the hardest end-to-end
   work; it runs in the Codex CLI, app, and IDE extension but not Codex cloud, and
-  supports `low` through `max` [V17], [V18].
+  supports `low`, `medium`, `high`, `xhigh`, and `max` but not `none` [V17], [V18].
 - The GPT-5.6 family ranks below it: Sol (`gpt-5.6-sol`, the most capable GPT-5.6
   model), Terra (balanced), and Luna (fast and inexpensive).
-  In the API, `gpt-5.6` routes to Sol, and Sol supports `none` through `max` [V17].
+  In the API, `gpt-5.6` routes to Sol, and Sol supports `none`, `low`, `medium` (the
+  default), `high`, `xhigh`, and `max`; of the four, only Sol runs in Codex cloud [V17].
+  The subagents page suggests `gpt-5.6` for demanding agents and `gpt-5.6-terra` or
+  `gpt-5.6-luna` for lighter sub-agent work [V13].
 - In Codex, `model_reasoning_effort` sets the level; the app’s “Extra High” is `xhigh`,
-  `max` spends more time on one task, and `ultra` also uses sub-agents in parallel
-  [V13], [V17].
+  `max` spends more time on one task, and `ultra` also uses sub-agents in parallel;
+  `ultra` is limited to eligible accounts and supported models, and in the source it is
+  the level at which V2 switches from explicit-request-only to proactive delegation
+  [V13], [V16], [V17].
 - GPT-5.5 retires from Codex for ChatGPT sign-in on 2026-10-14, replaced by
   `gpt-5.6-sol` [V17].
 
@@ -518,15 +525,28 @@ Give a sub-agent a `name` at spawn when you expect to come back to it.
 
 #### Codex: Forks and the Shared Workspace
 
-As reported from the Codex source [V16], [V20]: a spawn that forks full history
-(`fork_context` in V1, `fork_turns: all` in V2) inherits the parent’s model and effort
-and rejects overrides (openai/codex#20077), so a spawn that needs a different tier sets
-`fork_turns` to `none` or a number.
+Re-verified on 2026-09-17 against the source at `b0659c53` [V16], [V20], [V38]. Codex’s
+V2 developer instructions say that a full-history fork (`fork_turns` omitted or `all`)
+inherits the parent’s model and reasoning effort and does not accept overrides, and that
+`model` or `reasoning_effort` should be set only when the user, `AGENTS.md`, or a skill
+asks, with `fork_turns` of `none` or a positive integer.
+The runtime no longer enforces that sentence: `prepare_agent_spawn_config` applies
+`model` and `reasoning_effort` on every spawn in both tool versions, and since PR #37252
+(merged 2026-08-06, first in rust-v0.148.0) V2 also applies `agent_type` on a
+full-history fork; only V1 rejects `agent_type` when `fork_context` is true.
+Issue openai/codex#20077 stays open over the mismatch between the instructions and the
+handler. The practical rule is unchanged: a spawn that needs a different tier sets
+`fork_turns` to `none` or a number, because that is what the platform tells its model to
+do and because a full-history fork carries the parent’s whole context into the child.
 All agents share one filesystem and working directory, and edits are immediately
 visible, so the prompts tell spawned agents they are not alone and must not revert
 others’ work, and say whether they may spawn sub-agents themselves.
-Whether every tool version shares the working copy is still to be confirmed (see
-Platform Mechanics).
+Both tool versions share the working copy: the child’s config copies the parent turn’s
+`cwd`, approval policy, and permission profile, no code in the agent module creates a
+worktree, and the V1 spawn description’s phrase “edit files directly in its forked
+workspace” has no matching mechanism in the local CLI. V1 limits nesting to one level
+(`agents.max_depth`, default 1) and V2 ignores that limit; V1 allows 6 sub-agent threads
+and V2 4 concurrency slots including the root.
 
 ### Environments: CLI, IDE, Desktop, and Cloud (Claude Code)
 
@@ -692,9 +712,16 @@ resolution order above:
   only when evaluations show gains; `max` is not recommended as a global default [V14].
 - **Astra:** may delegate less often than desired; the recommended prompt tells it to
   delegate whenever parallel work saves time or improves quality [V18].
-- **Forking and overrides:** a full-history fork inherits the parent’s model and effort
-  and rejects overrides, so set `fork_turns` to `none` or a number when choosing a tier
-  [V16]; see openai/codex#20077.
+- **Forking and overrides:** the instructions say a full-history fork inherits the
+  parent’s model and effort and does not accept overrides, so set `fork_turns` to `none`
+  or a number when choosing a tier; the runtime applies the overrides either way, and
+  openai/codex#20077 tracks the mismatch [V16], [V38].
+- **Sub-agent models:** start with `gpt-5.6` for demanding agents and use
+  `gpt-5.6-terra` or `gpt-5.6-luna` for lighter, read-heavy sub-agent work; a custom
+  agent file’s `model` and `model_reasoning_effort` take precedence over the spawn’s
+  values [V13].
+- **Offloading:** keep the main agent on the core problem and use sub-agents for bounded
+  work such as exploration, tests, or triage [V14].
 
 #### Cost
 
@@ -727,7 +754,8 @@ Three sources were compared on 2026-09-16:
 - **Claude Code, as observed.** One Claude Code desktop-app session’s resolved prompt
   and tool definitions were captured locally (not published) and reviewed [V22].
 - **Codex, from source.** Codex’s multi-agent prompts and tool descriptions are open
-  source; the files below were read at commit `787823cf` [V20].
+  source; the files below were read at commit `787823cf` and re-read, unchanged, at
+  `b0659c53` on 2026-09-17 [V20].
 
 Where the observed session and the reconstruction overlap (the harness bullets, the
 Workflow tool, memory instructions, background-task notifications, and the agent launch
@@ -781,7 +809,9 @@ description was shorter than the reconstruction’s assembled Agent guidance.
 - **Model and effort:** the older spawn tool says not to set `model` unless the user
   explicitly asks; the newer instructions allow `model` or `reasoning_effort` when the
   user, AGENTS.md, or a skill asks, and require `fork_turns` of `none` or a number,
-  because full-history forks inherit the parent’s model and effort and reject overrides.
+  saying that full-history forks inherit the parent’s model and effort and do not accept
+  overrides (the handler applies them anyway; see Codex: Forks and the Shared
+  Workspace).
 - **What to delegate:** plan first; keep critical-path work local; delegate concrete,
   bounded, self-contained side tasks that do not duplicate local work; prefer bounded
   code-change workers over read-only explorers; give each coding worker a disjoint write
@@ -795,7 +825,8 @@ description was shorter than the reconstruction’s assembled Agent guidance.
   non-overlapping work meanwhile; close finished agents, which otherwise hold
   concurrency slots.
 - **Modes:** an explicit-request-only mode and a proactive mode switch by developer
-  message; an orchestrator template instead tells the coordinator to wait for sub-agents
+  message, and the proactive text is selected when the effective reasoning effort is
+  `ultra`; an orchestrator template instead tells the coordinator to wait for sub-agents
   and not do the work itself, which differs from the spawn tool’s advice to keep
   working.
 
@@ -1504,7 +1535,8 @@ In brief, the plan applies the findings above as follows:
   do something different.
 
 - **Forks defeat tiering on both platforms.** A forked sub-agent keeps the parent’s
-  model and tools (Claude Code) or rejects model and effort overrides (Codex), so
+  model and tools (Claude Code), and Codex tells its model that a full-history fork
+  keeps the parent’s model and effort (its runtime now applies overrides anyway), so
   tier-specific work needs a fresh, named sub-agent [V1], [V16].
 
 - **Effort control differs.** Codex sets effort per spawn; Claude Code needs a
@@ -1522,8 +1554,9 @@ In brief, the plan applies the findings above as follows:
   sub-agent.
 
 - **Authorization must be explicit to work portably.** Codex will not spawn without an
-  explicit request or instruction, so a project-level grant in AGENTS.md is also what
-  makes delegation work on Codex [V13], [V16].
+  explicit request or instruction (except at the `ultra` level, which turns on proactive
+  delegation), so a project-level grant in AGENTS.md is also what makes delegation work
+  on Codex [V13], [V16].
 
 - **Vendor defaults start lower than tbd’s tiers.** Both vendors start at `high` or a
   measured baseline and raise effort for demanding work [V6], [V14]. tbd’s tiers
@@ -1571,10 +1604,12 @@ coordination, but they are experimental and cost more tokens.
 
 ## Next Steps
 
-- [ ] Re-read the OpenAI and Codex sources [V13] through [V18] directly and update their
-  verification marks (plan bead `tbd-6e2u`).
-- [ ] Confirm whether Codex sub-agents share the working copy in each tool version.
-- [ ] Track openai/codex#20077 (overrides rejected on full-history forks).
+- [x] Re-read the OpenAI and Codex sources [V13] through [V18] directly and update their
+  verification marks (plan bead `tbd-6e2u`; done 2026-09-17).
+- [x] Confirm whether Codex sub-agents share the working copy in each tool version (they
+  do; confirmed 2026-09-17 from the source).
+- [ ] Track openai/codex#20077: the handler applies overrides on full-history forks, but
+  the V2 instructions still say it does not; re-check when the instructions change.
 - [ ] Re-check model names and reasoning levels whenever a provider releases or retires
   a model, and update the dated suggestions here and in `agent-model-tiers`.
 - [ ] Revisit this project’s `.claude/settings.json`: it still pins
@@ -1619,12 +1654,23 @@ Four points were re-checked against the sub-agents page during consolidation (th
 `run_in_background` parameters, and the report scan) and against the Piebald
 reconstruction (the `name` and `run_in_background` parameters), and all matched.
 
+The Codex and OpenAI sources [V13] through [V18] were re-read on 2026-09-17 (bead
+`tbd-6e2u`): the Codex documentation pages as Markdown, the OpenAI API pages, and the
+openai/codex source at commit `b0659c53` (main, 2026-09-17), compared where it mattered
+with the last stable release, rust-v0.154.0 (2026-09-09), and with the earlier pin
+`787823cf`. Three claims were corrected: Codex’s runtime applies `model` and
+`reasoning_effort` overrides on full-history forks (only the instructions say
+otherwise); both tool versions share the working directory; and the V2 concurrency and
+depth defaults differ from V1. Two were made more precise: the Sol and Astra effort
+sets, and the custom agent file fields.
+
 ## References
 
 Verification marks: ✓ means re-read directly on 2026-09-16, by the coordinator (the
 cross-vendor sources) or by the Claude Code re-verification pass (the documentation
-pages listed in Methodology); unmarked means reported by a research pass or by the
-February 2026 research and not re-read since.
+pages listed in Methodology), or on 2026-09-17 by the Codex re-verification pass
+(`tbd-6e2u`); unmarked means reported by a research pass or by the February 2026
+research and not re-read since.
 Numbers [V1] through [V22] are shared with the plan and are stable; [V23] onward were
 added at consolidation for sources that only the Claude Code research cited.
 
@@ -1682,36 +1728,52 @@ added at consolidation for sources that only the Claude Code research cited.
   [Effective context engineering for AI agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
   (2025-09-29): condensed sub-agent returns.
 
-- **[V13]** Codex,
+- **[V13] ✓ (2026-09-17)** Codex,
   [Subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents) and
-  [Config reference](https://learn.chatgpt.com/docs/config-file/config-reference):
-  explicit and proactive modes, custom agent files, `[agents]` settings, effort values.
+  [Config reference](https://learn.chatgpt.com/docs/config-file/config-reference), read
+  as the Markdown served at the page URL plus `.md`: explicit and proactive modes,
+  custom agent files and precedence, `[agents]` settings, effort values, sandbox and
+  approval inheritance.
 
-- **[V14]** Codex, [Best practices](https://learn.chatgpt.com/guides/best-practices);
-  OpenAI, [Reasoning](https://developers.openai.com/api/docs/guides/reasoning) and
+- **[V14] ✓ (2026-09-17)** Codex,
+  [Best practices](https://learn.chatgpt.com/guides/best-practices); OpenAI,
+  [Reasoning](https://developers.openai.com/api/docs/guides/reasoning) and
   [Prompt guidance for GPT-5.6](https://developers.openai.com/api/docs/guides/prompt-guidance-gpt-5p6):
-  effort by task and measured gains.
+  effort by task, a measured baseline before raising effort, `max` not recommended
+  globally, sub-agents for bounded offloaded work.
 
-- **[V15]** OpenAI,
+- **[V15] ✓ (2026-09-17)** OpenAI,
   [Multi-agent (Responses API)](https://developers.openai.com/api/docs/guides/responses-multi-agent)
   and
   [Agents SDK multi-agent](https://openai.github.io/openai-agents-python/multi_agent/):
-  when to split work, concurrency defaults, agents-as-tools and handoffs.
+  when to split work, `max_concurrent_subagents` (default 3), agents-as-tools and
+  handoffs.
 
-- **[V16] ✓ (spawn description only)** [openai/codex](https://github.com/openai/codex)
-  at `787823cf`: `codex-rs/core/src/tools/handlers/multi_agents_spec.rs`,
-  `codex-rs/prompts/src/multi_agent_instructions.rs`, `codex-rs/core/src/agent/role.rs`,
-  `codex-rs/core/src/config/mod.rs`; issue
-  [#20077](https://github.com/openai/codex/issues/20077).
+- **[V16] ✓ (2026-09-17)**
+  [openai/codex at `b0659c53`](https://github.com/openai/codex/tree/b0659c53865dd48b0cd69c454368cea3980017cc)
+  (main, 2026-09-17; the spawn handlers at tag `rust-v0.154.0`, 2026-09-09, apply the
+  same rules): `codex-rs/core/src/tools/handlers/multi_agents_spec.rs` (tool parameters
+  and descriptions), `multi_agents/spawn.rs` and `multi_agents_v2/spawn.rs` (handlers),
+  `codex-rs/core/src/agent/child_config.rs` (override and fork rules, `cwd`
+  inheritance), `agent/role.rs` (custom agent overrides), `agent/registry.rs` (depth),
+  `codex-rs/core/src/session/multi_agents.rs` (explicit and proactive modes),
+  `codex-rs/core/src/config/mod.rs` (`[agents]` and `multi_agent_v2` defaults),
+  `codex-rs/features/src/lib.rs` (feature flags),
+  `codex-rs/prompts/src/multi_agent_instructions.rs` (the fork hint and shared-directory
+  text), `codex-rs/protocol/src/openai_models.rs` (the effort enum), and the tests in
+  `multi_agents_tests.rs`; issue [#20077](https://github.com/openai/codex/issues/20077)
+  (open, last updated 2026-09-01).
 
-- **[V17]** Codex, [Models](https://learn.chatgpt.com/docs/models) and OpenAI,
-  [GPT-5.6 Sol](https://developers.openai.com/api/docs/models/gpt-5.6-sol): model
-  lineup, ranking, effort levels, GPT-5.5 retirement date.
+- **[V17] ✓ (2026-09-17)** Codex, [Models](https://learn.chatgpt.com/docs/models) and
+  OpenAI, [GPT-5.6 Sol](https://developers.openai.com/api/docs/models/gpt-5.6-sol):
+  model lineup, ranking, surfaces, effort levels, `max` and `ultra`, GPT-5.5 retirement
+  date.
 
-- **[V18]** OpenAI,
+- **[V18] ✓ (2026-09-17)** OpenAI,
   [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra) and
   [Latest model guidance](https://developers.openai.com/api/docs/guides/latest-model):
-  capabilities, effort levels, delegation prompt.
+  capabilities, effort levels (no `none`), and the delegation prompt, which matches the
+  source’s proactive-mode text word for word.
 
 - **[V19]** Claude Platform,
   [Build an orchestration mode](https://platform.claude.com/docs/en/build-with-claude/mid-conversation-effort-example):
@@ -1726,7 +1788,9 @@ added at consolidation for sources that only the Claude Code research cited.
   [`agents/orchestrator.md`](https://github.com/openai/codex/blob/787823cf957709b314276646024ec54e1761c089/codex-rs/core/templates/agents/orchestrator.md),
   and
   [`agent/role.rs`](https://github.com/openai/codex/blob/787823cf957709b314276646024ec54e1761c089/codex-rs/core/src/agent/role.rs)
-  (source code; read directly).
+  (source code; read directly on 2026-09-16, and re-read on 2026-09-17 at `b0659c53`,
+  where the prompt and template files were identical and `multi_agents_spec.rs` had
+  gained only a description-override parameter).
 
 - **[V21] ✓**
   [Piebald-AI/claude-code-system-prompts](https://github.com/Piebald-AI/claude-code-system-prompts)
@@ -1824,6 +1888,11 @@ added at consolidation for sources that only the Claude Code research cited.
   hook with the `compact` matcher executes but its stdout is not injected after
   compaction; [#21776](https://github.com/anthropics/claude-code/issues/21776), a
   self-checkpoint feature request closed as a duplicate.
+
+- **[V38] ✓ (2026-09-17)** openai/codex pull request
+  [#37252](https://github.com/openai/codex/pull/37252), “Allow agent roles on
+  full-history forks”, merged 2026-08-06 and first released in rust-v0.148.0
+  (2026-08-18): removed the V2 rejection of `agent_type` on full-history forks.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
