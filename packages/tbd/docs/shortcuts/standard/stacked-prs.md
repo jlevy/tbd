@@ -28,12 +28,18 @@ gh extension list | grep 'gh stack'   # expect: gh stack  github/gh-stack  v0.1.
 gh skill list --agent codex | grep gh-stack   # under Claude Code, use --agent claude-code
 ```
 
-If either is missing, install both pinned via the ensure script for the current agent:
+If either is missing and `github-stacked-prs` is granted, install both pinned via the
+ensure script for the current agent:
 
 ```bash
 bash .codex/ensure-gh-cli.sh --with-stack          # Codex
 bash .claude/scripts/ensure-gh-cli.sh --with-stack # Claude Code
 ```
+
+Without the grant, do not install them unless the user agrees when asked, even when a PR
+someone else stacked needs them.
+`tbd guidelines agent-policy-grants` defines the policy, and `tbd policy show` reports
+its current value.
 
 Local tracking and formal GitHub membership are separate states.
 `gh stack view --json` reports the current *locally tracked* stack; `gh stack link` can
@@ -102,6 +108,14 @@ Follow this shortcut and declare it with `gh stack`. Do not hand-roll informal c
 Stacking is **opt-in**. It is one workflow among several, and a single well-scoped PR is
 the right default for most changes.
 Do not restructure someone’s work into a stack because stacks are available.
+
+**Create stacks only under the `github-stacked-prs` grant** (see
+`tbd guidelines agent-policy-grants`). When it is granted, follow this shortcut when a
+change is best split into dependent PRs or the user asks for a stack.
+When it is not granted, do not create or submit a stack: propose separate PRs instead,
+and stack only if the user then confirms they want one for this task.
+Either way, a PR someone else already stacked still follows the stack rules in this
+shortcut when you review or address it.
 
 **If the user asks for a stacked PR, produce an actual stack.** When they say “stacked
 PR”, “stack this”, “layer these”, or “dependent PRs”, the deliverable is a real stack:
