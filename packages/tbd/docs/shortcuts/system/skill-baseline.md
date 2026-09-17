@@ -16,18 +16,24 @@ description: Full tbd workflow guide for agents
 
 ## Installation
 
+**For a new project, and again after every tbd upgrade, run `tbd shortcut setup-tbd` and
+follow it.** It installs or upgrades the CLI, runs setup, and asks the user about any
+unanswered policy grants.
+The setup commands it runs:
+
 ```bash
 npm install -g get-tbd@latest      # Install or upgrade the CLI (same command for both)
 tbd setup --auto --prefix=<name>   # Fresh project (--prefix is REQUIRED: 2-8 alphabetic chars recommended. ALWAYS ASK THE USER FOR THE PREFIX; do not guess it)
-tbd setup --auto                   # Existing tbd project — also the upgrade step (applies any format migration; commit the diff it reports)
+tbd setup --auto                   # Existing tbd project; also the upgrade step (applies any format migration; commit the diff it reports)
 tbd setup --from-beads             # Uninitialized repo: import and archive .beads/
 ```
 
 If tbd refuses with “This repository requires a newer version of tbd”, run the two
 install/upgrade commands above.
-Setup installs `portable`, `agents-md`, `claude`, and `codex` project surfaces by
-default. `--surfaces=<comma-list>` narrows only those generated agent files; setup still
-performs initialization, config and format migration, and docs refresh.
+Setup installs six project surfaces by default: `portable`, `agents-md`, `claude`,
+`claude-agents`, `codex`, and `codex-agents`. `--surfaces=<comma-list>` narrows only
+those generated agent files; setup still performs initialization, config and format
+migration, and docs refresh.
 Bare `tbd setup` displays help.
 After `--from-beads`, verify the imported state; setup can continue after an import
 warning and moves only `.beads/` to `.beads-disabled/`.
@@ -94,7 +100,11 @@ or want help → run `tbd shortcut welcome-user`
 | “Implement these beads” | `tbd shortcut implement-beads` |
 | **Code Review & Commits** |  |
 | “Review this code” / “Code review” | `tbd shortcut review-code` |
-| “Review this PR” | `tbd shortcut review-github-pr` |
+| “Review PR #N” / “Review this PR” | `tbd shortcut review-github-pr` |
+| “Address the reviews on PR #N” | `tbd shortcut address-pr-review` |
+| “Review and fix PR #N” | `tbd shortcut review-and-merge-prs` (fix mode) |
+| “Get PR #N merge-ready” | `tbd shortcut review-and-merge-prs` (merge-ready mode) |
+| “Make sure PR #N is reviewed and merged” | `tbd shortcut review-and-merge-prs` (merge mode) |
 | “Commit this” / “Use the commit shortcut” | `tbd shortcut code-review-and-commit` |
 | “Create a PR” / “File a PR” | `tbd shortcut create-or-update-pr-simple` |
 | “Create a stacked PR” / “Stack this” / “Create dependent PRs” | `tbd shortcut stacked-prs` |
@@ -119,6 +129,8 @@ or want help → run `tbd shortcut welcome-user`
 | “Make the guidelines visible / customize doc X” | `tbd docs fork --category=general --category=<lang>` (recommended: general + the repo’s languages), or `tbd docs fork <name>` / `--all`; then edit in `docs/tbd/` |
 | “Update the guidelines to the latest” | `tbd docs update`; on conflicts ask the user, then `--merge` or `--keep-ours` |
 | “I deleted a forked doc file” | `tbd docs status` shows it `missing`; restore with `tbd docs fork <name> --force` or finalize with `tbd docs unfork <name>` |
+| **Setup** |  |
+| “Set up tbd” / *(after upgrading tbd)* | `tbd shortcut setup-tbd` |
 | **External Trackers** |  |
 | “Set up Linear” / “Connect this repo to Linear” | `tbd shortcut setup-linear` |
 | “My Linear sync isn’t working” / “Add my Linear key” | `tbd shortcut setup-linear` |
@@ -127,6 +139,7 @@ or want help → run `tbd shortcut welcome-user`
 | “Fix repository problems” | `tbd doctor --fix` |
 | **Sessions & Handoffs** |  |
 | “Hand off to another agent” | `tbd shortcut agent-handoff` |
+| “You can use sub-agents” / *(delegating any work)* | `tbd shortcut delegate-to-subagents` |
 | “Check out this library’s source” | `tbd shortcut checkout-third-party-repo` |
 | *(your choice whenever appropriate)* | `tbd list`, `tbd dep add`, `tbd close`, `tbd sync`, etc. |
 
