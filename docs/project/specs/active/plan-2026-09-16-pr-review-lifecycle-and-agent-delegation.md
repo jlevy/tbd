@@ -1064,6 +1064,12 @@ convenience, not a requirement.
 - [ ] Add tier agent definitions to setup as independent surfaces, with setup and golden
   tests
 - [ ] Add tests for the new documents and their routes
+- [ ] After the review and delegation shortcuts and guidelines are written, a
+  strong-tier reviewer reconciles them with the sub-agent research brief: classify each
+  vendor recommendation as followed, deliberately deviated from, or missed; record
+  deviations with reasons in the brief; and consolidate the most general, reusable
+  advice on using sub-agents into `delegate-to-subagents` as platform-neutral guidance
+  for any task
 
 ### Phase 3: Final Documentation Updates
 
