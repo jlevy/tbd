@@ -150,9 +150,17 @@ tbd’s generated `tbd-*` definitions stay in the project (`.claude/agents/` and
 
 - Spawn with the Agent tool and set `model` on every spawn.
 - The Agent tool cannot set a reasoning level.
-  To run at a tier’s level, spawn one of the `tbd-*` agent definitions that `tbd setup`
-  generates (see `agent-model-tiers`). Without one, the sub-agent inherits the session’s
-  level; record that level.
+  To run at a tier’s level that differs from the session’s, spawn one of the `tbd-*`
+  agent definitions that `tbd setup` generates (see `agent-model-tiers`). Without one,
+  the sub-agent inherits the session’s level; record that level.
+- A sub-agent does not get the Claude Code system prompt: it runs under its definition
+  body, `CLAUDE.md`, and your brief.
+  Rules you take for granted (commit only when asked, how to report) exist for it only
+  if the brief or the shortcut it names states them.
+- Sub-agents get the 5-minute prompt cache lifetime by default.
+  When a sub-agent will wait in intervals longer than that, set `subagentPromptCacheTtl`
+  to `1h` or keep its polls under five minutes (see `agent-model-tiers`, Sub-Agent Cost
+  and Caching).
 - Use the Workflow tool only when the user asks for a workflow in their own words.
   A `subagents` grant is not the explicit opt-in that tool requires.
 - A sub-agent started with `isolation: worktree` gets a worktree from the default
