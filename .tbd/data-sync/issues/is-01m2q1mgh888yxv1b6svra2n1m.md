@@ -3,10 +3,11 @@ type: is
 id: is-01m2q1mgh888yxv1b6svra2n1m
 title: "P2: Preserve the policy block in setup and state grant conditions in the tbd block"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 5
+version: 7
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:judgment
 dependencies:
@@ -17,8 +18,15 @@ dependencies:
   - type: blocks
     target: is-01m2pr2cx3yxc65xrmh4kpd9ef
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T06:42:31.591Z
-updated_at: 2026-09-17T06:44:59.881Z
+updated_at: 2026-09-17T10:32:13.511Z
+started_at: 2026-09-17T10:16:45.731Z
+closed_at: 2026-09-17T10:32:13.510Z
+close_reason: "Batch 3 verified by the coordinator: 133 tests in 8 files passed (setup-policy-grants, setup-flows, policy-grants, cli-policy, setup-dry-run-state, doctor-managed-surfaces, doc-categories, integration-files); typecheck, eslint, prettier, flowmark clean; committed"
+resolution: null
+duplicate_of: null
 ---
 Plan: Policy Grants > Persistence and The block; Policy Grants > "Stacked PRs under the grant" (the tbd block part); Implementation Plan Phase 2 items 1 ("preservation of the policy block on setup") and 5 ("and the tbd block"); Document Changes row for the tbd block in AGENTS.md.
 

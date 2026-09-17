@@ -3,10 +3,11 @@ type: is
 id: is-01m2pr2chxhjtktht45z3r4155
 title: "P2: Add review-code-security, review-code-performance, and review-code-correctness shortcuts"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 5
+version: 7
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:judgment
 dependencies:
@@ -17,8 +18,15 @@ dependencies:
   - type: blocks
     target: is-01m2q2590d5x1nx544vc8f42a3
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T03:55:20.508Z
-updated_at: 2026-09-17T06:51:40.940Z
+updated_at: 2026-09-17T10:32:13.519Z
+started_at: 2026-09-17T10:15:46.611Z
+closed_at: 2026-09-17T10:32:13.519Z
+close_reason: "Batch 3 verified by the coordinator: 133 tests in 8 files passed (setup-policy-grants, setup-flows, policy-grants, cli-policy, setup-dry-run-state, doctor-managed-surfaces, doc-categories, integration-files); typecheck, eslint, prettier, flowmark clean; committed"
+resolution: null
+duplicate_of: null
 ---
 Plan: Review Coverage and Rounds > Dedicated reviews; Implementation Plan Phase 2 item "Add the review-code-security, review-code-performance, and review-code-correctness shortcuts"; Document Changes row for the three shortcuts. Decision made: three dedicated shortcuts (not focus sections in review-code).
 

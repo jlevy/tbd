@@ -3,18 +3,26 @@ type: is
 id: is-01m2q1mwg7g79zbsqy77xwrdbw
 title: "P3: Fix tbd integration --help to name Linear only"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 2
+version: 4
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:mechanical
 dependencies:
   - type: blocks
     target: is-01m2pr2d9920ppbyepz0w9ne4f
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T06:42:43.846Z
-updated_at: 2026-09-17T06:45:02.149Z
+updated_at: 2026-09-17T10:16:19.689Z
+started_at: 2026-09-17T10:15:39.877Z
+closed_at: 2026-09-17T10:16:19.688Z
+close_reason: Help string changed to name Linear only; cli-setup tryscript 16/16 after build; prettier and eslint clean; no remaining 'Linear, GitHub' in src, tests, docs, or README
+resolution: null
+duplicate_of: null
 ---
 Plan: Final Documentation Updates > README Problems Today (last bullet) and Other Documentation Updates > `tbd integration --help`; Implementation Plan Phase 3 item 3.
 

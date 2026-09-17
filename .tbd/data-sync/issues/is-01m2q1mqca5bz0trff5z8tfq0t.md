@@ -5,7 +5,7 @@ title: "P2: Validate the policy block in tbd doctor"
 kind: task
 status: open
 priority: 1
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 labels:
   - exec:mechanical
@@ -16,7 +16,7 @@ dependencies:
     target: is-01m2pr2c6gds2vz3y9x0nxdwka
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
 created_at: 2026-09-17T06:42:38.592Z
-updated_at: 2026-09-17T06:44:53.427Z
+updated_at: 2026-09-17T10:32:13.788Z
 ---
 Plan: Policy Grants > Reading grants (Validation) and Source of truth; Implementation Plan Phase 2 item 1 ("tbd doctor checks").
 
@@ -28,3 +28,7 @@ Acceptance (Testing Strategy > Policy grants (code), these assertions): `tbd doc
 
 Rules: the coordinator commits and syncs. Do not commit, push, run `tbd sync`, or edit the plan spec unless the write set lists it. Keep scratch files in the session scratch directory. Run only the targeted checks listed, not the full suite.
 Markdown check: `uvx --exclude-newer-package flowmark-rs=2026-05-31 flowmark-rs@0.3.1 --auto --check <files>` (per-file form of `pnpm format:md:check`). TypeScript checks: `pnpm exec prettier --check <files>`, `pnpm exec eslint <files>`, `pnpm --filter get-tbd typecheck`. Tests that read `packages/tbd/dist/` (integration-files, doc-references, setup-flows, golden-output, tryscripts) need a current build: run `pnpm --filter get-tbd build` once if dist is stale.
+
+## Notes
+
+From tbd-r8y0: doctor.ts checkCodexAgents uses expectedContent: getCodexTbdSection(), so a project with grants reports AGENTS.md stale; use getCodexTbdSectionPreservingGrants(existing) from setup.ts. Validate the block with parsePolicyBlock/resolvePolicyStatuses/diffPolicyStatuses from policy-grants.ts.
