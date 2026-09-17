@@ -78,6 +78,11 @@ import {
   parseManagedIntegrationFormat,
   type ManagedArtifactInspection,
 } from '../lib/managed-artifact.js';
+import {
+  POLICY_BLOCK_VERSION,
+  parsePolicyBlock,
+  withPolicyBlock,
+} from '../../lib/policy-grants.js';
 
 /**
  * Get the shortcut and guidelines directory content for appending to installed skill files.
@@ -244,16 +249,60 @@ actions rather than telling them to run commands.
 - Run \`tbd prime\` to load current project state and the full tbd workflow.
 - Run \`tbd skill\` for the complete reusable tbd skill instructions.
 - Run \`tbd shortcut --list\` and \`tbd guidelines --list\` for on-demand resources.
-- When creating or updating a pull request, run \`tbd shortcut create-or-update-pr-simple\`.
-  When that creation or update concerns stacked or dependent PRs, run
-  \`tbd shortcut stacked-prs\` first. Chained branch bases are not a formal stack; link
-  the PRs with \`gh stack\`.
+- Before a GitHub mutation, a merge, or a delegation to sub-agents, check the project’s
+  policy grants with \`tbd policy show\`; \`tbd guidelines agent-policy-grants\` defines
+  them. A grant is the user’s standing consent; the current conversation overrides it.
+- To create or update a pull request, run \`tbd shortcut create-or-update-pr-simple\`.
+  Create a stack of dependent PRs with \`tbd shortcut stacked-prs\` only when
+  \`github-stacked-prs\` is granted; otherwise propose separate PRs.
+  A PR that is already stacked keeps its stack handling either way.
+  Chained branch bases are not a formal stack.
 - Track all work as beads: \`tbd create\`, \`tbd ready\`, \`tbd start\`, \`tbd close\`, and
   \`tbd sync\`.
 - Before editing a bead, pull and re-read it, run \`tbd start <id>\`, then run \`tbd sync\`
   so other replicas can see the claim.
 `;
   return `${CODEX_BEGIN_LINE}\n${body}\n${CODEX_END_MARKER}\n`;
+}
+
+const POLICY_GUIDELINE_HINT = 'tbd guidelines agent-policy-grants';
+
+/**
+ * The tbd block setup writes for an AGENTS.md whose current content is
+ * `existing`: the generated section with the file's policy block carried over
+ * byte for byte, including policy names this tbd does not know (they may come
+ * from a newer release). Setup never adds, removes, or changes a grant; only
+ * `tbd policy` does. A block this tbd cannot read is never rewritten: this
+ * throws a CLIError so setup stops and AGENTS.md keeps every grant.
+ */
+export function getCodexTbdSectionPreservingGrants(existing: string): string {
+  const parse = parsePolicyBlock(existing);
+  switch (parse.status) {
+    case 'missing':
+      return getCodexTbdSection();
+    case 'ok':
+      return withPolicyBlock(getCodexTbdSection(), parse.text);
+    case 'unknown-version':
+      throw new CLIError(
+        `AGENTS.md has a policy block with version v=${parse.version}; this tbd reads ` +
+          `v=${POLICY_BLOCK_VERSION}. Setup left AGENTS.md unchanged.\n` +
+          'Upgrade tbd to manage it: npm install -g get-tbd@latest',
+      );
+    case 'malformed':
+      throw new CLIError(
+        [
+          'AGENTS.md has a malformed policy block:',
+          ...parse.problems.map((problem) => `  - ${problem}`),
+          'Setup left AGENTS.md unchanged so no grant is lost. Fix the block by hand (see ' +
+            `\`${POLICY_GUIDELINE_HINT}\`) or delete it and record the grants again with ` +
+            '`tbd policy`, then run `tbd setup` again.',
+        ].join('\n'),
+      );
+    default: {
+      const _exhaustive: never = parse;
+      throw new Error(`Unhandled parse status: ${JSON.stringify(_exhaustive)}`);
+    }
+  }
 }
 
 interface SetupClaudeOptions {
@@ -1382,13 +1431,16 @@ class SetupCodexHandler extends BaseCommand {
 
       let newContent: string;
 
-      const tbdSection = getCodexTbdSection();
-
       if (existingContent) {
-        if (existingContent.includes(CODEX_BEGIN_MARKER)) {
+        const hasBlock = existingContent.includes(CODEX_BEGIN_MARKER);
+        if (hasBlock) {
           // Refuse to downgrade a block written by a newer tbd.
           assertNotNewerFormat(existingContent, 'AGENTS.md');
-          // Update existing section
+        }
+        // Carry recorded grants over unchanged; a policy block this tbd cannot
+        // read stops setup here, before anything is written.
+        const tbdSection = getCodexTbdSectionPreservingGrants(existingContent);
+        if (hasBlock) {
           newContent = this.updatetbdSection(existingContent, tbdSection);
           await writeFile(agentsPath, newContent);
           this.output.success('Updated existing tbd section in AGENTS.md');
@@ -1410,6 +1462,10 @@ class SetupCodexHandler extends BaseCommand {
       this.output.info('Codex and other AGENTS.md-compatible tools will automatically');
       this.output.info('read this file on session start.');
     } catch (error) {
+      if (error instanceof CLIError) {
+        // The format and policy block guards already name the file and the fix.
+        throw error;
+      }
       throw new CLIError(`Failed to update AGENTS.md: ${(error as Error).message}`);
     }
   }
@@ -2560,17 +2616,25 @@ class SetupAutoHandler extends BaseCommand {
 
     try {
       const agentsPath = getAgentsMdPath(cwd);
+      let existing = '';
+      try {
+        existing = await readFile(agentsPath, 'utf-8');
+      } catch {
+        // No AGENTS.md yet; setup creates it.
+      }
+      if (existing.includes(CODEX_BEGIN_MARKER)) {
+        assertNotNewerFormat(existing, agentsPath);
+      }
       const inspection = await inspectManagedArtifact({
         path: agentsPath,
-        expectedContent: getCodexTbdSection(),
+        // The block this setup would write, recorded grants included, so a
+        // project with grants compares current instead of stale on every run.
+        expectedContent: getCodexTbdSectionPreservingGrants(existing),
         ownershipMarker: CODEX_BEGIN_MARKER,
         supportedFormat: AGENT_INTEGRATION_FORMAT,
         selectManagedContent: (content) =>
           extractManagedBlock(content, CODEX_BEGIN_MARKER, CODEX_END_MARKER),
       });
-      if (inspection.state === 'too-new') {
-        assertNotNewerFormat(await readFile(agentsPath, 'utf-8'), agentsPath);
-      }
       if (inspection.state === 'current') {
         result.alreadyInstalled = true;
         if (this.ctx.dryRun) {
