@@ -15,12 +15,20 @@ export interface InspectManagedArtifactOptions {
   selectManagedContent?: (content: string) => string;
 }
 
-/** Return the numeric portion of an `fNN` integration format. */
+/**
+ * Return the numeric portion of an integration format stamp. Stamps written
+ * through tbd 0.9.0 are two digits (f01..f08, the repository format of the day);
+ * later stamps are three digits (f100 and up). Numeric order works across both.
+ */
 export function integrationFormatNumber(format: string): number {
   return Number.parseInt(format.replace(/^f/, ''), 10);
 }
 
-/** Read the first `format=fNN` marker from generated integration content. */
+/**
+ * Read the first `format=fN...` stamp from generated integration content. This
+ * regex and the numeric comparison above are what every released tbd uses, so a
+ * new stamp must parse here as a number above the older release's ceiling.
+ */
 export function parseManagedIntegrationFormat(content: string): string | null {
   const match = /format=f(\d+)/.exec(content);
   return match?.[1] ? `f${match[1]}` : null;
