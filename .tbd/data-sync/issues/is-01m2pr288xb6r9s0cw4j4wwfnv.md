@@ -5,7 +5,7 @@ title: "P1: Route the review vocabulary, setup-tbd, and delegation in every skil
 kind: task
 status: open
 priority: 1
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 labels:
   - exec:mechanical
@@ -16,7 +16,7 @@ dependencies:
     target: is-01m2pr2cx3yxc65xrmh4kpd9ef
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
 created_at: 2026-09-17T03:55:16.124Z
-updated_at: 2026-09-17T06:44:59.916Z
+updated_at: 2026-09-17T11:24:04.914Z
 ---
 Plan: Request Vocabulary; Implementation Plan Phase 1 item 5 (skill tiers; the README rows are in the README revision bead (tbd-v8am), tbd-prime in the prime bead (tbd-7va1), code-review-rules in tbd-me2l); Other Documentation Updates > skill-baseline, skill-brief, skill-minimal; Document Changes rows "skill-baseline, skill-brief, skill-minimal, README" and "Skill Installation section".
 
@@ -34,3 +34,7 @@ Acceptance: `pnpm --filter get-tbd exec vitest run tests/integration-files.test.
 
 Rules: the coordinator commits and syncs. Do not commit, push, run `tbd sync`, or edit the plan spec unless the write set lists it. Keep scratch files in the session scratch directory. Run only the targeted checks listed, not the full suite.
 Markdown check: `uvx --exclude-newer-package flowmark-rs=2026-05-31 flowmark-rs@0.3.1 --auto --check <files>` (per-file form of `pnpm format:md:check`). TypeScript checks: `pnpm exec prettier --check <files>`, `pnpm exec eslint <files>`, `pnpm --filter get-tbd typecheck`. Tests that read `packages/tbd/dist/` (integration-files, doc-references, setup-flows, golden-output, tryscripts) need a current build: run `pnpm --filter get-tbd build` once if dist is stale.
+
+## Notes
+
+From tbd-6q8n: skill-baseline (~line 29) and skill-minimal (~line 42) still say four setup surfaces or list portable,agents-md,claude,codex; add claude-agents and codex-agents. From tbd-q58i: the skill Installation section should point to tbd shortcut setup-tbd.

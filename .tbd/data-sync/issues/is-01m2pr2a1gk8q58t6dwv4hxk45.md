@@ -3,10 +3,11 @@ type: is
 id: is-01m2pr2a1gk8q58t6dwv4hxk45
 title: "P2: Add setup-tbd shortcut and point welcome-user to it"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 5
+version: 7
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: claude-code@spud10.local
 labels:
   - exec:mechanical
 dependencies:
@@ -17,8 +18,15 @@ dependencies:
   - type: blocks
     target: is-01m2pr288xb6r9s0cw4j4wwfnv
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T03:55:17.935Z
-updated_at: 2026-09-17T06:44:56.447Z
+updated_at: 2026-09-17T11:24:04.597Z
+started_at: 2026-09-17T10:58:56.522Z
+closed_at: 2026-09-17T11:24:04.597Z
+close_reason: "Verified by the coordinator after a rebuild: 131 tests in 9 files (setup-tier-agents, setup-flows, doctor, setup-policy-grants, golden-output, integration-files, doc-categories, dry-run) and 62 tryscript cases (setup, setup-commands, uninstall, orientation golden) passed; typecheck, eslint, prettier, flowmark clean; committed"
+resolution: null
+duplicate_of: null
 ---
 Plan: Design > Consolidated Setup Process (steps 1-7 and the upgrade note); Implementation Plan Phase 2 item 4 (shortcut and welcome-user parts); Document Changes rows setup-tbd and "Skill Installation section, welcome-user, tbd setup output" (welcome-user part); Other Documentation Updates > welcome-user. The skill Installation pointer is in tbd-7698 and the setup output pointer is in the setup flags bead (tbd-ac0w).
 
