@@ -228,8 +228,10 @@ Confirmed against the shortcut sources and against PRs #301, #304, and #305:
     task, verifying a sub-agent’s claims, or passing the user’s authorization into a
     brief. Elsewhere there is only a one-line tip in `tbd-prime` (“use parallel
     subagents” when creating many issues) and the `claude -p` / `codex exec` runner in
-    `watch-beads`. `research-claude-code-sub-agents.md` is research, not a shortcut, and
-    its review epic (`tbd-mgnn`) is paused.
+    `watch-beads`. The sub-agent research brief
+    (`research-2026-09-16-subagent-guidance-anthropic-openai.md`, which absorbed
+    `research-claude-code-sub-agents.md`) is research, not a shortcut, and the earlier
+    brief’s review epic (`tbd-mgnn`) is paused.
 
 ### A Prior Orchestration Proposal
 
@@ -339,7 +341,7 @@ The facts this plan depends on, as of 2026-09-16:
   splitting the generated integration format from the repository format first.
 - This repository’s committed `.claude/settings.json` sets
   `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-6`, so any Claude Code sub-agent spawned
-  here without a named model runs Opus 4.6.
+  here without a named model runs Opus 4.6. Phase 2 removes the pin.
 - Not every agent loads `AGENTS.md` automatically (this repository’s `CLAUDE.md` does
   not import it). Claude Code sessions do receive `tbd prime` output through the tbd
   SessionStart hook.
@@ -451,7 +453,9 @@ concern also gets a dedicated review pass for each such area:
   such as concurrency and locking, data integrity and persisted formats, migrations,
   sync and merge algorithms, and numerical calculations.
 
-The coordinator states which areas apply and why.
+Each runs its own shortcut, built on `review-code` with a focused checklist and the
+relevant topic guidelines: `review-code-security`, `review-code-performance`, or
+`review-code-correctness`. The coordinator states which areas apply and why.
 When it is unclear whether a PR is sensitive in an area, it asks the user.
 Each dedicated review is its own published review with its own letter, and its findings
 are addressed like any other review’s.
@@ -564,7 +568,7 @@ without a marker is matched by reading.
 | Reviewer | strong | No commits; may run tests and scratch scripts | Its senior engineering review |
 | Dedicated reviewer | strong | Same as the reviewer | Its security, performance, or correctness review |
 | Addressing agent | moderate | Commits to the PR branch (sole committer); beads | Disposition replies |
-| Administrator | fast | Beads; no code | CI waits, state collection, prepared replies |
+| Administrator | fast | Beads; no code | Administrative work large enough to justify a sub-agent, such as bookkeeping across several PRs; the coordinator does small administrative steps inline |
 
 The addressing agent escalates to the coordinator when a fix requires a design decision,
 when it would rebut or decline a Blocker or High finding, or when two findings conflict.
@@ -619,13 +623,15 @@ agents neither ask again in every session nor act without consent.
 
 | Policy | Values | Recommended | Covers |
 | --- | --- | --- | --- |
-| `github-workflows` | `granted`, `not-granted` | `granted` | Running GitHub workflows end to end through the GitHub API or tools such as MCP servers |
-| `github-editing` | `granted`, `not-granted` | `granted` | Full `gh` access short of merging: pushing branches; creating, reviewing, and editing PRs; posting comments, reviews, and disposition replies; watching CI |
+| `github-workflows` | `granted`, `not-granted` | `granted` | The rest of an end-to-end GitHub workflow beyond branches and PRs, through any tool (`gh`, the GitHub API, or MCP servers): issues, labels, and re-running or cancelling CI runs |
+| `github-editing` | `granted`, `not-granted` | `granted` | Branches and PRs short of merging, through any tool (`gh`, the GitHub API, or MCP servers): pushing branches; creating, reviewing, and editing PRs; posting comments, reviews, and disposition replies; watching CI |
 | `github-merge` | `not-granted`, `per-request`, `unconditional` | `per-request` | Merging PRs with `gh` once the review requirements are met. `per-request` merges only a PR the user authorized in the current request. `unconditional` merges without per-case authorization; it is recorded only when the user explicitly grants it, and tbd recommends against it |
 | `subagents` | `granted`, `not-granted` | `granted` | Using sub-agents according to `delegate-to-subagents` |
-| `pr-review-requirements` | `standard`, a custom requirement, or `none` | `standard` | The reviews required before a PR is merged. `standard`: one senior engineering review and one pass addressing all findings for every PR, plus a dedicated review pass for each area of special concern (security, performance, correctness) in which the PR is sensitive. A custom requirement adds rounds or kinds (for example `standard + security`). `none` requires no review; it is recorded only when the user explicitly grants it, and tbd recommends against it |
+| `pr-review-requirements` | `standard`, a custom requirement, or `none` | `standard` | The reviews required before a PR is merged. `standard`: one senior engineering review and one pass addressing all findings for every PR, plus a dedicated review pass for each area of special concern (security, performance, correctness) in which the PR is sensitive. A custom requirement is a short structured value that adds kinds or rounds, such as `standard + security` or `standard + 2 rounds`. `none` requires no review; it is recorded only when the user explicitly grants it, and tbd recommends against it |
 | `github-stacked-prs` | `granted`, `not-granted` | `granted` | Setting up GitHub-native stacked PRs (the pinned `gh-stack` extension and its agent skill) and creating, submitting, syncing, and merging formal stacks with `gh stack`, following `tbd shortcut stacked-prs` |
 | `linear` | `not-granted`, `epics`, or a custom selection | Not recommended by default; ask | Syncing beads with Linear. `epics` syncs open epic beads only, in both directions. A custom selection follows `tbd shortcut setup-linear` |
+
+Neither GitHub grant covers repository settings, secrets, or workflow files.
 
 **Answered and unanswered policies.** A policy listed in the block is answered, whatever
 its value. A policy missing from the block is unanswered: agents treat it as
@@ -664,9 +670,15 @@ renderer in agreement.
 an outbound selection of `kinds: [epic]`, `specs: none`, and open statuses, reconciled
 in both directions by `tbd sync`. This is narrower than the integration’s
 `policy: default`, which also selects beads linked to an active spec.
+`epics` pairs open epic beads with Linear issues and syncs their fields both ways; it
+does not create beads from new Linear issues unless the user asks.
+Phase 2 confirms this against the integration’s inbound behavior.
 
-**The block.** Grants live in a policy block within the standard tbd section of
-`AGENTS.md` (exact placement relative to the generated block: see Open Questions):
+**The block.** Grants live in a policy block inside the generated tbd block in
+`AGENTS.md`, just before its `END TBD INTEGRATION` marker.
+The rest of the generated tbd block reads the same in every project: it states
+conditions such as “when `github-stacked-prs` is granted” and links to
+`agent-policy-grants`, so only the policy block differs between projects:
 
 ```markdown
 <!-- BEGIN TBD POLICY GRANTS v=1 -->
@@ -707,9 +719,17 @@ Recorded 2026-09-16.
 **Persistence.** `tbd setup` reads the existing policy block before regenerating the tbd
 block and writes it back unchanged, including policy names it does not recognize.
 Setup never adds, removes, or changes a grant without an explicit flag or command.
-A tbd release without grant support would delete the block when it regenerates the tbd
-block, so the release that introduces grants must also stop older releases from
-rewriting a block that contains grants (see Open Questions).
+A tbd release without grant support would delete the policy block when it regenerates
+the tbd block, so the generated integration format is split from the repository format,
+as `tbd-format-versioning.md` already requires before f09. The release that introduces
+grants bumps only the integration format stamped in the block’s begin marker; the
+repository format stays f08. Because tbd refuses to rewrite a managed block stamped with
+a newer format, tbd 0.9.0 and older stop with an upgrade message instead of deleting
+grants.
+
+**Source of truth.** The policy block is the only record of project grants.
+People may edit it by hand, and `tbd doctor` validates it; `.tbd/config.yml` holds no
+copy.
 
 **Reading grants.**
 
@@ -844,7 +864,10 @@ reviews:
    - Keep doing useful local work while sub-agents run, and wait only when the next step
      needs the result [V16].
    - Do not delegate trivial commands or lookups the coordinator can do in a few tool
-     calls [V20], [V21] (see Open Questions for administrative work).
+     calls [V20], [V21]. The coordinator does small administrative steps inline and uses
+     a fast-tier sub-agent only for administrative work large enough to justify a fresh
+     context, such as bookkeeping across several PRs or a long CI wait it would
+     otherwise block on.
    - For follow-up work on the same task, continue the existing sub-agent (SendMessage
      in Claude Code, a follow-up task in Codex) rather than starting a new one [V20],
      [V22].
@@ -941,8 +964,9 @@ reviews:
 
 **Several PRs.** The working tree holds one PR head at a time, so PRs are handled one at
 a time in the shared tree.
-To work on several at once, each PR gets its own worktree, shared by that PR’s reviewer
-and addressing agent; bead data is shared across worktrees.
+When the user asks for parallel work or authorizes sub-agents for several PRs in one
+request, each PR gets its own worktree, shared by that PR’s reviewer and addressing
+agent; bead data is shared across worktrees.
 Merges happen one at a time.
 After each merge, the coordinator re-pins the remaining PRs.
 If a PR needs an update from its base, the addressing agent updates it and CI must pass
@@ -958,8 +982,9 @@ of fixes the same session wrote says that it is not independent.
 
 Claude Code cannot set the reasoning level per spawn, so strong-tier work at `xhigh` or
 `max` needs a predefined agent.
-`tbd setup` would generate small definitions prefixed `tbd-`, one per tier and reasoning
-level used:
+`tbd setup` generates small definitions prefixed `tbd-` by default, as setup surfaces
+that can be turned off independently of the tbd skill: `tbd-strong-max` (`max`),
+`tbd-strong` (`xhigh`), `tbd-moderate` (`xhigh`), and `tbd-fast` (`medium`). They are:
 
 - `.claude/agents/tbd-*.md` with `model` and `effort` frontmatter and a short body:
   follow the brief, run the named tbd shortcut, report in the requested format;
@@ -981,6 +1006,7 @@ convenience, not a requirement.
 | `review-code` | PR scope reviews the pinned head in the working tree; encourage running tests and reproduction scripts; leave the tree as found |
 | `review-github-pr` | Record the pinned head; full discovery sweep; header and marker; letter choice; formal review with `commit_id` by default and the user’s channel otherwise; follow-up review mode; dedicated security, performance, and correctness reviews per `pr-review-requirements`; “session scratch directory” instead of “temp file” |
 | `address-pr-review` | Match by marker; lettered IDs; four dispositions; fix confirmation by automated test or manual test script or runbook; marked reply; escalation rule; condensed report for a coordinator |
+| `review-code-security`, `review-code-performance`, `review-code-correctness` (new) | Dedicated review passes built on `review-code`, each with a focused checklist and topic guidelines |
 | `review-and-merge-prs` (new) | The orchestrated workflow, round decision, and merge gate |
 | `delegate-to-subagents` (new) | Sub-agent authorization through the `subagents` grant, and the delegation procedure |
 | `setup.ts`, a new `tbd policy` command, `tbd prime`, `tbd doctor` (code) | Record, preserve, show, and validate the policy block; setup grant flags; guard against older releases rewriting a block with grants |
@@ -1027,16 +1053,28 @@ convenience, not a requirement.
   `create-or-update-pr-*` shortcuts, `setup-github-cli`, and the tbd block
 - [ ] Confirm the `linear: epics` mapping against the Linear integration, including
   inbound behavior, and update `setup-linear`
-- [ ] Resolve the `CLAUDE_CODE_SUBAGENT_MODEL` pin in `.claude/settings.json` per the
-  decision
+- [ ] Remove the `CLAUDE_CODE_SUBAGENT_MODEL` pin from `.claude/settings.json`, since
+  tbd names a model on every spawn and the pin only downgrades unnamed spawns to Opus
+  4.6
 - [ ] Add the `agent-model-tiers` guideline
 - [ ] Add the `delegate-to-subagents` shortcut
+- [ ] Add the `review-code-security`, `review-code-performance`, and
+  `review-code-correctness` shortcuts
 - [ ] Add the `review-and-merge-prs` shortcut
-- [ ] Add tier agent definitions to setup, with setup and golden tests (see Open
-  Questions)
+- [ ] Add tier agent definitions to setup as independent surfaces, with setup and golden
+  tests
 - [ ] Add tests for the new documents and their routes
 
-### Phase 3: Validation by Use
+### Phase 3: Final Documentation Updates
+
+- [ ] Revise `README.md` to the target structure, applying every change in Final
+  Documentation Updates
+- [ ] Apply the other documentation updates listed there
+- [ ] Fix `tbd integration --help` to name Linear only
+- [ ] Extend contract tests to the README request table, and add table-generation tests
+  if the reference tables are generated
+
+### Phase 4: Validation by Use
 
 - [x] Open a PR for this work, starting with this plan
 - [ ] Run “Review and fix” on that PR with sub-agents: a strong-tier reviewer publishes
@@ -1073,14 +1111,14 @@ convenience, not a requirement.
   authentication steps; the skill, `welcome-user`, and setup output route to it.
 - **Packaging:** build, run `node packages/tbd/dist/bin.mjs setup --auto`, and confirm
   each new shortcut and guideline resolves by name, as `docs/development.md` describes.
-- **Setup surfaces** (if tier definitions ship): setup and golden tests for the
-  generated files, including refresh on upgrade.
-- **Live validation:** the Phase 3 runs are the acceptance test for the orchestration
+- **Setup surfaces:** setup and golden tests for the generated tier agent definitions,
+  including refresh on upgrade and turning the surfaces off.
+- **Live validation:** the Phase 4 runs are the acceptance test for the orchestration
   and delegation shortcuts; their results go in Outcome Notes.
 
 ## Rollout Plan
 
-The documents ship with the next tbd release; `tbd setup --auto` installs them and any
+The documents ship with the next tbd release; `tbd setup --auto` installs them and the
 tier agent definitions.
 Add a changelog entry covering the new requests, the review marker format, policy
 grants, and `tbd policy`. Upgrade every writer that runs `tbd setup` before recording
@@ -1089,81 +1127,154 @@ the block.
 
 ## Open Questions
 
-**Review workflow**
+These concern the README revision in Final Documentation Updates.
+Phase 3 uses the stated default for any question still open when it starts.
 
-1. **Tier agent definitions.** Should `tbd setup` generate them by default, as separate
-   setup surfaces that can be turned off independently (proposed), or only on request?
-   Claude Code files fix one reasoning level each; proposed set: `tbd-strong-max`
-   (`max`), `tbd-strong` (`xhigh`), `tbd-moderate` (`xhigh`), `tbd-fast` (`medium`).
-2. **Dedicated review shortcuts.** tbd has no security, performance, or correctness
-   review shortcut. Proposed: add `review-code-security`, `review-code-performance`, and
-   `review-code-correctness`, each built on `review-code` with a focused checklist and
-   the relevant topic guidelines.
-   The alternative is focus sections inside `review-code`.
-3. **Several PRs at once.** Proposed: one PR at a time in the shared tree by default,
-   and one worktree per PR when the user asks for parallel work or authorizes sub-agents
-   for several PRs in one request.
-4. **Review coverage of fix commits.** Proposed: fix commits are confirmed by the
-   addressing agent’s tests and reviewed again only in an additional round.
-   The alternative is a light review of every fix commit before merge.
+1. **npm page.** Should the npm package page stay identical to the GitHub README, which
+   `packages/tbd/scripts/copy-docs.mjs` copies today, or get a shorter page linking to
+   GitHub? Default: identical.
+2. **Voice.** Should the README keep its first-person sections, or move to the neutral
+   register of the skill and design doc?
+   Default: neutral.
+3. **Reference tables.** Should the shortcut, guideline, and template tables stay
+   hand-written, move to a `docs/` page, or be generated at build time so names and
+   counts cannot drift?
+   Default: generated at build time.
+4. **Policy and delegation depth.** How much policy-grant and delegation material
+   belongs in the README? Default: a short summary that links to `agent-policy-grants`
+   and `delegate-to-subagents`.
+5. **Length and examples.** Should the README target a length, and should dated examples
+   (the FAQ bead listing and spec names) be refreshed each release or removed?
+   Default: about 450 to 500 lines, with dated examples removed.
 
-**Policy grants and setup**
+## Final Documentation Updates
 
-5. **Where the policy block sits.** Inside the tbd block, an older tbd release deletes
-   it on its next `tbd setup`. Option (a): nest it inside the block and split the
-   generated integration format from the repository format (as
-   `tbd-format-versioning.md` already requires before f09), so older releases refuse to
-   rewrite the block. Option (b): place it immediately after the `END TBD INTEGRATION`
-   marker, where older releases leave it alone and no format change is needed; it still
-   reads as part of the tbd section because its heading follows the tbd heading.
-   Proposed: (b).
-6. **Where grants are stored.** Proposed: the `AGENTS.md` block is the only record; hand
-   edits are allowed and validated by `tbd doctor`. The alternative stores grants in
-   `.tbd/config.yml` and renders the block, which survives block deletion but creates
-   two places to edit.
-7. **User-level grants at all.** Proposed: keep them as a fallback for policies a
-   project has not answered, so a user’s personal default still works in repositories
-   without a policy block.
-   The alternative supports project grants only.
-8. **Scope of the two GitHub grants.** As specified, `github-workflows` covers
-   end-to-end workflows through APIs or MCP tools and `github-editing` covers PR work
-   through `gh`, so they overlap on PR editing.
-   Proposed: define both by scope rather than tool.
-   `github-editing` covers branch and PR changes through any tool; `github-workflows`
-   covers the rest of an end-to-end workflow (issues, re-running or cancelling CI runs),
-   and neither covers repository settings, secrets, or workflow files.
-9. **Custom review requirements.** Proposed: a short structured value, such as
-   `standard`, `standard + security`, `standard + 2 rounds`, or `none`, rather than free
-   text.
-10. **“Not now” answers.** Proposed: leave the policy unanswered so the setup process
-    asks again at the next upgrade.
-    The alternative records `not-granted`, which stops the question.
-11. **Linear `epics` direction.** Proposed: `epics` pairs open epic beads with Linear
-    issues and syncs their fields both ways, without creating beads from new Linear
-    issues unless the user asks.
-    To verify against the integration’s inbound behavior in Phase 2.
-12. **Static or grant-dependent tbd block.** Proposed: the generated tbd block stays the
-    same in every project, stating conditions such as “when `github-stacked-prs` is
-    granted” and linking to `agent-policy-grants`. The alternative renders only the
-    guidance for granted policies, which is shorter but makes setup re-render the block
-    whenever a grant changes.
-13. **Administrative work and the fast tier.** Claude Code and Codex guidance both
-    discourage delegating trivial commands [V20], [V21], while the fast tier assigns
-    administrative steps to sub-agents.
-    Proposed: the coordinator does small administrative steps inline, and uses a
-    fast-tier sub-agent only for administrative work large enough to justify a fresh
-    context, such as bookkeeping across several PRs or a long CI wait it would otherwise
-    block on.
-14. **The sub-agent model pin in this repository.** Proposed: remove
-    `CLAUDE_CODE_SUBAGENT_MODEL` from `.claude/settings.json`, since tbd names a model
-    on every spawn and the pin only downgrades unnamed spawns to Opus 4.6. The
-    alternative updates it to a current model.
-15. **Names.** Proposed: shortcuts `review-and-merge-prs` (alternative `shepherd-prs`,
-    since two of its modes do not merge), `delegate-to-subagents`, and `setup-tbd`;
-    guidelines `agent-model-tiers` and `agent-policy-grants`; command `tbd policy` with
-    `show`, `grant`, `revoke`, and `set`; setup flag `--policies=recommended`; policy
-    names `github-workflows`, `github-editing`, `github-merge`, `github-stacked-prs`,
-    `subagents`, `pr-review-requirements`, and `linear`.
+When the implementation phases land, the README and the docs that restate it are brought
+up to date in one pass (Phase 3). This list comes from a review on 2026-09-16 of the
+root `README.md` (864 lines), which `copy-docs.mjs` also publishes as the npm page,
+against the CLI, the skill, the design doc, the changelog, and this plan.
+The listed facts were spot-checked against the repository.
+
+### README Problems Today
+
+- **Wrong counts.** The README says “25+” guidelines (`README.md:224`, `:677`) and “40+”
+  (`:269`); there are 44. It says “over a dozen” shortcuts; there are 37 standard
+  shortcuts, and the shortcut table omits several (`review-code-rust`,
+  `new-qa-playbook`, `suggest-upstream-improvements`).
+- **Wrong template name.** The template table lists `architecture`; the template is
+  `architecture-doc`, and `qa-playbook` is missing.
+- **Stale labels.** The web view, watch, and Linear sync are marked “(new)” (`:206`,
+  `:211`, and others), though they shipped in 0.5.0 and 0.6.0; the CLI is 0.9.0.
+- **Inconsistent capability list.** The README lists five capabilities; the skill and
+  the design doc list four, grouped differently.
+- **Repetition.** The web view is described five times, Linear six times, the Beads
+  comparison three times, upgrading three times, and `--add` three times.
+- **Missing facts.** Requirements omit the GitHub CLI (2.97.0 or newer) and
+  `ensure-gh-cli.sh --with-stack`; Codex gets only a passing mention, though setup
+  installs Codex hooks and scripts as it does for Claude Code.
+- **Ordering.** Three motivational sections interleave with reference material, and “How
+  Should You Use tbd” comes before “How to Use tbd”.
+- **Dated examples.** The FAQ shows a January bead listing and January spec names, and
+  names older models.
+- **Review routing.** The request table stops at “Review this PR” (Gap 8).
+- **CLI help, not the README, is wrong in one place:** `tbd integration --help` says
+  “(Linear, GitHub)”, but no GitHub adapter exists.
+
+### Target Structure
+
+About 450 to 500 lines, in this order:
+
+1. Title and a one-paragraph description.
+2. What you get: one capability list, identical to the skill’s.
+3. Quick Start: one install command and one sentence to say to the agent, which runs
+   `setup-tbd`.
+4. Talking to your agent: the single request table, including the full review
+   vocabulary.
+5. Features at a glance: each feature described once, in one sentence.
+6. Installation and Setup: requirements including `gh`; setup and upgrade stated once;
+   team setup; agent surfaces for Claude Code and Codex together; GitHub authentication
+   and stack tooling; Linear in one paragraph; Beads migration.
+7. Agent policies and delegation: grants, `tbd policy`, and model tiers, in summary.
+8. Commands: a curated reference.
+9. Shortcuts, guidelines, and templates.
+10. Why tbd: motivation, spec-driven development, and the Beads comparison, merged.
+11. FAQ: trimmed, without dated examples.
+12. Contributing and License.
+
+### README Changes
+
+**Fixes to shipped behavior:**
+
+1. Replace the five-item capability list with the skill’s list, and make the design
+   doc’s capability list match.
+2. Remove every “(new)” and “now with” label.
+3. State that Claude Code and Codex both get generated hooks and skills, and that other
+   agents use the portable skill or the CLI; rename “Claude Code Integration” to “Agent
+   Surfaces” and describe all four setup surfaces.
+4. Keep one install command in Quick Start; move cloud and upgrade variants to
+   Installation, and state setup and upgrade once.
+5. Add request-table routes the skill already has and the README lacks, such as stacked
+   PRs, `merge-upstream`, and `tbd docs fork`.
+6. Merge “How Should You Use tbd” and “Why Is This a Good Idea” into one “Why tbd”
+   section near the end, dropping the repeated feature descriptions.
+7. Describe the web view, watch, and Linear once each in Features, linking to Commands.
+8. Add the GitHub CLI (2.97.0 or newer, optional, installed by the session hook) and
+   `--no-gh-cli` to Requirements, and the `gh` floor to GitHub authentication.
+9. Cut the Linear setup text to one paragraph plus a link to `setup-linear`.
+10. Add the missing shortcuts to the shortcut table, and correct or generate the
+    guideline and template tables (`architecture-doc`, `qa-playbook`, exact counts).
+11. Collapse the three `--add` examples into one.
+12. Remove the dated FAQ examples and model names.
+
+**Changes from this plan:**
+
+13. Quick Start and Upgrading: point to `setup-tbd`, and say setup asks about policy
+    grants for the project once and asks again only about unanswered policies.
+14. Request table: add “Address the reviews on PR #N”, “Review and fix PR #N”, “Get PR
+    #N merge-ready”, and “Make sure PR #N is reviewed and merged”, with the shortcut and
+    end state from Request Vocabulary; add “You can use sub-agents” and “Set up tbd”.
+15. Features and Commands: add policy grants, the `tbd policy show`, `grant`, `revoke`,
+    and `set` commands, and a short example of the policy block.
+16. GitHub authentication: say stack tooling installs only under `github-stacked-prs`.
+17. Linear: say `linear: epics` is the default selection when Linear is granted.
+18. Shortcut table: add `review-and-merge-prs`, `delegate-to-subagents`, `setup-tbd`,
+    and the three dedicated review shortcuts; describe `address-pr-review` with four
+    dispositions.
+19. Guideline tables: add `agent-model-tiers` and `agent-policy-grants`.
+20. FAQ: add “Can agents merge my PRs?”, answered with the merge gate and the
+    `github-merge` values.
+21. Remove the outer-loop (“Ralph Wiggum”) paragraph; point to `delegate-to-subagents`
+    and the sub-agent research brief instead.
+
+### Other Documentation Updates
+
+- **`skill-baseline`, `skill-brief`, `skill-minimal`:** the review vocabulary, the
+  `setup-tbd` and `delegate-to-subagents` routes, and the GitHub authorization section;
+  the README request table matches them.
+- **`welcome-user`:** point new users to `setup-tbd`, mention the policy questions, and
+  add review-and-merge examples.
+- **`tbd-prime`:** replace the parallel sub-agents tip with `delegate-to-subagents`, and
+  print effective and unanswered grants.
+- **`tbd-design.md`:** align the capability list with the README and skill, and document
+  the policy block, its format marker, and `tbd policy`.
+- **`tbd-format-versioning.md`:** the split between the generated integration format and
+  the repository format.
+- **`docs/docs-overview.md`:** list this plan and the sub-agent research brief.
+- **`docs/development.md`:** extend the list of contracts stated consistently across
+  docs to the review vocabulary and policy grants.
+- **`CHANGELOG.md`:** the release entry described in Rollout Plan.
+- **`tbd integration --help`:** name Linear only until a GitHub adapter exists.
+- **`setup-github-cli`, `stacked-prs`, `create-or-update-pr-*`:** state the
+  `github-stacked-prs` condition (also in Phase 2).
+
+### Verification
+
+- The contract tests check that every request phrase appears in each skill tier and the
+  README.
+- If the reference tables are generated, a test fails when a shortcut, guideline, or
+  template is missing from its table.
+- The Markdown format check passes on every changed doc, and `tbd readme` shows the
+  revised README.
 
 ## References
 
@@ -1171,9 +1282,11 @@ the block.
   `address-pr-review`, `stacked-prs`, `watch-beads`, `new-qa-playbook`; guidelines
   `code-review-rules`, `agent-run-operations-rules`
 - [research-2026-09-16-subagent-guidance-anthropic-openai.md](../../research/current/research-2026-09-16-subagent-guidance-anthropic-openai.md):
-  sub-agent platform facts and vendor guidance, sources [V1] through [V19]
-- [research-claude-code-sub-agents.md](../../research/current/research-claude-code-sub-agents.md)
-  and paused epic `tbd-mgnn`
+  sub-agent mechanics, vendor guidance, and Claude Code orchestration patterns; the [V#]
+  sources cited in this plan.
+  It absorbed `research-claude-code-sub-agents.md` (now
+  [archived](../../research/archive/research-claude-code-sub-agents.md)) on 2026-09-16;
+  paused epic `tbd-mgnn`
 - [tbd-design.md](../../../../packages/tbd/docs/tbd-design.md): shared
   `$GIT_COMMON_DIR/tbd/` layout and the sync lock
 - PR evidence: [#301](https://github.com/jlevy/tbd/pull/301),
