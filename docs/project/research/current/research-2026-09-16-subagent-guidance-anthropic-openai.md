@@ -1,6 +1,6 @@
 # Research: Sub-Agents in Claude Code and Codex: Mechanics, Vendor Guidance, and Practice
 
-**Date:** 2026-02-13 (last updated 2026-09-17)
+**Date:** 2026-02-13 (last updated 2026-09-18)
 
 **Author:** Joshua Levy, with Claude (Opus 5 and Fable 5.1) and research sub-agents
 
@@ -10,6 +10,8 @@ passages that could not be re-verified carry a dated note rather than a silent c
 The Codex and OpenAI facts were re-verified on 2026-09-17 against the Codex and OpenAI
 documentation and the openai/codex source at commit `b0659c53`; corrections are noted
 where they were made.
+OpenAI prompt-caching figures (retention, write/read multipliers, `prompt_cache_key`,
+and reasoning-effort invalidation) were re-read on 2026-09-18 [V42], [V46].
 
 **Related:**
 
@@ -751,9 +753,8 @@ raise: what system prompt a sub-agent actually runs under, and what a fresh sub-
 costs once prompt caching is taken into account.
 The Claude Code facts come from the sub-agents page [V1] and the Claude Code prompt
 caching page [V39], the API facts from the prompt caching reference [V40], and the Codex
-facts from the source [V16], [V41]. The OpenAI prompt caching documentation could not be
-reached from the sandbox that wrote this section (egress blocked), so the OpenAI-side
-caching figures are marked as not re-verified.
+facts from the source [V16], [V41]. The OpenAI prompt caching guide [V42] and pricing
+page [V46] were re-read on 2026-09-18.
 
 #### What System Prompt a Sub-Agent Runs Under
 
@@ -975,8 +976,8 @@ Three practical rules follow:
 
 *(Added 2026-09-17.)* The rules above follow from one mechanism, and working from it
 explains every cost figure in this brief.
-Prices are Claude API list prices on 2026-09-17 [V43]; the OpenAI figures are marked
-where they are from memory.
+Prices are Claude API list prices on 2026-09-17 [V43]. OpenAI multipliers and list
+prices were re-read on 2026-09-18 [V42], [V46].
 
 **Why a cache exists.** A model has no memory between requests.
 Every turn of an agent loop is a new request carrying the entire conversation so far:
@@ -1225,45 +1226,65 @@ that strips `cache_control` markers silently turns every turn into full-price in
 [V39]. Check `cache_read_input_tokens` in the response before assuming caching works
 through any intermediary.
 
-**Codex and the OpenAI API.** *(Partly from memory; the OpenAI pages were unreachable
-from the sandbox that wrote this section, and the Codex facts are from source [V44].)*
+**Codex and the OpenAI API.** *(OpenAI pages re-read 2026-09-18 [V42], [V46]; Codex
+facts remain from source [V44].)*
 
-- OpenAI’s caching is automatic and implicit: no breakpoints, prefix matching from the
-  start of the request in 128-token increments once the prompt exceeds 1,024 tokens, and
-  the response reports `cached_tokens` in `usage.prompt_tokens_details` [V42]. Cached
-  input is billed at a per-model discount (for the recent GPT-5-family models a cached
-  input token costs a tenth of an uncached one on the published price lists; verify the
-  current factor for `gpt-5.6-sol` and `gpt-6-astra`). There is no write premium: the
-  first request pays normal input, and every later request pays the discounted rate on
-  the matched prefix.
-- Retention is a few minutes of inactivity by default (documented as 5 to 10 minutes,
-  extending to about an hour off-peak), and some models accept
-  `prompt_cache_retention: "24h"` for a longer window; the Codex client does not set it
-  as of the source read on 2026-09-17 [V44].
-- Routing is by `prompt_cache_key`: requests with the same key go to the same cache
-  shard, so a prefix written under one key is not found under another even if identical.
-  Codex sets the key to the session ID, and for an internally spawned thread (a
-  sub-agent) to `<source>:<parent_thread_id>`, so a Codex sub-agent’s requests route to
-  the same shard as its siblings under one parent [V44]. Because a fresh Codex child
-  also receives the same base instructions as the parent and works in the same
-  directory, the prefix a Codex sub-agent shares with its parent runs from the start of
-  the system prompt to the point where the developer instructions differ (a `tbd-*` role
-  replaces them, so the shared part is the base prompt; a built-in role shares further).
-  Codex sends the full history on each turn except over a WebSocket, where it sends only
-  new items against `previous_response_id`, with `store: false` and
-  `reasoning.encrypted_content` included so prior reasoning items round-trip [V44].
-- Reasoning effort is a request parameter, not prompt text, so a Codex sub-agent at a
-  different `reasoning_effort` on the same model should still match the parent’s prefix;
-  whether the cache key includes effort is not documented and was not verified.
-- Codex’s model tells its sub-agents to prefer minute-scale waits over busy polling
-  [V20], which keeps a waiting Codex sub-agent inside the retention window in the same
-  way a Claude Code sub-agent polling under five minutes does.
+OpenAI now has two caching regimes, and the older “automatic prefix, no write premium”
+description applies only to models before GPT-5.6.
 
-The practical difference between the providers is that Claude bills writes at a premium
-and gives a longer, explicit lifetime in exchange, while OpenAI bills no premium, gives
-a shorter and less predictable lifetime, and routes by key; on both, the rules for an
-orchestrator are the same: keep the prefix constant per definition, append rather than
-edit, keep reports short, and never let a waiting agent idle past the lifetime.
+- **GPT-5.6 and later** (including `gpt-5.6-sol` and `gpt-6-astra`) [V42], [V46]: cache
+  writes cost 1.25× uncached input and cache reads 0.1× (list prices on 2026-09-18,
+  standard short context: `gpt-5.6-sol` $4 / $0.40 cached / $5.00 write per 1M;
+  `gpt-6-astra` $10 / $1.00 / $12.50). The minimum cacheable prefix is 1,024 tokens.
+  Default lifetime is `prompt_cache_options.ttl: "30m"` (the only supported TTL): an
+  entry stays eligible for 30 minutes after the latest write or reuse, and OpenAI may
+  keep it longer. Both implicit and explicit caching exist.
+  Implicit mode places a breakpoint at the end of the latest eligible message (user,
+  last tool response in a group, or the initial consecutive developer-message block).
+  A request whose user suffix changes therefore does **not** reuse a shared developer
+  prefix unless that prefix has its own explicit breakpoint
+  (`prompt_cache_options.mode: "explicit"` plus `prompt_cache_breakpoint` on the stable
+  content). Cache writes are not an additive fee: each input token is billed as uncached,
+  cached, or cache-write.
+  Usage reports `cached_tokens` and `cache_write_tokens` under
+  `usage.input_tokens_details` on the Responses API (`prompt_tokens_details` on Chat
+  Completions). `prompt_cache_key` is optional on these models and is for separate cache
+  *accounting* (customers, users, workspaces), not for routing a hit.
+  Changing top-level `reasoning.effort` can rewrite hidden system instructions and miss
+  the prefix; on supported GPT-6 models, append a `configuration_update` input item and
+  leave the original top-level effort unchanged.
+- **Earlier models** [V42]: caching is automatic, with no explicit breakpoints and no
+  cache-write fee. Prefix matching is best-effort from the start of the request once the
+  prompt meets a model-dependent minimum (1,024 to 2,048 tokens).
+  Reported `cached_tokens` rounds down to a multiple of 128 after subtracting hidden
+  system tokens. Retention is `prompt_cache_retention`: `in_memory` (typically 5 to 10
+  minutes of inactivity, up to about an hour) or `24h` (typically around 30 minutes, up
+  to 24 hours). On these models `prompt_cache_key` *does* matter for hit rate: a stable
+  key helps route related requests to the same cache; the docs suggest about 15 requests
+  per minute per key for busy groups.
+- **Codex** [V44]: still sets `prompt_cache_key` to the session ID, and for an
+  internally spawned thread to `<source>:<parent_thread_id>`. It sends full history
+  except over a WebSocket (`previous_response_id`, `store: false`,
+  `reasoning.encrypted_content`). As of the 2026-09-17 source read it does not set
+  `prompt_cache_retention`. This pass did not re-read `client.rs` for
+  `prompt_cache_options` (the GPT-5.6+ TTL/mode fields).
+  A `tbd-*` Codex role replaces developer instructions, so the shared prefix with the
+  parent stops where those instructions differ.
+  Codex’s model still tells sub-agents to prefer minute-scale waits [V20], which fits
+  the earlier-model in-memory window and the GPT-5.6 30-minute TTL, but on GPT-5.6+
+  implicit mode a fresh child with a different task message will miss the parent’s
+  prefix unless the client places an explicit breakpoint after the shared instructions.
+
+The practical difference is no longer “Claude charges for writes, OpenAI does not.”
+On GPT-5.6+ both providers bill a 1.25× write and a 0.1× read.
+Claude still offers an explicit 1-hour TTL (2× write) beside the 5-minute default;
+OpenAI’s documented TTL on GPT-5.6+ is 30 minutes.
+On earlier OpenAI models there is still no write premium, a shorter in-memory lifetime,
+and key-based routing.
+On both providers, keep the prefix constant per definition, append rather than edit,
+keep reports short, and do not let a waiting agent idle past the lifetime.
+On GPT-5.6+, also put an explicit breakpoint after the shared instructions when the task
+suffix changes.
 
 ### What the System Prompts Say
 
@@ -2242,9 +2263,13 @@ coordination, but they are experimental and cost more tokens.
   the classification and the deviations, and consolidate the general delegation advice
   into `delegate-to-subagents` (bead `tbd-ycxf`; done 2026-09-17; see Classification of
   Vendor Recommendations and Deviations From Vendor Guidance).
-- [ ] Re-read the OpenAI prompt caching documentation and confirm the retention,
+- [x] Re-read the OpenAI prompt caching documentation and confirm the retention,
   discount, `prompt_cache_key`, and reasoning-effort figures marked as not re-verified
   in Caching From First Principles (the Codex and the OpenAI API paragraph).
+  Done 2026-09-18: GPT-5.6+ bills 1.25× writes and 0.1× reads with a 30-minute TTL and
+  needs an explicit breakpoint when the task suffix changes; earlier models keep
+  automatic caching with no write premium.
+  Tracked as `tbd-2f9j`.
 - [ ] Track openai/codex#20077: the handler applies overrides on full-history forks, but
   the V2 instructions still say it does not; re-check when the instructions change.
 - [ ] Re-check model names and reasoning levels whenever a provider releases or retires
@@ -2551,12 +2576,14 @@ added at consolidation for sources that only the Claude Code research cited.
   embedded config files), and `codex-rs/core/assets/agent/builtins/awaiter.toml` (the
   built-in awaiter at `low` reasoning effort).
 
-- **[V42]** OpenAI,
-  [Prompt caching](https://platform.openai.com/docs/guides/prompt-caching) and the
-  Cookbook’s Prompt Caching 101 notebook: automatic prefix caching from 1,024 tokens.
-  Not re-read on 2026-09-17 (network egress blocked from the writing sandbox); the
-  retention, discount, and `prompt_cache_key` details are from memory and marked as such
-  in the text.
+- **[V42] ✓ (2026-09-18)** OpenAI,
+  [Prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching):
+  GPT-5.6+ vs earlier-model regimes; 1.25× cache writes and 0.1× cache reads on
+  GPT-5.6+; 1,024-token minimum; `prompt_cache_options.mode` / `ttl: "30m"`;
+  `prompt_cache_breakpoint`; `prompt_cache_key` as accounting on GPT-5.6+ and as routing
+  on earlier models; `prompt_cache_retention` (`in_memory`, `24h`) on earlier models;
+  `reasoning.effort` invalidation and `configuration_update` on supported GPT-6 models;
+  `cached_tokens` / `cache_write_tokens`. Replaces the 2026-09-17 memory-only note.
 
 - **[V43] ✓ (2026-09-17)** Claude Platform,
   [Pricing](https://platform.claude.com/docs/en/about-claude/pricing): per-model base,
@@ -2577,6 +2604,11 @@ added at consolidation for sources that only the Claude Code research cited.
   `mid-conversation-output-config-2026-07-01` on Fable 5.1, Mythos 5.1, and Opus 5); the
   per-model minimum cacheable prefix applying on every platform; the `max_tokens: 0`
   keep-alive; preserved thinking and the history-editing check on Fable 5.1.
+
+- **[V46] ✓ (2026-09-18)** OpenAI,
+  [Pricing](https://developers.openai.com/api/docs/pricing): standard short-context list
+  prices for `gpt-6-astra` and `gpt-5.6-sol` (input, cached input, cache writes,
+  output). Cache-write is 1.25× input and cached input is 0.1× input on both.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
