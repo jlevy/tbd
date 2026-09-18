@@ -221,9 +221,11 @@ actions.
 - **The policies:** `github-editing` covers branches and PRs short of merging, and
   `github-workflows` covers issues, labels, and re-running or cancelling CI, each
   through any tool (`gh`, the GitHub API, or MCP servers).
-  Merging needs `github-merge`; its recommended value, `per-request`, covers only a PR
-  the user authorized in the current request.
-  `github-stacked-prs` and `subagents` cover stacked PRs and delegation.
+  Merging needs `github-merge`, whose value says who authorizes each merge: `never`,
+  `confirm-every` (what an unanswered policy means), `confirm-session` (the recommended
+  value: one confirmation covers the conversation’s merges), or `autonomous`. No value
+  of it relaxes `pr-review-requirements`. `github-stacked-prs` and `subagents` cover
+  stacked PRs and delegation.
   For values, coverage, and recording grants, run `tbd guidelines agent-policy-grants`.
 - **Without the grant an action needs,** ask once, before the first action it covers.
 - **A tool-permission allow rule grants only the operations it allows.** An allow rule

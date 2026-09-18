@@ -66,8 +66,9 @@ This plan adds that layer in four parts:
 - A tbd runtime, scheduler, or CLI command for orchestration.
   Shortcuts remain Markdown instructions that the agent executes.
 - Merging without the user’s authorization.
-  Merge happens only with a per-request authorization or an explicit unconditional merge
-  grant.
+  What counts as authorization is the `github-merge` value: a request naming the PR or a
+  per-merge confirmation (`confirm-every`), a confirmation in the session
+  (`confirm-session`), or an explicit `autonomous` grant.
 - Replacing GitHub approvals or branch protection, or bypassing them (no `--admin`).
 - Cross-provider delegation (for example, a Claude session spawning Codex agents).
   A coordinator delegates within its own platform.
@@ -121,9 +122,9 @@ Gathered from the user on 2026-09-16:
     tools such as MCP tools (recommended);
   - **GitHub full editing:** allow full access, including creating, reviewing, and
     editing PRs with the `gh` CLI (recommended);
-  - **GitHub merging:** allow merging PRs with `gh` (recommended only with the user’s
-    authorization for each case; unconditional merging without review is not recommended
-    unless the user explicitly grants it);
+  - **GitHub merging:** allow merging PRs with `gh`, at one of four levels: never, after
+    a confirmation for every merge, after one confirmation per session (recommended), or
+    autonomously (not recommended unless the user explicitly sets it);
   - **Sub-agent use:** allow sub-agents according to recommended practices
     (recommended);
   - **PR review requirements:** how many and what kind of PR reviews are required before
@@ -629,7 +630,7 @@ agents neither ask again in every session nor act without consent.
 | --- | --- | --- | --- |
 | `github-workflows` | `granted`, `not-granted` | `granted` | The rest of an end-to-end GitHub workflow beyond branches and PRs, through any tool (`gh`, the GitHub API, or MCP servers): issues, labels, and re-running or cancelling CI runs |
 | `github-editing` | `granted`, `not-granted` | `granted` | Branches and PRs short of merging, through any tool (`gh`, the GitHub API, or MCP servers): pushing branches; creating, reviewing, and editing PRs; posting comments, reviews, and disposition replies; watching CI |
-| `github-merge` | `not-granted`, `per-request`, `unconditional` | `per-request` | Merging PRs with `gh` once the review requirements are met. `per-request` merges only a PR the user authorized in the current request. `unconditional` merges without per-case authorization; it is recorded only when the user explicitly grants it, and tbd recommends against it |
+| `github-merge` | `never`, `confirm-every`, `confirm-session`, `autonomous` | `confirm-session` | Who authorizes merging a PR whose review requirements are met. `never`: an agent does not merge. `confirm-every` (also the unanswered value): one confirmation authorizes one merge of one PR. `confirm-session`: one confirmation covers the conversation’s merges. `autonomous`: no asking; recorded only when the user explicitly sets it, and tbd recommends against it. No value weakens `pr-review-requirements` |
 | `subagents` | `granted`, `not-granted` | `granted` | Using sub-agents according to `delegate-to-subagents` |
 | `pr-review-requirements` | `standard`, a custom requirement, or `none` | `standard` | The reviews required before a PR is merged. `standard`: one senior engineering review and one pass addressing all findings for every PR, plus a dedicated review pass for each area of special concern (security, performance, correctness) in which the PR is sensitive. A custom requirement is a short structured value that adds kinds or rounds, such as `standard + security` or `standard + 2 rounds`. `none` requires no review; it is recorded only when the user explicitly grants it, and tbd recommends against it |
 | `github-stacked-prs` | `granted`, `not-granted` | `granted` | Setting up GitHub-native stacked PRs (the pinned `gh-stack` extension and its agent skill) and creating, submitting, syncing, and merging formal stacks with `gh stack`, following `tbd shortcut stacked-prs` |
@@ -639,15 +640,17 @@ Neither GitHub grant covers repository settings, secrets, or workflow files.
 
 **Answered and unanswered policies.** A policy listed in the block is answered, whatever
 its value. A policy missing from the block is unanswered: agents treat it as
-`not-granted` (or `standard` for `pr-review-requirements`) and ask when it matters, and
-the setup process asks about it.
-Merging without review requires two explicit grants: `github-merge` of `per-request` or
-`unconditional`, and `pr-review-requirements: none`.
+`not-granted`, with two exceptions (`confirm-every` for `github-merge` and `standard`
+for `pr-review-requirements`), and ask when it matters, and the setup process asks about
+it. Merging without review requires two explicit decisions: a `github-merge` value that
+permits the merge, and `pr-review-requirements: none`. No `github-merge` value weakens
+the review requirement on its own.
 
 **The recommended set.** “All recommended” means `github-workflows: granted`,
-`github-editing: granted`, `github-merge: per-request`, `github-stacked-prs: granted`,
-`subagents: granted`, and `pr-review-requirements: standard`. Linear is outside the
-recommended set and is always asked separately.
+`github-editing: granted`, `github-merge: confirm-session`,
+`github-stacked-prs: granted`, `subagents: granted`, and
+`pr-review-requirements: standard`. Linear is outside the recommended set and is always
+asked separately.
 
 **Stacked PRs under the grant.** With `github-stacked-prs: granted`, the setup process
 installs the stack tooling (`ensure-gh-cli.sh --with-stack`, as `setup-github-cli`
@@ -699,7 +702,7 @@ current conversation overrides them. For what each policy means, run
 
 - `github-workflows`: granted
 - `github-editing`: granted
-- `github-merge`: per-request
+- `github-merge`: confirm-session
 - `github-stacked-prs`: granted
 - `subagents`: granted
 - `pr-review-requirements`: standard
@@ -771,9 +774,10 @@ copy.
   require `github-editing`; re-running CI or editing issues and labels requires
   `github-workflows`. Without the grant an action needs, the agent asks once before the
   first GitHub mutation in a task.
-- Merge mode requires `github-merge`. With `per-request`, the user’s “reviewed and
-  merged” request is the authorization for the PRs it names.
-  With `not-granted`, the agent asks before merging.
+- Merge mode requires `github-merge`, and its value says what authorizes each merge:
+  `confirm-every` (the unanswered value) takes a request naming the PR or a confirmation
+  of that merge, `confirm-session` takes one confirmation in the conversation,
+  `autonomous` takes nothing more, and `never` means the agent does not merge.
 - Delegation requires `subagents` (see Sub-Agent Authorization).
 - `pr-review-requirements` decides which reviews the orchestrated workflow runs and what
   the merge gate checks (see Review Coverage and Rounds).
@@ -965,9 +969,10 @@ reviews:
      green for that head;
    - GitHub reports the PR mergeable, with no blocking review state;
    - for a stack layer, every layer below has merged;
-   - in merge mode, the `github-merge` policy permits this merge: the user’s request
-     named this PR (`per-request`), or the user confirmed it when asked (`not-granted`),
-     or an effective `unconditional` grant exists.
+   - in merge mode, the `github-merge` policy permits this merge, by its value:
+     `confirm-every` takes a request naming this PR or a confirmation of this merge,
+     `confirm-session` takes a confirmation anywhere in the conversation, `autonomous`
+     takes nothing more, and `never` never permits it.
 6. **Merge** (merge mode only): use the repository’s merge method, never `--admin`. A
    branch-protection block (for example, a required approval that the author’s account
    cannot give) is reported to the user, not bypassed.

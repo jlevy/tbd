@@ -79,7 +79,7 @@ describe('policyGrantFindings', () => {
   });
 
   it('reports one ok line when the working tree block matches the default branch', () => {
-    const content = agentsMd(['- `subagents`: granted', '- `github-merge`: per-request']);
+    const content = agentsMd(['- `subagents`: granted', '- `github-merge`: confirm-session']);
     expect(policyGrantFindings(effectiveFrom(content), workingTreeFrom(content))).toEqual([
       {
         name: 'Policy grants',
@@ -147,7 +147,7 @@ describe('policyGrantFindings', () => {
         message: 'unknown values for 2 policies',
         path: 'AGENTS.md',
         details: [
-          'github-merge: sometimes (treated as not-granted; github-merge accepts "not-granted", "per-request", "unconditional")',
+          'github-merge: sometimes (treated as confirm-every; github-merge accepts "never", "confirm-every", "confirm-session", "autonomous")',
           'pr-review-requirements: standard + 1 rounds (treated as standard; "1 rounds" restates standard; rounds must be 2 or more)',
         ],
         suggestion:
@@ -157,9 +157,9 @@ describe('policyGrantFindings', () => {
   });
 
   it('warns when the working tree block differs from the default branch, listing each policy', () => {
-    const committed = agentsMd(['- `github-merge`: per-request', '- `linear`: epics']);
+    const committed = agentsMd(['- `github-merge`: confirm-session', '- `linear`: epics']);
     const working = agentsMd([
-      '- `github-merge`: not-granted',
+      '- `github-merge`: never',
       '- `subagents`: granted',
       '- `linear`: epics',
     ]);
@@ -169,7 +169,7 @@ describe('policyGrantFindings', () => {
         status: 'warn',
         message: 'working tree block differs from origin/main in 2 policies',
         path: 'AGENTS.md',
-        details: ['github-merge: per-request -> not-granted', 'subagents: unanswered -> granted'],
+        details: ['github-merge: confirm-session -> never', 'subagents: unanswered -> granted'],
         suggestion:
           'These grants take effect once committed and merged to main; see: tbd policy show',
       },
@@ -182,7 +182,7 @@ describe('policyGrantFindings', () => {
     expect(removed).toMatchObject({
       status: 'warn',
       message: 'working tree block differs from origin/main in 2 policies',
-      details: ['github-merge: per-request -> unanswered', 'linear: epics -> unanswered'],
+      details: ['github-merge: confirm-session -> unanswered', 'linear: epics -> unanswered'],
     });
   });
 

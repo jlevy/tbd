@@ -98,6 +98,15 @@ tbd setup --auto
 
 - **Integration help**: `tbd integration --help` names only Linear; it listed GitHub,
   which has no adapter.
+- **`github-merge` takes four values instead of three.** `never` (an agent does not
+  merge and does not ask), `confirm-every` (one confirmation authorizes one merge of one
+  PR, and this is also what an unanswered policy means), `confirm-session` (recommended:
+  one confirmation covers the conversation’s merges, including a stack’s lower layers),
+  and `autonomous` (no asking; recorded only when the user sets it explicitly, and
+  recommended against).
+  It replaces `not-granted`, `per-request`, and `unconditional`, which shipped in no
+  release. No value weakens `pr-review-requirements`: that policy decides whether a PR is
+  ready, and the merge gate checks it separately in every case.
 - **Grants are read from `origin`, not from the checkout’s `sync.remote`**: the policy
   block’s content came from a trusted ref, but the setting that chose the ref came from
   the working tree’s `.tbd/config.yml`, which a pull request controls.

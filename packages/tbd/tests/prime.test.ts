@@ -55,13 +55,13 @@ describe('formatPolicyGrantsLines', () => {
       agentsMdWithGrants([
         { name: 'github-workflows', value: 'granted' },
         { name: 'github-editing', value: 'granted' },
-        { name: 'github-merge', value: 'per-request' },
+        { name: 'github-merge', value: 'confirm-session' },
         { name: 'pr-review-requirements', value: 'standard+security' },
       ]),
     );
     expect(formatPolicyGrantsLines(reading(parse))).toEqual([
       'Effective grants from AGENTS.md on main (details: `tbd policy show`):',
-      '  github-workflows: granted, github-editing: granted, github-merge: per-request,',
+      '  github-workflows: granted, github-editing: granted, github-merge: confirm-session,',
       '  pr-review-requirements: standard + security',
       'Unanswered (treated as not-granted): github-stacked-prs, subagents, linear',
       'Ask the user when a task needs one, or run `tbd shortcut setup-tbd` to ask about all.',
@@ -84,7 +84,7 @@ describe('formatPolicyGrantsLines', () => {
   it('names every policy unanswered when the tbd block has no policy block', () => {
     expect(formatPolicyGrantsLines(reading({ status: 'missing' }))).toEqual([
       'No grants recorded in AGENTS.md on main (details: `tbd policy show`).',
-      'Unanswered (treated as not-granted; pr-review-requirements as standard):',
+      'Unanswered (treated as not-granted; github-merge as confirm-every; pr-review-requirements as standard):',
       '  github-workflows, github-editing, github-merge, github-stacked-prs, subagents,',
       '  pr-review-requirements, linear',
       'Ask the user when a task needs one, or run `tbd shortcut setup-tbd` to ask about all.',
@@ -96,7 +96,7 @@ describe('formatPolicyGrantsLines', () => {
       agentsMdWithGrants([
         { name: 'github-workflows', value: 'granted' },
         { name: 'github-editing', value: 'not-granted' },
-        { name: 'github-merge', value: 'per-request' },
+        { name: 'github-merge', value: 'confirm-session' },
         { name: 'github-stacked-prs', value: 'granted' },
         { name: 'subagents', value: 'granted' },
         { name: 'pr-review-requirements', value: 'standard' },
@@ -116,7 +116,7 @@ describe('formatPolicyGrantsLines', () => {
     ]);
     const lines = formatPolicyGrantsLines(reading(parsePolicyBlock(agentsMd)))!;
     const text = lines.join('\n');
-    expect(text).toContain('github-merge: sometimes (unknown value; treated as not-granted)');
+    expect(text).toContain('github-merge: sometimes (unknown value; treated as confirm-every)');
     expect(text).toContain('future-policy: yes (unknown policy)');
     expect(text).toContain(
       'Unanswered (treated as not-granted; pr-review-requirements as standard)',
@@ -187,7 +187,7 @@ describe('formatPolicyGrantsLines', () => {
       'Could not resolve the default branch (git remote set-head origin --auto, or git fetch origin <default-branch>); treat every policy as unanswered and run `tbd policy show`.',
     ]);
     expect(lines.join('\n')).not.toContain('Effective grants');
-    expect(lines.join('\n')).not.toContain('unconditional');
+    expect(lines.join('\n')).not.toContain('autonomous');
   });
 });
 
@@ -295,7 +295,7 @@ describe('prime command', { timeout: subprocessTestTimeout() }, () => {
         );
         expect(result.stdout).toContain('github-editing: granted, subagents: granted');
         expect(result.stdout).toContain(
-          'Unanswered (treated as not-granted; pr-review-requirements as standard):',
+          'Unanswered (treated as not-granted; github-merge as confirm-every; pr-review-requirements as standard):',
         );
       }
     });
@@ -356,7 +356,7 @@ describe('prime command', { timeout: subprocessTestTimeout() }, () => {
       await writeFile(
         join(seed, 'AGENTS.md'),
         agentsMdWithGrants([
-          { name: 'github-merge', value: 'unconditional' },
+          { name: 'github-merge', value: 'autonomous' },
           { name: 'pr-review-requirements', value: 'none' },
           { name: 'subagents', value: 'granted' },
         ]),
@@ -370,7 +370,7 @@ describe('prime command', { timeout: subprocessTestTimeout() }, () => {
       expect(result.stdout).toContain('=== AGENT POLICY GRANTS ===');
       expect(result.stdout).toContain('Could not resolve the default branch');
       expect(result.stdout).not.toContain('Effective grants');
-      expect(result.stdout).not.toContain('unconditional');
+      expect(result.stdout).not.toContain('autonomous');
     });
   });
 

@@ -112,7 +112,7 @@ describe('integration file formats', () => {
       for (const policy of ['github-editing', 'github-workflows', 'github-merge']) {
         expect(section).toContain(`\`${policy}\``);
       }
-      expect(section).toContain('`per-request`');
+      expect(section).toContain('`confirm-session`');
       expect(section).toContain('tbd guidelines agent-policy-grants');
       expect(section).toContain(
         'A tool-permission allow rule grants only the operations it allows.',

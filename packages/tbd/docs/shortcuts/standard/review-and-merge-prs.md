@@ -86,9 +86,11 @@ Several PRs when the request names more than one):
      The request needs:
      - `github-editing` in every mode, for publishing reviews, pushing fixes, and
        posting replies;
-     - `github-merge` in merge mode: `per-request` is satisfied by a request that names
-       this PR; with `not-granted` or unanswered, the user confirms before the merge;
-       `unconditional` needs nothing more;
+     - `github-merge` in merge mode, whose value decides what authorizes the merge:
+       `confirm-every` (the value an unanswered policy takes) is satisfied by a request
+       that names this PR or a confirmation of this merge; `confirm-session` by a
+       confirmation anywhere in this conversation; `autonomous` needs nothing more; with
+       `never`, do not merge and do not ask;
      - `subagents` to delegate, checked and recorded as in Check Authorization in
        `tbd shortcut delegate-to-subagents`;
      - `pr-review-requirements` decides the reviews and rounds required: `standard` (the
@@ -264,11 +266,20 @@ Several PRs when the request names more than one):
    - For a stack layer, every layer below has merged.
      Check: `gh stack view --json` shows no open layer below this one, and the PR’s
      `baseRefName` is the trunk.
-   - In merge mode, the `github-merge` policy permits this merge: the user’s request
-     named this PR (`per-request`), or the user confirmed it when asked (`not-granted`
-     or unanswered), or an effective `unconditional` grant exists.
+   - In merge mode, the `github-merge` policy permits this merge, by its value (Merge
+     Authorization in `tbd guidelines agent-policy-grants`). `never` never permits it:
+     stop and report who merges instead.
+     `confirm-every`, which is what an unanswered policy means, needs the user’s request
+     to name this PR or a confirmation of this merge, and one confirmation authorizes
+     one merge of one PR and is never carried to another.
+     `confirm-session` needs a confirmation anywhere in this conversation, which then
+     covers the merges of the work in hand, including every layer of a stack this merge
+     includes; a confirmation you cannot see in your current context does not count, so
+     after compaction or in a resumed session, ask again.
+     `autonomous` needs nothing more.
+     No value of this policy relaxes another condition in this gate,
+     `pr-review-requirements` included.
      Check: `tbd policy show` and the request.
-     A confirmation covers one PR in one request and is never carried to another PR.
 
    Merge-ready mode ends here: report that the gate passes at `HEAD_SHA`, or which
    conditions fail and what would satisfy them (step 7).
@@ -290,9 +301,10 @@ Several PRs when the request names more than one):
 
    - For a formal stack, `gh stack merge` is all-or-nothing
      (`tbd shortcut stacked-prs`): the gate must pass for every layer first, then
-     `gh stack merge <target> --yes`. Under `per-request`, a stack merge needs the
+     `gh stack merge <target> --yes`. Under `confirm-every`, a stack merge needs the
      request to name, or the user to confirm, every layer the merge will include;
      otherwise stop and ask, since the lower layers cannot be excluded.
+     Under `confirm-session`, the session’s confirmation covers those layers.
 
    - A branch-protection block (`mergeStateStatus` `BLOCKED`, or a refusal naming a
      required approval, a required check, or a merge queue the author’s account cannot

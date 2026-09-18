@@ -33,7 +33,7 @@ keep this document, the `tbd policy` schema, and the block renderer in agreement
 | --- | --- | --- | --- |
 | `github-workflows` | `granted`, `not-granted` | `granted` | The rest of an end-to-end GitHub workflow beyond branches and PRs, through any tool (`gh`, the GitHub API, or MCP servers): issues, labels, and re-running or cancelling CI runs |
 | `github-editing` | `granted`, `not-granted` | `granted` | Branches and PRs short of merging, through any tool (`gh`, the GitHub API, or MCP servers): pushing branches; creating, reviewing, and editing PRs; posting comments, reviews, and disposition replies; watching CI |
-| `github-merge` | `not-granted`, `per-request`, `unconditional` | `per-request` | Merging PRs with `gh` once the review requirements are met. `per-request` merges only a PR the user authorized in the current request. `unconditional` merges without per-case authorization; it is recorded only when the user explicitly grants it, and tbd recommends against it |
+| `github-merge` | `never`, `confirm-every`, `confirm-session`, `autonomous` | `confirm-session` | Who authorizes merging a PR whose review requirements are met (see Merge Authorization below). Four steps, most restrictive first. `autonomous` is recorded only when the user explicitly sets it, and tbd recommends against it |
 | `github-stacked-prs` | `granted`, `not-granted` | `granted` | Setting up GitHub-native stacked PRs (the pinned `gh-stack` extension and its agent skill) and creating, submitting, syncing, and merging formal stacks with `gh stack`, following `stacked-prs` |
 | `subagents` | `granted`, `not-granted` | `granted` | Using sub-agents according to `delegate-to-subagents` |
 | `pr-review-requirements` | `standard`, a custom requirement, or `none` | `standard` | The reviews required before a PR is merged. `standard`: one senior engineering review and one pass addressing all findings for every PR, plus a dedicated review pass for each area of special concern (security, performance, correctness) in which the PR is sensitive. A custom requirement adds kinds or rounds (see Custom Values). `none` requires no review; it is recorded only when the user explicitly grants it, and tbd recommends against it |
@@ -45,11 +45,38 @@ the API, or an MCP server, and an action on issues, labels, or CI runs needs
 `github-workflows`. Neither GitHub grant covers repository settings, secrets, or
 workflow files.
 
-Merging without review requires two explicit grants: `github-merge` of `per-request` or
-`unconditional`, and `pr-review-requirements: none`.
-
 Policy names and values are lowercase ASCII. A value not listed here, and not produced
 by the grammar below, is unknown, and `tbd doctor` reports it.
+
+## Merge Authorization
+
+`github-merge` is the only policy with a graded value, because merging is the action
+that lands code: what varies is not whether an agent may merge but who authorizes each
+merge.
+
+| Value | What an agent may do |
+| --- | --- |
+| `never` | Never merge, and do not ask. Report the PR as merge-ready and say who merges it: a person, a merge queue, or automation |
+| `confirm-every` | Merge only this PR, only after the user’s request named it or the user confirmed this merge when asked. One confirmation authorizes one merge of one PR and is never carried to another |
+| `confirm-session` | Merge once the user has confirmed merging in this conversation. That confirmation covers the merges of the work in hand, including every layer of a stack the merge includes; report each merge |
+| `autonomous` | Merge without asking, whenever the rest of the merge gate passes |
+
+**No value weakens `pr-review-requirements`.** That policy decides whether a PR is
+ready; `github-merge` decides who authorizes the merge action.
+The merge gate checks review coverage separately for every value, `autonomous` included,
+so merging a PR that skipped a required review needs `pr-review-requirements: none` as
+well — two explicit decisions, not one.
+
+**Unanswered means `confirm-every`, not `never`.** Asking the user is not acting on
+their behalf, so asking is the fail-closed default.
+`never` is the stronger statement that merging is someone else’s job and not worth a
+question.
+
+**A session confirmation lives only in the conversation.** It is not recorded in
+`AGENTS.md`, and `tbd prime` does not restore it, so an agent that cannot see the
+confirmation in its current context — after compaction, or in a resumed session — asks
+again. A sub-agent never holds one: the session the user is talking to is the only place
+a confirmation can happen, so a sub-agent does not merge.
 
 ## Custom Values
 
@@ -123,9 +150,11 @@ Valid: `not-granted`, `epics`, `epics + specs`, `custom`. Unknown:
 ## Answered and Unanswered Policies
 
 A policy listed in the block is **answered**, whatever its value.
-A policy missing from the block is **unanswered**: agents treat it as `not-granted` (or
-`standard` for `pr-review-requirements`) and ask when it matters, and the setup process
-asks about it.
+A policy missing from the block is **unanswered**: agents treat it as `not-granted`,
+with two exceptions — `confirm-every` for `github-merge` and `standard` for
+`pr-review-requirements` — and ask when it matters, and the setup process asks about it.
+Both exceptions are the same rule as the default: asking the user is the fail-closed
+behavior, so an unanswered policy means ask rather than act.
 
 When an unanswered policy matters in a task, ask once, before the first action it
 covers, and offer to record a standing grant.
@@ -134,8 +163,8 @@ Do not ask about policies the task does not touch.
 ## The Recommended Set
 
 “All recommended” means `github-workflows: granted`, `github-editing: granted`,
-`github-merge: per-request`, `github-stacked-prs: granted`, `subagents: granted`, and
-`pr-review-requirements: standard`.
+`github-merge: confirm-session`, `github-stacked-prs: granted`, `subagents: granted`,
+and `pr-review-requirements: standard`.
 
 Linear is outside the recommended set and is always asked separately; its default
 selection when the user wants it is `epics`.
@@ -184,11 +213,11 @@ selection when the user wants it is `epics`.
 
 - **Later:** `tbd policy show` lists answered and unanswered policies with their
   effective values. `tbd policy grant <policy>` records the policy’s recommended value,
-  `tbd policy revoke <policy>` records its not-granted value, and
-  `tbd policy set <policy> <value>` records any valid value; the table below gives each
-  policy’s `grant` and `revoke` values.
-  Only `set` records the values tbd recommends against (`github-merge: unconditional`
-  and `pr-review-requirements: none`), and only when the user explicitly grants them.
+  `tbd policy revoke <policy>` records its revoke value (`not-granted` for most, `never`
+  for `github-merge`), and `tbd policy set <policy> <value>` records any valid value;
+  the table below gives each policy’s `grant` and `revoke` values.
+  Only `set` records the values tbd recommends against (`github-merge: autonomous` and
+  `pr-review-requirements: none`), and only when the user explicitly grants them.
   To make a policy unanswered again, delete its line by hand.
 
 - **Agents record only explicit grants.** An agent records a grant only when the user
@@ -208,7 +237,7 @@ selection when the user wants it is `epics`.
 | --- | --- | --- |
 | `github-workflows` | `granted` | `not-granted` |
 | `github-editing` | `granted` | `not-granted` |
-| `github-merge` | `per-request` | `not-granted` |
+| `github-merge` | `confirm-session` | `never` |
 | `github-stacked-prs` | `granted` | `not-granted` |
 | `subagents` | `granted` | `not-granted` |
 | `pr-review-requirements` | `standard` | Not applicable: use `set` |
@@ -234,7 +263,7 @@ copy is a proposal, and `tbd policy show` reports the effective grants.
 
 - `github-workflows`: granted
 - `github-editing`: granted
-- `github-merge`: per-request
+- `github-merge`: confirm-session
 - `github-stacked-prs`: granted
 - `subagents`: granted
 - `pr-review-requirements`: standard
@@ -293,9 +322,13 @@ cannot delete grants.
   replies are PR actions and require `github-editing`; re-running CI or editing issues
   and labels along the way requires `github-workflows`. Without the grant an action
   needs, ask once before the first GitHub mutation in a task.
-- **Merging:** requires `github-merge`. With `per-request`, the user’s “reviewed and
-  merged” request is the authorization for the PRs it names.
-  With `not-granted`, ask before merging.
+- **Merging:** requires `github-merge`, and which authorization suffices depends on its
+  value (see Merge Authorization).
+  With `confirm-every`, the user’s “reviewed and merged” request is the authorization
+  for the PRs it names, and nothing more.
+  With `confirm-session`, one confirmation in the conversation covers the merges of the
+  work in hand. With `autonomous`, no per-merge authorization is needed.
+  With `never`, do not merge and do not ask.
 - **Review coverage:** `pr-review-requirements` decides which reviews the orchestrated
   workflow runs and what the merge gate checks (see `pr-review-workflows`).
 - **Delegation:** requires `subagents`. Before the first delegation in a task, check the
@@ -327,9 +360,10 @@ change an answered policy only when the user asks.
   re-running or cancelling CI runs.
 - `github-editing` (recommended: `granted`): agents may push branches and create,
   review, edit, and comment on PRs and watch CI through any tool, but not merge.
-- `github-merge` (recommended: `per-request`): agents may merge a PR the user named in
-  the current request once its review requirements are met; `unconditional` merges
-  without per-case authorization and is not recommended.
+- `github-merge` (recommended: `confirm-session`): agents may merge a PR whose review
+  requirements are met once the user has confirmed merging in the conversation;
+  `confirm-every` asks for every merge, `never` means an agent does not merge at all,
+  and `autonomous` merges without asking and is not recommended.
 - `github-stacked-prs` (recommended: `granted`): agents may install the `gh stack`
   tooling and create, submit, sync, and merge formal stacks when a change is best split
   into dependent PRs.

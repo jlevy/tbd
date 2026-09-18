@@ -282,7 +282,7 @@ The seven policies:
 | --- | --- | --- |
 | `github-workflows` | `granted` | Issues, labels, and re-running or cancelling CI runs |
 | `github-editing` | `granted` | Branches and PRs short of merging: pushing, creating and editing PRs, posting reviews and replies, watching CI |
-| `github-merge` | `per-request` | Merging PRs once the review requirements are met; `per-request` covers only a PR you named in the current request, and `unconditional` needs no per-case authorization (recommended against) |
+| `github-merge` | `confirm-session` | Who authorizes merging a PR whose review requirements are met: `never` (an agent does not merge), `confirm-every` (asks every time; what an unanswered policy means), `confirm-session` (one confirmation covers the conversation’s merges), or `autonomous` (no asking; recommended against) |
 | `github-stacked-prs` | `granted` | Installing the `gh stack` tooling and creating, submitting, syncing, and merging formal stacks |
 | `subagents` | `granted` | Delegating to sub-agents following `delegate-to-subagents` |
 | `pr-review-requirements` | `standard` | The reviews a PR needs before it merges: one senior engineering review and one addressing pass, plus a dedicated security, performance, or correctness review where the PR is sensitive; `standard + security` or `standard + 2 rounds` adds kinds or rounds |
@@ -295,7 +295,7 @@ The block, with its fixed prose omitted:
 
 - `github-workflows`: granted
 - `github-editing`: granted
-- `github-merge`: per-request
+- `github-merge`: confirm-session
 - `github-stacked-prs`: granted
 - `subagents`: granted
 - `pr-review-requirements`: standard
@@ -308,15 +308,15 @@ Recorded 2026-09-17.
 ```bash
 tbd policy show                            # Answered and unanswered policies, with effective values
 tbd policy grant subagents                 # Record the recommended value
-tbd policy revoke github-merge             # Record the not-granted value
+tbd policy revoke github-merge             # Record the revoke value (`never` for this one)
 tbd policy set pr-review-requirements standard + 2 rounds   # Record any valid value
 tbd setup --auto --policies=recommended    # Record the recommended set for every unanswered policy (Linear is asked separately)
 ```
 
-An unanswered policy is treated as `not-granted` (`standard` for review requirements),
-and the agent asks when a task needs it.
-Your instructions in the conversation override recorded grants for that task, in either
-direction, and a grant never bypasses a tool permission or sandbox.
+An unanswered policy is treated as `not-granted`, with two exceptions (`confirm-every`
+for `github-merge` and `standard` for review requirements), and the agent asks when a
+task needs it. Your instructions in the conversation override recorded grants for that
+task, in either direction, and a grant never bypasses a tool permission or sandbox.
 `tbd prime` prints the effective grants, `tbd doctor` validates the block, and
 [`agent-policy-grants`](packages/tbd/docs/guidelines/agent-policy-grants.md) is the full
 definition.
@@ -620,20 +620,23 @@ so people who never clone the repo still see, and can update, the work (see
 
 ### Can agents merge my PRs?
 
-Only when the project grants it.
-Merging needs the `github-merge` policy: `not-granted` (the default while unanswered)
-means the agent asks before any merge; `per-request` (recommended) lets it merge a PR
-you named in the current request, such as “Make sure PR #N is reviewed and merged”; and
-`unconditional` allows merging without per-case authorization, which tbd recommends
-against. Before merging, `review-and-merge-prs` checks the merge gate: the review
-requirements are met (under `standard`, a senior engineering review at a pinned head, a
-pass addressing all its findings, and a dedicated review for each area the PR is
-sensitive in), every finding has a disposition and every deferral an open bead, no newer
-review content is unaddressed, any question about another round has been answered, CI is
-green at the unchanged head, GitHub reports the PR mergeable, and every layer below a
-stack layer has merged.
-The merge uses the repository’s merge method at the gated head, never `--admin`, and a
-branch-protection block is reported, not bypassed.
+Only as far as the project allows, and the `github-merge` policy has four settings
+rather than yes or no.
+`never` means an agent does not merge at all; `confirm-every`, which is what an
+unanswered policy means, makes it ask every time, so “Make sure PR #N is reviewed and
+merged” authorizes that PR and nothing else; `confirm-session` (recommended) lets it
+merge once you have confirmed merging in the conversation, which covers the work in hand
+including a stack’s lower layers; `autonomous` lets it merge without asking, which tbd
+recommends against. None of them lowers the review bar: `pr-review-requirements` decides
+whether a PR is ready, and the merge gate checks it separately in every case.
+Before merging, `review-and-merge-prs` checks the merge gate: the review requirements
+are met (under `standard`, a senior engineering review at a pinned head, a pass
+addressing all its findings, and a dedicated review for each area the PR is sensitive
+in), every finding has a disposition and every deferral an open bead, no newer review
+content is unaddressed, any question about another round has been answered, CI is green
+at the unchanged head, GitHub reports the PR mergeable, and every layer below a stack
+layer has merged. The merge uses the repository’s merge method at the gated head, never
+`--admin`, and a branch-protection block is reported, not bypassed.
 
 ### Can I add my own guidelines?
 
