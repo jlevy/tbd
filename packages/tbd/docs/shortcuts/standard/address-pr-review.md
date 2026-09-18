@@ -200,7 +200,13 @@ Create a to-do list with the following items then perform all of them:
    Never silently skip a finding or suggestion.
 
 7. **Verify and push:**
-   - Run the full test suite and lint (see project docs for the exact commands)
+   - Run the tests and lint that cover the change (see project docs for the exact
+     commands)
+   - GitHub CI at the pushed head is the required full-suite gate.
+     Local pre-push hooks can time out or flake under load; they are not a substitute
+     for CI. If a local hook fails for a known local-only reason, push with
+     `--no-verify` and wait for `gh pr checks`. Do not treat a green local subset as the
+     gate
    - Commit with conventional commit messages and push; record each fix commit’s SHA for
      its `fixed` line
    - Record the new head SHA:
@@ -242,7 +248,10 @@ Create a to-do list with the following items then perform all of them:
    - For a formal review or a PR comment: post the reply as a PR comment
      (`gh pr comment <PR_NUMBER> --repo $REPO --body-file <file>`); for formal reviews
      with inline threads, also reply to each thread with its ID and disposition and
-     resolve it. `gh` has no command to resolve a review thread.
+     resolve it. If `gh pr comment` or the reviews API returns 403 (or another permission
+     error), post the same marked body on a working channel, typically the platform’s
+     PR-comment tool. Record the channel used.
+     `gh` has no command to resolve a review thread.
      Query thread IDs from the PR’s `reviewThreads` connection, then mutate:
 
      ```graphql

@@ -114,6 +114,13 @@ tbd setup --auto
   test or a manual test script.
   `review-code` reviews a PR’s pinned head in the working tree and reports every
   finding.
+- **Validation findings from the stack 312 run**: `delegate-to-subagents` now says
+  parallel writers in one checkout must not run concurrent builds, and that generated
+  `tbd-*` definitions stay in the project.
+  `address-pr-review` treats GitHub CI as the required full-suite gate.
+  Publishing a review or a disposition reply falls back to a working channel when the
+  reviews API returns 403. The skill warns that `tbd update --notes` replaces the notes
+  body.
 - **Grants in existing docs**: Creating and submitting stacked PRs, and installing the
   stack tooling, now require the `github-stacked-prs` grant (`stacked-prs`, both
   `create-or-update-pr` shortcuts, `setup-github-cli`, and the `AGENTS.md` block);

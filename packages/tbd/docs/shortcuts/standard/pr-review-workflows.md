@@ -240,6 +240,12 @@ code changes. Publish it with the `COMMENT` event and a textual verdict (for exa
 “Verdict: approve with nits”) rather than GitHub approve or request-changes states,
 since reviewer and author may share one account.
 
+If the reviews API or `gh pr comment` returns 403 (or another permission error), post
+the same marked body on a working channel: a PR comment when that still works, or the
+platform’s PR-comment tool when `gh` itself is refused.
+Record the channel used.
+Formal review remains the default when it succeeds.
+
 If the user prefers another channel, the review goes there, with the same header and
 marker:
 

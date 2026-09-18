@@ -773,4 +773,41 @@ describe('review lifecycle contract', () => {
       expect(tierOf('3. Address')).toBe(roles['Addressing agent']);
     });
   });
+
+  describe('validation findings folded from Phase 4', () => {
+    it('delegate-to-subagents forbids concurrent builds in one checkout and warns about user-level agents', async () => {
+      const doc = collapse(await shortcutDoc('delegate-to-subagents'));
+      expect(doc).toContain('Parallel writers in one checkout');
+      expect(doc).toContain('Only one of them runs tests or builds that regenerate shared outputs');
+      expect(doc).toContain('User-level definitions appear in every project');
+      expect(doc).toContain('do not copy them into');
+    });
+
+    it('address-pr-review treats GitHub CI as the full-suite gate', async () => {
+      const verify = collapse(step(await shortcutDoc('address-pr-review'), 7));
+      expect(verify).toContain('GitHub CI at the pushed head is the required full-suite gate');
+      expect(verify).toContain('Local pre-push');
+    });
+
+    it('review publish falls back when the reviews API is refused', async () => {
+      const channels = collapse(
+        section(await shortcutDoc('pr-review-workflows'), '### Review Channels'),
+      );
+      const publish = collapse(step(await shortcutDoc('review-github-pr'), 10));
+      const dispositions = collapse(step(await shortcutDoc('address-pr-review'), 8));
+      for (const [label, text] of [
+        ['pr-review-workflows', channels],
+        ['review-github-pr', publish],
+        ['address-pr-review', dispositions],
+      ] as const) {
+        expect(text, label).toContain('403');
+        expect(text, label).toContain('same marked body');
+      }
+    });
+
+    it('the skill warns that update --notes replaces the notes body', async () => {
+      const skill = collapse(await read(join(SYSTEM_DIR, 'skill-baseline.md')));
+      expect(skill).toContain('`tbd update --notes` replaces the entire notes body');
+    });
+  });
 });
