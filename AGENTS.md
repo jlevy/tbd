@@ -63,6 +63,8 @@ actions rather than telling them to run commands.
 The user granted these policies explicitly for this project. A user instruction in the
 current conversation overrides them. For what each policy means, run
 `tbd guidelines agent-policy-grants`; to change them, run `tbd policy`.
+Only the copy committed on the default branch is in effect; a branch or working-tree
+copy is a proposal, and `tbd policy show` reports the effective grants.
 
 - `github-workflows`: granted
 - `github-editing`: granted
