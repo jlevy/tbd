@@ -838,7 +838,8 @@ the brief does not restate those rules.
 A session already running at `xhigh` gets the same model and level from `model: fable`
 or `model: opus` on the Agent call as from `tbd-strong` or `tbd-moderate`; only
 `tbd-strong-max` (`max`) and `tbd-fast` (`medium`) change the level.
-For a session at `high` or below, all four change the level.
+Below `xhigh`, every definition whose level differs from the session’s changes it; a
+session already at `medium` is the one case `tbd-fast` leaves alone.
 
 #### Prompt Caching: How the Cache Is Organized
 
@@ -1245,14 +1246,21 @@ description applies only to models before GPT-5.6.
   Default lifetime is `prompt_cache_options.ttl: "30m"` (the only supported TTL): an
   entry stays eligible for 30 minutes after the latest write or reuse, and OpenAI may
   keep it longer. Both implicit and explicit caching exist.
-  Implicit mode places a breakpoint at the end of the latest eligible message (user,
+  Implicit mode writes one breakpoint, at the end of the latest eligible message (user,
   last tool response in a group, or the initial consecutive developer-message block).
-  A request whose user suffix changes therefore does **not** reuse a shared developer
-  prefix unless that prefix has its own explicit breakpoint
-  (`prompt_cache_options.mode: "explicit"` plus `prompt_cache_breakpoint` on the stable
-  content). Cache writes are not an additive fee: each input token is billed as uncached,
-  cached, or cache-write.
-  Usage reports `cached_tokens` and `cache_write_tokens` under
+  Lookups are wider than writes: an incoming request also checks up to 20 earlier
+  eligible message endings and the end of the initial developer block, which is what
+  lets a growing conversation reuse an earlier turn’s entry.
+  A lookup boundary only helps if some request wrote an entry ending there, so a request
+  whose user suffix changes does **not** reuse a shared developer prefix unless that
+  prefix has its own explicit breakpoint (`prompt_cache_options.mode: "explicit"` plus
+  `prompt_cache_breakpoint` on the stable content).
+  [V42] states this case and this remedy directly, under “A shared prefix is not always
+  a cached prefix”: a static developer message followed by changing user content writes
+  through the changing content, and “caching the first complete request implicitly-only
+  does not make the shorter shared prefix reusable”.
+  Cache writes are not an additive fee: each input token is billed as uncached, cached,
+  or cache-write. Usage reports `cached_tokens` and `cache_write_tokens` under
   `usage.input_tokens_details` on the Responses API (`prompt_tokens_details` on Chat
   Completions). `prompt_cache_key` is optional on these models and is for separate cache
   *accounting* (customers, users, workspaces), not for routing a hit.
@@ -1261,7 +1269,11 @@ description applies only to models before GPT-5.6.
   leave the original top-level effort unchanged.
 - **Earlier models** [V42]: caching is automatic, with no explicit breakpoints and no
   cache-write fee. Prefix matching is best-effort from the start of the request once the
-  prompt meets a model-dependent minimum (1,024 to 2,048 tokens).
+  prompt meets a minimum the page declines to state as a number: it varies by model and
+  by request settings (tools, images, output schemas, reasoning effort, verbosity), so
+  measure it per model.
+  Implicit breakpoints fall at regular intervals rather than at message ends: 2,048
+  tokens on GPT-5.5 and GPT-5.5 Pro, model-dependent on the rest.
   Reported `cached_tokens` rounds down to a multiple of 128 after subtracting hidden
   system tokens. Retention is `prompt_cache_retention`: `in_memory` (typically 5 to 10
   minutes of inactivity, up to about an hour) or `24h` (typically around 30 minutes, up
@@ -1271,15 +1283,17 @@ description applies only to models before GPT-5.6.
 - **Codex** [V44]: still sets `prompt_cache_key` to the session ID, and for an
   internally spawned thread to `<source>:<parent_thread_id>`. It sends full history
   except over a WebSocket (`previous_response_id`, `store: false`,
-  `reasoning.encrypted_content`). As of the 2026-09-17 source read it does not set
-  `prompt_cache_retention`. This pass did not re-read `client.rs` for
-  `prompt_cache_options` (the GPT-5.6+ TTL/mode fields).
+  `reasoning.encrypted_content`). `codex-rs/core/src/client.rs` at `main` carries
+  `prompt_cache_key` and its override and nothing else from that family: no
+  `prompt_cache_options`, `prompt_cache_breakpoint`, or `prompt_cache_retention`
+  (re-read 2026-09-18), so on GPT-5.6+ Codex runs in the default implicit mode and never
+  places an explicit breakpoint.
   A `tbd-*` Codex role replaces developer instructions, so the shared prefix with the
   parent stops where those instructions differ.
   Codex’s model still tells sub-agents to prefer minute-scale waits [V20], which fits
   the earlier-model in-memory window and the GPT-5.6 30-minute TTL, but on GPT-5.6+
-  implicit mode, if Codex sends no explicit breakpoint, a fresh child with a different
-  task message will miss the parent’s prefix.
+  implicit mode, because Codex sends no explicit breakpoint, a fresh child with a
+  different task message misses the parent’s prefix.
 
 The practical difference is no longer “Claude charges for writes, OpenAI does not.”
 On GPT-5.6+ both providers bill a 1.25× write and a 0.1× read.
@@ -2273,9 +2287,12 @@ coordination, but they are experimental and cost more tokens.
   discount, `prompt_cache_key`, and reasoning-effort figures marked as not re-verified
   in Caching From First Principles (the Codex and the OpenAI API paragraph).
   Done 2026-09-18: GPT-5.6+ bills 1.25× writes and 0.1× reads with a 30-minute TTL and
-  needs an explicit breakpoint when the task suffix changes; earlier models keep
-  automatic caching with no write premium.
-  Tracked as `tbd-2f9j`.
+  needs an explicit breakpoint after stable instructions when the task suffix changes,
+  because implicit mode writes only at the latest eligible message ([V42], “A shared
+  prefix is not always a cached prefix”); earlier models keep automatic caching with no
+  write premium and no stated token minimum.
+  `client.rs` was re-read the same day and sets no `prompt_cache_options`, so Codex is
+  in implicit mode. Tracked as `tbd-2f9j`.
 - [ ] Track openai/codex#20077: the handler applies overrides on full-history forks, but
   the V2 instructions still say it does not; re-check when the instructions change.
 - [ ] Re-check model names and reasoning levels whenever a provider releases or retires
