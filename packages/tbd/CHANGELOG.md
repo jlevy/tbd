@@ -98,6 +98,15 @@ tbd setup --auto
 
 - **Integration help**: `tbd integration --help` names only Linear; it listed GitHub,
   which has no adapter.
+- **A policy block whose markers share a line fails closed**: it read as no block at
+  all, so `tbd setup --auto` exited 0 and deleted the recorded grants, and
+  `tbd policy grant` inserted a second block.
+  Every command now reports it as malformed and leaves `AGENTS.md` unchanged.
+  A backticked mention of a marker in prose is still not a block.
+- **Managed surfaces on a CRLF checkout**: `tbd doctor` reported `AGENTS.md` and the
+  generated skills as stale on Windows because the comparison was byte-exact while every
+  generator emits LF, and the suggested `tbd setup` remedy then left the file modified
+  with an empty diff. Freshness now ignores line endings.
 
 ### Guidelines and content
 
