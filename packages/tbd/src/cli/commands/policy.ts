@@ -170,7 +170,11 @@ class PolicyShowHandler extends BaseCommand {
     const colors = this.output.getColors();
     const lines: string[] = [];
     lines.push(colors.bold(`Agent policy grants`) + colors.dim(` (see \`${GUIDELINE_HINT}\`)`));
-    lines.push(`Effective grants: ${describeSource(effective.source)}.`);
+    lines.push(
+      effective.source?.kind === 'unresolved'
+        ? `Default branch: ${describeSource(effective.source)}.`
+        : `Effective grants: ${describeSource(effective.source)}.`,
+    );
     const where = effective.source ? `AGENTS.md on ${effective.source.branch}` : 'AGENTS.md';
     if (effective.parse.status === 'unknown-version') {
       lines.push(

@@ -763,11 +763,19 @@ describe('default branch resolution', () => {
         origin,
         clone,
       ]);
-      try {
-        await git(clone, 'symbolic-ref', '-d', 'refs/remotes/origin/HEAD');
-      } catch {
-        // Clone already had no origin/HEAD.
-      }
+      const refs = await git(
+        clone,
+        'for-each-ref',
+        '--format=%(refname)',
+        'refs/remotes/',
+        'refs/heads/',
+      );
+      expect(refs, 'realistic single-branch clone has no origin/HEAD').not.toMatch(
+        /refs\/remotes\/origin\/HEAD/,
+      );
+      expect(refs).toMatch(/refs\/remotes\/origin\/evil-pr/);
+      const remotes = await git(clone, 'remote');
+      expect(remotes.split('\n')).toContain('origin');
       const grants = await readEffectiveGrants(clone, 'origin');
       expectUnresolved(grants);
     },
@@ -817,6 +825,22 @@ describe('default branch resolution', () => {
       const grants = await readEffectiveGrants(clone, 'evil');
       expectUnresolved(grants);
       expect(grants.source?.repair).toMatch(/evil/);
+    },
+    GIT_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'does not treat a failed git-remote listing as no remotes',
+    async () => {
+      const missing = await tempDir('tbd-policy-remote-fail-');
+      const grants = await readEffectiveGrants(missing, 'origin');
+      expect(grants.source?.kind).toBe('unresolved');
+      expect(grants.source?.repair).toMatch(/git remote failed/);
+      expect(grants.parse.status).toBe('missing');
+      for (const name of POLICY_NAMES) {
+        expect(grants.policies.find((s) => s.name === name)?.answered, name).toBe(false);
+      }
+      expect(grants.policies.find((s) => s.name === 'github-merge')?.effective).toBe('not-granted');
     },
     GIT_TEST_TIMEOUT_MS,
   );
