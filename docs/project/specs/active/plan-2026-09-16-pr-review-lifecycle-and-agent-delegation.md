@@ -1098,7 +1098,7 @@ convenience, not a requirement.
 ### Phase 4: Validation by Use
 
 - [x] Open a PR for this work, starting with this plan
-- [ ] Run “Review and fix” on that PR with sub-agents: a strong-tier reviewer publishes
+- [x] Run “Review and fix” on that PR with sub-agents: a strong-tier reviewer publishes
   a formal review and a moderate-tier addressing agent addresses it; record requested
   tiers, questions asked, and what worked in Outcome Notes
 - [x] Record this repository’s policy grants through the new flow, as the user answers
@@ -1291,6 +1291,81 @@ In this order (about 660 lines, including the generated tables):
   template is missing from its table.
 - The Markdown format check passes on every changed doc, and `tbd readme` shows the
   revised README.
+
+## Outcome Notes
+
+Live validation of `review-and-merge-prs` / `review-github-pr` / `address-pr-review` /
+`delegate-to-subagents` on stack 312 ([#309](https://github.com/jlevy/tbd/pull/309) then
+[#310](https://github.com/jlevy/tbd/pull/310)), 2026-09-17–18. Mode: merge-ready (no
+merge). `github-editing` and `subagents` authorized in the conversation; `github-merge`
+and `github-stacked-prs` unanswered on `origin/main` (not granted).
+
+### Requested tiers
+
+- Senior review A and security review B on #309: strong tier, requested `fable` at
+  `xhigh` (published as formal reviews by `jlevy` at `1485f045`).
+- Senior review A on #310: coordinator session (`cursor-grok-4.6-xhigh-fast`); formal
+  review API 403, so the marked review is a PR comment
+  ([5722767108](https://github.com/jlevy/tbd/pull/310#issuecomment-5722767108)).
+- Addressing: moderate-tier Cursor cloud sub-agents
+  [Address #309 reviews A+B](https://cursor.com/agents/bc-328ddfc3-707f-5ae4-9db7-31a826f5871d)
+  and
+  [Address #310 review A](https://cursor.com/agents/bc-6e8f4d27-e949-54b9-b81f-914aad33d0d9).
+- Follow-up review C on #309: coordinator session (`cursor-grok-4.6-xhigh-fast`),
+  `kind=follow-up` round 2, PR comment
+  ([5723395338](https://github.com/jlevy/tbd/pull/309#issuecomment-5723395338)).
+  Signals: large security-relevant fix commits, B1 Blocker, two CI retries on #309.
+  Authorized by the user’s “completed end-to-end as well as reviewed” (no separate
+  yes/no asked).
+
+### What worked
+
+- Markers, lettered IDs, four dispositions, and pinned heads were enough to match
+  reviews to replies across formal reviews (#309 A/B) and a PR-comment review (#310 A).
+- The merge gate’s “no review content newer than the last disposition” plus a second
+  sweep is the right place for bot inlines (A2); #307 had already shown the cost of
+  sweeping only once.
+- Missing `gh stack` is now “not tracked locally” (A3); this run used remote stack 312
+  and did not install the extension (`github-stacked-prs` unanswered).
+- B1’s fail-closed path (unresolved source, unanswered defaults, `prime`/`doctor`
+  wording) held under follow-up C. The three clone-shape tests plus git 2.43.0 probes
+  match: single-branch and CI-style checkouts no longer read grants from `HEAD`.
+
+### What did not
+
+- `gh api` formal reviews, `gh pr comment`, and the reviews API return 403 for this
+  Cursor integration token.
+  `ManagePullRequest` `post_comment` works.
+  The shortcuts still say formal review is the default channel; coordinators in this
+  environment must fall back.
+- Addressing agents could not `tbd sync` (reserved for the coordinator) and could not
+  post dispositions themselves.
+  The coordinator posted both A/B replies on #309 and the A reply on #310 after
+  verifying the commits.
+- Local pre-push hooks flaked (`ensure-gh-cli-script`, integrations permalink, fetch
+  timeout). Addressing agents pushed `--no-verify`; GitHub CI is the gate.
+  Two extra commits on #309 were CI-only (git identity in the B1 clone test; Windows
+  `allDocs` path separators).
+- #310 was not rebased onto #309 during addressing.
+  The coordinator rebases after this Outcome Notes commit.
+  `gh-stack` is not installed; do not install it.
+
+### Findings that came from use (already on #309)
+
+A2 (unmarked inlines), A3 (missing `gh stack`), A12 (overlapping-file briefing), and B1
+(HEAD fallback) came from running the workflow, not from reading the spec.
+C1–C3 are Low leftovers on the B1 path (failed `git remote` treated as no remotes;
+`policy show` heading; single-branch test deleting `origin/HEAD`).
+
+### Still open
+
+- Fold these notes back into the shortcuts (`tbd-xfg0`): parallel writers colliding on
+  `dist/`, user-level agent definitions leaking across projects, pre-push vs CI,
+  `tbd update --notes` replacing rather than appending, and the 403 review-channel
+  fallback.
+- Re-verify OpenAI prompt-caching figures (`tbd-2f9j`, #310 A5).
+- #306 / #307 Phase 4 runs remain separately tracked; merge only with explicit
+  confirmation.
 
 ## References
 
