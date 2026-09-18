@@ -132,6 +132,8 @@ Before using an agent type you have not used in this project, read its definitio
 not only its name and description.
 User-level definitions appear in every project’s agent list, and one created for another
 project can carry that project’s instructions.
+tbd’s generated `tbd-*` definitions stay in the project (`.claude/agents/` and
+`.codex/agents/`); do not copy them into `~/.claude/agents/` or `~/.codex/agents/`.
 
 ### Claude Code
 

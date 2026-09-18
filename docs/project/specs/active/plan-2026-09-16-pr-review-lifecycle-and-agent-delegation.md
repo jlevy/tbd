@@ -1359,13 +1359,22 @@ C1–C3 are Low leftovers on the B1 path (failed `git remote` treated as no remo
 
 ### Still open
 
-- Fold these notes back into the shortcuts (`tbd-xfg0`): parallel writers colliding on
-  `dist/`, user-level agent definitions leaking across projects, pre-push vs CI,
-  `tbd update --notes` replacing rather than appending, and the 403 review-channel
-  fallback.
-- Re-verify OpenAI prompt-caching figures (`tbd-2f9j`, #310 A5).
+- Re-verify OpenAI prompt-caching figures (`tbd-2f9j`, #310 A5). Lands on #310, not this
+  PR.
 - #306 / #307 Phase 4 runs remain separately tracked; merge only with explicit
   confirmation.
+
+### Folded back into the shortcuts (`tbd-xfg0`)
+
+- Parallel writers in one checkout: only one runs tests or builds that regenerate shared
+  outputs (`delegate-to-subagents`).
+- User-level agent definitions leak across projects: read the body before using an
+  unfamiliar type; keep generated `tbd-*` files in the project, not `~/.claude/agents/`
+  (`delegate-to-subagents`).
+- Local pre-push is not the gate: GitHub CI at the pushed head is (`address-pr-review`).
+- `tbd update --notes` replaces the notes body (skill, and already the CLI manual).
+- Reviews API 403: post the same marked body on a working channel
+  (`pr-review-workflows`, `review-github-pr`, `address-pr-review`).
 
 ## References
 

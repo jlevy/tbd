@@ -305,6 +305,10 @@ concluding gh is unavailable.
 | `tbd close <id1> <id2> <id3> --reason "..."` | Close several at once (always preferred over one-at-a-time) |
 | `tbd update <id1> <id2> <id3> --priority 1` | Bulk-update shared fields on several beads |
 
+`tbd update --notes` replaces the entire notes body; it does not append.
+Read `tbd show` first if you mean to keep the existing text, or create a child bead for
+a durable history.
+
 Use `tbd start`, not a raw status update, to claim work.
 It records the acting agent in `delegate`. On an already in-progress bead, it reports a
 different visible delegate instead of overwriting that claim.

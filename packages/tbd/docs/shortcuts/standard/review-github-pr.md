@@ -213,6 +213,12 @@ Create a to-do list with the following items then perform all of them:
         -f commit_id=$HEAD_SHA -f event=COMMENT -F body=@<file> --jq .html_url
       ```
 
+      If that call returns 403 (or another permission error), post the same marked body
+      on a working channel, typically a PR comment (`gh pr comment`, or the platform’s
+      PR-comment tool when `gh` itself is refused).
+      Record the channel in the report.
+      Formal review remains the default when it succeeds.
+
     - **PR comment**: `gh pr comment <PR_NUMBER> --repo $REPO --body-file <file>`
 
     - **GitHub issue**:
