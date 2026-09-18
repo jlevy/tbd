@@ -867,14 +867,14 @@ async function stampSource(repoDir: string, source: DefaultBranchRef): Promise<D
   }
 }
 
-/** Remotes configured in this clone (`git remote`). Empty when there are none. */
+/**
+ * Remotes configured in this clone (`git remote`). Empty when there are none.
+ * Throws when git cannot list remotes so the caller can fail closed: a failed
+ * listing is not “the repository has no remotes”.
+ */
 async function listRemotes(repoDir: string): Promise<string[]> {
-  try {
-    const output = await git('-C', repoDir, 'remote');
-    return output === '' ? [] : output.split('\n');
-  } catch {
-    return [];
-  }
+  const output = await git('-C', repoDir, 'remote');
+  return output === '' ? [] : output.split('\n');
 }
 
 function unresolvedSource(branch: string, repair: string): DefaultBranchRef {
@@ -987,7 +987,18 @@ export async function readEffectiveGrants(
   repoDir: string,
   remote: string,
 ): Promise<EffectiveGrants> {
-  const remotes = await listRemotes(repoDir);
+  let remotes: string[];
+  try {
+    remotes = await listRemotes(repoDir);
+  } catch (error) {
+    const detail =
+      error instanceof GitError
+        ? (error.message.split('\n')[0] ?? 'git remote failed')
+        : 'git remote failed';
+    return unansweredGrants(
+      unresolvedSource(remote, `git remote failed (${detail}). Treat every policy as unanswered.`),
+    );
+  }
   const hasRemotes = remotes.length > 0;
   if (hasRemotes && !remotes.includes(remote)) {
     return unansweredGrants(

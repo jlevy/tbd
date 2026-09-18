@@ -229,6 +229,22 @@ describe('tbd policy show', () => {
     },
     CLI_TEST_TIMEOUT_MS,
   );
+
+  it(
+    'does not title an unresolved default branch as Effective grants',
+    async () => {
+      const dir = await createRepo();
+      await git(dir, 'remote', 'add', 'origin', 'https://example.com/tbd.git');
+      const text = runTbd(dir, ['policy', 'show']);
+      expect(text.status, text.stderr).toBe(0);
+      expect(text.stdout).toMatch(/Default branch: unresolved/);
+      expect(text.stdout).not.toContain('Effective grants:');
+      const report = showJson(dir);
+      expect(report.source?.kind).toBe('unresolved');
+      expect(report.policies.every((p) => !p.answered)).toBe(true);
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
 });
 
 describe('tbd policy grant, revoke, and set', () => {
