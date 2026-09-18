@@ -478,32 +478,44 @@ describe('integration file formats', () => {
         );
 
         const lefthookEntry = join(monorepoRoot, 'node_modules', 'lefthook', 'bin', 'index.js');
-        const args = [
-          lefthookEntry,
-          'run',
-          'pre-commit',
-          '--command',
-          'probe',
-          '--no-auto-install',
-          '--no-tty',
-          ...[
-            '.tbd/docs/__contract-probe__.md',
-            '.claude/skills/tbd/__contract-probe__.md',
-            '.claude/agents/__contract-probe__.md',
-            '.agents/skills/tbd/__contract-probe__.md',
-            'skills/tbd/__contract-probe__.md',
-            'AGENTS.md',
-          ].flatMap((path) => ['--file', path]),
-        ];
-        const result = spawnSync(process.execPath, args, {
-          cwd: monorepoRoot,
-          encoding: 'utf8',
-          env: { ...process.env, LEFTHOOK_CONFIG: configPath },
-        });
-        const output = `${result.stdout}${result.stderr}`;
+        const runProbe = (paths: readonly string[]) => {
+          const args = [
+            lefthookEntry,
+            'run',
+            'pre-commit',
+            '--command',
+            'probe',
+            '--no-auto-install',
+            '--no-tty',
+            ...paths.flatMap((path) => ['--file', path]),
+          ];
+          const result = spawnSync(process.execPath, args, {
+            cwd: monorepoRoot,
+            encoding: 'utf8',
+            env: { ...process.env, LEFTHOOK_CONFIG: configPath },
+          });
+          return { result, output: `${result.stdout}${result.stderr}` };
+        };
 
-        expect(result.error, output).toBeUndefined();
-        expect(result.status, output).toBe(0);
+        const excluded = runProbe([
+          '.tbd/docs/__contract-probe__.md',
+          '.claude/skills/tbd/__contract-probe__.md',
+          '.claude/agents/__contract-probe__.md',
+          '.agents/skills/tbd/__contract-probe__.md',
+          'skills/tbd/__contract-probe__.md',
+          'AGENTS.md',
+        ]);
+
+        expect(excluded.result.error, excluded.output).toBeUndefined();
+        expect(excluded.result.status, excluded.output).toBe(0);
+
+        // Positive control: status 0 above must mean "every path was excluded",
+        // not "the probe never ran". A path outside the exclude list has to
+        // reach the command and surface its exit 91.
+        const included = runProbe(['README.md']);
+
+        expect(included.result.error, included.output).toBeUndefined();
+        expect(included.result.status, included.output).toBe(1);
       } finally {
         await rm(root, { recursive: true, force: true });
       }

@@ -100,6 +100,11 @@ Give each sub-agent one role:
   push, or leave changes in the tree.
   tbd relies on the brief for this rather than a tool allowlist, on purpose: a reviewer
   that runs tests needs the same tools as a writer.
+  Leaving the tree as found includes the session’s environment: some platforms share one
+  shell session between a coordinator and its sub-agents, so a probe that exports
+  `GIT_CONFIG_GLOBAL`, `GIT_AUTHOR_*`, or any other variable git reads must set it per
+  command (`env VAR=… cmd`) or inside a subshell.
+  A leaked identity lands in the coordinator’s next commit.
 - **Administrator:** does bookkeeping large enough to justify a fresh context, such as
   bead updates across several PRs.
 
