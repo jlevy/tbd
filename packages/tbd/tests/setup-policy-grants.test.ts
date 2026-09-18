@@ -67,6 +67,7 @@ ${POLICY_END_MARKER}
 `;
 
 const DUPLICATE_BLOCK = `${POLICY_BEGIN_MARKER}\n- \`subagents\`: granted\n- \`subagents\`: not-granted\n${POLICY_END_MARKER}\n`;
+const ONE_LINE_BLOCK = `${POLICY_BEGIN_MARKER} - \`subagents\`: granted ${POLICY_END_MARKER}\n`;
 const UNKNOWN_VERSION_BLOCK = `<!-- BEGIN TBD POLICY GRANTS v=2 -->\n- \`subagents\`: granted\n${POLICY_END_MARKER}\n`;
 
 /** An AGENTS.md whose tbd block has a stale body, stamped `format`, holding `policyBlock`. */
@@ -287,6 +288,23 @@ describe('tbd setup --auto preserves the policy block', () => {
       expect(result.stderr).toContain('twice');
       expect(result.stderr).toContain('tbd policy');
       expect(await readFile(agentsPath, 'utf-8')).toBe(malformed);
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'refuses a block whose markers share a line instead of deleting its grants',
+    async () => {
+      const dir = await setUpRepo();
+      const agentsPath = join(dir, 'AGENTS.md');
+      const oneLine = staleAgentsMd(ONE_LINE_BLOCK);
+      await writeFile(agentsPath, oneLine);
+
+      const result = runTbd(dir, ['setup', '--auto', '--surfaces=agents-md']);
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain('malformed policy block');
+      expect(result.stderr).toContain('own line');
+      expect(await readFile(agentsPath, 'utf-8')).toBe(oneLine);
     },
     CLI_TEST_TIMEOUT_MS,
   );
