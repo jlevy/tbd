@@ -217,8 +217,9 @@ Each brief states:
 - **Authorization:** the user’s exact authorization, quoted in the user’s own words, and
   the effective policy grants, and nothing broader.
   A sub-agent’s permission checks cannot see approval the coordinator received.
-  A sub-agent never merges unless the merge is authorized and the coordinator delegated
-  it.
+  A sub-agent cannot hold a session confirmation, which happens in the conversation with
+  the user, and the merge gate and the merge stay with the coordinator (steps 5 and 6 of
+  `tbd shortcut review-and-merge-prs`), so a merge is not delegated.
 - **Report:** the fields the coordinator needs, such as URLs, SHAs, review letters, bead
   IDs, dispositions, CI run IDs, and changed files, condensed to a page or two.
   Ask for evidence rather than assertions: the commands it ran and their results, not

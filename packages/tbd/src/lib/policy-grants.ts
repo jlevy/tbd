@@ -54,10 +54,12 @@ export interface PolicyDefinition {
   unansweredValue: string;
   /** What `tbd policy grant` records. */
   grantValue: string;
-  /** What `tbd policy revoke` records; null when only `set` applies. */
+  /**
+   * What `tbd policy revoke` records; null when only `set` applies. Equal to
+   * `unansweredValue` for every policy: revoking withdraws the standing
+   * permission and returns to ask-me-first, rather than making a new statement.
+   */
   revokeValue: string | null;
-  /** Values tbd recommends against; recorded only through `set`. */
-  discouraged: readonly string[];
   /** One line for `tbd policy show`. */
   summary: string;
 }
@@ -71,7 +73,6 @@ export const POLICIES: Readonly<Record<PolicyName, PolicyDefinition>> = {
     unansweredValue: 'not-granted',
     grantValue: 'granted',
     revokeValue: 'not-granted',
-    discouraged: [],
     summary: 'GitHub issues, labels, and CI runs through any tool',
   },
   'github-editing': {
@@ -82,7 +83,6 @@ export const POLICIES: Readonly<Record<PolicyName, PolicyDefinition>> = {
     unansweredValue: 'not-granted',
     grantValue: 'granted',
     revokeValue: 'not-granted',
-    discouraged: [],
     summary: 'branches and PRs short of merging, through any tool',
   },
   // The one policy with a graded value rather than granted/not-granted: merging is the
@@ -90,8 +90,9 @@ export const POLICIES: Readonly<Record<PolicyName, PolicyDefinition>> = {
   // authorizes each merge. No value weakens pr-review-requirements; the merge gate
   // checks review coverage separately, for every value including `autonomous`. The
   // unanswered value is `confirm-every` because asking is not acting, so asking is the
-  // fail-closed default; `never` is the stronger statement that merging is someone
-  // else's job and not worth asking about.
+  // fail-closed default, and so revoking lands there too: `never` is the stronger
+  // statement that merging is someone else's job and not worth asking about, and like
+  // `autonomous` at the other end it is recorded only through `set`.
   'github-merge': {
     name: 'github-merge',
     values: ['never', 'confirm-every', 'confirm-session', 'autonomous'],
@@ -99,8 +100,7 @@ export const POLICIES: Readonly<Record<PolicyName, PolicyDefinition>> = {
     recommended: 'confirm-session',
     unansweredValue: 'confirm-every',
     grantValue: 'confirm-session',
-    revokeValue: 'never',
-    discouraged: ['autonomous'],
+    revokeValue: 'confirm-every',
     summary: 'who authorizes merging a PR whose review requirements are met',
   },
   'github-stacked-prs': {
@@ -111,7 +111,6 @@ export const POLICIES: Readonly<Record<PolicyName, PolicyDefinition>> = {
     unansweredValue: 'not-granted',
     grantValue: 'granted',
     revokeValue: 'not-granted',
-    discouraged: [],
     summary: 'gh stack tooling and formal stacked PRs',
   },
   subagents: {
@@ -122,7 +121,6 @@ export const POLICIES: Readonly<Record<PolicyName, PolicyDefinition>> = {
     unansweredValue: 'not-granted',
     grantValue: 'granted',
     revokeValue: 'not-granted',
-    discouraged: [],
     summary: 'delegating to sub-agents (delegate-to-subagents)',
   },
   'pr-review-requirements': {
@@ -133,7 +131,6 @@ export const POLICIES: Readonly<Record<PolicyName, PolicyDefinition>> = {
     unansweredValue: 'standard',
     grantValue: 'standard',
     revokeValue: null,
-    discouraged: ['none'],
     summary: 'reviews required before a PR is merged',
   },
   linear: {
@@ -144,7 +141,6 @@ export const POLICIES: Readonly<Record<PolicyName, PolicyDefinition>> = {
     unansweredValue: 'not-granted',
     grantValue: 'epics',
     revokeValue: 'not-granted',
-    discouraged: [],
     summary: 'syncing beads with Linear over the named selection',
   },
 };
@@ -610,7 +606,9 @@ export function parsePolicyBlock(content: string): PolicyBlockParse {
       // A grant the rendered block does not show must not be one: the block exists to be
       // read by a person, and a commented-out or fenced line carried full authority.
       if (isGrantLineCandidate(line) || GRANT_LINE.test(line)) {
-        problems.push(`a grant line inside a comment or code block is not a grant: ${line}`);
+        problems.push(
+          `a grant line inside a comment or code block is not a grant: ${displayPolicyValue(line)}`,
+        );
       }
       continue;
     }
@@ -624,7 +622,9 @@ export function parsePolicyBlock(content: string): PolicyBlockParse {
     }
     const match = GRANT_LINE.exec(line);
     if (!match || !isValidPolicyName(match[1]!)) {
-      problems.push(`grant line does not match "- \`<policy>\`: <value>": ${line}`);
+      problems.push(
+        `grant line does not match "- \`<policy>\`: <value>": ${displayPolicyValue(line)}`,
+      );
       continue;
     }
     const name = match[1]!;
@@ -915,7 +915,12 @@ export function describeGrantStamp(source: DefaultBranchRef): string {
 
 const POLICY_VALUE_DISPLAY_MAX = 60;
 
-/** Bound a recorded value for hook and `policy show` output: strip controls, cap length. */
+/**
+ * Bound block text quoted back to the user — a recorded value, or a line a
+ * problem message quotes: strip controls, cap length. Applied where the text is
+ * interpolated rather than where the message is printed, so the cap falls on the
+ * untrusted part and not on the explanation around it.
+ */
 export function displayPolicyValue(value: string, maxLength = POLICY_VALUE_DISPLAY_MAX): string {
   const stripped = value.replace(/[\p{Cc}\p{Cf}]/gu, '');
   if (stripped.length <= maxLength) {

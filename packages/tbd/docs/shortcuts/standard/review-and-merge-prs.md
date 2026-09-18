@@ -87,10 +87,11 @@ Several PRs when the request names more than one):
      - `github-editing` in every mode, for publishing reviews, pushing fixes, and
        posting replies;
      - `github-merge` in merge mode, whose value decides what authorizes the merge:
-       `confirm-every` (the value an unanswered policy takes) is satisfied by a request
-       that names this PR or a confirmation of this merge; `confirm-session` by a
-       confirmation anywhere in this conversation; `autonomous` needs nothing more; with
-       `never`, do not merge and do not ask;
+       `confirm-every` (the value an unanswered policy takes) needs an authorization for
+       this merge, which a request naming this PR already is and a confirmation when
+       asked also is; `confirm-session` needs a confirmation anywhere in this
+       conversation; `autonomous` needs nothing more; with `never`, do not merge and do
+       not ask;
      - `subagents` to delegate, checked and recorded as in Check Authorization in
        `tbd shortcut delegate-to-subagents`;
      - `pr-review-requirements` decides the reviews and rounds required: `standard` (the
@@ -269,13 +270,15 @@ Several PRs when the request names more than one):
    - In merge mode, the `github-merge` policy permits this merge, by its value (Merge
      Authorization in `tbd guidelines agent-policy-grants`). `never` never permits it:
      stop and report who merges instead.
-     `confirm-every`, which is what an unanswered policy means, needs the user’s request
-     to name this PR or a confirmation of this merge, and one confirmation authorizes
-     one merge of one PR and is never carried to another.
+     `confirm-every`, which is what an unanswered policy means, needs an authorization
+     from the user for this merge: a request naming this PR is one, and so is a
+     confirmation when asked.
+     One authorization covers one merge of one PR and is never carried to another.
      `confirm-session` needs a confirmation anywhere in this conversation, which then
-     covers the merges of the work in hand, including every layer of a stack this merge
-     includes; a confirmation you cannot see in your current context does not count, so
-     after compaction or in a resumed session, ask again.
+     covers the PRs of the task it was given for, including every layer of a stack those
+     merges include, while a PR outside that task needs its own confirmation; a
+     confirmation you cannot see in your current context does not count, so after
+     compaction or in a resumed session, ask again.
      `autonomous` needs nothing more.
      No value of this policy relaxes another condition in this gate,
      `pr-review-requirements` included.

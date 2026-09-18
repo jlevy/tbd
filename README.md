@@ -282,7 +282,7 @@ The seven policies:
 | --- | --- | --- |
 | `github-workflows` | `granted` | Issues, labels, and re-running or cancelling CI runs |
 | `github-editing` | `granted` | Branches and PRs short of merging: pushing, creating and editing PRs, posting reviews and replies, watching CI |
-| `github-merge` | `confirm-session` | Who authorizes merging a PR whose review requirements are met: `never` (an agent does not merge), `confirm-every` (asks every time; what an unanswered policy means), `confirm-session` (one confirmation covers the conversation’s merges), or `autonomous` (no asking; recommended against) |
+| `github-merge` | `confirm-session` | Who authorizes merging a PR whose review requirements are met: `never` (an agent does not merge), `confirm-every` (every merge needs its own authorization; what an unanswered policy means), `confirm-session` (one confirmation covers the PRs of the task it was given for), or `autonomous` (no asking) |
 | `github-stacked-prs` | `granted` | Installing the `gh stack` tooling and creating, submitting, syncing, and merging formal stacks |
 | `subagents` | `granted` | Delegating to sub-agents following `delegate-to-subagents` |
 | `pr-review-requirements` | `standard` | The reviews a PR needs before it merges: one senior engineering review and one addressing pass, plus a dedicated security, performance, or correctness review where the PR is sensitive; `standard + security` or `standard + 2 rounds` adds kinds or rounds |
@@ -308,7 +308,7 @@ Recorded 2026-09-17.
 ```bash
 tbd policy show                            # Answered and unanswered policies, with effective values
 tbd policy grant subagents                 # Record the recommended value
-tbd policy revoke github-merge             # Record the revoke value (`never` for this one)
+tbd policy revoke github-merge             # Record the revoke value, what an unanswered policy takes
 tbd policy set pr-review-requirements standard + 2 rounds   # Record any valid value
 tbd setup --auto --policies=recommended    # Record the recommended set for every unanswered policy (Linear is asked separately)
 ```
@@ -623,12 +623,13 @@ so people who never clone the repo still see, and can update, the work (see
 Only as far as the project allows, and the `github-merge` policy has four settings
 rather than yes or no.
 `never` means an agent does not merge at all; `confirm-every`, which is what an
-unanswered policy means, makes it ask every time, so “Make sure PR #N is reviewed and
-merged” authorizes that PR and nothing else; `confirm-session` (recommended) lets it
-merge once you have confirmed merging in the conversation, which covers the work in hand
-including a stack’s lower layers; `autonomous` lets it merge without asking, which tbd
-recommends against. None of them lowers the review bar: `pr-review-requirements` decides
-whether a PR is ready, and the merge gate checks it separately in every case.
+unanswered policy means, needs your authorization for each merge, so “Make sure PR #N is
+reviewed and merged” authorizes that PR and nothing else; `confirm-session`
+(recommended) lets it merge once you have confirmed merging in the conversation, which
+covers the PRs of the task you confirmed including a stack’s lower layers; `autonomous`
+lets it merge without asking.
+None of them lowers the review bar: `pr-review-requirements` decides whether a PR is
+ready, and the merge gate checks it separately in every case.
 Before merging, `review-and-merge-prs` checks the merge gate: the review requirements
 are met (under `standard`, a senior engineering review at a pinned head, a pass
 addressing all its findings, and a dedicated review for each area the PR is sensitive

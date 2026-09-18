@@ -1098,7 +1098,7 @@ The policies, their values, and the block syntax are defined in
 tbd policy                                  # Same as `tbd policy show`
 tbd policy show                             # Answered and unanswered policies
 tbd policy grant subagents                  # Record the recommended value
-tbd policy revoke github-merge              # Record the revoke value (never, for github-merge)
+tbd policy revoke github-merge              # Record the revoke value, what an unanswered policy takes
 tbd policy set linear epics                 # Record any valid value
 tbd policy set pr-review-requirements standard + 2 rounds
 ```
@@ -1107,8 +1107,8 @@ Subcommands:
 - `show` - List answered policies with their recorded values and unanswered policies
   with the value agents assume until one is recorded
 - `grant <policy>` - Record the policy’s recommended value (`linear` records `epics`)
-- `revoke <policy>` - Record the policy’s revoke value, `not-granted` for most and
-  `never` for `github-merge` (`pr-review-requirements` has none; use `set`)
+- `revoke <policy>` - Record the policy’s revoke value, the value an unanswered policy
+  takes (`pr-review-requirements` has none; use `set`)
 - `set <policy> <value...>` - Record any valid value; several words are joined with
   spaces, so quoting is optional
 

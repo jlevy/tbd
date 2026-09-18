@@ -123,8 +123,9 @@ Gathered from the user on 2026-09-16:
   - **GitHub full editing:** allow full access, including creating, reviewing, and
     editing PRs with the `gh` CLI (recommended);
   - **GitHub merging:** allow merging PRs with `gh`, at one of four levels: never, after
-    a confirmation for every merge, after one confirmation per session (recommended), or
-    autonomously (not recommended unless the user explicitly sets it);
+    a confirmation for every merge (a request naming the PR already is one), after one
+    confirmation per session (recommended), or autonomously when the user explicitly
+    sets it;
   - **Sub-agent use:** allow sub-agents according to recommended practices
     (recommended);
   - **PR review requirements:** how many and what kind of PR reviews are required before
@@ -630,9 +631,9 @@ agents neither ask again in every session nor act without consent.
 | --- | --- | --- | --- |
 | `github-workflows` | `granted`, `not-granted` | `granted` | The rest of an end-to-end GitHub workflow beyond branches and PRs, through any tool (`gh`, the GitHub API, or MCP servers): issues, labels, and re-running or cancelling CI runs |
 | `github-editing` | `granted`, `not-granted` | `granted` | Branches and PRs short of merging, through any tool (`gh`, the GitHub API, or MCP servers): pushing branches; creating, reviewing, and editing PRs; posting comments, reviews, and disposition replies; watching CI |
-| `github-merge` | `never`, `confirm-every`, `confirm-session`, `autonomous` | `confirm-session` | Who authorizes merging a PR whose review requirements are met. `never`: an agent does not merge. `confirm-every` (also the unanswered value): one confirmation authorizes one merge of one PR. `confirm-session`: one confirmation covers the conversation’s merges. `autonomous`: no asking; recorded only when the user explicitly sets it, and tbd recommends against it. No value weakens `pr-review-requirements` |
+| `github-merge` | `never`, `confirm-every`, `confirm-session`, `autonomous` | `confirm-session` | Who authorizes merging a PR whose review requirements are met. `never`: an agent does not merge. `confirm-every` (also the unanswered and revoke value): a request naming the PR or a confirmation of that merge; one authorization covers one merge of one PR. `confirm-session`: one confirmation covers the PRs of the task it was given for. `autonomous`: no asking; recorded only when the user explicitly sets it. No value weakens `pr-review-requirements` |
 | `subagents` | `granted`, `not-granted` | `granted` | Using sub-agents according to `delegate-to-subagents` |
-| `pr-review-requirements` | `standard`, a custom requirement, or `none` | `standard` | The reviews required before a PR is merged. `standard`: one senior engineering review and one pass addressing all findings for every PR, plus a dedicated review pass for each area of special concern (security, performance, correctness) in which the PR is sensitive. A custom requirement is a short structured value that adds kinds or rounds, such as `standard + security` or `standard + 2 rounds`. `none` requires no review; it is recorded only when the user explicitly grants it, and tbd recommends against it |
+| `pr-review-requirements` | `standard`, a custom requirement, or `none` | `standard` | The reviews required before a PR is merged. `standard`: one senior engineering review and one pass addressing all findings for every PR, plus a dedicated review pass for each area of special concern (security, performance, correctness) in which the PR is sensitive. A custom requirement is a short structured value that adds kinds or rounds, such as `standard + security` or `standard + 2 rounds`. `none` requires no review; it is recorded only when the user explicitly grants it |
 | `github-stacked-prs` | `granted`, `not-granted` | `granted` | Setting up GitHub-native stacked PRs (the pinned `gh-stack` extension and its agent skill) and creating, submitting, syncing, and merging formal stacks with `gh stack`, following `tbd shortcut stacked-prs` |
 | `linear` | `not-granted`, `epics`, or a custom selection | Not recommended by default; ask | Syncing beads with Linear. `epics` syncs open epic beads only, in both directions. A custom selection follows `tbd shortcut setup-linear` |
 
@@ -720,6 +721,9 @@ Recorded 2026-09-16.
   Non-interactive setup without policy flags records nothing.
 - **Later:** `tbd policy show` lists grants; `tbd policy grant <policy>`,
   `tbd policy revoke <policy>`, and `tbd policy set <policy> <value>` edit the block.
+  Revoke records the value an unanswered policy takes, so it returns to asking first
+  (`not-granted` for the five binary policies, `confirm-every` for `github-merge`;
+  `pr-review-requirements` has none and is recorded with `set`).
 - An agent records a grant only when the user explicitly grants it in the conversation;
   it never infers a grant from memory or from earlier sessions.
 - When the user authorizes sub-agents, the agent records the `subagents` grant (see
@@ -776,7 +780,7 @@ copy.
   first GitHub mutation in a task.
 - Merge mode requires `github-merge`, and its value says what authorizes each merge:
   `confirm-every` (the unanswered value) takes a request naming the PR or a confirmation
-  of that merge, `confirm-session` takes one confirmation in the conversation,
+  of that merge, `confirm-session` takes one confirmation for the PRs of that task,
   `autonomous` takes nothing more, and `never` means the agent does not merge.
 - Delegation requires `subagents` (see Sub-Agent Authorization).
 - `pr-review-requirements` decides which reviews the orchestrated workflow runs and what
@@ -971,8 +975,8 @@ reviews:
    - for a stack layer, every layer below has merged;
    - in merge mode, the `github-merge` policy permits this merge, by its value:
      `confirm-every` takes a request naming this PR or a confirmation of this merge,
-     `confirm-session` takes a confirmation anywhere in the conversation, `autonomous`
-     takes nothing more, and `never` never permits it.
+     `confirm-session` takes a confirmation for the PRs of that task, `autonomous` takes
+     nothing more, and `never` never permits it.
 6. **Merge** (merge mode only): use the repository’s merge method, never `--admin`. A
    branch-protection block (for example, a required approval that the author’s account
    cannot give) is reported to the user, not bypassed.

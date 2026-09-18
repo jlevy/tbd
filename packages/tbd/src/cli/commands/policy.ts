@@ -312,11 +312,6 @@ class PolicyRecordHandler extends BaseCommand {
       { policy: policyName, value, file: AGENTS_MD_REL, recorded, defaultBranch: source },
       () => {
         this.output.success(`Recorded ${policyName}: ${value} in ${AGENTS_MD_REL}`);
-        if (POLICIES[policyName].discouraged.includes(value)) {
-          this.output.notice(
-            `tbd recommends against ${policyName}: ${value}; recorded because you asked for it.`,
-          );
-        }
         console.log(`  ${effectHint} \`tbd policy show\` reports effective grants.`);
       },
     );
@@ -397,7 +392,7 @@ const grantPolicyCommand = new Command('grant')
   });
 
 const revokePolicyCommand = new Command('revoke')
-  .description("Record a policy's revoke value (`never` for github-merge)")
+  .description("Record a policy's revoke value, the value an unanswered policy takes")
   .argument('<policy>', `Policy name: ${POLICY_NAMES.join(', ')}`)
   .action(async (policy: string, _options, command) => {
     const handler = new PolicyRecordHandler(command);

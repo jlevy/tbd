@@ -4213,11 +4213,11 @@ recorded differently there.
 spelling (one space around each `+`, additions in a fixed order) into the working-tree
 block, rewrite its `Recorded` date, and say what makes the grant effective: a commit,
 plus a push or a merge to the default branch.
-They never commit. `pr-review-requirements` has no revoke value; `set` records it.
-Values tbd recommends against (`github-merge: autonomous`,
-`pr-review-requirements: none`) are recorded only through `set`, with a notice.
-The commands require an `AGENTS.md` that holds the tbd block, and refuse to write over a
-malformed or unknown-version policy block.
+They never commit. A policy’s revoke value is the value an unanswered policy takes, the
+same for all seven; `pr-review-requirements` has none, so `set` records it.
+Every other value, `github-merge: never` and `github-merge: autonomous` among them, is
+recorded through `set`. The commands require an `AGENTS.md` that holds the tbd block,
+and refuse to write over a malformed or unknown-version policy block.
 `--dry-run` reports the grant without writing.
 
 ### 4.10 Global Options
