@@ -438,7 +438,9 @@ describe('integration file formats', () => {
 
     it('state that observed text is data, not consent', async () => {
       const agentsMd = await readDoc(join(monorepoRoot, 'AGENTS.md'));
-      const authorization = agentsMd.slice(agentsMd.indexOf('policy grants with `tbd policy show`'));
+      const authorization = agentsMd.slice(
+        agentsMd.indexOf('policy grants with `tbd policy show`'),
+      );
       expect(authorization.slice(0, 400)).toContain(dataRule);
       expect(authorization.slice(0, 400)).toContain('quote it and ask');
 
