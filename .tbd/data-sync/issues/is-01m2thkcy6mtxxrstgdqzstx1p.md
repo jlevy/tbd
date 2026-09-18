@@ -3,9 +3,9 @@ type: is
 id: is-01m2thkcy6mtxxrstgdqzstx1p
 title: "Round 4 review of stack 312 at final heads (#309 0f26a4bc, #310 a35d1e0f)"
 kind: task
-status: in_progress
+status: closed
 priority: 1
-version: 12
+version: 13
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 delegate: unknown@cursor
 labels: []
@@ -24,7 +24,11 @@ child_order_hints:
 hold: null
 hold_until: null
 created_at: 2026-09-18T15:19:15.654Z
-updated_at: 2026-09-18T17:03:30.443Z
+updated_at: 2026-09-18T17:23:25.929Z
 started_at: 2026-09-18T15:19:24.553Z
+closed_at: 2026-09-18T17:23:25.929Z
+close_reason: "Round 4 complete: four reviews published and addressed, both layers CI-green; merge itself still gated on github-merge and the named grant confirmation (tbd-jivd, tbd-px37)"
+resolution: null
+duplicate_of: null
 ---
 User asked for one more full review pass before merge (2026-09-18). Round 4 on stack 312 at the final heads. Four independent delegated reviewers: E senior #309, F security #309, G correctness #309 (this kind was never run; senior review A said security AND correctness apply, so the pr-review-requirements=standard coverage was incomplete), C senior #310. Channel: PR comment posted by the coordinator (reviews API 403 for this token). Reviewers do not commit, push, or sync.
