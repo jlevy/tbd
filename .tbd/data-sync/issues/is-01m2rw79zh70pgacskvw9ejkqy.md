@@ -3,9 +3,9 @@ type: is
 id: is-01m2rw79zh70pgacskvw9ejkqy
 title: "Stack 312 merge-ready: review and address PR #309 and #310"
 kind: task
-status: in_progress
+status: closed
 priority: 1
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 delegate: unknown@cursor
 labels: []
@@ -16,8 +16,12 @@ child_order_hints:
 hold: null
 hold_until: null
 created_at: 2026-09-17T23:46:24.881Z
-updated_at: 2026-09-18T00:57:17.615Z
+updated_at: 2026-09-18T01:33:29.512Z
 started_at: 2026-09-17T23:46:31.869Z
+closed_at: 2026-09-18T01:33:29.512Z
+close_reason: "Stack 312 merge-ready check complete. #309 draft, CI green, reviews A/B/C addressed. #310 stacked on it, CI green. Not merged."
+resolution: null
+duplicate_of: null
 ---
 Coordinator request in merge-ready mode (no merge). User asked to check out PR #310, do a senior engineering review of the stack, use the new PR review workflows from #309/#310, then delegate addressing to sub-agents, and confirm the stack is reviewed and complete.
 

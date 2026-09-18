@@ -3,9 +3,9 @@ type: is
 id: is-01m2rjv6ppwnh8m4vz1r2z96wk
 title: "Tier agent definitions: platform-specific bodies and caching guidance"
 kind: task
-status: in_progress
+status: closed
 priority: 2
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 delegate: unknown@cursor
 labels: []
@@ -21,8 +21,12 @@ child_order_hints:
 hold: null
 hold_until: null
 created_at: 2026-09-17T21:02:31.125Z
-updated_at: 2026-09-18T00:57:18.571Z
+updated_at: 2026-09-18T01:33:29.247Z
 started_at: 2026-09-18T00:57:18.570Z
+closed_at: 2026-09-18T01:33:29.247Z
+close_reason: "PR #310 complete at 71ddc78c (review A addressed, rebased onto #309, CI green). A5 remains open as tbd-2f9j."
+resolution: null
+duplicate_of: null
 ---
 Stacked on PR #309. From the system-prompt and prompt-caching research section in research-2026-09-16-subagent-guidance-anthropic-openai.md: drop the unreliable model/level claim from generated tier agent bodies, add the evidence-reporting rule a Claude Code sub-agent otherwise never sees, drop the coordinator-only pointer, and update agent-model-tiers and delegate-to-subagents to say what a definition buys per platform (Claude Code: effort only, and only when it differs from the session; Codex: a convenience), that the brief is the only portable contract, and the sub-agent cache TTL rule for waiting sub-agents.
 
