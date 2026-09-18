@@ -3,16 +3,26 @@ type: is
 id: is-01m2pr2edgrgckr42003704bwh
 title: "P4: Fold validation findings back into the shortcuts"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 4
+version: 7
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: unknown@cursor
 labels:
   - exec:judgment
-dependencies: []
+dependencies:
+  - type: blocks
+    target: is-01m2s4q55b0jftzxey6tt7g16p
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-17T03:55:22.416Z
-updated_at: 2026-09-17T11:24:22.769Z
+updated_at: 2026-09-18T02:39:23.165Z
+started_at: 2026-09-18T02:14:53.339Z
+closed_at: 2026-09-18T02:39:23.165Z
+close_reason: "Folded into #309 34db3783: parallel-writer/dist, project-scoped tbd-* agents, GitHub CI as full-suite gate, reviews-API 403 fallback, --notes replace semantics; contract tests in review-lifecycle-contract.test.ts. CI 35299039050 success."
+resolution: null
+duplicate_of: null
 ---
 Plan: Implementation Plan > Phase 4 item 5.
 
