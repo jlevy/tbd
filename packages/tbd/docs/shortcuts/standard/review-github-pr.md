@@ -144,6 +144,9 @@ Create a to-do list with the following items then perform all of them:
      user says otherwise
    - Keep scratch files in the session scratch directory, do not commit or push, and
      leave the tree as you found it
+   - Leave the session’s environment as you found it too: set any variable a probe needs
+     (`GIT_CONFIG_GLOBAL`, `GIT_AUTHOR_*`, and anything else git reads) per command or
+     in a subshell, because a platform may share one shell session with the coordinator
    - **Report every finding with its severity** (Blocker, High, Medium, or Low, as
      defined in `tbd guidelines code-review-rules`); do not filter by severity
    - If the PR changes the policy block in `AGENTS.md`

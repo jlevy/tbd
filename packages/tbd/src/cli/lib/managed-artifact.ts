@@ -18,7 +18,9 @@ export interface InspectManagedArtifactOptions {
 /**
  * Return the numeric portion of an integration format stamp. Stamps written
  * through tbd 0.9.0 are two digits (f01..f08, the repository format of the day);
- * later stamps are three digits (f100 and up). Numeric order works across both.
+ * later stamps are three digits (f100 and up). Numeric order works across both:
+ * `f100` is 100 against 0.9.0's ceiling of 8, so 0.9.0 refuses the surface
+ * through the comparison it already ships, with no change to 0.9.0.
  */
 export function integrationFormatNumber(format: string): number {
   return Number.parseInt(format.replace(/^f/, ''), 10);
