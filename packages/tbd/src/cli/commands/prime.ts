@@ -25,8 +25,9 @@ import type { Issue } from '../../lib/types.js';
 import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
 import { loadDataContext } from '../lib/data-context.js';
 import {
+  describeGrantStamp,
+  displayPolicyValue,
   locateIntegrationBlock,
-  readCommittedAgentsMd,
   readEffectiveGrants,
   type DefaultBranchRef,
   type EffectiveGrants,
@@ -189,9 +190,11 @@ function describeGrantSource(source: DefaultBranchRef | null): string {
   switch (source.kind) {
     case 'remote-tracking':
     case 'local':
-      return `AGENTS.md on ${source.branch}`;
+      return `AGENTS.md on ${source.branch}${describeGrantStamp(source)}`;
     case 'head':
-      return 'AGENTS.md at HEAD (no default branch found)';
+      return `AGENTS.md at HEAD (no default branch found)${describeGrantStamp(source)}`;
+    case 'unresolved':
+      return 'the default branch (unresolved)';
     default: {
       const _exhaustive: never = source.kind;
       throw new Error(`Unhandled source kind: ${String(_exhaustive)}`);
@@ -201,10 +204,10 @@ function describeGrantSource(source: DefaultBranchRef | null): string {
 
 function describeAnsweredGrant(status: PolicyStatus): string {
   if (!status.known) {
-    return `${status.name}: ${status.value} (unknown policy)`;
+    return `${status.name}: ${displayPolicyValue(status.value ?? '')} (unknown policy)`;
   }
   if (!status.valid) {
-    return `${status.name}: ${status.value} (unknown value; treated as ${status.effective})`;
+    return `${status.name}: ${displayPolicyValue(status.value ?? '')} (unknown value; treated as ${status.effective})`;
   }
   return `${status.name}: ${status.effective}`;
 }
@@ -225,6 +228,13 @@ export function formatPolicyGrantsLines(reading: PrimeGrantsReading): string[] |
   const { source, parse, policies } = reading.effective;
   if (parse.status === 'missing' && !reading.hasTbdBlock) {
     return null;
+  }
+  if (source?.kind === 'unresolved') {
+    const repair =
+      source.repair ?? 'git remote set-head <remote> --auto, or git fetch <remote> <branch>';
+    return [
+      `Could not resolve the default branch (${repair}); treat every policy as unanswered and run \`tbd policy show\`.`,
+    ];
   }
   const where = describeGrantSource(source);
   const details = '(details: `tbd policy show`)';
@@ -396,9 +406,7 @@ class PrimeHandler extends BaseCommand {
   private async readPolicyGrants(tbdRoot: string, remote: string): Promise<PrimeGrantsReading> {
     try {
       const effective = await readEffectiveGrants(tbdRoot, remote);
-      const committed = effective.source
-        ? await readCommittedAgentsMd(tbdRoot, effective.source.ref)
-        : null;
+      const committed = effective.committed;
       const hasTbdBlock = committed !== null && locateIntegrationBlock(committed) !== null;
       return { kind: 'read', effective, hasTbdBlock };
     } catch (error) {

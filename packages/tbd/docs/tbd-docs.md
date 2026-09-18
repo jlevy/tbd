@@ -1125,10 +1125,13 @@ Effective grants are read from `AGENTS.md` as committed on the default branch: t
 remote’s copy (`refs/remotes/<remote>/<branch>`, as of the last fetch) when it exists,
 otherwise the local branch.
 The default branch is the one `<remote>/HEAD` names, else `init.defaultBranch`, `main`,
-or `master`, whichever exists; with none of these, grants are read from `HEAD` and
-`show` says so. A grant in the working tree or on an unmerged branch is therefore not
-effective; `show` lists such differences and `--json` reports them under
-`workingTree.differences`.
+or `master`, whichever exists as a remote-tracking ref (or as a local branch when the
+repository has no remotes).
+With a remote and none of these, grants are unread: every policy is unanswered and
+`show` names the repair (`git remote set-head <remote> --auto`, or
+`git fetch <remote> <branch>`). `HEAD` is used only when the repository has no remotes.
+A grant in the working tree or on an unmerged branch is therefore not effective; `show`
+lists such differences and `--json` reports them under `workingTree.differences`.
 
 If `AGENTS.md` has no tbd block, `show` still reports the effective grants and `grant`,
 `revoke`, and `set` stop with a pointer to `tbd setup --auto`. A malformed block (see

@@ -720,12 +720,9 @@ describe('review lifecycle contract', () => {
       const outside = doc.replace(suggestions, '');
       const elsewhere = [
         { label: 'agent-model-tiers outside its suggestions', text: outside },
-        ...(await Promise.all(
-          [...LIFECYCLE_SHORTCUTS, ...(await reviewCodeShortcuts())].map(async (name) => ({
-            label: name,
-            text: await shortcutDoc(name),
-          })),
-        )),
+        ...(await allDocs())
+          .filter((d) => !d.rel.endsWith('guidelines/agent-model-tiers.md'))
+          .map((d) => ({ label: d.rel, text: d.text })),
       ];
       const named: string[] = [];
       for (const { label, text } of elsewhere) {

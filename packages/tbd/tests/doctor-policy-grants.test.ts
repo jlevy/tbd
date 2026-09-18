@@ -57,7 +57,7 @@ function effectiveFrom(
   source: DefaultBranchRef | null = ORIGIN_MAIN,
 ): EffectiveGrants {
   const parse = content === null ? ({ status: 'missing' } as const) : parsePolicyBlock(content);
-  return { source, parse, policies: resolvePolicyStatuses(parse) };
+  return { source, parse, policies: resolvePolicyStatuses(parse), committed: content };
 }
 
 function workingTreeFrom(content: string | null): WorkingTreeGrants {
@@ -211,6 +211,24 @@ describe('policyGrantFindings', () => {
           'working tree block differs from the default branch (nothing committed yet) in 1 policy',
         suggestion:
           'These grants take effect once committed and merged to the default branch; see: tbd policy show',
+      }),
+    ]);
+
+    const unresolved: DefaultBranchRef = {
+      branch: 'origin',
+      ref: '',
+      kind: 'unresolved',
+      repair: 'git remote set-head origin --auto, or git fetch origin <default-branch>',
+    };
+    expect(policyGrantFindings(effectiveFrom(null, unresolved), workingTreeFrom(working))).toEqual([
+      expect.objectContaining({
+        status: 'warn',
+        message: 'default branch could not be resolved; every policy is treated as unanswered',
+        suggestion: unresolved.repair,
+      }),
+      expect.objectContaining({
+        status: 'warn',
+        message: 'working tree block differs from an unresolved default branch in 1 policy',
       }),
     ]);
   });

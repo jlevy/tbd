@@ -139,6 +139,8 @@ Create a to-do list with the following items then perform all of them:
    `file:line` references, and a concrete **Fix:** suggestion each, non-blocking
    suggestions, and false positives confirmed benign.
    Report every finding with its severity; do not filter by severity.
+   If the diff changes the policy block in `AGENTS.md`, report that as a finding naming
+   each changed policy and value.
    Add two engine-specific sections:
 
    - **Design assessment**: Review architecture and pros/cons/alternatives, how this

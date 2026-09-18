@@ -310,7 +310,9 @@ export const POLICY_BLOCK_HEADING = '### Agent Policy Grants';
 /** The fixed paragraph of the block, exactly as the guideline shows it. */
 export const POLICY_BLOCK_PROSE = `The user granted these policies explicitly for this project. A user instruction in the
 current conversation overrides them. For what each policy means, run
-\`tbd guidelines agent-policy-grants\`; to change them, run \`tbd policy\`.`;
+\`tbd guidelines agent-policy-grants\`; to change them, run \`tbd policy\`.
+Only the copy committed on the default branch is in effect; a branch or working-tree
+copy is a proposal, and \`tbd policy show\` reports the effective grants.`;
 
 /**
  * The AGENTS.md tbd block markers. `INTEGRATION_BEGIN_MARKER` is the stable
@@ -367,23 +369,63 @@ export function locateIntegrationBlock(agentsMd: string): IntegrationBlockLocati
   return { start, bodyStart, endMarker, format: parseManagedIntegrationFormat(beginLine) ?? 'f01' };
 }
 
-function indexOfAll(haystack: string, needle: string): number[] {
-  const found: number[] = [];
-  let from = 0;
-  for (;;) {
-    const index = haystack.indexOf(needle, from);
-    if (index < 0) {
-      return found;
+/** A begin or end policy-marker line, after trim; each marker is on its own line. */
+const POLICY_BEGIN_LINE = /^<!-- BEGIN TBD POLICY GRANTS v=(\S+) -->$/;
+
+/**
+ * Offsets of policy-marker *lines* in LF text. A prose mention of the marker
+ * text is not a marker; the line's trim must equal the marker.
+ */
+function policyMarkerLineOffsets(agentsMd: string): { begins: number[]; ends: number[] } {
+  const begins: number[] = [];
+  const ends: number[] = [];
+  let offset = 0;
+  for (const line of agentsMd.split('\n')) {
+    const trimmed = line.trim();
+    const leading = line.length - line.trimStart().length;
+    if (POLICY_BEGIN_LINE.test(trimmed)) {
+      begins.push(offset + leading);
+    } else if (trimmed === POLICY_END_MARKER) {
+      ends.push(offset + leading);
     }
-    found.push(index);
-    from = index + needle.length;
+    offset += line.length + 1;
   }
+  return { begins, ends };
 }
 
-/** A line is a grant line when it is a bullet whose text starts with a backtick. */
-const GRANT_LINE_CANDIDATE = /^-\s+`/;
-const GRANT_LINE = /^-\s+`([^`]*)`:\s+(\S.*)$/;
+/** First policy-marker line of `kind` at or after `from`, or -1. */
+function indexOfPolicyMarkerLine(agentsMd: string, kind: 'begin' | 'end', from: number): number {
+  const { begins, ends } = policyMarkerLineOffsets(agentsMd);
+  const offsets = kind === 'begin' ? begins : ends;
+  return offsets.find((offset) => offset >= from) ?? -1;
+}
+
+/**
+ * A line is a grant candidate when it is a list item whose text starts with a
+ * backtick, or that contains a backticked known policy name followed by a colon
+ * (including bold-wrapped names like `- **github-merge**: …`). Candidates that
+ * do not match GRANT_LINE are malformed.
+ */
+const GRANT_LINE_CANDIDATE = /^[-*+]\s+/;
+const GRANT_LINE = /^[-*+]\s+`([^`]*)`:\s+(\S.*)$/;
 const RECORDED_LINE = /^Recorded (\d{4}-\d{2}-\d{2})\.$/;
+const BOLD_GRANT_NAME = /^\*\*([^*]+)\*\*:/;
+
+function isGrantLineCandidate(line: string): boolean {
+  const list = GRANT_LINE_CANDIDATE.exec(line);
+  if (!list) {
+    return false;
+  }
+  const text = line.slice(list[0].length);
+  if (text.startsWith('`')) {
+    return true;
+  }
+  const bold = BOLD_GRANT_NAME.exec(text);
+  if (bold && isKnownPolicy(bold[1]!)) {
+    return true;
+  }
+  return POLICY_NAMES.some((name) => text.includes(`\`${name}\`:`));
+}
 
 /** `text` with CRLF line breaks converted to LF. */
 function toLf(text: string): string {
@@ -409,8 +451,7 @@ function usesCrlf(text: string): boolean {
  */
 export function parsePolicyBlock(content: string): PolicyBlockParse {
   const agentsMd = toLf(content);
-  const begins = indexOfAll(agentsMd, POLICY_BEGIN_MARKER_PREFIX);
-  const ends = indexOfAll(agentsMd, POLICY_END_MARKER);
+  const { begins, ends } = policyMarkerLineOffsets(agentsMd);
   if (begins.length === 0 && ends.length === 0) {
     return { status: 'missing' };
   }
@@ -467,7 +508,7 @@ export function parsePolicyBlock(content: string): PolicyBlockParse {
       recorded = recordedMatch[1]!;
       continue;
     }
-    if (!GRANT_LINE_CANDIDATE.test(line)) {
+    if (!isGrantLineCandidate(line)) {
       continue;
     }
     const match = GRANT_LINE.exec(line);
@@ -580,13 +621,25 @@ function withPolicyBlockLf(agentsMd: string, block: string): string {
   }
 
   const beginLineEnd = agentsMd.indexOf('\n', integration.start);
+  if (beginLineEnd < 0 || beginLineEnd > integration.endMarker) {
+    throw new PolicyBlockError(
+      'the tbd block markers in AGENTS.md must be on separate lines; ' +
+        'put BEGIN TBD INTEGRATION and END TBD INTEGRATION each on its own line',
+    );
+  }
   const head = agentsMd.slice(0, integration.start) + INTEGRATION_BEGIN_LINE;
-  const rest = beginLineEnd < 0 ? '\n' : agentsMd.slice(beginLineEnd);
+  const rest = agentsMd.slice(beginLineEnd);
   const restamped = head + rest;
-  const located = locateIntegrationBlock(restamped)!;
+  const located = locateIntegrationBlock(restamped);
+  if (!located) {
+    throw new PolicyBlockError(
+      'the tbd block markers in AGENTS.md must be on separate lines; ' +
+        'put BEGIN TBD INTEGRATION and END TBD INTEGRATION each on its own line',
+    );
+  }
 
-  const policyStart = restamped.indexOf(POLICY_BEGIN_MARKER_PREFIX, located.bodyStart);
-  const policyEndMarker = restamped.indexOf(POLICY_END_MARKER, located.bodyStart);
+  const policyStart = indexOfPolicyMarkerLine(restamped, 'begin', located.bodyStart);
+  const policyEndMarker = indexOfPolicyMarkerLine(restamped, 'end', located.bodyStart);
   if (policyStart >= 0 && policyEndMarker >= 0 && policyEndMarker < located.endMarker) {
     let policyEnd = policyEndMarker + POLICY_END_MARKER.length;
     if (restamped[policyEnd] === '\n') {
@@ -721,10 +774,43 @@ export interface DefaultBranchRef {
   /**
    * `remote-tracking`: the remote's copy of the default branch (as of the last
    * fetch), preferred because it is what every clone shares. `local`: the local
-   * default branch, when the remote has no copy. `head`: no default branch could
-   * be found, so the current commit is used.
+   * default branch, only when the repository has no remotes. `head`: no default
+   * branch could be found and the repository has no remotes, so the current
+   * commit is used. `unresolved`: the clone has a remote but no trusted default
+   * branch, so every policy is unanswered.
    */
-  kind: 'remote-tracking' | 'local' | 'head';
+  kind: 'remote-tracking' | 'local' | 'head' | 'unresolved';
+  /** How to make the default branch resolvable; set when `kind` is `unresolved`. */
+  repair?: string;
+  /** Short SHA of the commit grants were read from, when known. */
+  shortSha?: string;
+  /** Relative age of that commit (`3 days ago`), when known. */
+  age?: string;
+}
+
+/** ` as of origin/main 16de5bc, 3 days ago` when SHA is known; otherwise empty. */
+export function describeGrantStamp(source: DefaultBranchRef): string {
+  if (!source.shortSha) {
+    return '';
+  }
+  const name =
+    source.kind === 'remote-tracking'
+      ? source.ref.replace(/^refs\/remotes\//, '')
+      : source.kind === 'head'
+        ? 'HEAD'
+        : source.branch;
+  return ` as of ${name} ${source.shortSha}${source.age ? `, ${source.age}` : ''}`;
+}
+
+const POLICY_VALUE_DISPLAY_MAX = 60;
+
+/** Bound a recorded value for hook and `policy show` output: strip controls, cap length. */
+export function displayPolicyValue(value: string, maxLength = POLICY_VALUE_DISPLAY_MAX): string {
+  const stripped = value.replace(/[\p{Cc}\p{Cf}]/gu, '');
+  if (stripped.length <= maxLength) {
+    return stripped;
+  }
+  return `${stripped.slice(0, maxLength)}…`;
 }
 
 async function refExists(repoDir: string, ref: string): Promise<boolean> {
@@ -736,16 +822,83 @@ async function refExists(repoDir: string, ref: string): Promise<boolean> {
   }
 }
 
+interface RefStamp {
+  shortSha: string;
+  age: string;
+}
+
+/** Existing remote-tracking and local branch refs, with SHA and age, in one git call. */
+async function listBranchRefs(repoDir: string, remote: string): Promise<Map<string, RefStamp>> {
+  const refs = new Map<string, RefStamp>();
+  try {
+    const output = await git(
+      '-C',
+      repoDir,
+      'for-each-ref',
+      '--format=%(refname)\t%(objectname:short)\t%(committerdate:relative)',
+      `refs/remotes/${remote}/`,
+      'refs/heads/',
+    );
+    if (output === '') {
+      return refs;
+    }
+    for (const line of output.split('\n')) {
+      const [refname, shortSha, age] = line.split('\t');
+      if (refname && shortSha) {
+        refs.set(refname, { shortSha, age: age ?? '' });
+      }
+    }
+  } catch {
+    // Not a git repository, or for-each-ref failed; treat as no refs.
+  }
+  return refs;
+}
+
+async function stampSource(repoDir: string, source: DefaultBranchRef): Promise<DefaultBranchRef> {
+  if (source.kind === 'unresolved' || source.shortSha) {
+    return source;
+  }
+  try {
+    const output = await git('-C', repoDir, 'log', '-1', '--format=%h\t%cr', source.ref);
+    const [shortSha, age] = output.split('\t');
+    return shortSha ? { ...source, shortSha, age: age ?? '' } : source;
+  } catch {
+    return source;
+  }
+}
+
+/** Remotes configured in this clone (`git remote`). Empty when there are none. */
+async function listRemotes(repoDir: string): Promise<string[]> {
+  try {
+    const output = await git('-C', repoDir, 'remote');
+    return output === '' ? [] : output.split('\n');
+  } catch {
+    return [];
+  }
+}
+
+function unresolvedSource(branch: string, repair: string): DefaultBranchRef {
+  return { branch, ref: '', kind: 'unresolved', repair };
+}
+
+function unansweredGrants(source: DefaultBranchRef | null): EffectiveGrants {
+  const parse: PolicyBlockParse = { status: 'missing' };
+  return { source, parse, policies: resolvePolicyStatuses(parse), committed: null };
+}
+
 /**
  * Find the default branch: the branch `<remote>/HEAD` names (set by clone), else
  * `init.defaultBranch`, `main`, or `master`, whichever exists first. For each
- * candidate the remote-tracking ref is preferred over the local branch. Returns
- * null when none exists. No network access.
+ * candidate the remote-tracking ref is preferred over the local branch, and the
+ * local branch is used only when `allowLocal` is true (the repository has no
+ * remotes). Returns null when none exists. No network access.
  */
 export async function resolveDefaultBranch(
   repoDir: string,
   remote: string,
+  options: { allowLocal?: boolean } = {},
 ): Promise<DefaultBranchRef | null> {
+  const allowLocal = options.allowLocal ?? true;
   const candidates: string[] = [];
   try {
     const target = await git('-C', repoDir, 'symbolic-ref', '-q', `refs/remotes/${remote}/HEAD`);
@@ -766,14 +919,31 @@ export async function resolveDefaultBranch(
   }
   candidates.push('main', 'master');
 
+  const refs = await listBranchRefs(repoDir, remote);
   for (const branch of [...new Set(candidates)]) {
     const tracking = `refs/remotes/${remote}/${branch}`;
-    if (await refExists(repoDir, tracking)) {
-      return { branch, ref: tracking, kind: 'remote-tracking' };
+    const trackingStamp = refs.get(tracking);
+    if (trackingStamp) {
+      return {
+        branch,
+        ref: tracking,
+        kind: 'remote-tracking',
+        shortSha: trackingStamp.shortSha,
+        age: trackingStamp.age,
+      };
     }
-    const local = `refs/heads/${branch}`;
-    if (await refExists(repoDir, local)) {
-      return { branch, ref: local, kind: 'local' };
+    if (allowLocal) {
+      const local = `refs/heads/${branch}`;
+      const localStamp = refs.get(local);
+      if (localStamp) {
+        return {
+          branch,
+          ref: local,
+          kind: 'local',
+          shortSha: localStamp.shortSha,
+          age: localStamp.age,
+        };
+      }
     }
   }
   return null;
@@ -801,20 +971,44 @@ export interface EffectiveGrants {
   source: DefaultBranchRef | null;
   parse: PolicyBlockParse;
   policies: PolicyStatus[];
+  /** AGENTS.md as committed at `source.ref`; null when unread. */
+  committed: string | null;
 }
 
 /**
  * Read the effective grants: the policy block in AGENTS.md as committed on the
  * default branch (see resolveDefaultBranch), so a grant on an unmerged branch or
- * in the working tree is not effective. Falls back to HEAD, reported as such,
- * when no default branch can be found.
+ * in the working tree is not effective. Falls back to HEAD only when the
+ * repository has no remotes. When a remote exists but no trusted default branch
+ * can be resolved (a single-branch or CI-style checkout, or a `sync.remote` this
+ * clone does not have), returns an `unresolved` source and every policy unanswered.
  */
 export async function readEffectiveGrants(
   repoDir: string,
   remote: string,
 ): Promise<EffectiveGrants> {
-  let source = await resolveDefaultBranch(repoDir, remote);
+  const remotes = await listRemotes(repoDir);
+  const hasRemotes = remotes.length > 0;
+  if (hasRemotes && !remotes.includes(remote)) {
+    return unansweredGrants(
+      unresolvedSource(
+        remote,
+        `sync.remote is "${remote}" but this clone's remotes are: ${remotes.join(', ')}. ` +
+          `Set sync.remote to an existing remote, or git fetch <remote> <default-branch>.`,
+      ),
+    );
+  }
+
+  let source = await resolveDefaultBranch(repoDir, remote, { allowLocal: !hasRemotes });
   if (!source) {
+    if (hasRemotes) {
+      return unansweredGrants(
+        unresolvedSource(
+          remote,
+          `git remote set-head ${remote} --auto, or git fetch ${remote} <default-branch>`,
+        ),
+      );
+    }
     let branch = 'HEAD';
     try {
       branch = await git('-C', repoDir, 'rev-parse', '--abbrev-ref', 'HEAD');
@@ -823,10 +1017,13 @@ export async function readEffectiveGrants(
     }
     source = (await refExists(repoDir, 'HEAD')) ? { branch, ref: 'HEAD', kind: 'head' } : null;
   }
+  if (source) {
+    source = await stampSource(repoDir, source);
+  }
   const committed = source ? await readCommittedAgentsMd(repoDir, source.ref) : null;
   const parse: PolicyBlockParse =
     committed === null ? { status: 'missing' } : parsePolicyBlock(committed);
-  return { source, parse, policies: resolvePolicyStatuses(parse) };
+  return { source, parse, policies: resolvePolicyStatuses(parse), committed };
 }
 
 /** The working tree's AGENTS.md, which `tbd policy` edits; grants here are pending until committed. */

@@ -209,7 +209,7 @@ $ git add AGENTS.md && git commit -q -m "Record grants"
 ```console
 $ tbd prime | sed -n '/=== AGENT POLICY GRANTS ===/,/setup-tbd/p'
 === AGENT POLICY GRANTS ===
-Effective grants from AGENTS.md on main (details: `tbd policy show`):
+Effective grants from AGENTS.md on main ...
   github-editing: granted, github-merge: per-request,
   pr-review-requirements: standard + security
 Unanswered (treated as not-granted): github-workflows, github-stacked-prs, subagents,
@@ -223,7 +223,7 @@ Ask the user when a task needs one, or run `tbd shortcut setup-tbd` to ask about
 ```console
 $ tbd prime --brief | sed -n '/=== AGENT POLICY GRANTS ===/,/setup-tbd/p'
 === AGENT POLICY GRANTS ===
-Effective grants from AGENTS.md on main (details: `tbd policy show`):
+Effective grants from AGENTS.md on main ...
   github-editing: granted, github-merge: per-request,
   pr-review-requirements: standard + security
 Unanswered (treated as not-granted): github-workflows, github-stacked-prs, subagents,

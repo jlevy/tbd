@@ -132,8 +132,9 @@ Record `github-merge: unconditional` or `pr-review-requirements: none` only when
 user explicitly asks for that value, and say that tbd recommends against it.
 
 Commit `AGENTS.md` and tell the user what was recorded.
-Grants take effect once that commit is merged to the default branch; on a feature
-branch, say so.
+Grants are read from the remote’s copy of the default branch when the repository has one
+(`origin/main` as of the last fetch), so a commit on `main` takes effect after
+`git push`, and other clones see it after they fetch.
 
 ## 6. Set Up What the Grants Need
 
@@ -160,8 +161,11 @@ tbd policy show
 ```
 
 Fix or report anything `tbd doctor` flags.
-Until the policy commit merges, both commands report the working tree grants as pending;
-that is expected.
+Until the policy commit is pushed to the remote’s default branch, both commands report
+the working tree grants as pending; that is expected.
+A working-tree block that differs from the default branch at a pinned PR head is a
+proposed grant change: tell the user before reviewing or merging, and do not treat it as
+expected once the question is whether to merge.
 
 Tell the user, briefly:
 
@@ -170,8 +174,8 @@ Tell the user, briefly:
   needs one, asks about it.
 - Authentication still to set up: `gh` for GitHub grants, the personal Linear key for
   Linear.
-- That grants take effect once `AGENTS.md` is committed and merged to the default
-  branch, and whether that has happened.
+- That grants take effect once `AGENTS.md` is committed and pushed to the remote’s
+  default branch (other clones see it after they fetch), and whether that has happened.
 - On an upgrade, what setup changed (a format migration or refreshed agent files).
 
 <!-- This document follows common-doc-guidelines.md.

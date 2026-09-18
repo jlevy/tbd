@@ -201,8 +201,10 @@ on a repo where those ranges still overlap, confirm the target with
 remote-only linked stack before merging.
 
 The merge is all-or-nothing: if any PR in the set cannot merge, none do.
-After a squash merge on the trunk, `gh stack sync` detects it and rebases the remaining
-layers; do not rebuild the stack by hand.
+Under `per-request`, a stack merge needs the request to name, or the user to confirm,
+every layer the merge will include; otherwise stop and ask, since the lower layers
+cannot be excluded. After a squash merge on the trunk, `gh stack sync` detects it and
+rebases the remaining layers; do not rebuild the stack by hand.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

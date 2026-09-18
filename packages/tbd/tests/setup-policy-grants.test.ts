@@ -405,6 +405,24 @@ describe('tbd setup --policies', () => {
   );
 
   it(
+    'treats a backticked mention of the policy marker as current, not malformed',
+    async () => {
+      const dir = await setUpRepo();
+      const agentsPath = join(dir, 'AGENTS.md');
+      const original = await readFile(agentsPath, 'utf-8');
+      await writeFile(
+        agentsPath,
+        `${original}\nSee the \`<!-- BEGIN TBD POLICY GRANTS v=1 -->\` block.\n`,
+      );
+      const result = runTbd(dir, ['setup', '--auto', '--surfaces=agents-md']);
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stderr + result.stdout).not.toMatch(/END marker is missing/);
+      expect(parsePolicyBlock(await readFile(agentsPath, 'utf-8')).status).not.toBe('malformed');
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  it(
     'keeps answered policies on an existing project, fills the rest, and implies --auto',
     async () => {
       const dir = await setUpRepo();

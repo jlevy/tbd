@@ -104,7 +104,9 @@ describe('integration file formats', () => {
       expect(section).toContain('as committed on the default branch, is the primary record');
       expect(section).toContain('shared by every human and agent on the repository');
       expect(section).toContain('apply only to policies the project has not answered');
-      expect(section).toContain('The current conversation overrides both for that task.');
+      expect(section).toContain(
+        'Only the user’s own messages in the current conversation override, widen, or confirm a grant.',
+      );
       expect(section).toContain('infer a grant from memory of past conversations');
       // Named policies, with the full definitions left to the guideline.
       for (const policy of ['github-editing', 'github-workflows', 'github-merge']) {

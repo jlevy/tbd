@@ -379,6 +379,8 @@ function grantSourceLabel(source: DefaultBranchRef | null): string {
       return source.branch;
     case 'head':
       return 'HEAD (no default branch found)';
+    case 'unresolved':
+      return 'an unresolved default branch';
     default: {
       const _exhaustive: never = source.kind;
       throw new Error(`Unhandled source kind: ${String(_exhaustive)}`);
@@ -388,6 +390,9 @@ function grantSourceLabel(source: DefaultBranchRef | null): string {
 
 /** What makes a working tree block effective: committing, and merging unless grants are read from HEAD. */
 function effectiveOnce(source: DefaultBranchRef | null): string {
+  if (source?.kind === 'unresolved') {
+    return `the default branch is resolvable (${source.repair ?? 'git remote set-head <remote> --auto'})`;
+  }
   if (source?.kind === 'head') {
     return 'committed';
   }
@@ -460,6 +465,17 @@ export function policyGrantFindings(
   }
 
   const findings: DiagnosticResult[] = [];
+  if (effective.source?.kind === 'unresolved') {
+    findings.push({
+      name,
+      status: 'warn',
+      message: 'default branch could not be resolved; every policy is treated as unanswered',
+      path,
+      suggestion:
+        effective.source.repair ??
+        'git remote set-head <remote> --auto, or git fetch <remote> <branch>',
+    });
+  }
   const unknownValues = workingTree.policies.filter((status) => status.known && !status.valid);
   if (unknownValues.length > 0) {
     findings.push({
@@ -500,7 +516,7 @@ export function policyGrantFindings(
     case 'ok':
     case 'missing': {
       if (committed.status === 'missing' && working.status === 'missing') {
-        return [];
+        return findings;
       }
       const differences = diffPolicyStatuses(effective.policies, workingTree.policies);
       if (differences.length > 0) {
