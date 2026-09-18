@@ -151,10 +151,11 @@ tbd’s generated `tbd-*` definitions stay in the project (`.claude/agents/` and
   body, `CLAUDE.md`, and your brief.
   Rules you take for granted (commit only when asked, how to report) exist for it only
   if the brief or the shortcut it names states them.
-- Sub-agents get the 5-minute prompt cache lifetime by default.
-  When a sub-agent will wait in intervals longer than that, set `subagentPromptCacheTtl`
-  to `1h` or keep its polls under five minutes (see `agent-model-tiers`, Sub-Agent Cost
-  and Caching).
+- Sub-agents get the 5-minute prompt cache lifetime by default (Claude Code v2.1.242 or
+  later; older builds silently ignore `subagentPromptCacheTtl` and
+  `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL`). When a sub-agent will wait in intervals
+  longer than that, set `subagentPromptCacheTtl` to `1h` or keep its polls under five
+  minutes (see `agent-model-tiers`, Sub-Agent Cost and Caching).
 - Use the Workflow tool only when the user asks for a workflow in their own words.
   A `subagents` grant is not the explicit opt-in that tool requires.
 - A sub-agent started with `isolation: worktree` gets a worktree from the default

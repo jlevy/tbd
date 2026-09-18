@@ -915,9 +915,9 @@ function tierAgentDescription(platform: TierAgentPlatform, def: TierAgentDefinit
 }
 
 /**
- * The definition body. On Claude Code this is the sub-agent's entire system
- * prompt (a custom sub-agent gets the definition body plus environment
- * details, not the Claude Code system prompt); on Codex it replaces the
+ * The definition body. On Claude Code this is the sub-agent's behavioral system
+ * prompt (the docs promise only the body plus environment details, not the
+ * Claude Code system prompt); on Codex it replaces the
  * developer instructions on top of the full Codex prompt. Short and
  * project-neutral on purpose: the brief carries the task and names the
  * shortcut, so the same brief works on every platform, and nothing here can
