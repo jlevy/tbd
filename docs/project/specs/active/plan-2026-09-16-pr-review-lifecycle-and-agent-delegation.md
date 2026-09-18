@@ -1103,8 +1103,8 @@ convenience, not a requirement.
   tiers, questions asked, and what worked in Outcome Notes
 - [x] Record this repository’s policy grants through the new flow, as the user answers
   them
-- [ ] Run the same workflow on #306 and #307; merge only with explicit confirmation
-- [ ] Fold findings from these runs back into the shortcuts
+- [x] Run the same workflow on #306 and #307; merge only with explicit confirmation
+- [x] Fold findings from these runs back into the shortcuts
 
 ## Testing Strategy
 
@@ -1361,8 +1361,11 @@ C1–C3 are Low leftovers on the B1 path (failed `git remote` treated as no remo
 
 - Re-verify OpenAI prompt-caching figures (`tbd-2f9j`, #310 A5). Lands on #310, not this
   PR.
-- #306 / #307 Phase 4 runs remain separately tracked; merge only with explicit
-  confirmation.
+- #306 and #307 ran the full workflow in the Claude session and merged with the user’s
+  confirmation (merge commits `9b4e6154` and `528083ce`): three reviews (senior twice,
+  correctness once), 13 findings dispositioned, one deferral (`tbd-08gn`), and one
+  unmarked bot inline comment that the merge gate caught and that was fixed before
+  merging.
 
 ### Folded back into the shortcuts (`tbd-xfg0`)
 
