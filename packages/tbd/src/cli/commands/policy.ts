@@ -33,6 +33,8 @@ import {
   PolicyBlockError,
   SETUP_AGENTS_MD_HINT,
   checkPolicyValue,
+  describeGrantStamp,
+  displayPolicyValue,
   diffPolicyStatuses,
   isKnownPolicy,
   parsePolicyBlock,
@@ -102,9 +104,11 @@ function describeSource(source: DefaultBranchRef | null): string {
   switch (source.kind) {
     case 'remote-tracking':
     case 'local':
-      return `AGENTS.md on ${source.branch} (${source.ref})`;
+      return `AGENTS.md on ${source.branch} (${source.ref})${describeGrantStamp(source)}`;
     case 'head':
-      return `AGENTS.md at HEAD (${source.branch}); no default branch found (no origin/HEAD, main, or master)`;
+      return `AGENTS.md at HEAD (${source.branch}); no default branch found (no origin/HEAD, main, or master)${describeGrantStamp(source)}`;
+    case 'unresolved':
+      return `unresolved; every policy is treated as unanswered. Repair: ${source.repair ?? 'git remote set-head <remote> --auto, or git fetch <remote> <branch>'}`;
     default: {
       const _exhaustive: never = source.kind;
       throw new Error(`Unhandled source kind: ${String(_exhaustive)}`);
@@ -233,7 +237,9 @@ class PolicyShowHandler extends BaseCommand {
 
   private describeAnswered(status: PolicyStatus): string {
     const colors = this.output.getColors();
-    const value = (status.value ?? '').padEnd(14);
+    const raw =
+      status.known && status.valid ? (status.value ?? '') : displayPolicyValue(status.value ?? '');
+    const value = raw.padEnd(14);
     if (!status.known) {
       return `${value}${colors.dim('(unknown policy; a newer tbd may define it)')}`;
     }
@@ -353,6 +359,12 @@ async function describeHowToTakeEffect(
   tbdRoot: string,
   source: DefaultBranchRef | null,
 ): Promise<string> {
+  if (source?.kind === 'unresolved') {
+    return (
+      `The default branch could not be resolved (${source.repair}). ` +
+      `Grants stay unanswered until it is.`
+    );
+  }
   if (!source || source.kind === 'head') {
     return `Commit ${AGENTS_MD_REL} for it to take effect.`;
   }

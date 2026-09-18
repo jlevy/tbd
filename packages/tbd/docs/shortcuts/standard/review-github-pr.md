@@ -137,6 +137,9 @@ Create a to-do list with the following items then perform all of them:
      leave the tree as you found it
    - **Report every finding with its severity** (Blocker, High, Medium, or Low, as
      defined in `tbd guidelines code-review-rules`); do not filter by severity
+   - If the PR changes the policy block in `AGENTS.md`
+     (`git diff $BASE_SHA $HEAD_SHA -- AGENTS.md` between the `TBD POLICY GRANTS`
+     markers), report that as a finding naming each changed policy and value
 
 8. **Compile the review:**
    - Choose a review letter not in the letters already used (step 5), chosen to keep

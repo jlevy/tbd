@@ -74,9 +74,16 @@ Several PRs when the request names more than one):
      guidance that changes the defaults.
      Keep the user’s authorizing words verbatim for the briefs
 
-   - Check the grants with `tbd policy show`, applying the precedence in
-     `tbd guidelines agent-policy-grants` (the conversation overrides the recorded
-     block). The request needs:
+   - Check the grants with a fresh fetch of the default branch, then `tbd policy show`,
+     applying the precedence in `tbd guidelines agent-policy-grants` (only the user’s
+     own messages override the recorded block):
+
+     ```bash
+     git fetch origin "$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || echo main)"
+     tbd policy show
+     ```
+
+     The request needs:
      - `github-editing` in every mode, for publishing reviews, pushing fixes, and
        posting replies;
      - `github-merge` in merge mode: `per-request` is satisfied by a request that names
@@ -111,7 +118,12 @@ Several PRs when the request names more than one):
 
    - Record the CI state (`gh pr checks <N> --repo $REPO`) and the stack membership
      (`gh stack view --json` and `gh api "repos/$REPO/stacks?pull_request=<N>"`, as in
-     step 5 of `address-pr-review`); for a stack layer, note the layers below it
+     step 5 of `address-pr-review`; a missing `gh stack` means not tracked locally); for
+     a stack layer, note the layers below it
+
+   - If `tbd policy show` reports that the working tree `AGENTS.md` differs from the
+     default branch at this pinned head, tell the user before step 2: the PR proposes
+     policy changes and must not merge them without named confirmation
 
    - Run the discovery sweep (Discovery Sweep in `tbd shortcut pr-review-workflows`) and
      record the letters used, the current round, the open findings, and any unmarked
@@ -186,6 +198,8 @@ Several PRs when the request names more than one):
        `success`;
      - a disposition reply for every review of this round lists every finding: repeat
        the sweep;
+     - every inline comment posted since the pinned head is answered (thread reply or
+       listed under its URL in the PR-comment disposition reply);
      - every deferral’s bead is open: `tbd show <id>`;
      - the tree is clean at the new head: `git status --porcelain` and
        `git rev-parse HEAD`
@@ -211,7 +225,8 @@ Several PRs when the request names more than one):
 
    This is the authoritative merge gate.
    Check every condition at the moment of merging, from fresh reads, not from state
-   recorded earlier:
+   recorded earlier. Immediately before `tbd policy show`, run
+   `git fetch <remote> <default-branch>` (read-only) so the ref is not stale:
 
    - The `pr-review-requirements` policy is met: under `standard`, a senior engineering
      review at a pinned head and a pass addressing all its findings, plus each dedicated
@@ -223,6 +238,11 @@ Several PRs when the request names more than one):
      `tbd show` on each deferral’s bead.
    - No review content newer than the last disposition reply is unaddressed.
      Check: repeat the sweep now.
+   - The PR does not change the policy block
+     (`git diff $BASE_SHA $HEAD_SHA -- AGENTS.md` shows no change between the
+     `TBD POLICY GRANTS` markers), or the user confirmed each changed policy and value
+     by name in this request; a merge never records a grant the user did not make.
+     Check: `git diff $BASE_SHA $HEAD_SHA -- AGENTS.md` and the request.
    - Any question to the user about another round has been answered.
      Check: the conversation; an unanswered question fails the gate.
    - The head is unchanged since the final CI run, and required checks are final and
@@ -270,7 +290,9 @@ Several PRs when the request names more than one):
 
    - For a formal stack, `gh stack merge` is all-or-nothing
      (`tbd shortcut stacked-prs`): the gate must pass for every layer first, then
-     `gh stack merge <target> --yes`
+     `gh stack merge <target> --yes`. Under `per-request`, a stack merge needs the
+     request to name, or the user to confirm, every layer the merge will include;
+     otherwise stop and ask, since the lower layers cannot be excluded.
 
    - A branch-protection block (`mergeStateStatus` `BLOCKED`, or a refusal naming a
      required approval, a required check, or a merge queue the author’s account cannot
@@ -323,6 +345,10 @@ Several PRs when the request names more than one):
   reports it `BEHIND` or conflicting, the addressing agent updates it from the base and
   CI must pass again at the new head; a conflict resolution is a signal for another
   round (step 4).
+
+- **Overlapping files.** When the request’s PRs touch the same files, each reviewer’s
+  brief says so, and the PRs merge in dependency order with the later one re-addressed
+  after the earlier merges.
 
 - **Remove each worktree** when its PR is done, as in Clean Up in
   `delegate-to-subagents`.

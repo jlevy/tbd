@@ -55,6 +55,8 @@ const GUIDELINE_BLOCK = `<!-- BEGIN TBD POLICY GRANTS v=1 -->
 The user granted these policies explicitly for this project. A user instruction in the
 current conversation overrides them. For what each policy means, run
 \`tbd guidelines agent-policy-grants\`; to change them, run \`tbd policy\`.
+Only the copy committed on the default branch is in effect; a branch or working-tree
+copy is a proposal, and \`tbd policy show\` reports the effective grants.
 
 - \`github-workflows\`: granted
 - \`github-editing\`: granted
@@ -244,6 +246,39 @@ describe('parsePolicyBlock', () => {
   it('reports a missing block', () => {
     expect(parsePolicyBlock(agentsMdWith(''))).toEqual({ status: 'missing' });
     expect(parsePolicyBlock('')).toEqual({ status: 'missing' });
+  });
+
+  it('does not treat a backticked mention of the marker as a block', () => {
+    const mention = 'See the `<!-- BEGIN TBD POLICY GRANTS v=1 -->` block.\n';
+    expect(parsePolicyBlock(agentsMdWith('') + mention)).toEqual({ status: 'missing' });
+
+    const inner = `${POLICY_BEGIN_MARKER}
+- \`subagents\`: granted
+See the \`<!-- END TBD POLICY GRANTS -->\` mention inside the body.
+${POLICY_END_MARKER}
+`;
+    expect(parsePolicyBlock(agentsMdWith(inner))).toMatchObject({
+      status: 'ok',
+      grants: [{ name: 'subagents', value: 'granted' }],
+    });
+  });
+
+  it('reports a star-bullet or bold-wrapped grant line as a candidate, not ignored', () => {
+    const star = agentsMdWith(
+      `${POLICY_BEGIN_MARKER}\n* \`subagents\`: granted\n${POLICY_END_MARKER}\n`,
+    );
+    expect(parsePolicyBlock(star)).toMatchObject({
+      status: 'ok',
+      grants: [{ name: 'subagents', value: 'granted' }],
+    });
+
+    const bold = agentsMdWith(
+      `${POLICY_BEGIN_MARKER}\n- **github-merge**: not-granted\n${POLICY_END_MARKER}\n`,
+    );
+    expect(parsePolicyBlock(bold)).toMatchObject({
+      status: 'malformed',
+      problems: [expect.stringContaining('- **github-merge**: not-granted')],
+    });
   });
 
   it('ignores lines that are not grant lines and trims whitespace', () => {
@@ -446,6 +481,12 @@ describe('withPolicyBlock', () => {
   it('refuses content without a tbd block', () => {
     expect(() => withPolicyBlock('# Project\n', GUIDELINE_BLOCK)).toThrow(/tbd setup/);
   });
+
+  it('refuses tbd begin and end markers that share a line', () => {
+    const singleLine =
+      '# Project\n\n<!-- BEGIN TBD INTEGRATION format=f100 surface=agents-md --><!-- END TBD INTEGRATION -->\n';
+    expect(() => withPolicyBlock(singleLine, GUIDELINE_BLOCK)).toThrow(/separate lines/);
+  });
 });
 
 describe('an AGENTS.md with CRLF line endings, as a Windows checkout has', () => {
@@ -587,7 +628,7 @@ describe('default branch resolution', () => {
 
       const clone = await tempDir('tbd-policy-clone-');
       await execFileAsync('git', ['clone', '-q', origin, clone]);
-      expect(await resolveDefaultBranch(clone, 'origin')).toEqual({
+      expect(await resolveDefaultBranch(clone, 'origin')).toMatchObject({
         branch: 'trunk',
         ref: 'refs/remotes/origin/trunk',
         kind: 'remote-tracking',
@@ -599,7 +640,7 @@ describe('default branch resolution', () => {
       await git(local, 'add', 'README.md');
       await git(local, 'commit', '-q', '-m', 'local');
       await git(local, 'checkout', '-q', '-b', 'feature');
-      expect(await resolveDefaultBranch(local, 'origin')).toEqual({
+      expect(await resolveDefaultBranch(local, 'origin')).toMatchObject({
         branch: 'main',
         ref: 'refs/heads/main',
         kind: 'local',
@@ -627,7 +668,11 @@ describe('default branch resolution', () => {
       await git(repo, 'commit', '-q', '-m', 'grant on a branch');
 
       const onBranch = await readEffectiveGrants(repo, 'origin');
-      expect(onBranch.source).toEqual({ branch: 'main', ref: 'refs/heads/main', kind: 'local' });
+      expect(onBranch.source).toMatchObject({
+        branch: 'main',
+        ref: 'refs/heads/main',
+        kind: 'local',
+      });
       expect(onBranch.parse.status).toBe('missing');
       expect(onBranch.policies.find((s) => s.name === 'subagents')?.answered).toBe(false);
 
@@ -644,7 +689,7 @@ describe('default branch resolution', () => {
   );
 
   it(
-    'falls back to HEAD, and says so, when no default branch can be found',
+    'falls back to HEAD, and says so, when the repository has no remote',
     async () => {
       const repo = await tempDir('tbd-policy-nodefault-');
       await initRepo(repo, 'develop');
@@ -653,8 +698,120 @@ describe('default branch resolution', () => {
       await git(repo, 'add', 'AGENTS.md');
       await git(repo, 'commit', '-q', '-m', 'grants');
       const grants = await readEffectiveGrants(repo, 'origin');
-      expect(grants.source).toEqual({ branch: 'develop', ref: 'HEAD', kind: 'head' });
+      expect(grants.source).toMatchObject({ branch: 'develop', ref: 'HEAD', kind: 'head' });
       expect(grants.policies.find((s) => s.name === 'subagents')?.effective).toBe('granted');
+    },
+    GIT_TEST_TIMEOUT_MS,
+  );
+
+  const evilGrants = [
+    { name: 'github-merge', value: 'unconditional' },
+    { name: 'pr-review-requirements', value: 'none' },
+    { name: 'subagents', value: 'granted' },
+  ];
+
+  function expectUnresolved(grants: Awaited<ReturnType<typeof readEffectiveGrants>>): void {
+    expect(grants.source?.kind).toBe('unresolved');
+    expect(grants.source?.repair).toMatch(/git (remote set-head|fetch)/);
+    expect(grants.parse.status).toBe('missing');
+    for (const name of POLICY_NAMES) {
+      const status = grants.policies.find((s) => s.name === name);
+      expect(status?.answered, name).toBe(false);
+    }
+    expect(grants.policies.find((s) => s.name === 'github-merge')?.effective).toBe('not-granted');
+    expect(grants.policies.find((s) => s.name === 'pr-review-requirements')?.effective).toBe(
+      'standard',
+    );
+    expect(grants.policies.find((s) => s.name === 'subagents')?.effective).toBe('not-granted');
+  }
+
+  async function seedOriginWithEvilPr(): Promise<string> {
+    const origin = join(await tempDir('tbd-policy-evil-origin-'), 'origin.git');
+    await execFileAsync('git', ['init', '-q', '--bare', '-b', 'main', origin]);
+    const seed = await tempDir('tbd-policy-evil-seed-');
+    await initRepo(seed, 'main');
+    await writeFile(join(seed, 'AGENTS.md'), agentsMdWith(''));
+    await git(seed, 'add', 'AGENTS.md');
+    await git(seed, 'commit', '-q', '-m', 'main has no grants');
+    await git(seed, 'checkout', '-q', '-b', 'evil-pr');
+    await writeFile(
+      join(seed, 'AGENTS.md'),
+      agentsMdWith(renderPolicyBlock(evilGrants, '2026-09-17')),
+    );
+    await git(seed, 'add', 'AGENTS.md');
+    await git(seed, 'commit', '-q', '-m', 'evil grants on the PR');
+    await git(seed, 'remote', 'add', 'origin', origin);
+    await git(seed, 'push', '-q', 'origin', 'main', 'evil-pr');
+    return origin;
+  }
+
+  it(
+    'does not treat a single-branch clone of a PR as the default branch',
+    async () => {
+      const origin = await seedOriginWithEvilPr();
+      const clone = await tempDir('tbd-policy-single-branch-');
+      await execFileAsync('git', [
+        'clone',
+        '-q',
+        '--single-branch',
+        '--branch',
+        'evil-pr',
+        origin,
+        clone,
+      ]);
+      try {
+        await git(clone, 'symbolic-ref', '-d', 'refs/remotes/origin/HEAD');
+      } catch {
+        // Clone already had no origin/HEAD.
+      }
+      const grants = await readEffectiveGrants(clone, 'origin');
+      expectUnresolved(grants);
+    },
+    GIT_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'does not treat a CI-style detached checkout of one PR ref as the default branch',
+    async () => {
+      const origin = await seedOriginWithEvilPr();
+      const checkout = await tempDir('tbd-policy-ci-style-');
+      await git(checkout, 'init', '-q');
+      await git(checkout, 'remote', 'add', 'origin', origin);
+      await git(checkout, 'fetch', '-q', 'origin', 'evil-pr');
+      await git(checkout, 'checkout', '-q', '--detach', 'FETCH_HEAD');
+      const grants = await readEffectiveGrants(checkout, 'origin');
+      expectUnresolved(grants);
+    },
+    GIT_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'does not use a sync.remote that this clone does not have',
+    async () => {
+      const origin = join(await tempDir('tbd-policy-redirect-origin-'), 'origin.git');
+      await execFileAsync('git', ['init', '-q', '--bare', '-b', 'develop', origin]);
+      const seed = await tempDir('tbd-policy-redirect-seed-');
+      await initRepo(seed, 'develop');
+      await writeFile(join(seed, 'AGENTS.md'), agentsMdWith(''));
+      await git(seed, 'add', 'AGENTS.md');
+      await git(seed, 'commit', '-q', '-m', 'develop has no grants');
+      await git(seed, 'remote', 'add', 'origin', origin);
+      await git(seed, 'push', '-q', 'origin', 'develop');
+      await git(seed, 'push', '-q', 'origin', 'develop:refs/heads/evil-pr');
+
+      const clone = await tempDir('tbd-policy-redirect-clone-');
+      await execFileAsync('git', ['clone', '-q', origin, clone]);
+      await git(clone, 'checkout', '-q', '-b', 'evil-pr', 'origin/evil-pr');
+      await writeFile(
+        join(clone, 'AGENTS.md'),
+        agentsMdWith(renderPolicyBlock(evilGrants, '2026-09-17')),
+      );
+      await git(clone, 'add', 'AGENTS.md');
+      await git(clone, 'commit', '-q', '-m', 'evil grants and a fake remote name');
+
+      const grants = await readEffectiveGrants(clone, 'evil');
+      expectUnresolved(grants);
+      expect(grants.source?.repair).toMatch(/evil/);
     },
     GIT_TEST_TIMEOUT_MS,
   );

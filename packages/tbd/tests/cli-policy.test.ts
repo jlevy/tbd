@@ -139,7 +139,11 @@ describe('tbd policy show', () => {
     async () => {
       const dir = await createRepo();
       const report = showJson(dir);
-      expect(report.source).toEqual({ branch: 'main', ref: 'refs/heads/main', kind: 'local' });
+      expect(report.source).toMatchObject({
+        branch: 'main',
+        ref: 'refs/heads/main',
+        kind: 'local',
+      });
       expect(report.block.status).toBe('missing');
       expect(report.policies.map((p) => p.name)).toEqual([...POLICY_NAMES]);
       expect(report.policies.every((p) => !p.answered)).toBe(true);
@@ -344,7 +348,7 @@ describe('tbd policy grant, revoke, and set', () => {
       await git(clone, 'commit', '-q', '-am', 'grant on a branch');
 
       const onBranch = showJson(clone);
-      expect(onBranch.source).toEqual({
+      expect(onBranch.source).toMatchObject({
         branch: 'main',
         ref: 'refs/remotes/origin/main',
         kind: 'remote-tracking',

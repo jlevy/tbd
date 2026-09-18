@@ -246,6 +246,10 @@ function tableRows(kind: ReferenceKind, docs: ReferenceDoc[]): string[] {
       return groupedRows(guidelineGroups(docs));
     case 'templates':
       return docs.map((doc) => `| ${link(doc)} | ${summaryCell(doc)} |`);
+    default: {
+      const _exhaustive: never = kind;
+      throw new Error(`Unhandled reference kind: ${String(_exhaustive)}`);
+    }
   }
 }
 
