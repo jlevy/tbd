@@ -3,9 +3,9 @@ type: is
 id: is-01m2tk4ncx01enq321pp0ychzw
 title: "Address PR #310 review C: senior round 3 at a35d1e0f"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 labels: []
 dependencies: []
@@ -20,6 +20,10 @@ child_order_hints:
   - is-01m2tkb7j4nt14ahb2gfh5ne59
   - is-01m2tkb7wk7zvkvyjqebffmegq
 created_at: 2026-09-18T15:46:09.949Z
-updated_at: 2026-09-18T15:49:45.491Z
+updated_at: 2026-09-18T17:23:12.145Z
+closed_at: 2026-09-18T17:23:12.145Z
+close_reason: "Review C dispositions posted at 4a85bdcc; C1 rebutted with V42 evidence, the rest fixed or moved to #309"
+resolution: null
+duplicate_of: null
 ---
 Formal review C published as PR comment on https://github.com/jlevy/tbd/pull/310, head a35d1e0fc597539d36cfd57ff989d42581fed3bc. Findings C1-C8. C1 is the only one the reviewer called merge-blocking; C7 belongs on #309.

@@ -5,7 +5,7 @@ title: "Round 4 review of stack 312 at final heads (#309 0f26a4bc, #310 a35d1e0f
 kind: task
 status: in_progress
 priority: 1
-version: 11
+version: 12
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 delegate: unknown@cursor
 labels: []
@@ -20,10 +20,11 @@ child_order_hints:
   - is-01m2tk4ncx01enq321pp0ychzw
   - is-01m2tkmmeq121r99se678ph0m8
   - is-01m2tm89qkfrtacnjxatx7vyfp
+  - is-01m2tqj94bq5tb5m1ypz6xf1ns
 hold: null
 hold_until: null
 created_at: 2026-09-18T15:19:15.654Z
-updated_at: 2026-09-18T16:05:37.651Z
+updated_at: 2026-09-18T17:03:30.443Z
 started_at: 2026-09-18T15:19:24.553Z
 ---
 User asked for one more full review pass before merge (2026-09-18). Round 4 on stack 312 at the final heads. Four independent delegated reviewers: E senior #309, F security #309, G correctness #309 (this kind was never run; senior review A said security AND correctness apply, so the pr-review-requirements=standard coverage was incomplete), C senior #310. Channel: PR comment posted by the coordinator (reviews API 403 for this token). Reviewers do not commit, push, or sync.

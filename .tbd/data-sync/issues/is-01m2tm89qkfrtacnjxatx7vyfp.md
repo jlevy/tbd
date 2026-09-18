@@ -3,9 +3,9 @@ type: is
 id: is-01m2tm89qkfrtacnjxatx7vyfp
 title: "Address PR #309 review E: senior round 4 at 0f26a4bc"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 13
+version: 20
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 labels: []
 dependencies: []
@@ -23,7 +23,17 @@ child_order_hints:
   - is-01m2tn5h3e7ckb317wcanzt570
   - is-01m2tn5he4ny8ktfr3nc3vcenm
   - is-01m2tn5hrtjf72f97v1ny90zjc
+  - is-01m2tqj9f2ddtm9y32zp2mqgca
+  - is-01m2tqj9sm8gkegags4bypmph7
+  - is-01m2tqja4fa6fbpr07kf7qqamw
+  - is-01m2tqjafrad4w97ckwgy546hr
+  - is-01m2tqjatg9xsh32qcmqyjkt39
+  - is-01m2tqjb5tkjm6fe2q5jmytajn
 created_at: 2026-09-18T16:05:37.651Z
-updated_at: 2026-09-18T16:21:36.154Z
+updated_at: 2026-09-18T17:23:12.411Z
+closed_at: 2026-09-18T17:23:12.411Z
+close_reason: Reviews E and F addressed at d271d387; dispositions posted; F5/F7 and E-side deferrals left open as beads
+resolution: null
+duplicate_of: null
 ---
 Review E published as PR comment 5732703205 on https://github.com/jlevy/tbd/pull/309, head 0f26a4bc. E1-E9 findings plus E10/E11 suggestions. E1 is the only merge-blocker.
