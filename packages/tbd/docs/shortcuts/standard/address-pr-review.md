@@ -205,8 +205,9 @@ Create a to-do list with the following items then perform all of them:
    - GitHub CI at the pushed head is the required full-suite gate.
      Local pre-push hooks can time out or flake under load; they are not a substitute
      for CI. If a local hook fails for a known local-only reason, push with
-     `--no-verify` and wait for `gh pr checks`. Do not treat a green local subset as the
-     gate
+     `--no-verify` and wait for `gh pr checks`. Name the hook and the reason in the
+     report and in the disposition reply.
+     Do not treat a green local subset as the gate
    - Commit with conventional commit messages and push; record each fix commit’s SHA for
      its `fixed` line
    - Record the new head SHA:

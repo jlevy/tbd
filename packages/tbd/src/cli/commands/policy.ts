@@ -226,14 +226,20 @@ class PolicyShowHandler extends BaseCommand {
     } else if (workingTree.parse.status === 'malformed') {
       lines.push(colors.warn(malformedMessage('The working tree', workingTree.parse.problems)));
     } else if (report.workingTree.differences.length > 0) {
-      const branch = effective.source?.branch ?? 'the default branch';
-      lines.push(colors.warn(`Working tree AGENTS.md differs from ${branch}:`));
+      const unresolved = effective.source?.kind === 'unresolved';
+      const from = unresolved
+        ? 'the unresolved default branch'
+        : (effective.source?.branch ?? 'the default branch');
+      lines.push(colors.warn(`Working tree AGENTS.md differs from ${from}:`));
       for (const difference of report.workingTree.differences) {
         lines.push(
           `  ${difference.name}: ${difference.from ?? 'unanswered'} -> ${difference.to ?? 'unanswered'}`,
         );
       }
-      lines.push(`These grants take effect once committed and merged to ${branch}.`);
+      const once = unresolved
+        ? `the default branch is resolvable (${effective.source?.repair ?? 'git remote set-head <remote> --auto'})`
+        : `committed and merged to ${from}`;
+      lines.push(`These grants take effect once ${once}.`);
     }
     lines.push(colors.dim('Change grants with `tbd policy grant|revoke|set`.'));
     console.log(lines.join('\n'));

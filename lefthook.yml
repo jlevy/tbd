@@ -27,15 +27,17 @@ pre-commit:
     # package authored and supply-chain-reviewed by the maintainer; pinned exactly.
     # Reviewed-by: Joshua Levy (github.com/jlevy)
     #
-    # Excludes auto-generated files (.tbd/, .claude/skills/, .agents/skills/,
-    # skills/tbd/, AGENTS.md) — these must match their generator byte-for-byte
-    # (guarded by drift tests). The generator emits flowmark-clean output, so the
-    # hook does not need to (and must not) reformat them.
+    # Excludes auto-generated files (.tbd/, .claude/skills/, .claude/agents/,
+    # .agents/skills/, skills/tbd/, AGENTS.md) — these must match their generator
+    # byte-for-byte (guarded by drift tests). CI `format:md` also skips `*/.claude/*`
+    # (and never even walks repo-root `.claude/`), so the hook must not reflow
+    # `.claude/agents/**` either. The generator emits the canonical bytes.
     format-md:
       glob: '*.md'
       exclude:
         - '.tbd/**'
         - '.claude/skills/**'
+        - '.claude/agents/**'
         - '.agents/skills/**'
         - 'skills/tbd/**'
         - 'AGENTS.md'
