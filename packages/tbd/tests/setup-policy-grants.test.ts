@@ -293,6 +293,31 @@ describe('tbd setup --auto preserves the policy block', () => {
   );
 
   it(
+    'keeps AGENTS.md current through a policy write on a CRLF checkout',
+    async () => {
+      const dir = await setUpRepo();
+      const agentsPath = join(dir, 'AGENTS.md');
+      const lf = await readFile(agentsPath, 'utf-8');
+      await writeFile(agentsPath, lf.replace(/\r?\n/gu, '\r\n'));
+
+      // A Windows checkout is CRLF while the generator emits LF. Byte-comparing the two
+      // reported every managed surface stale, and setup's own remedy then left the file
+      // modified with an empty diff, which the next policy write undid again.
+      const beforeGrant = runTbd(dir, ['doctor']);
+      expect(beforeGrant.stdout).not.toContain('stale managed file');
+
+      const grant = runTbd(dir, ['policy', 'grant', 'subagents']);
+      expect(grant.status, grant.stderr).toBe(0);
+      expect(await readFile(agentsPath, 'utf-8')).toContain('\r\n');
+
+      const afterGrant = runTbd(dir, ['doctor']);
+      expect(afterGrant.stdout).not.toContain('stale managed file');
+      expect(afterGrant.stdout).toContain('AGENTS.md - current');
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  it(
     'refuses a block whose markers share a line instead of deleting its grants',
     async () => {
       const dir = await setUpRepo();

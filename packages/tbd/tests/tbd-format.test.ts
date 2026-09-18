@@ -465,6 +465,12 @@ describe('tbd-format', () => {
       expect(CURRENT_FORMAT).toMatch(/^f\d{2}$/);
       expect(AGENT_INTEGRATION_FORMAT in FORMAT_HISTORY).toBe(false);
       expect(isCompatibleFormat(AGENT_INTEGRATION_FORMAT)).toBe(false);
+      // supportedFormatForVersion compares FORMAT_HISTORY keys as strings and
+      // isFormatCompatibleWithSupported relies on their insertion order, both of which
+      // hold only while every repository format has two digits ('f100' < 'f99').
+      for (const format of Object.keys(FORMAT_HISTORY)) {
+        expect(format, 'repository formats are reserved f01-f99').toMatch(/^f\d{2}$/);
+      }
     });
 
     it('makes tbd 0.9.0 and older refuse to rewrite the stamped surfaces', () => {

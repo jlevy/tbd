@@ -36,6 +36,7 @@ import {
   AGENT_INTEGRATION_FORMAT,
   CLAUDE_AGENTS_DIR_REL,
   CODEX_AGENTS_DIR_REL,
+  getTierAgentRel,
 } from '../src/lib/integration-paths.js';
 import { parseFrontmatter } from '../src/utils/markdown-utils.js';
 import { subprocessTestTimeout } from './test-helpers.js';
@@ -533,6 +534,28 @@ describe('tier agent definitions match the agent-model-tiers guideline', () => {
       expect(renderTierAgentDefinition('claude', def)).toContain(`effort: ${def.level}`);
       expect(renderTierAgentDefinition('codex', def)).toContain(
         `model_reasoning_effort = "${def.level}"`,
+      );
+    }
+  });
+});
+
+describe('committed tier agent files match the generator', () => {
+  const repoRoot = join(__dirname, '..', '..', '..');
+
+  async function readCommitted(rel: string): Promise<string> {
+    return (await readFile(join(repoRoot, rel), 'utf-8')).replace(/\r\n?/gu, '\n');
+  }
+
+  // Without this the eight committed files can drift from tierAgentBody with CI green,
+  // leaving every contributor's `tbd doctor` warning. Run
+  // `tbd setup --auto --surfaces=claude-agents,codex-agents` to regenerate them.
+  it('equals renderTierAgentDefinition for each platform and definition', async () => {
+    for (const def of TIER_AGENT_DEFINITIONS) {
+      expect(await readCommitted(getTierAgentRel('claude', def.name))).toBe(
+        renderTierAgentDefinition('claude', def),
+      );
+      expect(await readCommitted(getTierAgentRel('codex', def.name))).toBe(
+        renderTierAgentDefinition('codex', def),
       );
     }
   });

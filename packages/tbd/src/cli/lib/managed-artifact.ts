@@ -67,9 +67,23 @@ export async function inspectManagedArtifact(
   }
 
   return {
-    state: managedContent === options.expectedContent ? 'current' : 'stale',
+    state: sameManagedContent(managedContent, options.expectedContent) ? 'current' : 'stale',
     format,
   };
+}
+
+/**
+ * Compare managed content ignoring line endings. Every generator emits LF, while a
+ * Windows checkout holds CRLF, so a raw comparison calls each managed surface stale on
+ * that platform; setup then writes an LF block into a CRLF file, which leaves the file
+ * modified with an empty diff and stale again after the next write.
+ */
+function sameManagedContent(actual: string, expected: string): boolean {
+  return actual === expected || toLf(actual) === toLf(expected);
+}
+
+function toLf(text: string): string {
+  return text.replace(/\r\n/gu, '\n');
 }
 
 /** Extract one marker-delimited managed block, including both marker lines. */
