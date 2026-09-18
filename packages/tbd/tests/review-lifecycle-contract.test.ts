@@ -119,7 +119,10 @@ async function allDocs(): Promise<{ rel: string; text: string }[]> {
   const entries = await readdir(DOCS_DIR, { recursive: true });
   const files = entries.filter((e) => e.endsWith('.md')).sort();
   const docs = await Promise.all(
-    files.map(async (rel) => ({ rel, text: await read(join(DOCS_DIR, rel)) })),
+    files.map(async (entry) => {
+      const rel = entry.replaceAll('\\', '/');
+      return { rel, text: await read(join(DOCS_DIR, entry)) };
+    }),
   );
   return [...docs, { rel: 'README.md', text: await read(README_PATH) }];
 }
@@ -718,9 +721,14 @@ describe('review lifecycle contract', () => {
       expect(models.size).toBeGreaterThan(0);
 
       const outside = doc.replace(suggestions, '');
+      const shipped = await allDocs();
+      expect(
+        shipped.map((d) => d.rel).filter((rel) => rel.includes('\\')),
+        'allDocs paths are posix-style so Windows readdir backslashes do not leak',
+      ).toEqual([]);
       const elsewhere = [
         { label: 'agent-model-tiers outside its suggestions', text: outside },
-        ...(await allDocs())
+        ...shipped
           .filter((d) => !d.rel.endsWith('guidelines/agent-model-tiers.md'))
           .map((d) => ({ label: d.rel, text: d.text })),
       ];
