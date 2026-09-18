@@ -1317,6 +1317,24 @@ and `github-stacked-prs` unanswered on `origin/main` (not granted).
   Signals: large security-relevant fix commits, B1 Blocker, two CI retries on #309.
   Authorized by the user’s “completed end-to-end as well as reviewed” (no separate
   yes/no asked).
+- Follow-up review D on #309: strong tier, requested `fable` at `xhigh`, formal review
+  by `jlevy` at `751e0f69`, `kind=follow-up` round 3, seven findings (D1–D3 required).
+  Senior review B on #310: same tier and model, formal review at `4139d024`, round 2,
+  nine findings.
+- Round 4, after the user asked for one more full pass before merging: four fresh
+  strong-tier Cursor sub-agents inheriting the coordinator’s model (Claude Opus 5), one
+  worktree each, published as PR comments by the coordinator because the reviews API
+  returns 403 for its token.
+  Senior review E on #309
+  ([5732703205](https://github.com/jlevy/tbd/pull/309#issuecomment-5732703205)),
+  security review F on #309, correctness review G on #309
+  ([5732956473](https://github.com/jlevy/tbd/pull/309#issuecomment-5732956473)), and
+  senior review C on #310
+  ([5732497900](https://github.com/jlevy/tbd/pull/310#issuecomment-5732497900)). The
+  correctness pass was required from round 1 — review A named security and correctness
+  as the areas that apply — and had never been run; the coordinator found that gap while
+  checking the merge gate, which is the gate’s own coverage condition working as
+  intended.
 
 ### What worked
 
@@ -1358,6 +1376,39 @@ C1–C3 are Low leftovers on the B1 path (failed `git remote` treated as no remo
 `policy show` heading; single-branch test deleting `origin/HEAD`).
 
 ### Still open
+
+- `tbd-px37`: the merge gate needs the user to confirm each of the seven policy-block
+  values by name, since merging this PR makes them standing grants for the repository.
+- `tbd-jivd`: merge stack 312, #309 then #310, once that confirmation and `github-merge`
+  are given.
+- Deferred with beads from round 4: `tbd-p0yy` (`doctor` calls generated skills stale
+  when the gitignored doc cache is empty), `tbd-tchx` (concurrent `tbd policy` writes
+  lose an update), `tbd-dugv` (write the managed block in the file’s own line-ending
+  convention), `tbd-7iem` (drift test for the installed skill copies), `tbd-tli6`
+  (`doctor` should report stale policy-block prose).
+
+### What round 4 found
+
+Four independent reviewers at the final heads produced one Blocker, two High findings,
+and one fail-open regression introduced by an earlier round’s own fix, all fixed before
+merge:
+
+- F1 (Blocker): grant resolution read `sync.remote` from the working tree, so a PR could
+  redirect it to a remote the attacker controls.
+  Grants now come from `origin`.
+- F3 (High): the format stamp was the first `format=` anywhere in the file, so prose
+  quoting an older stamp defeated the `f100` rollback guard.
+- F2 (High): two output paths echoed recorded values unbounded.
+- G1: after the round-3 fix for A1, a policy block whose markers shared a line parsed as
+  absent, so `tbd setup --auto` deleted the recorded grants and exited 0.
+- E1: this repository’s own committed block still carried the pre-B5 prose.
+
+The lesson for the workflow: rounds 1–3 examined what the trusted ref contains, and none
+examined what selects the trusted ref.
+A dedicated pass with its own threat model, run at the final head rather than the first,
+is what surfaced it.
+
+### Earlier items, now complete
 
 - OpenAI prompt-caching figures were re-verified on #310 (`tbd-2f9j` closed).
 - #306 and #307 ran the full workflow in the Claude session and merged with the user’s
