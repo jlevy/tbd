@@ -339,8 +339,9 @@ precedence are defined in `tbd guidelines agent-policy-grants`.
   Merge Authorization in `tbd guidelines agent-policy-grants`). With `confirm-every`,
   what an unanswered policy means, every merge needs its own authorization, and the
   user’s “reviewed and merged” request is that authorization for the PRs it names and
-  nothing else. With `confirm-session`, one confirmation in the conversation covers the
-  PRs of the task it was given for.
+  nothing else. With `confirm-session`, a session confirmation covers the task it was
+  given for: the PRs of the task the user confirmed, including every layer of a stack
+  those merges include, and a PR outside that task needs its own confirmation.
   With `autonomous`, no per-merge authorization is needed.
   With `never`, do not merge and do not ask.
 - Delegation requires `subagents` (see `tbd shortcut delegate-to-subagents`).

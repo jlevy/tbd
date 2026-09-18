@@ -203,9 +203,11 @@ remote-only linked stack before merging.
 The merge is all-or-nothing: if any PR in the set cannot merge, none do.
 Under `confirm-every`, a stack merge needs the request to name, or the user to confirm,
 every layer the merge will include; otherwise stop and ask, since the lower layers
-cannot be excluded. Under `confirm-session`, the session’s confirmation covers those
-layers. After a squash merge on the trunk, `gh stack sync` detects it and rebases the
-remaining layers; do not rebuild the stack by hand.
+cannot be excluded. Under `confirm-session`, a session confirmation covers the task it
+was given for: the PRs of the task the user confirmed, including every layer of a stack
+those merges include, and a PR outside that task needs its own confirmation.
+After a squash merge on the trunk, `gh stack sync` detects it and rebases the remaining
+layers; do not rebuild the stack by hand.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

@@ -101,12 +101,17 @@ tbd setup --auto
 - **`github-merge` takes four values instead of three.** `never` (an agent does not
   merge and does not ask), `confirm-every` (one confirmation authorizes one merge of one
   PR, and this is also what an unanswered policy means), `confirm-session` (recommended:
-  one confirmation covers the conversation’s merges, including a stack’s lower layers),
-  and `autonomous` (no asking; recorded only when the user sets it explicitly, and
-  recommended against).
+  a session confirmation covers the task it was given for: the PRs of the task the user
+  confirmed, including every layer of a stack those merges include, and a PR outside
+  that task needs its own confirmation), and `autonomous` (no asking; recorded only
+  through `tbd policy set`, since `tbd policy grant` records the recommended value).
   It replaces `not-granted`, `per-request`, and `unconditional`, which shipped in no
   release. No value weakens `pr-review-requirements`: that policy decides whether a PR is
   ready, and the merge gate checks it separately in every case.
+  `tbd policy revoke` records each policy’s ask-first default (`confirm-every` for
+  `github-merge`), so revoke’s meaning is now uniform across policies.
+  The `discouraged` schema field is gone, so `tbd policy set` no longer prints a
+  recommends-against notice; `recommended` alone now carries tbd’s advice.
 - **Grants are read from `origin`, not from the checkout’s `sync.remote`**: the policy
   block’s content came from a trusted ref, but the setting that chose the ref came from
   the working tree’s `.tbd/config.yml`, which a pull request controls.

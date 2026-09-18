@@ -223,11 +223,13 @@ actions.
   through any tool (`gh`, the GitHub API, or MCP servers).
   Merging needs `github-merge`, whose value says who authorizes each merge: `never`,
   `confirm-every` (what an unanswered policy means: an authorization for each merge,
-  which a request naming the PR already is), `confirm-session` (the recommended value:
-  one confirmation covers the PRs of the task it was given for), or `autonomous`. No
-  value of it relaxes `pr-review-requirements`. `github-stacked-prs` and `subagents`
-  cover stacked PRs and delegation.
-  For values, coverage, and recording grants, run `tbd guidelines agent-policy-grants`.
+  which a request naming the PR already is), `confirm-session` (the recommended value: a
+  session confirmation covers the task it was given for: the PRs of the task the user
+  confirmed, including every layer of a stack those merges include, and a PR outside
+  that task needs its own confirmation), or `autonomous`. No value of it relaxes
+  `pr-review-requirements`. `github-stacked-prs` and `subagents` cover stacked PRs and
+  delegation. For values, coverage, and recording grants, run
+  `tbd guidelines agent-policy-grants`.
 - **Without the grant an action needs,** ask once, before the first action it covers.
 - **A tool-permission allow rule grants only the operations it allows.** An allow rule
   for read-only `gh` commands does not authorize pushes or PR edits.

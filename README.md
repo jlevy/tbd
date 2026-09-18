@@ -282,7 +282,7 @@ The seven policies:
 | --- | --- | --- |
 | `github-workflows` | `granted` | Issues, labels, and re-running or cancelling CI runs |
 | `github-editing` | `granted` | Branches and PRs short of merging: pushing, creating and editing PRs, posting reviews and replies, watching CI |
-| `github-merge` | `confirm-session` | Who authorizes merging a PR whose review requirements are met: `never` (an agent does not merge), `confirm-every` (every merge needs its own authorization; what an unanswered policy means), `confirm-session` (one confirmation covers the PRs of the task it was given for), or `autonomous` (no asking) |
+| `github-merge` | `confirm-session` | Who authorizes merging a PR whose review requirements are met: `never` (an agent does not merge), `confirm-every` (every merge needs its own authorization; what an unanswered policy means), `confirm-session` (a session confirmation covers the task it was given for: the PRs of the task the user confirmed, including every layer of a stack those merges include, and a PR outside that task needs its own confirmation), or `autonomous` (no asking) |
 | `github-stacked-prs` | `granted` | Installing the `gh stack` tooling and creating, submitting, syncing, and merging formal stacks |
 | `subagents` | `granted` | Delegating to sub-agents following `delegate-to-subagents` |
 | `pr-review-requirements` | `standard` | The reviews a PR needs before it merges: one senior engineering review and one addressing pass, plus a dedicated security, performance, or correctness review where the PR is sensitive; `standard + security` or `standard + 2 rounds` adds kinds or rounds |
@@ -625,9 +625,10 @@ rather than yes or no.
 `never` means an agent does not merge at all; `confirm-every`, which is what an
 unanswered policy means, needs your authorization for each merge, so “Make sure PR #N is
 reviewed and merged” authorizes that PR and nothing else; `confirm-session`
-(recommended) lets it merge once you have confirmed merging in the conversation, which
-covers the PRs of the task you confirmed including a stack’s lower layers; `autonomous`
-lets it merge without asking.
+(recommended) lets it merge once a session confirmation covers the task it was given
+for: the PRs of the task the user confirmed, including every layer of a stack those
+merges include, and a PR outside that task needs its own confirmation; `autonomous` lets
+it merge without asking.
 None of them lowers the review bar: `pr-review-requirements` decides whether a PR is
 ready, and the merge gate checks it separately in every case.
 Before merging, `review-and-merge-prs` checks the merge gate: the review requirements
