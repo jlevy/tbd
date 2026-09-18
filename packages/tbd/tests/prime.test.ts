@@ -165,22 +165,19 @@ describe('formatPolicyGrantsLines', () => {
   });
 
   it('never prints Effective grants when the default branch is unresolved', () => {
-    const parse = parsePolicyBlock(
-      agentsMdWithGrants([
-        { name: 'github-merge', value: 'unconditional' },
-        { name: 'pr-review-requirements', value: 'none' },
-        { name: 'subagents', value: 'granted' },
-      ]),
-    );
     const lines = formatPolicyGrantsLines(
-      reading(parse, {
-        source: {
-          branch: 'origin',
-          ref: '',
-          kind: 'unresolved',
-          repair: 'git remote set-head origin --auto, or git fetch origin <default-branch>',
+      reading(
+        { status: 'missing' },
+        {
+          hasTbdBlock: false,
+          source: {
+            branch: 'origin',
+            ref: '',
+            kind: 'unresolved',
+            repair: 'git remote set-head origin --auto, or git fetch origin <default-branch>',
+          },
         },
-      }),
+      ),
     )!;
     expect(lines).toEqual([
       'Could not resolve the default branch (git remote set-head origin --auto, or git fetch origin <default-branch>); treat every policy as unanswered and run `tbd policy show`.',
@@ -331,6 +328,45 @@ describe('prime command', { timeout: subprocessTestTimeout() }, () => {
       expect(noArgsResult.stdout).toContain('IMPORTANT:');
       expect(noArgsResult.stdout).toContain('tbd prime');
       expect(noArgsResult.stdout).toContain('Getting Started:');
+    });
+  });
+
+  describe('single-branch clone of a PR', () => {
+    it('tbd prime reports that the default branch is unresolved', async () => {
+      const origin = join(tempDir, 'origin.git');
+      const seed = join(tempDir, 'seed');
+      const clone = join(tempDir, 'clone');
+
+      execSync(`git init --bare --initial-branch=main "${origin}"`);
+      execSync(`git clone -q "${origin}" "${seed}"`);
+      execSync('git config user.email "test@example.com"', { cwd: seed });
+      execSync('git config user.name "Test"', { cwd: seed });
+      execSync('git config commit.gpgsign false', { cwd: seed });
+      expect(runTbd(['init', '--prefix=test'], seed).status, 'tbd init').toBe(0);
+
+      await writeFile(join(seed, 'AGENTS.md'), agentsMdWithGrants([]));
+      execSync('git add -A && git commit -q -m main', { cwd: seed });
+      execSync('git push -q origin HEAD:main', { cwd: seed });
+
+      execSync('git checkout -q -b evil-pr', { cwd: seed });
+      await writeFile(
+        join(seed, 'AGENTS.md'),
+        agentsMdWithGrants([
+          { name: 'github-merge', value: 'unconditional' },
+          { name: 'pr-review-requirements', value: 'none' },
+          { name: 'subagents', value: 'granted' },
+        ]),
+      );
+      execSync('git add -A && git commit -q -m evil', { cwd: seed });
+      execSync('git push -q origin HEAD:evil-pr', { cwd: seed });
+
+      execSync(`git clone -q --single-branch --branch evil-pr "${origin}" "${clone}"`);
+      const result = runTbd(['prime', '--brief'], clone);
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toContain('=== AGENT POLICY GRANTS ===');
+      expect(result.stdout).toContain('Could not resolve the default branch');
+      expect(result.stdout).not.toContain('Effective grants');
+      expect(result.stdout).not.toContain('unconditional');
     });
   });
 

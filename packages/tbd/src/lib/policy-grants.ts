@@ -877,6 +877,30 @@ async function listRemotes(repoDir: string): Promise<string[]> {
   return output === '' ? [] : output.split('\n');
 }
 
+/** First non-empty line of `text`, or undefined when there is none. */
+function firstNonEmptyLine(text: string): string | undefined {
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+}
+
+/**
+ * Git's reason for a failed `git remote` listing. Prefer stderr (the fatal
+ * line) over Node's `Command failed: git -C <path> remote` message.
+ */
+function gitRemoteFailureDetail(error: unknown): string {
+  if (error instanceof GitError) {
+    return (
+      firstNonEmptyLine(error.stderr) ?? firstNonEmptyLine(error.message) ?? 'git remote failed'
+    );
+  }
+  if (error instanceof Error) {
+    return firstNonEmptyLine(error.message) ?? 'git remote failed';
+  }
+  return 'git remote failed';
+}
+
 function unresolvedSource(branch: string, repair: string): DefaultBranchRef {
   return { branch, ref: '', kind: 'unresolved', repair };
 }
@@ -991,12 +1015,9 @@ export async function readEffectiveGrants(
   try {
     remotes = await listRemotes(repoDir);
   } catch (error) {
-    const detail =
-      error instanceof GitError
-        ? (error.message.split('\n')[0] ?? 'git remote failed')
-        : 'git remote failed';
+    const detail = gitRemoteFailureDetail(error);
     return unansweredGrants(
-      unresolvedSource(remote, `git remote failed (${detail}). Treat every policy as unanswered.`),
+      unresolvedSource(remote, `git remote failed (${detail}). Treat every policy as unanswered`),
     );
   }
   const hasRemotes = remotes.length > 0;

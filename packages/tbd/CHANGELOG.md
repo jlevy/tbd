@@ -117,10 +117,19 @@ tbd setup --auto
 - **Validation findings from the stack 312 run**: `delegate-to-subagents` now says
   parallel writers in one checkout must not run concurrent builds, and that generated
   `tbd-*` definitions stay in the project.
-  `address-pr-review` treats GitHub CI as the required full-suite gate.
-  Publishing a review or a disposition reply falls back to a working channel when the
-  reviews API returns 403. The skill warns that `tbd update --notes` replaces the notes
-  body.
+  `address-pr-review` treats GitHub CI as the required full-suite gate, and names the
+  hook and reason when pushing with `--no-verify`. Publishing a review or a disposition
+  reply falls back to a working channel when the reviews API returns 403. The skill
+  warns that `tbd update --notes` replaces the notes body.
+- **Unresolved default branch surfaces**: `tbd prime` prints the B1 repair in the
+  SessionStart grants section when the default branch cannot be resolved (previously it
+  printed nothing). `tbd policy show` no longer treats the remote name as a branch in the
+  working-tree footer.
+  A failed `git remote` listing reports git’s stderr reason rather than Node’s
+  `Command failed` line.
+  Generated `.claude/skills` and `.agents/skills` copies are regenerated from setup (not
+  hand-edited), and `.claude/agents/**` is excluded from the Markdown formatter so
+  doctor stays current.
 - **Grants in existing docs**: Creating and submitting stacked PRs, and installing the
   stack tooling, now require the `github-stacked-prs` grant (`stacked-prs`, both
   `create-or-update-pr` shortcuts, `setup-github-cli`, and the `AGENTS.md` block);

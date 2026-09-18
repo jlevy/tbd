@@ -226,15 +226,18 @@ export function formatPolicyGrantsLines(reading: PrimeGrantsReading): string[] |
     ];
   }
   const { source, parse, policies } = reading.effective;
-  if (parse.status === 'missing' && !reading.hasTbdBlock) {
-    return null;
-  }
+  // Unresolved first: readEffectiveGrants returns committed: null, so hasTbdBlock is
+  // false and parse is missing even when a remote exists. SessionStart must still
+  // print the repair; returning null here hid B1 from the hook.
   if (source?.kind === 'unresolved') {
     const repair =
       source.repair ?? 'git remote set-head <remote> --auto, or git fetch <remote> <branch>';
     return [
       `Could not resolve the default branch (${repair}); treat every policy as unanswered and run \`tbd policy show\`.`,
     ];
+  }
+  if (parse.status === 'missing' && !reading.hasTbdBlock) {
+    return null;
   }
   const where = describeGrantSource(source);
   const details = '(details: `tbd policy show`)';

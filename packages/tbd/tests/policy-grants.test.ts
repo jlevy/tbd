@@ -836,6 +836,8 @@ describe('default branch resolution', () => {
       const grants = await readEffectiveGrants(missing, 'origin');
       expect(grants.source?.kind).toBe('unresolved');
       expect(grants.source?.repair).toMatch(/git remote failed/);
+      expect(grants.source?.repair).toMatch(/not a git repository/);
+      expect(grants.source?.repair).not.toMatch(/\.\s*$/u);
       expect(grants.parse.status).toBe('missing');
       for (const name of POLICY_NAMES) {
         expect(grants.policies.find((s) => s.name === name)?.answered, name).toBe(false);

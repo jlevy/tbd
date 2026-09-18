@@ -235,10 +235,17 @@ describe('tbd policy show', () => {
     async () => {
       const dir = await createRepo();
       await git(dir, 'remote', 'add', 'origin', 'https://example.com/tbd.git');
+      expect(runTbd(dir, ['policy', 'grant', 'subagents']).status).toBe(0);
       const text = runTbd(dir, ['policy', 'show']);
       expect(text.status, text.stderr).toBe(0);
       expect(text.stdout).toMatch(/Default branch: unresolved/);
       expect(text.stdout).not.toContain('Effective grants:');
+      expect(text.stdout).toContain('differs from the unresolved default branch');
+      expect(text.stdout).toMatch(
+        /These grants take effect once the default branch is resolvable \(/,
+      );
+      expect(text.stdout).not.toContain('differs from origin');
+      expect(text.stdout).not.toContain('merged to origin');
       const report = showJson(dir);
       expect(report.source?.kind).toBe('unresolved');
       expect(report.policies.every((p) => !p.answered)).toBe(true);

@@ -787,6 +787,7 @@ describe('review lifecycle contract', () => {
       const verify = collapse(step(await shortcutDoc('address-pr-review'), 7));
       expect(verify).toContain('GitHub CI at the pushed head is the required full-suite gate');
       expect(verify).toContain('Local pre-push');
+      expect(verify).toContain('Name the hook and the reason');
     });
 
     it('review publish falls back when the reviews API is refused', async () => {
