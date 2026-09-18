@@ -267,6 +267,20 @@ ${POLICY_END_MARKER}
     });
   });
 
+  it('reports markers sharing a line as malformed, not as no block', () => {
+    const oneLine = agentsMdWith(
+      `${POLICY_BEGIN_MARKER} - \`subagents\`: granted ${POLICY_END_MARKER}\n`,
+    );
+    const parsed = parsePolicyBlock(oneLine);
+    expect(parsed.status).toBe('malformed');
+    expect(parsed.status === 'malformed' && parsed.problems.join(' ')).toContain('own line');
+
+    const trailing = agentsMdWith(
+      `${POLICY_BEGIN_MARKER}\n- \`subagents\`: granted\n${POLICY_END_MARKER} oops\n`,
+    );
+    expect(parsePolicyBlock(trailing).status).toBe('malformed');
+  });
+
   it('reports a star-bullet or bold-wrapped grant line as a candidate, not ignored', () => {
     const star = agentsMdWith(
       `${POLICY_BEGIN_MARKER}\n* \`subagents\`: granted\n${POLICY_END_MARKER}\n`,

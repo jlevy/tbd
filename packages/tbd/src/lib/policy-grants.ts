@@ -393,6 +393,35 @@ function policyMarkerLineOffsets(agentsMd: string): { begins: number[]; ends: nu
   return { begins, ends };
 }
 
+/**
+ * Lines that carry policy-marker text without being a marker line, ignoring
+ * inline-code mentions (which the guideline invites in prose). A marker sharing
+ * a line with other content is a malformed block, never an absent one: read as
+ * absent, setup would treat the recorded grants as nothing to preserve and
+ * overwrite them.
+ */
+function unanchoredPolicyMarkerLines(agentsMd: string): string[] {
+  const lines: string[] = [];
+  for (const line of agentsMd.split('\n')) {
+    const trimmed = line.trim();
+    if (POLICY_BEGIN_LINE.test(trimmed) || trimmed === POLICY_END_MARKER) {
+      continue;
+    }
+    const outsideCode = trimmed.replace(/`[^`]*`/gu, '');
+    if (
+      outsideCode.includes(POLICY_BEGIN_MARKER_PREFIX) ||
+      outsideCode.includes(POLICY_END_MARKER)
+    ) {
+      lines.push(trimmed);
+    }
+  }
+  return lines;
+}
+
+function unanchoredMarkerProblem(line: string): string {
+  return `a policy marker shares a line with other text (put each marker on its own line): ${displayPolicyValue(line)}`;
+}
+
 /** First policy-marker line of `kind` at or after `from`, or -1. */
 function indexOfPolicyMarkerLine(agentsMd: string, kind: 'begin' | 'end', from: number): number {
   const { begins, ends } = policyMarkerLineOffsets(agentsMd);
@@ -452,10 +481,14 @@ function usesCrlf(text: string): boolean {
 export function parsePolicyBlock(content: string): PolicyBlockParse {
   const agentsMd = toLf(content);
   const { begins, ends } = policyMarkerLineOffsets(agentsMd);
+  const unanchored = unanchoredPolicyMarkerLines(agentsMd);
   if (begins.length === 0 && ends.length === 0) {
+    if (unanchored.length > 0) {
+      return { status: 'malformed', problems: unanchored.map(unanchoredMarkerProblem) };
+    }
     return { status: 'missing' };
   }
-  const problems: string[] = [];
+  const problems: string[] = unanchored.map(unanchoredMarkerProblem);
   if (begins.length > 1 || ends.length > 1) {
     problems.push('AGENTS.md holds more than one policy block');
   }
