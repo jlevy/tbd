@@ -115,13 +115,14 @@ keep project instruction files short, since every sub-agent loads them.
 
 On Claude Code, sub-agents get the 5-minute cache lifetime by default even on a
 subscription (`subagentPromptCacheTtl` and `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL`
-require Claude Code v2.1.242 or later; older builds silently ignore them).
-A sub-agent that waits on CI in intervals longer than five minutes rewrites its prefix
-on every poll; set `subagentPromptCacheTtl` to `1h` in settings (or
-`CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL=1h`) when fast-tier sub-agents wait, or keep poll
-intervals under five minutes.
-The research brief on sub-agent guidance in this repository’s `docs/project/research`
-has the figures and sources.
+require Claude Code v2.1.242 or later; older builds silently ignore them; setting names
+and version floor as of 2026-09-18). A sub-agent that waits on CI in intervals longer
+than five minutes rewrites its prefix on every poll; set `subagentPromptCacheTtl` to
+`1h` in settings (or `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL=1h`) when fast-tier
+sub-agents wait, or keep poll intervals under five minutes.
+The figures and sources are in the tbd repository’s
+`docs/project/research/current/research-2026-09-16-subagent-guidance-anthropic-openai.md`
+(github.com/jlevy/tbd), which is not packaged with the CLI.
 
 ## Suggested Models as of 2026-09-16
 
