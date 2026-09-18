@@ -90,11 +90,15 @@ async function git(cwd: string, ...args: string[]): Promise<string> {
   return stdout.trim();
 }
 
-async function initRepo(dir: string, branch: string): Promise<void> {
-  await git(dir, 'init', '-q', '-b', branch);
+async function configureGitIdentity(dir: string): Promise<void> {
   await git(dir, 'config', 'user.email', 'test@example.com');
   await git(dir, 'config', 'user.name', 'Test User');
   await git(dir, 'config', 'commit.gpgsign', 'false');
+}
+
+async function initRepo(dir: string, branch: string): Promise<void> {
+  await git(dir, 'init', '-q', '-b', branch);
+  await configureGitIdentity(dir);
 }
 
 async function tempDir(prefix: string): Promise<string> {
@@ -801,6 +805,7 @@ describe('default branch resolution', () => {
 
       const clone = await tempDir('tbd-policy-redirect-clone-');
       await execFileAsync('git', ['clone', '-q', origin, clone]);
+      await configureGitIdentity(clone);
       await git(clone, 'checkout', '-q', '-b', 'evil-pr', 'origin/evil-pr');
       await writeFile(
         join(clone, 'AGENTS.md'),
