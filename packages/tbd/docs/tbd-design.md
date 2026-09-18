@@ -4214,7 +4214,7 @@ spelling (one space around each `+`, additions in a fixed order) into the workin
 block, rewrite its `Recorded` date, and say what makes the grant effective: a commit,
 plus a push or a merge to the default branch.
 They never commit. `pr-review-requirements` has no revoke value; `set` records it.
-Values tbd recommends against (`github-merge: unconditional`,
+Values tbd recommends against (`github-merge: autonomous`,
 `pr-review-requirements: none`) are recorded only through `set`, with a notice.
 The commands require an `AGENTS.md` that holds the tbd block, and refuse to write over a
 malformed or unknown-version policy block.
@@ -5808,7 +5808,7 @@ projects:
 <fixed paragraph: explicit grants, the conversation overrides, tbd policy>
 
 - `github-editing`: granted
-- `github-merge`: per-request
+- `github-merge`: confirm-session
 - `subagents`: granted
 
 Recorded 2026-09-17.
@@ -5819,10 +5819,10 @@ Recorded 2026-09-17.
 `v=1` versions the block syntax; tbd neither reads nor rewrites a version it does not
 know. A grant line is a bullet, the policy name in backticks, a colon, and the value.
 A policy listed in the block is answered, whatever its value; a missing one is
-unanswered, and agents treat it as `not-granted` (`standard` for
-`pr-review-requirements`). tbd writes known policies in the guideline’s order with
-canonical values, then unknown names as found, and regenerates the heading, paragraph,
-and `Recorded` date on every write.
+unanswered, and agents treat it as `not-granted`, with two exceptions (`confirm-every`
+for `github-merge` and `standard` for `pr-review-requirements`). tbd writes known
+policies in the guideline’s order with canonical values, then unknown names as found,
+and regenerates the heading, paragraph, and `Recorded` date on every write.
 A missing marker, a malformed grant line, a duplicate policy, a block outside the tbd
 block, or a second block makes it malformed, and agents then treat every policy as
 unanswered.

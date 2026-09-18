@@ -181,10 +181,10 @@ $ printf '# Project\n\n<!-- BEGIN TBD INTEGRATION -->\n## tbd\n\n<!-- END TBD IN
 ```
 
 ```console
-$ tbd policy grant github-editing && tbd policy set github-merge per-request && tbd policy set pr-review-requirements "standard + security"
+$ tbd policy grant github-editing && tbd policy set github-merge confirm-session && tbd policy set pr-review-requirements "standard + security"
 ✓ Recorded github-editing: granted in AGENTS.md
   Commit AGENTS.md on main for it to take effect. `tbd policy show` reports effective grants.
-✓ Recorded github-merge: per-request in AGENTS.md
+✓ Recorded github-merge: confirm-session in AGENTS.md
   Commit AGENTS.md on main for it to take effect. `tbd policy show` reports effective grants.
 ✓ Recorded pr-review-requirements: standard + security in AGENTS.md
   Commit AGENTS.md on main for it to take effect. `tbd policy show` reports effective grants.
@@ -210,7 +210,7 @@ $ git add AGENTS.md && git commit -q -m "Record grants"
 $ tbd prime | sed -n '/=== AGENT POLICY GRANTS ===/,/setup-tbd/p'
 === AGENT POLICY GRANTS ===
 Effective grants from AGENTS.md on main ...
-  github-editing: granted, github-merge: per-request,
+  github-editing: granted, github-merge: confirm-session,
   pr-review-requirements: standard + security
 Unanswered (treated as not-granted): github-workflows, github-stacked-prs, subagents,
   linear
@@ -224,7 +224,7 @@ Ask the user when a task needs one, or run `tbd shortcut setup-tbd` to ask about
 $ tbd prime --brief | sed -n '/=== AGENT POLICY GRANTS ===/,/setup-tbd/p'
 === AGENT POLICY GRANTS ===
 Effective grants from AGENTS.md on main ...
-  github-editing: granted, github-merge: per-request,
+  github-editing: granted, github-merge: confirm-session,
   pr-review-requirements: standard + security
 Unanswered (treated as not-granted): github-workflows, github-stacked-prs, subagents,
   linear

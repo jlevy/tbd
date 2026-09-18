@@ -60,7 +60,7 @@ Hand-written note kept as is.
 
 - \`subagents\`: granted
 -   \`future-policy\`:   keep me exactly
-- \`github-merge\`: unconditional
+- \`github-merge\`: autonomous
 
 Recorded 2025-01-02.
 ${POLICY_END_MARKER}
@@ -148,7 +148,7 @@ describe('getCodexTbdSectionPreservingGrants', () => {
       grants: [
         { name: 'subagents', value: 'granted' },
         { name: 'future-policy', value: 'keep me exactly' },
-        { name: 'github-merge', value: 'unconditional' },
+        { name: 'github-merge', value: 'autonomous' },
       ],
       recorded: '2025-01-02',
     });
@@ -366,7 +366,7 @@ describe('planRecommendedGrants', () => {
   it('fills only unanswered policies and keeps answered values and unknown names', () => {
     const block = renderPolicyBlock(
       [
-        { name: 'github-merge', value: 'unconditional' },
+        { name: 'github-merge', value: 'autonomous' },
         { name: 'linear', value: 'epics' },
         { name: 'future-policy', value: 'keep me' },
       ],
@@ -374,11 +374,11 @@ describe('planRecommendedGrants', () => {
     );
     const plan = planRecommendedGrants(staleAgentsMd(block));
 
-    expect(plan.kept).toEqual([{ name: 'github-merge', value: 'unconditional' }]);
+    expect(plan.kept).toEqual([{ name: 'github-merge', value: 'autonomous' }]);
     expect(plan.added).toEqual(recommendedExcept('github-merge'));
     expect(plan.grants).toEqual(
       expect.arrayContaining([
-        { name: 'github-merge', value: 'unconditional' },
+        { name: 'github-merge', value: 'autonomous' },
         { name: 'linear', value: 'epics' },
         { name: 'future-policy', value: 'keep me' },
         ...recommendedExcept('github-merge'),
@@ -471,7 +471,7 @@ describe('tbd setup --policies', () => {
       const dir = await setUpRepo();
       const agentsPath = join(dir, 'AGENTS.md');
       for (const args of [
-        ['policy', 'set', 'github-merge', 'unconditional'],
+        ['policy', 'set', 'github-merge', 'autonomous'],
         ['policy', 'set', 'linear', 'epics'],
       ]) {
         const recorded = runTbd(dir, args);
@@ -482,7 +482,7 @@ describe('tbd setup --policies', () => {
       expect(result.status, result.stderr).toBe(0);
       expect(result.stdout).toContain('All set!');
       expect(result.stdout).toContain(
-        '  - Kept github-merge: unconditional (already answered; change it with `tbd policy`)',
+        '  - Kept github-merge: autonomous (already answered; change it with `tbd policy`)',
       );
       expect(result.stdout).not.toContain('Recorded github-merge');
       expect(result.stdout).not.toContain('stays unanswered');
@@ -490,9 +490,7 @@ describe('tbd setup --policies', () => {
       const recorded = await readFile(agentsPath, 'utf-8');
       const statuses = resolvePolicyStatuses(parsePolicyBlock(recorded));
       expect(statuses.every((status) => status.answered)).toBe(true);
-      expect(statuses.find((status) => status.name === 'github-merge')?.value).toBe(
-        'unconditional',
-      );
+      expect(statuses.find((status) => status.name === 'github-merge')?.value).toBe('autonomous');
       expect(statuses.find((status) => status.name === 'linear')?.value).toBe('epics');
 
       // With every recommended policy answered, a second run leaves AGENTS.md alone.

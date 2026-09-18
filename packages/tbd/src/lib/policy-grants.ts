@@ -85,16 +85,23 @@ export const POLICIES: Readonly<Record<PolicyName, PolicyDefinition>> = {
     discouraged: [],
     summary: 'branches and PRs short of merging, through any tool',
   },
+  // The one policy with a graded value rather than granted/not-granted: merging is the
+  // action that lands code, so what varies is not whether an agent may do it but who
+  // authorizes each merge. No value weakens pr-review-requirements; the merge gate
+  // checks review coverage separately, for every value including `autonomous`. The
+  // unanswered value is `confirm-every` because asking is not acting, so asking is the
+  // fail-closed default; `never` is the stronger statement that merging is someone
+  // else's job and not worth asking about.
   'github-merge': {
     name: 'github-merge',
-    values: ['not-granted', 'per-request', 'unconditional'],
+    values: ['never', 'confirm-every', 'confirm-session', 'autonomous'],
     grammar: null,
-    recommended: 'per-request',
-    unansweredValue: 'not-granted',
-    grantValue: 'per-request',
-    revokeValue: 'not-granted',
-    discouraged: ['unconditional'],
-    summary: 'merging PRs once the review requirements are met',
+    recommended: 'confirm-session',
+    unansweredValue: 'confirm-every',
+    grantValue: 'confirm-session',
+    revokeValue: 'never',
+    discouraged: ['autonomous'],
+    summary: 'who authorizes merging a PR whose review requirements are met',
   },
   'github-stacked-prs': {
     name: 'github-stacked-prs',

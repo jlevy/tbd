@@ -62,7 +62,7 @@ copy is a proposal, and \`tbd policy show\` reports the effective grants.
 
 - \`github-workflows\`: granted
 - \`github-editing\`: granted
-- \`github-merge\`: per-request
+- \`github-merge\`: confirm-session
 - \`github-stacked-prs\`: granted
 - \`subagents\`: granted
 - \`pr-review-requirements\`: standard
@@ -75,7 +75,7 @@ Recorded 2026-09-16.
 const GUIDELINE_GRANTS = [
   { name: 'github-workflows', value: 'granted' },
   { name: 'github-editing', value: 'granted' },
-  { name: 'github-merge', value: 'per-request' },
+  { name: 'github-merge', value: 'confirm-session' },
   { name: 'github-stacked-prs', value: 'granted' },
   { name: 'subagents', value: 'granted' },
   { name: 'pr-review-requirements', value: 'standard' },
@@ -137,11 +137,14 @@ describe('policy schema', () => {
       recommended: 'granted',
     });
     expect(POLICIES['github-merge']).toMatchObject({
-      values: ['not-granted', 'per-request', 'unconditional'],
-      grantValue: 'per-request',
-      revokeValue: 'not-granted',
-      recommended: 'per-request',
-      discouraged: ['unconditional'],
+      values: ['never', 'confirm-every', 'confirm-session', 'autonomous'],
+      grantValue: 'confirm-session',
+      revokeValue: 'never',
+      // Unanswered is the ask-every-time value, not the strongest refusal: asking is not
+      // acting, so asking is what fails closed.
+      unansweredValue: 'confirm-every',
+      recommended: 'confirm-session',
+      discouraged: ['autonomous'],
     });
     expect(POLICIES['pr-review-requirements']).toMatchObject({
       grantValue: 'standard',
@@ -178,7 +181,7 @@ describe('checkPolicyValue', () => {
     expect(checkPolicyValue('subagents', 'not-granted').ok).toBe(true);
     expect(checkPolicyValue('subagents', 'Granted').ok).toBe(false);
     expect(checkPolicyValue('subagents', 'per-request').ok).toBe(false);
-    expect(checkPolicyValue('github-merge', 'unconditional').ok).toBe(true);
+    expect(checkPolicyValue('github-merge', 'autonomous').ok).toBe(true);
     expect(checkPolicyValue('github-merge', 'granted').ok).toBe(false);
   });
 
@@ -277,10 +280,7 @@ ${POLICY_END_MARKER}
   it('keeps the containment rule when prose quotes the tbd begin marker', () => {
     // The tbd block was located by substring, so a quoted marker above the file's real
     // block moved its boundaries and a policy block outside the block read as `ok`.
-    const block = renderPolicyBlock(
-      [{ name: 'github-merge', value: 'unconditional' }],
-      '2026-09-17',
-    );
+    const block = renderPolicyBlock([{ name: 'github-merge', value: 'autonomous' }], '2026-09-17');
     const outside = `Note: the file starts with \`${INTEGRATION_BEGIN_MARKER} format=f100 surface=agents-md -->\`.\n\n${block}\n${agentsMdWith('')}`;
     expect(parsePolicyBlock(outside)).toMatchObject({ status: 'malformed' });
     expect(
@@ -295,10 +295,10 @@ ${POLICY_END_MARKER}
     // numbered ones were skipped without a word, so a hand edit in either shape did
     // nothing silently. All four are malformed now, with the line quoted.
     const hidden = [
-      `<!--\n- \`github-merge\`: unconditional\n-->`,
-      '```\n- `github-merge`: unconditional\n```',
-      '> - `github-merge`: unconditional',
-      '1. `github-merge`: unconditional',
+      `<!--\n- \`github-merge\`: autonomous\n-->`,
+      '```\n- `github-merge`: autonomous\n```',
+      '> - `github-merge`: autonomous',
+      '1. `github-merge`: autonomous',
     ];
     for (const lines of hidden) {
       const parsed = parsePolicyBlock(
@@ -479,7 +479,7 @@ describe('renderPolicyBlock', () => {
     const grants = [
       { name: 'github-workflows', value: 'not-granted' },
       { name: 'github-editing', value: 'granted' },
-      { name: 'github-merge', value: 'unconditional' },
+      { name: 'github-merge', value: 'autonomous' },
       { name: 'github-stacked-prs', value: 'not-granted' },
       { name: 'subagents', value: 'granted' },
       { name: 'pr-review-requirements', value: 'standard + performance + 4 rounds' },
@@ -501,9 +501,9 @@ describe('upsertGrant', () => {
       { name: 'subagents', value: 'granted' },
       { name: 'linear', value: 'epics' },
     ]);
-    expect(upsertGrant(grants, 'github-merge', 'per-request')).toEqual([
+    expect(upsertGrant(grants, 'github-merge', 'confirm-session')).toEqual([
       ...grants,
-      { name: 'github-merge', value: 'per-request' },
+      { name: 'github-merge', value: 'confirm-session' },
     ]);
     expect(grants[0]).toEqual({ name: 'subagents', value: 'not-granted' });
   });
@@ -631,8 +631,8 @@ describe('resolvePolicyStatuses', () => {
     expect(statuses.find((s) => s.name === 'github-merge')).toMatchObject({
       answered: false,
       value: null,
-      effective: 'not-granted',
-      recommended: 'per-request',
+      effective: 'confirm-every',
+      recommended: 'confirm-session',
     });
     expect(statuses.find((s) => s.name === 'pr-review-requirements')).toMatchObject({
       answered: false,
@@ -674,7 +674,7 @@ describe('resolvePolicyStatuses', () => {
       answered: true,
       value: 'always',
       valid: false,
-      effective: 'not-granted',
+      effective: 'confirm-every',
     });
     expect(statuses.find((s) => s.name === 'future-policy')).toEqual({
       name: 'future-policy',
@@ -794,7 +794,7 @@ describe('default branch resolution', () => {
   );
 
   const evilGrants = [
-    { name: 'github-merge', value: 'unconditional' },
+    { name: 'github-merge', value: 'autonomous' },
     { name: 'pr-review-requirements', value: 'none' },
     { name: 'subagents', value: 'granted' },
   ];
@@ -807,7 +807,7 @@ describe('default branch resolution', () => {
       const status = grants.policies.find((s) => s.name === name);
       expect(status?.answered, name).toBe(false);
     }
-    expect(grants.policies.find((s) => s.name === 'github-merge')?.effective).toBe('not-granted');
+    expect(grants.policies.find((s) => s.name === 'github-merge')?.effective).toBe('confirm-every');
     expect(grants.policies.find((s) => s.name === 'pr-review-requirements')?.effective).toBe(
       'standard',
     );
@@ -933,7 +933,9 @@ describe('default branch resolution', () => {
       for (const name of POLICY_NAMES) {
         expect(grants.policies.find((s) => s.name === name)?.answered, name).toBe(false);
       }
-      expect(grants.policies.find((s) => s.name === 'github-merge')?.effective).toBe('not-granted');
+      expect(grants.policies.find((s) => s.name === 'github-merge')?.effective).toBe(
+        'confirm-every',
+      );
     },
     GIT_TEST_TIMEOUT_MS,
   );
@@ -974,7 +976,9 @@ describe('default branch resolution', () => {
       for (const name of POLICY_NAMES) {
         expect(grants.policies.find((s) => s.name === name)?.answered, name).toBe(false);
       }
-      expect(grants.policies.find((s) => s.name === 'github-merge')?.effective).toBe('not-granted');
+      expect(grants.policies.find((s) => s.name === 'github-merge')?.effective).toBe(
+        'confirm-every',
+      );
     },
     GIT_TEST_TIMEOUT_MS,
   );

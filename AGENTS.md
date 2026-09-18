@@ -71,7 +71,7 @@ copy is a proposal, and `tbd policy show` reports the effective grants.
 
 - `github-workflows`: granted
 - `github-editing`: granted
-- `github-merge`: per-request
+- `github-merge`: confirm-session
 - `github-stacked-prs`: granted
 - `subagents`: granted
 - `pr-review-requirements`: standard

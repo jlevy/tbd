@@ -195,13 +195,19 @@ describe('agent-policy-grants guideline matches the policy schema', () => {
 
   it('states the unanswered defaults of the schema', async () => {
     const answered = flat(section(await readDoc(GUIDELINE), 2, 'Answered and Unanswered'));
-    const match = /treat it as `([^`]+)` \(or `([^`]+)` for `([^`]+)`\)/.exec(answered);
-    expect(match).not.toBeNull();
-    const [, fallback, exceptionValue, exceptionPolicy] = match!;
+    const fallbackMatch = /agents treat it as `([^`]+)`/.exec(answered);
+    expect(fallbackMatch).not.toBeNull();
+    const fallback = fallbackMatch![1]!;
+    const exceptions = new Map(
+      [...answered.matchAll(/`([^`]+)` for `([^`]+)`/gu)].map((m) => [m[2]!, m[1]!]),
+    );
+    // Every policy whose unanswered default is not the fallback must be named as an
+    // exception, and no exception may be stale.
     for (const name of POLICY_NAMES) {
-      expect(POLICIES[name].unansweredValue, name).toBe(
-        name === exceptionPolicy ? exceptionValue : fallback,
-      );
+      expect(POLICIES[name].unansweredValue, name).toBe(exceptions.get(name) ?? fallback);
+    }
+    for (const [policy, value] of exceptions) {
+      expect(POLICIES[policy as PolicyName]?.unansweredValue, policy).toBe(value);
     }
   });
 

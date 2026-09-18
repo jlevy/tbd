@@ -176,7 +176,7 @@ describe('tbd policy show', () => {
       expect(result.status, result.stderr).toBe(0);
       expect(result.stdout).toMatch(/Answered:\n\s+subagents\s+granted/);
       expect(result.stdout).toMatch(
-        /Unanswered[^\n]*\n(\s+[a-z-]+.*\n)*\s+github-merge\s+not-granted/,
+        /Unanswered[^\n]*\n(\s+[a-z-]+.*\n)*\s+github-merge\s+confirm-every/,
       );
       expect(result.stdout).toContain('tbd guidelines agent-policy-grants');
       expect(result.stdout).not.toContain('differs');
@@ -306,8 +306,8 @@ describe('tbd policy grant, revoke, and set', () => {
       }
       record(['grant', 'github-workflows'], 'github-workflows', 'granted');
       record(['grant', 'github-editing'], 'github-editing', 'granted');
-      record(['grant', 'github-merge'], 'github-merge', 'per-request');
-      record(['set', 'github-merge', 'unconditional'], 'github-merge', 'unconditional');
+      record(['grant', 'github-merge'], 'github-merge', 'confirm-session');
+      record(['set', 'github-merge', 'autonomous'], 'github-merge', 'autonomous');
       record(['grant', 'github-stacked-prs'], 'github-stacked-prs', 'granted');
       record(['grant', 'subagents'], 'subagents', 'granted');
       record(['grant', 'pr-review-requirements'], 'pr-review-requirements', 'standard');
@@ -498,7 +498,7 @@ describe('tbd policy grant, revoke, and set', () => {
       expect(dry.status, dry.stderr).toBe(0);
       expect(await readFile(join(dir, 'AGENTS.md'), 'utf-8')).toBe(original);
 
-      const discouraged = runTbd(dir, ['policy', 'set', 'github-merge', 'unconditional']);
+      const discouraged = runTbd(dir, ['policy', 'set', 'github-merge', 'autonomous']);
       expect(discouraged.status, discouraged.stderr).toBe(0);
       expect(discouraged.stdout).toContain('recommends against');
     },

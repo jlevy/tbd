@@ -397,7 +397,7 @@ const grantPolicyCommand = new Command('grant')
   });
 
 const revokePolicyCommand = new Command('revoke')
-  .description("Record a policy's not-granted value")
+  .description("Record a policy's revoke value (`never` for github-merge)")
   .argument('<policy>', `Policy name: ${POLICY_NAMES.join(', ')}`)
   .action(async (policy: string, _options, command) => {
     const handler = new PolicyRecordHandler(command);
