@@ -107,6 +107,7 @@ import {
   POLICY_NAMES,
   checkPolicyValue,
   diffPolicyStatuses,
+  displayPolicyValue,
   isKnownPolicy,
   parsePolicyBlock,
   readEffectiveGrants,
@@ -405,7 +406,11 @@ function describeUnknownValue(status: PolicyStatus): string {
       ? checkPolicyValue(status.name, status.value)
       : null;
   const reason = check && !check.ok ? `; ${check.reason}` : '';
-  return `${status.name}: ${status.value ?? ''} (treated as ${status.effective ?? 'unanswered'}${reason})`;
+  // Bounded like every other echo of a recorded value: the block is attacker-controlled
+  // on an untrusted branch, and a value carrying an escape sequence would otherwise erase
+  // the warning line that says the value is invalid.
+  const value = displayPolicyValue(status.value ?? '');
+  return `${status.name}: ${value} (treated as ${status.effective ?? 'unanswered'}${reason})`;
 }
 
 /**
@@ -2298,8 +2303,7 @@ class DoctorHandler extends BaseCommand {
   }
 
   private async checkPolicyGrants(): Promise<DiagnosticResult[]> {
-    const remote = this.config?.sync.remote ?? 'origin';
-    const effective = await readEffectiveGrants(this.cwd, remote);
+    const effective = await readEffectiveGrants(this.cwd);
     const workingTree = await readWorkingTreeGrants(this.cwd);
     return policyGrantFindings(effective, workingTree);
   }

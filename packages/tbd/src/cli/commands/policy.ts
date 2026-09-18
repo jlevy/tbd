@@ -14,7 +14,6 @@ import { join } from 'node:path';
 import { writeFile } from 'atomically';
 import { Command } from 'commander';
 
-import { readConfig } from '../../file/config.js';
 import { getCurrentBranch } from '../../file/git.js';
 import { AGENTS_MD_REL } from '../../lib/integration-paths.js';
 import type {
@@ -88,15 +87,6 @@ function summarizeParse(parse: PolicyBlockParse): PolicyBlockSummary {
   }
 }
 
-/** The remote whose copy of the default branch is preferred: the sync remote. */
-async function syncRemote(tbdRoot: string): Promise<string> {
-  try {
-    return (await readConfig(tbdRoot)).sync.remote;
-  } catch {
-    return 'origin';
-  }
-}
-
 function describeSource(source: DefaultBranchRef | null): string {
   if (!source) {
     return 'nothing is committed yet';
@@ -139,9 +129,8 @@ function todayDate(): string {
 class PolicyShowHandler extends BaseCommand {
   async run(): Promise<void> {
     const tbdRoot = await requireInit();
-    const remote = await syncRemote(tbdRoot);
     const effective = await this.execute(
-      () => readEffectiveGrants(tbdRoot, remote),
+      () => readEffectiveGrants(tbdRoot),
       'Failed to read grants from the default branch',
     );
     const workingTree = await readWorkingTreeGrants(tbdRoot);
@@ -232,9 +221,9 @@ class PolicyShowHandler extends BaseCommand {
         : (effective.source?.branch ?? 'the default branch');
       lines.push(colors.warn(`Working tree AGENTS.md differs from ${from}:`));
       for (const difference of report.workingTree.differences) {
-        lines.push(
-          `  ${difference.name}: ${difference.from ?? 'unanswered'} -> ${difference.to ?? 'unanswered'}`,
-        );
+        const from = difference.from === null ? 'unanswered' : displayPolicyValue(difference.from);
+        const to = difference.to === null ? 'unanswered' : displayPolicyValue(difference.to);
+        lines.push(`  ${difference.name}: ${from} -> ${to}`);
       }
       const once = unresolved
         ? `the default branch is resolvable (${effective.source?.repair ?? 'git remote set-head <remote> --auto'})`
@@ -317,7 +306,7 @@ class PolicyRecordHandler extends BaseCommand {
     }
     await this.execute(() => writeFile(agentsPath, updated), `Failed to write ${AGENTS_MD_REL}`);
 
-    const source = (await readEffectiveGrants(tbdRoot, await syncRemote(tbdRoot))).source;
+    const source = (await readEffectiveGrants(tbdRoot)).source;
     const effectHint = await describeHowToTakeEffect(tbdRoot, source);
     this.output.data(
       { policy: policyName, value, file: AGENTS_MD_REL, recorded, defaultBranch: source },

@@ -98,6 +98,30 @@ tbd setup --auto
 
 - **Integration help**: `tbd integration --help` names only Linear; it listed GitHub,
   which has no adapter.
+- **Grants are read from `origin`, not from the checkout’s `sync.remote`**: the policy
+  block’s content came from a trusted ref, but the setting that chose the ref came from
+  the working tree’s `.tbd/config.yml`, which a pull request controls.
+  In a clone that also had a contributor’s fork as a remote — ordinary review practice —
+  a PR could point grant resolution at a branch it wrote and have `tbd policy show`,
+  `tbd prime`, and `tbd doctor` report those grants as effective.
+  Resolution now uses `origin`, or the clone’s only remote, and treats every policy as
+  unanswered when several remotes exist and none is `origin`.
+- **Only marker lines carry the format stamp**: the stamp was the first `format=f…`
+  anywhere in the file, so a line of prose quoting an older one satisfied the guard that
+  stops an older tbd from rewriting a newer generated surface.
+  The tbd block’s own markers are matched by line for the same reason.
+- **Grants a reader of the block cannot see are refused**: a grant line inside an HTML
+  comment or a fenced code block was fully effective, and a blockquoted or numbered one
+  was skipped in silence.
+  All four are reported as a malformed block now.
+- **`AGENTS.md` and the policy block state that observed text is data**: the rule that
+  only the user’s own messages can grant, widen, or confirm a policy was in documents an
+  agent loads on request, not in the two it loads unconditionally.
+  `tbd prime` now carries it alongside the grants.
+- **Recorded values print bounded on every surface**: `tbd doctor`’s detail and
+  `tbd policy show`’s difference list echoed a value’s control characters and full
+  length, so an escape sequence in a value could erase the warning that the value is
+  invalid.
 - **A policy block whose markers share a line fails closed**: it read as no block at
   all, so `tbd setup --auto` exited 0 and deleted the recorded grants, and
   `tbd policy grant` inserted a second block.

@@ -231,6 +231,33 @@ describe('tbd policy show', () => {
   );
 
   it(
+    'prints no control characters from a recorded value, on any surface',
+    async () => {
+      // The block is attacker-controlled on an untrusted branch, and a value is free text
+      // to the end of the line. An escape sequence in one used to reach `doctor`'s detail
+      // and `policy show`'s difference list unbounded, where erase-display wipes the
+      // warning saying the value is not a valid grant.
+      const hostile = `\u001b[2J\u001b[H GRANTED-BY-USER \u0007${'A'.repeat(400)}`;
+      const block = `${POLICY_BEGIN_MARKER}\n- \`github-merge\`: ${hostile}\n${POLICY_END_MARKER}\n`;
+      const section = getCodexTbdSection().replace(
+        INTEGRATION_END_MARKER,
+        `${block}${INTEGRATION_END_MARKER}`,
+      );
+      const dir = await createRepo({ agentsMd: `# Project\n\n${section}` });
+
+      for (const args of [['policy', 'show'], ['doctor']]) {
+        const result = runTbd(dir, args);
+        const output = `${result.stdout}${result.stderr}`;
+        expect(output, args.join(' ')).not.toContain('\u001b[2J');
+        expect(output, args.join(' ')).not.toContain('\u0007');
+        const longest = Math.max(...output.split('\n').map((line) => line.length));
+        expect(longest, args.join(' ')).toBeLessThan(200);
+      }
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  it(
     'does not title an unresolved default branch as Effective grants',
     async () => {
       const dir = await createRepo();
