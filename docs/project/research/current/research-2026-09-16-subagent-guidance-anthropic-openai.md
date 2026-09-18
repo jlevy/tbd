@@ -772,9 +772,10 @@ assembled from:
 - preloaded skill content, only for skills named in a `skills` field;
 - the task message the coordinator wrote.
 
-Everything the main session’s system prompt supplies is absent: the harness rules, the
-git conventions ("commit only when asked"), the reporting rules, the tone and format
-guidance, and the delegation restraint.
+Everything the Claude Code system prompt supplies is absent; the harness still adds a
+short framing, environment details, a few reporting notes, and the tool descriptions,
+which include a commit-only-when-asked line, but none of that is documented, so the body
+and brief must carry the rules.
 The sub-agent can still discover and invoke skills through the Skill tool, so the tbd
 skill is reachable, but nothing loads it.
 Two consequences for the tier definitions:
@@ -831,11 +832,13 @@ shortcut the brief names, never only in a definition.
 | Codex | Yes, `model` on `spawn_agent` | Yes, `reasoning_effort` on `spawn_agent` | A name; its `model` and `model_reasoning_effort` take precedence over the spawn values, and its `developer_instructions` replace the parent’s [V13], [V41] |
 | Other platforms | Platform-dependent | Platform-dependent | Nothing generated; apply the tier by the platform’s own controls |
 
-On Claude Code, the definitions matter only where the tier’s level differs from the
-session’s. A session already running at `xhigh` gets the same result from `model: fable`
+On Claude Code, a definition changes the model and level only when its level differs
+from the session’s; it still supplies the body, so prefer a `tbd-*` definition whenever
+the brief does not restate those rules.
+A session already running at `xhigh` gets the same model and level from `model: fable`
 or `model: opus` on the Agent call as from `tbd-strong` or `tbd-moderate`; only
-`tbd-strong-max` (`max`) and `tbd-fast` (`medium`) change something for such a session.
-For a session at `high` or below, all four do.
+`tbd-strong-max` (`max`) and `tbd-fast` (`medium`) change the level.
+For a session at `high` or below, all four change the level.
 
 #### Prompt Caching: How the Cache Is Organized
 
@@ -848,11 +851,11 @@ instructions, and file reads append as messages, so they never disturb the cache
 
 Pricing (Claude API) [V40]: a cache write costs 1.25 times the base input price with the
 5-minute TTL and 2 times with the 1-hour TTL; a cache read costs 0.1 times base (0.025
-times on Fable 5.1 and Mythos 5.1). The minimum cacheable prefix is 512 tokens on the
-Claude 5 family (1,024 on Sonnet 5 and Opus 4.8; 4,096 on Opus 4.6 and Haiku 4.5). The
-TTL is measured from the start of the request that wrote or read the entry, and reading
-within the TTL refreshes it at no extra cost.
-Caches are per model: identical prompts to Fable and to Opus are two entries [V40].
+times on Fable 5.1 and Mythos 5.1). The minimum cacheable prefix is 512 tokens on Fable
+5, Fable 5.1, and Opus 5 (1,024 on Sonnet 5 and Opus 4.8; 4,096 on Opus 4.6 and Haiku
+4.5). The TTL is measured from the start of the request that wrote or read the entry,
+and reading within the TTL refreshes it at no extra cost.
+Caches are per model: identical prompts to Fable and to Opus are two entries [V39].
 Caches are effectively per machine and directory in Claude Code, because the system
 prompt names the working directory and the auto memory paths; two sessions in the same
 directory build matching prefixes and read each other’s cache, and worktrees do not
@@ -890,14 +893,15 @@ The Claude Code prompt caching page has a section on this [V39], and its rules a
   `subagentPromptCacheTtl` or `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL` says `1h`, or the
   definition’s `experimental.cacheTtl` does (v2.1.248+; a `1h` there is ignored while
   the subscription is on usage credits).
-  On an API key or a cloud provider both buckets get 5 minutes.
+  Those TTL settings require Claude Code v2.1.242 or later; older builds silently ignore
+  them. On an API key or a cloud provider both buckets get 5 minutes.
 - **Same-prefix sub-agents share a cache.** Two spawns of the same definition on the
   same model in the same directory build the same prefix (tools, body, `CLAUDE.md`, git
   snapshot), so the second reads what the first wrote, if it starts within the TTL. A
   cache entry becomes available only after the first response begins [V40], so
   sub-agents spawned in the same instant all miss; the Workflow tool holds all but the
-  first of a same-prefix fan-out for up to 5 seconds for this reason, and the Agent tool
-  does not.
+  first of a same-prefix fan-out for up to 5 seconds for this reason; the page documents
+  the hold for workflow fan-outs only.
 - **Different tiers do not share.** `tbd-strong` (Fable) and `tbd-moderate` (Opus) are
   on different models; `tbd-moderate` (`xhigh`) and `tbd-fast` (`medium`) are on the
   same model at different effort levels, which on Opus are different caches.
@@ -934,8 +938,9 @@ it runs, and its output), not by starting fresh.
 
 A fork of a 150k-token coordinator context, by comparison, pays a cache read of 150k
 tokens on its first request (about $0.075 at Opus, less on Fable 5.1) and again on every
-turn, so a 30-turn review costs roughly $2.25 in cache reads as a fork against roughly
-$0.30 as a fresh sub-agent with a 20k to 40k prefix, before the work itself.
+turn. The worked example below (a 30-turn review on Opus 5) puts that at about $2.40 in
+cache reads as a fork against about $0.60 as a fresh sub-agent with a 20k-to-60k prefix,
+before the work itself.
 The fork also cannot change model or effort and is anchored on the coordinator’s
 reading. For review, fresh is both cheaper per turn and better.
 
@@ -1021,9 +1026,10 @@ and a long session’s per-turn cost grows linearly but slowly.
 full prefill plus storage; a read is storage retrieval.
 The write premium (25% for five minutes, 100% for an hour) prices the storage time.
 A 5-minute entry pays for itself after one read (1.25 + 0.1 = 1.35 against 2 uncached)
-and a 1-hour entry after two (2 + 0.2 = 2.2 against 3) [V43], so an agent that takes
-more than three turns inside the hour always comes out ahead with the longer entry, and
-one that takes one turn and stops pays double for nothing.
+and a 1-hour entry after two (2 + 0.2 = 2.2 against 3) [V43], so either entry beats no
+caching after a few turns; the 1-hour entry beats the 5-minute one only when a gap
+between requests exceeds five minutes, and an agent that takes one turn and stops pays
+double for nothing.
 
 **Per-model prices as of 2026-09-17** [V43], per million tokens:
 
@@ -1146,8 +1152,8 @@ Worked through for a 30-turn review on Opus 5, base $5 per million:
 - *As a fresh sub-agent with a 20k prefix that grows to 60k:* one write of 20k (about
   $0.13), then reads averaging 40k per turn, about 30 × $0.02 = **$0.60**, plus the same
   review work, and afterwards the coordinator carries a two-page report.
-- *On Fable 5.1* the fork’s reads fall to a quarter (about $0.60 for the same 30 turns,
-  because reads are $0.25 per million) and the fresh sub-agent’s to about $0.15, while
+- *On Fable 5.1* the fork’s reads fall by half (about $1.20 for the same 30 turns,
+  because reads are $0.25 per million) and the fresh sub-agent’s to about $0.30, while
   the one-time write rises to about $0.25; the ranking does not change.
 
 The review’s own work (reading a diff of 20k tokens, running tests that return 5k tokens
@@ -1195,7 +1201,7 @@ What expiry costs, and when it happens in a tbd workflow:
   previous request with `max_tokens: 0` just before the entry would expire, which
   refreshes the timer for the price of one cache read and no output; on Fable 5.1, where
   a read is 2.5% of base, this beats the 1-hour TTL unless pauses approach an hour
-  [V45]. In Claude Code the levers are the TTL settings and the poll interval.
+  [V40]. In Claude Code the levers are the TTL settings and the poll interval.
 - *The coordinator between phases* expires on an API key when it waits more than five
   minutes for a sub-agent, which it usually does, and then pays a full write of its own
   context on its next turn.
@@ -1221,7 +1227,7 @@ This is the arithmetic behind the “page or two” rule in `delegate-to-subagen
 **Bedrock, Google Cloud, Foundry, and gateways.** The mechanism is the same but the
 cache lives in the provider’s infrastructure, prompt caching support and 1-hour
 availability vary by model on Bedrock (the per-model minimum prefix is the same on every
-platform [V45]), the effort-change exception for Fable 5.1 does not apply, and a gateway
+platform [V40]), the effort-change exception for Fable 5.1 does not apply, and a gateway
 that strips `cache_control` markers silently turns every turn into full-price input
 [V39]. Check `cache_read_input_tokens` in the response before assuming caching works
 through any intermediary.
@@ -1272,8 +1278,8 @@ description applies only to models before GPT-5.6.
   parent stops where those instructions differ.
   Codex’s model still tells sub-agents to prefer minute-scale waits [V20], which fits
   the earlier-model in-memory window and the GPT-5.6 30-minute TTL, but on GPT-5.6+
-  implicit mode a fresh child with a different task message will miss the parent’s
-  prefix unless the client places an explicit breakpoint after the shared instructions.
+  implicit mode, if Codex sends no explicit breakpoint, a fresh child with a different
+  task message will miss the parent’s prefix.
 
 The practical difference is no longer “Claude charges for writes, OpenAI does not.”
 On GPT-5.6+ both providers bill a 1.25× write and a 0.1× read.
@@ -2601,9 +2607,10 @@ added at consolidation for sources that only the Claude Code research cited.
   Code v2.1.274, `shared/prompt-caching.md` and the model migration notes): invalidation
   hierarchy and the three cache-preserving escape hatches (tools and system prompt as
   mid-conversation system messages; per-message effort behind
-  `mid-conversation-output-config-2026-07-01` on Fable 5.1, Mythos 5.1, and Opus 5); the
-  per-model minimum cacheable prefix applying on every platform; the `max_tokens: 0`
-  keep-alive; preserved thinking and the history-editing check on Fable 5.1.
+  `mid-conversation-output-config-2026-07-01` on Fable 5.1, Mythos 5.1, and Opus 5);
+  preserved thinking and the history-editing check on Fable 5.1. The public prompt
+  caching page [V40] is the primary cite for the `max_tokens: 0` keep-alive and the
+  per-model minimum cacheable prefix applying on every platform.
 
 - **[V46] ✓ (2026-09-18)** OpenAI,
   [Pricing](https://developers.openai.com/api/docs/pricing): standard short-context list
