@@ -3,9 +3,9 @@ type: is
 id: is-01m2sfsbvspcwgm9jsd6z5bm05
 title: "PR #309 D2: regenerate stale .claude/.agents skill copies instead of hand-editing"
 kind: bug
-status: in_progress
+status: closed
 priority: 1
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 delegate: unknown@cursor
 labels: []
@@ -14,8 +14,12 @@ parent_id: is-01m2sfrx39adcthk03qmd41j53
 hold: null
 hold_until: null
 created_at: 2026-09-18T05:28:19.577Z
-updated_at: 2026-09-18T05:28:29.476Z
+updated_at: 2026-09-18T05:36:14.606Z
 started_at: 2026-09-18T05:28:29.476Z
+closed_at: 2026-09-18T05:36:14.606Z
+close_reason: "Fixed in 0f26a4bc; dispositions posted on #309 review D"
+resolution: null
+duplicate_of: null
 ---
 Medium. .claude/skills/tbd/SKILL.md:203 and .agents/skills/tbd/SKILL.md:203 still have pre-B4 'The current conversation overrides both for that task'.
 34db3783 hand-edited generated surfaces. tbd doctor reports both stale.
