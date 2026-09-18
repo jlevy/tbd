@@ -74,10 +74,12 @@ the platform.
   For this, `tbd setup` generates four agent definitions in `.claude/agents/`:
   `tbd-strong-max` (`max`), `tbd-strong` (`xhigh`), `tbd-moderate` (`xhigh`), and
   `tbd-fast` (`medium`). Use `tbd-strong-max` for the harder or riskier strong-tier
-  work. A definition matters only when its level differs from the session’s: a session
-  already at `xhigh` gets the same result from naming the tier’s model on the Agent tool
-  as from `tbd-strong` or `tbd-moderate`. A sub-agent spawned without one inherits the
-  session’s level; record that level.
+  work. A definition changes the model and level only when its level differs from the
+  session’s; it still supplies the body, so prefer a `tbd-*` definition whenever the
+  brief does not restate those rules.
+  A session already at `xhigh` gets the same model and level from naming the tier’s
+  model on the Agent tool as from `tbd-strong` or `tbd-moderate`. A sub-agent spawned
+  without one inherits the session’s level; record that level.
   A Claude Code sub-agent runs under its definition body plus `CLAUDE.md`, not the
   Claude Code system prompt, so the body carries the rules a sub-agent would otherwise
   never see (work from the brief, do not commit or push unless told, report evidence),
@@ -112,9 +114,10 @@ of the session. Keep briefs pinned to paths and IDs, keep reports to a page or t
 keep project instruction files short, since every sub-agent loads them.
 
 On Claude Code, sub-agents get the 5-minute cache lifetime by default even on a
-subscription.
-A sub-agent that waits on CI in intervals longer than five minutes rewrites
-its prefix on every poll; set `subagentPromptCacheTtl` to `1h` in settings (or
+subscription (`subagentPromptCacheTtl` and `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL`
+require Claude Code v2.1.242 or later; older builds silently ignore them).
+A sub-agent that waits on CI in intervals longer than five minutes rewrites its prefix
+on every poll; set `subagentPromptCacheTtl` to `1h` in settings (or
 `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL=1h`) when fast-tier sub-agents wait, or keep poll
 intervals under five minutes.
 The research brief on sub-agent guidance in this repository’s `docs/project/research`
