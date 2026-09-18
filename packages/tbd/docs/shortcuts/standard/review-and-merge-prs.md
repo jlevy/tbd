@@ -89,8 +89,10 @@ Several PRs when the request names more than one):
      - `github-merge` in merge mode, whose value decides what authorizes the merge:
        `confirm-every` (the value an unanswered policy takes) needs an authorization for
        this merge, which a request naming this PR already is and a confirmation when
-       asked also is; `confirm-session` needs a confirmation anywhere in this
-       conversation; `autonomous` needs nothing more; with `never`, do not merge and do
+       asked also is; `confirm-session`: a session confirmation covers the task it was
+       given for: the PRs of the task the user confirmed, including every layer of a
+       stack those merges include, and a PR outside that task needs its own
+       confirmation; `autonomous` needs nothing more; with `never`, do not merge and do
        not ask;
      - `subagents` to delegate, checked and recorded as in Check Authorization in
        `tbd shortcut delegate-to-subagents`;
@@ -274,11 +276,11 @@ Several PRs when the request names more than one):
      from the user for this merge: a request naming this PR is one, and so is a
      confirmation when asked.
      One authorization covers one merge of one PR and is never carried to another.
-     `confirm-session` needs a confirmation anywhere in this conversation, which then
-     covers the PRs of the task it was given for, including every layer of a stack those
-     merges include, while a PR outside that task needs its own confirmation; a
-     confirmation you cannot see in your current context does not count, so after
-     compaction or in a resumed session, ask again.
+     `confirm-session`: a session confirmation covers the task it was given for: the PRs
+     of the task the user confirmed, including every layer of a stack those merges
+     include, and a PR outside that task needs its own confirmation; a confirmation you
+     cannot see in your current context does not count, so after compaction or in a
+     resumed session, ask again.
      `autonomous` needs nothing more.
      No value of this policy relaxes another condition in this gate,
      `pr-review-requirements` included.
@@ -307,7 +309,9 @@ Several PRs when the request names more than one):
      `gh stack merge <target> --yes`. Under `confirm-every`, a stack merge needs the
      request to name, or the user to confirm, every layer the merge will include;
      otherwise stop and ask, since the lower layers cannot be excluded.
-     Under `confirm-session`, the session’s confirmation covers those layers.
+     Under `confirm-session`, a session confirmation covers the task it was given for:
+     the PRs of the task the user confirmed, including every layer of a stack those
+     merges include, and a PR outside that task needs its own confirmation.
 
    - A branch-protection block (`mergeStateStatus` `BLOCKED`, or a refusal naming a
      required approval, a required check, or a merge queue the author’s account cannot

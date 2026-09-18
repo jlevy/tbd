@@ -4201,7 +4201,7 @@ tbd config set display.id_prefix cd
 ```bash
 tbd policy show                        # Default subcommand; --json for the full report
 tbd policy grant <policy>              # Record the recommended value (linear: epics)
-tbd policy revoke <policy>             # Record not-granted
+tbd policy revoke <policy>             # Record the ask-first default
 tbd policy set <policy> <value...>     # Record any valid value, e.g. standard + 2 rounds
 ```
 
@@ -4213,11 +4213,12 @@ recorded differently there.
 spelling (one space around each `+`, additions in a fixed order) into the working-tree
 block, rewrite its `Recorded` date, and say what makes the grant effective: a commit,
 plus a push or a merge to the default branch.
-They never commit. A policy’s revoke value is the value an unanswered policy takes, the
-same for all seven; `pr-review-requirements` has none, so `set` records it.
-Every other value, `github-merge: never` and `github-merge: autonomous` among them, is
-recorded through `set`. The commands require an `AGENTS.md` that holds the tbd block,
-and refuse to write over a malformed or unknown-version policy block.
+They never commit. `tbd policy revoke` records each policy’s ask-first default, which is
+`not-granted` for the five binary policies and `confirm-every` for `github-merge`.
+`pr-review-requirements` has no revoke and is changed with `tbd policy set`. Every other
+value, `github-merge: never` and `github-merge: autonomous` among them, is recorded
+through `set`. The commands require an `AGENTS.md` that holds the tbd block, and refuse
+to write over a malformed or unknown-version policy block.
 `--dry-run` reports the grant without writing.
 
 ### 4.10 Global Options

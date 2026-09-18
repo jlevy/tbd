@@ -342,8 +342,9 @@ cannot delete grants.
   value (see Merge Authorization).
   With `confirm-every`, the user’s “reviewed and merged” request is the authorization
   for the PRs it names, and nothing more.
-  With `confirm-session`, one confirmation in the conversation covers the PRs of the
-  task it was given for.
+  With `confirm-session`, a session confirmation covers the task it was given for: the
+  PRs of the task the user confirmed, including every layer of a stack those merges
+  include, and a PR outside that task needs its own confirmation.
   With `autonomous`, no per-merge authorization is needed.
   With `never`, do not merge and do not ask.
 - **Review coverage:** `pr-review-requirements` decides which reviews the orchestrated
@@ -378,9 +379,11 @@ change an answered policy only when the user asks.
 - `github-editing` (recommended: `granted`): agents may push branches and create,
   review, edit, and comment on PRs and watch CI through any tool, but not merge.
 - `github-merge` (recommended: `confirm-session`): agents may merge a PR whose review
-  requirements are met once the user has confirmed merging in the conversation;
-  `confirm-every` needs an authorization for each merge, `never` means an agent does not
-  merge at all, and `autonomous` merges without asking.
+  requirements are met once a session confirmation covers the task it was given for: the
+  PRs of the task the user confirmed, including every layer of a stack those merges
+  include, and a PR outside that task needs its own confirmation; `confirm-every` needs
+  an authorization for each merge, `never` means an agent does not merge at all, and
+  `autonomous` merges without asking.
 - `github-stacked-prs` (recommended: `granted`): agents may install the `gh stack`
   tooling and create, submit, sync, and merge formal stacks when a change is best split
   into dependent PRs.
