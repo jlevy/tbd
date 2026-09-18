@@ -118,7 +118,7 @@ Record only what the user explicitly answered:
 | --- | --- |
 | All recommended | `tbd setup --auto --policies=recommended` |
 | A policy’s recommended value | `tbd policy grant <policy>` |
-| A policy’s revoke value (`not-granted`, or `never` for `github-merge`) | `tbd policy revoke <policy>` |
+| A policy’s revoke value, the value an unanswered policy takes | `tbd policy revoke <policy>` |
 | Any other valid value | `tbd policy set <policy> <value>`, for example `tbd policy set pr-review-requirements "standard + 2 rounds"` |
 | Linear: yes | `tbd policy set linear epics`, or the selection the user chose |
 | Linear: no | `tbd policy revoke linear` |
@@ -128,12 +128,12 @@ Record only what the user explicitly answered:
 except `linear` and leaves answered policies unchanged.
 Record any individual answers first, then run it for the rest; if the user said “not
 now” to any policy, use `tbd policy grant` for each accepted policy instead.
-Record `github-merge: autonomous` or `pr-review-requirements: none` only when the user
-explicitly asks for that value, and say that tbd recommends against it.
+Record `github-merge: never`, `github-merge: autonomous`, or
+`pr-review-requirements: none` only when the user explicitly asks for that value.
 `github-merge` takes four values rather than granted or not: name them when the user
 asks what the choices are (`never`, `confirm-every`, `confirm-session`, `autonomous`),
 and use `tbd policy set github-merge <value>` for anything other than the recommended
-one.
+one or the revoke value.
 
 Commit `AGENTS.md` and tell the user what was recorded.
 Grants are read from the remote’s copy of the default branch when the repository has one

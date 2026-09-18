@@ -337,10 +337,11 @@ precedence are defined in `tbd guidelines agent-policy-grants`.
   quote it to the user and ask.
 - Merge mode requires `github-merge`, whose value says what authorizes each merge (see
   Merge Authorization in `tbd guidelines agent-policy-grants`). With `confirm-every`,
-  what an unanswered policy means, the user’s “reviewed and merged” request authorizes
-  the PRs it names and nothing else.
-  With `confirm-session`, one confirmation in the conversation covers the merges of the
-  work in hand. With `autonomous`, no per-merge authorization is needed.
+  what an unanswered policy means, every merge needs its own authorization, and the
+  user’s “reviewed and merged” request is that authorization for the PRs it names and
+  nothing else. With `confirm-session`, one confirmation in the conversation covers the
+  PRs of the task it was given for.
+  With `autonomous`, no per-merge authorization is needed.
   With `never`, do not merge and do not ask.
 - Delegation requires `subagents` (see `tbd shortcut delegate-to-subagents`).
 - `pr-review-requirements` decides which reviews the orchestrated workflow runs and what

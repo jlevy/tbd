@@ -139,19 +139,17 @@ describe('policy schema', () => {
     expect(POLICIES['github-merge']).toMatchObject({
       values: ['never', 'confirm-every', 'confirm-session', 'autonomous'],
       grantValue: 'confirm-session',
-      revokeValue: 'never',
+      revokeValue: 'confirm-every',
       // Unanswered is the ask-every-time value, not the strongest refusal: asking is not
-      // acting, so asking is what fails closed.
+      // acting, so asking is what fails closed. Revoking returns there too.
       unansweredValue: 'confirm-every',
       recommended: 'confirm-session',
-      discouraged: ['autonomous'],
     });
     expect(POLICIES['pr-review-requirements']).toMatchObject({
       grantValue: 'standard',
       revokeValue: null,
       recommended: 'standard',
       unansweredValue: 'standard',
-      discouraged: ['none'],
     });
     expect(POLICIES.linear).toMatchObject({
       grantValue: 'epics',
@@ -159,6 +157,18 @@ describe('policy schema', () => {
       recommended: null,
       unansweredValue: 'not-granted',
     });
+    for (const name of POLICY_NAMES) {
+      const { revokeValue, unansweredValue } = POLICIES[name];
+      if (revokeValue === null) {
+        expect(name).toBe('pr-review-requirements');
+      } else {
+        expect(revokeValue, name).toBe(unansweredValue);
+      }
+    }
+    expect(POLICIES).not.toHaveProperty('github-merge.discouraged');
+    for (const name of POLICY_NAMES) {
+      expect(POLICIES[name], name).not.toHaveProperty('discouraged');
+    }
   });
 
   it('defines the recommended set as the six non-Linear policies', () => {

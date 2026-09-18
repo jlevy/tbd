@@ -184,12 +184,16 @@ describe('agent-policy-grants guideline matches the policy schema', () => {
     }
   });
 
-  it('names the values tbd recommends against as the schema does', async () => {
+  it('says revoke returns to the unanswered value, and names the values only set records', async () => {
     const recording = flat(section(await readDoc(GUIDELINE), 2, 'Recording Grants'));
-    const discouraged = /recommends against \(([^)]*)\)/.exec(recording);
-    expect(discouraged).not.toBeNull();
-    expect(grantSpans(discouraged![1]!)).toEqual(
-      POLICY_NAMES.flatMap((name) => POLICIES[name].discouraged.map((value) => ({ name, value }))),
+    expect(recording).toMatch(/revoke value is the value an unanswered policy takes/);
+    expect(recording).not.toContain('recommends against');
+    expect(grantSpans(recording)).toEqual(
+      expect.arrayContaining([
+        { name: 'github-merge', value: 'never' },
+        { name: 'github-merge', value: 'autonomous' },
+        { name: 'pr-review-requirements', value: 'none' },
+      ]),
     );
   });
 

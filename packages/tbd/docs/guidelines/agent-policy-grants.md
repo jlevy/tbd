@@ -33,10 +33,10 @@ keep this document, the `tbd policy` schema, and the block renderer in agreement
 | --- | --- | --- | --- |
 | `github-workflows` | `granted`, `not-granted` | `granted` | The rest of an end-to-end GitHub workflow beyond branches and PRs, through any tool (`gh`, the GitHub API, or MCP servers): issues, labels, and re-running or cancelling CI runs |
 | `github-editing` | `granted`, `not-granted` | `granted` | Branches and PRs short of merging, through any tool (`gh`, the GitHub API, or MCP servers): pushing branches; creating, reviewing, and editing PRs; posting comments, reviews, and disposition replies; watching CI |
-| `github-merge` | `never`, `confirm-every`, `confirm-session`, `autonomous` | `confirm-session` | Who authorizes merging a PR whose review requirements are met (see Merge Authorization below). Four steps, most restrictive first. `autonomous` is recorded only when the user explicitly sets it, and tbd recommends against it |
+| `github-merge` | `never`, `confirm-every`, `confirm-session`, `autonomous` | `confirm-session` | Who authorizes merging a PR whose review requirements are met (see Merge Authorization below). Four steps, most restrictive first. The two ends, `never` and `autonomous`, are recorded only when the user explicitly sets them |
 | `github-stacked-prs` | `granted`, `not-granted` | `granted` | Setting up GitHub-native stacked PRs (the pinned `gh-stack` extension and its agent skill) and creating, submitting, syncing, and merging formal stacks with `gh stack`, following `stacked-prs` |
 | `subagents` | `granted`, `not-granted` | `granted` | Using sub-agents according to `delegate-to-subagents` |
-| `pr-review-requirements` | `standard`, a custom requirement, or `none` | `standard` | The reviews required before a PR is merged. `standard`: one senior engineering review and one pass addressing all findings for every PR, plus a dedicated review pass for each area of special concern (security, performance, correctness) in which the PR is sensitive. A custom requirement adds kinds or rounds (see Custom Values). `none` requires no review; it is recorded only when the user explicitly grants it, and tbd recommends against it |
+| `pr-review-requirements` | `standard`, a custom requirement, or `none` | `standard` | The reviews required before a PR is merged. `standard`: one senior engineering review and one pass addressing all findings for every PR, plus a dedicated review pass for each area of special concern (security, performance, correctness) in which the PR is sensitive. A custom requirement adds kinds or rounds (see Custom Values). `none` requires no review; it is recorded only when the user explicitly grants it |
 | `linear` | `not-granted`, `epics`, or a custom selection | Not recommended by default; ask | Syncing beads with Linear. `epics` syncs open epic beads only, in both directions. A custom selection names a wider set (see Custom Values) and is configured through `setup-linear` |
 
 The two GitHub grants are scoped by what they cover, not by which tool performs the
@@ -57,8 +57,8 @@ merge.
 | Value | What an agent may do |
 | --- | --- |
 | `never` | Never merge, and do not ask. Report the PR as merge-ready and say who merges it: a person, a merge queue, or automation |
-| `confirm-every` | Merge only this PR, only after the user’s request named it or the user confirmed this merge when asked. One confirmation authorizes one merge of one PR and is never carried to another |
-| `confirm-session` | Merge once the user has confirmed merging in this conversation. That confirmation covers the merges of the work in hand, including every layer of a stack the merge includes; report each merge |
+| `confirm-every` | Merge only with an authorization from the user for that merge, given either by a request that names the PR or by confirming the merge when asked. One authorization covers one merge of one PR and is never carried to another |
+| `confirm-session` | Merge once the user has confirmed merging in this conversation, for the PRs that confirmation covers; report each merge |
 | `autonomous` | Merge without asking, whenever the rest of the merge gate passes |
 
 **No value weakens `pr-review-requirements`.** That policy decides whether a PR is
@@ -67,16 +67,29 @@ The merge gate checks review coverage separately for every value, `autonomous` i
 so merging a PR that skipped a required review needs `pr-review-requirements: none` as
 well — two explicit decisions, not one.
 
+**Under `confirm-every`, an instruction to merge a named PR is the authorization for
+that merge.** “Make sure PR #N is reviewed and merged” authorizes that merge, and no
+question is needed for it; what the value rules out is merging a PR the user did not
+name and has not confirmed.
+
+**A session confirmation covers the task it was given for:** the PRs of the task the
+user confirmed, including every layer of a stack those merges include, and a PR outside
+that task needs its own confirmation.
+
 **Unanswered means `confirm-every`, not `never`.** Asking the user is not acting on
-their behalf, so asking is the fail-closed default.
+their behalf, so asking is the fail-closed default, and `tbd policy revoke github-merge`
+returns to it for the same reason.
 `never` is the stronger statement that merging is someone else’s job and not worth a
-question.
+question, so, like `autonomous` at the other end, it is recorded only through
+`tbd policy set`.
 
 **A session confirmation lives only in the conversation.** It is not recorded in
 `AGENTS.md`, and `tbd prime` does not restore it, so an agent that cannot see the
 confirmation in its current context — after compaction, or in a resumed session — asks
-again. A sub-agent never holds one: the session the user is talking to is the only place
-a confirmation can happen, so a sub-agent does not merge.
+again. A sub-agent cannot hold one either, since the confirmation happens in the
+conversation with the user and a sub-agent is not in it; in tbd’s workflow the
+coordinator keeps the merge gate and the merge (see `review-and-merge-prs`) rather than
+delegating them.
 
 ## Custom Values
 
@@ -213,11 +226,14 @@ selection when the user wants it is `epics`.
 
 - **Later:** `tbd policy show` lists answered and unanswered policies with their
   effective values. `tbd policy grant <policy>` records the policy’s recommended value,
-  `tbd policy revoke <policy>` records its revoke value (`not-granted` for most, `never`
-  for `github-merge`), and `tbd policy set <policy> <value>` records any valid value;
-  the table below gives each policy’s `grant` and `revoke` values.
-  Only `set` records the values tbd recommends against (`github-merge: autonomous` and
-  `pr-review-requirements: none`), and only when the user explicitly grants them.
+  `tbd policy revoke <policy>` records its revoke value, and
+  `tbd policy set <policy> <value>` records any valid value; the table below gives each
+  policy’s `grant` and `revoke` values.
+  A policy’s revoke value is the value an unanswered policy takes, so revoking withdraws
+  the standing permission and returns to asking rather than making a new statement.
+  Every other value is recorded through `set`, and only when the user explicitly asks
+  for that value: `github-merge: never`, `github-merge: autonomous`, and
+  `pr-review-requirements: none` among them.
   To make a policy unanswered again, delete its line by hand.
 
 - **Agents record only explicit grants.** An agent records a grant only when the user
@@ -237,7 +253,7 @@ selection when the user wants it is `epics`.
 | --- | --- | --- |
 | `github-workflows` | `granted` | `not-granted` |
 | `github-editing` | `granted` | `not-granted` |
-| `github-merge` | `confirm-session` | `never` |
+| `github-merge` | `confirm-session` | `confirm-every` |
 | `github-stacked-prs` | `granted` | `not-granted` |
 | `subagents` | `granted` | `not-granted` |
 | `pr-review-requirements` | `standard` | Not applicable: use `set` |
@@ -326,8 +342,9 @@ cannot delete grants.
   value (see Merge Authorization).
   With `confirm-every`, the user’s “reviewed and merged” request is the authorization
   for the PRs it names, and nothing more.
-  With `confirm-session`, one confirmation in the conversation covers the merges of the
-  work in hand. With `autonomous`, no per-merge authorization is needed.
+  With `confirm-session`, one confirmation in the conversation covers the PRs of the
+  task it was given for.
+  With `autonomous`, no per-merge authorization is needed.
   With `never`, do not merge and do not ask.
 - **Review coverage:** `pr-review-requirements` decides which reviews the orchestrated
   workflow runs and what the merge gate checks (see `pr-review-workflows`).
@@ -362,8 +379,8 @@ change an answered policy only when the user asks.
   review, edit, and comment on PRs and watch CI through any tool, but not merge.
 - `github-merge` (recommended: `confirm-session`): agents may merge a PR whose review
   requirements are met once the user has confirmed merging in the conversation;
-  `confirm-every` asks for every merge, `never` means an agent does not merge at all,
-  and `autonomous` merges without asking and is not recommended.
+  `confirm-every` needs an authorization for each merge, `never` means an agent does not
+  merge at all, and `autonomous` merges without asking.
 - `github-stacked-prs` (recommended: `granted`): agents may install the `gh stack`
   tooling and create, submit, sync, and merge formal stacks when a change is best split
   into dependent PRs.

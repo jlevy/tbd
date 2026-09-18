@@ -13,6 +13,7 @@ import { getCodexTbdSection } from '../src/cli/commands/setup.js';
 import { AGENT_INTEGRATION_FORMAT } from '../src/lib/integration-paths.js';
 import {
   INTEGRATION_END_MARKER,
+  POLICIES,
   POLICY_BEGIN_MARKER,
   POLICY_END_MARKER,
   POLICY_NAMES,
@@ -258,6 +259,39 @@ describe('tbd policy show', () => {
   );
 
   it(
+    'prints no control characters from a malformed-block line, on any surface',
+    async () => {
+      // parsePolicyBlock quotes the offending line in two problem messages: a grant
+      // inside a comment or fence, and a candidate that does not match the grant
+      // line. Both used to interpolate the raw line, so an erase-display sequence
+      // and a 400-character payload reached `doctor` details and `policy show`
+      // unbounded.
+      const hostile = `\u001b[2J\u0007${'B'.repeat(400)}`;
+      const hidden = `<!--\n- \`github-merge\`: ${hostile}\n-->`;
+      const unmatched = `- **github-merge**: ${hostile}`;
+      const block = `${POLICY_BEGIN_MARKER}\n${hidden}\n${unmatched}\n${POLICY_END_MARKER}\n`;
+      const section = getCodexTbdSection().replace(
+        INTEGRATION_END_MARKER,
+        `${block}${INTEGRATION_END_MARKER}`,
+      );
+      const dir = await createRepo({ agentsMd: `# Project\n\n${section}` });
+
+      for (const args of [['policy', 'show'], ['doctor']]) {
+        const result = runTbd(dir, args);
+        const output = `${result.stdout}${result.stderr}`;
+        expect(output, args.join(' ')).toContain('malformed');
+        expect(output, args.join(' ')).toContain('not a grant');
+        expect(output, args.join(' ')).toContain('does not match');
+        expect(output, args.join(' ')).not.toContain('\u001b[2J');
+        expect(output, args.join(' ')).not.toContain('\u0007');
+        const longest = Math.max(...output.split('\n').map((line) => line.length));
+        expect(longest, args.join(' ')).toBeLessThan(200);
+      }
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  it(
     'does not title an unresolved default branch as Effective grants',
     async () => {
       const dir = await createRepo();
@@ -299,10 +333,11 @@ describe('tbd policy grant, revoke, and set', () => {
       };
 
       for (const name of POLICY_NAMES) {
-        if (name === 'pr-review-requirements') {
+        const revoke = POLICIES[name].revokeValue;
+        if (revoke === null) {
           continue;
         }
-        record(['revoke', name], name, 'not-granted');
+        record(['revoke', name], name, revoke);
       }
       record(['grant', 'github-workflows'], 'github-workflows', 'granted');
       record(['grant', 'github-editing'], 'github-editing', 'granted');
@@ -490,7 +525,7 @@ describe('tbd policy grant, revoke, and set', () => {
   );
 
   it(
-    'honors --dry-run and prints the discouraged-value notice for set',
+    'honors --dry-run and records set values with no notice',
     async () => {
       const dir = await createRepo();
       const original = await readFile(join(dir, 'AGENTS.md'), 'utf-8');
@@ -498,9 +533,23 @@ describe('tbd policy grant, revoke, and set', () => {
       expect(dry.status, dry.stderr).toBe(0);
       expect(await readFile(join(dir, 'AGENTS.md'), 'utf-8')).toBe(original);
 
-      const discouraged = runTbd(dir, ['policy', 'set', 'github-merge', 'autonomous']);
-      expect(discouraged.status, discouraged.stderr).toBe(0);
-      expect(discouraged.stdout).toContain('recommends against');
+      const autonomous = runTbd(dir, ['policy', 'set', 'github-merge', 'autonomous']);
+      expect(autonomous.status, autonomous.stderr).toBe(0);
+      expect(autonomous.stdout).toContain('Recorded github-merge: autonomous');
+      expect(autonomous.stdout).not.toContain('recommends against');
+      expect(policy(showJson(dir).workingTree, 'github-merge')).toMatchObject({
+        answered: true,
+        value: 'autonomous',
+      });
+
+      const none = runTbd(dir, ['policy', 'set', 'pr-review-requirements', 'none']);
+      expect(none.status, none.stderr).toBe(0);
+      expect(none.stdout).toContain('Recorded pr-review-requirements: none');
+      expect(none.stdout).not.toContain('recommends against');
+      expect(policy(showJson(dir).workingTree, 'pr-review-requirements')).toMatchObject({
+        answered: true,
+        value: 'none',
+      });
     },
     CLI_TEST_TIMEOUT_MS,
   );
