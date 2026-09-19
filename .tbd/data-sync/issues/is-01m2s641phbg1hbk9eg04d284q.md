@@ -5,7 +5,7 @@ title: "Merge stack 312 (#309 then #310) when github-merge and B3 confirmation a
 kind: task
 status: open
 priority: 1
-version: 8
+version: 9
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 labels: []
 dependencies: []
@@ -13,8 +13,9 @@ parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
 child_order_hints:
   - is-01m2sfsd4qhzvazyfw295bpzxy
   - is-01m2vkt95bxebw64rkxa9jx28n
+  - is-01m2vmva9sbfzx7k0mrh45kbkf
 created_at: 2026-09-18T02:39:23.857Z
-updated_at: 2026-09-19T01:31:12.576Z
+updated_at: 2026-09-19T01:35:15.257Z
 ---
 Both layers are code-complete and CI-green. Heads: #309 eca9187ca0260a48bf8cb6f76219141d93c0163d, #310 372d18ec42a3c959175cbab490d20594f82f4bce. Formal stack 312; merge #309 into main first, then #310.
 
