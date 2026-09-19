@@ -2,15 +2,14 @@
 title: tbd Workflow
 description: Full tbd workflow guide for agents
 ---
-**`tbd` is a skill and CLI that upgrades coding quality, task tracking, and workflows
-for any coding agent.** Beads alone is a complete use; the rest are optional layers.
+**`tbd` helps humans and agents ship code with greater speed, quality, and discipline.**
 
 1. **Beads**: Git-native issue tracking (tasks, bugs, features).
    Never lose work across sessions.
    Drop-in replacement for `bd`.
 2. **Spec-Driven Workflows**: Plan features → break into beads → implement
    systematically.
-3. **Knowledge Injection**: Engineering guidelines (TypeScript, Python, Rust, TDD,
+3. **Knowledge Injection**: 40+ engineering guidelines (TypeScript, Python, Rust, TDD,
    testing, Convex, monorepos) available on demand.
 4. **Shortcuts**: Reusable instruction templates for common workflows (code review,
    commits, PRs, cleanup, handoffs).
