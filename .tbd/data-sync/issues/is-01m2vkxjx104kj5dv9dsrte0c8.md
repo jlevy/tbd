@@ -5,16 +5,18 @@ title: Refresh long-lived design docs for policy-pref PR review and merge
 kind: task
 status: in_progress
 priority: 2
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 delegate: unknown@cursor
 labels: []
-dependencies: []
+dependencies:
+  - type: blocks
+    target: is-01m2vm2f44xk8raej7v30n7d3t
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
 hold: null
 hold_until: null
 created_at: 2026-09-19T01:19:01.025Z
-updated_at: 2026-09-19T01:19:06.837Z
+updated_at: 2026-09-19T01:21:40.996Z
 started_at: 2026-09-19T01:19:06.836Z
 ---
 Bring durable design/overview docs in line with the live policy and PR-review model:
