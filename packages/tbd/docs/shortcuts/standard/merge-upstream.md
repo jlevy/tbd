@@ -26,10 +26,12 @@ Stop if `gh pr list` fails; do not infer that the branch has no PR from an unava
 GitHub check.
 
 - Run `gh stack view --json` to check local tracking.
+  Always pass `--json`; bare `gh stack view` opens a TUI that blocks forever.
   Exit 0 with a stack containing `$BRANCH` means the branch is locally tracked.
   Exit 2 means only that it is not tracked locally.
-  For any other nonzero exit, including a missing `gh stack`, stop and run
-  `tbd shortcut setup-github-cli`.
+  If `gh` does not recognize the `stack` command, the extension is not installed: treat
+  the branch as not tracked locally, and do not install it just for this check.
+  Continue to the remote check.
 
 - If `$PR_NUMBER` is nonempty, resolve `$PR_URL` with
   `gh pr view "$PR_NUMBER" --repo "$REPO" --json url --jq .url`, then check the

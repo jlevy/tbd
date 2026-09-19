@@ -9,7 +9,7 @@ agents.
 
 **First drafted**: January 2025
 
-**Last updated**: 2026-09-10
+**Last updated**: 2026-09-19
 
 * * *
 
@@ -130,6 +130,7 @@ agents.
       - [Doctor](#doctor)
       - [Compact (Future)](#compact-future)
       - [Config](#config)
+      - [Policy](#policy)
     - [4.10 Global Options](#410-global-options)
     - [4.11 Attic Commands](#411-attic-commands)
     - [4.12 Output Formats](#412-output-formats)
@@ -168,6 +169,10 @@ agents.
       - [6.4.3 The `tbd prime` Command](#643-the-tbd-prime-command)
       - [6.4.4 Other Editor Integrations](#644-other-editor-integrations)
       - [6.4.5 Cloud Environment Bootstrapping](#645-cloud-environment-bootstrapping)
+      - [6.4.6 Setup Surfaces and the Integration Format](#646-setup-surfaces-and-the-integration-format)
+      - [6.4.7 Tier Agent Definitions](#647-tier-agent-definitions)
+      - [6.4.8 Agent Policy Grants](#648-agent-policy-grants)
+      - [6.4.9 PR Review Lifecycle](#649-pr-review-lifecycle)
   - [7. Appendices](#7-appendices)
     - [7.1 Design Decisions](#71-design-decisions)
       - [Decision 1: File-per-entity vs JSONL](#decision-1-file-per-entity-vs-jsonl)
@@ -249,19 +254,24 @@ It also bundles spec-driven workflows, reusable workflow shortcuts, and a curate
 knowledge base of engineering best practices that agents can inject into their context
 on demand.
 
-tbd provides **four integrated capabilities**:
+tbd provides **four integrated capabilities**, listed identically in the README and the
+installed skill:
 
-1. **Task tracking (beads)**—Git-native issues, bugs, epics, and dependencies that
-   persist across sessions.
-   This alone is a step change in what agents can do.
-2. **Spec-driven planning**—Workflows for writing specs, breaking them into issues, and
-   implementing systematically.
-3. **Instant knowledge injection**—25+ detailed guideline docs covering TypeScript,
-   Python, Convex, monorepo architecture, TDD, and more—injected into the agent’s
-   context on demand via shortcuts, guidelines, and templates.
-4. **Live views and tracker sync**—A local read-only web view of bead state (§4.15),
-   change watching for agents (§4.14), and synchronization with external trackers,
-   starting with Linear (§8.7).
+1. **Beads**: Git-native issue tracking (tasks, bugs, features).
+   Never lose work across sessions.
+   Drop-in replacement for `bd`.
+2. **Spec-Driven Workflows**: Plan features → break into beads → implement
+   systematically.
+3. **Knowledge Injection**: 40+ engineering guidelines (TypeScript, Python, Rust, TDD,
+   testing, Convex, monorepos) available on demand.
+4. **Shortcuts**: Reusable instruction templates for common workflows (code review,
+   commits, PRs, cleanup, handoffs).
+
+On top of these, `tbd web` shows beads live in a browser (§4.15), `tbd watch` wakes
+agents when bead state changes (§4.14), `tbd integration` syncs beads with Linear
+(§8.7), and policy grants record which actions agents may take in the project — who may
+merge a PR, which reviews it needs, and the rest — as user-settable preferences
+(§6.4.8–6.4.9).
 
 The **issue tracking layer** has four core principles:
 
@@ -272,11 +282,6 @@ The **issue tracking layer** has four core principles:
 - **Simple, self-documenting CLI**—Designed for both AI agents and humans
 - **Transparent internal format**—Markdown/YAML files that are debuggable and friendly
   to other tooling
-
-Coordination and visibility build on that durable core: `tbd watch` (§4.14) wakes a
-process when selected bead state changes on the remote, `tbd web` (§4.15) serves a live
-read-only view, and `tbd integration` (§8.7) synchronizes beads with external trackers
-such as Linear.
 
 **Key characteristics:**
 
@@ -308,6 +313,16 @@ such as Linear.
 
 - **External tracker sync**: Optional per-repository integration mirrors or
   bidirectionally synchronizes beads with Linear; GitHub is planned (§8.7)
+
+- **Agent policy grants**: Standing, project-wide preferences (recorded grants) for
+  classes of agent actions (GitHub workflows, editing, merging, and stacked PRs;
+  sub-agents; PR review requirements; Linear sync), recorded in `AGENTS.md` and managed
+  with `tbd policy` (§6.4.8). Merge authorization and review requirements are settable,
+  not hardcoded yes/no behavior: `github-merge` is a four-value ladder, and
+  `pr-review-requirements` is independent of it
+
+- **PR review lifecycle**: Formal create, publish, and address cycle with lettered
+  review IDs, four dispositions, and a policy-driven merge gate (§6.4.9)
 
 **Related Projects:**
 
@@ -4083,6 +4098,25 @@ Only runs if worktree is healthy:
 | Duplicate IDs | error | yes | Multiple files with same short ID |
 | Invalid references | warning | yes | `parent_id` points to missing issue |
 
+**6. Agent Integration Checks**
+
+Reported under `INTEGRATIONS`. None is auto-fixable: the suggestion names the
+`tbd setup --auto --surfaces=<id>` run, the upgrade, or the `tbd policy` command, and
+`--fix` never rewrites a generated surface or the policy block.
+
+| Check | Severity | Auto-fixable | Detection |
+| --- | --- | --- | --- |
+| Generated surface stale or missing | warning | no | Portable skill, Claude Code skill, `AGENTS.md` block, or Codex hooks differ from what this tbd generates, or are absent |
+| Generated surface too new | error | no | `format=` stamp above this tbd’s integration format (§6.4.6) |
+| Tier agent definitions | warning (stale, missing), error (too new) | no | Checked per platform only when a `tbd-*` definition exists; files without the `DO NOT EDIT` marker are user overrides and only counted (§6.4.7) |
+| Policy block unreadable | error | no | Working-tree block is malformed or has an unknown `v=` version (§6.4.8) |
+| Unknown policy value | warning | no | A known policy holds a value outside its schema |
+| Policy block differs from default branch | warning | no | Working-tree grants differ from the block committed on the default branch, or that block is unreadable |
+
+The policy checks add no line when neither the working tree nor the default branch holds
+a block, one ok line when the block is valid and matches, and an ok-level note naming
+policies this tbd does not recognize, which setup and `tbd policy` keep.
+
 **Example output:**
 
 ```
@@ -4169,6 +4203,31 @@ tbd config get display.id_prefix
 tbd config set sync.remote upstream
 tbd config set display.id_prefix cd
 ```
+
+#### Policy
+
+```bash
+tbd policy show                        # Default subcommand; --json for the full report
+tbd policy grant <policy>              # Record the recommended value (linear: epics)
+tbd policy revoke <policy>             # Record the ask-first default
+tbd policy set <policy> <value...>     # Record any valid value, e.g. standard + 2 rounds
+```
+
+`tbd policy` reads and edits the policy block in `AGENTS.md` (§6.4.8). `show` lists
+every policy as answered or unanswered with its effective value, read from the block
+committed on the default branch, and reports the working-tree block and any policy
+recorded differently there.
+`grant`, `revoke`, and `set` validate the policy name and value, write the canonical
+spelling (one space around each `+`, additions in a fixed order) into the working-tree
+block, rewrite its `Recorded` date, and say what makes the grant effective: a commit,
+plus a push or a merge to the default branch.
+They never commit. `tbd policy revoke` records each policy’s ask-first default, which is
+`not-granted` for the five binary policies and `confirm-every` for `github-merge`.
+`pr-review-requirements` has no revoke and is changed with `tbd policy set`. Every other
+value, `github-merge: never` and `github-merge: autonomous` among them, is recorded
+through `set`. The commands require an `AGENTS.md` that holds the tbd block, and refuse
+to write over a malformed or unknown-version policy block.
+`--dry-run` reports the grant without writing.
 
 ### 4.10 Global Options
 
@@ -4397,7 +4456,7 @@ failure mode, and doc updates are the only one that can merge and mutate tracked
 | Command | Scope | Touches | Modifies tracked files? |
 | --- | --- | --- | --- |
 | `tbd sync` | project data (issues) | sync worktree + `tbd-sync` branch; refreshes the doc cache and *reports* fork drift | never |
-| `tbd setup --auto` | installation + integrations | skills, hooks, settings, `AGENTS.md`; invokes a docs-cache sync | only generated integration files |
+| `tbd setup --auto` | installation + integrations | skills, hooks, settings, tier agent definitions, `AGENTS.md` (keeping its policy block); invokes a docs-cache sync | only generated integration files |
 | `tbd docs update` | forked docs | fork dir + bases + manifest (offline, against the cache) | **yes, the only doc command that does** |
 
 Update semantics (the full decision table is unit-tested row by row): an unmodified
@@ -4995,7 +5054,8 @@ Options:
   --prefix <name>       Override the prefix read from Beads
   --force               Allow a non-recommended but valid prefix
   --no-gh-cli           Disable the GitHub CLI setup hook
-  --surfaces <list>     portable,agents-md,claude,codex,all (default: all)
+  --surfaces <list>     portable,agents-md,claude,claude-agents,codex,codex-agents,all
+                        (default: all)
 ```
 
 `--from-beads` implies noninteractive `--auto` mode and requires a `.beads/` directory
@@ -5009,8 +5069,9 @@ at the Git root. The migration:
 
 Use `--surfaces=claude` for only Claude Code hooks, `--surfaces=agents-md` for only
 `AGENTS.md`, or combine comma-separated names.
-`codex` selects Codex hooks; `portable` selects the portable Agent Skill.
-Omitting `--surfaces`, or selecting `all`, installs all four.
+`codex` selects Codex hooks; `portable` selects the portable Agent Skill;
+`claude-agents` and `codex-agents` select the tier agent definitions (§6.4.7). Omitting
+`--surfaces`, or selecting `all`, installs all six (§6.4.6).
 
 **Migration data-safety defect (`tbd-lgtd`).** The current setup handler catches an
 exception from the JSONL import, prints a warning, and proceeds to disable `.beads/`. A
@@ -5534,7 +5595,15 @@ therefore update the central pin without rewriting the script.
 tbd setup --auto --prefix=myapp   # Fresh project: initialize + configure hooks
 tbd setup --auto                  # Existing project: update hooks and skill files
 tbd setup --auto --surfaces=claude # Install or refresh only Claude Code hooks
+tbd setup --auto --policies=recommended # Also record recommended grants (§6.4.8)
 ```
+
+Claude Code is one of six setup surfaces (§6.4.6). After a fresh setup, a Beads
+migration, or an upgrade (a format migration or a new tbd version), setup output tells
+the agent to run `tbd shortcut setup-tbd` and says how many policies are unanswered.
+That shortcut is the one documented setup and upgrade process: it runs setup, asks the
+user about unanswered policy grants, sets up the `gh` authentication, stack tooling, and
+Linear sync the grants need, and verifies with `tbd doctor` and `tbd policy show`.
 
 Setup requires a git repository.
 Running `tbd setup` outside a git repo produces an error.
@@ -5552,6 +5621,7 @@ tbd prime [options]
 
 Options:
   --export        Output default content (ignores PRIME.md override)
+  --brief         Output abbreviated orientation for constrained contexts
 ```
 
 **Behavior:**
@@ -5565,6 +5635,14 @@ essential command reference (including the bulk multi-ID forms of `close`/`reope
 The content is composed from one source — the skill baseline
 (`shortcuts/system/skill-baseline.md`, see `tbd-prime.md` for the rendered form) — so
 this document does not duplicate it; regenerate rather than hand-edit.
+
+The dynamic status at the top of the full and `--brief` output includes an
+`AGENT POLICY GRANTS` section: the effective grants read from the default branch
+(§6.4.8), the unanswered policies with the values agents assume for them, and a pointer
+to `tbd shortcut setup-tbd`. It is omitted when the committed `AGENTS.md` has neither a
+tbd block nor a policy block, and a read failure prints one line telling the agent to
+treat every policy as unanswered.
+`--brief` keeps the section because the PreCompact output is what survives compaction.
 
 **Custom Override:**
 
@@ -5639,6 +5717,205 @@ git commit -m "Add tbd bootstrap for cloud environments"
 
 Direct binary download is faster (~~3s vs ~~5-10s) but adds complexity.
 Use npm unless you have specific requirements.
+
+#### 6.4.6 Setup Surfaces and the Integration Format
+
+`tbd setup` installs six project-local agent surfaces.
+`--surfaces=<comma-list>` (default `all`) selects which generated files it writes;
+initialization, format migration, and the docs refresh run either way.
+
+| Surface | Files | Purpose |
+| --- | --- | --- |
+| `portable` | `.agents/skills/tbd/SKILL.md` | The tbd skill, for any agent that reads portable skills |
+| `agents-md` | A managed block in `AGENTS.md` | Compact orientation for `AGENTS.md` readers, and the home of the policy block (§6.4.8) |
+| `claude` | `.claude/skills/tbd/SKILL.md`, hooks in `.claude/settings.json`, and scripts | The Claude Code skill mirror and hooks (§6.4.2) |
+| `claude-agents` | `.claude/agents/tbd-*.md` | Claude Code tier agent definitions (§6.4.7) |
+| `codex` | `.codex/hooks.json` and scripts | The Codex hooks |
+| `codex-agents` | `.codex/agents/tbd-*.toml` | Codex tier agent definitions (§6.4.7) |
+
+Setup and doctor inspect each generated file the same way, as `current`, `stale`,
+`missing`, `user-owned` (no tbd marker), or `too-new`, so they cannot disagree about
+whether a file is safe to replace.
+
+**Integration format.** The `AGENTS.md` block’s begin marker
+(`<!-- BEGIN TBD INTEGRATION format=f100 surface=agents-md -->`) and the `DO NOT EDIT`
+marker of every generated skill and tier agent definition carry a `format=` stamp.
+Its value, `AGENT_INTEGRATION_FORMAT` in `src/lib/integration-paths.ts`, is a
+compatibility gate for generated surfaces only, separate from the repository format
+(`tbd_format`, still f08). Every release parses the stamp as `format=f(\d+)` and refuses
+to rewrite a surface stamped above its own value: setup stops with an upgrade message
+and doctor reports the file as too new.
+Through tbd 0.9.0 the constant aliased the repository format (f01 through f08). The
+first release after 0.9.0 splits the two and stamps f100, because the policy block must
+never be rewritten by a release that would drop it: tbd 0.9.0 and older refuse an f100
+surface instead of deleting grants, and no repository migrates.
+Integration formats are three digits (f100, f101, and so on) and repository formats two,
+so neither series can be read as the other.
+Generated hook scripts are not stamped; they probe `tbd_format` at runtime.
+[docs/tbd-format-versioning.md](../../../docs/tbd-format-versioning.md) (“Generated
+Integration Format”) has the full rules and the bump procedure.
+
+#### 6.4.7 Tier Agent Definitions
+
+Delegation (`tbd shortcut delegate-to-subagents`) gives each sub-agent task a
+provider-neutral tier from `tbd guidelines agent-model-tiers`: strong, moderate, or
+fast, defined by model rank within the provider and reasoning level.
+Claude Code cannot set the reasoning level per spawn, so the `claude-agents` and
+`codex-agents` surfaces generate four named definitions per platform:
+
+| Definition | Tier | Reasoning level | For |
+| --- | --- | --- | --- |
+| `tbd-strong-max` | strong | `max` | The hardest or riskiest strong-tier work |
+| `tbd-strong` | strong | `xhigh` | Senior engineering, security, performance, and correctness reviews; additional rounds; design decisions; escalated findings |
+| `tbd-moderate` | moderate | `xhigh` | Addressing findings: code and test edits, confirming fixes, resolving conflicts |
+| `tbd-fast` | fast | `medium` | Administrative work: PR and CI state, bead bookkeeping, prepared replies, conflict-free rebases |
+
+- **Claude Code:** `.claude/agents/tbd-*.md`, with `name`, `description`, `model`, and
+  `effort` frontmatter.
+- **Codex:** `.codex/agents/tbd-*.toml`, with `name`, `description`, `model`,
+  `model_reasoning_effort`, and `developer_instructions`. A custom agent file’s model
+  and effort take precedence over values named at spawn, so Codex definitions are a
+  convenience rather than a requirement.
+
+Every body is the same short, project-neutral prompt: work only from the brief, run the
+shortcut the brief names, stay inside its write set, report in the requested format, and
+do not commit, push, run `tbd sync`, or start sub-agents unless the brief says so.
+The models come from the dated suggestions in `agent-model-tiers`, and
+`tests/setup-tier-agents.test.ts` keeps that table and the generator in agreement.
+Setup rewrites stale definitions on every run, so upgrading tbd updates them.
+Removing a file’s `DO NOT EDIT` marker makes it the user’s override, which setup keeps
+and doctor only counts.
+Leaving a surface out of `--surfaces` turns it off: doctor reports nothing for a
+platform with no definitions, and `tbd uninstall --confirm` removes only files that
+carry the marker. Agents on other platforms get no generated files and apply the tiers
+directly.
+
+#### 6.4.8 Agent Policy Grants
+
+A policy grant records the user’s explicit consent for a class of agent actions, for the
+project as a whole, so agents neither ask in every session nor act without consent.
+These are **user-settable preferences**, recorded as grants in `AGENTS.md` and changed
+with `tbd policy` — not hardcoded yes/no behavior an agent invents or a switch inside
+the CLI. The seven policies are `github-workflows`, `github-editing`, `github-merge`,
+`github-stacked-prs`, `subagents`, `pr-review-requirements`, and `linear`.
+`tbd guidelines agent-policy-grants` is their single definition (values,
+recommendations, the recommended set, grant sources and precedence, block syntax, and
+setup questions); `src/lib/policy-grants.ts` implements it, and
+`tests/policy-grants-docs.test.ts` keeps the two in agreement.
+Grants are consent for agents, not switches inside tbd: no engine behavior, sync
+included, depends on a grant.
+
+**Merge authorization.** `github-merge` is a four-value ladder, most restrictive first:
+`never` (do not merge and do not ask; recorded only through `tbd policy set`),
+`confirm-every` (one authorization covers one merge of one PR; also the unanswered and
+revoke value), `confirm-session` (recommended: a session confirmation covers the task it
+was given for: the PRs of the task the user confirmed, including every layer of a stack
+those merges include, and a PR outside that task needs its own confirmation), and
+`autonomous` (merge without asking; recorded only through `tbd policy set`). Under
+`confirm-every`, an instruction to merge a named PR is the authorization for that merge.
+
+**Review requirements are independent.** `pr-review-requirements` is a separate policy
+and is invariant across every `github-merge` value, `autonomous` included.
+That policy decides whether a PR is ready; `github-merge` decides who authorizes the
+merge action. The merge gate checks review coverage separately in every case.
+No value weakens `pr-review-requirements`.
+
+**Recommended set.** “All recommended” is `github-workflows: granted`,
+`github-editing: granted`, `github-merge: confirm-session`,
+`github-stacked-prs: granted`, `subagents: granted`, and
+`pr-review-requirements: standard`. Linear is asked separately.
+
+**The block.** Grants live in a policy block inside the generated tbd block in
+`AGENTS.md`, immediately before its end marker, so only this block differs between
+projects:
+
+```markdown
+<!-- BEGIN TBD INTEGRATION format=f100 surface=agents-md -->
+## tbd
+…
+<!-- BEGIN TBD POLICY GRANTS v=1 -->
+### Agent Policy Grants
+
+<fixed paragraph: explicit grants, the conversation overrides, tbd policy>
+
+- `github-editing`: granted
+- `github-merge`: confirm-session
+- `subagents`: granted
+
+Recorded 2026-09-17.
+<!-- END TBD POLICY GRANTS -->
+<!-- END TBD INTEGRATION -->
+```
+
+`v=1` versions the block syntax; tbd neither reads nor rewrites a version it does not
+know. A grant line is a bullet, the policy name in backticks, a colon, and the value.
+A policy listed in the block is answered, whatever its value; a missing one is
+unanswered, and agents treat it as `not-granted`, with two exceptions (`confirm-every`
+for `github-merge` and `standard` for `pr-review-requirements`). tbd writes known
+policies in the guideline’s order with canonical values, then unknown names as found,
+and regenerates the heading, paragraph, and `Recorded` date on every write.
+A missing marker, a malformed grant line, a duplicate policy, a block outside the tbd
+block, or a second block makes it malformed, and agents then treat every policy as
+unanswered.
+
+**Recording.** Only explicit commands write grants: `tbd policy grant|revoke|set` (§4.9)
+and `tbd setup --policies=recommended`, which records the recommended value for each
+unanswered policy, keeps answered ones, leaves `linear` for a separate question, and is
+an error when `--surfaces` excludes `agents-md`. Writing a block restamps the tbd
+block’s begin marker with the current integration format (§6.4.6). Neither command
+commits; recording a grant is an ordinary commit to `AGENTS.md`.
+
+**Preservation.** When setup regenerates the tbd block, it carries the existing policy
+block over byte for byte, including policy names it does not recognize, which may come
+from a newer release.
+Setup never adds, removes, or changes a grant without the explicit flag.
+It stops before writing `AGENTS.md` when the block is malformed or has an unknown
+version, so no grant is lost, and a release older than the split refuses the f100 block
+(§6.4.6).
+
+**Effective grants.** Agents act on the block as committed on the default branch, so an
+unmerged branch that edits it grants nothing.
+tbd finds that branch without network access: the branch `<remote>/HEAD` names, else
+`init.defaultBranch`, `main`, or `master`, preferring the remote-tracking ref over the
+local branch. HEAD is used only when the repository has no remotes at all.
+When a remote exists but no trusted default branch can be resolved (a single-branch or
+CI-style checkout, or a `sync.remote` this clone does not have), every policy is
+unanswered and `tbd policy show`, `tbd prime`, and `tbd doctor` say so, with the repair
+(`git remote set-head <remote> --auto`, or `git fetch <remote> <branch>`). `tbd prime`
+prints the effective and unanswered policies (§6.4.3), `tbd policy show` reports them
+with the working-tree block, and `tbd doctor` validates both (§4.9). The current
+conversation overrides a recorded grant for its task, in either direction, and a grant
+never bypasses a tool permission or sandbox.
+
+#### 6.4.9 PR Review Lifecycle
+
+PR review is a formal lifecycle, not an informal comment thread.
+`tbd shortcut pr-review-workflows` is the contract; the other review shortcuts
+operationalize it.
+Merge authorization and review coverage are the settable policy grants
+in §6.4.8, not hardcoded agent behavior.
+`tbd guidelines agent-policy-grants` and `tbd policy` are the policy record; the
+shortcuts are the procedure.
+
+**Stages.** An agent creates and publishes a review (`review-github-pr`), addresses
+findings (`address-pr-review`), or runs the full path to merge-ready or merge
+(`review-and-merge-prs`) in fix, merge-ready, or merge mode.
+Formal stacks use `stacked-prs`; ordinary PRs use `create-or-update-pr-simple`.
+
+**Review state.** Each published review is pinned to a commit, carries a lettered ID
+(`A`, `B`, …), and numbers findings (`A1`, `A2`). Every finding gets exactly one of four
+dispositions — `fixed`, `rebutted`, `declined`, or `deferred` — with evidence, in a
+marked disposition reply.
+One senior engineering review and one addressing pass is the default round; under
+`standard`, a PR that is sensitive in security, performance, or correctness also gets a
+dedicated pass for each such area.
+
+**Merge gate.** `review-and-merge-prs` holds the one merge gate: review requirements
+met, every finding dispositioned, CI final and green at an unchanged head, and the
+`github-merge` policy permitting the merge.
+`pr-review-requirements` is checked for every `github-merge` value, including
+`autonomous`. Stack merges follow the same gate and the same `github-merge` confirmation
+rules, including every layer the merge includes.
 
 * * *
 

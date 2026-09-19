@@ -168,6 +168,7 @@ tbd setup --auto --prefix=proj    # Fresh repository; prefix is required
 tbd setup --auto                  # Existing tbd repository; refresh and migrate
 tbd setup --from-beads            # Migrate an uninitialized repository from Beads
 tbd setup --auto --surfaces=portable,agents-md  # Install selected agent surfaces
+tbd setup --auto --policies=recommended         # Also record the recommended grants
 ```
 
 Options:
@@ -181,13 +182,32 @@ Options:
 - `--force` - Permit a valid but non-recommended prefix outside the 2-8-letter form
 - `--no-gh-cli` - Disable the generated GitHub CLI installation hook
 - `--surfaces <list>` - Comma-separated agent surfaces: `portable`, `agents-md`,
-  `claude`, `codex`, or `all`. Omitting the flag installs all four
+  `claude`, `claude-agents`, `codex`, `codex-agents`, or `all`. Omitting the flag
+  installs every surface
+- `--policies <set>` - Record agent policy grants in `AGENTS.md`; implies `--auto`. The
+  only set is `recommended`: the recommended value of each unanswered policy, as
+  `tbd guidelines agent-policy-grants` defines it.
+  Answered policies keep their recorded values, and `linear`, which is outside the
+  recommended set, stays unanswered
 
 `--surfaces` controls only generated agent integration files.
 Setup still initializes or migrates configuration, refreshes the docs cache, and cleans
 recognized legacy tbd hooks.
 Bare `tbd setup` displays help; the old positional `setup claude`, `setup codex`,
 `setup auto`, and `setup beads` forms are not commands.
+
+Setup records policy grants only when `--policies` is given.
+Without it, setup writes the existing policy block back unchanged.
+When every recommended policy is already answered, `--policies=recommended` records
+nothing. Setup stops before changing anything when `--policies` is combined with a
+`--surfaces` list that excludes `agents-md`, and it never rewrites a malformed policy
+block or one with a newer block version.
+Use `tbd policy` to change an answered policy or to record a single one, such as
+`linear`.
+
+A fresh setup and every upgrade end with a `WHAT'S NEXT` section that tells the agent to
+run the `setup-tbd` shortcut and says how many policies are unanswered; that process
+asks the user about them.
 
 ### init
 
@@ -208,7 +228,7 @@ Options:
 Note: For most users, `tbd setup --auto` is recommended instead.
 On a fresh repository it requires an explicit prefix; on an existing tbd repository it
 reads the configured prefix.
-It installs all four agent surfaces unless `--surfaces` narrows the set.
+It installs every agent surface unless `--surfaces` narrows the set.
 
 ### create
 
@@ -1066,6 +1086,69 @@ Common config keys:
 - `sync.branch` - Sync branch name
 - `sync.remote` - Remote name
 
+### policy
+
+Show and record agent policy grants: the user’s standing consent for classes of agent
+actions (GitHub workflows and editing, merging, stacked PRs, sub-agents, PR review
+requirements, and Linear sync).
+These are **user-settable preferences**, not hardcoded yes/no behavior.
+The policies, their values, and the block syntax are defined in
+`tbd guidelines agent-policy-grants`.
+
+`github-merge` is a four-value ladder: `never` (do not merge and do not ask),
+`confirm-every` (unanswered and revoke: an instruction to merge a named PR is that
+authorization), `confirm-session` (recommended: a session confirmation covers the task
+it was given for: the PRs of the task the user confirmed, including every layer of a
+stack those merges include, and a PR outside that task needs its own confirmation), and
+`autonomous`. No value weakens `pr-review-requirements`; that policy is independent and
+the merge gate checks it for every `github-merge` value, `autonomous` included.
+
+```bash
+tbd policy                                  # Same as `tbd policy show`
+tbd policy show                             # Answered and unanswered policies
+tbd policy grant subagents                  # Record the recommended value
+tbd policy revoke github-merge              # Record the revoke value, what an unanswered policy takes
+tbd policy set linear epics                 # Record any valid value
+tbd policy set pr-review-requirements standard + 2 rounds
+```
+
+Subcommands:
+- `show` - List answered policies with their recorded values and unanswered policies
+  with the value agents assume until one is recorded
+- `grant <policy>` - Record the policy’s recommended value (`linear` records `epics`)
+- `revoke <policy>` - Record the policy’s revoke value, the value an unanswered policy
+  takes (`pr-review-requirements` has none; use `set`)
+- `set <policy> <value...>` - Record any valid value; several words are joined with
+  spaces, so quoting is optional
+
+Grants live in a policy block inside the tbd block in `AGENTS.md`, immediately before
+its `END TBD INTEGRATION` marker; `.tbd/config.yml` holds no copy.
+`grant`, `revoke`, and `set` edit the working tree copy and stamp the tbd block with the
+current integration format, so an older tbd refuses to regenerate the block instead of
+dropping the grants.
+Recording a grant is an ordinary commit to `AGENTS.md`.
+`tbd setup --auto --policies=recommended` records the recommended set for every
+unanswered policy at once (see `setup` above).
+
+Effective grants are read from `AGENTS.md` as committed on the default branch: the
+remote’s copy (`refs/remotes/<remote>/<branch>`, as of the last fetch) when it exists,
+otherwise the local branch.
+The default branch is the one `<remote>/HEAD` names, else `init.defaultBranch`, `main`,
+or `master`, whichever exists as a remote-tracking ref (or as a local branch when the
+repository has no remotes).
+With a remote and none of these, grants are unread: every policy is unanswered and
+`show` names the repair (`git remote set-head <remote> --auto`, or
+`git fetch <remote> <branch>`). `HEAD` is used only when the repository has no remotes.
+A grant in the working tree or on an unmerged branch is therefore not effective; `show`
+lists such differences and `--json` reports them under `workingTree.differences`.
+
+If `AGENTS.md` has no tbd block, `show` still reports the effective grants and `grant`,
+`revoke`, and `set` stop with a pointer to `tbd setup --auto`. A malformed block (see
+the guideline) or one with a newer block version is reported and never rewritten; every
+policy is treated as unanswered until it is fixed.
+Grants are consent for agents, not a switch inside tbd: no tbd command refuses to run
+because a grant is missing.
+
 ### attic
 
 Manage the conflict archive.
@@ -1199,11 +1282,13 @@ It installs every surface by default; it does not probe for an agent before writ
 agent’s surface.
 
 ```bash
-tbd setup --auto                            # All four surfaces
+tbd setup --auto                            # All six surfaces
 tbd setup --auto --surfaces=portable        # .agents/skills/tbd/SKILL.md
 tbd setup --auto --surfaces=agents-md       # Managed block in AGENTS.md
 tbd setup --auto --surfaces=claude          # Claude skill mirror, hooks, and scripts
+tbd setup --auto --surfaces=claude-agents   # Claude Code tier agent definitions
 tbd setup --auto --surfaces=codex           # Codex hooks and scripts
+tbd setup --auto --surfaces=codex-agents    # Codex tier agent definitions
 tbd setup --auto --surfaces=portable,claude # A comma-separated subset
 ```
 
@@ -1215,6 +1300,27 @@ hook entries are preserved, and a surface stamped by a newer integration format 
 overwritten.
 A portable or Claude skill file without tbd’s ownership marker is treated as
 user-owned and setup stops rather than replacing it.
+
+#### Tier agent definitions
+
+The `claude-agents` and `codex-agents` surfaces generate the four sub-agent definitions
+that `tbd guidelines agent-model-tiers` describes: `tbd-strong-max` (`max`),
+`tbd-strong` (`xhigh`), `tbd-moderate` (`xhigh`), and `tbd-fast` (`medium`). Claude Code
+gets `.claude/agents/tbd-*.md` with `model` and `effort` frontmatter, which is how a
+tier’s reasoning level is set there, since the Agent tool cannot set effort per spawn.
+Codex gets `.codex/agents/tbd-*.toml` with `model` and `model_reasoning_effort`, which
+take precedence over the values named at spawn.
+Each definition’s description states its tier, model, reasoning level, and the work it
+is for, and its short body tells the sub-agent to work from its brief, run the tbd
+shortcut the brief names, and report in the requested format.
+The models and levels are the guideline’s dated suggestions; setup refreshes the files
+on every run, so upgrading tbd updates them.
+To override one, remove its `DO NOT EDIT` marker: setup then keeps the file and reports
+it as user-owned, and `tbd doctor` counts it rather than warning.
+No surface selection is saved, so turning these surfaces off means leaving them out of
+`--surfaces` on each run, for example
+`tbd setup --auto --surfaces=portable,agents-md,claude,codex`. `tbd doctor` reports the
+definitions only once some exist, and `tbd uninstall` removes the generated ones.
 
 ### Documentation Commands
 
@@ -1347,6 +1453,12 @@ Options:
 - `--keep-branch` - Keep the local sync branch
 - `--remove-remote` - Also remove the remote sync branch
 
+Uninstall removes `.tbd/`, the hidden worktree, the local sync branch unless
+`--keep-branch`, and the tier agent definitions that setup generated (the
+`.claude/agents/tbd-*.md` and `.codex/agents/tbd-*.toml` files carrying tbd’s marker; a
+user-owned file under one of those names stays).
+The other agent surfaces stay in place.
+
 ## Global Options
 
 The parser accepts these global options with every command, but each option has an
@@ -1395,6 +1507,12 @@ timeout; an empty `search` result still exits 0.
 tbd is designed for AI coding agents.
 This section covers agent-specific patterns.
 
+Before a GitHub mutation, a merge, or a delegation, check grants with `tbd policy show`.
+Merge authorization (`github-merge`) and review requirements (`pr-review-requirements`)
+are settable preferences in `AGENTS.md`, not hardcoded; see
+`tbd guidelines agent-policy-grants`. For the PR review lifecycle, start at
+`tbd shortcut pr-review-workflows`.
+
 ### Agent Workflow Loop
 
 ```bash
@@ -1438,17 +1556,19 @@ The ID and session name are local to the checkout; `start` writes only the frien
 
 ### Claude Code Integration
 
-Install the Claude surface, or let the default setup install all four surfaces:
+Install the Claude surfaces, or let the default setup install every surface:
 
 ```bash
-tbd setup --auto --surfaces=claude          # Claude files only
-tbd setup --auto                            # Existing project; all agent surfaces
+tbd setup --auto --surfaces=claude,claude-agents  # Claude files only
+tbd setup --auto                                  # Existing project; all agent surfaces
 ```
 
 The Claude surface installs project-local hooks that run `tbd prime` at session start
 and before context compaction, initialize the machine-local agent identity, and emit the
 closing reminder after tool use.
 It can also install the GitHub CLI helper unless `--no-gh-cli` is given.
+The `claude-agents` surface adds the tier agent definitions in `.claude/agents/` (see
+“Tier agent definitions” under setup surfaces).
 
 ### Bulk Close, Update, and Reopen
 
@@ -1555,33 +1675,44 @@ tbd update proj-bug2 --assignee=bob
 
 ### Code Review Workflow
 
-tbd includes comprehensive code review shortcuts that load all relevant guidelines and
-perform thorough reviews:
+PR review is a formal lifecycle.
+`tbd shortcut pr-review-workflows` is the contract (lettered review IDs, four
+dispositions, the merge gate).
+Merge authorization and review coverage are settable policy grants
+(`tbd guidelines agent-policy-grants`, `tbd policy`), not hardcoded yes/no behavior.
+`github-merge` is a four-value ladder (`never`, `confirm-every`, `confirm-session`,
+`autonomous`); no value weakens `pr-review-requirements`.
 
 ```bash
-# Review uncommitted changes (for pre-commit)
-tbd shortcut review-code
-# Then select "Uncommitted changes" scope
+# Which shortcut a request runs (start here)
+tbd shortcut pr-review-workflows
 
-# Review all changes on this branch vs main
+# Review uncommitted or branch work (does not publish)
 tbd shortcut review-code
-# Then select "Branch work" scope
 
-# Review a specific GitHub PR and publish the review
+# Publish a pinned, lettered review on a GitHub PR
 tbd shortcut review-github-pr
-# Reviews and publishes only; to fix a published review:
+
+# Address every finding (fixed, rebutted, declined, or deferred) and reply
 tbd shortcut address-pr-review
 
-# Language-specific reviews (when you want just the language rules)
+# Review and fix / get merge-ready / review and merge (merge gate)
+tbd shortcut review-and-merge-prs
+
+# Formal stacked PRs (requires github-stacked-prs)
+tbd shortcut stacked-prs
+
+# Language-specific review engines (when you want just the language rules)
 tbd shortcut review-code-typescript
 tbd shortcut review-code-python
+tbd shortcut review-code-rust
 ```
 
 The `review-code` shortcut automatically loads:
 - General coding rules
 - Comment quality guidelines
 - Error handling rules
-- Language-specific rules (TypeScript/Python) based on files changed
+- Language-specific rules (TypeScript/Python/Rust) based on files changed
 - Testing guidelines when test files are modified
 
 ```bash

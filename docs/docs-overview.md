@@ -47,6 +47,12 @@ Project-specific specifications, architecture, and research docs:
     sequences stabilization, native storage, Git-only transport, linked Linear
     conversation, and portable workers with separate release and recovery gates.
 
+  - [PR review lifecycle and sub-agent delegation](project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md)
+    defines the review-state contract and request vocabulary, policy grants in
+    `AGENTS.md` with `tbd policy`, the `setup-tbd` process, model tiers and generated
+    tier agent definitions, and the delegation procedure, with a final list of
+    documentation updates.
+
 - @docs/project/architecture/—System design references and long-lived architecture docs
   (templates and output go here)
 
@@ -60,6 +66,8 @@ Project-specific specifications, architecture, and research docs:
   - [On-disk format versioning](tbd-format-versioning.md) defines the current f08
     compatibility and migration contract, plus the explicit-activation rules that must
     be implemented before a candidate f09 repository can create native comments.
+    It also defines the generated integration format (f100) stamped into agent surfaces,
+    which is versioned separately from the repository format.
 
 - @docs/project/research/—Research notes and technical investigations
 
@@ -69,13 +77,21 @@ Project-specific specifications, architecture, and research docs:
     Superseded research remains under `research/archive/` with successor links; distinct
     unfinished plans retain their own scope and owners.
 
+  - [Sub-agents in Claude Code and Codex](project/research/current/research-2026-09-16-subagent-guidance-anthropic-openai.md)
+    collects sub-agent mechanics, vendor guidance from Anthropic and OpenAI, and
+    orchestration practice, backing the review lifecycle and delegation plan.
+    It absorbed the archived February 2026 Claude Code sub-agents brief.
+
 ### tbd CLI Documentation Commands
 
 In addition to these repository docs, tbd provides managed documentation via the
 `tbd docs` group and per-kind readers:
 
 - [`tbd design`](../packages/tbd/docs/tbd-design.md)—Read the packaged main design
-  specification, including the current f08 boundary and candidate native-comment model
+  specification, including the current f08 boundary, candidate native-comment model,
+  agent policy grants (settable preferences in `AGENTS.md`: the four-value
+  `github-merge` ladder and independent `pr-review-requirements`), and the PR review
+  lifecycle (lettered reviews, dispositions, merge gate)
 - `tbd docs`—Status overview of managed docs; `tbd docs list` shows every doc across
   kinds with `[forked]`/`[customized]`/`[local]` markers
 - `tbd docs show <name>`—Read any doc by name; `tbd docs show tbd-docs` is the CLI
