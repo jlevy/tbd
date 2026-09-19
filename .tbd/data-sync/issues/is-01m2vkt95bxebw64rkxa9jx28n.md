@@ -5,13 +5,15 @@ title: "PR #309: Review F has no published artifact; Bugbot unmarked review has 
 kind: task
 status: open
 priority: 3
-version: 1
+version: 3
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 labels: []
-dependencies: []
-parent_id: is-01m2s641phbg1hbk9eg04d284q
+dependencies:
+  - type: blocks
+    target: is-01m2vpkmcvs4h8a0b2a9hwgpyq
+parent_id: is-01m2vpkdg97d38s5hqjf79yt20
 created_at: 2026-09-19T01:17:12.746Z
-updated_at: 2026-09-19T01:17:12.746Z
+updated_at: 2026-09-19T02:06:02.264Z
 ---
 Found by the 2026-09-19 verification of stack 312 against pr-review-workflows.
 
