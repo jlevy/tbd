@@ -1,11 +1,11 @@
 ---
 type: is
 id: is-01m2vm2f44xk8raej7v30n7d3t
-title: Restructure README around optional incremental adoption
+title: Clarify README core value and background framing
 kind: task
-status: in_progress
+status: closed
 priority: 2
-version: 6
+version: 9
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 delegate: unknown@cursor
 labels: []
@@ -14,10 +14,10 @@ parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
 hold: null
 hold_until: null
 created_at: 2026-09-19T01:21:40.996Z
-updated_at: 2026-09-19T02:25:06.561Z
+updated_at: 2026-09-19T02:26:34.719Z
 started_at: 2026-09-19T02:10:39.533Z
-closed_at: null
-close_reason: null
+closed_at: 2026-09-19T02:26:34.719Z
+close_reason: "Light README framing edit pushed at 80438ed5 (from #309 9ad8d197). Medium IA rewrite reverted. #313 addendum updated at eedd1a58."
 resolution: null
 duplicate_of: null
 ---
@@ -29,4 +29,4 @@ The review is the spec: optionality as the spine, adoption ladder, shrink talkin
 
 ## Notes
 
-README IA rewrite landed on cursor/readme-optional-adoption-2526 at 92aa7bfd, based on #309 head 9ad8d197 (not main). Opening follows the user-supplied pitch (skill/CLI that upgrades quality, tracking, and workflows; gradual / customizable / batteries included; Jan 2026 Beads history). Review addendum on #313 at 06e25408. Formal GitHub stack link and draft PR creation left for ManagePullRequest (not in this catalog).
+Course-corrected: light opening/framing only on the #309 README. Medium IA rewrite reverted. Landed at 80438ed5 on cursor/readme-optional-adoption-2526. Review addendum at eedd1a58 on #313.
