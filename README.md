@@ -11,7 +11,6 @@ It gives agents git-native task tracking for longer unattended work (beads), reu
 engineering guidelines, and reusable workflows (code reviews, PR workflows, shortcuts).
 Adoption is gradual (use only what you want), customizable (override or replace skills
 and guidelines), and batteries included (the defaults encode hard-learned practices).
-Layers above beads are optional.
 
 `tbd` (short for “To Be Done,” or “TypeScript beads” if you prefer) started in January
 2026 as a better [Beads](https://github.com/steveyegge/beads) (`bd`) and has since added
