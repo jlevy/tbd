@@ -362,6 +362,29 @@ same way: capabilities you turn on by asking for them.
 - Keep `generate:readme` regions valid; run the generator if the appendix stays.
 - Tone: no enthusiasm, no “unreasonably effective,” no first person.
 
+## Addendum: User-supplied product pitch (2026-09-19)
+
+The user supplied the product positioning after this review was written.
+The information-architecture recommendations above still stand (optionality as the
+spine, adoption ladder, shrink talking/policy, generated catalogs as an optional
+appendix). The README rewrite follows the pitch as the opening, not the draft snippet in
+§9.
+
+**Core value:** tbd is a skill and CLI that upgrades coding quality, task tracking, and
+workflows for any coding agent.
+
+**Philosophy:** give agents task tracking for longer unattended operation (beads),
+better engineering knowledge (reusable guidelines), and better workflows (code reviews,
+PR workflows, shortcuts), in a way that is **gradual** (use only what you want),
+**customizable** (override or change skills and guidelines), and **batteries included**
+(defaults include hard-learned practices).
+
+**History (one short beat):** tbd started in January 2026 as a better Beads and has
+since extended to include improved workflows of many kinds.
+
+Implementation bead: `tbd-eti9`. The review remains the IA rationale; the README is the
+product change.
+
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
 -->
