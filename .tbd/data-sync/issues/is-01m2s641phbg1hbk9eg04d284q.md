@@ -5,7 +5,7 @@ title: "Merge stack 312 (#309 then #310) when github-merge and B3 confirmation a
 kind: task
 status: open
 priority: 1
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 labels: []
 dependencies: []
@@ -15,7 +15,7 @@ child_order_hints:
   - is-01m2vkt95bxebw64rkxa9jx28n
   - is-01m2vmva9sbfzx7k0mrh45kbkf
 created_at: 2026-09-18T02:39:23.857Z
-updated_at: 2026-09-19T01:35:15.257Z
+updated_at: 2026-09-19T01:41:56.298Z
 ---
 Both layers are code-complete and CI-green. Heads: #309 eca9187ca0260a48bf8cb6f76219141d93c0163d, #310 372d18ec42a3c959175cbab490d20594f82f4bce. Formal stack 312; merge #309 into main first, then #310.
 
@@ -25,4 +25,4 @@ Process gaps that do not reopen the code-review bar: Review F has dispositions b
 
 ## Notes
 
-Docs refresh landed on this stack: #309 head is now e40459f24236cf5e42ca4012f2473f52bbec2734 (was eca9187c); #310 head is 6fdd9decf51bcb6605cea98cb7ab3fb155c99b3c, rebased onto e40459f2. Merge still waits on github-merge permission and B3 confirmation; do not treat the doc commit as merge authorization.
+Review I follow-up of the docs-refresh delta: two Medium findings in the new summaries (I1 confirm-every/session sentences; I2 dedicated reviews under standard) fixed on #309 as 9ad8d1972be4ad0246935cd4162efcdf709e6751. #310 rebased --onto 9ad8d197 e40459f2 → c99a141acb2874b21f819214862afb6209b36b03 (range-diff all `=`). Merge still waits on github-merge permission and B3 confirmation; do not treat the doc commits as merge authorization. Review I body is at /tmp/review-I-309.md; posting blocked (ManagePullRequest unavailable; gh reviews/comments 403).
