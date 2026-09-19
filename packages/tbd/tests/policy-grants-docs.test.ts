@@ -295,6 +295,8 @@ describe('long-lived docs state the merge ladder and review invariance', () => {
       expect(prose, rel).toMatch(/no value weakens `pr-review-requirements`/i);
       expect(prose, rel).toContain(LINK);
       expect(prose, rel).toMatch(/settable (?:preferences|policy grants|grants)/);
+      expect(prose, rel).toMatch(/instruction to merge a named PR/);
+      expect(prose, rel).toMatch(/a PR outside that task needs its own confirmation/);
     },
   );
 
@@ -310,6 +312,7 @@ describe('long-lived docs state the merge ladder and review invariance', () => {
     }
     expect(lifecycle).toContain('lettered');
     expect(lifecycle).toMatch(/merge gate/);
+    expect(lifecycle).toMatch(/dedicated/);
   });
 });
 

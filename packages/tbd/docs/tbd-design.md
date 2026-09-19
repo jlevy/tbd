@@ -5806,12 +5806,13 @@ Grants are consent for agents, not switches inside tbd: no engine behavior, sync
 included, depends on a grant.
 
 **Merge authorization.** `github-merge` is a four-value ladder, most restrictive first:
-`never` (do not merge and do not ask), `confirm-every` (one authorization covers one
-merge of one PR; also the unanswered and revoke value), `confirm-session` (recommended:
-a confirmation covers the PRs of the task it was given for, including every layer of a
-stack those merges include), and `autonomous` (merge without asking; recorded only
-through `tbd policy set`). An instruction that names a PR is the `confirm-every`
-authorization for that merge.
+`never` (do not merge and do not ask; recorded only through `tbd policy set`),
+`confirm-every` (one authorization covers one merge of one PR; also the unanswered and
+revoke value), `confirm-session` (recommended: a session confirmation covers the task it
+was given for: the PRs of the task the user confirmed, including every layer of a stack
+those merges include, and a PR outside that task needs its own confirmation), and
+`autonomous` (merge without asking; recorded only through `tbd policy set`). Under
+`confirm-every`, an instruction to merge a named PR is the authorization for that merge.
 
 **Review requirements are independent.** `pr-review-requirements` is a separate policy
 and is invariant across every `github-merge` value, `autonomous` included.
@@ -5905,7 +5906,9 @@ Formal stacks use `stacked-prs`; ordinary PRs use `create-or-update-pr-simple`.
 (`A`, `B`, …), and numbers findings (`A1`, `A2`). Every finding gets exactly one of four
 dispositions — `fixed`, `rebutted`, `declined`, or `deferred` — with evidence, in a
 marked disposition reply.
-One senior engineering review and one addressing pass is the default round.
+One senior engineering review and one addressing pass is the default round; under
+`standard`, a PR that is sensitive in security, performance, or correctness also gets a
+dedicated pass for each such area.
 
 **Merge gate.** `review-and-merge-prs` holds the one merge gate: review requirements
 met, every finding dispositioned, CI final and green at an unchanged head, and the
