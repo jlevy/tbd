@@ -244,17 +244,17 @@ agents.
 
 ### 1.1 What is tbd?
 
-**tbd is a skill and CLI that upgrades coding quality, task tracking, and workflows for
-any coding agent.**
+**tbd combines task management, spec-driven planning, and instant knowledge injection
+for AI coding agents.**
 
 tbd ("To Be Done" or “TypeScript Beads”) is a git-native issue tracker that stores
 issues as Markdown files with YAML frontmatter on a dedicated sync branch, enabling
 conflict-free collaboration without daemons or databases.
 It also bundles spec-driven workflows, reusable workflow shortcuts, and a curated
 knowledge base of engineering best practices that agents can inject into their context
-on demand. Beads alone is a complete use; the rest are optional layers.
+on demand.
 
-tbd provides **four optional capabilities**, listed identically in the README and the
+tbd provides **four integrated capabilities**, listed identically in the README and the
 installed skill:
 
 1. **Beads**: Git-native issue tracking (tasks, bugs, features).
@@ -262,7 +262,7 @@ installed skill:
    Drop-in replacement for `bd`.
 2. **Spec-Driven Workflows**: Plan features → break into beads → implement
    systematically.
-3. **Knowledge Injection**: Engineering guidelines (TypeScript, Python, Rust, TDD,
+3. **Knowledge Injection**: 40+ engineering guidelines (TypeScript, Python, Rust, TDD,
    testing, Convex, monorepos) available on demand.
 4. **Shortcuts**: Reusable instruction templates for common workflows (code review,
    commits, PRs, cleanup, handoffs).

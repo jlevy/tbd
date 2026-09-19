@@ -7,37 +7,40 @@
 **tbd is a skill and CLI that upgrades coding quality, task tracking, and workflows for
 any coding agent.**
 
-It gives agents three things:
+It gives agents git-native task tracking for longer unattended work (beads), reusable
+engineering guidelines, and reusable workflows (code reviews, PR workflows, shortcuts).
+Adoption is gradual (use only what you want), customizable (override or replace skills
+and guidelines), and batteries included (the defaults encode hard-learned practices).
+Layers above beads are optional.
 
-- **Task tracking** for longer unattended operation (beads)
-- **Engineering knowledge** (reusable guidelines the agent loads on demand)
-- **Workflows** (code reviews, PR workflows, and other shortcuts)
+`tbd` (short for “To Be Done,” or “TypeScript beads” if you prefer) started in January
+2026 as a better [Beads](https://github.com/steveyegge/beads) (`bd`) and has since added
+workflows of many kinds.
+Beads are Markdown files on a dedicated sync branch, so agents and humans share one
+durable task layer across sessions and machines, with no daemon and no database.
+It installs as a skill for Claude Code and Codex, works through the CLI in any other
+agent environment, and is a drop-in replacement for `bd`.
 
-Adoption is **gradual** (use only what you want), **customizable** (override or replace
-skills and guidelines), and **batteries included** (the defaults encode hard-learned
-practices). You can stop at install plus beads.
-Everything above that is an optional layer you can adopt, skip, or replace.
-
-tbd started in January 2026 as a better [Beads](https://github.com/steveyegge/beads)
-(`bd`) and has since added workflows of many kinds.
-Beads are Markdown files with YAML frontmatter on a dedicated `tbd-sync` branch: no
-daemon, no database, and a drop-in CLI-compatible replacement.
-It installs as a skill for Claude Code and Codex and works through the CLI in any other
-agent environment.
-
-The same four optional capabilities appear in the installed skill:
+## What You Get
 
 1. **Beads**: Git-native issue tracking (tasks, bugs, features).
-   Persists across sessions.
+   Never lose work across sessions.
    Drop-in replacement for `bd`.
 2. **Spec-Driven Workflows**: Plan features → break into beads → implement
    systematically.
-3. **Knowledge Injection**: Engineering guidelines (TypeScript, Python, Rust, TDD,
+3. **Knowledge Injection**: 40+ engineering guidelines (TypeScript, Python, Rust, TDD,
    testing, Convex, monorepos) available on demand.
 4. **Shortcuts**: Reusable instruction templates for common workflows (code review,
    commits, PRs, cleanup, handoffs).
 
+On top of that, `tbd web` shows beads live in a browser, `tbd watch` wakes agents when
+bead state changes, `tbd integration` syncs beads with Linear, and policy grants record
+which actions agents may take in the project (see
+[Features at a Glance](#features-at-a-glance)).
+
 ## Quick Start
+
+Install the CLI:
 
 ```bash
 npm install -g get-tbd@latest
@@ -47,89 +50,79 @@ Then tell your agent:
 
 ***“Run tbd prime, then set up tbd in this project.”***
 
-The agent asks you for a short issue-ID prefix and runs
-`tbd setup --auto --prefix=<name>`. That is a complete use: beads work, and `tbd sync`
-keeps them current.
-[`setup-tbd`](packages/tbd/docs/shortcuts/standard/setup-tbd.md) also
-*offers* policy questions (GitHub editing and merging, stacked PRs, sub-agents, PR
-review requirements, Linear).
-**“Not now”** and unanswered are valid: unanswered stays ask-first.
-Record a grant later when a workflow needs it.
-
-After setup, talk to your agent in natural language.
-Ask “what can I do with tbd?”
-for the welcome shortcut.
-For cloud instances, upgrades, and Beads import, see
-[Installation and Setup](#installation-and-setup).
-
-## Adopt Only What You Want
-
-Each rung is enough to stop:
-
-1. **Beads.** `tbd setup --auto --prefix=<name>` (or `--from-beads`). Track work; run
-   `tbd sync`. This is a complete use.
-2. **Surfaces.** Default setup writes portable, `AGENTS.md`, Claude, and Codex files,
-   plus tier-agent definitions.
-   `--surfaces=` keeps only the generated agent files you want.
-   Initialization, format migration, and the docs cache still run.
-3. **Guidelines and shortcuts.** The bundled set is a default library, not a contract.
-   Load none until a task needs one.
-   Keep the standard set, keep a language/stack subset, fork into `docs/tbd/` and edit,
-   add your own from a URL, or point `docs_cache.files` / `docs_cache.local_dirs` at
-   replacements. `tbd shortcut --list` and `tbd guidelines --list` are the live indexes.
-4. **Policies.** Grants in `AGENTS.md` are settable preferences for the whole project.
-   Unanswered is ask-first (`confirm-every` for `github-merge`, `standard` for
-   `pr-review-requirements`). Record a standing grant only if you want that flow without
-   being asked each time.
-
-The PR review lifecycle, stacked PRs, Linear, `tbd web`, and `tbd watch` sit on rungs
-3–4. They are capabilities you turn on by asking, not a process you opt out of.
+The agent asks you for a short issue-ID prefix, runs `tbd setup --auto --prefix=<name>`,
+and follows
+[`tbd shortcut setup-tbd`](packages/tbd/docs/shortcuts/standard/setup-tbd.md), which
+asks you once, for the project as a whole, which policy grants agents have here (GitHub
+editing and merging, stacked PRs, sub-agents, PR review requirements, and Linear sync)
+and records the answers in `AGENTS.md`. Say **“Set up tbd”** again after any upgrade: it
+asks only about policies that are still unanswered.
+From then on you talk to your agent in natural language; “what can I do with tbd?”
+runs the welcome shortcut.
+For cloud instances and upgrades, see [Installation and Setup](#installation-and-setup).
 
 ## Talking to Your Agent
 
-The agent translates your requests into `tbd` commands.
-These are exemplars, not a checklist.
-Every shortcut default yields to your wording (“post the review as a PR comment”, “don’t
-merge anything today”).
+The agent translates your requests into `tbd` commands: some do things, like creating
+beads, and others give the agent context, knowledge, or a workflow to follow.
+These are the requests the installed skill routes; say them in your own words.
 
-| What you say | What runs |
-| --- | --- |
-| “There’s a bug where …” | `tbd create "..." --type=bug` |
-| “Show my beads in a browser” | `tbd web --open` |
-| “Plan a new feature” / “Create a spec” | [`tbd shortcut new-plan-spec`](packages/tbd/docs/shortcuts/standard/new-plan-spec.md) |
-| “Review PR #N” | [`tbd shortcut review-github-pr`](packages/tbd/docs/shortcuts/standard/review-github-pr.md) |
-| “Create a PR” | [`tbd shortcut create-or-update-pr-simple`](packages/tbd/docs/shortcuts/standard/create-or-update-pr-simple.md) |
-| “Set up tbd” | [`tbd shortcut setup-tbd`](packages/tbd/docs/shortcuts/standard/setup-tbd.md) |
-| “Use TypeScript best practices” | [`tbd guidelines typescript-rules`](packages/tbd/docs/guidelines/typescript-rules.md) |
-| “Set up Linear” | [`tbd shortcut setup-linear`](packages/tbd/docs/shortcuts/standard/setup-linear.md) |
+| What you say | What happens | What runs |
+| --- | --- | --- |
+| “There’s a bug where …” | Agent creates and tracks a bead | `tbd create "..." --type=bug` |
+| “Let’s work on issues/beads” | Agent finds ready beads and starts working | `tbd ready` |
+| “Show my beads in a browser” | Agent starts the live, read-only viewer, gives you its URL, and keeps it running | `tbd web --open` |
+| “Plan a new feature” / “Create a spec” | Agent creates a spec from a template | [`tbd shortcut new-plan-spec`](packages/tbd/docs/shortcuts/standard/new-plan-spec.md) |
+| “Break spec into beads” | Agent creates implementation beads from the spec | [`tbd shortcut plan-implementation-with-beads`](packages/tbd/docs/shortcuts/standard/plan-implementation-with-beads.md) |
+| “Implement these beads” | Agent works through the beads systematically | [`tbd shortcut implement-beads`](packages/tbd/docs/shortcuts/standard/implement-beads.md) |
+| “Review this code” / “Code review” | Agent reviews uncommitted, branch, or PR changes with all guidelines | [`tbd shortcut review-code`](packages/tbd/docs/shortcuts/standard/review-code.md) |
+| “Review PR #N” | Agent publishes one senior engineering review at a pinned head | [`tbd shortcut review-github-pr`](packages/tbd/docs/shortcuts/standard/review-github-pr.md) |
+| “Address the reviews on PR #N” | Agent gives every finding a disposition (fixed, rebutted, declined, or deferred), pushes confirmed fixes, and replies | [`tbd shortcut address-pr-review`](packages/tbd/docs/shortcuts/standard/address-pr-review.md) |
+| “Review and fix PR #N” | One review round and its addressing; the agent asks before another round | [`tbd shortcut review-and-merge-prs`](packages/tbd/docs/shortcuts/standard/review-and-merge-prs.md) (fix mode) |
+| “Get PR #N merge-ready” | As above, and the merge gate passes at the current head; no merge | [`tbd shortcut review-and-merge-prs`](packages/tbd/docs/shortcuts/standard/review-and-merge-prs.md) (merge-ready mode) |
+| “Make sure PR #N is reviewed and merged” | As above, and the agent merges the PR | [`tbd shortcut review-and-merge-prs`](packages/tbd/docs/shortcuts/standard/review-and-merge-prs.md) (merge mode) |
+| “Commit this” / “Use the commit shortcut” | Agent runs pre-commit checks, reviews, and commits | [`tbd shortcut code-review-and-commit`](packages/tbd/docs/shortcuts/standard/code-review-and-commit.md) |
+| “Create a PR” / “File a PR” | Agent creates or updates the pull request | [`tbd shortcut create-or-update-pr-simple`](packages/tbd/docs/shortcuts/standard/create-or-update-pr-simple.md) |
+| “Create a stacked PR” / “Stack this” | Agent splits the work into a formal stack of dependent PRs | [`tbd shortcut stacked-prs`](packages/tbd/docs/shortcuts/standard/stacked-prs.md) |
+| “Merge main into my branch” | Agent merges `origin/main`, resolves conflicts, and watches CI | [`tbd shortcut merge-upstream`](packages/tbd/docs/shortcuts/standard/merge-upstream.md) |
+| “Use TypeScript best practices” | Agent loads the TypeScript rules | [`tbd guidelines typescript-rules`](packages/tbd/docs/guidelines/typescript-rules.md) |
+| “Use TDD” / “Test-driven development” | Agent loads the TDD guidelines | [`tbd guidelines general-tdd-guidelines`](packages/tbd/docs/guidelines/general-tdd-guidelines.md) |
+| “Add golden/e2e testing” | Agent loads the golden testing guidelines | [`tbd guidelines golden-testing-guidelines`](packages/tbd/docs/guidelines/golden-testing-guidelines.md) |
+| “Research this topic” | Agent creates a research brief from a template | [`tbd shortcut new-research-brief`](packages/tbd/docs/shortcuts/standard/new-research-brief.md) |
+| “Document architecture” | Agent creates an architecture doc | [`tbd shortcut new-architecture-doc`](packages/tbd/docs/shortcuts/standard/new-architecture-doc.md) |
+| “Make the guidelines visible / customize doc X” | Agent forks the docs into `docs/tbd/` | `tbd docs fork --category=general --category=<lang>` (or `--all`) |
+| “Clean up this code” / “Remove dead code” | Agent removes duplicates and dead code | [`tbd shortcut code-cleanup-all`](packages/tbd/docs/shortcuts/standard/code-cleanup-all.md) |
+| “Set up tbd” / *(after upgrading tbd)* | Agent reviews setup and asks about unanswered policy grants | [`tbd shortcut setup-tbd`](packages/tbd/docs/shortcuts/standard/setup-tbd.md) |
+| “Set up Linear” / “Add my Linear key” | Agent configures the repository or adds your personal key, whichever applies | [`tbd shortcut setup-linear`](packages/tbd/docs/shortcuts/standard/setup-linear.md) |
+| “You can use sub-agents” / *(delegating any work)* | Agent checks the grant, splits the work, and briefs sub-agents by tier | [`tbd shortcut delegate-to-subagents`](packages/tbd/docs/shortcuts/standard/delegate-to-subagents.md) |
 
-For the rest, ask “what can I do with tbd?”
-or have the agent run `tbd shortcut --list` and `tbd guidelines --list`. PR review
-stages, addressing, and merge live in
-[`pr-review-workflows`](packages/tbd/docs/shortcuts/standard/pr-review-workflows.md) and
-[`review-and-merge-prs`](packages/tbd/docs/shortcuts/standard/review-and-merge-prs.md).
+Every default in a shortcut yields to your specific guidance: “post the review as a PR
+comment”, “also do a security review”, “two rounds”, or “don’t merge anything today”.
 
-## Optional Capabilities
+## Features at a Glance
 
-One-line map. Each item is optional; the link is the procedure.
-
-- **Beads:** one Markdown file per issue on `tbd-sync`; no daemon, no SQLite
-  ([Commands](#commands), [design](packages/tbd/docs/tbd-design.md)).
-- **Spec, PR, and stack workflows:** plan → beads → implement, then review or stack if
-  you want ([`new-plan-spec`](packages/tbd/docs/shortcuts/standard/new-plan-spec.md),
-  [`pr-review-workflows`](packages/tbd/docs/shortcuts/standard/pr-review-workflows.md),
-  [`stacked-prs`](packages/tbd/docs/shortcuts/standard/stacked-prs.md)).
-- **Policy grants:** settable preferences in `AGENTS.md`. `github-merge` is `never` /
-  `confirm-every` / `confirm-session` (recommended) / `autonomous`.
-  `pr-review-requirements` is independent and still applies under `autonomous`
-  ([`agent-policy-grants`](packages/tbd/docs/guidelines/agent-policy-grants.md),
-  `tbd policy show`).
-- **Live board and watching:** `tbd web --open` (loopback, read-only); `tbd watch` wakes
-  on remote bead changes ([CLI reference](packages/tbd/docs/tbd-docs.md)).
-- **Linear:** mirror or sync selected beads
-  ([Optional Linear Setup](#optional-linear-setup)).
-- **Replaceable docs:** subset, fork, `--add`, or config
-  ([Bundled Library](#bundled-library-optional)).
+- **Git-native beads:** one Markdown file with YAML frontmatter per bead, on a dedicated
+  `tbd-sync` branch, so parallel creation never conflicts and your code history stays
+  clean; JSON output, bulk commands, and self-documenting help keep it agent-operated.
+- **Spec-driven workflows:** shortcuts for the full cycle: plan spec, beads,
+  implementation, validation plan, and PR.
+- **PR review lifecycle:** reviews published at a pinned head under one review-state
+  contract, addressed finding by finding, with a merge gate before any merge (see
+  [`pr-review-workflows`](packages/tbd/docs/shortcuts/standard/pr-review-workflows.md)).
+- **Policy grants and delegation:** standing, project-wide consent for classes of agent
+  actions, recorded in `AGENTS.md` and managed with `tbd policy`, plus one delegation
+  procedure for any platform with provider-neutral model tiers (see
+  [Agent Policies and Delegation](#agent-policies-and-delegation)).
+- **Live web view and watching:** `tbd web --open` serves a loopback-only, read-only
+  board that updates as beads change, and `tbd watch` blocks until selected bead state
+  changes on the remote, with no daemon (see [Commands](#commands)).
+- **Linear sync:** `tbd integration` mirrors or synchronizes selected beads with Linear,
+  and plain `tbd sync` covers it (see [Optional Linear Setup](#optional-linear-setup)).
+- **Guidelines, shortcuts, and templates:** bundled docs the agent loads by name,
+  forkable into `docs/tbd/` and extensible from any URL (see
+  [Shortcuts, Guidelines, and Templates](#shortcuts-guidelines-and-templates)).
+- **Beads compatible:** largely compatible with `bd` at the CLI level, with
+  `tbd setup --from-beads` to migrate (see [Why tbd](#why-tbd)).
 
 ## Installation and Setup
 
@@ -145,8 +138,9 @@ One-line map. Each item is optional; the link is the procedure.
 npm install -g get-tbd@latest   # Install or upgrade (same command for both)
 ```
 
-On a fresh cloud instance where the CLI is not installed, tell the agent: ***“install
-tbd (npm install -g get-tbd@latest), run tbd prime, and set up tbd in this project.”***
+On a fresh cloud instance (such as Claude Code Cloud) where the CLI is not installed,
+tell the agent: ***“install tbd (npm install -g get-tbd@latest), run tbd prime, and set
+up tbd in this project.”***
 
 ### Setup and Upgrading
 
@@ -156,22 +150,23 @@ tbd setup --auto                  # Existing tbd project; also the upgrade step 
 tbd setup --from-beads            # Migrate from Beads (see Migrating from Beads)
 ```
 
-`tbd setup --auto` is idempotent: it initializes `.tbd/`, refreshes the cached docs and
-every agent surface, applies any repository format migration, and writes the policy
-block in `AGENTS.md` back unchanged.
+`tbd setup --auto` is idempotent and safe to run at any time: it initializes `.tbd/`,
+refreshes the cached docs and every agent surface, applies any repository format
+migration, and writes the policy block in `AGENTS.md` back unchanged.
 Commit the diff it reports.
 Bare `tbd setup` displays help.
+The [`setup-tbd`](packages/tbd/docs/shortcuts/standard/setup-tbd.md) shortcut wraps
+these commands: it installs or upgrades the CLI, runs setup, asks about unanswered
+policy grants and records the answers, sets up `gh` authentication, stack tooling, and
+Linear as the grants require, and verifies with `tbd doctor`. The output of a fresh
+setup points to it; run it (say “Set up tbd”) for a new project and after every upgrade.
 
-[`setup-tbd`](packages/tbd/docs/shortcuts/standard/setup-tbd.md) wraps those commands:
-it installs or upgrades the CLI, runs setup, asks about unanswered policy grants, and
-sets up `gh`, stack tooling, and Linear as the grants require.
-Say “Set up tbd” for a new project and after every upgrade.
-Unanswered grants stay ask-first; “not now” is an answer.
-
-If a version bump changes `tbd_format` in `.tbd/config.yml`, setup migrates it and
-prints a notice; commit the diff.
-Issue data is never touched, and the migration is revertible (see “Aborting a Format
-Upgrade” in `tbd docs manual`).
+Upgrading is the same two commands, `npm install -g get-tbd@latest` and
+`tbd setup --auto`. If the new version bumps the repository format (`tbd_format` in
+`.tbd/config.yml`), setup migrates it and prints a notice; commit the diff, and
+teammates on an older tbd see “This repository requires a newer version of tbd” until
+they upgrade too. Issue data is never touched, and the migration is revertible (see
+“Aborting a Format Upgrade” in the CLI manual, `tbd docs manual`).
 
 ### Team Setup
 
@@ -204,37 +199,65 @@ initialization, migration, or the docs refresh.
 | Surface | Files | What it gives the agent |
 | --- | --- | --- |
 | `portable` | `.agents/skills/tbd/SKILL.md` | The tbd skill, for any agent that reads portable skills |
-| `agents-md` | A managed block in `AGENTS.md` | Orientation, plus the policy block |
-| `claude` | `.claude/skills/tbd/SKILL.md`, hooks, scripts | The Claude Code skill mirror and hooks |
+| `agents-md` | A managed block in `AGENTS.md` | Orientation for any agent that reads `AGENTS.md`, plus the policy block |
+| `claude` | `.claude/skills/tbd/SKILL.md`, hooks in `.claude/settings.json`, and scripts | The Claude Code skill mirror and hooks |
 | `claude-agents` | `.claude/agents/tbd-*.md` | Tier agent definitions for sub-agents |
 | `codex` | `.codex/hooks.json` and scripts | The Codex hooks |
 | `codex-agents` | `.codex/agents/tbd-*.toml` | Tier agent definitions for sub-agents |
 
-`tbd prime` gives any agent the full workflow.
-To leave tier agents out: `--surfaces=portable,agents-md,claude,codex`.
-`tbd uninstall --confirm` removes `.tbd/` and the generated tier definitions; skills,
-hooks, and the `AGENTS.md` block stay.
+Claude Code and Codex get the same hooks: at session start, `tbd whoami --ensure-id`
+sets a stable, machine-local agent identity, `tbd prime` injects workflow context and
+the effective policy grants, and `ensure-gh-cli.sh` installs `gh` unless disabled; a
+brief `tbd prime` runs before context compaction and the closing reminder after tool
+use. Codex also reads `AGENTS.md`; other agents (Cursor, for example) use the portable
+skill, `AGENTS.md`, or just the CLI, since `tbd prime` gives any agent the full
+workflow.
 
-### GitHub Authentication
+The four tier agent definitions (`tbd-strong-max`, `tbd-strong`, `tbd-moderate`, and
+`tbd-fast`) each set a model and a reasoning level from the dated suggestions in
+[`agent-model-tiers`](packages/tbd/docs/guidelines/agent-model-tiers.md); setup
+refreshes them on every run, so upgrading tbd updates them, and removing a file’s
+`DO NOT EDIT` marker takes it over.
+To leave them out, list the other surfaces:
+`--surfaces=portable,agents-md,claude,codex`.
 
-The PR shortcuts use `gh`. Authenticate with `gh auth login`, or set `GH_TOKEN` and
-`GH_PROMPT_DISABLED=1` before the session.
-See [`setup-github-cli`](packages/tbd/docs/shortcuts/standard/setup-github-cli.md).
-Stack tooling is installed only when `github-stacked-prs` is granted.
-A working `gh` login is not a grant, and a grant never bypasses a tool permission.
+`tbd status` lists the installed skill, hooks, and `AGENTS.md` block, though not the
+tier agent definitions, which `tbd doctor` reports once they exist.
+`tbd uninstall --confirm` removes `.tbd/`, the hidden worktree, the local sync branch
+(unless `--keep-branch`), and the generated tier agent definitions; the skills, hooks,
+and the `AGENTS.md` block stay in place.
+
+### GitHub Authentication and Stack Tooling
+
+The PR shortcuts use `gh`. Authenticate with `gh auth login`, or set `GH_TOKEN` (a
+[Personal Access Token](https://github.com/settings/tokens?type=beta), fine-grained
+recommended, with **Contents** and **Pull requests** read/write permissions) and
+`GH_PROMPT_DISABLED=1` before starting the session: in the project’s environment
+variables on Claude Code Cloud, or in your shell profile locally.
+The session hook enforces the `gh` 2.97.0 floor.
+Stack tooling (the pinned `gh-stack` extension and its agent skill) is installed only
+when the `github-stacked-prs` policy is granted, through `ensure-gh-cli.sh --with-stack`
+as the
+[setup-github-cli shortcut](packages/tbd/docs/shortcuts/standard/setup-github-cli.md)
+describes; without the grant, agents propose separate PRs instead.
+Authentication is separate from authorization: a working `gh` login is not a grant, and
+a grant never bypasses a tool permission.
 
 ### Optional Linear Setup
 
 tbd works without an external tracker.
-Say **“Set up Linear.”** The agent runs
-[`tbd shortcut setup-linear`](packages/tbd/docs/shortcuts/standard/setup-linear.md).
-`.tbd/config.yml` holds the shared Linear team, project, and policy; each contributor
-supplies a personal `LINEAR_API_KEY` through the environment or a gitignored `.env`,
-never in chat or in a commit.
-When the `linear` policy is granted, the default selection is `epics`: open epic beads,
-both directions. Plain `tbd sync` then covers Linear.
-Details:
-[External Tracker Integrations](packages/tbd/docs/tbd-docs.md#external-tracker-integrations).
+To add Linear, say **“Set up Linear.”** The agent runs
+[`tbd shortcut setup-linear`](packages/tbd/docs/shortcuts/standard/setup-linear.md),
+which tells first-time repository configuration apart from a teammate joining a
+repository whose configuration is already committed: `.tbd/config.yml` holds the shared
+Linear team, project, and policy, while each contributor supplies a personal
+`LINEAR_API_KEY` through the environment or a gitignored `.env`, never in chat or in a
+commit. When the `linear` policy is granted, the default selection is `epics`: open epic
+beads, synchronized in both directions.
+`tbd integration status` verifies the connection, plain `tbd sync` then covers Linear,
+and
+[External Tracker Integrations](packages/tbd/docs/tbd-docs.md#external-tracker-integrations)
+in the CLI reference has the policies, selectors, and bulk-change safety.
 
 ### Migrating from Beads
 
@@ -247,10 +270,79 @@ tbd list --all
 
 Run this before initializing tbd, while `.beads/` still exists.
 Setup imports `.beads/issues.jsonl` when present and renames the directory to
-`.beads-disabled/`. Verify the totals.
-Issue IDs are preserved.
+`.beads-disabled/`, the rollback source; it can continue after a missing JSONL file or
+import warning, so verify the totals.
+It does not remove `.beads-hooks/`, Cursor rules, Claude settings, or Beads text in
+`AGENTS.md`. Issue IDs are preserved: `proj-123` in Beads is `proj-123` in tbd.
+
+## Agent Policies and Delegation
+
+A **policy grant** records your explicit consent for a class of agent actions, for the
+project as a whole, so agents neither ask in every session nor act without consent.
+Grants live in a policy block inside the tbd block in `AGENTS.md`, are committed like
+any other change, and take effect from the default branch.
+The seven policies:
+
+| Policy | Recommended | Covers |
+| --- | --- | --- |
+| `github-workflows` | `granted` | Issues, labels, and re-running or cancelling CI runs |
+| `github-editing` | `granted` | Branches and PRs short of merging: pushing, creating and editing PRs, posting reviews and replies, watching CI |
+| `github-merge` | `confirm-session` | Who authorizes merging a PR whose review requirements are met: `never` (an agent does not merge), `confirm-every` (every merge needs its own authorization; what an unanswered policy means), `confirm-session` (a session confirmation covers the task it was given for: the PRs of the task the user confirmed, including every layer of a stack those merges include, and a PR outside that task needs its own confirmation), or `autonomous` (no asking) |
+| `github-stacked-prs` | `granted` | Installing the `gh stack` tooling and creating, submitting, syncing, and merging formal stacks |
+| `subagents` | `granted` | Delegating to sub-agents following `delegate-to-subagents` |
+| `pr-review-requirements` | `standard` | The reviews a PR needs before it merges: one senior engineering review and one addressing pass, plus a dedicated security, performance, or correctness review where the PR is sensitive; `standard + security` or `standard + 2 rounds` adds kinds or rounds |
+| `linear` | Asked separately | Syncing beads with Linear; `epics` syncs open epic beads in both directions |
+
+The block, with its fixed prose omitted:
+
+```markdown
+<!-- BEGIN TBD POLICY GRANTS v=1 -->
+
+- `github-workflows`: granted
+- `github-editing`: granted
+- `github-merge`: confirm-session
+- `github-stacked-prs`: granted
+- `subagents`: granted
+- `pr-review-requirements`: standard
+- `linear`: not-granted
+
+Recorded 2026-09-17.
+<!-- END TBD POLICY GRANTS -->
+```
+
+```bash
+tbd policy show                            # Answered and unanswered policies, with effective values
+tbd policy grant subagents                 # Record the recommended value
+tbd policy revoke github-merge             # Record the revoke value, what an unanswered policy takes
+tbd policy set pr-review-requirements standard + 2 rounds   # Record any valid value
+tbd setup --auto --policies=recommended    # Record the recommended set for every unanswered policy (Linear is asked separately)
+```
+
+An unanswered policy is treated as `not-granted`, with two exceptions (`confirm-every`
+for `github-merge` and `standard` for review requirements), and the agent asks when a
+task needs it. Your instructions in the conversation override recorded grants for that
+task, in either direction, and a grant never bypasses a tool permission or sandbox.
+`tbd prime` prints the effective grants, `tbd doctor` validates the block, and
+[`agent-policy-grants`](packages/tbd/docs/guidelines/agent-policy-grants.md) is the full
+definition.
+
+**Delegation.** With `subagents` granted, agents follow
+[`delegate-to-subagents`](packages/tbd/docs/shortcuts/standard/delegate-to-subagents.md):
+your session is the coordinator; it splits the work by role (reviewer, addressing agent,
+administrator), assigns each task a tier from
+[`agent-model-tiers`](packages/tbd/docs/guidelines/agent-model-tiers.md) (strong,
+moderate, or fast, defined by model rank and reasoning level within your own provider),
+spawns fresh, named sub-agents through the generated `tbd-*` definitions, writes
+self-contained briefs, and verifies every claim that comes back.
+[`review-and-merge-prs`](packages/tbd/docs/shortcuts/standard/review-and-merge-prs.md)
+runs the reviews, the addressing pass, the round decision, and the merge gate this way;
+without sub-agents, one session performs the same steps in order.
+The vendor guidance behind the procedure is in the
+[sub-agent research brief](docs/project/research/current/research-2026-09-16-subagent-guidance-anthropic-openai.md).
 
 ## Commands
+
+### Beads
 
 ```bash
 tbd ready                      # Open work with no delegate, hold, deferral, or blocker
@@ -259,39 +351,95 @@ tbd show proj-a7k2             # View bead details (several IDs in one call)
 tbd create "Title" --type=bug  # Create bead (bug/feature/task/epic/chore)
 tbd start proj-a7k2            # Claim under the resolved agent identity
 tbd close proj-a7k2 --reason="Fixed in commit abc123"
+tbd close proj-a7k2 proj-b3m9 --reason="Sprint done"  # Bulk close (one call, no loops)
+tbd dep add proj-b3m9 proj-a7k2  # b3m9 depends on a7k2
+tbd label add proj-a7k2 urgent backend
+tbd search "authentication"    # Search beads by text or partial ID
 tbd sync                       # Sync with remote (auto-commits and pushes)
 tbd web --open                 # Open the live, read-only browser viewer
 tbd watch --ready --json       # Block until a bead newly becomes ready
-tbd policy show                # Agent policy grants
-tbd                          # Command help
-tbd prime                    # Full orientation
-tbd readme                   # This file
-tbd docs show tbd-docs       # CLI reference (alias: tbd docs manual)
-tbd design                   # Design doc
-tbd doctor                   # Check for problems (--fix repairs them)
+tbd changes --since <commit>   # What changed since a sync-branch commit
 ```
 
-`tbd web` binds loopback only and has no write route.
-Ask the agent to change beads with ordinary commands; the open page updates.
-It never fetches the remote on its own.
-The [CLI reference](packages/tbd/docs/tbd-docs.md) has flags, watch selectors, and
-integration verbs.
+`tbd start` writes the acting agent to `delegate` and preserves the accountable
+`assignee`; `tbd whoami` shows the identity it records.
+Pull and re-read shared state before claiming, then sync the accepted claim; the
+collision check is local and advisory.
 
-`--json`, `--dry-run`, and `--quiet` are accepted globally; each command applies only
-the behavior it implements.
-Raw document commands stay text.
+`tbd web` stays in the foreground, binds loopback only, has no write route, and serves
+the same queries and hierarchy as the CLI. It is a viewer, not an editor: ask the agent
+to change beads with ordinary commands, and the open page updates automatically; it
+never fetches from the remote on its own, and `tbd web ../another-repo --open` serves
+any initialized repository.
+`tbd watch` polls the remote sync-branch tip, fetches only once it moves, reports one
+matching change, and exits; a `--ready` watch is edge-triggered, so the
+[watch-beads shortcut](packages/tbd/docs/shortcuts/standard/watch-beads.md) adds startup
+and periodic `tbd ready` scans for an unattended worker loop.
+The [CLI reference](packages/tbd/docs/tbd-docs.md) has ports, selectors, and the JSON
+and dry-run options.
 
-## Bundled Library (optional)
+### External Trackers (Linear)
 
-The tables below are a live index of the default library, regenerated by
-`pnpm --filter get-tbd generate:readme`. They are not a required set.
-Prefer `tbd shortcut --list`, `tbd guidelines --list`, and `tbd template --list` in a
-session. `tbd template plan-spec` is the planning-spec scaffold.
+```bash
+tbd integration status                 # Verify config, credential, and connectivity
+tbd --dry-run integration sync         # Preview the full reconciliation, write nothing
+tbd integration sync                   # Both directions: reconcile every linked pair
+tbd integration sync --push            # Outbound only: project beads to the tracker
+tbd integration link proj-a7k2 FIN-123 # Bind a bead to an existing issue
+tbd integration unlink proj-a7k2       # Sever the link; nothing is deleted anywhere
+```
 
-These docs are cached in `.tbd/docs/` during setup.
-Fork any of them into `docs/tbd/` with `tbd docs fork <name>` (or `--category=<name>` or
-`--all`); tbd serves your copy, and `tbd docs update` merges upstream after an upgrade.
-Add from a URL with `tbd docs add` or the per-kind `--add` flags.
+Once an integration is enabled, plain `tbd sync` includes it, so most sessions never
+need these directly.
+
+### Documentation and Maintenance
+
+```bash
+tbd                          # Command help
+tbd prime                    # Full orientation and workflow guidance
+tbd readme                   # This file
+tbd docs                     # Managed-docs overview (cached, forked, and local docs)
+tbd docs show tbd-docs       # Full CLI reference (the manual; alias: tbd docs manual)
+tbd design                   # Design doc
+tbd status                   # Repository status and installed surfaces (works before init too)
+tbd stats                    # Bead statistics
+tbd doctor                   # Check for problems (--fix repairs them)
+tbd policy show              # Agent policy grants (see Agent Policies and Delegation)
+```
+
+Online: the [CLI Reference](packages/tbd/docs/tbd-docs.md) and the
+[Design Doc](packages/tbd/docs/tbd-design.md).
+
+### Agent-Friendly Flags
+
+These global flags are accepted by every command, but commands apply only the behavior
+they implement:
+
+| Flag | Purpose |
+| --- | --- |
+| `--json` | Structured output for data-oriented commands; raw document commands remain text |
+| `--dry-run` | Preview supported mutations; read-only commands may ignore it |
+| `--quiet` | Minimal output |
+
+## Shortcuts, Guidelines, and Templates
+
+`tbd` bundles three kinds of documentation your agent loads on demand:
+
+```bash
+tbd shortcut --list              # List all shortcuts
+tbd shortcut new-plan-spec       # Get the plan spec workflow
+tbd guidelines --list            # List all guidelines
+tbd guidelines typescript-rules  # Get TypeScript rules (several names in one call)
+tbd template --list              # List all templates
+tbd template plan-spec           # Get a plan spec template
+tbd guidelines --add=<url> --name=my-team-rules   # Add your own from any URL (shortcut and template take --add too)
+```
+
+These docs are cached in `.tbd/docs/` (gitignored) during setup and refreshed by every
+`tbd setup --auto`. Fork any of them into `docs/tbd/` with `tbd docs fork <name>` (or
+`--category=<name>` or `--all`) and they become visible on GitHub, reviewable in PRs,
+and editable in place: tbd serves your copy instead, and `tbd docs update` merges
+upstream improvements into it after an upgrade.
 `.tbd/config.yml` configures which docs are available.
 
 <!-- BEGIN GENERATED shortcuts (regenerate: pnpm --filter get-tbd generate:readme) -->
@@ -416,74 +564,100 @@ Add from a URL with `tbd docs add` or the per-kind `--add` flags.
 
 ## Why tbd
 
-Agents forget conventions between sessions, skip testing, and drift from a team’s
-patterns. Pasting rules into prompts, or piling every rule into `CLAUDE.md` or
-`AGENTS.md`, does not scale.
+Agents can be excellent or poor depending on what they are given: without structure and
+knowledge they forget conventions between sessions, skip testing, and drift from a
+team’s patterns, and neither pasting rules into prompts nor piling every rule into
+`CLAUDE.md` or `AGENTS.md` scales.
+Beads (git-native, CLI-based issue tracking) solve the task management part, raising an
+agent’s capacity for structured work from a handful of ad-hoc to-do items to hundreds of
+tracked beads with dependencies that persist in git.
+Task tracking alone does not help with planning or quality, so tbd adds spec-driven
+workflows to think through what to build before building it, and curated engineering
+guidelines the agent loads when it needs them.
+You can then hand an agent a well-defined spec with clear beads and expert knowledge and
+get back careful, well-structured code, across sessions.
 
-Beads (git-native, CLI-based issue tracking) raise an agent’s capacity for structured
-work from a handful of ad-hoc to-dos to hundreds of tracked beads with dependencies that
-persist in git. That is the core.
-Task tracking alone does not help with planning or quality, so tbd also ships optional
-guidelines and shortcuts you choose, load, fork, or replace.
+**Spec-driven development.** For non-trivial features:
 
-**Compared to Beads.** tbd keeps the Beads idea with a simpler architecture: plain
-Markdown instead of JSONL, no daemon modifying the working tree, no SQLite, no 4-way
-sync. That avoids merge conflicts, sync confusion across branches and the database, and
-file locking on network filesystems such as Claude Code Cloud.
-The [design doc](packages/tbd/docs/tbd-design.md) has the detailed comparison.
+1. **Plan**: write a planning spec (`tbd shortcut new-plan-spec`)
+2. **Break down**: convert the spec into implementation beads
+   (`tbd shortcut plan-implementation-with-beads`)
+3. **Implement**: work through the beads (`tbd shortcut implement-beads`)
+4. **Validate**: write a validation plan and run the tests
+   (`tbd shortcut new-validation-plan`)
+5. **Ship**: commit and create the PR
+   (`tbd shortcut create-or-update-pr-with-validation-plan`), then have it reviewed and
+   merged (`tbd shortcut review-and-merge-prs`)
+
+Iterating on the spec is the hard part; with a good spec, writing the code is often
+almost automatic. These workflows come from
+[heavy spec-driven agentic coding](https://github.com/jlevy/speculate/blob/main/about/lessons_in_spec_coding.md),
+and shortcuts make them repeatable, including by voice: “use the shortcut to create a
+new plan spec that …”.
+
+**Compared to Beads.** tbd was inspired by [Beads](https://github.com/steveyegge/beads)
+by Steve Yegge and keeps the idea with a simpler architecture: plain Markdown files
+instead of JSONL, no daemon modifying the working tree, no SQLite, no 4-way sync.
+That avoids merge conflicts, sync confusion across branches and the database, and file
+locking on network filesystems such as Claude Code Cloud; beads stay in git on the
+`tbd-sync` branch, and `tbd watch`, `tbd web`, and `tbd integration sync` build on that
+layer. The [design doc](packages/tbd/docs/tbd-design.md) has the detailed comparison.
 
 > [!NOTE]
 > *Beads* (capitalized) refers to Steve Yegge’s original
 > [`bd` tool](https://github.com/steveyegge/beads).
 > Lowercase “beads” refers to the issues stored in `tbd` or `bd`.
 
-**Spec-driven development** is one optional flow, not the default plot.
-If you want it: write a planning spec (`tbd shortcut new-plan-spec`), break it into
-beads (`tbd shortcut plan-implementation-with-beads`), implement
-(`tbd shortcut implement-beads`), validate (`tbd shortcut new-validation-plan`), and
-ship. These workflows come from
-[heavy spec-driven agentic coding](https://github.com/jlevy/speculate/blob/main/about/lessons_in_spec_coding.md).
-
 ## FAQ
 
 ### How does `tbd` compare to Beads?
 
 See [Why tbd](#why-tbd): the same idea with a simpler architecture.
-If you already use Beads, `tbd setup --from-beads` migrates you and preserves every
-issue ID (see [Migrating from Beads](#migrating-from-beads)).
+If you already use Beads, `tbd setup --from-beads` migrates you, preserving every issue
+ID (see [Migrating from Beads](#migrating-from-beads)).
 
 ### Can my team see beads without using the CLI?
 
-Yes. `tbd web --open` serves a live, read-only board in a local browser.
-The Linear integration mirrors or synchronizes selected beads with your team’s tracker,
-so people who never clone the repo can still see, and update, the work (see
+Yes, two ways: `tbd web --open` serves a live, read-only board in a local browser, and
+the Linear integration mirrors or synchronizes selected beads with your team’s tracker,
+so people who never clone the repo still see, and can update, the work (see
 [Optional Linear Setup](#optional-linear-setup)).
 
 ### Can agents merge my PRs?
 
-Only as far as the project allows.
-`github-merge` has four values, not yes or no:
+Only as far as the project allows, and the `github-merge` policy has four settings
+rather than yes or no.
+`never` means an agent does not merge at all; `confirm-every`, which is what an
+unanswered policy means, needs your authorization for each merge, so “Make sure PR #N is
+reviewed and merged” authorizes that PR and nothing else; `confirm-session`
+(recommended) lets it merge once a session confirmation covers the task it was given
+for: the PRs of the task the user confirmed, including every layer of a stack those
+merges include, and a PR outside that task needs its own confirmation; `autonomous` lets
+it merge without asking.
+None of them lowers the review bar: `pr-review-requirements` decides whether a PR is
+ready, and the merge gate checks it separately in every case.
+Before merging, `review-and-merge-prs` checks the merge gate: the review requirements
+are met (under `standard`, a senior engineering review at a pinned head, a pass
+addressing all its findings, and a dedicated review for each area the PR is sensitive
+in), every finding has a disposition and every deferral an open bead, no newer review
+content is unaddressed, any question about another round has been answered, CI is green
+at the unchanged head, GitHub reports the PR mergeable, and every layer below a stack
+layer has merged. The merge uses the repository’s merge method at the gated head, never
+`--admin`, and a branch-protection block is reported, not bypassed.
 
-- `never` — an agent does not merge
-- `confirm-every` — each merge needs its own authorization; this is what an unanswered
-  policy means
-- `confirm-session` (recommended) — a session confirmation covers the task it was given
-  for, including every layer of a stack those merges include; a PR outside that task
-  needs its own confirmation
-- `autonomous` — merge without asking
+### Can I add my own guidelines?
 
-`pr-review-requirements` is a separate policy.
-No merge value lowers that bar, including `autonomous`. The merge procedure lives in
-[`review-and-merge-prs`](packages/tbd/docs/shortcuts/standard/review-and-merge-prs.md);
-the value definitions live in
-[`agent-policy-grants`](packages/tbd/docs/guidelines/agent-policy-grants.md).
+Yes. Add your team’s docs from any URL with `tbd guidelines --add` (and
+`tbd shortcut --add` or `tbd template --add`), fork the bundled ones into `docs/tbd/` to
+edit them in place, and configure which docs are available in `.tbd/config.yml` (see
+[Shortcuts, Guidelines, and Templates](#shortcuts-guidelines-and-templates)).
 
-### Can I replace the bundled guidelines and shortcuts?
+### Was `tbd` built with `tbd`?
 
-Yes. Add your own from any URL (`tbd guidelines --add`, `tbd shortcut --add`,
-`tbd template --add`), fork the bundled ones into `docs/tbd/` and edit them, keep a
-subset, or configure which docs are available in `.tbd/config.yml` (see
-[Bundled Library](#bundled-library-optional)).
+Yes.
+It was bootstrapped with the original `bd`, imported its own issues, and has tracked
+its own specs and beads and loaded its own guidelines since; all of its code and specs
+are agent-written.
 
 ## Contributing
 
