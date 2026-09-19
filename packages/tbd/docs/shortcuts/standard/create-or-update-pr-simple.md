@@ -108,6 +108,14 @@ Create a to-do list with the following items then perform all of them:
      (See `tbd guidelines commit-conventions` for details.)
 
 6. Create or update the PR:
+   - **Reviewable unit (before `gh pr create`):** Apply Reviewable Units in
+     `tbd shortcut stacked-prs` before creating or retargeting.
+     Focused, isolated work that will be reviewed and merged on its own stays one PR
+     based on `$TRUNK` (any size).
+     Incremental spec or bead-driven work consolidates into larger PRs, then into
+     stacks. If the intended base is another feature branch and the branch is not in a
+     formal stack, stop and run `tbd shortcut stacked-prs`. Do not pass `--base` onto a
+     feature branch by hand.
    - **Locally tracked stack:** run `gh stack submit --auto`, then set the title and
      body with `gh pr edit`. This creates new PRs as drafts and preserves existing PR
      review state. Add `--open` only when the user explicitly asks to mark every new and

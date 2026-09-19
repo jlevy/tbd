@@ -35,7 +35,9 @@ Create a to-do list with the following items then perform all of them:
 5. When the batch is done, close any remaining completed beads — one bulk call per group
    that shares a reason (`tbd close <id1> <id2> … --reason "..."`), not a per-ID loop —
    push the branch and create or update its PR
-   (`tbd shortcut create-or-update-pr-simple`), then run `tbd sync`.
+   (`tbd shortcut create-or-update-pr-simple`), then run `tbd sync`. Several beads may
+   share one PR. For spec-driven incremental work, consolidate into larger reviewable
+   PRs, then into stacks (`tbd shortcut stacked-prs`).
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

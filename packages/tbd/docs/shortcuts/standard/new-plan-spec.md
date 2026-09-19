@@ -27,6 +27,8 @@ Create a to-do list with the following items then perform all of them:
 
    - You may break work into a few phases (phases) if it helps with incremental testing.
      But **use as few phases as possible.** If it is straightforward, use one phase.
+     For large work, a spec phase is the default stack and PR boundary, not a PR per
+     heading. See `tbd shortcut stacked-prs`.
 
    - NEVER GIVE TIME FRAMES IN PLANS, like “4-6 hours” or “1 week”.
      Work will be done in one day.

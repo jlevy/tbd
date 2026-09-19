@@ -43,10 +43,12 @@ If unclear, ask the user if they want you to create a spec first using
    “implement API” blocks “write integration tests”).
 
 4. **Summarize the bead breakdown** for the user.
-   If the user has already asked you to implement the beads too, use
-   `tbd shortcut implement-beads`; before editing each bead, that workflow pulls and
-   re-reads current state, claims it with `tbd start <id>`, and syncs the claim.
-   Otherwise confirm with the user if you should use this shortcut next.
+   Name PR boundaries separately from the beads: several beads may share one PR.
+   Incremental spec work consolidates into larger reviewable PRs, then into stacks
+   (`tbd shortcut stacked-prs`). If the user has already asked you to implement the
+   beads too, use `tbd shortcut implement-beads`; before editing each bead, that
+   workflow pulls and re-reads current state, claims it with `tbd start <id>`, and syncs
+   the claim. Otherwise confirm with the user if you should use this shortcut next.
 
 ## Dependency Types
 

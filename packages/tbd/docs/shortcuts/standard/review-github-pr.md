@@ -47,6 +47,11 @@ Create a to-do list with the following items then perform all of them:
      `gh pr diff <PR_NUMBER> --repo $REPO`)
    - This loads the general and language-specific guidelines and also checks
      documentation consistency (specs, architecture docs)
+   - If the PR’s base is another feature branch and the PR is not in a formal GitHub
+     stack, report a High finding on that informal chain: fold it into the survivor; do
+     not ask for more layers (see `tbd shortcut stacked-prs`)
+   - After the PR-level review, if the PR is in a formal stack, also review the stack as
+     a whole
 
 6. **Compile the review:**
    - Follow the review artifact format from `tbd shortcut pr-review-workflows` (scope,
