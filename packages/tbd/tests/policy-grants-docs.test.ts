@@ -282,6 +282,37 @@ describe('agent-policy-grants guideline matches the policy schema', () => {
   });
 });
 
+describe('long-lived docs state the merge ladder and review invariance', () => {
+  const MERGE_VALUES = ['never', 'confirm-every', 'confirm-session', 'autonomous'] as const;
+
+  it.each(['tbd-design.md', 'tbd-docs.md'])(
+    '%s names the four github-merge values and that no value weakens pr-review-requirements',
+    async (rel) => {
+      const prose = flat(await readDoc(rel));
+      for (const value of MERGE_VALUES) {
+        expect(prose, rel).toContain(`\`${value}\``);
+      }
+      expect(prose, rel).toMatch(/no value weakens `pr-review-requirements`/i);
+      expect(prose, rel).toContain(LINK);
+      expect(prose, rel).toMatch(/settable (?:preferences|policy grants|grants)/);
+    },
+  );
+
+  it('tbd-design.md §6.4.9 describes the review lifecycle', async () => {
+    const lifecycle = flat(section(await readDoc('tbd-design.md'), 4, 'PR Review Lifecycle'));
+    expect(lifecycle).toContain('`tbd shortcut pr-review-workflows`');
+    expect(lifecycle).toContain('`review-github-pr`');
+    expect(lifecycle).toContain('`address-pr-review`');
+    expect(lifecycle).toContain('`review-and-merge-prs`');
+    expect(lifecycle).toContain('`stacked-prs`');
+    for (const word of ['fixed', 'rebutted', 'declined', 'deferred']) {
+      expect(lifecycle).toContain(`\`${word}\``);
+    }
+    expect(lifecycle).toContain('lettered');
+    expect(lifecycle).toMatch(/merge gate/);
+  });
+});
+
 describe('documents that act on grants link to agent-policy-grants', () => {
   it('the generated tbd block links to the guideline', () => {
     expect(flat(getCodexTbdSection())).toContain(LINK);

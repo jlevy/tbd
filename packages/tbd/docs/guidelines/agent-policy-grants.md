@@ -8,9 +8,12 @@ category: general
 
 A **policy grant** records the user’s explicit consent for a class of agent actions, so
 agents neither ask again in every session nor act without consent.
-Grants are made for the project as a whole and shared by every human and agent working
-on the repository. They live in a policy block inside the generated tbd block in
-`AGENTS.md`, which is the only record of them; `.tbd/config.yml` holds no copy.
+They are settable project preferences, not hardcoded agent behavior: the user records
+them with `tbd policy`, and agents do not invent defaults beyond the unanswered values
+below. Grants are made for the project as a whole and shared by every human and agent
+working on the repository.
+They live in a policy block inside the generated tbd block in `AGENTS.md`, which is the
+only record of them; `.tbd/config.yml` holds no copy.
 
 This document is the single definition of the policies.
 The policy block, the setup process (`setup-tbd`), the delegation shortcut

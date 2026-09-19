@@ -9,7 +9,7 @@ agents.
 
 **First drafted**: January 2025
 
-**Last updated**: 2026-09-17
+**Last updated**: 2026-09-19
 
 * * *
 
@@ -172,6 +172,7 @@ agents.
       - [6.4.6 Setup Surfaces and the Integration Format](#646-setup-surfaces-and-the-integration-format)
       - [6.4.7 Tier Agent Definitions](#647-tier-agent-definitions)
       - [6.4.8 Agent Policy Grants](#648-agent-policy-grants)
+      - [6.4.9 PR Review Lifecycle](#649-pr-review-lifecycle)
   - [7. Appendices](#7-appendices)
     - [7.1 Design Decisions](#71-design-decisions)
       - [Decision 1: File-per-entity vs JSONL](#decision-1-file-per-entity-vs-jsonl)
@@ -268,7 +269,9 @@ installed skill:
 
 On top of these, `tbd web` shows beads live in a browser (§4.15), `tbd watch` wakes
 agents when bead state changes (§4.14), `tbd integration` syncs beads with Linear
-(§8.7), and policy grants record which actions agents may take in the project (§6.4.8).
+(§8.7), and policy grants record which actions agents may take in the project — who may
+merge a PR, which reviews it needs, and the rest — as user-settable preferences
+(§6.4.8–6.4.9).
 
 The **issue tracking layer** has four core principles:
 
@@ -311,10 +314,15 @@ The **issue tracking layer** has four core principles:
 - **External tracker sync**: Optional per-repository integration mirrors or
   bidirectionally synchronizes beads with Linear; GitHub is planned (§8.7)
 
-- **Agent policy grants**: Standing, project-wide consent for classes of agent actions
-  (GitHub workflows, editing, merging, and stacked PRs; sub-agents; PR review
-  requirements; Linear sync), recorded in `AGENTS.md` and managed with `tbd policy`
-  (§6.4.8)
+- **Agent policy grants**: Standing, project-wide preferences (recorded grants) for
+  classes of agent actions (GitHub workflows, editing, merging, and stacked PRs;
+  sub-agents; PR review requirements; Linear sync), recorded in `AGENTS.md` and managed
+  with `tbd policy` (§6.4.8). Merge authorization and review requirements are settable,
+  not hardcoded yes/no behavior: `github-merge` is a four-value ladder, and
+  `pr-review-requirements` is independent of it
+
+- **PR review lifecycle**: Formal create, publish, and address cycle with lettered
+  review IDs, four dispositions, and a policy-driven merge gate (§6.4.9)
 
 **Related Projects:**
 
@@ -5786,7 +5794,9 @@ directly.
 
 A policy grant records the user’s explicit consent for a class of agent actions, for the
 project as a whole, so agents neither ask in every session nor act without consent.
-The seven policies are `github-workflows`, `github-editing`, `github-merge`,
+These are **user-settable preferences**, recorded as grants in `AGENTS.md` and changed
+with `tbd policy` — not hardcoded yes/no behavior an agent invents or a switch inside
+the CLI. The seven policies are `github-workflows`, `github-editing`, `github-merge`,
 `github-stacked-prs`, `subagents`, `pr-review-requirements`, and `linear`.
 `tbd guidelines agent-policy-grants` is their single definition (values,
 recommendations, the recommended set, grant sources and precedence, block syntax, and
@@ -5794,6 +5804,25 @@ setup questions); `src/lib/policy-grants.ts` implements it, and
 `tests/policy-grants-docs.test.ts` keeps the two in agreement.
 Grants are consent for agents, not switches inside tbd: no engine behavior, sync
 included, depends on a grant.
+
+**Merge authorization.** `github-merge` is a four-value ladder, most restrictive first:
+`never` (do not merge and do not ask), `confirm-every` (one authorization covers one
+merge of one PR; also the unanswered and revoke value), `confirm-session` (recommended:
+a confirmation covers the PRs of the task it was given for, including every layer of a
+stack those merges include), and `autonomous` (merge without asking; recorded only
+through `tbd policy set`). An instruction that names a PR is the `confirm-every`
+authorization for that merge.
+
+**Review requirements are independent.** `pr-review-requirements` is a separate policy
+and is invariant across every `github-merge` value, `autonomous` included.
+That policy decides whether a PR is ready; `github-merge` decides who authorizes the
+merge action. The merge gate checks review coverage separately in every case.
+No value weakens `pr-review-requirements`.
+
+**Recommended set.** “All recommended” is `github-workflows: granted`,
+`github-editing: granted`, `github-merge: confirm-session`,
+`github-stacked-prs: granted`, `subagents: granted`, and
+`pr-review-requirements: standard`. Linear is asked separately.
 
 **The block.** Grants live in a policy block inside the generated tbd block in
 `AGENTS.md`, immediately before its end marker, so only this block differs between
@@ -5856,6 +5885,34 @@ prints the effective and unanswered policies (§6.4.3), `tbd policy show` report
 with the working-tree block, and `tbd doctor` validates both (§4.9). The current
 conversation overrides a recorded grant for its task, in either direction, and a grant
 never bypasses a tool permission or sandbox.
+
+#### 6.4.9 PR Review Lifecycle
+
+PR review is a formal lifecycle, not an informal comment thread.
+`tbd shortcut pr-review-workflows` is the contract; the other review shortcuts
+operationalize it.
+Merge authorization and review coverage are the settable policy grants
+in §6.4.8, not hardcoded agent behavior.
+`tbd guidelines agent-policy-grants` and `tbd policy` are the policy record; the
+shortcuts are the procedure.
+
+**Stages.** An agent creates and publishes a review (`review-github-pr`), addresses
+findings (`address-pr-review`), or runs the full path to merge-ready or merge
+(`review-and-merge-prs`) in fix, merge-ready, or merge mode.
+Formal stacks use `stacked-prs`; ordinary PRs use `create-or-update-pr-simple`.
+
+**Review state.** Each published review is pinned to a commit, carries a lettered ID
+(`A`, `B`, …), and numbers findings (`A1`, `A2`). Every finding gets exactly one of four
+dispositions — `fixed`, `rebutted`, `declined`, or `deferred` — with evidence, in a
+marked disposition reply.
+One senior engineering review and one addressing pass is the default round.
+
+**Merge gate.** `review-and-merge-prs` holds the one merge gate: review requirements
+met, every finding dispositioned, CI final and green at an unchanged head, and the
+`github-merge` policy permitting the merge.
+`pr-review-requirements` is checked for every `github-merge` value, including
+`autonomous`. Stack merges follow the same gate and the same `github-merge` confirmation
+rules, including every layer the merge includes.
 
 * * *
 
