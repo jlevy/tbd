@@ -59,7 +59,7 @@ and where the live indexes live.
 
 It is not the operator manual (`tbd prime` / skill-baseline), not the CLI reference
 (`tbd docs show tbd-docs`), not the architecture (`tbd design`), not a workflow
-procedure (shortcuts), and not the policy schema (`tbd guidelines agent-policy-grants`,
+procedure (shortcuts), and not the policy schema (`agent-policy-grants.md` on #309,
 implemented by `policy-grants.ts`). Those documents already exist and are tested against
 the code.
 Duplicating them in the README is how the landing page went stale on `main` and
@@ -284,9 +284,9 @@ copy, not a second source; on `main` it is not even in git.
 
 | Fact | Live source |
 | --- | --- |
-| Policy names, values, unanswered defaults | `tbd guidelines agent-policy-grants` and `policy-grants.ts` |
-| PR review stages, markers, merge gate | `tbd shortcut pr-review-workflows` and `review-and-merge-prs` |
-| Setup questions and “not now” | `tbd shortcut setup-tbd` |
+| Policy names, values, unanswered defaults | `agent-policy-grants.md` (#309) and `policy-grants.ts` |
+| PR review stages, markers, merge gate | `tbd shortcut pr-review-workflows` and `review-and-merge-prs.md` (#309) |
+| Setup questions and “not now” | `setup-tbd.md` (#309) |
 | Guideline scope / visibility offer | `tbd shortcut welcome-user` |
 | Command flags, integration, watch | `tbd docs show tbd-docs` |
 | Architecture | `tbd design` |
