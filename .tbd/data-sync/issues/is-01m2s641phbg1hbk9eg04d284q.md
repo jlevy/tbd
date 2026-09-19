@@ -5,7 +5,7 @@ title: "Merge stack 312 (#309 then #310) when github-merge and B3 confirmation a
 kind: task
 status: open
 priority: 1
-version: 12
+version: 13
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 labels: []
 dependencies: []
@@ -15,7 +15,7 @@ child_order_hints:
   - is-01m2vkt95bxebw64rkxa9jx28n
   - is-01m2vmva9sbfzx7k0mrh45kbkf
 created_at: 2026-09-18T02:39:23.857Z
-updated_at: 2026-09-19T01:51:48.518Z
+updated_at: 2026-09-19T01:52:51.708Z
 ---
 Both layers are code-complete. Heads: #309 9ad8d1972be4ad0246935cd4162efcdf709e6751, #310 c99a141acb2874b21f819214862afb6209b36b03. Formal stack 312; merge #309 into main first, then #310. CI on these heads was still running when Review I was compiled.
 
@@ -27,4 +27,4 @@ Process gaps that do not reopen the code-review bar: Review F has dispositions b
 
 ## Notes
 
-Review I follow-up of the docs-refresh delta: two Medium findings (I1 confirm-every/session sentences; I2 dedicated reviews under standard) fixed on #309 as 9ad8d1972be4ad0246935cd4162efcdf709e6751. #310 rebased --onto 9ad8d197 e40459f2 → c99a141acb2874b21f819214862afb6209b36b03 (range-diff all `=`). CI green on both heads (Bugbot skipping). Merge still waits on github-merge permission and B3 confirmation; do not treat the doc commits as merge authorization. Review I body at /tmp/review-I-309.md and /opt/cursor/artifacts/review-I-309.md; posting blocked (ManagePullRequest unavailable; gh reviews/comments 403) — leftover tbd-azgv.
+Review I + dispositions published on #309 via ManagePullRequest. CI green on #309 9ad8d197 and #310 c99a141a. Merge still waits on github-merge permission and the seven named grant confirmations. Do not treat the doc commits as merge authorization.
