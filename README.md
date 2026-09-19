@@ -54,10 +54,11 @@ and follows
 [`tbd shortcut setup-tbd`](packages/tbd/docs/shortcuts/standard/setup-tbd.md), which
 asks you once, for the project as a whole, which policy grants agents have here (GitHub
 editing and merging, stacked PRs, sub-agents, PR review requirements, and Linear sync)
-and records the answers in `AGENTS.md`. Say **“Set up tbd”** again after any upgrade: it
-asks only about policies that are still unanswered.
-From then on you talk to your agent in natural language; “what can I do with tbd?”
-runs the welcome shortcut.
+and records the answers in `AGENTS.md`. Unanswered grants stay ask-first; **“not now”**
+is a valid answer. Merge, stacks, sub-agents, and Linear can be granted later.
+Say **“Set up tbd”** again after any upgrade: it asks only about policies that are still
+unanswered. From then on you talk to your agent in natural language; “what can I do with
+tbd?” runs the welcome shortcut.
 For cloud instances and upgrades, see [Installation and Setup](#installation-and-setup).
 
 ## Talking to Your Agent
