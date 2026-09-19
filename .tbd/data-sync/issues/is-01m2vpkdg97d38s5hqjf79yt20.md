@@ -5,7 +5,7 @@ title: "Plan: rigorously follow tbd comment/review guidelines on #309/#310/#313"
 kind: task
 status: in_progress
 priority: 1
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 delegate: unknown@cursor
 labels: []
@@ -23,7 +23,7 @@ child_order_hints:
 hold: null
 hold_until: null
 created_at: 2026-09-19T02:05:53.545Z
-updated_at: 2026-09-19T02:06:10.492Z
+updated_at: 2026-09-19T02:07:43.376Z
 started_at: 2026-09-19T02:06:10.492Z
 ---
 User asked to plan so comment practice rigorously matches tbd's written review-state contract (pr-review-workflows), not a vague reminder.
@@ -35,3 +35,7 @@ Do not merge. Do not invent grant confirmation. Do not rewrite README.md (tbd-et
 Must-fix comment remediations on stack 312: recover Review F artifact; unmarked Bugbot disposition on #309. Owner-only: stale PR bodies.
 
 Artifacts: /opt/cursor/artifacts/plan-comment-guideline-compliance.md, comment-309-review-F.md, comment-309-bugbot-dispositions.md (also /tmp/).
+
+## Notes
+
+Checklist + audit written. Must-fix artifacts ready for parent to post. Later: tbd-oi8k (verify-on-channel), tbd-zpix (#313 markers). No merge. No grant confirmation. No README rewrite.
