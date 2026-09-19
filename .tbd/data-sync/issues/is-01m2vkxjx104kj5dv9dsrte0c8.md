@@ -3,9 +3,9 @@ type: is
 id: is-01m2vkxjx104kj5dv9dsrte0c8
 title: Refresh long-lived design docs for policy-pref PR review and merge
 kind: task
-status: in_progress
+status: closed
 priority: 2
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 delegate: unknown@cursor
 labels: []
@@ -16,8 +16,12 @@ parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
 hold: null
 hold_until: null
 created_at: 2026-09-19T01:19:01.025Z
-updated_at: 2026-09-19T01:21:40.996Z
+updated_at: 2026-09-19T01:31:04.471Z
 started_at: 2026-09-19T01:19:06.836Z
+closed_at: 2026-09-19T01:31:04.471Z
+close_reason: "Durable design/overview docs now state policy-pref merge/review: four-value github-merge, pr-review-requirements invariance, and the PR review lifecycle (lettered IDs, dispositions, merge gate). Landed on #309 as e40459f2; #310 rebased onto that head (6fdd9dec). README left as-is so tbd-eti9 can restructure it."
+resolution: null
+duplicate_of: null
 ---
 Bring durable design/overview docs in line with the live policy and PR-review model:
 
