@@ -1095,11 +1095,13 @@ These are **user-settable preferences**, not hardcoded yes/no behavior.
 The policies, their values, and the block syntax are defined in
 `tbd guidelines agent-policy-grants`.
 
-`github-merge` is a four-value ladder: `never`, `confirm-every` (unanswered and revoke),
-`confirm-session` (recommended: a confirmation covers the PRs of that task, including
-every layer of a stack those merges include), and `autonomous`. No value weakens
-`pr-review-requirements`; that policy is independent and the merge gate checks it for
-every `github-merge` value, `autonomous` included.
+`github-merge` is a four-value ladder: `never` (do not merge and do not ask),
+`confirm-every` (unanswered and revoke: an instruction to merge a named PR is that
+authorization), `confirm-session` (recommended: a session confirmation covers the task
+it was given for: the PRs of the task the user confirmed, including every layer of a
+stack those merges include, and a PR outside that task needs its own confirmation), and
+`autonomous`. No value weakens `pr-review-requirements`; that policy is independent and
+the merge gate checks it for every `github-merge` value, `autonomous` included.
 
 ```bash
 tbd policy                                  # Same as `tbd policy show`
