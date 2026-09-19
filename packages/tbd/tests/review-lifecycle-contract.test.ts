@@ -5,7 +5,7 @@
  * review and disposition markers, the review kinds, the four dispositions, and the
  * one-round default with its ask-before-another-round rule. The review shortcuts apply
  * that contract, `review-and-merge-prs` holds the one full merge gate, every skill tier
- * and the README request table route the request vocabulary to those shortcuts, and
+ * route the request vocabulary to those shortcuts, and
  * `agent-model-tiers` defines the tiers the review roles use.
  *
  * These tests pin that structure in the source docs under packages/tbd/docs and the
@@ -66,12 +66,12 @@ const ALL_REQUESTS: RequestRoute[] = [
   { phrase: 'You can use sub-agents', shortcut: 'delegate-to-subagents' },
 ];
 
-/** Surfaces that route every request phrase: the skill tiers and the README request table. */
+/** Surfaces that route every request phrase: the skill tiers. The README is a landing
+ * page with exemplars, not a second skill-baseline. */
 const ROUTING_SURFACES = [
   { label: 'skill-baseline', path: join(SYSTEM_DIR, 'skill-baseline.md') },
   { label: 'skill-brief', path: join(SYSTEM_DIR, 'skill-brief.md') },
   { label: 'skill-minimal', path: join(SYSTEM_DIR, 'skill-minimal.md') },
-  { label: 'README', path: README_PATH },
 ];
 
 /** The lifecycle shortcuts, besides the review-code-* engines. */
@@ -534,6 +534,14 @@ describe('review lifecycle contract', () => {
         expect(missing).toEqual([]);
       },
     );
+
+    it('README points at live shortcut lists instead of routing every review phrase', async () => {
+      const readme = collapse(await read(README_PATH));
+      expect(readme).toContain('tbd shortcut --list');
+      expect(readme).toContain('tbd guidelines --list');
+      expect(readme).toContain('tbd shortcut setup-tbd');
+      expect(readme).toContain('tbd shortcut review-github-pr');
+    });
   });
 
   describe('cross-references', () => {
