@@ -4,17 +4,21 @@
 [![CI](https://github.com/jlevy/tbd/actions/workflows/ci.yml/badge.svg)](https://github.com/jlevy/tbd/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/get-tbd)](https://www.npmjs.com/package/get-tbd)
 
-**Task tracking, spec-driven planning, and knowledge injection for AI coding agents.**
+**tbd is a skill and CLI that upgrades coding quality, task tracking, and workflows for
+any coding agent.**
 
-`tbd` (short for “To Be Done,” or “TypeScript beads” if you prefer) is a git-native
-issue tracker for coding agents, with spec-driven planning workflows, engineering
-guidelines the agent loads on demand, reusable workflow shortcuts, a live web view of
-the board, and Linear sync.
-Beads (issues) are Markdown files on a dedicated sync branch, so agents and humans share
-one durable task layer across sessions and machines, with no daemon and no database.
+It gives agents git-native task tracking for longer unattended work (beads), reusable
+engineering guidelines, and reusable workflows (code reviews, PR workflows, shortcuts).
+Adoption is gradual (use only what you want), customizable (override or replace skills
+and guidelines), and batteries included (the defaults encode hard-learned practices).
+
+`tbd` (short for “To Be Done,” or “TypeScript beads” if you prefer) started in January
+2026 as a better [Beads](https://github.com/steveyegge/beads) (`bd`) and has since added
+workflows of many kinds.
+Beads are Markdown files on a dedicated sync branch, so agents and humans share one
+durable task layer across sessions and machines, with no daemon and no database.
 It installs as a skill for Claude Code and Codex, works through the CLI in any other
-agent environment, and is a drop-in replacement for the original
-[Beads](https://github.com/steveyegge/beads) (`bd`).
+agent environment, and is a drop-in replacement for `bd`.
 
 ## What You Get
 
@@ -50,10 +54,11 @@ and follows
 [`tbd shortcut setup-tbd`](packages/tbd/docs/shortcuts/standard/setup-tbd.md), which
 asks you once, for the project as a whole, which policy grants agents have here (GitHub
 editing and merging, stacked PRs, sub-agents, PR review requirements, and Linear sync)
-and records the answers in `AGENTS.md`. Say **“Set up tbd”** again after any upgrade: it
-asks only about policies that are still unanswered.
-From then on you talk to your agent in natural language; “what can I do with tbd?”
-runs the welcome shortcut.
+and records the answers in `AGENTS.md`. Unanswered grants stay ask-first; **“not now”**
+is a valid answer. Merge, stacks, sub-agents, and Linear can be granted later.
+Say **“Set up tbd”** again after any upgrade: it asks only about policies that are still
+unanswered. From then on you talk to your agent in natural language; “what can I do with
+tbd?” runs the welcome shortcut.
 For cloud instances and upgrades, see [Installation and Setup](#installation-and-setup).
 
 ## Talking to Your Agent
