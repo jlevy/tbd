@@ -3,9 +3,9 @@ type: is
 id: is-01m2vkt95bxebw64rkxa9jx28n
 title: "PR #309: Review F has no published artifact; Bugbot unmarked review has no disposition reply"
 kind: task
-status: open
+status: closed
 priority: 3
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 labels: []
 dependencies:
@@ -13,7 +13,11 @@ dependencies:
     target: is-01m2vpkmcvs4h8a0b2a9hwgpyq
 parent_id: is-01m2vpkdg97d38s5hqjf79yt20
 created_at: 2026-09-19T01:17:12.746Z
-updated_at: 2026-09-19T02:07:43.125Z
+updated_at: 2026-09-19T02:09:49.836Z
+closed_at: 2026-09-19T02:09:49.835Z
+close_reason: "Review F marker and Bugbot URL-named disposition are now on #309."
+resolution: null
+duplicate_of: null
 ---
 Found by the 2026-09-19 verification of stack 312 against pr-review-workflows.
 
