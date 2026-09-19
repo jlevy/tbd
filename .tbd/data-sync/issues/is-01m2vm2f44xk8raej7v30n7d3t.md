@@ -3,15 +3,19 @@ type: is
 id: is-01m2vm2f44xk8raej7v30n7d3t
 title: Restructure README around optional incremental adoption
 kind: task
-status: open
+status: in_progress
 priority: 2
-version: 1
+version: 2
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
+delegate: unknown@cursor
 labels: []
 dependencies: []
 parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
+hold: null
+hold_until: null
 created_at: 2026-09-19T01:21:40.996Z
-updated_at: 2026-09-19T01:21:40.996Z
+updated_at: 2026-09-19T02:10:39.533Z
+started_at: 2026-09-19T02:10:39.533Z
 ---
 Implement the README information-architecture pass described in docs/project/reviews/review-2026-09-19-readme-restructure.md (also /opt/cursor/artifacts/readme-restructure-review.md).
 
