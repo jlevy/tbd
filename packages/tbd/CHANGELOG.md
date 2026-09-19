@@ -93,6 +93,11 @@ tbd setup --auto
   `tbd prime`, including `--brief`, prints an `AGENT POLICY GRANTS` section with the
   effective grants and the unanswered policies, so every session and every compaction
   carries them.
+- **Design and CLI docs:** `tbd-design.md` and `tbd-docs.md` state that merge and review
+  requirements are settable policy grants: the four `github-merge` values (`never`,
+  `confirm-every`, `confirm-session`, `autonomous`), the independence of
+  `pr-review-requirements` (no value weakens it), and the PR review lifecycle (lettered
+  reviews, four dispositions, merge gate).
 
 ### Fixes
 

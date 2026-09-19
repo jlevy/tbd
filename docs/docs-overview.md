@@ -88,7 +88,10 @@ In addition to these repository docs, tbd provides managed documentation via the
 `tbd docs` group and per-kind readers:
 
 - [`tbd design`](../packages/tbd/docs/tbd-design.md)—Read the packaged main design
-  specification, including the current f08 boundary and candidate native-comment model
+  specification, including the current f08 boundary, candidate native-comment model,
+  agent policy grants (settable preferences in `AGENTS.md`: the four-value
+  `github-merge` ladder and independent `pr-review-requirements`), and the PR review
+  lifecycle (lettered reviews, dispositions, merge gate)
 - `tbd docs`—Status overview of managed docs; `tbd docs list` shows every doc across
   kinds with `[forked]`/`[customized]`/`[local]` markers
 - `tbd docs show <name>`—Read any doc by name; `tbd docs show tbd-docs` is the CLI

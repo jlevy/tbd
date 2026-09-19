@@ -187,7 +187,10 @@ pnpm --filter get-tbd exec vitest run \
   those links, that condition, and the setup questions in `setup-tbd`.
   `setup-flows.test.ts` and `golden-output.test.ts` pin the route from `tbd setup`
   output to `setup-tbd`. The README, CLI manual (`tbd-docs.md`), and design doc
-  (`tbd-design.md` §6.4.8) summarize the contract and link to the guideline.
+  (`tbd-design.md` §6.4.8–6.4.9) summarize the contract and link to the guideline.
+  The design and CLI manual state that merge and review requirements are settable
+  grants: the four `github-merge` values, and that no value weakens
+  `pr-review-requirements`.
 
 ### Developing external tracker integrations
 

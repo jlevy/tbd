@@ -45,7 +45,11 @@ Every session must end with tbd in a clean state:
   gh is unavailable
 - Use `tbd create` for creating beads
 - Check agent policy grants before GitHub mutations, merging, or delegating to
-  sub-agents: `tbd prime` shows them, and `tbd policy show` is the full check
+  sub-agents: `tbd prime` shows them, and `tbd policy show` is the full check.
+  Merge authorization (`github-merge`: `never`, `confirm-every`, `confirm-session`,
+  `autonomous`) and review requirements (`pr-review-requirements`) are settable grants,
+  not hardcoded; no `github-merge` value weakens `pr-review-requirements`. See
+  `tbd guidelines agent-policy-grants`
 - Git workflow: update or close issues and run `tbd sync` at session end
 - If not given specific directions, check `tbd ready` for available work
 

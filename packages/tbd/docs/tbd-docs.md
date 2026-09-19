@@ -1091,8 +1091,15 @@ Common config keys:
 Show and record agent policy grants: the user’s standing consent for classes of agent
 actions (GitHub workflows and editing, merging, stacked PRs, sub-agents, PR review
 requirements, and Linear sync).
+These are **user-settable preferences**, not hardcoded yes/no behavior.
 The policies, their values, and the block syntax are defined in
 `tbd guidelines agent-policy-grants`.
+
+`github-merge` is a four-value ladder: `never`, `confirm-every` (unanswered and revoke),
+`confirm-session` (recommended: a confirmation covers the PRs of that task, including
+every layer of a stack those merges include), and `autonomous`. No value weakens
+`pr-review-requirements`; that policy is independent and the merge gate checks it for
+every `github-merge` value, `autonomous` included.
 
 ```bash
 tbd policy                                  # Same as `tbd policy show`
@@ -1498,6 +1505,12 @@ timeout; an empty `search` result still exits 0.
 tbd is designed for AI coding agents.
 This section covers agent-specific patterns.
 
+Before a GitHub mutation, a merge, or a delegation, check grants with `tbd policy show`.
+Merge authorization (`github-merge`) and review requirements (`pr-review-requirements`)
+are settable preferences in `AGENTS.md`, not hardcoded; see
+`tbd guidelines agent-policy-grants`. For the PR review lifecycle, start at
+`tbd shortcut pr-review-workflows`.
+
 ### Agent Workflow Loop
 
 ```bash
@@ -1660,33 +1673,44 @@ tbd update proj-bug2 --assignee=bob
 
 ### Code Review Workflow
 
-tbd includes comprehensive code review shortcuts that load all relevant guidelines and
-perform thorough reviews:
+PR review is a formal lifecycle.
+`tbd shortcut pr-review-workflows` is the contract (lettered review IDs, four
+dispositions, the merge gate).
+Merge authorization and review coverage are settable policy grants
+(`tbd guidelines agent-policy-grants`, `tbd policy`), not hardcoded yes/no behavior.
+`github-merge` is a four-value ladder (`never`, `confirm-every`, `confirm-session`,
+`autonomous`); no value weakens `pr-review-requirements`.
 
 ```bash
-# Review uncommitted changes (for pre-commit)
-tbd shortcut review-code
-# Then select "Uncommitted changes" scope
+# Which shortcut a request runs (start here)
+tbd shortcut pr-review-workflows
 
-# Review all changes on this branch vs main
+# Review uncommitted or branch work (does not publish)
 tbd shortcut review-code
-# Then select "Branch work" scope
 
-# Review a specific GitHub PR and publish the review
+# Publish a pinned, lettered review on a GitHub PR
 tbd shortcut review-github-pr
-# Reviews and publishes only; to fix a published review:
+
+# Address every finding (fixed, rebutted, declined, or deferred) and reply
 tbd shortcut address-pr-review
 
-# Language-specific reviews (when you want just the language rules)
+# Review and fix / get merge-ready / review and merge (merge gate)
+tbd shortcut review-and-merge-prs
+
+# Formal stacked PRs (requires github-stacked-prs)
+tbd shortcut stacked-prs
+
+# Language-specific review engines (when you want just the language rules)
 tbd shortcut review-code-typescript
 tbd shortcut review-code-python
+tbd shortcut review-code-rust
 ```
 
 The `review-code` shortcut automatically loads:
 - General coding rules
 - Comment quality guidelines
 - Error handling rules
-- Language-specific rules (TypeScript/Python) based on files changed
+- Language-specific rules (TypeScript/Python/Rust) based on files changed
 - Testing guidelines when test files are modified
 
 ```bash

@@ -6,7 +6,7 @@ category: general
 ---
 # Feature: PR Review Lifecycle and Sub-Agent Delegation
 
-**Date:** 2026-09-16 (last updated 2026-09-17)
+**Date:** 2026-09-16 (last updated 2026-09-19)
 
 **Author:** Joshua Levy, with Claude (Opus 5)
 
@@ -67,8 +67,9 @@ This plan adds that layer in four parts:
   Shortcuts remain Markdown instructions that the agent executes.
 - Merging without the user’s authorization.
   What counts as authorization is the `github-merge` value: a request naming the PR or a
-  per-merge confirmation (`confirm-every`), a confirmation in the session
-  (`confirm-session`), or an explicit `autonomous` grant.
+  per-merge confirmation (`confirm-every`), a session confirmation covering the task it
+  was given for (`confirm-session`: the PRs of the task the user confirmed, including
+  every layer of a stack those merges include), or an explicit `autonomous` grant.
 - Replacing GitHub approvals or branch protection, or bypassing them (no `--admin`).
 - Cross-provider delegation (for example, a Claude session spawning Codex agents).
   A coordinator delegates within its own platform.
