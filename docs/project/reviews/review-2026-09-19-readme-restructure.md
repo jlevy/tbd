@@ -364,11 +364,14 @@ same way: capabilities you turn on by asking for them.
 
 ## Addendum: User-supplied product pitch (2026-09-19)
 
-The user supplied the product positioning after this review was written.
-The information-architecture recommendations above still stand (optionality as the
-spine, adoption ladder, shrink talking/policy, generated catalogs as an optional
-appendix). The README rewrite follows the pitch as the opening, not the draft snippet in
-§9.
+The user supplied the product positioning after this review was written, then
+course-corrected: do not implement the medium IA pass (no adoption-ladder rewrite, no
+talking-table or policy cuts).
+Keep the #309 README’s style, spirit, and structure.
+Customize only the core-value and background framing.
+
+**What landed:** a light opening edit on the #309 README. The talking table, policy and
+merge sections, generated catalogs, and FAQ shape stay.
 
 **Core value:** tbd is a skill and CLI that upgrades coding quality, task tracking, and
 workflows for any coding agent.
@@ -378,12 +381,13 @@ better engineering knowledge (reusable guidelines), and better workflows (code r
 PR workflows, shortcuts), in a way that is **gradual** (use only what you want),
 **customizable** (override or change skills and guidelines), and **batteries included**
 (defaults include hard-learned practices).
+Optionality is a clarification in that opening, not a new architecture for the page.
 
 **History (one short beat):** tbd started in January 2026 as a better Beads and has
 since extended to include improved workflows of many kinds.
 
-Implementation bead: `tbd-eti9`. The review remains the IA rationale; the README is the
-product change.
+Implementation bead: `tbd-eti9`. This review remains IA rationale only; the user chose
+not to execute it.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
