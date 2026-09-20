@@ -133,6 +133,28 @@ describe('policyGrantFindings', () => {
     ]);
   });
 
+  it('bounds and strips control characters from unknown versions on both readings', () => {
+    const hostile = `\u001b[2J\u001b[H\u0007${'V'.repeat(400)}`;
+    const newer = agentsMd(
+      ['- `subagents`: granted'],
+      `<!-- BEGIN TBD POLICY GRANTS v=${hostile} -->`,
+    );
+    const workingFinding = policyGrantFindings(effectiveFrom(null), workingTreeFrom(newer))[0]!;
+    const workingMessage = workingFinding.message!;
+    expect(workingMessage).toContain('policy block version');
+    expect(workingMessage).not.toContain('\u001b[2J');
+    expect(workingMessage).not.toContain('\u0007');
+    expect(workingMessage.length).toBeLessThan(180);
+
+    const valid = agentsMd(['- `subagents`: granted']);
+    const committedFinding = policyGrantFindings(effectiveFrom(newer), workingTreeFrom(valid))[0]!;
+    const committedMessage = committedFinding.message!;
+    expect(committedMessage).toContain('policy block version');
+    expect(committedMessage).not.toContain('\u001b[2J');
+    expect(committedMessage).not.toContain('\u0007');
+    expect(committedMessage.length).toBeLessThan(180);
+  });
+
   it('warns about unknown values for known policies, naming the fallback and the accepted values', () => {
     const content = agentsMd([
       '- `github-merge`: sometimes',

@@ -417,25 +417,182 @@ export function locateIntegrationBlock(agentsMd: string): IntegrationBlockLocati
 /** A begin or end policy-marker line, after trim; each marker is on its own line. */
 const POLICY_BEGIN_LINE = /^<!-- BEGIN TBD POLICY GRANTS v=(\S+) -->$/;
 
+interface MarkdownLineState {
+  raw: string;
+  trimmed: string;
+  offset: number;
+  hiddenBy: MarkdownHiddenContext | null;
+}
+
+type MarkdownHiddenContext = 'comment' | 'fence' | 'indented-code';
+
+interface FenceState {
+  character: '`' | '~';
+  length: number;
+}
+
+/** A CommonMark fence opener, allowing only the three leading spaces Markdown permits. */
+const FENCE_OPEN_LINE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
+/** A fence closer has no content after the delimiter. */
+const FENCE_CLOSE_LINE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/;
+/** Four spaces or a tab in the first four columns can open an indented code block. */
+const INDENTED_CODE_LINE = /^(?: {4}| {0,3}\t)/;
+
+function backtickRunLength(line: string, start: number): number {
+  let end = start;
+  while (line[end] === '`') {
+    end += 1;
+  }
+  return end - start;
+}
+
+function inlineCodeEnd(line: string, start: number, delimiterLength: number): number | null {
+  let cursor = start + delimiterLength;
+  while (cursor < line.length) {
+    const next = line.indexOf('`', cursor);
+    if (next < 0) {
+      return null;
+    }
+    const length = backtickRunLength(line, next);
+    if (length === delimiterLength) {
+      return next + length;
+    }
+    cursor = next + length;
+  }
+  return null;
+}
+
+/** Remove complete inline-code spans without joining the surrounding prose together. */
+function withoutInlineCode(line: string): string {
+  let visible = '';
+  let cursor = 0;
+  while (cursor < line.length) {
+    const code = line.indexOf('`', cursor);
+    if (code < 0) {
+      return visible + line.slice(cursor);
+    }
+    visible += line.slice(cursor, code);
+    const delimiterLength = backtickRunLength(line, code);
+    const end = inlineCodeEnd(line, code, delimiterLength);
+    if (end === null) {
+      visible += line.slice(code, code + delimiterLength);
+      cursor = code + delimiterLength;
+    } else {
+      visible += ' ';
+      cursor = end;
+    }
+  }
+  return visible;
+}
+
+function commentStateAfter(line: string, initiallyOpen: boolean): boolean {
+  let open = initiallyOpen;
+  let cursor = 0;
+  while (cursor < line.length) {
+    if (open) {
+      const close = line.indexOf('-->', cursor);
+      if (close < 0) {
+        break;
+      }
+      open = false;
+      cursor = close + '-->'.length;
+      continue;
+    }
+
+    const comment = line.indexOf('<!--', cursor);
+    const code = line.indexOf('`', cursor);
+    if (code >= 0 && (comment < 0 || code < comment)) {
+      const delimiterLength = backtickRunLength(line, code);
+      const end = inlineCodeEnd(line, code, delimiterLength);
+      cursor = end ?? code + delimiterLength;
+      continue;
+    }
+    if (comment < 0) {
+      break;
+    }
+    open = true;
+    cursor = comment + '<!--'.length;
+  }
+  return open;
+}
+
 /**
- * Offsets of policy-marker *lines* in LF text. A prose mention of the marker
- * text is not a marker; the line's trim must equal the marker.
+ * Scan Markdown once so policy markers and grant lines share the document's
+ * actual comment and fence state. A fence closes only with the same character
+ * and at least the opening delimiter's length.
  */
-function policyMarkerLineOffsets(agentsMd: string): { begins: number[]; ends: number[] } {
+function scanMarkdownLines(agentsMd: string): MarkdownLineState[] {
+  const lines: MarkdownLineState[] = [];
+  let offset = 0;
+  let inComment = false;
+  let fence: FenceState | null = null;
+  for (const raw of agentsMd.split('\n')) {
+    const indentedCode = INDENTED_CODE_LINE.test(raw);
+    const hiddenBy = fence
+      ? 'fence'
+      : inComment
+        ? 'comment'
+        : indentedCode
+          ? 'indented-code'
+          : null;
+    lines.push({ raw, trimmed: raw.trim(), offset, hiddenBy });
+
+    if (fence) {
+      const closer = FENCE_CLOSE_LINE.exec(raw);
+      const run = closer?.[1];
+      if (run?.[0] === fence.character && run.length >= fence.length) {
+        fence = null;
+      }
+    } else if (inComment) {
+      inComment = commentStateAfter(raw, true);
+    } else if (!indentedCode) {
+      const opener = FENCE_OPEN_LINE.exec(raw);
+      const run = opener?.[1];
+      const rest = opener?.[2] ?? '';
+      if (run && (run.startsWith('~') || !rest.includes('`'))) {
+        fence = { character: run[0] as '`' | '~', length: run.length };
+      } else {
+        inComment = commentStateAfter(raw, false);
+      }
+    }
+    offset += raw.length + 1;
+  }
+  return lines;
+}
+
+function describeHiddenContext(hiddenBy: MarkdownHiddenContext): string {
+  return hiddenBy === 'indented-code' ? 'an indented code block' : `a ${hiddenBy}`;
+}
+
+/** Offsets of visible policy-marker lines plus exact markers hidden by Markdown. */
+function policyMarkerLineOffsets(lines: readonly MarkdownLineState[]): {
+  begins: number[];
+  ends: number[];
+  hidden: string[];
+} {
   const begins: number[] = [];
   const ends: number[] = [];
-  let offset = 0;
-  for (const line of agentsMd.split('\n')) {
-    const trimmed = line.trim();
-    const leading = line.length - line.trimStart().length;
-    if (POLICY_BEGIN_LINE.test(trimmed)) {
-      begins.push(offset + leading);
-    } else if (trimmed === POLICY_END_MARKER) {
-      ends.push(offset + leading);
+  const hidden: string[] = [];
+  for (const line of lines) {
+    const isBegin = POLICY_BEGIN_LINE.test(line.trimmed);
+    const isEnd = line.trimmed === POLICY_END_MARKER;
+    if (!isBegin && !isEnd) {
+      continue;
     }
-    offset += line.length + 1;
+    if (line.hiddenBy) {
+      hidden.push(
+        `a policy marker inside ${describeHiddenContext(line.hiddenBy)} is not a marker: ${displayPolicyValue(line.trimmed)}`,
+      );
+      continue;
+    }
+    const leading = line.raw.length - line.raw.trimStart().length;
+    if (isBegin) {
+      begins.push(line.offset + leading);
+    } else {
+      ends.push(line.offset + leading);
+    }
   }
-  return { begins, ends };
+  return { begins, ends, hidden };
 }
 
 /**
@@ -445,22 +602,24 @@ function policyMarkerLineOffsets(agentsMd: string): { begins: number[]; ends: nu
  * absent, setup would treat the recorded grants as nothing to preserve and
  * overwrite them.
  */
-function unanchoredPolicyMarkerLines(agentsMd: string): string[] {
-  const lines: string[] = [];
-  for (const line of agentsMd.split('\n')) {
-    const trimmed = line.trim();
-    if (POLICY_BEGIN_LINE.test(trimmed) || trimmed === POLICY_END_MARKER) {
+function unanchoredPolicyMarkerLines(markdownLines: readonly MarkdownLineState[]): string[] {
+  const unanchored: string[] = [];
+  for (const line of markdownLines) {
+    if (line.hiddenBy) {
       continue;
     }
-    const outsideCode = trimmed.replace(/`[^`]*`/gu, '');
+    if (POLICY_BEGIN_LINE.test(line.trimmed) || line.trimmed === POLICY_END_MARKER) {
+      continue;
+    }
+    const outsideCode = withoutInlineCode(line.trimmed);
     if (
       outsideCode.includes(POLICY_BEGIN_MARKER_PREFIX) ||
       outsideCode.includes(POLICY_END_MARKER)
     ) {
-      lines.push(trimmed);
+      unanchored.push(line.trimmed);
     }
   }
-  return lines;
+  return unanchored;
 }
 
 function unanchoredMarkerProblem(line: string): string {
@@ -469,7 +628,7 @@ function unanchoredMarkerProblem(line: string): string {
 
 /** First policy-marker line of `kind` at or after `from`, or -1. */
 function indexOfPolicyMarkerLine(agentsMd: string, kind: 'begin' | 'end', from: number): number {
-  const { begins, ends } = policyMarkerLineOffsets(agentsMd);
+  const { begins, ends } = policyMarkerLineOffsets(scanMarkdownLines(agentsMd));
   const offsets = kind === 'begin' ? begins : ends;
   return offsets.find((offset) => offset >= from) ?? -1;
 }
@@ -483,8 +642,6 @@ function indexOfPolicyMarkerLine(agentsMd: string, kind: 'begin' | 'end', from: 
 const GRANT_LINE_CANDIDATE = /^[-*+]\s+/;
 /** Grant-shaped lines the candidate pattern misses: blockquoted, or an ordered item. */
 const IGNORED_GRANT_SHAPE = /^(?:>\s*[-*+]?\s*|\d+[.)]\s+)/;
-/** A fenced code block's opening or closing line. */
-const FENCE_LINE = /^(?:`{3,}|~{3,})/;
 const GRANT_LINE = /^[-*+]\s+`([^`]*)`:\s+(\S.*)$/;
 const RECORDED_LINE = /^Recorded (\d{4}-\d{2}-\d{2})\.$/;
 const BOLD_GRANT_NAME = /^\*\*([^*]+)\*\*:/;
@@ -536,15 +693,17 @@ function usesCrlf(text: string): boolean {
  */
 export function parsePolicyBlock(content: string): PolicyBlockParse {
   const agentsMd = toLf(content);
-  const { begins, ends } = policyMarkerLineOffsets(agentsMd);
-  const unanchored = unanchoredPolicyMarkerLines(agentsMd);
+  const markdownLines = scanMarkdownLines(agentsMd);
+  const { begins, ends, hidden } = policyMarkerLineOffsets(markdownLines);
+  const unanchored = unanchoredPolicyMarkerLines(markdownLines);
   if (begins.length === 0 && ends.length === 0) {
-    if (unanchored.length > 0) {
-      return { status: 'malformed', problems: unanchored.map(unanchoredMarkerProblem) };
+    const markerProblems = [...hidden, ...unanchored.map(unanchoredMarkerProblem)];
+    if (markerProblems.length > 0) {
+      return { status: 'malformed', problems: markerProblems };
     }
     return { status: 'missing' };
   }
-  const problems: string[] = unanchored.map(unanchoredMarkerProblem);
+  const problems: string[] = [...hidden, ...unanchored.map(unanchoredMarkerProblem)];
   if (begins.length > 1 || ends.length > 1) {
     problems.push('AGENTS.md holds more than one policy block');
   }
@@ -586,28 +745,24 @@ export function parsePolicyBlock(content: string): PolicyBlockParse {
     );
   }
 
-  const inner = beginLineEnd < 0 ? '' : agentsMd.slice(beginLineEnd + 1, endStart);
   const grants: PolicyGrant[] = [];
   const seen = new Set<string>();
   let recorded: string | null = null;
-  let inFence = false;
-  let inComment = false;
-  for (const rawLine of inner.split('\n')) {
-    const line = rawLine.trim();
-    const hidden = inFence || inComment;
-    if (FENCE_LINE.test(line)) {
-      inFence = !inFence;
-    } else if (!inFence && line.includes('<!--') && !line.includes('-->')) {
-      inComment = true;
-    } else if (inComment && line.includes('-->')) {
-      inComment = false;
+  for (const markdownLine of markdownLines) {
+    if (
+      beginLineEnd < 0 ||
+      markdownLine.offset < beginLineEnd + 1 ||
+      markdownLine.offset >= endStart
+    ) {
+      continue;
     }
-    if (hidden) {
+    const line = markdownLine.trimmed;
+    if (markdownLine.hiddenBy) {
       // A grant the rendered block does not show must not be one: the block exists to be
       // read by a person, and a commented-out or fenced line carried full authority.
       if (isGrantLineCandidate(line) || GRANT_LINE.test(line)) {
         problems.push(
-          `a grant line inside a comment or code block is not a grant: ${displayPolicyValue(line)}`,
+          `a grant line inside ${describeHiddenContext(markdownLine.hiddenBy)} is not a grant: ${displayPolicyValue(line)}`,
         );
       }
       continue;
@@ -1026,29 +1181,47 @@ function unansweredGrants(source: DefaultBranchRef | null): EffectiveGrants {
   return { source, parse, policies: resolvePolicyStatuses(parse), committed: null };
 }
 
-/**
- * Find the default branch: the branch `<remote>/HEAD` names (set by clone), else
- * `init.defaultBranch`, `main`, or `master`, whichever exists first. For each
- * candidate the remote-tracking ref is preferred over the local branch, and the
- * local branch is used only when `allowLocal` is true (the repository has no
- * remotes). Returns null when none exists. No network access.
- */
-export async function resolveDefaultBranch(
+type DefaultBranchResolution =
+  | { source: DefaultBranchRef; failure: null }
+  | { source: null; failure: 'missing-remote-head' | 'missing-remote-target'; branch?: string };
+
+async function resolveDefaultBranchDetailed(
   repoDir: string,
   remote: string,
-  options: { allowLocal?: boolean } = {},
-): Promise<DefaultBranchRef | null> {
-  const allowLocal = options.allowLocal ?? true;
-  const candidates: string[] = [];
-  try {
-    const target = await git('-C', repoDir, 'symbolic-ref', '-q', `refs/remotes/${remote}/HEAD`);
-    const prefix = `refs/remotes/${remote}/`;
-    if (target.startsWith(prefix)) {
-      candidates.push(target.slice(prefix.length));
+  allowLocal: boolean,
+): Promise<DefaultBranchResolution> {
+  const refs = await listBranchRefs(repoDir, remote);
+  if (!allowLocal) {
+    let remoteBranch: string | null = null;
+    try {
+      const target = await git('-C', repoDir, 'symbolic-ref', '-q', `refs/remotes/${remote}/HEAD`);
+      const prefix = `refs/remotes/${remote}/`;
+      if (target.startsWith(prefix) && target.length > prefix.length) {
+        remoteBranch = target.slice(prefix.length);
+        const tracking = `refs/remotes/${remote}/${remoteBranch}`;
+        const stamp = refs.get(tracking);
+        if (stamp) {
+          return {
+            source: {
+              branch: remoteBranch,
+              ref: tracking,
+              kind: 'remote-tracking',
+              shortSha: stamp.shortSha,
+              age: stamp.age,
+            },
+            failure: null,
+          };
+        }
+      }
+    } catch {
+      // A remote-backed clone without its symbolic HEAD has no authoritative branch name.
     }
-  } catch {
-    // No remote HEAD (not a clone, or the remote is unset).
+    return remoteBranch
+      ? { source: null, failure: 'missing-remote-target', branch: remoteBranch }
+      : { source: null, failure: 'missing-remote-head' };
   }
+
+  const candidates: string[] = [];
   try {
     const configured = await git('-C', repoDir, 'config', '--get', 'init.defaultBranch');
     if (configured) {
@@ -1058,35 +1231,37 @@ export async function resolveDefaultBranch(
     // Not configured.
   }
   candidates.push('main', 'master');
-
-  const refs = await listBranchRefs(repoDir, remote);
   for (const branch of [...new Set(candidates)]) {
-    const tracking = `refs/remotes/${remote}/${branch}`;
-    const trackingStamp = refs.get(tracking);
-    if (trackingStamp) {
+    const local = `refs/heads/${branch}`;
+    const stamp = refs.get(local);
+    if (stamp) {
       return {
-        branch,
-        ref: tracking,
-        kind: 'remote-tracking',
-        shortSha: trackingStamp.shortSha,
-        age: trackingStamp.age,
-      };
-    }
-    if (allowLocal) {
-      const local = `refs/heads/${branch}`;
-      const localStamp = refs.get(local);
-      if (localStamp) {
-        return {
+        source: {
           branch,
           ref: local,
           kind: 'local',
-          shortSha: localStamp.shortSha,
-          age: localStamp.age,
-        };
-      }
+          shortSha: stamp.shortSha,
+          age: stamp.age,
+        },
+        failure: null,
+      };
     }
   }
-  return null;
+  return { source: null, failure: 'missing-remote-head' };
+}
+
+/**
+ * Find the remote branch named by `<remote>/HEAD` and require its tracking ref.
+ * Local `init.defaultBranch`/main/master inference is available only when
+ * `allowLocal` is explicit, for repositories that have no remotes. No network
+ * access is performed.
+ */
+export async function resolveDefaultBranch(
+  repoDir: string,
+  remote: string,
+  options: { allowLocal?: boolean } = {},
+): Promise<DefaultBranchRef | null> {
+  return (await resolveDefaultBranchDetailed(repoDir, remote, options.allowLocal ?? false)).source;
 }
 
 /**
@@ -1172,16 +1347,21 @@ export async function readEffectiveGrants(repoDir: string): Promise<EffectiveGra
     );
   }
 
-  let source = await resolveDefaultBranch(repoDir, remote, { allowLocal: !hasRemotes });
-  if (!source) {
-    if (hasRemotes) {
-      return unansweredGrants(
-        unresolvedSource(
-          remote,
-          `git remote set-head ${remote} --auto, or git fetch ${remote} <default-branch>`,
-        ),
-      );
+  let source: DefaultBranchRef | null;
+  if (hasRemotes) {
+    const resolution = await resolveDefaultBranchDetailed(repoDir, remote, false);
+    if (resolution.source === null) {
+      const repair =
+        resolution.failure === 'missing-remote-target' && resolution.branch
+          ? `git fetch ${remote} refs/heads/${resolution.branch}:refs/remotes/${remote}/${resolution.branch}`
+          : `identify ${remote}'s actual default branch, run git fetch ${remote} refs/heads/<branch>:refs/remotes/${remote}/<branch>, then git remote set-head ${remote} --auto`;
+      return unansweredGrants(unresolvedSource(resolution.branch ?? remote, repair));
     }
+    source = resolution.source;
+  } else {
+    source = await resolveDefaultBranch(repoDir, remote, { allowLocal: true });
+  }
+  if (!source) {
     let branch = 'HEAD';
     try {
       branch = await git('-C', repoDir, 'rev-parse', '--abbrev-ref', 'HEAD');

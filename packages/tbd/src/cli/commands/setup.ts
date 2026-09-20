@@ -76,16 +76,20 @@ import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
 import { withSharedDataSyncLock, writeCommonDirLayout } from '../../file/common-dir-layout.js';
 import { withDataSyncContext } from '../lib/data-context.js';
 import {
+  assertSafeManagedArtifactTarget,
   extractManagedBlock,
   inspectManagedArtifact,
   integrationFormatNumber,
+  locateManagedBlock,
   parseManagedIntegrationFormat,
   type ManagedArtifactInspection,
+  type ManagedBlockLocation,
 } from '../lib/managed-artifact.js';
 import {
   POLICY_BLOCK_VERSION,
   PolicyBlockError,
   RECOMMENDED_GRANTS,
+  displayPolicyValue,
   parsePolicyBlock,
   readWorkingTreeGrants,
   renderPolicyBlock,
@@ -287,7 +291,7 @@ function unreadablePolicyBlockError(
   switch (parse.status) {
     case 'unknown-version':
       return new CLIError(
-        `AGENTS.md has a policy block with version v=${parse.version}; this tbd reads ` +
+        `AGENTS.md has a policy block with version v=${displayPolicyValue(parse.version)}; this tbd reads ` +
           `v=${POLICY_BLOCK_VERSION}. Setup left AGENTS.md unchanged.\n` +
           'Upgrade tbd to manage it: npm install -g get-tbd@latest',
       );
@@ -985,6 +989,34 @@ export interface TierAgentFileState {
   inspection: ManagedArtifactInspection;
 }
 
+/** The fields needed to write one generated tier definition. */
+export type TierAgentFileWrite = Pick<TierAgentFileState, 'rel' | 'path' | 'expected'>;
+
+/**
+ * Write tier definitions in their deterministic order and identify partial
+ * progress if a later filesystem operation fails.
+ */
+export async function writeTierAgentFiles(
+  files: readonly TierAgentFileWrite[],
+  writer: (path: string, content: string) => Promise<void> = async (path, content) =>
+    writeFile(path, content),
+): Promise<void> {
+  let written = 0;
+  for (const file of files) {
+    try {
+      await mkdir(dirname(file.path), { recursive: true });
+      await writer(file.path, file.expected);
+      written += 1;
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Failed to write ${file.rel} after writing ${written} of ${files.length} tier agent definitions: ${detail}`,
+        { cause: error },
+      );
+    }
+  }
+}
+
 /**
  * Inspect one platform's four tier definitions without changing them. Setup,
  * doctor, and uninstall share this so they agree on which files are current,
@@ -1680,7 +1712,7 @@ class SetupCodexHandler extends BaseCommand {
       await access(agentsPath);
       const content = await readFile(agentsPath, 'utf-8');
 
-      if (content.includes(CODEX_BEGIN_MARKER)) {
+      if (locateManagedBlock(content, CODEX_BEGIN_MARKER, CODEX_END_MARKER)) {
         const diagnostic: DiagnosticResult = {
           name: 'AGENTS.md',
           status: 'ok',
@@ -1704,7 +1736,10 @@ class SetupCodexHandler extends BaseCommand {
           renderDiagnostics([diagnostic], colors);
         });
       }
-    } catch {
+    } catch (error) {
+      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
+        throw error;
+      }
       const diagnostic: DiagnosticResult = {
         name: 'AGENTS.md',
         status: 'warn',
@@ -1722,25 +1757,32 @@ class SetupCodexHandler extends BaseCommand {
   private async removeCodexSection(agentsPath: string): Promise<void> {
     try {
       await access(agentsPath);
+      await assertSafeManagedArtifactTarget(agentsPath);
       const content = await readFile(agentsPath, 'utf-8');
 
-      if (!content.includes(CODEX_BEGIN_MARKER)) {
+      const location = locateManagedBlock(content, CODEX_BEGIN_MARKER, CODEX_END_MARKER);
+      if (!location) {
         this.output.info('No tbd section found in AGENTS.md');
         return;
       }
 
-      const newContent = this.removetbdSection(content);
+      const newContent = this.removetbdSection(content, location);
       const trimmed = newContent.trim();
 
       if (trimmed === '' || trimmed === '# Project Instructions for AI Agents') {
         // File is empty or only has the default header, remove it
+        await assertSafeManagedArtifactTarget(agentsPath);
         await rm(agentsPath);
         this.output.success('Removed AGENTS.md (file was empty after removing tbd section)');
       } else {
+        await assertSafeManagedArtifactTarget(agentsPath);
         await writeFile(agentsPath, newContent);
         this.output.success('Removed tbd section from AGENTS.md');
       }
-    } catch {
+    } catch (error) {
+      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
+        throw error;
+      }
       this.output.info('AGENTS.md not found');
     }
   }
@@ -1751,38 +1793,51 @@ class SetupCodexHandler extends BaseCommand {
     }
 
     try {
+      await assertSafeManagedArtifactTarget(agentsPath, { allowMissing: true });
       let existingContent = '';
       try {
         await access(agentsPath);
         existingContent = await readFile(agentsPath, 'utf-8');
-      } catch {
-        // File doesn't exist
+      } catch (error) {
+        if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
+          throw error;
+        }
       }
 
       let newContent: string;
 
       if (existingContent) {
-        const hasBlock = existingContent.includes(CODEX_BEGIN_MARKER);
-        if (hasBlock) {
+        const blockLocation = locateManagedBlock(
+          existingContent,
+          CODEX_BEGIN_MARKER,
+          CODEX_END_MARKER,
+        );
+        if (blockLocation) {
           // Refuse to downgrade a block written by a newer tbd.
-          assertNotNewerFormat(existingContent, 'AGENTS.md');
+          assertNotNewerFormat(
+            existingContent.slice(blockLocation.start, blockLocation.end),
+            'AGENTS.md',
+          );
         }
         // Carry recorded grants over unchanged; a policy block this tbd cannot
         // read stops setup here, before anything is written.
         const tbdSection = getCodexTbdSectionPreservingGrants(existingContent);
-        if (hasBlock) {
-          newContent = this.updatetbdSection(existingContent, tbdSection);
+        if (blockLocation) {
+          newContent = this.updatetbdSection(existingContent, blockLocation, tbdSection);
+          await assertSafeManagedArtifactTarget(agentsPath);
           await writeFile(agentsPath, newContent);
           this.output.success('Updated existing tbd section in AGENTS.md');
         } else {
           // Append section to existing file
           newContent = existingContent + '\n\n' + tbdSection;
+          await assertSafeManagedArtifactTarget(agentsPath);
           await writeFile(agentsPath, newContent);
           this.output.success('Added tbd section to existing AGENTS.md');
         }
       } else {
         // Create new file
         const newAgentsFile = getCodexNewAgentsFile();
+        await assertSafeManagedArtifactTarget(agentsPath, { allowMissing: true });
         await writeFile(agentsPath, newAgentsFile);
         this.output.success('Created new AGENTS.md with tbd integration');
       }
@@ -1800,47 +1855,22 @@ class SetupCodexHandler extends BaseCommand {
     }
   }
 
-  private updatetbdSection(content: string, tbdSection: string): string {
-    const startIdx = content.indexOf(CODEX_BEGIN_MARKER);
-    const endIdx = content.indexOf(CODEX_END_MARKER);
-
-    if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) {
-      // Markers not found or invalid, append instead
-      return content + '\n\n' + tbdSection;
-    }
-
-    // Find the end of the end marker line
-    let endOfEndMarker = endIdx + CODEX_END_MARKER.length;
-    const nextNewline = content.indexOf('\n', endOfEndMarker);
-    if (nextNewline !== -1) {
-      endOfEndMarker = nextNewline + 1;
-    }
-
-    return content.slice(0, startIdx) + tbdSection + content.slice(endOfEndMarker);
+  private updatetbdSection(
+    content: string,
+    location: ManagedBlockLocation,
+    tbdSection: string,
+  ): string {
+    return content.slice(0, location.start) + tbdSection + content.slice(location.end);
   }
 
-  private removetbdSection(content: string): string {
-    const startIdx = content.indexOf(CODEX_BEGIN_MARKER);
-    const endIdx = content.indexOf(CODEX_END_MARKER);
-
-    if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) {
-      return content;
-    }
-
-    // Find the end of the end marker line
-    let endOfEndMarker = endIdx + CODEX_END_MARKER.length;
-    const nextNewline = content.indexOf('\n', endOfEndMarker);
-    if (nextNewline !== -1) {
-      endOfEndMarker = nextNewline + 1;
-    }
-
+  private removetbdSection(content: string, location: ManagedBlockLocation): string {
     // Also remove leading blank lines before the section
-    let trimStart = startIdx;
+    let trimStart = location.start;
     while (trimStart > 0 && (content[trimStart - 1] === '\n' || content[trimStart - 1] === '\r')) {
       trimStart--;
     }
 
-    return content.slice(0, trimStart) + content.slice(endOfEndMarker);
+    return content.slice(0, trimStart) + content.slice(location.end);
   }
 }
 
@@ -2751,6 +2781,11 @@ class SetupAutoHandler extends BaseCommand {
       for (const r of failed) {
         console.log(colors.warn(`  ! ${r.name}: ${r.error}`));
       }
+      const noun = failed.length === 1 ? 'surface' : 'surfaces';
+      throw new CLIError(
+        `Setup failed for ${failed.length} selected integration ${noun}:\n` +
+          failed.map((result) => `  - ${result.name}: ${result.error}`).join('\n'),
+      );
     }
 
     // Record policy grants only when --policies asks for them; the agents-md
@@ -2901,6 +2936,7 @@ class SetupAutoHandler extends BaseCommand {
   private async recordRecommendedGrants(cwd: string): Promise<void> {
     const colors = this.output.getColors();
     const agentsPath = getAgentsMdPath(cwd);
+    await assertSafeManagedArtifactTarget(agentsPath, { allowMissing: true });
     let content = '';
     try {
       content = await readFile(agentsPath, 'utf-8');
@@ -2930,6 +2966,7 @@ class SetupAutoHandler extends BaseCommand {
         }
         throw error;
       }
+      await assertSafeManagedArtifactTarget(agentsPath);
       await writeFile(agentsPath, updated);
     }
 
@@ -3044,10 +3081,7 @@ class SetupAutoHandler extends BaseCommand {
         }
         return result;
       }
-      for (const file of pending) {
-        await mkdir(dirname(file.path), { recursive: true });
-        await writeFile(file.path, file.expected);
-      }
+      await writeTierAgentFiles(pending);
       result.installed = true;
     } catch (error) {
       // The format guard is a hard stop; surface it instead of swallowing.
@@ -3189,14 +3223,18 @@ class SetupAutoHandler extends BaseCommand {
 
     try {
       const agentsPath = getAgentsMdPath(cwd);
+      await assertSafeManagedArtifactTarget(agentsPath, { allowMissing: true });
       let existing = '';
       try {
         existing = await readFile(agentsPath, 'utf-8');
-      } catch {
-        // No AGENTS.md yet; setup creates it.
+      } catch (error) {
+        if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
+          throw error;
+        }
       }
-      if (existing.includes(CODEX_BEGIN_MARKER)) {
-        assertNotNewerFormat(existing, agentsPath);
+      const blockLocation = locateManagedBlock(existing, CODEX_BEGIN_MARKER, CODEX_END_MARKER);
+      if (blockLocation) {
+        assertNotNewerFormat(existing.slice(blockLocation.start, blockLocation.end), agentsPath);
       }
       const inspection = await inspectManagedArtifact({
         path: agentsPath,

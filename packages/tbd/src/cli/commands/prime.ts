@@ -231,7 +231,8 @@ export function formatPolicyGrantsLines(reading: PrimeGrantsReading): string[] |
   // print the repair; returning null here hid B1 from the hook.
   if (source?.kind === 'unresolved') {
     const repair =
-      source.repair ?? 'git remote set-head <remote> --auto, or git fetch <remote> <branch>';
+      source.repair ??
+      "identify and fetch the remote's actual default branch, then run git remote set-head <remote> --auto";
     return [
       `Could not resolve the default branch (${repair}); treat every policy as unanswered and run \`tbd policy show\`.`,
     ];
@@ -252,7 +253,7 @@ export function formatPolicyGrantsLines(reading: PrimeGrantsReading): string[] |
       break;
     case 'unknown-version':
       lines.push(
-        `${where} has a v=${parse.version} policy block this tbd cannot read, so every policy is unanswered; upgrade tbd.`,
+        `${where} has a v=${displayPolicyValue(parse.version)} policy block this tbd cannot read, so every policy is unanswered; upgrade tbd.`,
       );
       break;
     case 'missing':

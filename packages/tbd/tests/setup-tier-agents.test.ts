@@ -31,6 +31,7 @@ import {
   TIER_MODELS,
   TIER_MODEL_SUGGESTIONS_AS_OF,
   renderTierAgentDefinition,
+  writeTierAgentFiles,
 } from '../src/cli/commands/setup.js';
 import {
   AGENT_INTEGRATION_FORMAT,
@@ -364,6 +365,62 @@ describe('setup tier agent definitions', { timeout: subprocessTestTimeout(45_000
     expect(again.status, again.stderr).toBe(0);
     expect(again.stdout).toContain('Already configured');
     expect(await readFile(claudeFile('tbd-strong'), 'utf-8')).toBe(USER_OWNED_STRONG);
+  });
+
+  it.each([
+    {
+      surface: 'claude-agents',
+      agentsDir: CLAUDE_AGENTS_DIR_REL,
+      displayName: 'Claude Code tier agents',
+    },
+    {
+      surface: 'codex-agents',
+      agentsDir: CODEX_AGENTS_DIR_REL,
+      displayName: 'Codex tier agents',
+    },
+  ])(
+    'exits nonzero without a completion message when $surface cannot be read',
+    async ({ surface, agentsDir, displayName }) => {
+      const agentsPath = join(projectDir, agentsDir);
+      await mkdir(dirname(agentsPath), { recursive: true });
+      await writeFile(agentsPath, 'user file at parent path\n');
+
+      const result = runTbd(['setup', '--auto', '--prefix=test', `--surfaces=${surface}`]);
+      expect(result.status).not.toBe(0);
+      expect(result.stdout + result.stderr).toContain(displayName);
+      expect(result.stdout + result.stderr).toMatch(/ENOTDIR|not a directory/iu);
+      expect(result.stdout).not.toMatch(/All set!|Setup complete!/u);
+    },
+  );
+
+  it('names partial progress when a later tier definition write fails', async () => {
+    const files = [
+      {
+        rel: '.claude/agents/tbd-strong-max.md',
+        path: join(projectDir, '.claude', 'agents', 'tbd-strong-max.md'),
+        expected: 'first\n',
+      },
+      {
+        rel: '.claude/agents/tbd-strong.md',
+        path: join(projectDir, '.claude', 'agents', 'tbd-strong.md'),
+        expected: 'second\n',
+      },
+    ];
+    let writes = 0;
+
+    await expect(
+      writeTierAgentFiles(files, async (path, content) => {
+        writes += 1;
+        if (writes === 2) {
+          throw new Error('injected write failure');
+        }
+        await writeFile(path, content);
+      }),
+    ).rejects.toThrow(
+      'Failed to write .claude/agents/tbd-strong.md after writing 1 of 2 tier agent definitions: injected write failure',
+    );
+    expect(await readFile(files[0]!.path, 'utf-8')).toBe(files[0]!.expected);
+    await expect(access(files[1]!.path)).rejects.toThrow();
   });
 
   it('refuses to rewrite a definition written by a newer tbd', async () => {

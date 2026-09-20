@@ -135,6 +135,16 @@ describe('formatPolicyGrantsLines', () => {
     expect(shown).not.toContain(long);
   });
 
+  it('caps unknown block versions and strips control characters', () => {
+    const hostile = `\u001b[2J\u001b[H\u0007${'V'.repeat(400)}`;
+    const text = formatPolicyGrantsLines(
+      reading({ status: 'unknown-version', version: hostile }),
+    )!.join('\n');
+    expect(text).not.toContain('\u001b[2J');
+    expect(text).not.toContain('\u0007');
+    expect(Math.max(...text.split('\n').map((line) => line.length))).toBeLessThan(200);
+  });
+
   it('reports a malformed or unreadable block in one line and treats every policy as unanswered', () => {
     const malformed = `# Project\n\n${getCodexTbdSection()}`.replace(
       '<!-- END TBD INTEGRATION -->',

@@ -353,6 +353,19 @@ describe('stacked-PR documents state the github-stacked-prs condition', () => {
 });
 
 describe('setup-tbd follows the guideline setup questions', () => {
+  it('keeps pending working-tree proposals out of setup authorization', async () => {
+    const setup = await readDoc(SETUP_TBD);
+    const review = flat(section(setup, 2, 'Review Policies'));
+    const ask = flat(section(setup, 2, 'Unanswered'));
+    const act = flat(section(setup, 2, 'What the Grants Need'));
+    expect(review).toContain('proposal, not an effective grant');
+    expect(review).not.toContain('counts as answered');
+    expect(ask).toContain('Pending working-tree values alone do not satisfy this condition');
+    expect(act).toContain('only effective default-branch grants or explicit answers');
+    expect(act).toContain('current conversation');
+    expect(act).toContain('unconfirmed working-tree proposal does not');
+  });
+
   it('reviews policies first and asks only about unanswered ones, in the recommended set', async () => {
     const setup = await readDoc(SETUP_TBD);
     const review = setup.indexOf('tbd policy show');

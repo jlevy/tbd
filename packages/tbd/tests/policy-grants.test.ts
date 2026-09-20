@@ -22,6 +22,7 @@ import {
   INTEGRATION_END_MARKER,
   POLICIES,
   POLICY_BEGIN_MARKER,
+  POLICY_BEGIN_MARKER_PREFIX,
   POLICY_END_MARKER,
   POLICY_NAMES,
   RECOMMENDED_GRANTS,
@@ -273,8 +274,12 @@ describe('parsePolicyBlock', () => {
   });
 
   it('does not treat a backticked mention of the marker as a block', () => {
-    const mention = 'See the `<!-- BEGIN TBD POLICY GRANTS v=1 -->` block.\n';
-    expect(parsePolicyBlock(agentsMdWith('') + mention)).toEqual({ status: 'missing' });
+    for (const mention of [
+      'See the `<!-- BEGIN TBD POLICY GRANTS v=1 -->` block.\n',
+      'See the ``<!-- BEGIN TBD POLICY GRANTS v=1 -->`` block.\n',
+    ]) {
+      expect(parsePolicyBlock(agentsMdWith('') + mention)).toEqual({ status: 'missing' });
+    }
 
     const inner = `${POLICY_BEGIN_MARKER}
 - \`subagents\`: granted
@@ -330,6 +335,85 @@ ${POLICY_END_MARKER}
       status: 'ok',
       grants: [{ name: 'subagents', value: 'granted' }],
       recorded: '2026-09-17',
+    });
+  });
+
+  it('tracks full-document comment and exact fence state before accepting grants', () => {
+    const grant = '- `github-merge`: autonomous';
+    const hidden = {
+      'a shorter backtick fence does not close a longer fence': `${POLICY_BEGIN_MARKER}
+
+\`\`\`\`markdown
+\`\`\`
+${grant}
+\`\`\`\`
+
+${POLICY_END_MARKER}`,
+      'a tilde fence does not close a backtick fence': `${POLICY_BEGIN_MARKER}
+
+\`\`\`markdown
+~~~
+${grant}
+\`\`\`
+
+${POLICY_END_MARKER}`,
+      'the complete policy block is inside a fence': `\`\`\`markdown
+${POLICY_BEGIN_MARKER}
+${grant}
+${POLICY_END_MARKER}
+\`\`\``,
+      'a second comment opener after a closed comment remains open': `${POLICY_BEGIN_MARKER}
+
+<!-- note --> <!--
+${grant}
+-->
+
+${POLICY_END_MARKER}`,
+      'the complete policy block is inside an outer comment': `<!--
+${POLICY_BEGIN_MARKER}
+${grant}
+${POLICY_END_MARKER}
+-->`,
+      'a four-space-indented grant is code': `${POLICY_BEGIN_MARKER}
+
+    ${grant}
+
+${POLICY_END_MARKER}`,
+      'a tab-indented grant is code': `${POLICY_BEGIN_MARKER}
+
+\t${grant}
+
+${POLICY_END_MARKER}`,
+      'the complete policy block is indented code': `    ${POLICY_BEGIN_MARKER}
+    ${grant}
+    ${POLICY_END_MARKER}`,
+    };
+
+    for (const [label, inner] of Object.entries(hidden)) {
+      const parsed = parsePolicyBlock(agentsMdWith(`${inner}\n`));
+      expect(parsed.status, label).toBe('malformed');
+      expect(
+        resolvePolicyStatuses(parsed).find((status) => status.name === 'github-merge'),
+      ).toMatchObject({
+        answered: false,
+        effective: 'confirm-every',
+      });
+    }
+
+    const example = agentsMdWith(`\`\`\`markdown
+Example text mentions ${POLICY_BEGIN_MARKER_PREFIX} v=example --> without defining a block.
+\`\`\`
+`);
+    expect(parsePolicyBlock(example)).toEqual({ status: 'missing' });
+
+    const afterInlineCode = parsePolicyBlock(
+      agentsMdWith(
+        `Prose can name the \`<!--\` comment opener without opening a comment.\n${POLICY_BEGIN_MARKER}\n${grant}\n${POLICY_END_MARKER}\n`,
+      ),
+    );
+    expect(afterInlineCode).toMatchObject({
+      status: 'ok',
+      grants: [{ name: 'github-merge', value: 'autonomous' }],
     });
   });
 
@@ -739,7 +823,8 @@ describe('default branch resolution', () => {
       await git(local, 'add', 'README.md');
       await git(local, 'commit', '-q', '-m', 'local');
       await git(local, 'checkout', '-q', '-b', 'feature');
-      expect(await resolveDefaultBranch(local, 'origin')).toMatchObject({
+      expect(await resolveDefaultBranch(local, 'origin')).toBeNull();
+      expect(await resolveDefaultBranch(local, 'origin', { allowLocal: true })).toMatchObject({
         branch: 'main',
         ref: 'refs/heads/main',
         kind: 'local',
@@ -873,6 +958,79 @@ describe('default branch resolution', () => {
       expect(remotes.split('\n')).toContain('origin');
       const grants = await readEffectiveGrants(clone);
       expectUnresolved(grants);
+    },
+    GIT_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'does not infer main when a remote with a different default has no remote HEAD locally',
+    async () => {
+      const origin = join(await tempDir('tbd-policy-nondefault-origin-'), 'origin.git');
+      await execFileAsync('git', ['init', '-q', '--bare', '-b', 'trunk', origin]);
+      const seed = await tempDir('tbd-policy-nondefault-seed-');
+      await initRepo(seed, 'trunk');
+      await writeFile(join(seed, 'AGENTS.md'), agentsMdWith(''));
+      await git(seed, 'add', 'AGENTS.md');
+      await git(seed, 'commit', '-q', '-m', 'trunk denies grants');
+      await git(seed, 'checkout', '-q', '-b', 'main');
+      await writeFile(
+        join(seed, 'AGENTS.md'),
+        agentsMdWith(renderPolicyBlock(evilGrants, '2026-09-20')),
+      );
+      await git(seed, 'commit', '-q', '-am', 'nondefault main grants authority');
+      await git(seed, 'remote', 'add', 'origin', origin);
+      await git(seed, 'push', '-q', 'origin', 'trunk', 'main');
+
+      const clone = await tempDir('tbd-policy-nondefault-clone-');
+      await execFileAsync('git', [
+        'clone',
+        '-q',
+        '--single-branch',
+        '--branch',
+        'main',
+        origin,
+        clone,
+      ]);
+      expect(
+        await git(clone, 'for-each-ref', '--format=%(refname)', 'refs/remotes/origin/HEAD'),
+      ).toBe('');
+
+      expectUnresolved(await readEffectiveGrants(clone));
+    },
+    GIT_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'gives distinct bounded repairs for a missing remote HEAD and its missing target',
+    async () => {
+      const missingHead = await tempDir('tbd-policy-missing-remote-head-');
+      await initRepo(missingHead, 'main');
+      await writeFile(join(missingHead, 'AGENTS.md'), agentsMdWith(''));
+      await git(missingHead, 'add', 'AGENTS.md');
+      await git(missingHead, 'commit', '-q', '-m', 'local main');
+      await git(missingHead, 'remote', 'add', 'origin', 'https://example.invalid/tbd.git');
+      const withoutHead = await readEffectiveGrants(missingHead);
+      expect(withoutHead.source).toMatchObject({ kind: 'unresolved' });
+      expect(withoutHead.source?.repair).toContain("identify origin's actual default branch");
+      expect(withoutHead.source?.repair).toContain('git remote set-head origin --auto');
+
+      const missingTarget = await tempDir('tbd-policy-missing-remote-target-');
+      await initRepo(missingTarget, 'work');
+      await writeFile(join(missingTarget, 'AGENTS.md'), agentsMdWith(''));
+      await git(missingTarget, 'add', 'AGENTS.md');
+      await git(missingTarget, 'commit', '-q', '-m', 'local work');
+      await git(missingTarget, 'remote', 'add', 'origin', 'https://example.invalid/tbd.git');
+      await git(
+        missingTarget,
+        'symbolic-ref',
+        'refs/remotes/origin/HEAD',
+        'refs/remotes/origin/trunk',
+      );
+      const withoutTarget = await readEffectiveGrants(missingTarget);
+      expect(withoutTarget.source).toMatchObject({ branch: 'trunk', kind: 'unresolved' });
+      expect(withoutTarget.source?.repair).toBe(
+        'git fetch origin refs/heads/trunk:refs/remotes/origin/trunk',
+      );
     },
     GIT_TEST_TIMEOUT_MS,
   );

@@ -1,4 +1,7 @@
-import { readFile } from 'node:fs/promises';
+import type { Stats } from 'node:fs';
+import { lstat, readFile } from 'node:fs/promises';
+
+import { CLIError } from './errors.js';
 
 export type ManagedArtifactState = 'current' | 'stale' | 'missing' | 'user-owned' | 'too-new';
 
@@ -13,6 +16,53 @@ export interface InspectManagedArtifactOptions {
   ownershipMarker: string;
   supportedFormat: string;
   selectManagedContent?: (content: string) => string;
+}
+
+/** Byte span occupied by one complete marker-delimited managed block. */
+export interface ManagedBlockLocation {
+  /** Offset of the begin marker itself; leading indentation remains in the prefix. */
+  start: number;
+  /** Exclusive offset after the end marker line, including its line ending when present. */
+  end: number;
+}
+
+export interface SafeManagedArtifactTargetOptions {
+  /** Accept ENOENT when the caller is allowed to create the file. */
+  allowMissing?: boolean;
+}
+
+/**
+ * Refuse managed-file targets that can redirect or invalidate a project-local write.
+ * `lstat` is deliberate: `stat` and `realpath` follow a symlink before the caller can
+ * enforce that AGENTS.md itself is a regular file in the selected project.
+ */
+export async function assertSafeManagedArtifactTarget(
+  path: string,
+  options: SafeManagedArtifactTargetOptions = {},
+): Promise<void> {
+  let stats: Stats;
+  try {
+    stats = await lstat(path);
+  } catch (error) {
+    if (isErrorWithCode(error, 'ENOENT')) {
+      if (options.allowMissing) {
+        return;
+      }
+      throw new CLIError(
+        `Refusing to update ${path}: the file does not exist. Create it as a regular file and retry.`,
+      );
+    }
+    throw error;
+  }
+
+  if (stats.isFile()) {
+    return;
+  }
+
+  throw new CLIError(
+    `Refusing to update ${path}: expected a regular file, but found ${managedTargetKind(stats)}. ` +
+      'Replace it with a regular file inside the project and retry.',
+  );
 }
 
 /**
@@ -77,11 +127,18 @@ export async function inspectManagedArtifact(
     throw error;
   }
 
-  if (!existing.includes(options.ownershipMarker)) {
-    return { state: 'user-owned' };
+  let managedContent: string;
+  if (options.selectManagedContent) {
+    managedContent = options.selectManagedContent(existing);
+    if (managedContent.length === 0) {
+      return { state: 'user-owned' };
+    }
+  } else {
+    if (!existing.includes(options.ownershipMarker)) {
+      return { state: 'user-owned' };
+    }
+    managedContent = existing;
   }
-
-  const managedContent = options.selectManagedContent?.(existing) ?? existing;
   const format = parseManagedIntegrationFormat(managedContent) ?? 'f01';
   if (integrationFormatNumber(format) > integrationFormatNumber(options.supportedFormat)) {
     return { state: 'too-new', format };
@@ -117,24 +174,52 @@ export function extractManagedBlock(
   beginMarker: string,
   endMarker: string,
 ): string {
-  const start = indexOfMarkerLine(content, beginMarker);
-  if (start < 0) {
+  const location = locateManagedBlock(content, beginMarker, endMarker);
+  if (!location) {
     return '';
   }
-  const endOffset = indexOfMarkerLine(content.slice(start), endMarker);
-  if (endOffset < 0) {
-    return '';
-  }
-  const endStart = start + endOffset;
-  return content.slice(start, endStart + endMarker.length).trimEnd() + '\n';
+  return content.slice(location.start, location.end).trimEnd() + '\n';
 }
 
-/** Offset of the first line whose trimmed text starts with `marker`, or -1. */
-function indexOfMarkerLine(content: string, marker: string): number {
+/**
+ * Locate one complete managed block using marker lines, never marker substrings in
+ * prose or inline code. The returned end is suitable for exact prefix/block/suffix
+ * replacement, so readers and writers share one boundary calculation.
+ */
+export function locateManagedBlock(
+  content: string,
+  beginMarker: string,
+  endMarker: string,
+): ManagedBlockLocation | null {
+  const start = indexOfMarkerLine(content, beginMarker, false);
+  if (start < 0) {
+    return null;
+  }
+  const endOffset = indexOfMarkerLine(content.slice(start), endMarker, true);
+  if (endOffset < 0) {
+    return null;
+  }
+
+  const endStart = start + endOffset;
+  const nextNewline = content.indexOf('\n', endStart + endMarker.length);
+  return {
+    start,
+    end: nextNewline < 0 ? content.length : nextNewline + 1,
+  };
+}
+
+/**
+ * Offset of the first marker line, or -1. Begin markers are stable prefixes
+ * whose metadata may change; end markers are complete, exact lines.
+ */
+function indexOfMarkerLine(content: string, marker: string, exact: boolean): number {
   let offset = 0;
   for (const line of content.split('\n')) {
     const trimmed = line.trim();
-    if (trimmed.startsWith(marker)) {
+    const isMarker = exact
+      ? trimmed === marker
+      : trimmed.startsWith(marker) && trimmed.endsWith('-->');
+    if (isMarker) {
       return offset + (line.length - line.trimStart().length);
     }
     offset += line.length + 1;
@@ -149,4 +234,27 @@ function isErrorWithCode(error: unknown, code: string): boolean {
     typeof error.code === 'string' &&
     error.code === code
   );
+}
+
+/** Bounded description for diagnostics; never render device metadata or link targets. */
+function managedTargetKind(stats: Stats): string {
+  if (stats.isSymbolicLink()) {
+    return 'a symbolic link';
+  }
+  if (stats.isDirectory()) {
+    return 'a directory';
+  }
+  if (stats.isSocket()) {
+    return 'a socket';
+  }
+  if (stats.isFIFO()) {
+    return 'a FIFO';
+  }
+  if (stats.isBlockDevice()) {
+    return 'a block device';
+  }
+  if (stats.isCharacterDevice()) {
+    return 'a character device';
+  }
+  return 'a non-regular filesystem entry';
 }

@@ -1131,14 +1131,15 @@ Recording a grant is an ordinary commit to `AGENTS.md`.
 unanswered policy at once (see `setup` above).
 
 Effective grants are read from `AGENTS.md` as committed on the default branch: the
-remote’s copy (`refs/remotes/<remote>/<branch>`, as of the last fetch) when it exists,
-otherwise the local branch.
-The default branch is the one `<remote>/HEAD` names, else `init.defaultBranch`, `main`,
-or `master`, whichever exists as a remote-tracking ref (or as a local branch when the
-repository has no remotes).
-With a remote and none of these, grants are unread: every policy is unanswered and
-`show` names the repair (`git remote set-head <remote> --auto`, or
-`git fetch <remote> <branch>`). `HEAD` is used only when the repository has no remotes.
+remote’s copy (`refs/remotes/<remote>/<branch>`, as of the last fetch) when remotes
+exist; local branch or HEAD only when there are no remotes.
+tbd uses `origin`, or the sole remote when there is no `origin`, and requires that
+remote’s `HEAD` and its fetched target.
+It never infers the remote’s default from `init.defaultBranch`, `main`, or `master`;
+those names can identify unmerged branches.
+With an unresolved remote default, grants are unread: every policy is unanswered and
+`show` names the required fetch and symbolic-ref repair for the actual default branch.
+`HEAD` is used only when the repository has no remotes.
 A grant in the working tree or on an unmerged branch is therefore not effective; `show`
 lists such differences and `--json` reports them under `workingTree.differences`.
 

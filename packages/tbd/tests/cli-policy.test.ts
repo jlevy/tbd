@@ -1,7 +1,7 @@
 /** End-to-end CLI contract tests for `tbd policy`. */
 
 import { execFile, spawnSync } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -292,6 +292,30 @@ describe('tbd policy show', () => {
   );
 
   it(
+    'bounds and strips control characters from an unknown block version',
+    async () => {
+      const hostile = `\u001b[2J\u001b[H\u0007${'V'.repeat(400)}`;
+      const block = `<!-- BEGIN TBD POLICY GRANTS v=${hostile} -->\n- \`subagents\`: granted\n${POLICY_END_MARKER}\n`;
+      const section = getCodexTbdSection().replace(
+        INTEGRATION_END_MARKER,
+        `${block}${INTEGRATION_END_MARKER}`,
+      );
+      const dir = await createRepo({ agentsMd: `# Project\n\n${section}` });
+
+      for (const args of [['policy', 'show'], ['policy', 'grant', 'subagents'], ['doctor']]) {
+        const result = runTbd(dir, args);
+        const output = `${result.stdout}${result.stderr}`;
+        expect(output, args.join(' ')).toContain('policy block');
+        expect(output, args.join(' ')).not.toContain('\u001b[2J');
+        expect(output, args.join(' ')).not.toContain('\u0007');
+        const longest = Math.max(...output.split('\n').map((line) => line.length));
+        expect(longest, args.join(' ')).toBeLessThan(200);
+      }
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  it(
     'does not title an unresolved default branch as Effective grants',
     async () => {
       const dir = await createRepo();
@@ -408,6 +432,61 @@ describe('tbd policy grant, revoke, and set', () => {
       expect(refused.status).toBe(1);
       expect(refused.stderr).toContain('newer tbd');
       expect(await readFile(join(dir, 'AGENTS.md'), 'utf-8')).toBe(newer);
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'validates the intended policy update before reporting a dry run',
+    async () => {
+      const missing = await createRepo({ agentsMd: '# Project\n' });
+      const missingOriginal = await readFile(join(missing, 'AGENTS.md'), 'utf-8');
+      for (const prefix of [[], ['--dry-run']]) {
+        const result = runTbd(missing, [...prefix, 'policy', 'grant', 'subagents']);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('has no tbd block');
+        expect(result.stdout).not.toContain('Would record');
+        expect(await readFile(join(missing, 'AGENTS.md'), 'utf-8')).toBe(missingOriginal);
+      }
+
+      const tooNew = `# Project\n\n${getCodexTbdSection().replace(
+        `format=${AGENT_INTEGRATION_FORMAT}`,
+        'format=f999',
+      )}`;
+      const newer = await createRepo({ agentsMd: tooNew });
+      for (const prefix of [[], ['--dry-run']]) {
+        const result = runTbd(newer, [...prefix, 'policy', 'grant', 'subagents']);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('newer tbd');
+        expect(result.stdout).not.toContain('Would record');
+        expect(await readFile(join(newer, 'AGENTS.md'), 'utf-8')).toBe(tooNew);
+      }
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'refuses symlink and nonregular AGENTS.md targets without changing their contents',
+    async () => {
+      const outsideDir = await tempDir('tbd-cli-policy-outside-');
+      const outside = join(outsideDir, 'outside-AGENTS.md');
+      const original = `# Outside\n\n${getCodexTbdSection()}`;
+      await writeFile(outside, original);
+      const linked = await createRepo({ agentsMd: null });
+      await symlink(outside, join(linked, 'AGENTS.md'));
+
+      for (const prefix of [[], ['--dry-run']]) {
+        const result = runTbd(linked, [...prefix, 'policy', 'grant', 'subagents']);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toMatch(/regular file|symbolic link/);
+        expect(await readFile(outside, 'utf-8')).toBe(original);
+      }
+
+      const nonregular = await createRepo({ agentsMd: null });
+      await mkdir(join(nonregular, 'AGENTS.md'));
+      const refused = runTbd(nonregular, ['policy', 'grant', 'subagents']);
+      expect(refused.status).toBe(1);
+      expect(refused.stderr).toContain('regular file');
     },
     CLI_TEST_TIMEOUT_MS,
   );

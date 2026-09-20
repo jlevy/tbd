@@ -392,7 +392,7 @@ function grantSourceLabel(source: DefaultBranchRef | null): string {
 /** What makes a working tree block effective: committing, and merging unless grants are read from HEAD. */
 function effectiveOnce(source: DefaultBranchRef | null): string {
   if (source?.kind === 'unresolved') {
-    return `the default branch is resolvable (${source.repair ?? 'git remote set-head <remote> --auto'})`;
+    return `the default branch is resolvable (${source.repair ?? "identify and fetch the remote's actual default branch, then run git remote set-head <remote> --auto"})`;
   }
   if (source?.kind === 'head') {
     return 'committed';
@@ -455,7 +455,7 @@ export function policyGrantFindings(
         {
           name,
           status: 'error',
-          message: `policy block version v=${working.version} is not supported (this tbd reads v=${POLICY_BLOCK_VERSION})`,
+          message: `policy block version v=${displayPolicyValue(working.version)} is not supported (this tbd reads v=${POLICY_BLOCK_VERSION})`,
           path,
           suggestion: TBD_UPGRADE_SUGGESTION,
         },
@@ -478,7 +478,7 @@ export function policyGrantFindings(
       path,
       suggestion:
         effective.source.repair ??
-        'git remote set-head <remote> --auto, or git fetch <remote> <branch>',
+        "identify and fetch the remote's actual default branch, then run git remote set-head <remote> --auto",
     });
   }
   const unknownValues = workingTree.policies.filter((status) => status.known && !status.valid);
@@ -513,7 +513,7 @@ export function policyGrantFindings(
       findings.push({
         name,
         status: 'warn',
-        message: `policy block version v=${committed.version} on ${source} is not supported (this tbd reads v=${POLICY_BLOCK_VERSION})`,
+        message: `policy block version v=${displayPolicyValue(committed.version)} on ${source} is not supported (this tbd reads v=${POLICY_BLOCK_VERSION})`,
         path,
         suggestion: TBD_UPGRADE_SUGGESTION,
       });

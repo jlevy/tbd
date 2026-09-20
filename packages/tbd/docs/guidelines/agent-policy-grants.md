@@ -206,11 +206,17 @@ selection when the user wants it is `epics`.
   the repository has one (`origin/main` as of the last fetch), so a commit on local
   `main` takes effect after `git push`, and other clones see it after they fetch.
   An unmerged branch that edits the policy block grants nothing.
+  tbd selects `origin`, or the sole remote when there is no `origin`, and requires that
+  remote’s `HEAD` and its fetched target.
+  It does not infer a remote’s default from `init.defaultBranch`, `main`, or `master`; a
+  branch with one of those names can be unmerged.
+  Several remotes without `origin` leave the source unresolved.
   HEAD is used only when the repository has no remotes.
   When a remote exists but no default branch can be resolved, every policy is unanswered
-  until `git remote set-head <remote> --auto` or `git fetch <remote> <branch>`. This is
-  the safeguard the block needs: anyone who can commit to the default branch can already
-  change the code and the instructions agents follow.
+  until its actual default-branch ref is fetched and `<remote>/HEAD` names it; follow
+  the repair printed by `tbd policy show`. This is the safeguard the block needs: anyone
+  who can commit to the default branch can already change the code and the instructions
+  agents follow.
 - **Visibility:** `tbd prime` prints the effective grants and names unanswered policies,
   which reaches Claude Code through the SessionStart hook.
   Check grants before a GitHub mutation, a merge, a delegation, or a Linear sync;

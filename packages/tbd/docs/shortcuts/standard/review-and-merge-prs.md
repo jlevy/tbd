@@ -78,10 +78,27 @@ Several PRs when the request names more than one):
      applying the precedence in `tbd guidelines agent-policy-grants` (only the user’s
      own messages override the recorded block):
 
+     For a repository with remotes, use `origin`, or the sole remote when there is no
+     `origin`. With several remotes and no `origin`, stop and resolve the ambiguity.
+     Run this block in a subshell, replacing `origin` with the sole remote’s name when
+     necessary:
+
      ```bash
-     git fetch origin "$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || echo main)"
-     tbd policy show
+     (
+       POLICY_REMOTE=origin
+       POLICY_REF=$(git symbolic-ref -q "refs/remotes/$POLICY_REMOTE/HEAD") || exit 1
+       POLICY_BRANCH=${POLICY_REF#refs/remotes/$POLICY_REMOTE/}
+       git fetch "$POLICY_REMOTE" "+refs/heads/$POLICY_BRANCH:$POLICY_REF" || exit 1
+       tbd policy show
+     )
      ```
+
+     If the remote HEAD is missing, stop, discover and fetch the actual default branch
+     from the remote, then repair the symbolic ref with
+     `git remote set-head <remote> --auto`; do not guess `main` or `master`. A failed
+     fetch must not be followed by acting on stale grants.
+     With no remotes, skip the fetch and use `tbd policy show` under the documented
+     local-repository rules.
 
      The request needs:
      - `github-editing` in every mode, for publishing reviews, pushing fixes, and
@@ -266,9 +283,14 @@ Several PRs when the request names more than one):
      `BLOCKED` is a branch-protection block (step 6). A draft is marked ready
      (`gh pr ready <N> --repo $REPO`) in merge mode only, since the user asked for the
      merge; in merge-ready mode report that it is a draft.
-   - For a stack layer, every layer below has merged.
-     Check: `gh stack view --json` shows no open layer below this one, and the PR’s
-     `baseRefName` is the trunk.
+   - For a standalone layer merge, every layer below has merged and the PR’s base is the
+     trunk. For an atomic formal-stack merge, every unmerged lower layer is included in
+     the proposed merge and independently passes the other gate conditions; those
+     included layers need not have merged yet.
+     Check: the authoritative remote stack membership and `gh stack view --json` agree
+     on the ordered included PRs, each pinned head is current, the lowest unmerged layer
+     targets trunk, and every higher layer targets the branch directly below it.
+     Stop on a missing, excluded, or ungated dependency.
    - In merge mode, the `github-merge` policy permits this merge, by its value (Merge
      Authorization in `tbd guidelines agent-policy-grants`). `never` never permits it:
      stop and report who merges instead.
@@ -306,9 +328,12 @@ Several PRs when the request names more than one):
 
    - For a formal stack, `gh stack merge` is all-or-nothing
      (`tbd shortcut stacked-prs`): the gate must pass for every layer first, then
-     `gh stack merge <target> --yes`. Under `confirm-every`, a stack merge needs the
-     request to name, or the user to confirm, every layer the merge will include;
-     otherwise stop and ask, since the lower layers cannot be excluded.
+     `gh stack merge <target> --yes --<merge|squash|rebase>` using the method selected
+     above. Re-read the stack membership and every included head immediately before
+     invoking it; stop and repeat the gate if any changed.
+     Under `confirm-every`, a stack merge needs the request to name, or the user to
+     confirm, every layer the merge will include; otherwise stop and ask, since the
+     lower layers cannot be excluded.
      Under `confirm-session`, a session confirmation covers the task it was given for:
      the PRs of the task the user confirmed, including every layer of a stack those
      merges include, and a PR outside that task needs its own confirmation.

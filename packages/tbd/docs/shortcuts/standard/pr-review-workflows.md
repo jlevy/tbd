@@ -316,10 +316,10 @@ The merge gate is checked in the merge-ready and merge modes of
 `tbd shortcut review-and-merge-prs`, which holds the authoritative list of conditions
 and the check for each one (step 5). In summary: the `pr-review-requirements` policy is
 met, every finding has a disposition, CI is final and green at an unchanged head, GitHub
-reports the PR mergeable, lower stack layers have merged, and in merge mode the
-`github-merge` policy permits this merge.
-Merges never use `--admin`; a branch-protection block is reported to the user, not
-bypassed.
+reports the PR mergeable, lower stack layers have merged or are included and pass the
+gate in the same atomic stack merge, and in merge mode the `github-merge` policy permits
+this merge. Merges never use `--admin`; a branch-protection block is reported to the
+user, not bypassed.
 
 ## Grants in the Review Workflows
 

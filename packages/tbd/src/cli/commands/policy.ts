@@ -45,6 +45,7 @@ import {
 } from '../../lib/policy-grants.js';
 import { BaseCommand } from '../lib/base-command.js';
 import { CLIError, ValidationError, requireInit } from '../lib/errors.js';
+import { assertSafeManagedArtifactTarget } from '../lib/managed-artifact.js';
 
 const GUIDELINE_HINT = 'tbd guidelines agent-policy-grants';
 const UPGRADE_HINT = 'npm install -g get-tbd@latest';
@@ -96,9 +97,9 @@ function describeSource(source: DefaultBranchRef | null): string {
     case 'local':
       return `AGENTS.md on ${source.branch} (${source.ref})${describeGrantStamp(source)}`;
     case 'head':
-      return `AGENTS.md at HEAD (${source.branch}); no default branch found (no origin/HEAD, main, or master)${describeGrantStamp(source)}`;
+      return `AGENTS.md at HEAD (${source.branch}); no local default branch found${describeGrantStamp(source)}`;
     case 'unresolved':
-      return `unresolved; every policy is treated as unanswered. Repair: ${source.repair ?? 'git remote set-head <remote> --auto, or git fetch <remote> <branch>'}`;
+      return `unresolved; every policy is treated as unanswered. Repair: ${source.repair ?? "identify and fetch the remote's actual default branch, then run git remote set-head <remote> --auto"}`;
     default: {
       const _exhaustive: never = source.kind;
       throw new Error(`Unhandled source kind: ${String(_exhaustive)}`);
@@ -107,8 +108,9 @@ function describeSource(source: DefaultBranchRef | null): string {
 }
 
 function unknownVersionMessage(where: string, version: string): string {
+  const shown = displayPolicyValue(version, 32);
   return (
-    `${where} has a policy block with version v=${version}; this tbd reads v=${POLICY_BLOCK_VERSION}. ` +
+    `${where} has a policy block with version v=${shown}; this tbd reads v=${POLICY_BLOCK_VERSION}. ` +
     `Upgrade tbd: ${UPGRADE_HINT}`
   );
 }
@@ -226,7 +228,7 @@ class PolicyShowHandler extends BaseCommand {
         lines.push(`  ${difference.name}: ${from} -> ${to}`);
       }
       const once = unresolved
-        ? `the default branch is resolvable (${effective.source?.repair ?? 'git remote set-head <remote> --auto'})`
+        ? `the default branch is resolvable (${effective.source?.repair ?? "identify and fetch the remote's actual default branch, then run git remote set-head <remote> --auto"})`
         : `committed and merged to ${from}`;
       lines.push(`These grants take effect once ${once}.`);
     }
@@ -263,6 +265,11 @@ class PolicyRecordHandler extends BaseCommand {
     const value = resolveValue(verb, policyName, rawValue);
     const agentsPath = join(tbdRoot, AGENTS_MD_REL);
 
+    await this.execute(
+      () => assertSafeManagedArtifactTarget(agentsPath, { allowMissing: true }),
+      `Failed to inspect ${AGENTS_MD_REL}`,
+    );
+
     let content: string;
     try {
       content = await readFile(agentsPath, 'utf-8');
@@ -289,10 +296,6 @@ class PolicyRecordHandler extends BaseCommand {
       }
     }
 
-    if (this.checkDryRun(`Would record ${policyName}: ${value} in ${AGENTS_MD_REL}`)) {
-      return;
-    }
-
     grants = upsertGrant(grants, policyName, value);
     const recorded = todayDate();
     let updated: string;
@@ -304,7 +307,15 @@ class PolicyRecordHandler extends BaseCommand {
       }
       throw error;
     }
-    await this.execute(() => writeFile(agentsPath, updated), `Failed to write ${AGENTS_MD_REL}`);
+
+    if (this.checkDryRun(`Would record ${policyName}: ${value} in ${AGENTS_MD_REL}`)) {
+      return;
+    }
+
+    await this.execute(async () => {
+      await assertSafeManagedArtifactTarget(agentsPath);
+      await writeFile(agentsPath, updated);
+    }, `Failed to write ${AGENTS_MD_REL}`);
 
     const source = (await readEffectiveGrants(tbdRoot)).source;
     const effectHint = await describeHowToTakeEffect(tbdRoot, source);

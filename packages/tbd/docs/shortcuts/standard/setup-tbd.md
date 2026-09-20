@@ -53,9 +53,12 @@ tbd policy show
 
 It lists the answered policies with their values, and the unanswered policies with the
 value agents assume until one is recorded and the recommendation.
-The lists come from `AGENTS.md` on the default branch; a policy recorded in the working
-tree but not yet merged appears under “Working tree AGENTS.md differs” and counts as
-answered.
+The lists come from `AGENTS.md` on the default branch.
+A policy recorded in the working tree but not yet merged appears under “Working tree
+AGENTS.md differs”: it is a proposal, not an effective grant.
+Show pending values separately and ask the user to confirm them before they authorize
+any action. Skip that question only when the same answer is explicit in the current
+conversation; a file or earlier session is not evidence of consent.
 
 A new project has every policy unanswered.
 An upgraded project may have any number unanswered, for example a policy added by the
@@ -69,7 +72,9 @@ Include only the unanswered policies, each with its recommendation and the
 one-line meaning from Setup Questions.
 On an upgrade, also list the answered policies and their values for review; offer to
 change one only when the user asks.
-If every policy is answered, show the current grants and go to step 6.
+If every policy is answered by an effective grant or an explicit answer in the current
+conversation, show those authorized values and go to step 6. Pending working-tree values
+alone do not satisfy this condition.
 
 Accept any of these answers:
 
@@ -141,6 +146,13 @@ Grants are read from the remote’s copy of the default branch when the reposito
 `git push`, and other clones see it after they fetch.
 
 ## 6. Set Up What the Grants Need
+
+Use only effective default-branch grants or explicit answers from the user in the
+current conversation for the actions below.
+A newly confirmed answer authorizes this setup task before its policy commit merges; an
+unconfirmed working-tree proposal does not.
+Reuse answers already given in this conversation rather than asking again in a linked
+setup shortcut.
 
 - **Any GitHub grant** (`github-workflows`, `github-editing`, `github-merge`, or
   `github-stacked-prs` with a value other than `not-granted`): run `gh auth status`. If

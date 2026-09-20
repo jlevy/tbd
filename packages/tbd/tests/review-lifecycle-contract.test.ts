@@ -608,6 +608,18 @@ describe('review lifecycle contract', () => {
   });
 
   describe('rounds and the merge gate', () => {
+    it('gates an atomic stack without requiring its included layers to be merged first', async () => {
+      const doc = await shortcutDoc('review-and-merge-prs');
+      const gate = collapse(step(doc, 5));
+      const merge = collapse(step(doc, 6));
+      expect(gate).toContain('every unmerged lower layer is included in the proposed merge');
+      expect(gate).toContain('independently passes the other gate conditions');
+      expect(gate).toContain('those included layers need not have merged yet');
+      expect(gate).toContain('every higher layer targets the branch directly below it');
+      expect(merge).toContain('gh stack merge <target> --yes --<merge|squash|rebase>');
+      expect(merge).toContain('every included head immediately before');
+    });
+
     it('pr-review-workflows sets one round by default and asks before another', async () => {
       const workflows = await shortcutDoc('pr-review-workflows');
       const rounds = section(workflows, '## Review Coverage and Rounds');

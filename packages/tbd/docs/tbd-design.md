@@ -5875,17 +5875,18 @@ version, so no grant is lost, and a release older than the split refuses the f10
 
 **Effective grants.** Agents act on the block as committed on the default branch, so an
 unmerged branch that edits it grants nothing.
-tbd finds that branch without network access: the branch `<remote>/HEAD` names, else
-`init.defaultBranch`, `main`, or `master`, preferring the remote-tracking ref over the
-local branch. HEAD is used only when the repository has no remotes at all.
+tbd finds that branch without network access: use `origin`, or the sole remote when
+there is no `origin`, and require the branch `<remote>/HEAD` names and its fetched
+target. It never guesses a remote’s default from `init.defaultBranch`, `main`, or
+`master`. HEAD is used only when the repository has no remotes at all.
 When a remote exists but no trusted default branch can be resolved (a single-branch or
-CI-style checkout, or a `sync.remote` this clone does not have), every policy is
-unanswered and `tbd policy show`, `tbd prime`, and `tbd doctor` say so, with the repair
-(`git remote set-head <remote> --auto`, or `git fetch <remote> <branch>`). `tbd prime`
-prints the effective and unanswered policies (§6.4.3), `tbd policy show` reports them
-with the working-tree block, and `tbd doctor` validates both (§4.9). The current
-conversation overrides a recorded grant for its task, in either direction, and a grant
-never bypasses a tool permission or sandbox.
+CI-style checkout, a missing default-branch ref, or several remotes without `origin`),
+every policy is unanswered and `tbd policy show`, `tbd prime`, and `tbd doctor` say so,
+with the required fetch and symbolic-ref repair for the actual default branch.
+`tbd prime` prints the effective and unanswered policies (§6.4.3), `tbd policy show`
+reports them with the working-tree block, and `tbd doctor` validates both (§4.9). The
+current conversation overrides a recorded grant for its task, in either direction, and a
+grant never bypasses a tool permission or sandbox.
 
 #### 6.4.9 PR Review Lifecycle
 

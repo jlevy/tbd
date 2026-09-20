@@ -12,7 +12,16 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { access, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import {
+  access,
+  lstat,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -30,6 +39,7 @@ import {
   extractManagedBlock,
   inspectManagedArtifact,
   integrationFormatNumber,
+  locateManagedBlock,
   parseManagedIntegrationFormat,
 } from '../src/cli/lib/managed-artifact.js';
 import { AGENT_INTEGRATION_FORMAT } from '../src/lib/integration-paths.js';
@@ -208,6 +218,145 @@ describe('older-release guard', () => {
         selectManagedContent: tbdBlockOf,
       }),
     ).toEqual({ state: 'too-new', format: AGENT_INTEGRATION_FORMAT });
+  });
+});
+
+describe('AGENTS.md managed block boundaries', () => {
+  it('locates only complete marker lines and ignores quoted marker text', () => {
+    const quoted =
+      'The block starts with `<!-- BEGIN TBD INTEGRATION`.\n' +
+      'The block ends with `<!-- END TBD INTEGRATION -->`.\n';
+    expect(locateManagedBlock(quoted, CODEX_BEGIN_MARKER, CODEX_END_MARKER)).toBeNull();
+
+    const block = getCodexTbdSection();
+    const content = `${quoted}\n${block}\nFooter quotes \`${CODEX_END_MARKER}\`.\n`;
+    const location = locateManagedBlock(content, CODEX_BEGIN_MARKER, CODEX_END_MARKER);
+    expect(location).not.toBeNull();
+    expect(content.slice(location!.start, location!.end)).toBe(block);
+
+    const falseMarkers =
+      `${CODEX_BEGIN_MARKER} without a closing comment\n` +
+      block.replace(
+        CODEX_END_MARKER,
+        `${CODEX_END_MARKER} trailing prose\nstill managed\n${CODEX_END_MARKER}`,
+      );
+    const falseMarkerLocation = locateManagedBlock(
+      falseMarkers,
+      CODEX_BEGIN_MARKER,
+      CODEX_END_MARKER,
+    );
+    expect(falseMarkerLocation).not.toBeNull();
+    expect(falseMarkers.slice(falseMarkerLocation!.start, falseMarkerLocation!.end)).toContain(
+      `${CODEX_END_MARKER} trailing prose\nstill managed\n${CODEX_END_MARKER}\n`,
+    );
+  });
+
+  it(
+    'leaves a current block and its quoted-marker prefix and suffix byte-identical',
+    async () => {
+      const dir = await setUpRepo();
+      const agentsPath = join(dir, 'AGENTS.md');
+      const grant = runTbd(dir, ['policy', 'grant', 'subagents']);
+      expect(grant.status, grant.stderr).toBe(0);
+      const block = await readFile(agentsPath, 'utf-8');
+      const prefix =
+        'The section starts with `<!-- BEGIN TBD INTEGRATION`.\n\n' +
+        'It ends with `<!-- END TBD INTEGRATION -->`.\n\n' +
+        'Keep these project instructions.\n\n';
+      const suffix = `\nFooter quotes \`${CODEX_END_MARKER}\`; keep it too.\n`;
+      const before = prefix + block + suffix;
+      await writeFile(agentsPath, before);
+
+      const result = runTbd(dir, ['setup', '--auto', '--surfaces=agents-md']);
+      expect(result.status, result.stderr).toBe(0);
+      const after = await readFile(agentsPath, 'utf-8');
+      expect(after).toBe(before);
+      expect(parsePolicyBlock(after)).toMatchObject({
+        status: 'ok',
+        grants: expect.arrayContaining([{ name: 'subagents', value: 'granted' }]),
+      });
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'updates only a stale real block when surrounding prose quotes both markers',
+    async () => {
+      const dir = await setUpRepo();
+      const agentsPath = join(dir, 'AGENTS.md');
+      const prefix =
+        `Start syntax: \`${CODEX_BEGIN_MARKER}\`.\n` + `End syntax: \`${CODEX_END_MARKER}\`.\n\n`;
+      const suffix = `\nAfterward, quote \`${CODEX_END_MARKER}\` again.\n`;
+      await writeFile(agentsPath, prefix + staleAgentsMd(HAND_BLOCK) + suffix);
+
+      const result = runTbd(dir, ['setup', '--auto', '--surfaces=agents-md']);
+      expect(result.status, result.stderr).toBe(0);
+      const after = await readFile(agentsPath, 'utf-8');
+      expect(after.startsWith(prefix)).toBe(true);
+      expect(after.endsWith(suffix)).toBe(true);
+      expect(after).not.toContain('Stale body from an earlier release.');
+      expect(tbdBlockOf(after)).toBe(withPolicyBlock(getCodexTbdSection(), HAND_BLOCK));
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'appends a real block when AGENTS.md contains only quoted marker text',
+    async () => {
+      const dir = await setUpRepo();
+      const agentsPath = join(dir, 'AGENTS.md');
+      const prose =
+        `Document \`${CODEX_BEGIN_MARKER}\` here.\n` + `Document \`${CODEX_END_MARKER}\` here.\n`;
+      await writeFile(agentsPath, prose);
+
+      const result = runTbd(dir, ['setup', '--auto', '--surfaces=agents-md']);
+      expect(result.status, result.stderr).toBe(0);
+      const after = await readFile(agentsPath, 'utf-8');
+      expect(after.startsWith(prose)).toBe(true);
+      expect(tbdBlockOf(after)).toBe(getCodexTbdSection());
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'refuses a symlinked AGENTS.md without changing its external target',
+    async () => {
+      const dir = await gitRepo();
+      const outsideDir = await realpath(await mkdtemp(join(tmpdir(), 'tbd-agents-outside-')));
+      cleanupPaths.push(outsideDir);
+      const outsidePath = join(outsideDir, 'AGENTS.md');
+      const outside = `# Outside project\n\n${getCodexTbdSection()}`;
+      await writeFile(outsidePath, outside);
+      await symlink(outsidePath, join(dir, 'AGENTS.md'));
+
+      const result = runTbd(dir, ['setup', '--auto', '--prefix=test', '--surfaces=agents-md']);
+      expect(result.status).not.toBe(0);
+      expect(result.stdout + result.stderr).toContain('symbolic link');
+      expect(result.stdout).not.toMatch(/All set!|Setup complete!/u);
+      expect(await readFile(outsidePath, 'utf-8')).toBe(outside);
+      expect((await lstat(join(dir, 'AGENTS.md'))).isSymbolicLink()).toBe(true);
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  it('bounds and strips controls from an unreadable policy-block version', () => {
+    const version = `2\u001b[2J\u001b[H\u0007${'x'.repeat(400)}`;
+    const block =
+      `<!-- BEGIN TBD POLICY GRANTS v=${version} -->\n` +
+      `- \`subagents\`: granted\n${POLICY_END_MARKER}\n`;
+
+    let message = '';
+    try {
+      getCodexTbdSectionPreservingGrants(staleAgentsMd(block));
+    } catch (error) {
+      expect(error).toBeInstanceOf(CLIError);
+      message = (error as Error).message;
+    }
+    expect(message).toContain('v=2[2J[H');
+    expect(message).toContain('…');
+    expect(message).not.toContain('\u001b');
+    expect(message).not.toContain('\u0007');
+    expect(message.length).toBeLessThan(300);
   });
 });
 
