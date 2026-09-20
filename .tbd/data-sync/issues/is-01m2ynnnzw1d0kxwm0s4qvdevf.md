@@ -1,11 +1,11 @@
 ---
 type: is
 id: is-01m2ynnnzw1d0kxwm0s4qvdevf
-title: "Review and address PRs #309 and #310: Liger consolidated review"
+title: "Review and address PRs #309 and #310: consolidated senior review"
 kind: task
 status: in_progress
 priority: 1
-version: 7
+version: 8
 delegate: codex@spud10
 labels: []
 dependencies: []
@@ -18,6 +18,6 @@ child_order_hints:
 hold: null
 hold_until: null
 created_at: 2026-09-20T05:47:22.491Z
-updated_at: 2026-09-20T05:54:16.710Z
+updated_at: 2026-09-20T06:05:31.855Z
 started_at: 2026-09-20T05:48:05.593Z
 ---
