@@ -74,9 +74,9 @@ the platform.
   For this, `tbd setup` generates four agent definitions in `.claude/agents/`:
   `tbd-strong-max` (`max`), `tbd-strong` (`xhigh`), `tbd-moderate` (`xhigh`), and
   `tbd-fast` (`medium`). Use `tbd-strong-max` for the harder or riskier strong-tier
-  work. A definition changes the model and level only when its level differs from the
-  session’s; it still supplies the body, so prefer a `tbd-*` definition whenever the
-  brief does not restate those rules.
+  work. A definition is needed to set a reasoning level different from the session’s.
+  Independently, it supplies a model default and the body, so prefer a `tbd-*`
+  definition whenever the brief does not restate those rules.
   A session already at `xhigh` gets the same model and level from naming the tier’s
   model on the Agent tool as from `tbd-strong` or `tbd-moderate`. A sub-agent spawned
   without one inherits the session’s level; record that level.
