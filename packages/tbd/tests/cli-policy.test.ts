@@ -1,7 +1,7 @@
 /** End-to-end CLI contract tests for `tbd policy`. */
 
 import { execFile, spawnSync } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,15 +10,19 @@ import { promisify } from 'node:util';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { getCodexTbdSection } from '../src/cli/commands/setup.js';
+import { withSharedDataSyncLock } from '../src/file/common-dir-layout.js';
+import { resolveSharedTbdPaths } from '../src/lib/paths.js';
 import { AGENT_INTEGRATION_FORMAT } from '../src/lib/integration-paths.js';
 import {
   INTEGRATION_END_MARKER,
   POLICIES,
   POLICY_BEGIN_MARKER,
+  POLICY_BLOCK_PROSE,
   POLICY_END_MARKER,
   POLICY_NAMES,
   parsePolicyBlock,
   renderPolicyBlock,
+  withPolicyBlock,
 } from '../src/lib/policy-grants.js';
 import { CURRENT_FORMAT } from '../src/lib/tbd-format.js';
 import { stringifyYaml } from '../src/utils/yaml-utils.js';
@@ -340,45 +344,56 @@ describe('tbd policy show', () => {
 });
 
 describe('tbd policy grant, revoke, and set', () => {
-  it(
-    'round trips each policy and value and preserves unknown policy names',
-    async () => {
+  it.each(POLICY_NAMES)(
+    'round trips %s values and preserves other policy names',
+    async (name) => {
+      const expected: Record<string, string> = Object.fromEntries(
+        POLICY_NAMES.filter((other) => other !== name).map((other) => [
+          other,
+          POLICIES[other].grantValue,
+        ]),
+      );
+      const existing = renderPolicyBlock(
+        [
+          ...Object.entries(expected).map(([other, value]) => ({ name: other, value })),
+          { name: 'future-policy', value: 'keep me' },
+        ],
+        '2026-01-01',
+      );
       const seeded = `# Project\n\n${getCodexTbdSection().replace(
         INTEGRATION_END_MARKER,
-        `${POLICY_BEGIN_MARKER}\n- \`future-policy\`: keep me\n${POLICY_END_MARKER}\n${INTEGRATION_END_MARKER}`,
+        `${existing}${INTEGRATION_END_MARKER}`,
       )}`;
       const dir = await createRepo({ agentsMd: seeded });
 
-      const expected: Record<string, string> = {};
-      const record = (args: string[], name: string, value: string) => {
+      const record = async (args: string[], value: string) => {
         const result = runTbd(dir, ['policy', ...args]);
         expect(result.status, `${args.join(' ')}: ${result.stderr}`).toBe(0);
         expected[name] = value;
+        const parsed = parsePolicyBlock(await readFile(join(dir, 'AGENTS.md'), 'utf-8'));
+        expect(parsed).toMatchObject({
+          status: 'ok',
+          grants: expect.arrayContaining([{ name, value }]),
+        });
       };
 
-      for (const name of POLICY_NAMES) {
-        const revoke = POLICIES[name].revokeValue;
-        if (revoke === null) {
-          continue;
-        }
-        record(['revoke', name], name, revoke);
+      const revoke = POLICIES[name].revokeValue;
+      if (revoke !== null) {
+        await record(['revoke', name], revoke);
       }
-      record(['grant', 'github-workflows'], 'github-workflows', 'granted');
-      record(['grant', 'github-editing'], 'github-editing', 'granted');
-      record(['grant', 'github-merge'], 'github-merge', 'confirm-session');
-      record(['set', 'github-merge', 'autonomous'], 'github-merge', 'autonomous');
-      record(['grant', 'github-stacked-prs'], 'github-stacked-prs', 'granted');
-      record(['grant', 'subagents'], 'subagents', 'granted');
-      record(['grant', 'pr-review-requirements'], 'pr-review-requirements', 'standard');
-      record(['set', 'pr-review-requirements', 'none'], 'pr-review-requirements', 'none');
-      record(
-        ['set', 'pr-review-requirements', 'standard', '+', '2', 'rounds', '+', 'security'],
-        'pr-review-requirements',
-        'standard + security + 2 rounds',
-      );
-      record(['grant', 'linear'], 'linear', 'epics');
-      record(['set', 'linear', 'epics+specs'], 'linear', 'epics + specs');
-      record(['set', 'linear', 'custom'], 'linear', 'custom');
+      await record(['grant', name], POLICIES[name].grantValue);
+      if (name === 'github-merge') {
+        await record(['set', name, 'autonomous'], 'autonomous');
+      } else if (name === 'pr-review-requirements') {
+        await record(['set', name, 'none'], 'none');
+        await record(
+          ['set', name, 'standard', '+', '2', 'rounds', '+', 'security'],
+          'standard + security + 2 rounds',
+        );
+      } else if (name === 'linear') {
+        await record(['set', name, 'epics+specs'], 'epics + specs');
+        await record(['set', name, 'custom'], 'custom');
+      }
 
       const report = showJson(dir);
       for (const [name, value] of Object.entries(expected)) {
@@ -629,6 +644,186 @@ describe('tbd policy grant, revoke, and set', () => {
         answered: true,
         value: 'none',
       });
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+});
+
+describe('policy write serialization', () => {
+  it(
+    'reads after acquiring the shared lock and preserves a concurrent revocation',
+    async () => {
+      const dir = await createRepo();
+      const agentsPath = join(dir, 'AGENTS.md');
+      const original = await readFile(agentsPath, 'utf8');
+      await writeFile(
+        agentsPath,
+        withPolicyBlock(
+          original,
+          renderPolicyBlock([{ name: 'github-merge', value: 'autonomous' }], '2026-09-19'),
+        ),
+      );
+      const paths = await resolveSharedTbdPaths(dir);
+      let completed = false;
+      let command: ReturnType<typeof execFileAsync> | undefined;
+      try {
+        await withSharedDataSyncLock(dir, async () => {
+          command = execFileAsync(process.execPath, [tbdBin, 'policy', 'grant', 'subagents'], {
+            cwd: dir,
+            env: { ...process.env, NO_COLOR: '1' },
+            timeout: CLI_TEST_TIMEOUT_MS,
+          });
+          void command.then(
+            () => {
+              completed = true;
+            },
+            () => {
+              completed = true;
+            },
+          );
+          // Observe an actual contender, rather than sleeping and assuming startup finished.
+          const deadline = Date.now() + CLI_TEST_TIMEOUT_MS / 2;
+          while (
+            !(await readdir(paths.sharedLocksDir)).some((name) =>
+              name.startsWith('data-sync.lock.owner-'),
+            )
+          ) {
+            if (completed || Date.now() > deadline) {
+              throw new Error('Policy command did not wait for the held shared lock');
+            }
+            await new Promise((resolve) => setTimeout(resolve, 25));
+          }
+          expect(completed).toBe(false);
+          await writeFile(
+            agentsPath,
+            withPolicyBlock(
+              original,
+              renderPolicyBlock([{ name: 'github-merge', value: 'never' }], '2026-09-20'),
+            ),
+          );
+        });
+      } finally {
+        // The holder always releases before awaiting the child, including on assertion failure.
+        await command;
+      }
+      expect(parsePolicyBlock(await readFile(agentsPath, 'utf8'))).toMatchObject({
+        status: 'ok',
+        grants: [
+          { name: 'github-merge', value: 'never' },
+          { name: 'subagents', value: 'granted' },
+        ],
+      });
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+});
+
+describe('tbd policy refresh', () => {
+  it(
+    'refreshes old guidance while preserving decisions, notes, date and line endings',
+    async () => {
+      const oldProse = POLICY_BLOCK_PROSE.split('\nOnly the copy committed')[0]!;
+      const current = withPolicyBlock(
+        getCodexTbdSection(),
+        renderPolicyBlock(
+          [
+            { name: 'github-merge', value: 'never' },
+            { name: 'future-policy', value: 'custom decision' },
+          ],
+          '2026-01-02',
+        ),
+      ).replace('Recorded 2026-01-02.', 'Owner note: keep this context.\n\nRecorded 2026-01-02.');
+      const stale = current.replace(POLICY_BLOCK_PROSE, oldProse).replace(/\n/g, '\r\n');
+      const dir = await createRepo({ agentsMd: stale });
+      const path = join(dir, 'AGENTS.md');
+      const dry = runTbd(dir, ['--dry-run', 'policy', 'refresh']);
+      expect(dry.status, dry.stderr).toBe(0);
+      expect(dry.stdout).toContain('Would refresh');
+      expect(await readFile(path, 'utf8')).toBe(stale);
+      const result = runTbd(dir, ['policy', 'refresh']);
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toContain('recorded values are unchanged');
+      const updated = await readFile(path, 'utf8');
+      expect(updated).toBe(current.replace(/\n/g, '\r\n'));
+      const second = runTbd(dir, ['policy', 'refresh', '--json']);
+      expect(second.status, second.stderr).toBe(0);
+      expect(JSON.parse(second.stdout)).toMatchObject({ changed: false });
+      expect(await readFile(path, 'utf8')).toBe(updated);
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'refuses missing policy blocks and symlink targets without changing files',
+    async () => {
+      const dir = await createRepo();
+      const path = join(dir, 'AGENTS.md');
+      const original = await readFile(path, 'utf8');
+      const missing = runTbd(dir, ['policy', 'refresh']);
+      expect(missing.status).toBe(1);
+      expect(await readFile(path, 'utf8')).toBe(original);
+      const external = join(await tempDir('tbd-policy-refresh-target-'), 'AGENTS.md');
+      await writeFile(external, original);
+      await rm(path);
+      await symlink(external, path, 'file');
+      const linked = runTbd(dir, ['policy', 'refresh']);
+      expect(linked.status).toBe(1);
+      expect(linked.stderr).toContain('symbolic link');
+      expect(await readFile(external, 'utf8')).toBe(original);
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+});
+
+describe('policy dry-run shared-state invariant', () => {
+  it.each([
+    ['policy', 'grant', 'subagents'],
+    ['policy', 'refresh'],
+    ['setup', '--auto', '--surfaces=agents-md', '--policies=recommended'],
+  ])(
+    'previews %s %s without creating or changing shared Git metadata',
+    async (...args) => {
+      const current = withPolicyBlock(
+        getCodexTbdSection(),
+        renderPolicyBlock([{ name: 'github-merge', value: 'never' }], '2026-01-02'),
+      );
+      const stale = current.replace(
+        POLICY_BLOCK_PROSE,
+        POLICY_BLOCK_PROSE.split('\nOnly the copy committed')[0]!,
+      );
+      const dir = await createRepo({ agentsMd: stale });
+      const paths = await resolveSharedTbdPaths(dir);
+      await withSharedDataSyncLock(dir, async () => {
+        // Establish shared metadata before asserting that dry runs leave it unchanged.
+      });
+
+      async function snapshot(root: string): Promise<Record<string, string>> {
+        const result: Record<string, string> = {};
+        async function visit(relative: string): Promise<void> {
+          const entries = await readdir(join(root, relative), { withFileTypes: true });
+          for (const entry of entries) {
+            const path = join(relative, entry.name);
+            if (entry.isDirectory()) {
+              result[path] = 'directory';
+              await visit(path);
+            } else {
+              result[path] = (await readFile(join(root, path))).toString('base64');
+            }
+          }
+        }
+        await visit('');
+        return result;
+      }
+
+      const before = await snapshot(paths.sharedTbdDir);
+      const configPath = join(dir, '.tbd/config.yml');
+      const config = await readFile(configPath, 'utf8');
+      const result = runTbd(dir, ['--dry-run', ...args]);
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toContain('[DRY-RUN]');
+      expect(await snapshot(paths.sharedTbdDir)).toEqual(before);
+      expect(await readFile(join(dir, 'AGENTS.md'), 'utf8')).toBe(stale);
+      expect(await readFile(configPath, 'utf8')).toBe(config);
     },
     CLI_TEST_TIMEOUT_MS,
   );

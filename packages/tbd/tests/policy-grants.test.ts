@@ -438,6 +438,93 @@ Example text mentions ${POLICY_BEGIN_MARKER_PREFIX} v=example --> without defini
     }
   });
 
+  it('keeps HTML source positions exact after discarded link definitions', () => {
+    const grant = '- `github-merge`: autonomous';
+    const block = `${POLICY_BEGIN_MARKER}\n${grant}\n${POLICY_END_MARKER}\n`;
+    const definition = `[reference]: https://example.com/${'x'.repeat(300)}\n\n`;
+    for (const tag of ['pre', 'script', 'style', 'textarea', 'div']) {
+      for (const hidden of [
+        `<${tag}>\n${block}</${tag}>\n`,
+        `<${tag}>\n${block}`,
+        `${POLICY_BEGIN_MARKER}\n<${tag}>\n${grant}\n</${tag}>\n\n${POLICY_END_MARKER}\n`,
+      ]) {
+        const parsed = parsePolicyBlock(agentsMdWith(definition + hidden));
+        expect(parsed.status, tag).toBe('malformed');
+        expect(
+          resolvePolicyStatuses(parsed).find((status) => status.name === 'github-merge'),
+        ).toMatchObject({ answered: false, effective: 'confirm-every' });
+      }
+      expect(
+        parsePolicyBlock(agentsMdWith(`${definition}<${tag}>\nexample\n</${tag}>\n\n${block}`)),
+        tag,
+      ).toMatchObject({ status: 'ok', grants: [{ name: 'github-merge', value: 'autonomous' }] });
+    }
+  });
+
+  it('rejects grants and markers hidden in reference definition titles', () => {
+    const grant = '- `github-merge`: autonomous';
+    const block = `${POLICY_BEGIN_MARKER}\n${grant}\n${POLICY_END_MARKER}\n`;
+    for (const [open, close] of [
+      ['"', '"'],
+      ["'", "'"],
+      ['(', ')'],
+    ]) {
+      for (const hidden of [
+        `[reference]: https://example.com ${open}\n${block}${close}\n`,
+        `${POLICY_BEGIN_MARKER}\n[reference]: https://example.com ${open}\n${grant}\n${close}\n\n${POLICY_END_MARKER}\n`,
+      ]) {
+        expect(parsePolicyBlock(agentsMdWith(hidden)).status, hidden).toBe('malformed');
+      }
+      expect(
+        parsePolicyBlock(
+          agentsMdWith(`[reference]: https://example.com ${open}\nexample\n${close}\n\n${block}`),
+        ),
+      ).toMatchObject({ status: 'ok', grants: [{ name: 'github-merge', value: 'autonomous' }] });
+    }
+  });
+
+  it('rejects HTML and reference titles nested in list containers', () => {
+    const grant = '- `github-merge`: autonomous';
+    const block = `${POLICY_BEGIN_MARKER}\n${grant}\n${POLICY_END_MARKER}\n`;
+    for (const hidden of [
+      `<pre>\n${block}</pre>\n`,
+      `[reference]: https://example.com "\n${block}"\n`,
+    ]) {
+      const nested = '- ' + hidden.trimEnd().split('\n').join('\n  ') + '\n';
+      expect(parsePolicyBlock(agentsMdWith(nested)).status, nested).toBe('malformed');
+    }
+    for (const example of [
+      '- <pre>\n  example\n  </pre>\n\n',
+      '> <pre>\n> example\n> </pre>\n\n',
+      '- [reference]: https://example.com "\n  example\n  "\n\n',
+    ]) {
+      expect(parsePolicyBlock(agentsMdWith(example + block)), example).toMatchObject({
+        status: 'ok',
+        grants: [{ name: 'github-merge', value: 'autonomous' }],
+      });
+    }
+  });
+
+  it('keeps reference-shaped paragraph text visible', () => {
+    const block = `${POLICY_BEGIN_MARKER}\n- \`github-merge\`: autonomous\n${POLICY_END_MARKER}\n`;
+    // A definition cannot interrupt a paragraph. Its apparent title is visible
+    // Markdown here, so a following block is not hidden by a reference definition.
+    expect(
+      parsePolicyBlock(agentsMdWith(`Paragraph\n[reference]: https://example.com "\n${block}"\n`)),
+    ).toMatchObject({ status: 'ok', grants: [{ name: 'github-merge', value: 'autonomous' }] });
+  });
+
+  it('rejects policy blocks inside list-nested fenced code', () => {
+    const block = `${POLICY_BEGIN_MARKER}\n- \`github-merge\`: autonomous\n${POLICY_END_MARKER}\n`;
+    for (const delimiter of ['```', '~~~~']) {
+      const hidden = `- ${delimiter}\n  ${block.trimEnd().split('\n').join('\n  ')}\n  ${delimiter}\n\n`;
+      expect(parsePolicyBlock(agentsMdWith(hidden)).status, hidden).toBe('malformed');
+      expect(
+        parsePolicyBlock(agentsMdWith(`- ${delimiter}\n  example\n  ${delimiter}\n\n${block}`)),
+      ).toMatchObject({ status: 'ok', grants: [{ name: 'github-merge', value: 'autonomous' }] });
+    }
+  });
+
   it('reads a block in a file that uses lone carriage returns', () => {
     const lf = agentsMdWith(GUIDELINE_BLOCK);
     expect(parsePolicyBlock(lf.replace(/\n/gu, '\r'))).toEqual(parsePolicyBlock(lf));

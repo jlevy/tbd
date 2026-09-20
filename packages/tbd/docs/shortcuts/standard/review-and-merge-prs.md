@@ -181,18 +181,32 @@ Several PRs when the request names more than one):
    - Reviews run in sequence in the tree, because they share it and each may run tests;
      do not change the tree while a reviewer works in it
 
-   - Verify each review before starting the next: it exists, carries its marker with the
-     expected `id`, `kind`, `pr`, `round`, and `head=HEAD_SHA`, and is bound to that
-     head:
+   - Verify each review before starting the next on its actual published channel.
+     Sweep both formal reviews and PR issue comments for the reported letter, retrieving
+     the body and URL:
 
      ```bash
      gh api --paginate repos/$REPO/pulls/<N>/reviews \
-       --jq '.[] | select(.body | contains("<!-- tbd:review v=1 id=<letter> ")) | {commit_id, html_url}'
+       --jq '.[] | select(.body | contains("<!-- tbd:review v=1 id=<letter> ")) | {commit_id, html_url, body}'
+     gh api --paginate repos/$REPO/issues/<N>/comments \
+       --jq '.[] | select(.body | contains("<!-- tbd:review v=1 id=<letter> ")) | {html_url, body}'
      ```
 
-     `commit_id` must equal `HEAD_SHA`. On another channel, check the artifact where the
-     report says it is. Re-read `headRefOid`; if the head moved, re-pin and re-scope
-     (Handle Failure in `delegate-to-subagents`)
+     The prefix query only finds candidates; compare the complete marker in the
+     retrieved body against every expected field, including the pinned base:
+
+     ```markdown
+     <!-- tbd:review v=1 id=<letter> kind=<kind> pr=<N> round=<round> head=<HEAD_SHA> base=<BASE_SHA> -->
+     ```
+
+     For a formal review, `commit_id` must also equal `HEAD_SHA`. For another reported
+     channel, retrieve the actual issue body, comment, or committed review document at
+     its reported URL and verify the same complete marker.
+     A scratch or worktree file is not publication.
+     Stop if the published artifact or matching marker is missing; have the reviewer
+     publish or repair it before starting the next review.
+     Re-read `headRefOid`; if the head moved, re-pin and re-scope (Handle Failure in
+     `delegate-to-subagents`)
 
    - Record per review: letter, kind, round, URL, findings by severity, and the Blocker
      and High IDs

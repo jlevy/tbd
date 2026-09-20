@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { execSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { ISSUE_TITLE_MAX_LENGTH } from '../src/lib/schemas.js';
 import { subprocessTestTimeout, TEST_ULIDS, testId } from './test-helpers.js';
 
@@ -27,23 +27,55 @@ describe('corrupted data scenarios', { timeout: subprocessTestTimeout() }, () =>
     await rm(tempDir, { recursive: true, force: true });
   });
 
-  /**
-   * Helper to run tbd command.
-   */
-  function runTbd(
+  interface CommandResult {
+    stdout: string;
+    stderr: string;
+    status: number;
+  }
+
+  // Vitest cannot interrupt spawnSync, so bound the subprocess itself as well.
+  function runCommand(
+    command: string,
     args: string[],
     cwd = tempDir,
-  ): { stdout: string; stderr: string; status: number } {
-    const result = spawnSync('node', [tbdBin, ...args], {
+    timeout = subprocessTestTimeout(),
+  ): CommandResult {
+    const result = spawnSync(command, args, {
       cwd,
       encoding: 'utf-8',
       env: { ...process.env, FORCE_COLOR: '0' },
+      timeout,
+      killSignal: 'SIGKILL',
     });
+    if (result.error || result.signal) {
+      throw new Error(
+        `${command} ${args.join(' ')}: status=${result.status}, signal=${result.signal}, ` +
+          `error=${result.error?.message ?? 'none'}\n` +
+          `stdout:\n${result.stdout ?? ''}\nstderr:\n${result.stderr ?? ''}`,
+      );
+    }
     return {
       stdout: result.stdout || '',
       stderr: result.stderr || '',
       status: result.status ?? 1,
     };
+  }
+
+  function requireSuccess(command: string, result: CommandResult): CommandResult {
+    if (result.status !== 0) {
+      throw new Error(
+        `${command}: status=${result.status}\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`,
+      );
+    }
+    return result;
+  }
+
+  function runTbd(args: string[], cwd = tempDir): CommandResult {
+    return runCommand(process.execPath, [tbdBin, ...args], cwd);
+  }
+
+  function runGit(args: string[]): string {
+    return requireSuccess(`git ${args.join(' ')}`, runCommand('git', args)).stdout.trim();
   }
 
   /**
@@ -55,20 +87,42 @@ describe('corrupted data scenarios', { timeout: subprocessTestTimeout() }, () =>
    * silently fail and leave the worktree HEAD unresolved, which makes the
    * doctor's Worktree health check fire spuriously.
    */
-  function initGitAndTbd(): void {
-    execSync('git init --initial-branch=main', { cwd: tempDir });
-    execSync('git config user.email "test@example.com"', { cwd: tempDir });
-    execSync('git config user.name "Test"', { cwd: tempDir });
-    execSync('git config commit.gpgsign false', { cwd: tempDir });
-    execSync('git config tag.gpgsign false', { cwd: tempDir });
-    runTbd(['init', '--prefix=test']);
+  function initGitAndTbd(initializeTbd = runTbd): void {
+    runGit(['init', '--initial-branch=main']);
+    runGit(['config', 'user.email', 'test@example.com']);
+    runGit(['config', 'user.name', 'Test']);
+    runGit(['config', 'commit.gpgsign', 'false']);
+    runGit(['config', 'tag.gpgsign', 'false']);
+    requireSuccess('tbd init', initializeTbd(['init', '--prefix=test']));
   }
 
+  it('stops at a failed fixture initialization and reports its output', () => {
+    const failedInit = () => ({
+      status: 1,
+      stdout: 'initialization started',
+      stderr: 'injected initialization failure',
+    });
+    expect(() => {
+      initGitAndTbd(failedInit);
+    }).toThrow(
+      /tbd init.*status=1[\s\S]*initialization started[\s\S]*injected initialization failure/u,
+    );
+  });
+
+  it('terminates a hung subprocess and reports its status and output', () => {
+    expect(() =>
+      runCommand(
+        process.execPath,
+        ['-e', 'process.stdout.write("waiting"); setInterval(() => {}, 1000)'],
+        tempDir,
+        // Deliberately exercise the timeout, without the Windows integration-test floor.
+        1000,
+      ),
+    ).toThrow(/status=.*signal=.*error=.*ETIMEDOUT[\s\S]*stdout:[\s\S]*stderr:/u);
+  });
+
   function sharedDataSyncDir(): string {
-    const gitCommonDir = execSync('git rev-parse --path-format=absolute --git-common-dir', {
-      cwd: tempDir,
-      encoding: 'utf-8',
-    }).trim();
+    const gitCommonDir = runGit(['rev-parse', '--path-format=absolute', '--git-common-dir']);
     return join(gitCommonDir, 'tbd', 'data-sync-worktree', '.tbd', 'data-sync');
   }
 
@@ -77,8 +131,7 @@ describe('corrupted data scenarios', { timeout: subprocessTestTimeout() }, () =>
       initGitAndTbd();
 
       // Create a valid issue first
-      const createResult = runTbd(['create', 'Test issue', '--type=task']);
-      expect(createResult.status).toBe(0);
+      requireSuccess('tbd create', runTbd(['create', 'Test issue', '--type=task']));
 
       // Now corrupt the ids.yml file with merge conflict markers
       const idsPath = join(sharedDataSyncDir(), 'mappings', 'ids.yml');
@@ -103,7 +156,7 @@ c3d4: 01hx5zzkbkbctav9wevgemmvrw
       initGitAndTbd();
 
       // Create a valid issue first
-      runTbd(['create', 'Test issue', '--type=task']);
+      requireSuccess('tbd create', runTbd(['create', 'Test issue', '--type=task']));
 
       // Corrupt ids.yml
       const idsPath = join(sharedDataSyncDir(), 'mappings', 'ids.yml');
@@ -122,7 +175,7 @@ c3d4: 01hx5zzkbkbctav9wevgemmvrw
       initGitAndTbd();
 
       // Create a valid issue first
-      runTbd(['create', 'Test issue', '--type=task']);
+      requireSuccess('tbd create', runTbd(['create', 'Test issue', '--type=task']));
 
       // Corrupt ids.yml with invalid YAML
       const idsPath = join(sharedDataSyncDir(), 'mappings', 'ids.yml');
@@ -140,8 +193,7 @@ c3d4: 01hx5zzkbkbctav9wevgemmvrw
     it('skips invalid issue files and reports them in doctor', async () => {
       initGitAndTbd();
 
-      const createResult = runTbd(['create', 'Valid issue', '--type=task']);
-      expect(createResult.status).toBe(0);
+      requireSuccess('tbd create', runTbd(['create', 'Valid issue', '--type=task']));
 
       const invalidId = testId(TEST_ULIDS.DOCTOR_4);
       const issuePath = join(sharedDataSyncDir(), 'issues', `${invalidId}.md`);

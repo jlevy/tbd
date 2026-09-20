@@ -194,6 +194,13 @@ tbd setup --auto
 - **README**: Rewritten around one capability list matching the skill, a request table
   with the full review vocabulary, the six setup surfaces, and a summary of policy
   grants and delegation.
+- **Policy and setup review follow-ups**: Policy writes and setup updates serialize
+  their read/modify/write cycle so concurrent commands preserve grants and revocations.
+  Setup preserves the existing AGENTS.md line endings.
+  Doctor detects outdated generated policy guidance; `tbd policy refresh` repairs it
+  without changing grant values, dates, or user notes.
+  Cold documentation caches report unknown skill freshness, and regression tests compare
+  both installed skill copies byte for byte with generated output.
 - **Reviewable PR units**: `stacked-prs` now states when a change is its own PR versus
   consolidated spec work in a stack (typically 8 PRs or fewer).
   The create-PR and review shortcuts route informal `--base` chains through that rule.

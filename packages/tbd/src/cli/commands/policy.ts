@@ -15,6 +15,7 @@ import { writeFile } from 'atomically';
 import { Command } from 'commander';
 
 import { getCurrentBranch } from '../../file/git.js';
+import { withSharedDataSyncLock } from '../../file/common-dir-layout.js';
 import { AGENTS_MD_REL } from '../../lib/integration-paths.js';
 import type {
   DefaultBranchRef,
@@ -43,6 +44,7 @@ import {
   upsertGrant,
   withPolicyBlock,
 } from '../../lib/policy-grants.js';
+import { refreshPolicyBlockProse } from '../../lib/policy-block-prose.js';
 import { BaseCommand } from '../lib/base-command.js';
 import { CLIError, ValidationError, requireInit } from '../lib/errors.js';
 import { assertSafeManagedArtifactTarget } from '../lib/managed-artifact.js';
@@ -265,57 +267,70 @@ class PolicyRecordHandler extends BaseCommand {
     const value = resolveValue(verb, policyName, rawValue);
     const agentsPath = join(tbdRoot, AGENTS_MD_REL);
 
-    await this.execute(
-      () => assertSafeManagedArtifactTarget(agentsPath, { allowMissing: true }),
-      `Failed to inspect ${AGENTS_MD_REL}`,
-    );
-
-    let content: string;
-    try {
-      content = await readFile(agentsPath, 'utf-8');
-    } catch (error) {
-      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-        throw new CLIError(`${AGENTS_MD_REL} not found; ${SETUP_AGENTS_MD_HINT}`);
-      }
-      throw error;
-    }
-
-    const parse = parsePolicyBlock(content);
-    let grants = parse.status === 'ok' ? parse.grants : [];
-    switch (parse.status) {
-      case 'unknown-version':
-        throw new CLIError(unknownVersionMessage(AGENTS_MD_REL, parse.version));
-      case 'malformed':
-        throw new CLIError(malformedMessage(AGENTS_MD_REL, parse.problems));
-      case 'missing':
-      case 'ok':
-        break;
-      default: {
-        const _exhaustive: never = parse;
-        throw new Error(`Unhandled parse status: ${JSON.stringify(_exhaustive)}`);
-      }
-    }
-
-    grants = upsertGrant(grants, policyName, value);
     const recorded = todayDate();
-    let updated: string;
-    try {
-      updated = withPolicyBlock(content, renderPolicyBlock(grants, recorded));
-    } catch (error) {
-      if (error instanceof PolicyBlockError) {
-        throw new CLIError(error.message);
+    // Serialize the entire read/compute/write, including setup's recommended grants.
+    // Atomic publication alone cannot prevent a concurrent revocation being lost.
+    const update = async () => {
+      await this.execute(
+        () => assertSafeManagedArtifactTarget(agentsPath, { allowMissing: true }),
+        `Failed to inspect ${AGENTS_MD_REL}`,
+      );
+
+      let content: string;
+      try {
+        content = await readFile(agentsPath, 'utf-8');
+      } catch (error) {
+        if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+          throw new CLIError(`${AGENTS_MD_REL} not found; ${SETUP_AGENTS_MD_HINT}`);
+        }
+        throw error;
       }
-      throw error;
+
+      const parse = parsePolicyBlock(content);
+      let grants = parse.status === 'ok' ? parse.grants : [];
+      switch (parse.status) {
+        case 'unknown-version':
+          throw new CLIError(unknownVersionMessage(AGENTS_MD_REL, parse.version));
+        case 'malformed':
+          throw new CLIError(malformedMessage(AGENTS_MD_REL, parse.problems));
+        case 'missing':
+        case 'ok':
+          break;
+        default: {
+          const _exhaustive: never = parse;
+          throw new Error(`Unhandled parse status: ${JSON.stringify(_exhaustive)}`);
+        }
+      }
+
+      grants = upsertGrant(grants, policyName, value);
+      let updated: string;
+      try {
+        updated = withPolicyBlock(content, renderPolicyBlock(grants, recorded));
+      } catch (error) {
+        if (error instanceof PolicyBlockError) {
+          throw new CLIError(error.message);
+        }
+        throw error;
+      }
+
+      if (this.checkDryRun(`Would record ${policyName}: ${value} in ${AGENTS_MD_REL}`)) {
+        return;
+      }
+
+      await this.execute(async () => {
+        await assertSafeManagedArtifactTarget(agentsPath);
+        await writeFile(agentsPath, updated);
+      }, `Failed to write ${AGENTS_MD_REL}`);
+    };
+    if (this.ctx.dryRun) {
+      await update();
+    } else {
+      await withSharedDataSyncLock(tbdRoot, update);
     }
 
-    if (this.checkDryRun(`Would record ${policyName}: ${value} in ${AGENTS_MD_REL}`)) {
+    if (this.ctx.dryRun) {
       return;
     }
-
-    await this.execute(async () => {
-      await assertSafeManagedArtifactTarget(agentsPath);
-      await writeFile(agentsPath, updated);
-    }, `Failed to write ${AGENTS_MD_REL}`);
 
     const source = (await readEffectiveGrants(tbdRoot)).source;
     const effectHint = await describeHowToTakeEffect(tbdRoot, source);
@@ -326,6 +341,49 @@ class PolicyRecordHandler extends BaseCommand {
         console.log(`  ${effectHint} \`tbd policy show\` reports effective grants.`);
       },
     );
+  }
+}
+
+/** Refresh generated guidance without changing any recorded policy decision. */
+class PolicyRefreshHandler extends BaseCommand {
+  async run(): Promise<void> {
+    const tbdRoot = await requireInit();
+    const agentsPath = join(tbdRoot, AGENTS_MD_REL);
+    let changed = false;
+    const update = async () => {
+      await assertSafeManagedArtifactTarget(agentsPath);
+      const content = await readFile(agentsPath, 'utf8');
+      let updated: string;
+      try {
+        updated = refreshPolicyBlockProse(content);
+      } catch (error) {
+        if (error instanceof PolicyBlockError) {
+          throw new CLIError(error.message);
+        }
+        throw error;
+      }
+      changed = updated !== content;
+      if (!changed || this.checkDryRun(`Would refresh policy guidance in ${AGENTS_MD_REL}`)) {
+        return;
+      }
+      await assertSafeManagedArtifactTarget(agentsPath);
+      await writeFile(agentsPath, updated);
+    };
+    if (this.ctx.dryRun) {
+      await update();
+    } else {
+      await withSharedDataSyncLock(tbdRoot, update);
+    }
+    if (this.ctx.dryRun) {
+      return;
+    }
+    this.output.data({ file: AGENTS_MD_REL, changed }, () => {
+      this.output.success(
+        changed
+          ? `Refreshed policy guidance in ${AGENTS_MD_REL}; recorded values are unchanged`
+          : `Policy guidance in ${AGENTS_MD_REL} is current`,
+      );
+    });
   }
 }
 
@@ -419,9 +477,16 @@ const setPolicyCommand = new Command('set')
     await handler.run('set', policy, value.join(' '));
   });
 
+const refreshPolicyCommand = new Command('refresh')
+  .description('Refresh generated policy guidance without changing recorded grants')
+  .action(async (_options, command) => {
+    await new PolicyRefreshHandler(command).run();
+  });
+
 export const policyCommand = new Command('policy')
   .description('Show and record agent policy grants')
   .addCommand(showPolicyCommand, { isDefault: true })
   .addCommand(grantPolicyCommand)
   .addCommand(revokePolicyCommand)
-  .addCommand(setPolicyCommand);
+  .addCommand(setPolicyCommand)
+  .addCommand(refreshPolicyCommand);

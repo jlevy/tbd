@@ -315,6 +315,7 @@ tbd policy show                            # Answered and unanswered policies, w
 tbd policy grant subagents                 # Record the recommended value
 tbd policy revoke github-merge             # Record the revoke value, what an unanswered policy takes
 tbd policy set pr-review-requirements standard + 2 rounds   # Record any valid value
+tbd policy refresh                         # Refresh guidance, preserving decisions and notes
 tbd setup --auto --policies=recommended    # Record the recommended set for every unanswered policy (Linear is asked separately)
 ```
 

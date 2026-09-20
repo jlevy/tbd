@@ -4211,6 +4211,7 @@ tbd policy show                        # Default subcommand; --json for the full
 tbd policy grant <policy>              # Record the recommended value (linear: epics)
 tbd policy revoke <policy>             # Record the ask-first default
 tbd policy set <policy> <value...>     # Record any valid value, e.g. standard + 2 rounds
+tbd policy refresh                    # Update generated guidance, preserving decisions
 ```
 
 `tbd policy` reads and edits the policy block in `AGENTS.md` (§6.4.8). `show` lists
@@ -4227,7 +4228,11 @@ They never commit. `tbd policy revoke` records each policy’s ask-first default
 value, `github-merge: never` and `github-merge: autonomous` among them, is recorded
 through `set`. The commands require an `AGENTS.md` that holds the tbd block, and refuse
 to write over a malformed or unknown-version policy block.
-`--dry-run` reports the grant without writing.
+`tbd policy refresh` updates recognized old guidance without changing grant lines,
+notes, or the recorded date, and restamps the integration block with the current format.
+Unknown prose edits, newer integration formats, and unreadable policy blocks are
+refused. `--dry-run` previews the update without changing project files or shared
+metadata.
 
 ### 4.10 Global Options
 
@@ -5863,12 +5868,18 @@ and `tbd setup --policies=recommended`, which records the recommended value for 
 unanswered policy, keeps answered ones, leaves `linear` for a separate question, and is
 an error when `--surfaces` excludes `agents-md`. Writing a block restamps the tbd
 block’s begin marker with the current integration format (§6.4.6). Neither command
-commits; recording a grant is an ordinary commit to `AGENTS.md`.
+commits; recording a grant is an ordinary commit to `AGENTS.md`. Policy writes and setup
+block rewrites hold the shared data-sync lock across the complete read/compute/write
+operation so a concurrent grant or revocation cannot be overwritten from a stale read.
+Dry runs perform the validation without acquiring the mutating lock.
 
 **Preservation.** When setup regenerates the tbd block, it carries the existing policy
 block over byte for byte, including policy names it does not recognize, which may come
 from a newer release.
-Setup never adds, removes, or changes a grant without the explicit flag.
+Setup preserves the existing file’s CRLF or LF convention when regenerating its block.
+It never adds, removes, or changes a grant without the explicit flag.
+Doctor detects stale generated policy guidance; the explicit `tbd policy refresh`
+command repairs recognized prose while preserving user notes and recorded decisions.
 It stops before writing `AGENTS.md` when the block is malformed or has an unknown
 version, so no grant is lost, and a release older than the split refuses the f100 block
 (§6.4.6).

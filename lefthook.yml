@@ -29,9 +29,9 @@ pre-commit:
     #
     # Excludes auto-generated files (.tbd/, .claude/skills/, .claude/agents/,
     # .agents/skills/, skills/tbd/, AGENTS.md) — these must match their generator
-    # byte-for-byte. Drift tests cover skills/tbd/SKILL.md and the eight tier-agent
-    # files; the installed .claude/skills/ and .agents/skills/ copies are checked only
-    # for content today, because composing them needs the doc cache (bead tbd-7iem).
+    # byte-for-byte. Drift tests cover skills/tbd/SKILL.md, the eight tier-agent
+    # files, and both installed .claude/skills/ and .agents/skills/ copies; the latter
+    # regenerate in an isolated fixture with the project's documentation sources.
     # CI `format:md` also skips `*/.claude/*`
     # (and never even walks repo-root `.claude/`), so the hook must not reflow
     # `.claude/agents/**` either. The generator emits the canonical bytes.

@@ -94,6 +94,7 @@ import {
   readWorkingTreeGrants,
   renderPolicyBlock,
   upsertGrant,
+  usesCrlf,
   withPolicyBlock,
   type PolicyBlockParse,
   type PolicyGrant,
@@ -1616,19 +1617,34 @@ class SetupCodexHandler extends BaseCommand {
     }
 
     if (options.remove) {
-      await this.removeCodexSection(agentsPath);
+      await this.withAgentsMdLock(agentsPath, () => this.removeCodexSection(agentsPath));
       await this.removeCodexHooks(cwd);
       return;
     }
 
-    await this.installCodexSection(agentsPath);
+    await this.withAgentsMdLock(agentsPath, () => this.installCodexSection(agentsPath));
     await this.installCodexHooks(cwd);
   }
 
   /** Install only the AGENTS.md managed block (the `agents-md` surface). */
   async runAgentsMdOnly(): Promise<void> {
     const cwd = this.projectDir ?? process.cwd();
-    await this.installCodexSection(join(cwd, 'AGENTS.md'));
+    const agentsPath = join(cwd, 'AGENTS.md');
+    await this.withAgentsMdLock(agentsPath, () => this.installCodexSection(agentsPath));
+  }
+
+  /** Serialize whole-block rewrites with policy writers, which use the same mutex. */
+  private async withAgentsMdLock(
+    agentsPath: string,
+    operation: () => Promise<void>,
+  ): Promise<void> {
+    const projectDir = dirname(agentsPath);
+    // Surgical integration setup also works outside Git, where no policy writer exists.
+    if (!this.ctx.dryRun && (await isInGitRepo(projectDir))) {
+      await withSharedDataSyncLock(projectDir, operation);
+    } else {
+      await operation();
+    }
   }
 
   /** Install only the Codex lifecycle hooks (the `codex` surface). */
@@ -1865,7 +1881,11 @@ class SetupCodexHandler extends BaseCommand {
         }
         // Carry recorded grants over unchanged; a policy block this tbd cannot
         // read stops setup here, before anything is written.
-        const tbdSection = getCodexTbdSectionPreservingGrants(existingContent);
+        const newline = usesCrlf(existingContent) ? '\r\n' : '\n';
+        const tbdSection = getCodexTbdSectionPreservingGrants(existingContent).replace(
+          /\n/gu,
+          newline,
+        );
         if (blockLocation) {
           newContent = this.updatetbdSection(existingContent, blockLocation, tbdSection);
           await assertSafeManagedArtifactTarget(agentsPath);
@@ -1873,7 +1893,7 @@ class SetupCodexHandler extends BaseCommand {
           this.output.success('Updated existing tbd section in AGENTS.md');
         } else {
           // Append section to existing file
-          newContent = existingContent + '\n\n' + tbdSection;
+          newContent = existingContent + newline + newline + tbdSection;
           await assertSafeManagedArtifactTarget(agentsPath);
           await writeFile(agentsPath, newContent);
           this.output.success('Added tbd section to existing AGENTS.md');
@@ -2978,68 +2998,75 @@ class SetupAutoHandler extends BaseCommand {
    * nothing when every recommended policy is already answered.
    */
   private async recordRecommendedGrants(cwd: string): Promise<void> {
-    const colors = this.output.getColors();
-    const agentsPath = getAgentsMdPath(cwd);
-    await assertSafeManagedArtifactTarget(agentsPath, { allowMissing: true });
-    let content = '';
-    try {
-      content = await readFile(agentsPath, 'utf-8');
-    } catch (error) {
-      // A dry run reaches here before AGENTS.md exists; a real run has just written it.
-      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
-        throw error;
-      }
-    }
-    const plan = planRecommendedGrants(content);
-
-    if (this.ctx.dryRun) {
-      if (plan.added.length > 0) {
-        const grants = plan.added.map((grant) => `${grant.name}: ${grant.value}`).join(', ');
-        this.output.dryRun(`Would record policy grants in AGENTS.md: ${grants}`);
-      }
-      return;
-    }
-
-    if (plan.added.length > 0) {
-      let updated: string;
+    const update = async () => {
+      const colors = this.output.getColors();
+      const agentsPath = getAgentsMdPath(cwd);
+      await assertSafeManagedArtifactTarget(agentsPath, { allowMissing: true });
+      let content = '';
       try {
-        updated = withPolicyBlock(content, renderPolicyBlock(plan.grants, todayDate()));
+        content = await readFile(agentsPath, 'utf-8');
       } catch (error) {
-        if (error instanceof PolicyBlockError) {
-          throw new CLIError(error.message);
+        // A dry run reaches here before AGENTS.md exists; a real run has just written it.
+        if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
+          throw error;
         }
-        throw error;
       }
-      await assertSafeManagedArtifactTarget(agentsPath);
-      await writeFile(agentsPath, updated);
-    }
+      const plan = planRecommendedGrants(content);
 
-    console.log(colors.bold('Policy grants (--policies=recommended):'));
-    for (const grant of plan.added) {
-      console.log(`  ${colors.success('✓')} Recorded ${grant.name}: ${grant.value}`);
-    }
-    for (const grant of plan.kept) {
-      console.log(
-        colors.dim(
-          `  - Kept ${grant.name}: ${grant.value} (already answered; change it with \`tbd policy\`)`,
-        ),
-      );
-    }
-    if (plan.added.length === 0) {
-      console.log('  Every recommended policy is already answered; nothing recorded.');
-    }
-    if (!plan.grants.some((grant) => grant.name === 'linear')) {
-      console.log(
-        '  linear is not in the recommended set and stays unanswered; ask the user separately.',
-      );
-    }
-    if (plan.added.some((grant) => grant.name.startsWith('github-'))) {
-      console.log('  GitHub grants need gh authentication; see `tbd shortcut setup-github-cli`.');
-    }
-    if (plan.added.length > 0) {
-      console.log(
-        '  Commit AGENTS.md and merge it to the default branch for the grants to take effect.',
-      );
+      if (this.ctx.dryRun) {
+        if (plan.added.length > 0) {
+          const grants = plan.added.map((grant) => `${grant.name}: ${grant.value}`).join(', ');
+          this.output.dryRun(`Would record policy grants in AGENTS.md: ${grants}`);
+        }
+        return;
+      }
+
+      if (plan.added.length > 0) {
+        let updated: string;
+        try {
+          updated = withPolicyBlock(content, renderPolicyBlock(plan.grants, todayDate()));
+        } catch (error) {
+          if (error instanceof PolicyBlockError) {
+            throw new CLIError(error.message);
+          }
+          throw error;
+        }
+        await assertSafeManagedArtifactTarget(agentsPath);
+        await writeFile(agentsPath, updated);
+      }
+
+      console.log(colors.bold('Policy grants (--policies=recommended):'));
+      for (const grant of plan.added) {
+        console.log(`  ${colors.success('✓')} Recorded ${grant.name}: ${grant.value}`);
+      }
+      for (const grant of plan.kept) {
+        console.log(
+          colors.dim(
+            `  - Kept ${grant.name}: ${grant.value} (already answered; change it with \`tbd policy\`)`,
+          ),
+        );
+      }
+      if (plan.added.length === 0) {
+        console.log('  Every recommended policy is already answered; nothing recorded.');
+      }
+      if (!plan.grants.some((grant) => grant.name === 'linear')) {
+        console.log(
+          '  linear is not in the recommended set and stays unanswered; ask the user separately.',
+        );
+      }
+      if (plan.added.some((grant) => grant.name.startsWith('github-'))) {
+        console.log('  GitHub grants need gh authentication; see `tbd shortcut setup-github-cli`.');
+      }
+      if (plan.added.length > 0) {
+        console.log(
+          '  Commit AGENTS.md and merge it to the default branch for the grants to take effect.',
+        );
+      }
+    };
+    if (this.ctx.dryRun) {
+      await update();
+    } else {
+      await withSharedDataSyncLock(cwd, update);
     }
   }
 

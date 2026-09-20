@@ -21,6 +21,7 @@ import { policyGrantFindings } from '../src/cli/commands/doctor.js';
 import { getCodexTbdSection } from '../src/cli/commands/setup.js';
 import {
   POLICY_BEGIN_MARKER,
+  POLICY_BLOCK_PROSE,
   POLICY_END_MARKER,
   parsePolicyBlock,
   resolvePolicyStatuses,
@@ -47,7 +48,7 @@ function agentsMd(blockLines: string[] | null, beginMarker = POLICY_BEGIN_MARKER
       ? getCodexTbdSection()
       : withPolicyBlock(
           getCodexTbdSection(),
-          `${beginMarker}\n${blockLines.join('\n')}\n${POLICY_END_MARKER}\n`,
+          `${beginMarker}\n${POLICY_BLOCK_PROSE}\n\n${blockLines.join('\n')}\n${POLICY_END_MARKER}\n`,
         );
   return `# Project\n\n${section}`;
 }
@@ -71,6 +72,31 @@ function workingTreeFrom(content: string | null): WorkingTreeGrants {
 }
 
 describe('policyGrantFindings', () => {
+  it('warns on stale guidance and keeps warning until the default branch is refreshed', () => {
+    const current = agentsMd(['- `subagents`: granted']);
+    const stale = current.replace(
+      POLICY_BLOCK_PROSE,
+      POLICY_BLOCK_PROSE.split('\nOnly the copy')[0]!,
+    );
+    expect(policyGrantFindings(effectiveFrom(stale), workingTreeFrom(stale))).toEqual([
+      expect.objectContaining({
+        status: 'warn',
+        message: 'policy block guidance is stale or missing',
+        suggestion: expect.stringContaining('tbd policy refresh'),
+      }),
+    ]);
+    expect(policyGrantFindings(effectiveFrom(stale), workingTreeFrom(current))).toEqual([
+      expect.objectContaining({
+        status: 'warn',
+        message: 'policy block guidance on origin/main is stale or missing',
+      }),
+    ]);
+    const rewrapped = current.replace(POLICY_BLOCK_PROSE, POLICY_BLOCK_PROSE.replace(/\s+/gu, ' '));
+    expect(policyGrantFindings(effectiveFrom(rewrapped), workingTreeFrom(rewrapped))).toEqual([
+      expect.objectContaining({ status: 'ok' }),
+    ]);
+  });
+
   it('adds no line when no policy block is recorded anywhere', () => {
     expect(
       policyGrantFindings(effectiveFrom(agentsMd(null)), workingTreeFrom(agentsMd(null))),

@@ -391,6 +391,22 @@ describe('review lifecycle contract', () => {
       }
     });
 
+    it('verifies the complete review marker on the published channel before continuing', async () => {
+      const reviewStep = step(await shortcutDoc('review-and-merge-prs'), 2);
+      const prose = collapse(reviewStep);
+      expect(reviewStep).toContain('repos/$REPO/pulls/<N>/reviews');
+      expect(reviewStep).toContain('repos/$REPO/issues/<N>/comments');
+      expect(reviewStep).toContain('{commit_id, html_url, body}');
+      expect(reviewStep).toContain('{html_url, body}');
+      expect(
+        markers(reviewStep).some((marker) => marker.name === 'review' && marker.complete),
+      ).toBe(true);
+      expect(prose).toContain('compare the complete marker');
+      expect(prose).toContain('actual published channel');
+      expect(prose).toContain('A scratch or worktree file is not publication');
+      expect(prose).toContain('Stop if the published artifact or matching marker is missing');
+    });
+
     it('defines exactly the five review kinds and maps each to its review engine', async () => {
       const workflows = collapse(
         section(await shortcutDoc('pr-review-workflows'), '### Review Header and Marker'),

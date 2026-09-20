@@ -244,6 +244,9 @@ selection when the user wants it is `epics`.
   for that value: `github-merge: never`, `github-merge: autonomous`, and
   `pr-review-requirements: none` among them.
   To make a policy unanswered again, delete its line by hand.
+  If doctor reports stale generated policy guidance, `tbd policy refresh` updates the
+  known prose while preserving grant lines, the recorded date, and user notes.
+  Review and commit the result; this command does not grant or revoke permission.
 
 - **Agents record only explicit grants.** An agent records a grant only when the user
   explicitly grants it in the conversation; it never infers a grant from memory or from

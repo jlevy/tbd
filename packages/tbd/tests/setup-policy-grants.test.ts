@@ -300,6 +300,30 @@ describe('AGENTS.md managed block boundaries', () => {
     CLI_TEST_TIMEOUT_MS,
   );
 
+  it.each(['stale block', 'missing block'] as const)(
+    'keeps every line CRLF when setup rewrites a %s',
+    async (state) => {
+      const dir = await setUpRepo();
+      const path = join(dir, 'AGENTS.md');
+      const source =
+        state === 'stale block' ? staleAgentsMd(HAND_BLOCK) : '# Project\n\nKeep my notes.\n';
+      const before = source.replace(/\n/gu, '\r\n');
+      await writeFile(path, before);
+      const result = runTbd(dir, ['setup', '--auto', '--surfaces=agents-md']);
+      expect(result.status, result.stderr).toBe(0);
+      const after = await readFile(path, 'utf-8');
+      expect(after).toContain('\r\n');
+      expect(after).not.toMatch(/(?<!\r)\n/u);
+      if (state === 'stale block') {
+        expect(after).toContain(HAND_BLOCK.replace(/\n/gu, '\r\n'));
+        expect(after.endsWith('## My Notes\r\n\r\nKeep me.\r\n')).toBe(true);
+      } else {
+        expect(after.startsWith(before)).toBe(true);
+      }
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
   it(
     'appends a real block when AGENTS.md contains only quoted marker text',
     async () => {

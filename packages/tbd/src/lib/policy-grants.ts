@@ -17,7 +17,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { lexer } from 'marked';
+import { Lexer, Tokenizer, type Token } from 'marked';
 
 import { git, GitError } from '../file/git.js';
 import {
@@ -426,7 +426,13 @@ interface MarkdownLineState {
   hiddenBy: MarkdownHiddenContext | null;
 }
 
-type MarkdownHiddenContext = 'comment' | 'fence' | 'indented-code' | 'html';
+type MarkdownHiddenContext = 'comment' | 'fence' | 'indented-code' | 'html' | 'link-definition';
+
+interface MarkdownHiddenRange {
+  start: number;
+  end: number;
+  hiddenBy: MarkdownHiddenContext;
+}
 
 interface FenceState {
   character: '`' | '~';
@@ -525,29 +531,18 @@ function commentStateAfter(line: string, initiallyOpen: boolean): boolean {
  */
 function scanMarkdownLines(agentsMd: string): MarkdownLineState[] {
   const lines: MarkdownLineState[] = [];
-  // Raw-text HTML tags close at their end tag; ordinary block tags end at a blank
-  // line. Reuse Markdown's grammar instead of maintaining another tag parser.
-  // Marker comments stay under the comment scanner so visible marker lines count.
-  const htmlRanges: { start: number; end: number }[] = [];
-  let tokenOffset = 0;
-  for (const token of lexer(agentsMd)) {
-    const end = tokenOffset + token.raw.length;
-    if (token.type === 'html' && !/^ {0,3}<!--/.test(token.raw)) {
-      htmlRanges.push({ start: tokenOffset, end });
-    }
-    tokenOffset = end;
-  }
-  let htmlIndex = 0;
+  const hiddenRanges = markdownHiddenRanges(agentsMd);
+  let hiddenIndex = 0;
   let offset = 0;
   let inComment = false;
   let fence: FenceState | null = null;
   for (const raw of agentsMd.split('\n')) {
-    while (htmlRanges[htmlIndex] && htmlRanges[htmlIndex]!.end <= offset) {
-      htmlIndex += 1;
+    while (hiddenRanges[hiddenIndex] && hiddenRanges[hiddenIndex]!.end <= offset) {
+      hiddenIndex += 1;
     }
-    const htmlRange = htmlRanges[htmlIndex];
-    if (htmlRange && htmlRange.start <= offset) {
-      lines.push({ raw, trimmed: raw.trim(), offset, hiddenBy: 'html' });
+    const hiddenRange = hiddenRanges[hiddenIndex];
+    if (hiddenRange && hiddenRange.start <= offset) {
+      lines.push({ raw, trimmed: raw.trim(), offset, hiddenBy: hiddenRange.hiddenBy });
       offset += raw.length + 1;
       continue;
     }
@@ -584,9 +579,90 @@ function scanMarkdownLines(agentsMd: string): MarkdownLineState[] {
   return lines;
 }
 
+/**
+ * Use the lexer's source cursor, never sums of emitted token lengths: link
+ * definitions disappear from its token array, and merged tokens can change raw
+ * text. Nested hidden content invalidates its whole containing block; its
+ * transformed child text has no reliable offset in the original document.
+ */
+function markdownHiddenRanges(source: string): MarkdownHiddenRange[] {
+  const ranges: MarkdownHiddenRange[] = [];
+  let start = 0;
+  let hiddenBy: MarkdownHiddenContext | null = null;
+  let currentTokens: Token[] = [];
+  const finishBlock = (end: number) => {
+    if (hiddenBy !== null) {
+      ranges.push({ start, end, hiddenBy });
+    }
+    start = end;
+    hiddenBy = null;
+  };
+  const tokenizer = new Tokenizer();
+  const html = tokenizer.html.bind(tokenizer);
+  const definition = tokenizer.def.bind(tokenizer);
+  const fences = tokenizer.fences.bind(tokenizer);
+  const code = tokenizer.code.bind(tokenizer);
+  tokenizer.fences = (remaining) => {
+    const token = fences(remaining);
+    if (token) {
+      hiddenBy = 'fence';
+    }
+    return token;
+  };
+  tokenizer.code = (remaining) => {
+    const token = code(remaining);
+    if (token) {
+      hiddenBy = 'indented-code';
+    }
+    return token;
+  };
+  tokenizer.html = (remaining) => {
+    const token = html(remaining);
+    // Marker comments stay under the line scanner so visible markers count.
+    if (token && !/^ {0,3}<!--/.test(token.raw)) {
+      hiddenBy = 'html';
+    }
+    return token;
+  };
+  tokenizer.def = (remaining) => {
+    const token = definition(remaining);
+    const previous = currentTokens.at(-1);
+    // Marked appends a definition to an existing paragraph as visible text;
+    // otherwise its URL/title disappear from the rendered block content.
+    if (token && previous?.type !== 'paragraph' && previous?.type !== 'text') {
+      hiddenBy = 'link-definition';
+    }
+    return token;
+  };
+  const markdown = new Lexer({
+    gfm: true,
+    tokenizer,
+    extensions: {
+      renderers: {},
+      childTokens: {},
+      block: [
+        function (remaining, tokens) {
+          if (tokens === this.lexer.tokens) {
+            // Only top-level input is an unchanged suffix of the LF source.
+            finishBlock(source.length - remaining.length);
+          }
+          currentTokens = tokens;
+          return undefined;
+        },
+      ],
+    },
+  });
+  markdown.lex(source);
+  finishBlock(source.length);
+  return ranges;
+}
+
 function describeHiddenContext(hiddenBy: MarkdownHiddenContext): string {
   if (hiddenBy === 'html') {
     return 'a raw HTML block';
+  }
+  if (hiddenBy === 'link-definition') {
+    return 'a link reference definition';
   }
   return hiddenBy === 'indented-code' ? 'an indented code block' : `a ${hiddenBy}`;
 }
@@ -707,7 +783,7 @@ function toLf(text: string): string {
  * come from tbd's own writes (setup writes the tbd block with LF), so a single
  * CRLF line marks the file as CRLF.
  */
-function usesCrlf(text: string): boolean {
+export function usesCrlf(text: string): boolean {
   return text.includes('\r\n');
 }
 

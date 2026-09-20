@@ -1109,6 +1109,7 @@ tbd policy show                             # Answered and unanswered policies
 tbd policy grant subagents                  # Record the recommended value
 tbd policy revoke github-merge              # Record the revoke value, what an unanswered policy takes
 tbd policy set linear epics                 # Record any valid value
+tbd policy refresh                          # Refresh guidance without changing grants
 tbd policy set pr-review-requirements standard + 2 rounds
 ```
 
@@ -1126,7 +1127,12 @@ its `END TBD INTEGRATION` marker; `.tbd/config.yml` holds no copy.
 `grant`, `revoke`, and `set` edit the working tree copy and stamp the tbd block with the
 current integration format, so an older tbd refuses to regenerate the block instead of
 dropping the grants.
-Recording a grant is an ordinary commit to `AGENTS.md`.
+Recording a grant is an ordinary commit to `AGENTS.md`. `tbd policy refresh` repairs
+outdated generated guidance reported by doctor, preserving grant lines, user notes, and
+the recorded date, and restamping the integration format.
+It refuses unfamiliar prose edits instead of discarding them.
+Policy writes and setup block rewrites share a lock across the full read/update/write
+operation; dry runs leave project files and shared metadata unchanged.
 `tbd setup --auto --policies=recommended` records the recommended set for every
 unanswered policy at once (see `setup` above).
 
