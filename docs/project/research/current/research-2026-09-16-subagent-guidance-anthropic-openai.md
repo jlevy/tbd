@@ -832,9 +832,9 @@ shortcut the brief names, never only in a definition.
 | Codex | Yes, `model` on `spawn_agent` | Yes, `reasoning_effort` on `spawn_agent` | A name; its `model` and `model_reasoning_effort` take precedence over the spawn values, and its `developer_instructions` replace the parent’s [V13], [V41] |
 | Other platforms | Platform-dependent | Platform-dependent | Nothing generated; apply the tier by the platform’s own controls |
 
-On Claude Code, a definition changes the model and level only when its level differs
-from the session’s; it still supplies the body, so prefer a `tbd-*` definition whenever
-the brief does not restate those rules.
+On Claude Code, a definition is needed to set a reasoning level different from the
+session’s. Independently, it supplies a model default and the body, so prefer a `tbd-*`
+definition whenever the brief does not restate those rules.
 A session already running at `xhigh` gets the same model and level from `model: fable`
 or `model: opus` on the Agent call as from `tbd-strong` or `tbd-moderate`; only
 `tbd-strong-max` (`max`) and `tbd-fast` (`medium`) change the level.

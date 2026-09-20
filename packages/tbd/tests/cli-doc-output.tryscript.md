@@ -41,7 +41,7 @@ Note: Output includes size/token info like “(2.99 kB, ~847 tok)”
 
 ```console
 $ tbd --color=never guidelines --list | head -3
-agent-model-tiers (8.39 kB, ~2.4k tok)
+agent-model-tiers (8.4 kB, ~2.4k tok)
    Agent Model Tiers: Provider-neutral model tiers for delegated agent work.
    Defines the strong, moderate, and fast tiers by model rank and reasoning
 ? 0
