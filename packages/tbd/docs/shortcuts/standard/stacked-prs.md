@@ -76,6 +76,27 @@ otherwise non-interactive:
   failure, resolve the divergence using the official skill, retry, and verify the
   resulting stack with `gh stack view --json` before continuing.
 
+## Reviewable Units
+
+A PR is a **review unit**. A reviewer must be able to assess its change against the
+declared base without reviewing another layer’s diff to understand its purpose or
+correctness. Depending on an API supplied by the base is normal; requiring a later layer
+to make the change correct is not.
+If a layer fails this test, fold it into a surviving PR that forms a complete review
+unit.
+
+**Standalone work stays standalone.** A focused fix or isolated change can be its own PR
+of any size when it will be reviewed and merged on its own.
+
+**Spec and bead-driven work consolidates.** Incremental work across a large spec or bead
+tree should usually land in larger reviewable PRs, then in stacks.
+Use a stack only when the resulting PRs warrant dependent layers (see When to Stack).
+Beads are not PRs: several beads may share one PR. Lettered sub-phases (`0A`, `0B.1`)
+are implementation notes, not automatic PR boundaries.
+
+`--base` on another feature branch **is** a stack.
+Follow this shortcut and declare it with `gh stack`. Do not hand-roll informal chains.
+
 ## When to Stack
 
 Stacking is **opt-in**. It is one workflow among several, and a single well-scoped PR is
@@ -123,15 +144,22 @@ When a stack is warranted, the split has to earn the extra process:
 
 Prefer fewer, larger layers over many tiny ones.
 Each layer costs a PR, a CI run, and a review cycle.
+A stack should typically be 8 PRs or fewer, and usually one stack per major feature or
+major phase. Fold thin siblings rather than keeping one-commit PRs for history.
+
+**Two-level review.** Review each PR first, then the stack as a whole (agents, then a
+human).
 
 ## Stacks and Beads
 
-A stack and a bead tree describe the same decomposition, so keep them aligned:
+A stack and a bead tree describe related decompositions; they are not 1:1.
 
-- One parent bead for the whole change, one child bead per layer.
-- Order the children with `--depends-on` to mirror the stack order, bottom first.
-- Record the branch name and PR number on each child bead as its layer lands.
-- Close a child when its layer merges, not when the whole stack merges.
+- One parent bead for the whole change.
+- Name PR boundaries separately from beads.
+  Several beads may share one layer.
+- Order children with `--depends-on` to match real blockers, not assumed PR splits.
+- Record the branch name and PR number on each child as its layer lands.
+- Close a child when its work merges, not only when the whole stack merges.
 
 ## How the Other Shortcuts Change
 
@@ -139,12 +167,13 @@ A stack and a bead tree describe the same decomposition, so keep them aligned:
 | --- | --- |
 | `create-or-update-pr-simple` / `-with-validation-plan` | Do **not** target the trunk. For a locally tracked stack, use `gh stack submit --auto`. For a remote-only linked stack, push the owning branch and use `gh pr edit` without `--base`. Add `--open` only when the user explicitly asks to mark the whole stack ready. Verify formal membership through the remote stack API after either path. |
 | `code-review-and-commit` | Commit to the owning layer (see Layer Discipline), then rebase the layers above. |
-| `review-github-pr` | Review only that layer’s diff, which is what GitHub already shows. Name the layer in each finding. |
+| `review-github-pr` | Review that layer’s diff first, then the stack as a whole. Name the layer in each finding. |
 | `address-pr-review` | Fix on the owning layer, then `gh stack rebase --upstack` before trusting CI on the upper PRs. |
 | `merge-upstream` | Do not merge the trunk into a stacked branch. Use `gh stack sync`, which rebases and force-pushes (`--force-with-lease`) the whole chain. |
 
 ## Landing a Stack
 
+Do not land a stack on trunk unless asked.
 Merge bottom to top, and let the tooling do it:
 
 ```bash

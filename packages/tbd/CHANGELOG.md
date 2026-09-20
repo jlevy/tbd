@@ -1,5 +1,13 @@
 # get-tbd
 
+## Unreleased
+
+### Documentation
+
+- **Reviewable PR units**: `stacked-prs` now states when a change is its own PR versus
+  consolidated spec work in a stack (typically 8 PRs or fewer).
+  The create-PR and review shortcuts route informal `--base` chains through that rule.
+
 ## 0.9.0
 
 This release makes git-native and Linear synchronization safer to operate, diagnose, and

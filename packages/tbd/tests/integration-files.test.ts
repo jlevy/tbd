@@ -228,6 +228,38 @@ describe('integration file formats', () => {
         expect(content, `${skillFile} must require formal gh stack operations`).toMatch(
           /link and verify the PRs with\s+`gh stack`/u,
         );
+        expect(
+          content,
+          `${skillFile} must load stacked-prs when the branch is based on another feature branch`,
+        ).toContain('based on another feature branch');
+      }
+    });
+
+    it('states reviewable-unit and stack-shape rules', async () => {
+      const standardDir = join(docsDir, 'shortcuts', 'standard');
+      const stacked = await readFile(join(standardDir, 'stacked-prs.md'), 'utf-8');
+      expect(stacked).toContain('## Reviewable Units');
+      expect(stacked).toContain('8 PRs or fewer');
+      expect(stacked).toContain('one stack per major feature');
+      expect(stacked).toContain('Do not hand-roll informal chains');
+      expect(stacked).toContain('Review each PR first, then the stack as a whole');
+      expect(stacked).toContain('Do not land a stack on trunk unless asked');
+
+      for (const name of [
+        'create-or-update-pr-simple.md',
+        'create-or-update-pr-with-validation-plan.md',
+      ]) {
+        const content = await readFile(join(standardDir, name), 'utf-8');
+        expect(content, `${name} must apply Reviewable Units before creating`).toContain(
+          'Reviewable unit (before `gh pr create`)',
+        );
+        expect(content, `${name} must stop informal feature-branch bases`).toMatch(
+          /stop and run\s+`tbd shortcut stacked-prs`/u,
+        );
+        expect(
+          content.indexOf('Reviewable unit (before `gh pr create`)'),
+          `${name} must classify informal chains before updating the branch from trunk`,
+        ).toBeLessThan(content.indexOf('Only after this classification, update a branch'));
       }
     });
 

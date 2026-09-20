@@ -27,6 +27,9 @@ Create a to-do list with the following items then perform all of them:
 
    - You may break work into a few phases (phases) if it helps with incremental testing.
      But **use as few phases as possible.** If it is straightforward, use one phase.
+     For large work, a major spec phase is a natural boundary for one PR or, when
+     stacking is warranted, one stack of reviewable PRs.
+     Headings do not each need a PR. See `tbd shortcut stacked-prs`.
 
    - NEVER GIVE TIME FRAMES IN PLANS, like “4-6 hours” or “1 week”.
      Work will be done in one day.
