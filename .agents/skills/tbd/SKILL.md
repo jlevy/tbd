@@ -153,7 +153,8 @@ or want help → run `tbd shortcut welcome-user`
 
 For explicit stacked or dependent PR intent, run `tbd shortcut stacked-prs` first.
 Chained branch bases alone are not a formal GitHub stack; link and verify the PRs with
-`gh stack`.
+`gh stack`. If the current branch is based on another feature branch, run
+`tbd shortcut stacked-prs` before creating a PR.
 
 **Loading guidelines for engineering work:** three layers, in this order.
 
