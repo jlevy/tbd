@@ -5,7 +5,7 @@ title: "Review and address PRs #309 and #310: consolidated senior review"
 kind: task
 status: in_progress
 priority: 1
-version: 10
+version: 11
 delegate: codex@spud10
 labels: []
 dependencies: []
@@ -16,10 +16,11 @@ child_order_hints:
   - is-01m2yp01emwb8h5m1crmk17s71
   - is-01m2yp2ag8zen54a7mr7m7tbww
   - is-01m2yr30ecm6g3wt44b1bhjdgm
+  - is-01m2ys9m0cgsg54hf9wrnb27nn
 hold: null
 hold_until: null
 created_at: 2026-09-20T05:47:22.491Z
-updated_at: 2026-09-20T06:29:36.330Z
+updated_at: 2026-09-20T06:50:41.541Z
 started_at: 2026-09-20T05:48:05.593Z
 ---
 
