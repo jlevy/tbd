@@ -257,8 +257,8 @@ do not install or upgrade to any package version less than 14 days old.
   PR description with CVE ID, upstream link, and a `Reviewed-by:` line.
 
 The check requires registry access (`https://registry.npmjs.org`); skip it with
-`SKIP=package-age git push` only if you’re pushing infrastructure changes that do not
-touch dependencies.
+`LEFTHOOK_EXCLUDE=package-age git push` only if you’re pushing infrastructure changes
+that do not touch dependencies.
 
 ## Commit Conventions
 
