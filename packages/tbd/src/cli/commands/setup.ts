@@ -15,7 +15,7 @@
  */
 
 import { Command, Option } from 'commander';
-import { readFile, mkdir, access, rm, rename, chmod, readdir } from 'node:fs/promises';
+import { readFile, mkdir, access, rm, rename, chmod, readdir, stat } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
@@ -992,6 +992,46 @@ export interface TierAgentFileState {
 /** The fields needed to write one generated tier definition. */
 export type TierAgentFileWrite = Pick<TierAgentFileState, 'rel' | 'path' | 'expected'>;
 
+function fsErrorCode(error: unknown): string | undefined {
+  return error instanceof Error ? (error as NodeJS.ErrnoException).code : undefined;
+}
+
+function notADirectoryError(dir: string, cause?: unknown): NodeJS.ErrnoException {
+  const error = new Error(`ENOTDIR: not a directory: ${dir}`) as NodeJS.ErrnoException;
+  error.code = 'ENOTDIR';
+  if (cause !== undefined) {
+    error.cause = cause;
+  }
+  return error;
+}
+
+/**
+ * Create `dir` and its parents. POSIX recursive mkdir reports ENOTDIR when a
+ * path component is a file; Windows Node reports EEXIST. Both become a
+ * portable "not a directory" error so setup diagnostics stay stable.
+ */
+async function ensureDirectory(dir: string): Promise<void> {
+  try {
+    if ((await stat(dir)).isDirectory()) {
+      return;
+    }
+    throw notADirectoryError(dir);
+  } catch (error) {
+    if (fsErrorCode(error) !== 'ENOENT') {
+      throw error;
+    }
+  }
+  try {
+    await mkdir(dir, { recursive: true });
+  } catch (error) {
+    const code = fsErrorCode(error);
+    if (code === 'EEXIST' || code === 'ENOTDIR') {
+      throw notADirectoryError(dir, error);
+    }
+    throw error;
+  }
+}
+
 /**
  * Write tier definitions in their deterministic order and identify partial
  * progress if a later filesystem operation fails.
@@ -1004,7 +1044,7 @@ export async function writeTierAgentFiles(
   let written = 0;
   for (const file of files) {
     try {
-      await mkdir(dirname(file.path), { recursive: true });
+      await ensureDirectory(dirname(file.path));
       await writer(file.path, file.expected);
       written += 1;
     } catch (error) {

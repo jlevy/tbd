@@ -426,6 +426,22 @@ describe('setup tier agent definitions', { timeout: subprocessTestTimeout(45_000
     await expect(access(files[1]!.path)).rejects.toThrow();
   });
 
+  it('names a parent file as not a directory when creating the agents path', async () => {
+    const agentsDir = join(projectDir, CLAUDE_AGENTS_DIR_REL);
+    await mkdir(dirname(agentsDir), { recursive: true });
+    await writeFile(agentsDir, 'user file at parent path\n');
+
+    await expect(
+      writeTierAgentFiles([
+        {
+          rel: '.claude/agents/tbd-fast.md',
+          path: join(agentsDir, 'tbd-fast.md'),
+          expected: 'body\n',
+        },
+      ]),
+    ).rejects.toThrow(/ENOTDIR: not a directory:/u);
+  });
+
   it('refuses to rewrite a definition written by a newer tbd', async () => {
     setup(AGENT_SURFACES);
     const current = await readFile(codexFile('tbd-strong'), 'utf-8');
