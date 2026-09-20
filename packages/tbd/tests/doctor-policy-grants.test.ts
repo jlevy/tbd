@@ -467,6 +467,26 @@ describe('tbd doctor policy grants', { timeout: subprocessTestTimeout(60_000) },
     expect(await readAgentsMd()).toBe(pending);
   });
 
+  it('strips and caps a hostile working-tree value in the difference detail', async () => {
+    // A checked-out branch controls this text. Raw, it clears the terminal above
+    // doctor's warnings; `policy show` already stripped and capped the same value.
+    const hostile = `[2J[H${'A'.repeat(300)}`;
+    await writeFile(
+      join(projectDir, 'AGENTS.md'),
+      agentsMd([`- \`subagents\`: ${hostile}`, '', 'Recorded 2026-01-02.']),
+    );
+
+    const report = doctor();
+    const detail = named(report.checks, 'Policy grants')
+      .flatMap((check) => check.details ?? [])
+      .join('\n');
+
+    expect(detail).toContain('subagents: unanswered ->');
+    expect(detail).not.toContain('[2J');
+    expect(detail).not.toContain('');
+    expect(detail).not.toContain('A'.repeat(200));
+  });
+
   it('reports a malformed block as an error and leaves AGENTS.md unchanged', async () => {
     expect(runTbd(['policy', 'grant', 'subagents']).status).toBe(0);
     commitAll('grant subagents');

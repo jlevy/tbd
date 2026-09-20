@@ -89,6 +89,8 @@ import { type DiagnosticResult, renderDiagnostics } from '../lib/diagnostics.js'
 import { VERSION } from '../lib/version.js';
 import { now } from '../../utils/time-utils.js';
 import {
+  ManagedArtifactTargetError,
+  assertSafeManagedArtifactTarget,
   extractManagedBlock,
   inspectManagedArtifact,
   type ManagedArtifactInspection,
@@ -558,10 +560,15 @@ export function policyGrantFindings(
             differences.length === 1 ? '1 policy' : `${differences.length} policies`
           }`,
           path,
-          details: differences.map(
-            (difference) =>
-              `${difference.name}: ${difference.from ?? 'unanswered'} -> ${difference.to ?? 'unanswered'}`,
-          ),
+          // A working-tree value is attacker-controlled text on a checked-out
+          // branch; bound it here, where this detail line is built, so it cannot
+          // clear the terminal above the warnings.
+          details: differences.map((difference) => {
+            const from =
+              difference.from === null ? 'unanswered' : displayPolicyValue(difference.from);
+            const to = difference.to === null ? 'unanswered' : displayPolicyValue(difference.to);
+            return `${difference.name}: ${from} -> ${to}`;
+          }),
           suggestion: `These grants take effect once ${effectiveOnce(effective.source)}; see: tbd policy show`,
         });
       }
@@ -2320,7 +2327,8 @@ class DoctorHandler extends BaseCommand {
     try {
       const finding = tierAgentsFinding(
         platform,
-        await inspectTierAgentSurface(this.cwd, platform),
+        // Doctor reports; it never updates, so the refusal must not say it would.
+        await inspectTierAgentSurface(this.cwd, platform, { operation: 'check' }),
       );
       return finding ? [finding] : [];
     } catch (error) {
@@ -2338,6 +2346,30 @@ class DoctorHandler extends BaseCommand {
 
   private async checkCodexAgents(): Promise<DiagnosticResult> {
     const agentsPath = getAgentsMdPath(this.cwd);
+    // Setup refuses to write through a link, so a linked AGENTS.md is a standing
+    // failure of that surface. Reported here rather than left to look current,
+    // which is what a reader of `AGENTS.md - current` used to be told.
+    try {
+      await assertSafeManagedArtifactTarget(agentsPath, {
+        projectRoot: this.cwd,
+        allowMissing: true,
+        operation: 'check',
+      });
+    } catch (error) {
+      if (!(error instanceof ManagedArtifactTargetError)) {
+        throw error;
+      }
+      return {
+        name: 'AGENTS.md',
+        status: 'warn',
+        message: `not a regular file in the project: ${error.reason}`,
+        path: AGENTS_MD_REL,
+        suggestion:
+          'tbd setup cannot write through it. Replace it with a regular file (for ' +
+          'example keep CLAUDE.md as the link and make AGENTS.md the real file), ' +
+          'then run: tbd setup --auto --surfaces=agents-md',
+      };
+    }
     let existing = '';
     try {
       existing = await readFile(agentsPath, 'utf-8');

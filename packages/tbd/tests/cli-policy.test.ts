@@ -1,7 +1,7 @@
 /** End-to-end CLI contract tests for `tbd policy`. */
 
 import { execFile, spawnSync } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,7 +11,8 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { getCodexTbdSection } from '../src/cli/commands/setup.js';
 import { withSharedDataSyncLock } from '../src/file/common-dir-layout.js';
-import { resolveSharedTbdPaths } from '../src/lib/paths.js';
+import { withAgentsMdLock } from '../src/cli/lib/managed-artifact.js';
+import { TBD_LOCKS_DIR, resolveSharedTbdPaths } from '../src/lib/paths.js';
 import { AGENT_INTEGRATION_FORMAT } from '../src/lib/integration-paths.js';
 import {
   INTEGRATION_END_MARKER,
@@ -651,7 +652,7 @@ describe('tbd policy grant, revoke, and set', () => {
 
 describe('policy write serialization', () => {
   it(
-    'reads after acquiring the shared lock and preserves a concurrent revocation',
+    'reads after acquiring the AGENTS.md lock and preserves a concurrent revocation',
     async () => {
       const dir = await createRepo();
       const agentsPath = join(dir, 'AGENTS.md');
@@ -663,11 +664,13 @@ describe('policy write serialization', () => {
           renderPolicyBlock([{ name: 'github-merge', value: 'autonomous' }], '2026-09-19'),
         ),
       );
-      const paths = await resolveSharedTbdPaths(dir);
+      // The lock lives in the checkout beside AGENTS.md, not in the repository's
+      // shared $GIT_COMMON_DIR/tbd tree.
+      const locksDir = join(dir, TBD_LOCKS_DIR);
       let completed = false;
       let command: ReturnType<typeof execFileAsync> | undefined;
       try {
-        await withSharedDataSyncLock(dir, async () => {
+        await withAgentsMdLock(dir, async () => {
           command = execFileAsync(process.execPath, [tbdBin, 'policy', 'grant', 'subagents'], {
             cwd: dir,
             env: { ...process.env, NO_COLOR: '1' },
@@ -684,12 +687,10 @@ describe('policy write serialization', () => {
           // Observe an actual contender, rather than sleeping and assuming startup finished.
           const deadline = Date.now() + CLI_TEST_TIMEOUT_MS / 2;
           while (
-            !(await readdir(paths.sharedLocksDir)).some((name) =>
-              name.startsWith('data-sync.lock.owner-'),
-            )
+            !(await readdir(locksDir)).some((name) => name.startsWith('agents-md.lock.owner-'))
           ) {
             if (completed || Date.now() > deadline) {
-              throw new Error('Policy command did not wait for the held shared lock');
+              throw new Error('Policy command did not wait for the held AGENTS.md lock');
             }
             await new Promise((resolve) => setTimeout(resolve, 25));
           }
@@ -773,6 +774,57 @@ describe('tbd policy refresh', () => {
     },
     CLI_TEST_TIMEOUT_MS,
   );
+
+  it(
+    'always reports an outcome, in text and JSON, for both dry and real runs',
+    async () => {
+      const stale = withPolicyBlock(
+        getCodexTbdSection(),
+        renderPolicyBlock([{ name: 'github-merge', value: 'never' }], '2026-01-02'),
+      ).replace(POLICY_BLOCK_PROSE, POLICY_BLOCK_PROSE.split('\nOnly the copy committed')[0]!);
+      const dir = await createRepo({ agentsMd: stale });
+
+      const dryJson = runTbd(dir, ['--dry-run', 'policy', 'refresh', '--json']);
+      expect(dryJson.status, dryJson.stderr).toBe(0);
+      expect(JSON.parse(dryJson.stdout)).toMatchObject({
+        file: 'AGENTS.md',
+        changed: true,
+        dryRun: true,
+      });
+
+      const real = runTbd(dir, ['policy', 'refresh']);
+      expect(real.status, real.stderr).toBe(0);
+      expect(real.stdout).toContain('Refreshed');
+
+      // Nothing left to do: previously a current block printed nothing at all
+      // on a dry run, with or without --json.
+      const currentDry = runTbd(dir, ['--dry-run', 'policy', 'refresh']);
+      expect(currentDry.status, currentDry.stderr).toBe(0);
+      expect(currentDry.stdout).toContain('Nothing to refresh');
+      const currentDryJson = runTbd(dir, ['--dry-run', 'policy', 'refresh', '--json']);
+      expect(currentDryJson.status, currentDryJson.stderr).toBe(0);
+      expect(JSON.parse(currentDryJson.stdout)).toMatchObject({ changed: false, dryRun: true });
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'points a missing AGENTS.md at the same setup hint `grant` gives',
+    async () => {
+      const dir = await createRepo({ agentsMd: null });
+
+      const grant = runTbd(dir, ['policy', 'grant', 'subagents']);
+      const refresh = runTbd(dir, ['policy', 'refresh']);
+
+      expect(grant.status).toBe(1);
+      expect(refresh.status).toBe(1);
+      expect(refresh.stderr).toContain('tbd setup --auto');
+      // The old message advised creating the file by hand, which only leads to
+      // "no policy block to refresh".
+      expect(refresh.stderr).not.toContain('Create it as a regular file');
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
 });
 
 describe('policy dry-run shared-state invariant', () => {
@@ -824,6 +876,70 @@ describe('policy dry-run shared-state invariant', () => {
       expect(await snapshot(paths.sharedTbdDir)).toEqual(before);
       expect(await readFile(join(dir, 'AGENTS.md'), 'utf8')).toBe(stale);
       expect(await readFile(configPath, 'utf8')).toBe(config);
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+});
+
+/**
+ * AGENTS.md is a checkout file, so writing it must not depend on the shared
+ * `$GIT_COMMON_DIR/tbd` tree. That tree is outside the writable area in a common
+ * agent-sandbox layout (Codex worktrees), where the checkout itself is writable.
+ */
+describe.skipIf(process.platform === 'win32')(
+  'AGENTS.md writes without the shared tbd tree',
+  () => {
+    it.each([
+      ['policy', 'grant', 'subagents'],
+      ['setup', '--auto', '--surfaces=agents-md'],
+    ])(
+      'runs %s %s with $GIT_COMMON_DIR/tbd unwritable',
+      async (...args) => {
+        const dir = await createRepo();
+        const paths = await resolveSharedTbdPaths(dir);
+        await mkdir(paths.sharedTbdDir, { recursive: true });
+        await chmod(paths.sharedTbdDir, 0o500);
+        try {
+          const dry = runTbd(dir, ['--dry-run', ...args]);
+          expect(dry.status, dry.stderr).toBe(0);
+          const result = runTbd(dir, args);
+          expect(result.status, result.stderr).toBe(0);
+          expect(await readFile(join(dir, 'AGENTS.md'), 'utf8')).toContain('BEGIN TBD INTEGRATION');
+        } finally {
+          await chmod(paths.sharedTbdDir, 0o700);
+        }
+      },
+      CLI_TEST_TIMEOUT_MS,
+    );
+  },
+);
+
+/**
+ * A grant value is attacker-controlled text on a checked-out branch. Every place
+ * that prints one strips control characters and caps the length, so a working-tree
+ * value cannot clear the terminal above a warning or flood the output.
+ */
+describe('hostile grant values are sanitized wherever they are printed', () => {
+  /** ESC (clears the screen and homes the cursor), BEL, and 300 characters. */
+  const HOSTILE_VALUE = `[2J[H${'A'.repeat(300)}`;
+
+  it(
+    'strips and caps the value in setup --policies=recommended output',
+    async () => {
+      const dir = await createRepo({
+        agentsMd: withPolicyBlock(
+          `# Project\n\n${getCodexTbdSection()}`,
+          renderPolicyBlock([{ name: 'subagents', value: HOSTILE_VALUE }], '2026-01-02'),
+        ),
+      });
+      const result = runTbd(dir, ['setup', '--auto', '--policies=recommended']);
+      expect(result.status, result.stderr).toBe(0);
+      const output = result.stdout + result.stderr;
+      // The `Kept <name>: <value>` line is the site that printed it raw.
+      expect(output).toContain('Kept subagents');
+      expect(output).not.toContain('[2J');
+      expect(output).not.toContain('');
+      expect(output).not.toContain('A'.repeat(200));
     },
     CLI_TEST_TIMEOUT_MS,
   );

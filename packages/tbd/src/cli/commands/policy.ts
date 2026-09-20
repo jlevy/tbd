@@ -15,7 +15,6 @@ import { writeFile } from 'atomically';
 import { Command } from 'commander';
 
 import { getCurrentBranch } from '../../file/git.js';
-import { withSharedDataSyncLock } from '../../file/common-dir-layout.js';
 import { AGENTS_MD_REL } from '../../lib/integration-paths.js';
 import type {
   DefaultBranchRef,
@@ -47,7 +46,7 @@ import {
 import { refreshPolicyBlockProse } from '../../lib/policy-block-prose.js';
 import { BaseCommand } from '../lib/base-command.js';
 import { CLIError, ValidationError, requireInit } from '../lib/errors.js';
-import { assertSafeManagedArtifactTarget } from '../lib/managed-artifact.js';
+import { assertSafeManagedArtifactTarget, withAgentsMdLock } from '../lib/managed-artifact.js';
 
 const GUIDELINE_HINT = 'tbd guidelines agent-policy-grants';
 const UPGRADE_HINT = 'npm install -g get-tbd@latest';
@@ -272,7 +271,8 @@ class PolicyRecordHandler extends BaseCommand {
     // Atomic publication alone cannot prevent a concurrent revocation being lost.
     const update = async () => {
       await this.execute(
-        () => assertSafeManagedArtifactTarget(agentsPath, { allowMissing: true }),
+        () =>
+          assertSafeManagedArtifactTarget(agentsPath, { projectRoot: tbdRoot, allowMissing: true }),
         `Failed to inspect ${AGENTS_MD_REL}`,
       );
 
@@ -318,14 +318,14 @@ class PolicyRecordHandler extends BaseCommand {
       }
 
       await this.execute(async () => {
-        await assertSafeManagedArtifactTarget(agentsPath);
+        await assertSafeManagedArtifactTarget(agentsPath, { projectRoot: tbdRoot });
         await writeFile(agentsPath, updated);
       }, `Failed to write ${AGENTS_MD_REL}`);
     };
     if (this.ctx.dryRun) {
       await update();
     } else {
-      await withSharedDataSyncLock(tbdRoot, update);
+      await withAgentsMdLock(tbdRoot, update);
     }
 
     if (this.ctx.dryRun) {
@@ -349,10 +349,27 @@ class PolicyRefreshHandler extends BaseCommand {
   async run(): Promise<void> {
     const tbdRoot = await requireInit();
     const agentsPath = join(tbdRoot, AGENTS_MD_REL);
+    const dryRun = this.ctx.dryRun;
     let changed = false;
     const update = async () => {
-      await assertSafeManagedArtifactTarget(agentsPath);
-      const content = await readFile(agentsPath, 'utf8');
+      await this.execute(
+        () =>
+          assertSafeManagedArtifactTarget(agentsPath, { projectRoot: tbdRoot, allowMissing: true }),
+        `Failed to inspect ${AGENTS_MD_REL}`,
+      );
+
+      let content: string;
+      try {
+        content = await readFile(agentsPath, 'utf8');
+      } catch (error) {
+        if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+          // The same hint `grant` gives. Advising the user to create the file by
+          // hand only leads to "no policy block to refresh".
+          throw new CLIError(`${AGENTS_MD_REL} not found; ${SETUP_AGENTS_MD_HINT}`);
+        }
+        throw error;
+      }
+
       let updated: string;
       try {
         updated = refreshPolicyBlockProse(content);
@@ -363,26 +380,32 @@ class PolicyRefreshHandler extends BaseCommand {
         throw error;
       }
       changed = updated !== content;
-      if (!changed || this.checkDryRun(`Would refresh policy guidance in ${AGENTS_MD_REL}`)) {
+      if (!changed || dryRun) {
         return;
       }
-      await assertSafeManagedArtifactTarget(agentsPath);
-      await writeFile(agentsPath, updated);
+      await this.execute(async () => {
+        await assertSafeManagedArtifactTarget(agentsPath, { projectRoot: tbdRoot });
+        await writeFile(agentsPath, updated);
+      }, `Failed to write ${AGENTS_MD_REL}`);
     };
-    if (this.ctx.dryRun) {
+    if (dryRun) {
       await update();
     } else {
-      await withSharedDataSyncLock(tbdRoot, update);
+      await withAgentsMdLock(tbdRoot, update);
     }
-    if (this.ctx.dryRun) {
-      return;
-    }
-    this.output.data({ file: AGENTS_MD_REL, changed }, () => {
-      this.output.success(
-        changed
-          ? `Refreshed policy guidance in ${AGENTS_MD_REL}; recorded values are unchanged`
-          : `Policy guidance in ${AGENTS_MD_REL} is current`,
-      );
+
+    // Always report an outcome. A dry run with current guidance used to print
+    // nothing at all, with or without --json.
+    this.output.data({ file: AGENTS_MD_REL, changed, dryRun }, () => {
+      if (!changed) {
+        this.output.success(`Nothing to refresh: policy guidance in ${AGENTS_MD_REL} is current`);
+      } else if (dryRun) {
+        this.output.dryRun(`Would refresh policy guidance in ${AGENTS_MD_REL}`);
+      } else {
+        this.output.success(
+          `Refreshed policy guidance in ${AGENTS_MD_REL}; recorded values are unchanged`,
+        );
+      }
     });
   }
 }

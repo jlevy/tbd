@@ -446,7 +446,7 @@ describe('setup tier agent definitions', { timeout: subprocessTestTimeout(45_000
           expected: 'body\n',
         },
       ]),
-    ).rejects.toThrow(/ENOTDIR: not a directory:/u);
+    ).rejects.toThrow(/is not a directory/u);
   });
 
   it('refuses to rewrite a definition written by a newer tbd', async () => {
@@ -563,10 +563,16 @@ describe('setup tier agent definitions', { timeout: subprocessTestTimeout(45_000
       expect.soft(await readdir(externalAgents)).toEqual([filename]);
       expect.soft((await lstat(link)).isSymbolicLink()).toBe(true);
 
+      // Uninstall treats the unsafe path as not tbd's: it warns, skips it, and
+      // still removes everything that is tbd's. Refusing the whole command left
+      // .tbd in place with no way to finish.
       const uninstall = runTbd(['uninstall', '--confirm']);
-      expect.soft(uninstall.status).not.toBe(0);
-      expect.soft(uninstall.stdout + uninstall.stderr).toContain('symbolic link');
-      expect.soft(await exists(join(projectDir, '.tbd', 'config.yml'))).toBe(true);
+      const uninstallOutput = uninstall.stdout + uninstall.stderr;
+      expect.soft(uninstall.status, uninstall.stderr).toBe(0);
+      expect.soft(uninstallOutput).toContain('Skipped');
+      expect.soft(uninstallOutput).toContain('symbolic link');
+      expect.soft(uninstallOutput).not.toContain('Refusing to update');
+      expect.soft(await exists(join(projectDir, '.tbd'))).toBe(false);
       expect.soft(await exists(externalFile)).toBe(true);
       if (await exists(externalFile)) {
         expect.soft(await readFile(externalFile, 'utf-8')).toBe(original);
@@ -575,6 +581,23 @@ describe('setup tier agent definitions', { timeout: subprocessTestTimeout(45_000
       expect.soft(await exists(link)).toBe(true);
     },
   );
+
+  it('completes uninstall when a regular file sits where an agents directory belongs', async () => {
+    const init = runTbd(['init', '--prefix=test']);
+    expect(init.status, init.stderr).toBe(0);
+    const agentsPath = join(projectDir, CLAUDE_AGENTS_DIR_REL);
+    await mkdir(dirname(agentsPath), { recursive: true });
+    await writeFile(agentsPath, 'user file at parent path\n');
+
+    // The raw ENOTDIR case: the listing used to throw before the preview printed.
+    const uninstall = runTbd(['uninstall', '--confirm']);
+    const output = uninstall.stdout + uninstall.stderr;
+    expect(uninstall.status, uninstall.stderr).toBe(0);
+    expect(output).toContain('Skipped');
+    expect(output).toContain('not a directory');
+    expect(await exists(join(projectDir, '.tbd'))).toBe(false);
+    expect(await readFile(agentsPath, 'utf-8')).toBe('user file at parent path\n');
+  });
 
   it('doctor reports the definitions only once any exist, and flags stale ones', async () => {
     setup(SKILL_SURFACES);

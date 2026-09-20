@@ -23,3 +23,6 @@ backups/
 
 # Cached external repo checkouts
 repo-cache/
+
+# Lock directories for checkout-local writes
+locks/

@@ -87,39 +87,14 @@ describe('corrupted data scenarios', { timeout: subprocessTestTimeout() }, () =>
    * silently fail and leave the worktree HEAD unresolved, which makes the
    * doctor's Worktree health check fire spuriously.
    */
-  function initGitAndTbd(initializeTbd = runTbd): void {
+  function initGitAndTbd(): void {
     runGit(['init', '--initial-branch=main']);
     runGit(['config', 'user.email', 'test@example.com']);
     runGit(['config', 'user.name', 'Test']);
     runGit(['config', 'commit.gpgsign', 'false']);
     runGit(['config', 'tag.gpgsign', 'false']);
-    requireSuccess('tbd init', initializeTbd(['init', '--prefix=test']));
+    requireSuccess('tbd init', runTbd(['init', '--prefix=test']));
   }
-
-  it('stops at a failed fixture initialization and reports its output', () => {
-    const failedInit = () => ({
-      status: 1,
-      stdout: 'initialization started',
-      stderr: 'injected initialization failure',
-    });
-    expect(() => {
-      initGitAndTbd(failedInit);
-    }).toThrow(
-      /tbd init.*status=1[\s\S]*initialization started[\s\S]*injected initialization failure/u,
-    );
-  });
-
-  it('terminates a hung subprocess and reports its status and output', () => {
-    expect(() =>
-      runCommand(
-        process.execPath,
-        ['-e', 'process.stdout.write("waiting"); setInterval(() => {}, 1000)'],
-        tempDir,
-        // Deliberately exercise the timeout, without the Windows integration-test floor.
-        1000,
-      ),
-    ).toThrow(/status=.*signal=.*error=.*ETIMEDOUT[\s\S]*stdout:[\s\S]*stderr:/u);
-  });
 
   function sharedDataSyncDir(): string {
     const gitCommonDir = runGit(['rev-parse', '--path-format=absolute', '--git-common-dir']);

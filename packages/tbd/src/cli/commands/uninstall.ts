@@ -17,7 +17,10 @@ import { findTbdRoot, readConfig } from '../../file/config.js';
 import { TIER_AGENTS_DISPLAY } from '../../lib/integration-paths.js';
 import { SYNC_BRANCH, resolveSharedTbdPaths } from '../../lib/paths.js';
 import { listGeneratedTierAgentFiles } from './setup.js';
-import { assertSafeManagedArtifactTarget } from '../lib/managed-artifact.js';
+import {
+  ManagedArtifactTargetError,
+  assertSafeManagedArtifactTarget,
+} from '../lib/managed-artifact.js';
 
 interface UninstallOptions {
   confirm?: boolean;
@@ -128,8 +131,21 @@ class UninstallHandler extends BaseCommand {
     // Generated tier agent definitions. Only files carrying tbd's marker: a
     // user-owned file under a tbd name is the user's override and stays. The
     // other generated surfaces (skills, hooks, the AGENTS.md block) are not
-    // removed here today.
-    const tierAgentFiles = await listGeneratedTierAgentFiles(tbdRoot);
+    // removed here today. A path tbd cannot safely touch (a linked `.claude`, a
+    // linked agents directory or leaf, a regular file where a directory belongs)
+    // is not tbd's to remove either: refusing the whole command over one left
+    // `.tbd` in place with no supported way to finish, so each is listed and
+    // skipped. Several definitions share a parent, so a refusal repeats.
+    const skipped: string[] = [];
+    const tierAgentFiles = await listGeneratedTierAgentFiles(tbdRoot, {
+      operation: 'remove',
+      onRefused: (refusal) => {
+        const message = `Skipped ${displayPath(refusal.targetPath)}: ${refusal.reason}; leaving it alone.`;
+        if (!skipped.includes(message)) {
+          skipped.push(message);
+        }
+      },
+    });
     if (tierAgentFiles.length > 0) {
       items.push(
         `  - Tier agent definitions: ${tierAgentFiles.length} files ` +
@@ -142,6 +158,9 @@ class UninstallHandler extends BaseCommand {
     console.log('');
     for (const item of items) {
       console.log(colors.warn(item));
+    }
+    for (const message of skipped) {
+      console.log(colors.warn(`  ⚠ ${message}`));
     }
     console.log('');
 
@@ -268,10 +287,23 @@ class UninstallHandler extends BaseCommand {
     if (tierAgentFiles.length > 0) {
       let removed = 0;
       for (const file of tierAgentFiles) {
-        await assertSafeManagedArtifactTarget(file.path, {
-          projectRoot: tbdRoot,
-          allowMissing: true,
-        });
+        try {
+          // Re-checked here: the listing ran before the preview and the
+          // confirmation, so the path may have changed since.
+          await assertSafeManagedArtifactTarget(file.path, {
+            projectRoot: tbdRoot,
+            allowMissing: true,
+            operation: 'remove',
+          });
+        } catch (error) {
+          if (!(error instanceof ManagedArtifactTargetError)) {
+            throw error;
+          }
+          console.log(
+            `  ${colors.warn('⚠')} Skipped ${file.rel}: ${error.reason}; leaving it alone.`,
+          );
+          continue;
+        }
         try {
           await rm(file.path, { force: true });
           removed++;
