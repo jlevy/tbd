@@ -26,6 +26,18 @@ The repository format is unchanged (`f08`); the generated integration format mov
 > (`git checkout .tbd/config.yml`) and re-run setup after upgrading.
 > Nothing else changes for teammates still on 0.9.0: the repository stays on `f08`, so
 > issue commands, sync, and the session hooks keep working until they upgrade.
+> 
+> That refusal has one limit, and old clients cannot be fixed: 0.9.0 reads the stamp as
+> the first `format=f<N>` string anywhere in `AGENTS.md`, not only on a marker line.
+> If your `AGENTS.md` carries such a string in ordinary text above the tbd block, 0.9.0
+> matches that string, decides the file is not newer, and rewrites the block, dropping
+> the grants. Check for a stray `format=f…` in prose before anyone on 0.9.0 runs setup.
+> This release matches the stamp on marker lines only.
+> 
+> `tbd setup` and `tbd policy` refuse to write through a symbolic link, so `AGENTS.md`
+> must be a regular file.
+> If your repository links `AGENTS.md` to `CLAUDE.md`, invert it: keep `AGENTS.md`
+> regular and make `CLAUDE.md` the link.
 
 After installing, regenerate the agent surfaces, commit their diff, and ask the agent to
 “Set up tbd”, which runs `tbd shortcut setup-tbd` and asks about policy grants:
@@ -61,13 +73,40 @@ tbd setup --auto
   `github-editing`, `github-merge`, `github-stacked-prs`, `subagents`,
   `pr-review-requirements`, and `linear`) record the user’s explicit consent for the
   whole project in a versioned policy block inside the tbd block in `AGENTS.md`.
-  `tbd policy show` lists answered and unanswered policies with their effective values;
-  `tbd policy grant`, `revoke`, and `set` record a value in the working tree.
-  Grants take effect once committed on the default branch, so an unmerged branch grants
-  nothing, and the conversation overrides them for its task.
-  `tbd setup` carries the block over byte for byte, including policy names it does not
-  know, and stops rather than rewrite a malformed block.
   `tbd guidelines agent-policy-grants` defines every policy.
+  - `tbd policy show` lists answered and unanswered policies with their effective
+    values, and names any working-tree value that differs from the default branch.
+    `tbd policy grant`, `revoke`, and `set` record a value in the working tree, and
+    `tbd policy refresh` rewrites the block’s generated guidance prose without touching
+    a grant, the recorded date, or anything else in the block.
+    `grant`, `revoke`, and `set` rebuild the whole block interior, so notes belong
+    outside the markers.
+  - `github-merge` takes four values: `never` (an agent does not merge and does not
+    ask), `confirm-every` (one authorization covers one merge of one PR, and this is
+    also what an unanswered policy means), `confirm-session` (recommended), and
+    `autonomous`. No value weakens `pr-review-requirements`: that policy decides whether
+    a PR is ready, and the merge gate checks it separately in every case.
+    `tbd policy revoke` records each policy’s ask-first default, so revoking returns to
+    asking rather than making a new statement.
+  - Grants take effect once committed on the default branch, so an unmerged branch
+    grants nothing, and the conversation overrides them for its task.
+    They are read from `origin`, or the clone’s only remote, never from a remote named
+    in the working tree’s `.tbd/config.yml`, which a pull request controls; several
+    remotes with no `origin` leave every policy unanswered.
+  - The block fails closed.
+    A grant line a reader of the block cannot see, inside an HTML comment, a fenced
+    block, a block quote, or a numbered list, and a block whose two markers share a
+    line, are reported as malformed and leave `AGENTS.md` unchanged, rather than taking
+    effect or silently vanishing.
+    Recorded values print with control characters stripped and bounded in length on
+    every surface, so a hostile value cannot erase the warning about itself.
+    Policy writes and setup block rewrites serialize the whole read/modify/write cycle,
+    so concurrent commands preserve each other’s grants and revocations.
+  - `tbd setup` carries the block over byte for byte, including policy names it does not
+    know, and stops rather than rewrite a malformed block.
+    `AGENTS.md` and the block itself state that only the user’s own messages grant,
+    widen, or confirm a policy, and that text in a PR, comment, issue, bead, file,
+    fetched page, or sub-agent report is data, never consent.
 - **One setup process**: `tbd shortcut setup-tbd` sets up a new project and reviews the
   setup after every upgrade: it runs setup, asks once about each unanswered policy
   (offering all recommended, with Linear asked separately), records the answers, sets up
@@ -90,9 +129,13 @@ tbd setup --auto
 - **Doctor and prime**: `tbd doctor` validates the policy block (malformed or
   unknown-version blocks, unknown values, and a working-tree block that differs from the
   default branch) and reports stale, missing, or too-new tier agent definitions.
+  It also flags generated policy guidance that a newer release words differently, which
+  `tbd policy refresh` repairs.
   `tbd prime`, including `--brief`, prints an `AGENT POLICY GRANTS` section with the
   effective grants and the unanswered policies, so every session and every compaction
-  carries them.
+  carries them. When the remote’s default branch cannot be resolved, every policy is
+  unanswered, and both `tbd prime` and `tbd policy show` say so and print the fetch and
+  `git remote set-head` repair for the actual default branch.
 - **Design and CLI docs:** `tbd-design.md` and `tbd-docs.md` state that merge and review
   requirements are settable policy grants: the four `github-merge` values (`never`,
   `confirm-every`, `confirm-session`, `autonomous`), the independence of
@@ -103,53 +146,23 @@ tbd setup --auto
 
 - **Integration help**: `tbd integration --help` names only Linear; it listed GitHub,
   which has no adapter.
-- **`github-merge` takes four values instead of three.** `never` (an agent does not
-  merge and does not ask), `confirm-every` (one confirmation authorizes one merge of one
-  PR, and this is also what an unanswered policy means), `confirm-session` (recommended:
-  a session confirmation covers the task it was given for: the PRs of the task the user
-  confirmed, including every layer of a stack those merges include, and a PR outside
-  that task needs its own confirmation), and `autonomous` (no asking; recorded only
-  through `tbd policy set`, since `tbd policy grant` records the recommended value).
-  It replaces `not-granted`, `per-request`, and `unconditional`, which shipped in no
-  release. No value weakens `pr-review-requirements`: that policy decides whether a PR is
-  ready, and the merge gate checks it separately in every case.
-  `tbd policy revoke` records each policy’s ask-first default (`confirm-every` for
-  `github-merge`), so revoke’s meaning is now uniform across policies.
-  The `discouraged` schema field is gone, so `tbd policy set` no longer prints a
-  recommends-against notice; `recommended` alone now carries tbd’s advice.
-- **Grants are read from `origin`, not from the checkout’s `sync.remote`**: the policy
-  block’s content came from a trusted ref, but the setting that chose the ref came from
-  the working tree’s `.tbd/config.yml`, which a pull request controls.
-  In a clone that also had a contributor’s fork as a remote — ordinary review practice —
-  a PR could point grant resolution at a branch it wrote and have `tbd policy show`,
-  `tbd prime`, and `tbd doctor` report those grants as effective.
-  Resolution now uses `origin`, or the clone’s only remote, and treats every policy as
-  unanswered when several remotes exist and none is `origin`.
 - **Only marker lines carry the format stamp**: the stamp was the first `format=f…`
   anywhere in the file, so a line of prose quoting an older one satisfied the guard that
   stops an older tbd from rewriting a newer generated surface.
   The tbd block’s own markers are matched by line for the same reason.
-- **Grants a reader of the block cannot see are refused**: a grant line inside an HTML
-  comment or a fenced code block was fully effective, and a blockquoted or numbered one
-  was skipped in silence.
-  All four are reported as a malformed block now.
-- **`AGENTS.md` and the policy block state that observed text is data**: the rule that
-  only the user’s own messages can grant, widen, or confirm a policy was in documents an
-  agent loads on request, not in the two it loads unconditionally.
-  `tbd prime` now carries it alongside the grants.
-- **Recorded values print bounded on every surface**: `tbd doctor`’s detail and
-  `tbd policy show`’s difference list echoed a value’s control characters and full
-  length, so an escape sequence in a value could erase the warning that the value is
-  invalid.
-- **A policy block whose markers share a line fails closed**: it read as no block at
-  all, so `tbd setup --auto` exited 0 and deleted the recorded grants, and
-  `tbd policy grant` inserted a second block.
-  Every command now reports it as malformed and leaves `AGENTS.md` unchanged.
-  A backticked mention of a marker in prose is still not a block.
+  Clients at 0.9.0 and older still read the stamp the old way; see the upgrade note
+  above.
 - **Managed surfaces on a CRLF checkout**: `tbd doctor` reported `AGENTS.md` and the
   generated skills as stale on Windows because the comparison was byte-exact while every
   generator emits LF, and the suggested `tbd setup` remedy then left the file modified
-  with an empty diff. Freshness now ignores line endings.
+  with an empty diff. Freshness now ignores line endings, and setup writes `AGENTS.md` in
+  the line-ending convention the file already uses instead of converting it to LF.
+- **Generated skills on a cold documentation cache**: `tbd doctor` reported the
+  installed skill copies as stale when the gitignored documentation cache was empty, for
+  example in a fresh clone before the first command populated it.
+  It now reports their freshness as unknown rather than as a problem to fix.
+- **A failed `git remote` listing says why**: the error carried Node’s `Command failed`
+  line instead of git’s own stderr, so the cause was invisible.
 
 ### Guidelines and content
 
@@ -166,44 +179,36 @@ tbd setup --auto
   test or a manual test script.
   `review-code` reviews a PR’s pinned head in the working tree and reports every
   finding.
-- **Validation findings from the stack 312 run**: `delegate-to-subagents` now says
-  parallel writers in one checkout must not run concurrent builds, and that generated
-  `tbd-*` definitions stay in the project.
-  `address-pr-review` treats GitHub CI as the required full-suite gate, and names the
-  hook and reason when pushing with `--no-verify`. Publishing a review or a disposition
-  reply falls back to a working channel when the reviews API returns 403. The skill
-  warns that `tbd update --notes` replaces the notes body.
-- **Unresolved default branch surfaces**: `tbd prime` prints the B1 repair in the
-  SessionStart grants section when the default branch cannot be resolved (previously it
-  printed nothing). `tbd policy show` no longer treats the remote name as a branch in the
-  working-tree footer.
-  A failed `git remote` listing reports git’s stderr reason rather than Node’s
-  `Command failed` line.
-  Generated `.claude/skills` and `.agents/skills` copies are regenerated from setup (not
-  hand-edited), and `.claude/agents/**` is excluded from the Markdown formatter so
-  doctor stays current.
-- **Grants in existing docs**: Creating and submitting stacked PRs, and installing the
-  stack tooling, now require the `github-stacked-prs` grant (`stacked-prs`, both
-  `create-or-update-pr` shortcuts, `setup-github-cli`, and the `AGENTS.md` block);
-  `setup-linear` defaults to the `epics` selection under the `linear` grant; the skill
-  gains a GitHub Authorization section; every skill tier and `welcome-user` route the
-  new requests.
+- **Guidance from running these workflows on real PRs**: `delegate-to-subagents` now
+  says parallel writers in one checkout must not run concurrent builds, and that
+  generated `tbd-*` definitions stay in the project.
+  `address-pr-review` treats GitHub CI as the required full-suite gate, skips a single
+  named pre-push hook rather than all of them, and never skips a hook whose check CI
+  does not repeat. Publishing a review or a disposition reply falls back to a working
+  channel when the reviews API returns 403. The skill warns that `tbd update --notes`
+  replaces the notes body.
+- **Untrusted PRs are reviewed by reading only**: a cross-repository PR, or one from an
+  author who is not an owner, member, or collaborator, gets no test, build, install,
+  hook, or `tbd` run in its tree unless the user confirms, since a review session holds
+  `gh` credentials and the project’s grants.
+  Review and disposition markers count toward coverage only from the user’s own account
+  or an account the user named, so a PR author cannot mark their own PR as reviewed.
+- **Grants in existing docs**: Creating or submitting a new stack, and installing the
+  stack tooling, now require the `github-stacked-prs` grant or a request for a stack in
+  the conversation (`stacked-prs`, both `create-or-update-pr` shortcuts,
+  `setup-github-cli`, and the `AGENTS.md` block); syncing and merging an existing stack
+  fall under `github-editing` and `github-merge`. `setup-linear` defaults to the `epics`
+  selection under the `linear` grant; the skill gains a GitHub Authorization section;
+  every skill tier and `welcome-user` route the new requests.
+- **Reviewable PR units**: `stacked-prs` now states when a change is its own PR versus
+  consolidated spec work in a stack (typically 8 PRs or fewer).
+  The create-PR and review shortcuts route informal `--base` chains through that rule.
 
 ### Documentation
 
 - **README**: Rewritten around one capability list matching the skill, a request table
   with the full review vocabulary, the six setup surfaces, and a summary of policy
   grants and delegation.
-- **Policy and setup review follow-ups**: Policy writes and setup updates serialize
-  their read/modify/write cycle so concurrent commands preserve grants and revocations.
-  Setup preserves the existing AGENTS.md line endings.
-  Doctor detects outdated generated policy guidance; `tbd policy refresh` repairs it
-  without changing grant values, dates, or user notes.
-  Cold documentation caches report unknown skill freshness, and regression tests compare
-  both installed skill copies byte for byte with generated output.
-- **Reviewable PR units**: `stacked-prs` now states when a change is its own PR versus
-  consolidated spec work in a stack (typically 8 PRs or fewer).
-  The create-PR and review shortcuts route informal `--base` chains through that rule.
 
 ## 0.9.0
 

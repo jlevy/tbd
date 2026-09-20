@@ -315,7 +315,7 @@ tbd policy show                            # Answered and unanswered policies, w
 tbd policy grant subagents                 # Record the recommended value
 tbd policy revoke github-merge             # Record the revoke value, what an unanswered policy takes
 tbd policy set pr-review-requirements standard + 2 rounds   # Record any valid value
-tbd policy refresh                         # Refresh guidance, preserving decisions and notes
+tbd policy refresh                         # Rewrite generated guidance only (grants, date, notes untouched)
 tbd setup --auto --policies=recommended    # Record the recommended set for every unanswered policy (Linear is asked separately)
 ```
 
@@ -323,6 +323,10 @@ An unanswered policy is treated as `not-granted`, with two exceptions (`confirm-
 for `github-merge` and `standard` for review requirements), and the agent asks when a
 task needs it. Your instructions in the conversation override recorded grants for that
 task, in either direction, and a grant never bypasses a tool permission or sandbox.
+The block interior is fully managed: `grant`, `revoke`, and `set` rebuild everything
+between the markers from the recorded grants and the date, so text you add by hand in
+there is lost the next time one of them runs.
+Only `refresh` leaves it alone, so keep notes about your grants outside the markers.
 `tbd prime` prints the effective grants, `tbd doctor` validates the block, and
 [`agent-policy-grants`](packages/tbd/docs/guidelines/agent-policy-grants.md) is the full
 definition.

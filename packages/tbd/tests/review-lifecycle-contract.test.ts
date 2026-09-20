@@ -839,4 +839,77 @@ describe('review lifecycle contract', () => {
       expect(skill).toContain('`tbd update --notes` replaces the entire notes body');
     });
   });
+
+  /**
+   * Safety rules the merge gate and the reviewer depend on. Each was a side path where
+   * the gate was absent or forgeable, so each is pinned here rather than left to prose
+   * review.
+   */
+  describe('side paths the merge gate must not skip', () => {
+    it('stacked-prs lands a stack only through the merge gate, with the repo merge method', async () => {
+      const landing = collapse(section(await shortcutDoc('stacked-prs'), '## Landing a Stack'));
+      expect(landing).toContain('steps 5 and 6 of `tbd shortcut review-and-merge-prs`');
+      expect(landing).toContain('gate must pass for every layer the merge includes');
+      expect(landing).toContain('`github-merge: never` stops the merge');
+      // gh stack merge falls back to the last-used method when none is passed.
+      expect(landing).toContain('gh stack merge <pr-number> --yes --squash');
+    });
+
+    it('counts a review or disposition marker only from a trusted author', async () => {
+      const sweep = collapse(
+        section(await shortcutDoc('pr-review-workflows'), '### Discovery Sweep'),
+      );
+      expect(sweep).toContain('marker counts only from a trusted author');
+      expect(sweep).toContain('`gh api user --jq .login`');
+      expect(sweep).toContain('`.user.login`');
+      expect(sweep).toContain('treated as unmarked');
+
+      const orchestration = await shortcutDoc('review-and-merge-prs');
+      const prepare = collapse(step(orchestration, 1));
+      expect(prepare).toContain('trusted marker authors');
+      expect(prepare).toContain('`gh api user --jq .login`');
+      expect(collapse(step(orchestration, 5))).toContain('trusted author');
+    });
+
+    it('reviews an untrusted PR by reading only', async () => {
+      const pinning = collapse(
+        section(await shortcutDoc('pr-review-workflows'), '### Pinning and the Working Tree'),
+      );
+      for (const phrase of [
+        'isCrossRepository',
+        'author_association',
+        '`OWNER`, `MEMBER`, or `COLLABORATOR`',
+        'reading only',
+      ]) {
+        expect(pinning, phrase).toContain(phrase);
+      }
+
+      for (const name of ['review-github-pr', 'review-code']) {
+        const doc = collapse(await shortcutDoc(name));
+        expect(doc, name).toContain('isCrossRepository');
+        expect(doc, name).toContain('author_association');
+        expect(doc, name).toContain('unless the user confirms in the conversation');
+      }
+    });
+
+    it('fails the CI condition when no workflow run completed for the head', async () => {
+      const doc = await shortcutDoc('review-and-merge-prs');
+      const gate = collapse(step(doc, 5));
+      expect(gate).toContain('at least one completed workflow run for `HEAD_SHA`');
+      expect(gate).toContain('An empty run list fails this condition');
+      expect(gate).toContain('the user has said this repository has no CI');
+
+      const address = collapse(step(doc, 3));
+      expect(address).toContain('at least one completed run');
+      expect(address).toContain('An empty list is not a pass');
+    });
+
+    it('skips one named pre-push hook rather than every hook', async () => {
+      const verify = collapse(step(await shortcutDoc('address-pr-review'), 7));
+      expect(verify).toContain('LEFTHOOK_EXCLUDE=<hook> git push');
+      expect(verify).toContain('Never skip a hook whose check CI does not repeat');
+      expect(verify).toContain('skips every hook at once and is used only with the user');
+      expect(verify).toContain('Name the hook and the reason');
+    });
+  });
 });

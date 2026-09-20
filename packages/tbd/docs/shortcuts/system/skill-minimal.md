@@ -102,6 +102,9 @@ Plain `tbd sync` also runs trackers according to `integrations.on_tbd_sync`; use
 Run `tbd shortcut --list` for all available shortcuts.
 
 For explicit stacked or dependent PR intent, run `tbd shortcut stacked-prs` first.
+Creating or submitting a new stack needs the `github-stacked-prs` grant, or a request
+for a stack in this conversation, which authorizes that one stack; without either,
+propose PRs that each target the trunk, or one folded PR, never a `--base` chain.
 Chained branch bases alone are not a formal GitHub stack; link and verify the PRs with
 `gh stack`. If the current branch is based on another feature branch, run
 `tbd shortcut stacked-prs` before creating a PR.

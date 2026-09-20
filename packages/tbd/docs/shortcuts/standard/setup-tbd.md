@@ -20,15 +20,26 @@ project as a whole: every human and agent working on the repository shares it.
 recommendation. Read its Setup Questions section before step 4, and take each meaning
 from there rather than from memory.
 
-## 1. Install or Upgrade the CLI
+## 1. Check the CLI, and Install Only If Needed
+
+Find out what is installed before installing anything:
+
+```bash
+tbd --version
+```
+
+Install or upgrade only when tbd is missing, or when it refuses with “This repository
+requires a newer version of tbd”:
 
 ```bash
 npm install -g get-tbd@latest   # Installs or upgrades
 tbd --version
 ```
 
-This is also the fix when tbd refuses with “This repository requires a newer version of
-tbd”.
+With a working tbd and no such refusal, ask the user before upgrading and say which
+version they have. A global install on every “set up tbd” request fetches whatever the
+registry serves at that moment, for no stated reason; `SUPPLY-CHAIN-SECURITY.md` rule 7
+and `tbd guidelines supply-chain-hardening` ask for a concrete reason before any bump.
 
 ## 2. Run Setup
 
@@ -138,7 +149,11 @@ value. For example, if the default branch leaves merging unanswered and the work
 proposes `github-merge: autonomous`, accepting all recommended requires
 `tbd policy grant github-merge` to record `confirm-session` before the bulk command.
 Do not commit unconfirmed proposals with the accepted answers; leave them out of that
-commit. A “not now” answer stays unanswered, rather than recording a revoke value.
+commit. `tbd policy` has no removal, so dropping such a line means deleting it from
+`AGENTS.md` by hand: ask the user to delete it, or delete it with their agreement in
+this conversation and say which line you removed (Recording Grants in
+`tbd guidelines agent-policy-grants`). A “not now” answer stays unanswered, rather than
+recording a revoke value.
 Record any individual answers first, then run it for the rest; if the user said “not
 now” to any policy, use `tbd policy grant` for each accepted policy instead.
 Record `github-merge: never`, `github-merge: autonomous`, or
@@ -162,11 +177,12 @@ unconfirmed working-tree proposal does not.
 Reuse answers already given in this conversation rather than asking again in a linked
 setup shortcut.
 
-- **Any GitHub grant** (`github-workflows`, `github-editing`, `github-merge`, or
-  `github-stacked-prs` with a value other than `not-granted`): run `gh auth status`. If
-  `gh` is missing, too old, or not authenticated, follow
-  `tbd shortcut setup-github-cli`. Authentication comes from the user (`gh auth login`,
-  or `GH_TOKEN` set before the session); never ask for a token in chat.
+- **Any GitHub grant** (`github-workflows`, `github-editing`, or `github-stacked-prs`
+  with a value other than `not-granted`, or `github-merge` with a value other than
+  `never`): run `gh auth status`. If `gh` is missing, too old, or not authenticated,
+  follow `tbd shortcut setup-github-cli`. Authentication comes from the user
+  (`gh auth login`, or `GH_TOKEN` set before the session); never ask for a token in
+  chat.
 - **`github-stacked-prs: granted`:** install the stack tooling as step 3 of Fresh
   Machine Setup in `tbd shortcut setup-github-cli` describes (the agent’s
   `ensure-gh-cli.sh` with `--with-stack`). Skip it without the grant.
@@ -185,8 +201,13 @@ tbd policy show
 ```
 
 Fix or report anything `tbd doctor` flags.
-Until the policy commit is pushed to the remote’s default branch, both commands report
-the working tree grants as pending; that is expected.
+After an upgrade, doctor may report the policy block’s generated guidance as stale,
+because a newer release words it differently.
+Run `tbd policy refresh`, which rewrites that prose and changes no grant, no recorded
+date, and nothing else in the block, then review and commit the diff with the rest of
+the setup changes.
+Until the policy commit is pushed to the remote’s default branch, both
+commands report the working tree grants as pending; that is expected.
 A working-tree block that differs from the default branch at a pinned PR head is a
 proposed grant change: tell the user before reviewing or merging, and do not treat it as
 expected once the question is whether to merge.

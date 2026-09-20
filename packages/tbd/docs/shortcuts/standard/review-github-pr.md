@@ -65,6 +65,18 @@ Create a to-do list with the following items then perform all of them:
    - If the tree has uncommitted changes, or `HEAD` does not equal `HEAD_SHA` after
      checkout, stop and ask the user rather than reviewing the wrong tree
 
+   - Decide whether this PR’s code may be run, as Pinning and the Working Tree in
+     `tbd shortcut pr-review-workflows` defines:
+
+     ```bash
+     gh pr view <PR_NUMBER> --repo $REPO --json isCrossRepository,author
+     gh api repos/$REPO/pulls/<PR_NUMBER> --jq .author_association
+     ```
+
+     `isCrossRepository` true, or an `author_association` other than `OWNER`, `MEMBER`,
+     or `COLLABORATOR`, makes the PR untrusted: review it by reading only, and record
+     that in the header’s `Tests run` line
+
 4. **Check CI status:**
    - Run: `gh pr checks <PR_NUMBER> --repo $REPO`
    - Note any failing or pending checks for the review’s CI status section
@@ -134,14 +146,19 @@ Create a to-do list with the following items then perform all of them:
    - Check formal remote membership using `tbd shortcut stacked-prs`; do not infer it
      from local tracking alone, and stop if the membership lookup fails.
      If the PR’s base is another feature branch and the PR is not in a formal GitHub
-     stack, report a High finding on that informal chain.
-     Fold layers that fail the review-unit test into a surviving PR; otherwise link and
-     verify the existing layers as a formal stack.
+     stack, report a High finding on that informal chain, with the Fix: fold layers that
+     fail the review-unit test into a surviving PR, or link and verify the existing
+     layers as a formal stack.
      Do not ask for more layers.
-   - After the PR-level review, if the PR is in a formal stack, also review the stack as
-     a whole
+   - If the PR is in a formal stack and it is the top layer this request covers, also
+     assess the stack as a whole after the PR-level review: layer boundaries, changes
+     that sit in the wrong layer, and the order of the layers.
+     File each stack-level finding on the PR of the layer that must change (Stacked PRs
+     in `tbd shortcut pr-review-workflows`). Reviewing a lower layer, stop at that layer
    - Run the test suite and targeted reproduction scripts to uncover bugs, unless the
-     user says otherwise
+     user says otherwise or the PR is untrusted (step 3), in which case run nothing in
+     the tree: no tests, builds, installs, hooks, or `tbd` commands, unless the user
+     confirms in the conversation
    - Keep scratch files in the session scratch directory, do not commit or push, and
      leave the tree as you found it
    - Leave the session’s environment as you found it too: set any variable a probe needs
@@ -205,7 +222,11 @@ Create a to-do list with the following items then perform all of them:
     Post to the channel from step 2, with the same header and marker on every channel.
     If the user asked for “report only”, present the review and skip this step.
     Publishing is a PR action that needs the `github-editing` grant (see Grants in the
-    Review Workflows in `tbd shortcut pr-review-workflows`).
+    Review Workflows in `tbd shortcut pr-review-workflows`). Read that grant from a
+    current trusted ref: run the policy fetch block from Prepare (step 1) of
+    `tbd shortcut review-and-merge-prs`, then `tbd policy show`. That block is not
+    `tbd policy refresh`, which rewrites guidance prose and fetches nothing.
+    Without the grant, ask once before publishing.
 
     - **Formal GitHub review** (default), pinned to the reviewed head with the `COMMENT`
       event and a textual verdict in the body, never GitHub approve or request-changes

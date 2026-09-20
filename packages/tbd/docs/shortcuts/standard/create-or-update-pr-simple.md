@@ -57,15 +57,19 @@ Create a to-do list with the following items then perform all of them:
      If this API call fails, stop; do not assume the PR is unstacked.
      A nonempty result means the PR belongs to a formal GitHub stack, even when the
      local check exits 2.
-   - If the user requested a stack and neither check finds one, check the
-     `github-stacked-prs` grant (see `tbd guidelines agent-policy-grants`). When it is
-     granted, run `tbd shortcut stacked-prs` and use the official `gh-stack` skill to
-     initialize and submit a local stack or link existing PRs with `gh stack link`. When
-     it is not granted, propose separate PRs instead, and create a stack only if the
-     user then confirms they want one for this task.
+   - If the user requested a stack and neither check finds one, that request authorizes
+     this stack for this task whatever the `github-stacked-prs` grant says (see
+     `tbd guidelines agent-policy-grants`): run `tbd shortcut stacked-prs` and use the
+     official `gh-stack` skill to initialize and submit a local stack, or link existing
+     PRs with `gh stack link`. If `github-stacked-prs` is not granted, offer to record
+     the standing grant as well.
+   - If no one asked for a stack and `github-stacked-prs` is not granted, do not build
+     one: propose PRs that each target `$TRUNK`, or one folded PR, and never a `--base`
+     chain, which is a stack under another name.
      Chained branch bases alone are not a formal GitHub stack.
-     The grant governs only new stacks: a branch or PR that is already stacked keeps the
-     stacked paths in this and later steps.
+     The grant covers installing the tooling and creating or submitting a new stack: a
+     branch or PR that is already stacked keeps the stacked paths in this and later
+     steps, under `github-editing` and `github-merge`.
    - **Reviewable unit (before `gh pr create`):** Apply Reviewable Units in
      `tbd shortcut stacked-prs` before updating the branch, creating, or retargeting.
      Focused, isolated work that will be reviewed and merged on its own stays one PR

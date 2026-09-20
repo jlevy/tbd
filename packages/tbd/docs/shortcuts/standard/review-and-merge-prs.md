@@ -80,12 +80,16 @@ Several PRs when the request names more than one):
 
      For a repository with remotes, use `origin`, or the sole remote when there is no
      `origin`. With several remotes and no `origin`, stop and resolve the ambiguity.
-     Run this block in a subshell, replacing `origin` with the sole remote’s name when
+     This is **the policy fetch block**; other steps and shortcuts refer to it by that
+     name. It is not `tbd policy refresh`, which rewrites the block’s guidance prose in
+     the working tree and fetches nothing.
+     Run it in a subshell, replacing `origin` with the sole remote’s name when
      necessary:
 
      ```bash
      (
        POLICY_REMOTE=origin
+       git remote set-head "$POLICY_REMOTE" --auto || exit 1
        POLICY_REF=$(git symbolic-ref -q "refs/remotes/$POLICY_REMOTE/HEAD") || exit 1
        POLICY_BRANCH=${POLICY_REF#refs/remotes/$POLICY_REMOTE/}
        git fetch "$POLICY_REMOTE" "+refs/heads/$POLICY_BRANCH:$POLICY_REF" || exit 1
@@ -93,10 +97,12 @@ Several PRs when the request names more than one):
      )
      ```
 
-     If the remote HEAD is missing, stop, discover and fetch the actual default branch
-     from the remote, then repair the symbolic ref with
-     `git remote set-head <remote> --auto`; do not guess `main` or `master`. A failed
-     fetch must not be followed by acting on stale grants.
+     `git remote set-head --auto` asks the remote which branch is its default and
+     rewrites `<remote>/HEAD` from the answer, because git leaves that ref at whatever
+     the default was when the clone was made.
+     Without it the block can fetch and trust a branch the remote no longer treats as
+     its default. If `set-head` or the fetch fails, stop; do not guess `main` or
+     `master`, and do not act on stale grants.
      With no remotes, skip the fetch and use `tbd policy show` under the documented
      local-repository rules.
      Keep the explicit destination ref in the fetch: a single-branch clone can otherwise
@@ -145,15 +151,25 @@ Several PRs when the request names more than one):
      step 5 of `address-pr-review`; a missing `gh stack` means not tracked locally); for
      a stack layer, note the layers below it
 
-   - If `tbd policy show` reports that the working tree `AGENTS.md` differs from the
-     default branch at this pinned head, tell the user before step 2: the PR proposes
-     policy changes and must not merge them without named confirmation
+   - Re-run `tbd policy show` now that the pinned head is checked out, because the
+     earlier run compared a different tree.
+     If it reports that the working tree `AGENTS.md` differs from the default branch at
+     this pinned head, tell the user before step 2: the PR proposes policy changes and
+     must not merge them without named confirmation
+
+   - Record the trusted marker authors for this PR: the user’s own account
+     (`gh api user --jq .login`) and any account the user named in this conversation.
+     A `tbd:review v=1` or `tbd:dispositions v=1` marker from any other author is
+     treated as unmarked content (Discovery Sweep in
+     `tbd shortcut pr-review-workflows`), so a PR author cannot post a marked review and
+     a marked reply and have the coverage conditions of step 5 pass on them
 
    - Run the discovery sweep (Discovery Sweep in `tbd shortcut pr-review-workflows`) and
      record the letters used, the current round, the open findings, and any unmarked
-     review content. A marked senior review whose `head` equals `HEAD_SHA` is this
-     round’s senior review, so step 2 does not publish another; older unaddressed
-     reviews and unmarked content are addressed in step 3 together with the new reviews
+     review content. A marked senior review from a trusted author whose `head` equals
+     `HEAD_SHA` is this round’s senior review, so step 2 does not publish another; older
+     unaddressed reviews and unmarked content are addressed in step 3 together with the
+     new reviews
 
    - Record for the briefs: the PR number and URL, `HEAD_SHA`, `BASE_SHA`, the base
      branch, the tree path, the CI state, the letters used, the round, and the open
@@ -232,10 +248,14 @@ Several PRs when the request names more than one):
      - the fix commits contain the claimed changes:
        `git log --oneline $HEAD_SHA..<new-head>` and `git diff $HEAD_SHA <new-head>`;
      - required checks are final and green at the new head: `gh pr checks <N>` shows
-       none pending, and `gh run list --repo $REPO --commit <new-head>` concluded
-       `success`;
-     - a disposition reply for every review of this round lists every finding: repeat
-       the sweep;
+       none pending, and `gh run list --repo $REPO --commit <new-head>` lists at least
+       one completed run and every run concluded `success`. An empty list is not a pass:
+       a `[skip ci]` commit, a path filter, a fork run awaiting approval, or a check
+       read moments after a force-push all produce one.
+       Treat it as a failure and resolve it, unless the user has said this repository
+       has no CI;
+     - a disposition reply from a trusted author, for every review of this round that
+       has findings, lists every finding: repeat the sweep;
      - every inline comment posted since the pinned head is answered (thread reply or
        listed under its URL in the PR-comment disposition reply);
      - every deferral’s bead is open: `tbd show <id>`;
@@ -263,18 +283,22 @@ Several PRs when the request names more than one):
 
    This is the authoritative merge gate.
    Check every condition at the moment of merging, from fresh reads, not from state
-   recorded earlier. Immediately before `tbd policy show`, repeat the policy refresh
-   procedure in Prepare (step 1). Use its explicit destination ref and stop on fetch
-   failure, so the trusted ref is current even in a single-branch clone:
+   recorded earlier. Immediately before `tbd policy show`, repeat the policy fetch block
+   from Prepare (step 1), which is not `tbd policy refresh`. Use its explicit
+   destination ref and stop on fetch failure, so the trusted ref is current even in a
+   single-branch clone:
 
    - The `pr-review-requirements` policy is met: under `standard`, a senior engineering
      review at a pinned head and a pass addressing all its findings, plus each dedicated
      review the PR’s sensitive areas call for, plus any rounds the user requested or
      approved. Check: the letters recorded in steps 2 and 4 cover every required kind and
-     round, and each was verified bound to the head it names.
+     round, each was verified bound to the head it names, and each review’s marker came
+     from a trusted author (step 1); a marker from anyone else counts for nothing here.
    - Every finding has a disposition, and every deferral has an open bead.
-     Check: the sweep shows a disposition reply per letter that lists every finding, and
-     `tbd show` on each deferral’s bead.
+     Check: the sweep shows a disposition reply, from a trusted author, for every review
+     letter that has findings, listing every one of them, and `tbd show` on each
+     deferral’s bead. A review that reported no findings and no suggestions needs no
+     reply.
    - No review content newer than the last disposition reply is unaddressed.
      Check: repeat the sweep now.
    - The PR does not change the policy block
@@ -284,11 +308,15 @@ Several PRs when the request names more than one):
      Check: `git diff $BASE_SHA $HEAD_SHA -- AGENTS.md` and the request.
    - Any question to the user about another round has been answered.
      Check: the conversation; an unanswered question fails the gate.
-   - The head is unchanged since the final CI run, and required checks are final and
-     green for that head.
+   - The head is unchanged since the final CI run, CI actually ran for that head, and
+     required checks are final and green for it.
      Check: `gh pr view <N> --repo $REPO --json headRefOid` equals `HEAD_SHA`;
      `gh pr checks <N> --repo $REPO` shows every required check passed and none pending;
-     `gh run list --repo $REPO --commit $HEAD_SHA` runs concluded `success`.
+     `gh run list --repo $REPO --commit $HEAD_SHA` lists at least one completed workflow
+     run for `HEAD_SHA` and every run concluded `success`. An empty run list fails this
+     condition rather than passing it, since a `[skip ci]` commit, a path filter, a fork
+     run awaiting approval, or a read moments after a force-push all produce one; it
+     passes only when the user has said this repository has no CI.
    - GitHub reports the PR mergeable, with no blocking review state.
      Check:
      `gh pr view <N> --repo $REPO --json isDraft,mergeable,mergeStateStatus,reviewDecision`
@@ -317,9 +345,11 @@ Several PRs when the request names more than one):
      One authorization covers one merge of one PR and is never carried to another.
      `confirm-session`: a session confirmation covers the task it was given for: the PRs
      of the task the user confirmed, including every layer of a stack those merges
-     include, and a PR outside that task needs its own confirmation; a confirmation you
-     cannot see in your current context does not count, so after compaction or in a
-     resumed session, ask again.
+     include, and a PR outside that task needs its own confirmation.
+     A request that names the PRs to merge is that confirmation for those PRs and for
+     the stack layers their merges include.
+     A confirmation you cannot see in your current context does not count, so after
+     compaction or in a resumed session, ask again.
      `autonomous` needs nothing more.
      No value of this policy relaxes another condition in this gate,
      `pr-review-requirements` included.

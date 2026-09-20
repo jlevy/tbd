@@ -280,7 +280,9 @@ describe('integration file formats', () => {
       expect(stacked).toContain('8 PRs or fewer');
       expect(stacked).toContain('one stack per major feature');
       expect(stacked).toContain('Do not hand-roll informal chains');
-      expect(stacked).toContain('Review each PR first, then the stack as a whole');
+      // Two-level review, scoped so only one reviewer assesses the whole stack.
+      expect(stacked).toContain('Each layer is reviewed on its own PR');
+      expect(stacked).toContain('assesses the stack as a whole once');
       expect(stacked).toContain('Do not land a stack on trunk unless asked');
 
       for (const name of [

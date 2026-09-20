@@ -103,6 +103,16 @@ Create a to-do list with the following items then perform all of them:
    proceeds. Record what ran and the results (for PR scope, in the review header’s
    `Tests run` line).
 
+   **An untrusted PR is reviewed by reading only.** For PR scope, first read
+   `gh pr view <N> --repo $REPO --json isCrossRepository,author` and
+   `gh api repos/$REPO/pulls/<N> --jq .author_association`. A cross-repository PR, or an
+   author whose association is not `OWNER`, `MEMBER`, or `COLLABORATOR`, is untrusted:
+   run no tests, builds, installs, or hooks in that tree, and no `tbd` command in it,
+   unless the user confirms in the conversation.
+   All of those execute code the PR author controls, in a session that holds `gh`
+   credentials and the project’s push and merge grants.
+   Record in `Tests run` that nothing was run, and why.
+
    - Keep scratch files in the session scratch directory, not in the repository.
    - Do not commit or push.
    - Leave the working tree as you found it (`git status --porcelain` shows the same

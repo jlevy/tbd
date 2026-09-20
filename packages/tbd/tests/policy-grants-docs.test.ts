@@ -322,17 +322,43 @@ describe('documents that act on grants link to agent-policy-grants', () => {
     const delegate = flat(
       section(await readDoc(`${SHORTCUTS}/delegate-to-subagents.md`), 2, 'Check Authorization'),
     );
+    // The block re-asks the remote for its default branch before reading the ref git
+    // leaves at whatever the default was when the clone was made, then fetches that
+    // branch into the ref it just resolved.
+    expect(review).toContain('git remote set-head "$POLICY_REMOTE" --auto');
+    expect(review).toContain('git symbolic-ref -q "refs/remotes/$POLICY_REMOTE/HEAD"');
     expect(review).toContain('"+refs/heads/$POLICY_BRANCH:$POLICY_REF"');
     const gate = review.slice(review.indexOf('5. **Merge gate'));
     for (const doc of [gate, delegate]) {
       expect(doc).not.toContain('`git fetch <remote> <default-branch>`');
       expect(doc).toContain('explicit destination ref');
       expect(doc).toContain('Prepare');
+      // The fetch block has a name, and it is not the `refresh` subcommand.
+      expect(doc).toContain('policy fetch block');
+      expect(doc).toContain('not `tbd policy refresh`');
     }
   });
 
   it('the generated tbd block links to the guideline', () => {
     expect(flat(getCodexTbdSection())).toContain(LINK);
+  });
+
+  // `tbd sync` publishes bead and doc data on tbd's own branch, never code or a PR, so
+  // no policy value gates it and an agent never pauses the closing checklist to ask.
+  it('states that tbd sync needs no grant and always runs', async () => {
+    const guideline = flat(await readDoc('guidelines/agent-policy-grants.md'));
+    // The skill states this in its closing protocol, not its authorization section.
+    const baseline = flat(await readDoc('shortcuts/system/skill-baseline.md'));
+    for (const doc of [guideline, baseline]) {
+      // The guideline bolds the term as a list label; the skill states it inline.
+      expect(doc).toMatch(/`tbd sync`(:\*\*)? needs no grant, ever/u);
+      expect(doc).toMatch(/no permission to ask for/u);
+    }
+    // The obligation itself belongs to the closing protocol, in every tier.
+    for (const tier of ['skill-baseline', 'skill-brief', 'skill-minimal']) {
+      expect(flat(await readDoc(`shortcuts/system/${tier}.md`))).toContain('tbd sync');
+    }
+    expect(baseline).toContain('Work is not done until pushed, CI passes, and tbd is synced.');
   });
 
   it.each(['setup-tbd', 'delegate-to-subagents', 'review-and-merge-prs', 'stacked-prs'])(

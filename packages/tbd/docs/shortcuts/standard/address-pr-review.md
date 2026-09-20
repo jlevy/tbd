@@ -99,8 +99,10 @@ Create a to-do list with the following items then perform all of them:
      the brief, and stop and report if either check fails; the stack checks below still
      apply
 
-   - Set `$PR_NUMBER` to the PR selected in step 2, then run
-     `gh pr checkout "$PR_NUMBER" --repo "$REPO"`
+   - Set `$PR_NUMBER` to the PR selected in step 2. Otherwise, when no coordinator
+     pinned a head, check the PR out yourself with
+     `gh pr checkout "$PR_NUMBER" --repo "$REPO"`. In the coordinator-pinned case do not
+     run it: it can move `HEAD` off the commit the brief pinned
 
    - Resolve the checked-out branch and PR metadata:
 
@@ -204,10 +206,20 @@ Create a to-do list with the following items then perform all of them:
      commands)
    - GitHub CI at the pushed head is the required full-suite gate.
      Local pre-push hooks can time out or flake under load; they are not a substitute
-     for CI. If a local hook fails for a known local-only reason, push with
-     `--no-verify` and wait for `gh pr checks`. Name the hook and the reason in the
-     report and in the disposition reply.
-     Do not treat a green local subset as the gate
+     for CI. If one hook fails for a known local-only reason, skip that hook by name
+     with `LEFTHOOK_EXCLUDE=<hook> git push`, never all of them.
+     Never skip a hook whose check CI does not repeat, a dependency-age or
+     secret-scanning hook among them: nothing downstream re-runs it, so skipping it
+     removes the check rather than deferring it.
+     `--no-verify` skips every hook at once and is used only with the user’s agreement
+     in the conversation.
+     Name the hook and the reason in the report and in the disposition reply, then wait
+     for `gh pr checks`. Do not treat a green local subset as the gate
+   - Pushing is a PR action that needs the `github-editing` grant.
+     Read it from a current trusted ref: run the policy fetch block from step 1 of
+     `tbd shortcut review-and-merge-prs`, then `tbd policy show`. That block is not
+     `tbd policy refresh`, which rewrites guidance prose and fetches nothing.
+     Without the grant, ask once before the first push
    - Commit with conventional commit messages and push; record each fix commit’s SHA for
      its `fixed` line
    - Record the new head SHA:
@@ -248,10 +260,14 @@ Create a to-do list with the following items then perform all of them:
 
    - For a formal review or a PR comment: post the reply as a PR comment
      (`gh pr comment <PR_NUMBER> --repo $REPO --body-file <file>`); for formal reviews
-     with inline threads, also reply to each thread with its ID and disposition and
-     resolve it. If `gh pr comment` or the reviews API returns 403 (or another permission
-     error), post the same marked body on a working channel, typically the platform’s
-     PR-comment tool. Record the channel used.
+     with inline threads, also reply to each thread with its ID and disposition.
+     Resolve a thread only when its disposition is `fixed`. Threads dispositioned
+     `rebutted`, `declined`, and `deferred` stay open: the reviewer, not the addressing
+     agent, decides whether one is settled, and resolving it hides the disagreement from
+     the conversation-resolution requirement.
+     If `gh pr comment` or the reviews API returns 403 (or another permission error),
+     post the same marked body on a working channel, typically the platform’s PR-comment
+     tool. Record the channel used.
      `gh` has no command to resolve a review thread.
      Query thread IDs from the PR’s `reviewThreads` connection, then mutate:
 
@@ -284,8 +300,12 @@ Create a to-do list with the following items then perform all of them:
      issue if no finding is deferred
 
    - For an in-repo review doc: append a dated “Status Addendum” section containing the
-     marked reply (never rewrite the original findings) and commit it on the repo’s
-     default branch, where the review doc lives, not the checked-out PR branch
+     marked reply, never rewriting the original findings.
+     That commit belongs on the repo’s default branch, where the review doc lives, not
+     on the checked-out PR branch, and so falls outside this role: you are the sole
+     committer on the PR branch and commit nowhere else.
+     Hand the addendum to the coordinator to commit, or to the user when no coordinator
+     delegated this work
 
    - Record each reply URL
 

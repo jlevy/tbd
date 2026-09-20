@@ -152,6 +152,9 @@ or want help → run `tbd shortcut welcome-user`
 | *(your choice whenever appropriate)* | `tbd list`, `tbd dep add`, `tbd close`, `tbd sync`, etc. |
 
 For explicit stacked or dependent PR intent, run `tbd shortcut stacked-prs` first.
+Creating or submitting a new stack needs the `github-stacked-prs` grant, or a request
+for a stack in this conversation, which authorizes that one stack; without either,
+propose PRs that each target the trunk, or one folded PR, never a `--base` chain.
 Chained branch bases alone are not a formal GitHub stack; link and verify the PRs with
 `gh stack`. If the current branch is based on another feature branch, run
 `tbd shortcut stacked-prs` before creating a PR.
@@ -250,6 +253,15 @@ actions.
 ```
 
 **Work is not done until pushed, CI passes, and tbd is synced.**
+
+Step 2 is a GitHub action: `git push` needs `github-editing`. Without that grant, ask
+once before the first push rather than treating the checklist as the authorization, and
+say what is waiting on the answer.
+Step 5 is not: `tbd sync` needs no grant, ever, and no permission to ask for.
+No policy value stops it, so it is never the step you pause on.
+It pushes only tbd’s own data-sync branch (`tbd-sync` unless the project configures
+another), which carries bead and doc data and never code or a PR. With an external
+tracker enabled it also syncs that tracker, under that tracker’s own grant.
 
 **Remote/proxied session where GitHub seems blocked?** If the environment has egress,
 `gh` works through a scoped `NO_PROXY` bypass.

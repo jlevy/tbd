@@ -37,7 +37,7 @@ keep this document, the `tbd policy` schema, and the block renderer in agreement
 | `github-workflows` | `granted`, `not-granted` | `granted` | The rest of an end-to-end GitHub workflow beyond branches and PRs, through any tool (`gh`, the GitHub API, or MCP servers): issues, labels, and re-running or cancelling CI runs |
 | `github-editing` | `granted`, `not-granted` | `granted` | Branches and PRs short of merging, through any tool (`gh`, the GitHub API, or MCP servers): pushing branches; creating, reviewing, and editing PRs; posting comments, reviews, and disposition replies; watching CI |
 | `github-merge` | `never`, `confirm-every`, `confirm-session`, `autonomous` | `confirm-session` | Who authorizes merging a PR whose review requirements are met (see Merge Authorization below). Four steps, most restrictive first. The two ends, `never` and `autonomous`, are recorded only when the user explicitly sets them |
-| `github-stacked-prs` | `granted`, `not-granted` | `granted` | Setting up GitHub-native stacked PRs (the pinned `gh-stack` extension and its agent skill) and creating, submitting, syncing, and merging formal stacks with `gh stack`, following `stacked-prs` |
+| `github-stacked-prs` | `granted`, `not-granted` | `granted` | Setting up GitHub-native stacked PRs (the pinned `gh-stack` extension and its agent skill) and creating or submitting a *new* formal stack with `gh stack`, following `stacked-prs`. Syncing, rebasing, and merging a stack that already exists are ordinary PR and merge actions under `github-editing` and `github-merge` |
 | `subagents` | `granted`, `not-granted` | `granted` | Using sub-agents according to `delegate-to-subagents` |
 | `pr-review-requirements` | `standard`, a custom requirement, or `none` | `standard` | The reviews required before a PR is merged. `standard`: one senior engineering review and one pass addressing all findings for every PR, plus a dedicated review pass for each area of special concern (security, performance, correctness) in which the PR is sensitive. A custom requirement adds kinds or rounds (see Custom Values). `none` requires no review; it is recorded only when the user explicitly grants it |
 | `linear` | `not-granted`, `epics`, or a custom selection | Not recommended by default; ask | Syncing beads with Linear. `epics` syncs open epic beads only, in both directions. A custom selection names a wider set (see Custom Values) and is configured through `setup-linear` |
@@ -78,6 +78,11 @@ name and has not confirmed.
 **A session confirmation covers the task it was given for:** the PRs of the task the
 user confirmed, including every layer of a stack those merges include, and a PR outside
 that task needs its own confirmation.
+A request that names the PRs to merge is that confirmation for those PRs: “make sure PR
+#12 and #13 are reviewed and merged” confirms merging #12 and #13, and every stack layer
+those two merges include.
+A PR the request does not name needs its own confirmation, and no later PR inherits this
+one.
 
 **Unanswered means `confirm-every`, not `never`.** Asking the user is not acting on
 their behalf, so asking is the fail-closed default, and `tbd policy revoke github-merge`
@@ -243,10 +248,20 @@ selection when the user wants it is `epics`.
   Every other value is recorded through `set`, and only when the user explicitly asks
   for that value: `github-merge: never`, `github-merge: autonomous`, and
   `pr-review-requirements: none` among them.
-  To make a policy unanswered again, delete its line by hand.
-  If doctor reports stale generated policy guidance, `tbd policy refresh` updates the
-  known prose while preserving grant lines, the recorded date, and user notes.
-  Review and commit the result; this command does not grant or revoke permission.
+  To make a policy unanswered again, delete its line by hand; `tbd policy` has no
+  removal. An agent never deletes a grant line on its own: it asks the user to delete the
+  line, or deletes it with the user’s agreement in the conversation and says which line
+  it removed. The same applies to an unconfirmed proposal sitting in the working tree,
+  which setup must not commit alongside the answers the user gave.
+
+- **The block interior is fully managed.** `tbd policy grant`, `revoke`, and `set`
+  rebuild everything between the markers from the recorded grants and the date, so any
+  text added by hand inside them is lost the next time one of those commands runs.
+  `tbd policy refresh` is the exception: it rewrites only the guidance prose tbd
+  generates, leaving grant lines, the recorded date, and any other interior text as they
+  are. Run it when doctor reports stale generated policy guidance, then review and commit
+  the result; it does not grant or revoke permission.
+  Notes about the grants belong outside the markers, where nothing regenerates them.
 
 - **Agents record only explicit grants.** An agent records a grant only when the user
   explicitly grants it in the conversation; it never infers a grant from memory or from
@@ -258,7 +273,10 @@ selection when the user wants it is `epics`.
   not merge such a change unless the user confirmed each changed policy and value by
   name in this request.
 
-- Agents change the block only through `tbd policy`; people may also edit it by hand.
+- Agents change the block only through `tbd policy`, with one exception: deleting a
+  grant line to make a policy unanswered again, which `tbd policy` cannot do and which
+  an agent does only with the user’s agreement, as above.
+  People may also edit it by hand.
   Recording a grant is an ordinary commit to `AGENTS.md`, and the agent tells the user.
 
 | Policy | `grant` records | `revoke` records |
@@ -310,8 +328,10 @@ Line by line:
   and asks for an upgrade.
 - **Heading:** `### Agent Policy Grants`, nested under the tbd block’s `## tbd`.
 - **Prose:** the fixed paragraph shown above.
-  When reading, tbd ignores every line between the markers that is not a grant line;
-  when writing, it regenerates the prose, so text added by hand there is lost.
+  When reading, tbd ignores every line between the markers that is not a grant line.
+  When writing, `tbd policy grant`, `revoke`, and `set` regenerate the whole interior,
+  so text added by hand between the markers does not survive them; `tbd policy refresh`
+  rewrites only this generated prose (see Recording Grants).
 - **Grant lines:** one per policy: a list marker (`-`, `*`, or `+`), the policy name in
   backticks, a colon, a space, and the value to the end of the line, with surrounding
   whitespace trimmed. A policy name matches `[a-z][a-z0-9-]*`. tbd writes the seven
@@ -369,9 +389,24 @@ cannot delete grants.
   stack tooling (`ensure-gh-cli.sh --with-stack`, as `setup-github-cli` describes), and
   agents follow `stacked-prs` when a change is best split into dependent PRs or the user
   asks for a stack. With `not-granted`, agents neither install the tooling nor create or
-  submit stacks, and propose separate PRs instead; they still follow the stack rules in
-  `address-pr-review` and `pr-review-workflows` when a PR someone else stacked is under
-  review.
+  submit a new stack, unless the user asks for a stack in the conversation, which
+  authorizes that stack for the task; offer to record the standing grant then.
+  Without the grant and without such a request, propose PRs that each target the trunk,
+  or one folded PR, and never a `--base` chain, which is a stack under another name.
+  Syncing, rebasing, and merging a stack that already exists are governed by
+  `github-editing` and `github-merge`, not by this policy, and the stack rules in
+  `address-pr-review` and `pr-review-workflows` apply to a PR someone else stacked
+  whatever this policy says.
+- **`tbd sync`:** needs no grant, ever, and no permission to ask for.
+  No value of `github-editing`, `github-merge`, or any other policy restricts it,
+  including `not-granted`, so a missing grant is never a reason to skip it.
+  Running it is required by the session closing protocol in the skill, and leaving a
+  session unsynced strands the bead updates other replicas and agents depend on.
+  It pushes only tbd’s own data-sync branch (`tbd-sync` unless the project configures
+  another), which carries bead and doc data and never code, a PR, or the branch under
+  review; `github-editing` covers the branches and PRs a change is delivered through.
+  With an external tracker enabled, the same command also syncs that tracker, which
+  needs that tracker’s grant, `linear` today.
 - **Linear:** agents set up, enable, or run Linear sync only under a `linear` value
   other than `not-granted`, over the selection that value names.
   The grant is consent for agents, not a switch inside tbd: a project whose
@@ -397,8 +432,9 @@ change an answered policy only when the user asks.
   an authorization for each merge, `never` means an agent does not merge at all, and
   `autonomous` merges without asking.
 - `github-stacked-prs` (recommended: `granted`): agents may install the `gh stack`
-  tooling and create, submit, sync, and merge formal stacks when a change is best split
-  into dependent PRs.
+  tooling and create or submit a new formal stack when a change is best split into
+  dependent PRs; syncing and merging an existing stack fall under `github-editing` and
+  `github-merge`.
 - `subagents` (recommended: `granted`): agents may delegate to sub-agents following
   `delegate-to-subagents`.
 - `pr-review-requirements` (recommended: `standard`): every PR gets one senior

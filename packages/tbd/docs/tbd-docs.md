@@ -1121,16 +1121,20 @@ Subcommands:
   takes (`pr-review-requirements` has none; use `set`)
 - `set <policy> <value...>` - Record any valid value; several words are joined with
   spaces, so quoting is optional
+- `refresh` - Rewrite the block’s generated guidance prose, changing no grant, no
+  recorded date, and nothing else in the block
 
 Grants live in a policy block inside the tbd block in `AGENTS.md`, immediately before
 its `END TBD INTEGRATION` marker; `.tbd/config.yml` holds no copy.
 `grant`, `revoke`, and `set` edit the working tree copy and stamp the tbd block with the
 current integration format, so an older tbd refuses to regenerate the block instead of
 dropping the grants.
+They rebuild the whole block interior from the recorded grants and the date, so text
+added by hand between the markers does not survive them.
 Recording a grant is an ordinary commit to `AGENTS.md`. `tbd policy refresh` repairs
-outdated generated guidance reported by doctor, preserving grant lines, user notes, and
-the recorded date, and restamping the integration format.
-It refuses unfamiliar prose edits instead of discarding them.
+outdated generated guidance reported by doctor, rewriting only that prose and leaving
+grant lines, user notes, and the recorded date alone, and restamping the integration
+format. It refuses unfamiliar prose edits instead of discarding them.
 Policy writes and setup block rewrites share a lock across the full read/update/write
 operation; dry runs leave project files and shared metadata unchanged.
 `tbd setup --auto --policies=recommended` records the recommended set for every

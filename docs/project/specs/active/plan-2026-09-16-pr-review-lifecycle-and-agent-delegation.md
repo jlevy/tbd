@@ -310,7 +310,7 @@ The facts this plan depends on, as of 2026-09-16:
   from the default branch [V1]; Codex sub-agents share the parent’s working directory in
   both tool versions [V16].
 - `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` can override a model named at spawn [V1].
-- Multi-agent work costs roughly 3 to 15 times the tokens of one agent [V10], [V11].
+- Multi-agent work costs roughly 3 to 10 times the tokens of one agent [V10], [V11].
 
 **How this plan relates to vendor guidance:**
 
@@ -721,7 +721,9 @@ Recorded 2026-09-16.
   `tbd setup --auto --policies=recommended` or `tbd policy set linear epics`).
   Non-interactive setup without policy flags records nothing.
 - **Later:** `tbd policy show` lists grants; `tbd policy grant <policy>`,
-  `tbd policy revoke <policy>`, and `tbd policy set <policy> <value>` edit the block.
+  `tbd policy revoke <policy>`, and `tbd policy set <policy> <value>` edit the block,
+  and `tbd policy refresh` rewrites its generated guidance prose without changing a
+  grant, the recorded date, or anything else in the block.
   Revoke records the value an unanswered policy takes, so it returns to asking first
   (`not-granted` for the five binary policies, `confirm-every` for `github-merge`;
   `pr-review-requirements` has none and is recorded with `set`).
@@ -1264,7 +1266,7 @@ In this order (about 660 lines, including the generated tables):
     #N merge-ready”, and “Make sure PR #N is reviewed and merged”, with the shortcut and
     end state from Request Vocabulary; add “You can use sub-agents” and “Set up tbd”.
 15. Features and Commands: add policy grants, the `tbd policy show`, `grant`, `revoke`,
-    and `set` commands, and a short example of the policy block.
+    `set`, and `refresh` commands, and a short example of the policy block.
 16. GitHub authentication: say stack tooling installs only under `github-stacked-prs`.
 17. Linear: say `linear: epics` is the default selection when Linear is granted.
 18. Shortcut table: add `review-and-merge-prs`, `delegate-to-subagents`, `setup-tbd`,
@@ -1395,11 +1397,19 @@ C1–C3 are Low leftovers on the B1 path (failed `git remote` treated as no remo
   values by name, since merging this PR makes them standing grants for the repository.
 - `tbd-jivd`: merge stack 312, #309 then #310, once that confirmation and `github-merge`
   are given.
-- Deferred with beads from round 4: `tbd-p0yy` (`doctor` calls generated skills stale
-  when the gitignored doc cache is empty), `tbd-tchx` (concurrent `tbd policy` writes
-  lose an update), `tbd-dugv` (write the managed block in the file’s own line-ending
-  convention), `tbd-7iem` (drift test for the installed skill copies), `tbd-tli6`
-  (`doctor` should report stale policy-block prose).
+
+### Completed in `4959afea`
+
+The five beads deferred in round 4 are implemented:
+
+- `tbd-p0yy`: `doctor` reports the installed skill copies as unknown, not stale, when
+  the gitignored doc cache is empty.
+- `tbd-tchx`: concurrent `tbd policy` writes serialize, so neither loses the other’s
+  update.
+- `tbd-dugv`: the managed block is written in the file’s own line-ending convention.
+- `tbd-7iem`: a drift test compares both installed skill copies with generated output.
+- `tbd-tli6`: `doctor` reports stale policy-block prose, and `tbd policy refresh`
+  repairs it.
 
 ### What round 4 found
 
