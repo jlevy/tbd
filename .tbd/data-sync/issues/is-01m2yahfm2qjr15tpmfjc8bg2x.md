@@ -3,17 +3,21 @@ type: is
 id: is-01m2yahfm2qjr15tpmfjc8bg2x
 title: "Windows CI flake: bead-watch 1s ls-remote and doctor setup hook timeout"
 kind: bug
-status: in_progress
+status: closed
 priority: 1
-version: 2
+version: 3
 delegate: unknown@cursor
 labels: []
 dependencies: []
 hold: null
 hold_until: null
 created_at: 2026-09-20T02:32:50.561Z
-updated_at: 2026-09-20T02:32:57.359Z
+updated_at: 2026-09-20T02:38:01.992Z
 started_at: 2026-09-20T02:32:57.359Z
+closed_at: 2026-09-20T02:38:01.992Z
+close_reason: "Test-budget de-flake on #310: c4aff495. Watch isolation uses subprocessTestTimeout(5_000) instead of a 1s deadline; doctor setup hook is 90s / describe 180s. ENOTDIR (tbd-91ej) stayed fixed (setup-tier-agents 18/18 on 18a77e9e; #309 Windows green)."
+resolution: null
+duplicate_of: null
 ---
 ## Summary
 
