@@ -3,17 +3,21 @@ type: is
 id: is-01m2y95x8ks8e0qnvx8c1aah8e
 title: Windows setup-tier-agents treats file-as-dir as EEXIST, not ENOTDIR
 kind: bug
-status: in_progress
+status: closed
 priority: 1
-version: 2
+version: 3
 delegate: unknown@cursor
 labels: []
 dependencies: []
 hold: null
 hold_until: null
 created_at: 2026-09-20T02:09:02.739Z
-updated_at: 2026-09-20T02:09:05.767Z
+updated_at: 2026-09-20T02:15:29.269Z
 started_at: 2026-09-20T02:09:05.767Z
+closed_at: 2026-09-20T02:15:29.269Z
+close_reason: "Fixed on #309: writeTierAgentFiles now reports ENOTDIR when a parent path is a file (Windows Node mkdir EEXIST). Joshua also landed portable CLI assertions (aa061eb7). #310 rebased onto b4923d76."
+resolution: null
+duplicate_of: null
 ---
 ## Summary
 
