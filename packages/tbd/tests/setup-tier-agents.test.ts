@@ -379,16 +379,19 @@ describe('setup tier agent definitions', { timeout: subprocessTestTimeout(45_000
       displayName: 'Codex tier agents',
     },
   ])(
-    'exits nonzero without a completion message when $surface cannot be read',
+    'exits nonzero without a completion message when the $surface directory is a file',
     async ({ surface, agentsDir, displayName }) => {
       const agentsPath = join(projectDir, agentsDir);
       await mkdir(dirname(agentsPath), { recursive: true });
       await writeFile(agentsPath, 'user file at parent path\n');
 
       const result = runTbd(['setup', '--auto', '--prefix=test', `--surfaces=${surface}`]);
+      const output = result.stdout + result.stderr;
       expect(result.status).not.toBe(0);
-      expect(result.stdout + result.stderr).toContain(displayName);
-      expect(result.stdout + result.stderr).toMatch(/ENOTDIR|not a directory/iu);
+      expect(output).toContain(displayName);
+      expect(output).toContain('Setup failed for 1 selected integration surface');
+      expect(output.replaceAll('\\', '/')).toContain(agentsDir);
+      expect(await readFile(agentsPath, 'utf-8')).toBe('user file at parent path\n');
       expect(result.stdout).not.toMatch(/All set!|Setup complete!/u);
     },
   );
