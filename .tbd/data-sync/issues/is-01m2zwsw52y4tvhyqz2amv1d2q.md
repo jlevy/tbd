@@ -3,17 +3,21 @@ type: is
 id: is-01m2zwsw52y4tvhyqz2amv1d2q
 title: "Windows CI flake: 60s timeouts on web, setup-flows, and policy-grants"
 kind: bug
-status: in_progress
+status: closed
 priority: 1
-version: 2
+version: 3
 delegate: unknown@cursor
 labels: []
 dependencies: []
 hold: null
 hold_until: null
 created_at: 2026-09-20T17:11:14.338Z
-updated_at: 2026-09-20T17:11:17.980Z
+updated_at: 2026-09-20T17:16:30.377Z
 started_at: 2026-09-20T17:11:17.980Z
+closed_at: 2026-09-20T17:16:30.377Z
+close_reason: "Fixed on #309 as cbb25f41: Windows subprocess floor 60s→90s; web describe 90s; setup-flows gh-hook 120s; setup-policy-grants 90s; ported #310 watch/doctor floors (and doctor-policy-grants stacking). #310 rebased onto cbb25f41 from 5f29c4dd; dropped 3e7e19c3 as already in the parent. ENOTDIR (tbd-91ej) stayed green (setup-tier-agents 24/24)."
+resolution: null
+duplicate_of: null
 ---
 ## Summary
 
