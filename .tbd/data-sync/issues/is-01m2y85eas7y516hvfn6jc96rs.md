@@ -3,13 +3,17 @@ type: is
 id: is-01m2y85eas7y516hvfn6jc96rs
 title: Bound corrupted-data test subprocesses and assert fixture initialization
 kind: bug
-status: open
+status: in_progress
 priority: 2
-version: 1
+version: 2
+delegate: codex@spud10
 labels: []
 dependencies: []
+hold: null
+hold_until: null
 created_at: 2026-09-20T01:51:18.871Z
-updated_at: 2026-09-20T01:51:18.871Z
+updated_at: 2026-09-20T06:46:30.682Z
+started_at: 2026-09-20T06:46:30.681Z
 ---
 During PR #309/#310 final validation, the local filesystem hit ENOSPC (about 116 MiB free). The full pre-push suite later stopped advancing in corrupted-data.test.ts: runTbd(['create', 'Test issue', '--type=task']) waited on the fixture's data-sync lock. The recorded lock owner was the exited initialization process; the fixture had no completed shared layout. DATA_SYNC_LOCK_OPTIONS uses a 30-minute stale window and 35-minute timeout.
 
