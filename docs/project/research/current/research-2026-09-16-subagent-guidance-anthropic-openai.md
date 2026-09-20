@@ -1084,12 +1084,15 @@ for sub-agents:
   across sessions on one machine, so they cost nothing after the first write, but they
   do mean that two machines never share a cache.
 - *The tier definition body.* It is rendered into the sub-agent’s system prompt.
-  A body that varies per spawn (a model name that a per-spawn `model` overrode, a date,
-  the coordinator’s session ID) would put the variable part ahead of `CLAUDE.md` and the
-  conversation and make every spawn of that definition a full write.
+  A body that varies per spawn (a date or the coordinator’s session ID) would put the
+  variable part ahead of `CLAUDE.md` and the conversation and make every spawn of that
+  definition a full write.
   The generated tbd bodies are constant per definition, so every spawn of `tbd-strong`
   on the same machine within the TTL reads the previous spawn’s prefix.
-  This is a second reason, besides unreliability, for the body not to name the model.
+  The old model name was also constant within each definition, so removing it does not
+  improve within-definition cache reuse.
+  It remains worth removing because a runtime override could make that static
+  description false.
 - *Tool definitions.* Any change to the set or text of tool definitions invalidates
   everything, because tools come first.
   In Claude Code this happens when an MCP server connects or disconnects with its tools
@@ -1113,9 +1116,11 @@ for sub-agents:
   an API key or subscription keeps the cache across an effort change (v2.1.260+), and
   documents the exception for Fable 5.1 only [V39]. Thinking configuration
   (`budget_tokens`, mode) behaves the same way as a top-level effort change.
-  For tiers: `tbd-moderate` at `xhigh` and `tbd-fast` at `medium` on Opus are two
-  caches, and `tbd-strong` at `xhigh` and `tbd-strong-max` at `max` on Fable 5.1 are
-  one, on the API or a subscription.
+  For tiers: `tbd-moderate` at `xhigh` and `tbd-fast` at `medium` on Opus have separate
+  full prefixes. On Fable 5.1 through the API or a subscription, effort alone does not
+  invalidate an otherwise identical prefix.
+  `tbd-strong` and `tbd-strong-max` still have different definition bodies, so they do
+  not share a full prefix [V39].
 - *Thinking blocks across turns.* On Opus 4.5 and later and Sonnet 4.6 and later,
   earlier thinking blocks stay in the context and the cache holds across a
   non-tool-result user turn; on earlier models and Haiku 4.5, a non-tool-result user
@@ -1132,24 +1137,27 @@ for sub-agents:
 session has one prefix that grows.
 Every turn pays a read of everything so far plus a write of the newest exchange, and the
 read grows with the session.
-A sub-agent starts a second prefix that is short, grows during its run, and is then
-abandoned. The two never share, because a sub-agent’s system prompt is its definition
-body rather than the Claude Code system prompt [V1], [V39]. The trade is:
+A fresh sub-agent starts a second prefix that is short, grows during its run, and is
+then abandoned. It does not share the parent’s prefix because its system prompt is its
+definition body rather than the Claude Code system prompt [V1], [V39]. A fork inherits
+the parent’s prefix, but its new tool calls stay isolated and only its final result
+returns to the coordinator [V1]. The trade is:
 
-|  | Single session (or fork) | Fresh sub-agent |
-| --- | --- | --- |
-| First request | Reads the existing prefix (a fork reads all of it) | Writes its own prefix: tools, body, `CLAUDE.md`, git snapshot, brief |
-| Each later turn | Reads the whole session so far | Reads only its own, shorter, conversation |
-| At the end | Everything stays in the coordinator’s context and is re-read on every later turn | Only the report enters the coordinator’s context |
-| Model and level | The session’s | Any |
-| Prefix lifetime | 1 hour on a subscription within plan usage, else 5 minutes | 5 minutes unless raised |
+|  | Inline session | Fork | Fresh sub-agent |
+| --- | --- | --- | --- |
+| First request | Reads the existing coordinator prefix | Reads the inherited parent prefix | Writes its own prefix: tools, body, `CLAUDE.md`, git snapshot, brief |
+| Each later turn | Reads the whole coordinator session so far | Reads the inherited parent history plus its own growing conversation | Reads only its own, shorter conversation |
+| At the end | The tool transcript stays in the coordinator’s context and is re-read on later turns | Only the final report enters the coordinator’s context | Only the final report enters the coordinator’s context |
+| Model and level | The session’s | The parent session’s | Any |
+| Prefix lifetime | 1 hour on a subscription within plan usage, else 5 minutes | Can read the inherited parent entry; new writes last 5 minutes unless raised | 5 minutes unless raised |
 
 Worked through for a 30-turn review on Opus 5, base $5 per million:
 
 - *As a fork of a 150k-token coordinator:* first request reads 150k (about $0.075), and
   every later turn reads 150k plus what the review has added; about 30 × $0.08 =
-  **$2.40** in context reads, plus the review’s own reads and output, and afterwards the
-  coordinator carries the review’s 30 turns of tool output for the rest of the session.
+  **$2.40** in context reads, plus the review’s own reads and output.
+  The fork keeps its 30 turns of new tool output isolated and returns only its final
+  report, but it still carries the inherited 150k-token input on every turn.
 - *As a fresh sub-agent with a 20k prefix that grows to 60k:* one write of 20k (about
   $0.13), then reads averaging 40k per turn, about 30 × $0.02 = **$0.60**, plus the same
   review work, and afterwards the coordinator carries a two-page report.
@@ -1194,14 +1202,19 @@ What expiry costs, and when it happens in a tbd workflow:
 - *A sub-agent that waits* expires whenever a single wait exceeds the TTL. A CI poll
   every 10 minutes under a 5-minute TTL rewrites the whole prefix on every poll (at
   1.25x), which for a 30k prefix on Opus is about $0.19 per poll, or about $1.10 per
-  hour of waiting; under a 1-hour TTL the same hour costs one 2x write (about $0.30) and
-  then reads. A poll every 4 minutes under the 5-minute TTL is cheapest of all (reads
-  only), which is why a waiting sub-agent should poll inside the TTL or have the TTL
-  raised, and why Codex’s built-in awaiter polls with growing timeouts.
-  At the API level there is a third option that Claude Code does not expose: re-send the
-  previous request with `max_tokens: 0` just before the entry would expire, which
-  refreshes the timer for the price of one cache read and no output; on Fable 5.1, where
-  a read is 2.5% of base, this beats the 1-hour TTL unless pauses approach an hour
+  hour of waiting. Polling inside the 5-minute TTL avoids those repeated writes, but the
+  extra polls are still paid reads.
+  With a constant 30k-token Opus prefix and no output, polls at minutes 0, 4, …, 60 cost
+  one $0.1875 write plus 15 × $0.015 reads, or **$0.4125**. Polls at minutes 0, 10, …,
+  60 under a 1-hour TTL cost one $0.30 write plus 6 × $0.015 reads, or **$0.3900**
+  [V40]. The 4-minute schedule detects completion sooner, while the 10-minute schedule
+  is cheaper in this example.
+  Choose the TTL and interval from the prefix size, added poll input and output, and
+  required detection latency; a longer TTL can cost less when less frequent polls are
+  acceptable. At the API level there is a third option that Claude Code does not expose:
+  re-send the previous request with `max_tokens: 0` just before the entry would expire,
+  which refreshes the timer for the price of one cache read and no output; on Fable 5.1,
+  where a read is 2.5% of base, this beats the 1-hour TTL unless pauses approach an hour
   [V40]. In Claude Code the levers are the TTL settings and the poll interval.
 - *The coordinator between phases* expires on an API key when it waits more than five
   minutes for a sub-agent, which it usually does, and then pays a full write of its own
