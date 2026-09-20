@@ -461,6 +461,63 @@ Example text mentions ${POLICY_BEGIN_MARKER_PREFIX} v=example --> without defini
     }
   });
 
+  it('keeps HTML comments open across Markdown HTML block boundaries', () => {
+    const grant = '- `github-merge`: autonomous';
+    for (const apparentClose of ['', '-->\n\n', '`-->`\n\n']) {
+      const hidden = `${POLICY_BEGIN_MARKER}\n<div>\n<!--\n\n${apparentClose}${grant}\n\n${POLICY_END_MARKER}\n`;
+      const parsed = parsePolicyBlock(agentsMdWith(hidden));
+      expect(parsed.status, hidden).toBe('malformed');
+      expect(
+        resolvePolicyStatuses(parsed).find((status) => status.name === 'github-merge'),
+      ).toMatchObject({ answered: false, effective: 'confirm-every' });
+    }
+  });
+
+  it('ignores comment literals in hidden Markdown and HTML raw text', () => {
+    const block = `${POLICY_BEGIN_MARKER}\n- \`github-merge\`: autonomous\n${POLICY_END_MARKER}\n`;
+    for (const example of [
+      '<div>\n<!-- closed -->\n</div>\n\n',
+      '<div>\n<!--\n\n<!-- actual HTML close -->\n</div>\n\n',
+      '<script>\n<!--\n</script>\n\n',
+      '<style>\n<!--\n</style>\n\n',
+      '<textarea>\n<!--\n</textarea>\n\n',
+      '<div title="<!--">\nexample\n</div>\n\n',
+      '- <div>\n  example\n  </div>\n\n  ```\n  <!--\n  ```\n\n',
+      '```\n<!--\n```\n\n',
+      '[reference]: https://example.com "<!--"\n\n',
+    ]) {
+      expect(parsePolicyBlock(agentsMdWith(example + block)), example).toMatchObject({
+        status: 'ok',
+        grants: [{ name: 'github-merge', value: 'autonomous' }],
+      });
+    }
+  });
+
+  it('does not close raw HTML using an escaped inline-code tag', () => {
+    const block = `${POLICY_BEGIN_MARKER}\n- \`github-merge\`: autonomous\n${POLICY_END_MARKER}\n`;
+    for (const tag of ['script', 'style', 'textarea']) {
+      for (const escaped of [`\`</${tag}>\``, `\`\`\n</${tag}>\n\`\``]) {
+        const example = `<div>\n<${tag}>\n\n${escaped}\n\n`;
+        expect(parsePolicyBlock(agentsMdWith(example + block)).status, tag).toBe('malformed');
+        expect(
+          parsePolicyBlock(agentsMdWith(`${example}</${tag}>\n</div>\n\n${block}`)),
+          tag,
+        ).toMatchObject({ status: 'ok', grants: [{ name: 'github-merge', value: 'autonomous' }] });
+      }
+    }
+  });
+
+  it('rejects policy markers in a list containing a hidden HTML comment', () => {
+    const block = `${POLICY_BEGIN_MARKER}\n- \`github-merge\`: autonomous\n${POLICY_END_MARKER}\n`;
+    const nestedBlock = block.trimEnd().split('\n').join('\n  ');
+    const hidden = `- text <!--\n\n  \`-->\`\n\n  ${nestedBlock}\n`;
+    expect(parsePolicyBlock(agentsMdWith(hidden)).status).toBe('malformed');
+    expect(parsePolicyBlock(agentsMdWith(`- <!-- closed comment -->\n\n${block}`))).toMatchObject({
+      status: 'ok',
+      grants: [{ name: 'github-merge', value: 'autonomous' }],
+    });
+  });
+
   it('rejects grants and markers hidden in reference definition titles', () => {
     const grant = '- `github-merge`: autonomous';
     const block = `${POLICY_BEGIN_MARKER}\n${grant}\n${POLICY_END_MARKER}\n`;

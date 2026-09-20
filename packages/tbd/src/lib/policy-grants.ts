@@ -431,7 +431,14 @@ type MarkdownHiddenContext = 'comment' | 'fence' | 'indented-code' | 'html' | 'l
 interface MarkdownHiddenRange {
   start: number;
   end: number;
-  hiddenBy: MarkdownHiddenContext;
+  hiddenBy: MarkdownHiddenContext | null;
+  htmlFragments: string[];
+  inlineTokens: Token[] | null;
+}
+
+interface HtmlVisibilityState {
+  inComment: boolean;
+  rawTextTag: string | null;
 }
 
 interface FenceState {
@@ -524,6 +531,51 @@ function commentStateAfter(line: string, initiallyOpen: boolean): boolean {
   return open;
 }
 
+/** Carry HTML visibility across Markdown block boundaries, using only raw HTML. */
+function advanceHtmlVisibility(html: string, state: HtmlVisibilityState): void {
+  let cursor = 0;
+  while (cursor < html.length) {
+    if (state.inComment) {
+      const close = html.indexOf('-->', cursor);
+      if (close < 0) {
+        return;
+      }
+      state.inComment = false;
+      cursor = close + 3;
+      continue;
+    }
+    const next = state.rawTextTag
+      ? new RegExp(`</${state.rawTextTag}(?=[\\s/>])`, 'i').exec(html.slice(cursor))
+      : null;
+    const tagStart = state.rawTextTag
+      ? next
+        ? cursor + next.index
+        : -1
+      : html.indexOf('<', cursor);
+    if (tagStart < 0) {
+      return;
+    }
+    cursor = tagStart;
+    if (!state.rawTextTag && html.startsWith('<!--', cursor)) {
+      state.inComment = true;
+      cursor += 4;
+      continue;
+    }
+    // Marked's tag grammar consumes complete quoted attributes, so an apparent
+    // comment or raw-text opener inside an attribute cannot change visibility.
+    const tag = Lexer.rules.inline.normal.tag.exec(html.slice(cursor))?.[0];
+    if (!tag) {
+      cursor += 1;
+      continue;
+    }
+    const rawText = /^<(\/?)(script|style|textarea)(?=[\s/>])/i.exec(tag);
+    if (rawText) {
+      state.rawTextTag = rawText[1] ? null : rawText[2]!.toLowerCase();
+    }
+    cursor += tag.length;
+  }
+}
+
 /**
  * Scan Markdown once so policy markers and grant lines share the document's
  * actual comment and fence state. A fence closes only with the same character
@@ -534,22 +586,38 @@ function scanMarkdownLines(agentsMd: string): MarkdownLineState[] {
   const hiddenRanges = markdownHiddenRanges(agentsMd);
   let hiddenIndex = 0;
   let offset = 0;
-  let inComment = false;
+  const htmlState: HtmlVisibilityState = { inComment: false, rawTextTag: null };
   let fence: FenceState | null = null;
   for (const raw of agentsMd.split('\n')) {
     while (hiddenRanges[hiddenIndex] && hiddenRanges[hiddenIndex]!.end <= offset) {
+      for (const html of hiddenRanges[hiddenIndex]!.htmlFragments) {
+        advanceHtmlVisibility(html, htmlState);
+      }
       hiddenIndex += 1;
     }
     const hiddenRange = hiddenRanges[hiddenIndex];
-    if (hiddenRange && hiddenRange.start <= offset) {
+    const inHtmlToken =
+      hiddenRange &&
+      hiddenRange.start <= offset &&
+      hiddenRange.inlineTokens === null &&
+      hiddenRange.htmlFragments.length > 0;
+    if (hiddenRange && hiddenRange.start <= offset && hiddenRange.hiddenBy !== null) {
       lines.push({ raw, trimmed: raw.trim(), offset, hiddenBy: hiddenRange.hiddenBy });
+      offset += raw.length + 1;
+      continue;
+    }
+    if (htmlState.rawTextTag) {
+      lines.push({ raw, trimmed: raw.trim(), offset, hiddenBy: 'html' });
+      // Only a lexed raw HTML fragment can close this state. Markdown source
+      // can spell a closing tag inside escaped code or a reference definition.
+      // An uncertain inline close fails closed; a standalone HTML close works.
       offset += raw.length + 1;
       continue;
     }
     const indentedCode = INDENTED_CODE_LINE.test(raw);
     const hiddenBy = fence
       ? 'fence'
-      : inComment
+      : htmlState.inComment
         ? 'comment'
         : indentedCode
           ? 'indented-code'
@@ -562,8 +630,12 @@ function scanMarkdownLines(agentsMd: string): MarkdownLineState[] {
       if (run?.[0] === fence.character && run.length >= fence.length) {
         fence = null;
       }
-    } else if (inComment) {
-      inComment = commentStateAfter(raw, true);
+    } else if (htmlState.inComment) {
+      // Outside raw HTML, Markdown escapes even a plain -->. Only source
+      // belonging to an actual HTML token can close a carried HTML comment.
+      if (inHtmlToken) {
+        htmlState.inComment = commentStateAfter(raw, true);
+      }
     } else if (!indentedCode) {
       const opener = FENCE_OPEN_LINE.exec(raw);
       const run = opener?.[1];
@@ -571,7 +643,7 @@ function scanMarkdownLines(agentsMd: string): MarkdownLineState[] {
       if (run && (run.startsWith('~') || !rest.includes('`'))) {
         fence = { character: run[0] as '`' | '~', length: run.length };
       } else {
-        inComment = commentStateAfter(raw, false);
+        htmlState.inComment = commentStateAfter(raw, false);
       }
     }
     offset += raw.length + 1;
@@ -589,19 +661,35 @@ function markdownHiddenRanges(source: string): MarkdownHiddenRange[] {
   const ranges: MarkdownHiddenRange[] = [];
   let start = 0;
   let hiddenBy: MarkdownHiddenContext | null = null;
+  let htmlFragments: string[] = [];
+  let inlineTokens: Token[] | null = null;
   let currentTokens: Token[] = [];
   const finishBlock = (end: number) => {
-    if (hiddenBy !== null) {
-      ranges.push({ start, end, hiddenBy });
+    // Visible marker comments need ranges too: their raw closes are real HTML,
+    // unlike apparent closes in Markdown prose or code after a block boundary.
+    if (hiddenBy !== null || htmlFragments.length > 0 || inlineTokens !== null) {
+      ranges.push({ start, end, hiddenBy, htmlFragments, inlineTokens });
     }
     start = end;
     hiddenBy = null;
+    htmlFragments = [];
+    inlineTokens = null;
   };
   const tokenizer = new Tokenizer();
   const html = tokenizer.html.bind(tokenizer);
   const definition = tokenizer.def.bind(tokenizer);
   const fences = tokenizer.fences.bind(tokenizer);
   const code = tokenizer.code.bind(tokenizer);
+  const paragraph = tokenizer.paragraph.bind(tokenizer);
+  tokenizer.paragraph = (remaining) => {
+    const token = paragraph(remaining);
+    if (token && currentTokens === tokenizer.lexer.tokens) {
+      // The lexer populates this array after its block pass, with references
+      // resolved and multiline code spans already distinguished from raw tags.
+      inlineTokens = token.tokens;
+    }
+    return token;
+  };
   tokenizer.fences = (remaining) => {
     const token = fences(remaining);
     if (token) {
@@ -618,8 +706,12 @@ function markdownHiddenRanges(source: string): MarkdownHiddenRange[] {
   };
   tokenizer.html = (remaining) => {
     const token = html(remaining);
-    // Marker comments stay under the line scanner so visible markers count.
-    if (token && !/^ {0,3}<!--/.test(token.raw)) {
+    if (token) {
+      htmlFragments.push(token.raw);
+    }
+    // Only top-level marker comments stay visible. A nested HTML comment
+    // invalidates its containing block just like other nested hidden content.
+    if (token && (currentTokens !== tokenizer.lexer.tokens || !/^ {0,3}<!--/.test(token.raw))) {
       hiddenBy = 'html';
     }
     return token;
@@ -654,6 +746,13 @@ function markdownHiddenRanges(source: string): MarkdownHiddenRange[] {
   });
   markdown.lex(source);
   finishBlock(source.length);
+  for (const range of ranges) {
+    for (const token of range.inlineTokens ?? []) {
+      if (token.type === 'html') {
+        range.htmlFragments.push(token.raw);
+      }
+    }
+  }
   return ranges;
 }
 
