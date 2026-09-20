@@ -22,10 +22,12 @@ interface DoctorResult {
   integrationChecks: DiagnosticResult[];
 }
 
-describe('doctor managed agent surfaces', { timeout: subprocessTestTimeout(45_000) }, () => {
+describe('doctor managed agent surfaces', { timeout: subprocessTestTimeout(180_000) }, () => {
   let projectDir: string;
   let fakeHome: string;
 
+  // `setup --auto` writes every surface; Windows CI under parallel load has
+  // exceeded the previous 60s subprocess floor in this hook.
   beforeEach(async () => {
     projectDir = await mkdtemp(join(tmpdir(), 'tbd-doctor-surfaces-'));
     fakeHome = join(projectDir, '.home');
@@ -39,7 +41,7 @@ describe('doctor managed agent surfaces', { timeout: subprocessTestTimeout(45_00
 
     const setup = runTbd(['setup', '--auto', '--prefix=test']);
     expect(setup.status).toBe(0);
-  }, subprocessTestTimeout(30_000));
+  }, subprocessTestTimeout(90_000));
 
   afterEach(async () => {
     await rm(projectDir, { recursive: true, force: true });

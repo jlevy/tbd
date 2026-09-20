@@ -55,7 +55,7 @@ import {
 import { subprocessTestTimeout } from './test-helpers.js';
 
 const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
-const CLI_TEST_TIMEOUT_MS = subprocessTestTimeout();
+const CLI_TEST_TIMEOUT_MS = subprocessTestTimeout(90_000);
 const cleanupPaths: string[] = [];
 
 /**

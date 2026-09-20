@@ -991,64 +991,69 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       await expect(access(scriptPath)).rejects.toThrow();
     });
 
-    // Longer timeout for Windows where spawning processes is slower
-    it('preserves non-gh SessionStart hooks when adding/removing gh hook', async () => {
-      initGitRepo();
+    // Two full `setup --auto` runs. Windows CI under parallel load has exceeded
+    // the previous 60s floor here; give this case its own budget.
+    it(
+      'preserves non-gh SessionStart hooks when adding/removing gh hook',
+      async () => {
+        initGitRepo();
 
-      // Pre-create settings with a custom SessionStart hook
-      const settingsDir = join(tempDir, '.claude');
-      await mkdir(settingsDir, { recursive: true });
-      await writeFile(
-        join(settingsDir, 'settings.json'),
-        JSON.stringify(
-          {
-            hooks: {
-              SessionStart: [
-                {
-                  matcher: '',
-                  hooks: [{ type: 'command', command: 'echo custom-hook' }],
-                },
-              ],
+        // Pre-create settings with a custom SessionStart hook
+        const settingsDir = join(tempDir, '.claude');
+        await mkdir(settingsDir, { recursive: true });
+        await writeFile(
+          join(settingsDir, 'settings.json'),
+          JSON.stringify(
+            {
+              hooks: {
+                SessionStart: [
+                  {
+                    matcher: '',
+                    hooks: [{ type: 'command', command: 'echo custom-hook' }],
+                  },
+                ],
+              },
             },
-          },
-          null,
-          2,
-        ),
-      );
+            null,
+            2,
+          ),
+        );
 
-      // Setup should add gh hook alongside custom hook
-      runTbd(['init', '--prefix=test']);
-      runTbd(['setup', '--auto']);
+        // Setup should add gh hook alongside custom hook
+        runTbd(['init', '--prefix=test']);
+        runTbd(['setup', '--auto']);
 
-      const settings1 = JSON.parse(await readFile(join(settingsDir, 'settings.json'), 'utf-8'));
-      const sessionStart1 = settings1.hooks?.SessionStart ?? [];
-      expect(
-        sessionStart1.some((h: { hooks?: { command?: string }[] }) =>
-          h.hooks?.some((hook) => hook.command === 'echo custom-hook'),
-        ),
-      ).toBe(true);
-      expect(
-        sessionStart1.some((h: { hooks?: { command?: string }[] }) =>
-          h.hooks?.some((hook) => hook.command?.includes('ensure-gh-cli')),
-        ),
-      ).toBe(true);
+        const settings1 = JSON.parse(await readFile(join(settingsDir, 'settings.json'), 'utf-8'));
+        const sessionStart1 = settings1.hooks?.SessionStart ?? [];
+        expect(
+          sessionStart1.some((h: { hooks?: { command?: string }[] }) =>
+            h.hooks?.some((hook) => hook.command === 'echo custom-hook'),
+          ),
+        ).toBe(true);
+        expect(
+          sessionStart1.some((h: { hooks?: { command?: string }[] }) =>
+            h.hooks?.some((hook) => hook.command?.includes('ensure-gh-cli')),
+          ),
+        ).toBe(true);
 
-      // Disable gh CLI — custom hook should remain
-      runTbd(['setup', '--auto', '--no-gh-cli']);
+        // Disable gh CLI — custom hook should remain
+        runTbd(['setup', '--auto', '--no-gh-cli']);
 
-      const settings2 = JSON.parse(await readFile(join(settingsDir, 'settings.json'), 'utf-8'));
-      const sessionStart2 = settings2.hooks?.SessionStart ?? [];
-      expect(
-        sessionStart2.some((h: { hooks?: { command?: string }[] }) =>
-          h.hooks?.some((hook) => hook.command === 'echo custom-hook'),
-        ),
-      ).toBe(true);
-      expect(
-        sessionStart2.some((h: { hooks?: { command?: string }[] }) =>
-          h.hooks?.some((hook) => hook.command?.includes('ensure-gh-cli')),
-        ),
-      ).toBe(false);
-    });
+        const settings2 = JSON.parse(await readFile(join(settingsDir, 'settings.json'), 'utf-8'));
+        const sessionStart2 = settings2.hooks?.SessionStart ?? [];
+        expect(
+          sessionStart2.some((h: { hooks?: { command?: string }[] }) =>
+            h.hooks?.some((hook) => hook.command === 'echo custom-hook'),
+          ),
+        ).toBe(true);
+        expect(
+          sessionStart2.some((h: { hooks?: { command?: string }[] }) =>
+            h.hooks?.some((hook) => hook.command?.includes('ensure-gh-cli')),
+          ),
+        ).toBe(false);
+      },
+      subprocessTestTimeout(120_000),
+    );
 
     it('installed script matches bundled ensure-gh-cli.sh', async () => {
       initGitRepo();

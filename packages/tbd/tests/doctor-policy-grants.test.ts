@@ -353,7 +353,7 @@ interface DoctorJson {
   integrationChecks: DiagnosticJson[];
 }
 
-describe('tbd doctor policy grants', { timeout: subprocessTestTimeout(60_000) }, () => {
+describe('tbd doctor policy grants', { timeout: subprocessTestTimeout(180_000) }, () => {
   let projectDir: string;
   let fakeHome: string;
 
@@ -372,7 +372,7 @@ describe('tbd doctor policy grants', { timeout: subprocessTestTimeout(60_000) },
     const setup = runTbd(['setup', '--auto', '--prefix=test']);
     expect(setup.status, setup.stderr).toBe(0);
     commitAll('test: set up tbd');
-  }, subprocessTestTimeout(30_000));
+  }, subprocessTestTimeout(90_000));
 
   afterEach(async () => {
     await rm(projectDir, { recursive: true, force: true });
