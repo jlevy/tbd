@@ -283,6 +283,7 @@ describe('parsePolicyBlock', () => {
 
     const inner = `${POLICY_BEGIN_MARKER}
 - \`subagents\`: granted
+
 See the \`<!-- END TBD POLICY GRANTS -->\` mention inside the body.
 ${POLICY_END_MARKER}
 `;
@@ -338,7 +339,7 @@ ${POLICY_END_MARKER}
     });
   });
 
-  it('tracks full-document comment and exact fence state before accepting grants', () => {
+  it('refuses grants in code or comments inside the block, and reads no block from code', () => {
     const grant = '- `github-merge`: autonomous';
     const hidden = {
       'a shorter backtick fence does not close a longer fence': `${POLICY_BEGIN_MARKER}
@@ -357,11 +358,6 @@ ${grant}
 \`\`\`
 
 ${POLICY_END_MARKER}`,
-      'the complete policy block is inside a fence': `\`\`\`markdown
-${POLICY_BEGIN_MARKER}
-${grant}
-${POLICY_END_MARKER}
-\`\`\``,
       'a second comment opener after a closed comment remains open': `${POLICY_BEGIN_MARKER}
 
 <!-- note --> <!--
@@ -384,9 +380,6 @@ ${POLICY_END_MARKER}`,
 \t${grant}
 
 ${POLICY_END_MARKER}`,
-      'the complete policy block is indented code': `    ${POLICY_BEGIN_MARKER}
-    ${grant}
-    ${POLICY_END_MARKER}`,
     };
 
     for (const [label, inner] of Object.entries(hidden)) {
@@ -400,11 +393,14 @@ ${POLICY_END_MARKER}`,
       });
     }
 
-    const example = agentsMdWith(`\`\`\`markdown
-Example text mentions ${POLICY_BEGIN_MARKER_PREFIX} v=example --> without defining a block.
-\`\`\`
-`);
-    expect(parsePolicyBlock(example)).toEqual({ status: 'missing' });
+    // A whole block inside code is an example, not a block: no grants, nothing malformed.
+    for (const example of [
+      `\`\`\`markdown\n${POLICY_BEGIN_MARKER}\n${grant}\n${POLICY_END_MARKER}\n\`\`\`\n`,
+      `    ${POLICY_BEGIN_MARKER}\n    ${grant}\n    ${POLICY_END_MARKER}\n`,
+      `\`\`\`markdown\nExample text mentions ${POLICY_BEGIN_MARKER_PREFIX} v=example --> without defining a block.\n\`\`\`\n`,
+    ]) {
+      expect(parsePolicyBlock(agentsMdWith(example)), example).toEqual({ status: 'missing' });
+    }
 
     const afterInlineCode = parsePolicyBlock(
       agentsMdWith(
@@ -417,47 +413,44 @@ Example text mentions ${POLICY_BEGIN_MARKER_PREFIX} v=example --> without defini
     });
   });
 
-  it('rejects raw HTML policy examples and accepts visible grants after HTML', () => {
+  it('rejects raw HTML around or inside the block, after a discarded link definition too', () => {
     const grant = '- `github-merge`: autonomous';
     const block = `${POLICY_BEGIN_MARKER}\n${grant}\n${POLICY_END_MARKER}\n`;
-    for (const tag of ['pre', 'script', 'style', 'textarea', 'div']) {
-      for (const example of [
-        `<${tag}>\n${block}</${tag}>\n`,
-        `${POLICY_BEGIN_MARKER}\n<${tag}>\n${grant}\n</${tag}>\n\n${POLICY_END_MARKER}\n`,
-      ]) {
-        const parsed = parsePolicyBlock(agentsMdWith(example));
-        expect(parsed.status, tag).toBe('malformed');
-        expect(
-          resolvePolicyStatuses(parsed).find((status) => status.name === 'github-merge'),
-        ).toMatchObject({ answered: false, effective: 'confirm-every' });
-      }
-      expect(
-        parsePolicyBlock(agentsMdWith(`<${tag}>\nexample\n</${tag}>\n\n${block}`)),
-        tag,
-      ).toMatchObject({ status: 'ok', grants: [{ name: 'github-merge', value: 'autonomous' }] });
-    }
-  });
-
-  it('keeps HTML source positions exact after discarded link definitions', () => {
-    const grant = '- `github-merge`: autonomous';
-    const block = `${POLICY_BEGIN_MARKER}\n${grant}\n${POLICY_END_MARKER}\n`;
+    // marked drops the definition from its tokens; block offsets must not shift by it.
     const definition = `[reference]: https://example.com/${'x'.repeat(300)}\n\n`;
     for (const tag of ['pre', 'script', 'style', 'textarea', 'div']) {
-      for (const hidden of [
-        `<${tag}>\n${block}</${tag}>\n`,
-        `<${tag}>\n${block}`,
-        `${POLICY_BEGIN_MARKER}\n<${tag}>\n${grant}\n</${tag}>\n\n${POLICY_END_MARKER}\n`,
-      ]) {
-        const parsed = parsePolicyBlock(agentsMdWith(definition + hidden));
-        expect(parsed.status, tag).toBe('malformed');
-        expect(
-          resolvePolicyStatuses(parsed).find((status) => status.name === 'github-merge'),
-        ).toMatchObject({ answered: false, effective: 'confirm-every' });
+      for (const prefix of ['', definition]) {
+        for (const hidden of [
+          `<${tag}>\n${block}</${tag}>\n`,
+          `<${tag}>\n${block}`,
+          `${POLICY_BEGIN_MARKER}\n<${tag}>\n${grant}\n</${tag}>\n\n${POLICY_END_MARKER}\n`,
+          `<${tag}>\nexample\n</${tag}>\n\n${block}`,
+        ]) {
+          const parsed = parsePolicyBlock(agentsMdWith(prefix + hidden));
+          expect(parsed.status, `${tag}: ${hidden}`).toBe('malformed');
+          expect(
+            resolvePolicyStatuses(parsed).find((status) => status.name === 'github-merge'),
+          ).toMatchObject({ answered: false, effective: 'confirm-every' });
+        }
       }
+    }
+    // Above the tbd block, closed plain elements are fine; raw-text elements are not
+    // accepted at all, since the HTML tokenizer reads their content as text.
+    for (const tag of ['pre', 'div']) {
+      const parsed = parsePolicyBlock(
+        agentsMdAround(`${definition}<${tag}>\nexample\n</${tag}>\n\n${definition}`, block),
+      );
+      expect(parsed, tag).toMatchObject({
+        status: 'ok',
+        grants: [{ name: 'github-merge', value: 'autonomous' }],
+        text: block,
+      });
+    }
+    for (const tag of ['script', 'style', 'textarea']) {
       expect(
-        parsePolicyBlock(agentsMdWith(`${definition}<${tag}>\nexample\n</${tag}>\n\n${block}`)),
+        parsePolicyBlock(agentsMdAround(`<${tag}>\nexample\n</${tag}>\n\n`, block)).status,
         tag,
-      ).toMatchObject({ status: 'ok', grants: [{ name: 'github-merge', value: 'autonomous' }] });
+      ).toBe('malformed');
     }
   });
 
@@ -473,38 +466,27 @@ Example text mentions ${POLICY_BEGIN_MARKER_PREFIX} v=example --> without defini
     }
   });
 
-  it('ignores comment literals in hidden Markdown and HTML raw text', () => {
+  it('ignores comment literals in code and in attribute values above the tbd block', () => {
     const block = `${POLICY_BEGIN_MARKER}\n- \`github-merge\`: autonomous\n${POLICY_END_MARKER}\n`;
     for (const example of [
       '<div>\n<!-- closed -->\n</div>\n\n',
-      '<div>\n<!--\n\n<!-- actual HTML close -->\n</div>\n\n',
-      '<script>\n<!--\n</script>\n\n',
-      '<style>\n<!--\n</style>\n\n',
-      '<textarea>\n<!--\n</textarea>\n\n',
       '<div title="<!--">\nexample\n</div>\n\n',
       '- <div>\n  example\n  </div>\n\n  ```\n  <!--\n  ```\n\n',
+      '- <!-- closed comment -->\n\n',
       '```\n<!--\n```\n\n',
-      '[reference]: https://example.com "<!--"\n\n',
     ]) {
-      expect(parsePolicyBlock(agentsMdWith(example + block)), example).toMatchObject({
+      expect(parsePolicyBlock(agentsMdAround(example, block)), example).toMatchObject({
         status: 'ok',
         grants: [{ name: 'github-merge', value: 'autonomous' }],
       });
     }
-  });
-
-  it('does not close raw HTML using an escaped inline-code tag', () => {
-    const block = `${POLICY_BEGIN_MARKER}\n- \`github-merge\`: autonomous\n${POLICY_END_MARKER}\n`;
-    for (const tag of ['script', 'style', 'textarea']) {
-      for (const escaped of [`\`</${tag}>\``, `\`\`\n</${tag}>\n\`\``]) {
-        const example = `<div>\n<${tag}>\n\n${escaped}\n\n`;
-        expect(parsePolicyBlock(agentsMdWith(example + block)).status, tag).toBe('malformed');
-        expect(
-          parsePolicyBlock(agentsMdWith(`${example}</${tag}>\n</div>\n\n${block}`)),
-          tag,
-        ).toMatchObject({ status: 'ok', grants: [{ name: 'github-merge', value: 'autonomous' }] });
-      }
-    }
+    // A comment must close in the HTML block that opens it; one that runs on past a
+    // blank line is refused even when a later HTML block closes it.
+    expect(
+      parsePolicyBlock(
+        agentsMdAround('<div>\n<!--\n\n<!-- actual HTML close -->\n</div>\n\n', block),
+      ).status,
+    ).toBe('malformed');
   });
 
   it('rejects policy markers in a list containing a hidden HTML comment', () => {
@@ -512,10 +494,6 @@ Example text mentions ${POLICY_BEGIN_MARKER_PREFIX} v=example --> without defini
     const nestedBlock = block.trimEnd().split('\n').join('\n  ');
     const hidden = `- text <!--\n\n  \`-->\`\n\n  ${nestedBlock}\n`;
     expect(parsePolicyBlock(agentsMdWith(hidden)).status).toBe('malformed');
-    expect(parsePolicyBlock(agentsMdWith(`- <!-- closed comment -->\n\n${block}`))).toMatchObject({
-      status: 'ok',
-      grants: [{ name: 'github-merge', value: 'autonomous' }],
-    });
   });
 
   it('rejects grants and markers hidden in reference definition titles', () => {
@@ -553,13 +531,17 @@ Example text mentions ${POLICY_BEGIN_MARKER_PREFIX} v=example --> without defini
     for (const example of [
       '- <pre>\n  example\n  </pre>\n\n',
       '> <pre>\n> example\n> </pre>\n\n',
-      '- [reference]: https://example.com "\n  example\n  "\n\n',
     ]) {
-      expect(parsePolicyBlock(agentsMdWith(example + block)), example).toMatchObject({
+      expect(parsePolicyBlock(agentsMdAround(example, block)), example).toMatchObject({
         status: 'ok',
         grants: [{ name: 'github-merge', value: 'autonomous' }],
       });
     }
+    expect(
+      parsePolicyBlock(
+        agentsMdWith(`- [reference]: https://example.com "\n  example\n  "\n\n${block}`),
+      ),
+    ).toMatchObject({ status: 'ok', grants: [{ name: 'github-merge', value: 'autonomous' }] });
   });
 
   it('keeps reference-shaped paragraph text visible', () => {
@@ -571,11 +553,11 @@ Example text mentions ${POLICY_BEGIN_MARKER_PREFIX} v=example --> without defini
     ).toMatchObject({ status: 'ok', grants: [{ name: 'github-merge', value: 'autonomous' }] });
   });
 
-  it('rejects policy blocks inside list-nested fenced code', () => {
+  it('reads no block from list-nested fenced code', () => {
     const block = `${POLICY_BEGIN_MARKER}\n- \`github-merge\`: autonomous\n${POLICY_END_MARKER}\n`;
     for (const delimiter of ['```', '~~~~']) {
       const hidden = `- ${delimiter}\n  ${block.trimEnd().split('\n').join('\n  ')}\n  ${delimiter}\n\n`;
-      expect(parsePolicyBlock(agentsMdWith(hidden)).status, hidden).toBe('malformed');
+      expect(parsePolicyBlock(agentsMdWith(hidden)), hidden).toEqual({ status: 'missing' });
       expect(
         parsePolicyBlock(agentsMdWith(`- ${delimiter}\n  example\n  ${delimiter}\n\n${block}`)),
       ).toMatchObject({ status: 'ok', grants: [{ name: 'github-merge', value: 'autonomous' }] });
@@ -626,6 +608,7 @@ Example text mentions ${POLICY_BEGIN_MARKER_PREFIX} v=example --> without defini
 Hand-written note that is not a grant.
   -   \`subagents\`:   granted
 - \`linear\`: epics + specs
+
 Recorded 2026-09-17.
 ${POLICY_END_MARKER}
 `;
@@ -691,6 +674,278 @@ ${POLICY_END_MARKER}
       if (parsed.status === 'malformed') {
         expect(parsed.problems.length, label).toBeGreaterThan(0);
       }
+    }
+  });
+});
+
+const MERGE_GRANT = '- `github-merge`: autonomous';
+const MERGE_BLOCK = `${POLICY_BEGIN_MARKER}\n### Agent Policy Grants\n\nProse.\n\n${MERGE_GRANT}\n\nRecorded 2026-09-17.\n${POLICY_END_MARKER}\n`;
+
+/** A policy block whose body between the heading and the Recorded line is `body`. */
+function blockWithBody(body: string): string {
+  return `${POLICY_BEGIN_MARKER}\n### Agent Policy Grants\n\n${body}\n\nRecorded 2026-09-17.\n${POLICY_END_MARKER}\n`;
+}
+
+/** AGENTS.md with `above` before the tbd block and `below` after it; the tbd block holds `inner`. */
+function agentsMdAround(above: string, inner = MERGE_BLOCK, below = ''): string {
+  return `# Project\n\n${above}${INTEGRATION_BEGIN_LINE}\n## tbd\n\nBody.\n\n${inner}${INTEGRATION_END_MARKER}\n${below}\nAfter.\n`;
+}
+
+function toLfForTest(text: string): string {
+  return text.replace(/\r\n?/gu, '\n');
+}
+
+/** The reading a hidden or disguised grant must get: malformed, and merge unanswered. */
+function expectFailsClosed(content: string, label: string): void {
+  const parsed = parsePolicyBlock(content);
+  expect(parsed.status, label).toBe('malformed');
+  expect(
+    parsed.status === 'malformed' && parsed.problems.every((problem) => problem.length > 0),
+    label,
+  ).toBe(true);
+  expect(
+    resolvePolicyStatuses(parsed).find((status) => status.name === 'github-merge'),
+    label,
+  ).toMatchObject({ answered: false, effective: 'confirm-every' });
+}
+
+function expectMergeGranted(content: string, label: string): void {
+  expect(parsePolicyBlock(content), label).toMatchObject({
+    status: 'ok',
+    grants: [{ name: 'github-merge', value: 'autonomous' }],
+  });
+}
+
+describe('parsePolicyBlock reads only grants that GitHub renders (Review O)', () => {
+  it('O1: refuses a grant smuggled into an inline comment behind a non-ASCII bullet', () => {
+    // GitHub opens a comment at the `<!--` after the escaped backtick, and a "-" followed
+    // by U+00A0 is not a list item, so the line stays inside the comment and is stripped.
+    const smuggled = 'note \\` <!-- `\n- `github-merge`: autonomous\n-->';
+    expectFailsClosed(agentsMdWith(blockWithBody(smuggled)), 'O1 exact input');
+    expectFailsClosed(
+      agentsMdWith(blockWithBody(`note \\\` <!-- \`\n${MERGE_GRANT}\n-->`)),
+      'escaped backtick before a comment opener, ASCII bullet',
+    );
+  });
+
+  it('O1: accepts only an ASCII space or tab after the bullet and after the colon', () => {
+    const spaces: Record<string, string> = {
+      'U+00A0 no-break space': ' ',
+      'U+2003 em space': ' ',
+      'U+3000 ideographic space': '　',
+      'U+FEFF zero width no-break space': '\uFEFF',
+      'U+200B zero width space': '​',
+    };
+    for (const [label, space] of Object.entries(spaces)) {
+      expectFailsClosed(
+        agentsMdWith(blockWithBody(`-${space}\`github-merge\`: autonomous`)),
+        `${label} after the bullet`,
+      );
+      expectFailsClosed(
+        agentsMdWith(blockWithBody(`- \`github-merge\`:${space}autonomous`)),
+        `${label} after the colon`,
+      );
+    }
+    expectMergeGranted(agentsMdWith(blockWithBody('-\t`github-merge`:\tautonomous')), 'tabs');
+  });
+
+  it('O2: refuses a block swallowed by an unclosed HTML attribute', () => {
+    // marked and CommonMark end the HTML block at the blank line; GitHub's HTML parser
+    // keeps the attribute open and the whole block becomes inert attribute text.
+    const attributes: [string, string][] = [
+      ['<div title="', '"></div>'],
+      ["<a href='", "'></a>"],
+      ['<img alt="', '">'],
+      // GitHub starts an HTML block at <source; marked reads the same line as plain text.
+      ['<source title="', '">'],
+    ];
+    for (const [opener, closer] of attributes) {
+      expectFailsClosed(
+        agentsMdAround(`${opener}\n\n`, MERGE_BLOCK, `\n${closer}\n`),
+        `${opener} above the tbd block`,
+      );
+      expectFailsClosed(
+        agentsMdWith(`${opener}\n\n${MERGE_BLOCK}\n${closer}\n\n`),
+        `${opener} inside the tbd block`,
+      );
+      expectFailsClosed(
+        agentsMdWith(blockWithBody(`${opener}\n\n${MERGE_GRANT}\n\n${closer}`)),
+        `${opener} inside the policy block`,
+      );
+    }
+  });
+
+  it('O3: refuses a block inside collapsed or inert HTML', () => {
+    const wrappers: Record<string, [string, string]> = {
+      details: ['<details>\n\n', '\n</details>\n'],
+      'details with a summary': ['<details>\n<summary>More</summary>\n\n', '\n</details>\n'],
+      'inline details': ['Notes <details> more\n\n', '\n</details>\n'],
+      table: ['<table><tr><td>\n\n', '\n</td></tr></table>\n'],
+      template: ['<template>\n\n', '\n</template>\n'],
+      noscript: ['<noscript>\n\n', '\n</noscript>\n'],
+      'a comment closed early by -->': ['<!--> <details> -->\n\n', ''],
+      'a comment closed early by --!>': ['<!-- --!> <details> -->\n\n', ''],
+      'details whose only close tag is in a Markdown table cell': [
+        '<details>\n\n| a |\n|---|\n| </details> |\n\n',
+        '',
+      ],
+      'details whose only close tag is inline code': ['<details>\n\n`</details>`\n\n', ''],
+    };
+    for (const [label, [open, close]] of Object.entries(wrappers)) {
+      expectFailsClosed(agentsMdAround(open, MERGE_BLOCK, close), `${label} around the tbd block`);
+      expectFailsClosed(
+        agentsMdWith(`${open}${MERGE_BLOCK}${close}\n`),
+        `${label} inside the tbd block`,
+      );
+    }
+    const quoted = MERGE_BLOCK.trimEnd()
+      .split('\n')
+      .map((line) => `> ${line}`)
+      .join('\n');
+    expectFailsClosed(agentsMdWith(`${quoted}\n\n`), 'blockquote');
+    const listed = MERGE_BLOCK.trimEnd().split('\n').join('\n  ');
+    expectFailsClosed(agentsMdWith(`- item\n\n  ${listed}\n\n`), 'list item');
+  });
+
+  it('refuses any HTML, nesting, or second list inside the policy block', () => {
+    const bodies: Record<string, string> = {
+      'inline span': `Prose with <span>a span</span>.\n\n${MERGE_GRANT}`,
+      'inline br': `Prose<br>\n\n${MERGE_GRANT}`,
+      'comment in a grant line': `${MERGE_GRANT} <!-- x -->`,
+      'comment line': `<!-- note -->\n\n${MERGE_GRANT}`,
+      'nested list': `- \`subagents\`: granted\n  ${MERGE_GRANT}`,
+      'grant split across lines': '- `github-merge`: confirm-every\n  autonomous',
+      'two lists': `- \`subagents\`: granted\n\nA note between two lists.\n\n${MERGE_GRANT}`,
+      'list item that is not a grant': `- see the guideline\n${MERGE_GRANT}`,
+      'task list item': '- [x] `github-merge`: autonomous',
+      'fenced code': `\`\`\`\n${MERGE_GRANT}\n\`\`\``,
+      blockquote: `> ${MERGE_GRANT}`,
+      table: `| a |\n|---|\n| ${MERGE_GRANT} |`,
+    };
+    for (const [label, body] of Object.entries(bodies)) {
+      expectFailsClosed(agentsMdWith(blockWithBody(body)), label);
+    }
+  });
+
+  it('pins block-level malformed cases: two blocks, END before BEGIN, a duplicate name', () => {
+    expectFailsClosed(agentsMdWith(`${MERGE_BLOCK}\n${MERGE_BLOCK}`), 'two policy blocks');
+    expectFailsClosed(
+      agentsMdWith(`${POLICY_END_MARKER}\n${MERGE_GRANT}\n${POLICY_BEGIN_MARKER}\n`),
+      'END before BEGIN',
+    );
+    const duplicate = parsePolicyBlock(
+      agentsMdWith(blockWithBody(`- \`github-merge\`: never\n${MERGE_GRANT}`)),
+    );
+    expect(duplicate).toEqual({
+      status: 'malformed',
+      problems: ['policy "github-merge" is listed twice'],
+    });
+  });
+
+  it('O4: ignores marker examples inside fenced or indented code', () => {
+    const examples: Record<string, string> = {
+      'fenced policy markers': `\`\`\`markdown\n${POLICY_BEGIN_MARKER}\n- \`subagents\`: granted\n${POLICY_END_MARKER}\n\`\`\`\n\n`,
+      'fenced policy BEGIN only': `\`\`\`\n${POLICY_BEGIN_MARKER}\n\`\`\`\n\n`,
+      'indented policy markers': `Example:\n\n    ${POLICY_BEGIN_MARKER}\n    ${POLICY_END_MARKER}\n\n`,
+      'fenced policy markers inside a list item': `- Example:\n\n  \`\`\`\n  ${POLICY_BEGIN_MARKER}\n  ${POLICY_END_MARKER}\n  \`\`\`\n\n`,
+      'fenced integration markers': `\`\`\`markdown\n${INTEGRATION_BEGIN_LINE}\n${INTEGRATION_END_MARKER}\n\`\`\`\n\n`,
+      'fenced integration BEGIN only': `~~~\n${INTEGRATION_BEGIN_LINE}\n~~~\n\n`,
+      'indented integration BEGIN only': `Example:\n\n    ${INTEGRATION_BEGIN_LINE}\n\n`,
+    };
+    for (const [label, example] of Object.entries(examples)) {
+      const content = agentsMdAround(example);
+      expectMergeGranted(content, label);
+      const realBegin = content.lastIndexOf(INTEGRATION_BEGIN_LINE);
+      expect(locateIntegrationBlock(content), label).toMatchObject({
+        start: realBegin,
+        bodyStart: realBegin + INTEGRATION_BEGIN_LINE.length + 1,
+        endMarker: content.lastIndexOf(INTEGRATION_END_MARKER),
+      });
+      // Nothing but marker examples: no block, and nothing malformed.
+      expect(parsePolicyBlock(`# Project\n\n${example}`), label).toEqual({ status: 'missing' });
+    }
+  });
+
+  it('reads the generated block for every policy and value', () => {
+    for (const name of POLICY_NAMES) {
+      const custom =
+        name === 'pr-review-requirements'
+          ? ['standard + security + performance + correctness + 99 rounds']
+          : name === 'linear'
+            ? ['epics + specs']
+            : [];
+      for (const value of [...POLICIES[name].values, ...custom]) {
+        const block = renderPolicyBlock([{ name, value }], '2026-09-20');
+        expect(parsePolicyBlock(agentsMdWith(block)), `${name}: ${value}`).toEqual({
+          status: 'ok',
+          grants: [{ name, value }],
+          recorded: '2026-09-20',
+          text: block,
+        });
+      }
+    }
+  });
+
+  it('keeps ordinary Markdown and closed HTML above the tbd block readable', () => {
+    const above: Record<string, string> = {
+      'closed comments':
+        '<!-- a note -->\n\nText <!-- inline note --> here.\n\n<!--\nTwo\n\nparagraphs.\n-->\n\n',
+      'headings, lists, a table, and a quote':
+        '## Notes\n\n- one\n  - two\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n> Quoted.\n\n',
+      'fenced HTML examples':
+        '```html\n<details>\n<div title="\n<!--\n```\n\n- nested:\n\n  ```html\n  <textarea>\n  ```\n\n',
+      'inline code naming HTML':
+        'Run `tbd show <id>`, and never write `<!--` or `<details>` raw.\n\n',
+      'a link reference definition':
+        '[guide]: https://example.com/guide "The guide"\n\nSee the [guide].\n\n',
+      'an autolink': 'See <https://example.com/a?b=c> or <dev@example.com>.\n\n',
+      'simple closed inline tags':
+        'Press <kbd>Ctrl</kbd>+<kbd>C</kbd>.<br>\nA <sub>small</sub> <a href="https://example.com">link</a>.\n\n',
+      'a centered image':
+        '<p align="center">\n  <img src="logo.png" alt="a > b" width="120">\n</p>\n\n',
+      'a closed details section':
+        '<details>\n<summary>More</summary>\n\nHidden **notes**.\n\n</details>\n\n',
+      'comparison operators in prose': 'Keep a < b, x <= y, and 1 <3.\n\n',
+    };
+    for (const [label, text] of Object.entries(above)) {
+      expectMergeGranted(agentsMdAround(text), label);
+    }
+    expectMergeGranted(
+      agentsMdAround('', MERGE_BLOCK, '\n<details>\n\nAn unclosed section after the tbd block.\n'),
+      'unclosed HTML after the tbd block',
+    );
+  });
+
+  it('reads CRLF, lone-CR, and BOM files like the LF file', () => {
+    const lf = agentsMdAround('<!-- note -->\n\n[ref]: https://example.com\n\n');
+    const expected = parsePolicyBlock(lf);
+    expect(expected.status).toBe('ok');
+    expect(parsePolicyBlock(lf.replace(/\n/gu, '\r\n'))).toEqual(expected);
+    expect(parsePolicyBlock(lf.replace(/\n/gu, '\r'))).toEqual(expected);
+    expect(parsePolicyBlock(`\uFEFF${lf}`)).toEqual(expected);
+    const bomFirst = `\uFEFF${lf.slice(lf.indexOf(INTEGRATION_BEGIN_LINE))}`;
+    expect(parsePolicyBlock(bomFirst)).toEqual(expected);
+    expect(locateIntegrationBlock(bomFirst)?.start).toBe(1);
+  });
+
+  it('locates for a write exactly the block it read', () => {
+    // withPolicyBlock replaces the span it locates; putting back the text that was read
+    // changes nothing only when the reader and the writer agree on that span.
+    const definition = `[reference]: https://example.com/${'x'.repeat(300)}\n\n`;
+    const accepted = [
+      agentsMdWith(GUIDELINE_BLOCK),
+      agentsMdAround(`${definition}<details>\n\nNotes.\n\n</details>\n\n${definition}`),
+      agentsMdAround(`\`\`\`\n${POLICY_BEGIN_MARKER}\n${POLICY_END_MARKER}\n\`\`\`\n\n`),
+      agentsMdAround(`    ${INTEGRATION_BEGIN_LINE}\n\nText.\n\n`),
+      `\uFEFF${agentsMdWith(GUIDELINE_BLOCK)}`,
+      agentsMdWith(GUIDELINE_BLOCK).replace(/\n/gu, '\r\n'),
+    ];
+    for (const content of accepted) {
+      const parsed = parsePolicyBlock(content);
+      expect(parsed.status, content).toBe('ok');
+      const text = parsed.status === 'ok' ? parsed.text : '';
+      expect(withPolicyBlock(content, text), content).toBe(content);
+      expect(toLfForTest(content)).toContain(text);
     }
   });
 });

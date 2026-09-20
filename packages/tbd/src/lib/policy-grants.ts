@@ -17,7 +17,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { Lexer, Tokenizer, type Token } from 'marked';
+import { Marked, type Token, type Tokens } from 'marked';
 
 import { git, GitError } from '../file/git.js';
 import {
@@ -369,505 +369,6 @@ export interface IntegrationBlockLocation {
 }
 
 /**
- * Offset of the first line that *is* `marker`, ignoring a mention inside prose or
- * inline code. Matching by substring let one quoted line decide the block's
- * boundaries and its format stamp, which defeated both the containment rule for
- * the policy block and the format guard that stops an older tbd from rewriting a
- * newer surface.
- */
-function indexOfMarkerLine(text: string, marker: string, exact: boolean): number {
-  let offset = 0;
-  for (const line of text.split('\n')) {
-    const trimmed = line.trim();
-    const isMarker = exact
-      ? trimmed === marker
-      : trimmed.startsWith(marker) && trimmed.endsWith('-->');
-    if (isMarker) {
-      return offset + (line.length - line.trimStart().length);
-    }
-    offset += line.length + 1;
-  }
-  return -1;
-}
-
-/** Locate the tbd block, or null when AGENTS.md has none. */
-export function locateIntegrationBlock(agentsMd: string): IntegrationBlockLocation | null {
-  const start = indexOfMarkerLine(agentsMd, INTEGRATION_BEGIN_MARKER, false);
-  if (start < 0) {
-    return null;
-  }
-  const beginLineEnd = agentsMd.indexOf('\n', start);
-  const beginLine = beginLineEnd < 0 ? agentsMd.slice(start) : agentsMd.slice(start, beginLineEnd);
-  // A begin line that also carries the end marker is malformed, not absent, so it is
-  // still located: the caller refuses it with the markers-on-separate-lines message.
-  const sameLineEnd = beginLine.indexOf(INTEGRATION_END_MARKER);
-  const ownLineEnd = indexOfMarkerLine(agentsMd.slice(start), INTEGRATION_END_MARKER, true);
-  const endMarker =
-    sameLineEnd >= 0 ? start + sameLineEnd : ownLineEnd >= 0 ? start + ownLineEnd : -1;
-  if (endMarker < 0) {
-    return null;
-  }
-  const bodyStart = beginLineEnd < 0 || beginLineEnd > endMarker ? endMarker : beginLineEnd + 1;
-  return {
-    start,
-    bodyStart,
-    endMarker,
-    format: parseManagedIntegrationFormat(beginLine) ?? 'f01',
-  };
-}
-
-/** A begin or end policy-marker line, after trim; each marker is on its own line. */
-const POLICY_BEGIN_LINE = /^<!-- BEGIN TBD POLICY GRANTS v=(\S+) -->$/;
-
-interface MarkdownLineState {
-  raw: string;
-  trimmed: string;
-  offset: number;
-  hiddenBy: MarkdownHiddenContext | null;
-}
-
-type MarkdownHiddenContext = 'comment' | 'fence' | 'indented-code' | 'html' | 'link-definition';
-
-interface MarkdownHiddenRange {
-  start: number;
-  end: number;
-  hiddenBy: MarkdownHiddenContext | null;
-  htmlFragments: string[];
-  inlineTokens: Token[] | null;
-}
-
-interface HtmlVisibilityState {
-  inComment: boolean;
-  rawTextTag: string | null;
-}
-
-interface FenceState {
-  character: '`' | '~';
-  length: number;
-}
-
-/** A CommonMark fence opener, allowing only the three leading spaces Markdown permits. */
-const FENCE_OPEN_LINE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
-/** A fence closer has no content after the delimiter. */
-const FENCE_CLOSE_LINE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/;
-/** Four spaces or a tab in the first four columns can open an indented code block. */
-const INDENTED_CODE_LINE = /^(?: {4}| {0,3}\t)/;
-
-function backtickRunLength(line: string, start: number): number {
-  let end = start;
-  while (line[end] === '`') {
-    end += 1;
-  }
-  return end - start;
-}
-
-function inlineCodeEnd(line: string, start: number, delimiterLength: number): number | null {
-  let cursor = start + delimiterLength;
-  while (cursor < line.length) {
-    const next = line.indexOf('`', cursor);
-    if (next < 0) {
-      return null;
-    }
-    const length = backtickRunLength(line, next);
-    if (length === delimiterLength) {
-      return next + length;
-    }
-    cursor = next + length;
-  }
-  return null;
-}
-
-/** Remove complete inline-code spans without joining the surrounding prose together. */
-function withoutInlineCode(line: string): string {
-  let visible = '';
-  let cursor = 0;
-  while (cursor < line.length) {
-    const code = line.indexOf('`', cursor);
-    if (code < 0) {
-      return visible + line.slice(cursor);
-    }
-    visible += line.slice(cursor, code);
-    const delimiterLength = backtickRunLength(line, code);
-    const end = inlineCodeEnd(line, code, delimiterLength);
-    if (end === null) {
-      visible += line.slice(code, code + delimiterLength);
-      cursor = code + delimiterLength;
-    } else {
-      visible += ' ';
-      cursor = end;
-    }
-  }
-  return visible;
-}
-
-function commentStateAfter(line: string, initiallyOpen: boolean): boolean {
-  let open = initiallyOpen;
-  let cursor = 0;
-  while (cursor < line.length) {
-    if (open) {
-      const close = line.indexOf('-->', cursor);
-      if (close < 0) {
-        break;
-      }
-      open = false;
-      cursor = close + '-->'.length;
-      continue;
-    }
-
-    const comment = line.indexOf('<!--', cursor);
-    const code = line.indexOf('`', cursor);
-    if (code >= 0 && (comment < 0 || code < comment)) {
-      const delimiterLength = backtickRunLength(line, code);
-      const end = inlineCodeEnd(line, code, delimiterLength);
-      cursor = end ?? code + delimiterLength;
-      continue;
-    }
-    if (comment < 0) {
-      break;
-    }
-    open = true;
-    cursor = comment + '<!--'.length;
-  }
-  return open;
-}
-
-/** Carry HTML visibility across Markdown block boundaries, using only raw HTML. */
-function advanceHtmlVisibility(html: string, state: HtmlVisibilityState): void {
-  let cursor = 0;
-  while (cursor < html.length) {
-    if (state.inComment) {
-      const close = html.indexOf('-->', cursor);
-      if (close < 0) {
-        return;
-      }
-      state.inComment = false;
-      cursor = close + 3;
-      continue;
-    }
-    const next = state.rawTextTag
-      ? new RegExp(`</${state.rawTextTag}(?=[\\s/>])`, 'i').exec(html.slice(cursor))
-      : null;
-    const tagStart = state.rawTextTag
-      ? next
-        ? cursor + next.index
-        : -1
-      : html.indexOf('<', cursor);
-    if (tagStart < 0) {
-      return;
-    }
-    cursor = tagStart;
-    if (!state.rawTextTag && html.startsWith('<!--', cursor)) {
-      state.inComment = true;
-      cursor += 4;
-      continue;
-    }
-    // Marked's tag grammar consumes complete quoted attributes, so an apparent
-    // comment or raw-text opener inside an attribute cannot change visibility.
-    const tag = Lexer.rules.inline.normal.tag.exec(html.slice(cursor))?.[0];
-    if (!tag) {
-      cursor += 1;
-      continue;
-    }
-    const rawText = /^<(\/?)(script|style|textarea)(?=[\s/>])/i.exec(tag);
-    if (rawText) {
-      state.rawTextTag = rawText[1] ? null : rawText[2]!.toLowerCase();
-    }
-    cursor += tag.length;
-  }
-}
-
-/**
- * Scan Markdown once so policy markers and grant lines share the document's
- * actual comment and fence state. A fence closes only with the same character
- * and at least the opening delimiter's length.
- */
-function scanMarkdownLines(agentsMd: string): MarkdownLineState[] {
-  const lines: MarkdownLineState[] = [];
-  const hiddenRanges = markdownHiddenRanges(agentsMd);
-  let hiddenIndex = 0;
-  let offset = 0;
-  const htmlState: HtmlVisibilityState = { inComment: false, rawTextTag: null };
-  let fence: FenceState | null = null;
-  for (const raw of agentsMd.split('\n')) {
-    while (hiddenRanges[hiddenIndex] && hiddenRanges[hiddenIndex]!.end <= offset) {
-      for (const html of hiddenRanges[hiddenIndex]!.htmlFragments) {
-        advanceHtmlVisibility(html, htmlState);
-      }
-      hiddenIndex += 1;
-    }
-    const hiddenRange = hiddenRanges[hiddenIndex];
-    const inHtmlToken =
-      hiddenRange &&
-      hiddenRange.start <= offset &&
-      hiddenRange.inlineTokens === null &&
-      hiddenRange.htmlFragments.length > 0;
-    if (hiddenRange && hiddenRange.start <= offset && hiddenRange.hiddenBy !== null) {
-      lines.push({ raw, trimmed: raw.trim(), offset, hiddenBy: hiddenRange.hiddenBy });
-      offset += raw.length + 1;
-      continue;
-    }
-    if (htmlState.rawTextTag) {
-      lines.push({ raw, trimmed: raw.trim(), offset, hiddenBy: 'html' });
-      // Only a lexed raw HTML fragment can close this state. Markdown source
-      // can spell a closing tag inside escaped code or a reference definition.
-      // An uncertain inline close fails closed; a standalone HTML close works.
-      offset += raw.length + 1;
-      continue;
-    }
-    const indentedCode = INDENTED_CODE_LINE.test(raw);
-    const hiddenBy = fence
-      ? 'fence'
-      : htmlState.inComment
-        ? 'comment'
-        : indentedCode
-          ? 'indented-code'
-          : null;
-    lines.push({ raw, trimmed: raw.trim(), offset, hiddenBy });
-
-    if (fence) {
-      const closer = FENCE_CLOSE_LINE.exec(raw);
-      const run = closer?.[1];
-      if (run?.[0] === fence.character && run.length >= fence.length) {
-        fence = null;
-      }
-    } else if (htmlState.inComment) {
-      // Outside raw HTML, Markdown escapes even a plain -->. Only source
-      // belonging to an actual HTML token can close a carried HTML comment.
-      if (inHtmlToken) {
-        htmlState.inComment = commentStateAfter(raw, true);
-      }
-    } else if (!indentedCode) {
-      const opener = FENCE_OPEN_LINE.exec(raw);
-      const run = opener?.[1];
-      const rest = opener?.[2] ?? '';
-      if (run && (run.startsWith('~') || !rest.includes('`'))) {
-        fence = { character: run[0] as '`' | '~', length: run.length };
-      } else {
-        htmlState.inComment = commentStateAfter(raw, false);
-      }
-    }
-    offset += raw.length + 1;
-  }
-  return lines;
-}
-
-/**
- * Use the lexer's source cursor, never sums of emitted token lengths: link
- * definitions disappear from its token array, and merged tokens can change raw
- * text. Nested hidden content invalidates its whole containing block; its
- * transformed child text has no reliable offset in the original document.
- */
-function markdownHiddenRanges(source: string): MarkdownHiddenRange[] {
-  const ranges: MarkdownHiddenRange[] = [];
-  let start = 0;
-  let hiddenBy: MarkdownHiddenContext | null = null;
-  let htmlFragments: string[] = [];
-  let inlineTokens: Token[] | null = null;
-  let currentTokens: Token[] = [];
-  const finishBlock = (end: number) => {
-    // Visible marker comments need ranges too: their raw closes are real HTML,
-    // unlike apparent closes in Markdown prose or code after a block boundary.
-    if (hiddenBy !== null || htmlFragments.length > 0 || inlineTokens !== null) {
-      ranges.push({ start, end, hiddenBy, htmlFragments, inlineTokens });
-    }
-    start = end;
-    hiddenBy = null;
-    htmlFragments = [];
-    inlineTokens = null;
-  };
-  const tokenizer = new Tokenizer();
-  const html = tokenizer.html.bind(tokenizer);
-  const definition = tokenizer.def.bind(tokenizer);
-  const fences = tokenizer.fences.bind(tokenizer);
-  const code = tokenizer.code.bind(tokenizer);
-  const paragraph = tokenizer.paragraph.bind(tokenizer);
-  tokenizer.paragraph = (remaining) => {
-    const token = paragraph(remaining);
-    if (token && currentTokens === tokenizer.lexer.tokens) {
-      // The lexer populates this array after its block pass, with references
-      // resolved and multiline code spans already distinguished from raw tags.
-      inlineTokens = token.tokens;
-    }
-    return token;
-  };
-  tokenizer.fences = (remaining) => {
-    const token = fences(remaining);
-    if (token) {
-      hiddenBy = 'fence';
-    }
-    return token;
-  };
-  tokenizer.code = (remaining) => {
-    const token = code(remaining);
-    if (token) {
-      hiddenBy = 'indented-code';
-    }
-    return token;
-  };
-  tokenizer.html = (remaining) => {
-    const token = html(remaining);
-    if (token) {
-      htmlFragments.push(token.raw);
-    }
-    // Only top-level marker comments stay visible. A nested HTML comment
-    // invalidates its containing block just like other nested hidden content.
-    if (token && (currentTokens !== tokenizer.lexer.tokens || !/^ {0,3}<!--/.test(token.raw))) {
-      hiddenBy = 'html';
-    }
-    return token;
-  };
-  tokenizer.def = (remaining) => {
-    const token = definition(remaining);
-    const previous = currentTokens.at(-1);
-    // Marked appends a definition to an existing paragraph as visible text;
-    // otherwise its URL/title disappear from the rendered block content.
-    if (token && previous?.type !== 'paragraph' && previous?.type !== 'text') {
-      hiddenBy = 'link-definition';
-    }
-    return token;
-  };
-  const markdown = new Lexer({
-    gfm: true,
-    tokenizer,
-    extensions: {
-      renderers: {},
-      childTokens: {},
-      block: [
-        function (remaining, tokens) {
-          if (tokens === this.lexer.tokens) {
-            // Only top-level input is an unchanged suffix of the LF source.
-            finishBlock(source.length - remaining.length);
-          }
-          currentTokens = tokens;
-          return undefined;
-        },
-      ],
-    },
-  });
-  markdown.lex(source);
-  finishBlock(source.length);
-  for (const range of ranges) {
-    for (const token of range.inlineTokens ?? []) {
-      if (token.type === 'html') {
-        range.htmlFragments.push(token.raw);
-      }
-    }
-  }
-  return ranges;
-}
-
-function describeHiddenContext(hiddenBy: MarkdownHiddenContext): string {
-  if (hiddenBy === 'html') {
-    return 'a raw HTML block';
-  }
-  if (hiddenBy === 'link-definition') {
-    return 'a link reference definition';
-  }
-  return hiddenBy === 'indented-code' ? 'an indented code block' : `a ${hiddenBy}`;
-}
-
-/** Offsets of visible policy-marker lines plus exact markers hidden by Markdown. */
-function policyMarkerLineOffsets(lines: readonly MarkdownLineState[]): {
-  begins: number[];
-  ends: number[];
-  hidden: string[];
-} {
-  const begins: number[] = [];
-  const ends: number[] = [];
-  const hidden: string[] = [];
-  for (const line of lines) {
-    const isBegin = POLICY_BEGIN_LINE.test(line.trimmed);
-    const isEnd = line.trimmed === POLICY_END_MARKER;
-    if (!isBegin && !isEnd) {
-      continue;
-    }
-    if (line.hiddenBy) {
-      hidden.push(
-        `a policy marker inside ${describeHiddenContext(line.hiddenBy)} is not a marker: ${displayPolicyValue(line.trimmed)}`,
-      );
-      continue;
-    }
-    const leading = line.raw.length - line.raw.trimStart().length;
-    if (isBegin) {
-      begins.push(line.offset + leading);
-    } else {
-      ends.push(line.offset + leading);
-    }
-  }
-  return { begins, ends, hidden };
-}
-
-/**
- * Lines that carry policy-marker text without being a marker line, ignoring
- * inline-code mentions (which the guideline invites in prose). A marker sharing
- * a line with other content is a malformed block, never an absent one: read as
- * absent, setup would treat the recorded grants as nothing to preserve and
- * overwrite them.
- */
-function unanchoredPolicyMarkerLines(markdownLines: readonly MarkdownLineState[]): string[] {
-  const unanchored: string[] = [];
-  for (const line of markdownLines) {
-    if (line.hiddenBy) {
-      continue;
-    }
-    if (POLICY_BEGIN_LINE.test(line.trimmed) || line.trimmed === POLICY_END_MARKER) {
-      continue;
-    }
-    const outsideCode = withoutInlineCode(line.trimmed);
-    if (
-      outsideCode.includes(POLICY_BEGIN_MARKER_PREFIX) ||
-      outsideCode.includes(POLICY_END_MARKER)
-    ) {
-      unanchored.push(line.trimmed);
-    }
-  }
-  return unanchored;
-}
-
-function unanchoredMarkerProblem(line: string): string {
-  return `a policy marker shares a line with other text (put each marker on its own line): ${displayPolicyValue(line)}`;
-}
-
-/** First policy-marker line of `kind` at or after `from`, or -1. */
-function indexOfPolicyMarkerLine(agentsMd: string, kind: 'begin' | 'end', from: number): number {
-  const { begins, ends } = policyMarkerLineOffsets(scanMarkdownLines(agentsMd));
-  const offsets = kind === 'begin' ? begins : ends;
-  return offsets.find((offset) => offset >= from) ?? -1;
-}
-
-/**
- * A line is a grant candidate when it is a list item whose text starts with a
- * backtick, or that contains a backticked known policy name followed by a colon
- * (including bold-wrapped names like `- **github-merge**: …`). Candidates that
- * do not match GRANT_LINE are malformed.
- */
-const GRANT_LINE_CANDIDATE = /^[-*+]\s+/;
-/** Grant-shaped lines the candidate pattern misses: blockquoted, or an ordered item. */
-const IGNORED_GRANT_SHAPE = /^(?:>\s*[-*+]?\s*|\d+[.)]\s+)/;
-const GRANT_LINE = /^[-*+]\s+`([^`]*)`:\s+(\S.*)$/;
-const RECORDED_LINE = /^Recorded (\d{4}-\d{2}-\d{2})\.$/;
-const BOLD_GRANT_NAME = /^\*\*([^*]+)\*\*:/;
-
-function isGrantLineCandidate(line: string): boolean {
-  const list = GRANT_LINE_CANDIDATE.exec(line);
-  if (!list) {
-    // A blockquoted or numbered grant line was silently skipped, so a hand edit in
-    // either shape did nothing and said nothing. Report it instead: the caller turns a
-    // candidate that does not parse into a malformed block with the line quoted.
-    return IGNORED_GRANT_SHAPE.test(line) && POLICY_NAMES.some((name) => line.includes(name));
-  }
-  const text = line.slice(list[0].length);
-  if (text.startsWith('`')) {
-    return true;
-  }
-  const bold = BOLD_GRANT_NAME.exec(text);
-  if (bold && isKnownPolicy(bold[1]!)) {
-    return true;
-  }
-  return POLICY_NAMES.some((name) => text.includes(`\`${name}\`:`));
-}
-
-/**
  * `text` with CRLF and lone-CR line breaks converted to LF, as
  * `utils/markdown-utils.ts` does. A lone-CR file hid the block entirely, and the
  * write path then reported a marker error about markers that were fine.
@@ -886,26 +387,608 @@ export function usesCrlf(text: string): boolean {
   return text.includes('\r\n');
 }
 
+// =============================================================================
+// Markdown structure
+// =============================================================================
+
+/** A top-level Markdown block paired with the source it was lexed from. */
+interface TopLevelBlock {
+  token: Token;
+  /** Offset of the token in the LF text. */
+  start: number;
+  /**
+   * Offset of the next token, or the text's end. A link reference definition
+   * after the token, which marked drops from its output, falls in this span.
+   */
+  end: number;
+}
+
+/**
+ * Lex `lf` with marked and pair each top-level token with its source offsets.
+ * The offsets are the lexer's own cursor, read by a block extension that never
+ * produces a token: token lengths cannot be summed, because marked drops link
+ * reference definitions and folds blank lines into the previous token.
+ */
+function lexTopLevel(lf: string): TopLevelBlock[] {
+  // marked keeps a byte order mark as text, which would read a marker on the first
+  // line as a paragraph; GitHub drops it.
+  const bom = lf.startsWith('﻿') ? 1 : 0;
+  const source = lf.slice(bom);
+  const starts: number[] = [];
+  const markdown = new Marked({ gfm: true });
+  markdown.use({
+    extensions: [
+      {
+        name: 'source-cursor',
+        level: 'block',
+        tokenizer(remaining, tokens) {
+          if (tokens === this.lexer.tokens) {
+            starts[tokens.length] = bom + source.length - remaining.length;
+          }
+          return undefined;
+        },
+      },
+    ],
+  });
+  const tokens = markdown.lexer(source);
+  return tokens.map((token, index) => ({
+    token,
+    start: starts[index]!,
+    end: index + 1 < tokens.length ? starts[index + 1]! : lf.length,
+  }));
+}
+
+/** The tokens nested in `token`: list items, table cells, or inline children. */
+function childTokens(token: Token): Token[] {
+  switch (token.type) {
+    case 'list':
+      return (token as Tokens.List).items;
+    case 'table': {
+      const table = token as Tokens.Table;
+      return [...table.header, ...table.rows.flat()].flatMap((cell) => cell.tokens);
+    }
+    default:
+      return (token as Tokens.Generic).tokens ?? [];
+  }
+}
+
+function leafTokens(token: Token): Token[] {
+  const children = childTokens(token);
+  return children.length === 0 ? [token] : children.flatMap(leafTokens);
+}
+
+function countMatches(text: string, pattern: RegExp): number {
+  return [...text.matchAll(pattern)].length;
+}
+
+/** 1-based line of `offset` in `lf`. */
+function lineOf(lf: string, offset: number): number {
+  return countMatches(lf.slice(0, offset), /\n/gu) + 1;
+}
+
+/** Offset in `source` of the character at `lfOffset` of `toLf(source)`: one more per CRLF before it. */
+function sourceOffset(source: string, lfOffset: number): number {
+  let shift = 0;
+  for (const crlf of source.matchAll(/\r\n/gu)) {
+    if (crlf.index - shift >= lfOffset) {
+      break;
+    }
+    shift += 1;
+  }
+  return lfOffset + shift;
+}
+
+/** Bound text quoted in a problem message. */
+function quote(text: string): string {
+  return displayPolicyValue(text.trim());
+}
+
+// =============================================================================
+// Marker lines
+// =============================================================================
+
+/** A line that can carry a tbd marker: a top-level HTML comment alone on its line. */
+export interface MarkerLine {
+  /** Offset of the comment's `<` in the text given, indentation excluded. */
+  offset: number;
+  /** The line, trimmed. */
+  text: string;
+}
+
+interface TopLevelMarkerLine extends MarkerLine {
+  /** Index of the line's token among the top-level tokens. */
+  index: number;
+}
+
+function markerLinesOf(blocks: readonly TopLevelBlock[]): TopLevelMarkerLine[] {
+  const lines: TopLevelMarkerLine[] = [];
+  blocks.forEach(({ token, start }, index) => {
+    const text = token.raw.trim();
+    if (
+      token.type === 'html' &&
+      !text.includes('\n') &&
+      text.startsWith('<!--') &&
+      text.endsWith('-->')
+    ) {
+      lines.push({ index, offset: start + token.raw.indexOf('<'), text });
+    }
+  });
+  return lines;
+}
+
+/**
+ * The lines of `markdown` that can be tbd markers, in order: each is a top-level
+ * HTML comment that has its line to itself, as marked lexes the document. A
+ * marker-shaped line inside fenced or indented code, a list item, a blockquote,
+ * or another HTML construct is not a marker: it neither anchors a block nor
+ * makes the document malformed. Offsets are into `markdown` as given, whatever
+ * its line endings; a byte order mark at the start is skipped.
+ */
+export function topLevelMarkerLines(markdown: string): MarkerLine[] {
+  return markerLinesOf(lexTopLevel(toLf(markdown))).map(({ offset, text }) => ({
+    offset: sourceOffset(markdown, offset),
+    text,
+  }));
+}
+
+function integrationMarkers<T extends MarkerLine>(
+  lines: readonly T[],
+): { begin: T; end: T | undefined } | null {
+  const begin = lines.find((line) => line.text.startsWith(INTEGRATION_BEGIN_MARKER));
+  if (!begin) {
+    return null;
+  }
+  const end = lines.find(
+    (line) => line.offset > begin.offset && line.text === INTEGRATION_END_MARKER,
+  );
+  return { begin, end };
+}
+
+/** Locate the tbd block, or null when AGENTS.md has none. */
+export function locateIntegrationBlock(agentsMd: string): IntegrationBlockLocation | null {
+  const integration = integrationMarkers(topLevelMarkerLines(agentsMd));
+  if (!integration) {
+    return null;
+  }
+  const start = integration.begin.offset;
+  const beginLineEnd = agentsMd.indexOf('\n', start);
+  // A begin line that also carries the end marker is malformed, not absent, so it is
+  // still located: the caller refuses it with the markers-on-separate-lines message.
+  const sameLineEnd = integration.begin.text.indexOf(INTEGRATION_END_MARKER);
+  const endMarker = sameLineEnd >= 0 ? start + sameLineEnd : (integration.end?.offset ?? -1);
+  if (endMarker < 0) {
+    return null;
+  }
+  const bodyStart = beginLineEnd < 0 || beginLineEnd > endMarker ? endMarker : beginLineEnd + 1;
+  return {
+    start,
+    bodyStart,
+    endMarker,
+    format: parseManagedIntegrationFormat(integration.begin.text) ?? 'f01',
+  };
+}
+
+/** A begin policy-marker line, after trim; each marker is on its own line. */
+const POLICY_BEGIN_LINE = /^<!-- BEGIN TBD POLICY GRANTS v=(\S+) -->$/;
+const POLICY_MARKER_TEXT = /<!-- (?:BEGIN|END) TBD POLICY GRANTS/gu;
+
+/**
+ * Policy marker text that is not a marker line: inside raw HTML, sharing a line
+ * with other text, nested in a list or quote, or in a link reference definition.
+ * It is malformed, never absent: read as absent, setup would treat the recorded
+ * grants as nothing to preserve and overwrite them. A mention in code is fine.
+ */
+function strayPolicyMarkerProblems(
+  lf: string,
+  blocks: readonly TopLevelBlock[],
+  markers: readonly TopLevelMarkerLine[],
+): string[] {
+  const markerIndexes = new Set(markers.map((line) => line.index));
+  const problems: string[] = [];
+  blocks.forEach((block, index) => {
+    if (markerIndexes.has(index) || block.token.type === 'code') {
+      return;
+    }
+    const text = lf.slice(index === 0 ? 0 : block.start, block.end);
+    const inSource = countMatches(text, POLICY_MARKER_TEXT);
+    const inCode = leafTokens(block.token)
+      .filter((leaf) => leaf.type === 'code' || leaf.type === 'codespan')
+      .reduce((count, leaf) => count + countMatches(leaf.raw, POLICY_MARKER_TEXT), 0);
+    if (inSource > inCode) {
+      const line = text
+        .split('\n')
+        .find((candidate) => countMatches(candidate, POLICY_MARKER_TEXT) > 0);
+      problems.push(
+        `a policy marker that is not alone on a top-level line is not a marker (put each marker on its own line, outside HTML, lists, and quotes): ${quote(line ?? text)}`,
+      );
+    }
+  });
+  return problems;
+}
+
+// =============================================================================
+// Raw HTML around the block
+// =============================================================================
+
+/*
+ * GitHub renders AGENTS.md through an HTML parser after Markdown, and that parser
+ * carries state across Markdown blocks in ways CommonMark does not. Raw HTML above
+ * the tbd block can therefore hide the block on the rendered page while marked
+ * reads it as ordinary top-level Markdown: `<div title="` and a blank line make the
+ * block an attribute value; `<details>` collapses it; `<!-->` closes a comment at
+ * once so a `<details>` inside the apparent comment is live; a `</details>` inside
+ * a Markdown table cell is ignored, so the element it appears to close stays open.
+ *
+ * The rule is an allow-list. Every `<` in raw HTML above the tbd block must begin a
+ * complete comment or a complete, well-formed tag of a plain element, tags must
+ * nest and close within the Markdown block that opens them (top-level HTML blocks
+ * may close across blocks), and nothing may be open where the tbd block begins.
+ * The grammar accepts only what CommonMark, marked, and the HTML tokenizer read the
+ * same way (ASCII whitespace, quoted or plain attribute values), so no construct
+ * has one extent for tbd and another for the browser. Raw-text elements such as
+ * script, style, and textarea are not in the list: the HTML tokenizer treats their
+ * content as text, where a comment or tag scanned here means nothing.
+ *
+ * Inside the tbd block nothing but tbd's own marker comments is allowed: the block
+ * is generated and pure Markdown, so forbidding HTML there costs nothing. Content
+ * after the tbd block cannot affect how the block renders and is not checked.
+ */
+
+const ASCII_WS = '[ \\t\\n]';
+/** A complete open or close tag as CommonMark defines it, on ASCII whitespace only. */
+const HTML_TAG = new RegExp(
+  `^<(/?)([A-Za-z][A-Za-z0-9-]*)((?:${ASCII_WS}+[A-Za-z_:][A-Za-z0-9_.:-]*(?:${ASCII_WS}*=${ASCII_WS}*(?:[^\\s"'=<>\`]+|'[^']*'|"[^"]*"))?)*)${ASCII_WS}*/?>`,
+  'u',
+);
+/** A comment the HTML tokenizer ends at the same `-->`: not `<!-->`, not `<!--->`, no `--!>` inside. */
+const HTML_COMMENT = /^<!--(?!-?>)(?:(?!--!?>)[\s\S])*-->/u;
+/** Plain elements whose open and close tags the HTML parser honors as written. */
+const HTML_ELEMENTS = new Set([
+  'a',
+  'abbr',
+  'b',
+  'blockquote',
+  'br',
+  'caption',
+  'cite',
+  'code',
+  'dd',
+  'del',
+  'details',
+  'dfn',
+  'div',
+  'dl',
+  'dt',
+  'em',
+  'figcaption',
+  'figure',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'hr',
+  'i',
+  'img',
+  'ins',
+  'kbd',
+  'li',
+  'mark',
+  'ol',
+  'p',
+  'picture',
+  'pre',
+  'q',
+  's',
+  'samp',
+  'small',
+  'source',
+  'span',
+  'strike',
+  'strong',
+  'sub',
+  'summary',
+  'sup',
+  'table',
+  'tbody',
+  'td',
+  'tfoot',
+  'th',
+  'thead',
+  'tr',
+  'tt',
+  'u',
+  'ul',
+  'var',
+  'wbr',
+]);
+const HTML_VOID_ELEMENTS = new Set(['br', 'hr', 'img', 'source', 'wbr']);
+/**
+ * A `<` that the HTML tokenizer would read as the start of a tag, comment, or
+ * declaration, excluding the autolink shapes CommonMark never reads as HTML.
+ */
+const TAG_LIKE = /<(?![A-Za-z][A-Za-z0-9+.-]{1,31}:[^\s<>]*>|[^\s<>@]+@[^\s<>]+>)[A-Za-z/!?]/gu;
+
+interface OpenElement {
+  name: string;
+  line: number;
+}
+
+/**
+ * Scan one raw HTML fragment, pushing elements it opens onto `open` and popping
+ * the ones it closes. Returns the first problem, or null.
+ */
+function scanRawHtml(raw: string, floor: number, open: OpenElement[], line: number): string | null {
+  let cursor = raw.indexOf('<');
+  while (cursor >= 0) {
+    const rest = raw.slice(cursor);
+    const comment = HTML_COMMENT.exec(rest);
+    if (comment) {
+      cursor = raw.indexOf('<', cursor + comment[0].length);
+      continue;
+    }
+    const tag = HTML_TAG.exec(rest);
+    if (!tag) {
+      return `line ${line}: "<" does not begin a complete HTML comment or tag (an unclosed comment, tag, or attribute quote hides what follows on GitHub): ${quote(rest)}`;
+    }
+    const [whole, slash, rawName, attributes] = tag;
+    const name = rawName!.toLowerCase();
+    if (!HTML_ELEMENTS.has(name)) {
+      return `line ${line}: raw HTML <${name}> is not accepted above the tbd block; move it below the block or put it in backticks`;
+    }
+    if (slash) {
+      const innermost = open.length > floor ? open.at(-1) : undefined;
+      if (attributes !== '' || innermost?.name !== name) {
+        return `line ${line}: </${name}> does not close the innermost open element of its Markdown block`;
+      }
+      open.pop();
+    } else if (!HTML_VOID_ELEMENTS.has(name)) {
+      open.push({ name, line });
+    }
+    cursor = raw.indexOf('<', cursor + whole.length);
+  }
+  return null;
+}
+
+/**
+ * Check the raw HTML in `tokens` in document order. Elements opened inside a
+ * Markdown block (a paragraph, list item, table cell, quote) must close inside
+ * it, and a close tag there cannot close an element opened outside it: GitHub's
+ * parser ignores such a close tag inside a table cell, and honoring it would let
+ * `<details>` above a table stay open for the rest of the page.
+ */
+function checkHtmlBalance(
+  tokens: readonly Token[],
+  floor: number,
+  open: OpenElement[],
+  line: number,
+): string | null {
+  for (const token of tokens) {
+    if (token.type === 'html') {
+      const problem = scanRawHtml(token.raw, floor, open, line);
+      if (problem) {
+        return problem;
+      }
+      continue;
+    }
+    const children = childTokens(token);
+    if (children.length === 0) {
+      continue;
+    }
+    const depth = open.length;
+    const problem = checkHtmlBalance(children, depth, open, line);
+    if (problem) {
+      return problem;
+    }
+    if (open.length > depth) {
+      return `line ${line}: <${open.at(-1)!.name}> is not closed inside the Markdown block that opens it`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Problems with raw HTML and HTML-like text from the start of the document to
+ * the end of the tbd block, given the top-level token indexes of the tbd block's
+ * markers and of the policy block's markers.
+ */
+function htmlProblems(
+  lf: string,
+  blocks: readonly TopLevelBlock[],
+  integration: { begin: number; end: number },
+  policy: { begin: number; end: number },
+): string[] {
+  const problems: string[] = [];
+
+  const open: OpenElement[] = [];
+  for (const block of blocks.slice(0, integration.begin + 1)) {
+    const problem = checkHtmlBalance([block.token], 0, open, lineOf(lf, block.start));
+    if (problem) {
+      problems.push(problem);
+      break;
+    }
+  }
+  const unclosed = open.at(-1);
+  if (problems.length === 0 && unclosed) {
+    problems.push(
+      `line ${unclosed.line}: <${unclosed.name}> is still open where the tbd block begins, so GitHub renders the block inside it; close it first`,
+    );
+  }
+
+  for (let index = integration.begin + 1; index < integration.end; index += 1) {
+    if (index === policy.begin || index === policy.end) {
+      continue;
+    }
+    const html = leafTokens(blocks[index]!.token).find((leaf) => leaf.type === 'html');
+    if (!html) {
+      continue;
+    }
+    problems.push(
+      index > policy.begin && index < policy.end
+        ? `a grant line inside raw HTML is not a grant, and the policy block holds no HTML: ${quote(html.raw)}`
+        : `raw HTML inside the tbd block can hide the policy block on GitHub, and the generated block holds none: ${quote(html.raw)}`,
+    );
+  }
+
+  // Text that tbd's Markdown parser reads as plain text can still be raw HTML to
+  // GitHub, which starts an HTML block at more tag names than CommonMark lists
+  // (`<source title="` on its own line swallows what follows). Every tag-like `<`
+  // must therefore sit in a token that is raw HTML, checked above, or code.
+  for (let index = 0; index < integration.end; index += 1) {
+    const block = blocks[index]!;
+    const text = lf.slice(index === 0 ? 0 : block.start, block.end);
+    const inSource = countMatches(text, TAG_LIKE);
+    if (inSource === 0) {
+      continue;
+    }
+    const covered = leafTokens(block.token).filter(
+      (leaf) => leaf.type === 'html' || leaf.type === 'code' || leaf.type === 'codespan',
+    );
+    const inTokens = covered.reduce((count, leaf) => count + countMatches(leaf.raw, TAG_LIKE), 0);
+    if (inSource === inTokens) {
+      continue;
+    }
+    const line = text
+      .split('\n')
+      .find(
+        (candidate) =>
+          countMatches(candidate, TAG_LIKE) > 0 &&
+          !covered.some((leaf) => leaf.raw.includes(candidate.trim())),
+      );
+    problems.push(
+      `line ${lineOf(lf, block.start)}: "<" begins text that GitHub may render as raw HTML; put it in backticks: ${quote(line ?? text)}`,
+    );
+  }
+  return problems;
+}
+
+// =============================================================================
+// Reading the block
+// =============================================================================
+
+/** A grant line: bullet, ASCII space or tab, backticked name, colon, ASCII space or tab, value. */
+const GRANT_LINE = /^[-*+][ \t]+`([^`]*)`:[ \t]+(\S.*)$/u;
+/**
+ * A source line that starts like a bullet, with any whitespace or format
+ * character after it. Every such line must be one of the list's grant lines; a
+ * no-break space after the bullet is a paragraph to Markdown, not a grant.
+ */
+const BULLET_LINE = /^\s*[-*+][\s\p{Cf}]/u;
+const RECORDED_LINE = /^Recorded (\d{4}-\d{2}-\d{2})\.$/;
+
+interface PolicyInterior {
+  grants: PolicyGrant[];
+  recorded: string | null;
+  problems: string[];
+}
+
+/**
+ * Read the tokens strictly between the policy markers. The block is generated,
+ * so its shape is an allow-list: headings and paragraphs (one carrying the
+ * Recorded line), at most one bullet list whose every item is one grant line,
+ * and blank space. Anything else is malformed; raw HTML is reported by
+ * htmlProblems.
+ */
+function readPolicyInterior(
+  lf: string,
+  blocks: readonly TopLevelBlock[],
+  begin: TopLevelMarkerLine,
+  end: TopLevelMarkerLine,
+): PolicyInterior {
+  const problems: string[] = [];
+  let recorded: string | null = null;
+  let list: Tokens.List | null = null;
+  for (const { token } of blocks.slice(begin.index + 1, end.index)) {
+    switch (token.type) {
+      case 'space':
+      case 'heading':
+      case 'html':
+        break;
+      case 'paragraph':
+        for (const line of token.raw.split('\n')) {
+          recorded = RECORDED_LINE.exec(line.trim())?.[1] ?? recorded;
+        }
+        break;
+      case 'list':
+        if (list) {
+          problems.push(
+            `the policy block holds more than one list; the grants are one list: ${quote(token.raw)}`,
+          );
+        } else {
+          list = token as Tokens.List;
+        }
+        break;
+      default:
+        problems.push(`a ${token.type} is not part of a policy block: ${quote(token.raw)}`);
+    }
+  }
+
+  const grants: PolicyGrant[] = [];
+  const seen = new Set<string>();
+  const itemLines: string[] = [];
+  for (const item of list?.items ?? []) {
+    const firstLine = item.raw.split('\n')[0]!.trim();
+    itemLines.push(firstLine);
+    // A note written directly under a grant is a lazy continuation of that item, and
+    // GitHub renders it as part of the same visible line, so it hides nothing. What it
+    // must not do is read as more of the value: "granted" under a `subagents` line
+    // renders as "granted not-granted", where the parsed value and the visible one
+    // disagree. A continuation of several words is prose; a lone word is refused.
+    // Nested lists and raw HTML in an item are caught by the bullet sweep and the
+    // HTML rule, and a value moved entirely to a later line leaves the first line
+    // without one, which GRANT_LINE already refuses.
+    const continuation = item.raw.trimEnd().split('\n').slice(1);
+    const readsAsValue = continuation.some((line) => /^\s*\S+\s*$/u.test(line));
+    const match = list!.ordered || readsAsValue ? null : GRANT_LINE.exec(firstLine);
+    if (!match || !isValidPolicyName(match[1]!)) {
+      problems.push(`grant line does not match "- \`<policy>\`: <value>": ${quote(item.raw)}`);
+      continue;
+    }
+    const name = match[1]!;
+    if (seen.has(name)) {
+      problems.push(`policy "${name}" is listed twice`);
+      continue;
+    }
+    seen.add(name);
+    grants.push({ name, value: match[2]!.trim() });
+  }
+
+  const interior = lf.slice(lf.indexOf('\n', begin.offset) + 1, end.offset);
+  for (const line of interior.split('\n')) {
+    if (!BULLET_LINE.test(line)) {
+      continue;
+    }
+    const at = itemLines.indexOf(line.trim());
+    if (at >= 0) {
+      itemLines.splice(at, 1);
+      continue;
+    }
+    problems.push(
+      `grant line does not match "- \`<policy>\`: <value>" (the bullet takes an ASCII space): ${quote(line)}`,
+    );
+  }
+  return { grants, recorded, problems };
+}
+
 /**
  * Read the policy block from the full AGENTS.md text, applying the guideline's
  * rules: the block must sit inside the tbd block, appear once, carry a known
- * version, and hold well-formed grant lines with no policy listed twice.
- * Lines between the markers that are not grant lines are ignored. CRLF line
- * endings read the same as LF, and the returned `text` has LF line endings.
+ * version, and hold well-formed grant lines with no policy listed twice. Only
+ * a block GitHub renders as written is read (see the raw HTML rules above).
+ * CRLF line endings read the same as LF, and the returned `text` has LF line
+ * endings.
  */
 export function parsePolicyBlock(content: string): PolicyBlockParse {
   const agentsMd = toLf(content);
-  const markdownLines = scanMarkdownLines(agentsMd);
-  const { begins, ends, hidden } = policyMarkerLineOffsets(markdownLines);
-  const unanchored = unanchoredPolicyMarkerLines(markdownLines);
+  const blocks = lexTopLevel(agentsMd);
+  const lines = markerLinesOf(blocks);
+  const begins = lines.filter((line) => POLICY_BEGIN_LINE.test(line.text));
+  const ends = lines.filter((line) => line.text === POLICY_END_MARKER);
+  const problems = strayPolicyMarkerProblems(agentsMd, blocks, [...begins, ...ends]);
   if (begins.length === 0 && ends.length === 0) {
-    const markerProblems = [...hidden, ...unanchored.map(unanchoredMarkerProblem)];
-    if (markerProblems.length > 0) {
-      return { status: 'malformed', problems: markerProblems };
-    }
-    return { status: 'missing' };
+    return problems.length > 0 ? { status: 'malformed', problems } : { status: 'missing' };
   }
-  const problems: string[] = [...hidden, ...unanchored.map(unanchoredMarkerProblem)];
   if (begins.length > 1 || ends.length > 1) {
     problems.push('AGENTS.md holds more than one policy block');
   }
@@ -919,84 +1002,49 @@ export function parsePolicyBlock(content: string): PolicyBlockParse {
     return { status: 'malformed', problems };
   }
 
-  const start = begins[0]!;
-  const beginLineEnd = agentsMd.indexOf('\n', start);
-  const beginLine = beginLineEnd < 0 ? agentsMd.slice(start) : agentsMd.slice(start, beginLineEnd);
-  const versionMatch = /^<!-- BEGIN TBD POLICY GRANTS v=(\S+) -->$/.exec(beginLine.trim());
-  if (!versionMatch) {
-    return {
-      status: 'malformed',
-      problems: [`the begin marker line is not "${POLICY_BEGIN_MARKER}"`],
-    };
+  const begin = begins[0]!;
+  const end = ends[0]!;
+  const version = POLICY_BEGIN_LINE.exec(begin.text)![1]!;
+  if (version !== POLICY_BLOCK_VERSION) {
+    return { status: 'unknown-version', version };
   }
-  if (versionMatch[1] !== POLICY_BLOCK_VERSION) {
-    return { status: 'unknown-version', version: versionMatch[1]! };
-  }
-  const endStart = ends[0]!;
-  if (endStart < start) {
+  if (end.index < begin.index) {
     return { status: 'malformed', problems: ['the END marker comes before the BEGIN marker'] };
   }
-  const integration = locateIntegrationBlock(agentsMd);
+  const integration = integrationMarkers(lines);
   if (
-    !integration ||
-    start < integration.bodyStart ||
-    endStart + POLICY_END_MARKER.length > integration.endMarker
+    !integration?.end ||
+    integration.begin.index > begin.index ||
+    integration.end.index < end.index
   ) {
-    problems.push(
-      `the policy block is not inside the tbd block (between ${INTEGRATION_BEGIN_MARKER} ... --> and ${INTEGRATION_END_MARKER})`,
-    );
+    return {
+      status: 'malformed',
+      problems: [
+        `the policy block is not inside the tbd block (between ${INTEGRATION_BEGIN_MARKER} ... --> and ${INTEGRATION_END_MARKER})`,
+      ],
+    };
   }
 
-  const grants: PolicyGrant[] = [];
-  const seen = new Set<string>();
-  let recorded: string | null = null;
-  for (const markdownLine of markdownLines) {
-    if (
-      beginLineEnd < 0 ||
-      markdownLine.offset < beginLineEnd + 1 ||
-      markdownLine.offset >= endStart
-    ) {
-      continue;
-    }
-    const line = markdownLine.trimmed;
-    if (markdownLine.hiddenBy) {
-      // A grant the rendered block does not show must not be one: the block exists to be
-      // read by a person, and a commented-out or fenced line carried full authority.
-      if (isGrantLineCandidate(line) || GRANT_LINE.test(line)) {
-        problems.push(
-          `a grant line inside ${describeHiddenContext(markdownLine.hiddenBy)} is not a grant: ${displayPolicyValue(line)}`,
-        );
-      }
-      continue;
-    }
-    const recordedMatch = RECORDED_LINE.exec(line);
-    if (recordedMatch) {
-      recorded = recordedMatch[1]!;
-      continue;
-    }
-    if (!isGrantLineCandidate(line)) {
-      continue;
-    }
-    const match = GRANT_LINE.exec(line);
-    if (!match || !isValidPolicyName(match[1]!)) {
-      problems.push(
-        `grant line does not match "- \`<policy>\`: <value>": ${displayPolicyValue(line)}`,
-      );
-      continue;
-    }
-    const name = match[1]!;
-    if (seen.has(name)) {
-      problems.push(`policy "${name}" is listed twice`);
-      continue;
-    }
-    seen.add(name);
-    grants.push({ name, value: match[2]!.trim() });
-  }
+  problems.push(
+    ...htmlProblems(
+      agentsMd,
+      blocks,
+      { begin: integration.begin.index, end: integration.end.index },
+      { begin: begin.index, end: end.index },
+    ),
+  );
+  const interior = readPolicyInterior(agentsMd, blocks, begin, end);
+  problems.push(...interior.problems);
   if (problems.length > 0) {
     return { status: 'malformed', problems };
   }
-  const endOfEnd = endStart + POLICY_END_MARKER.length;
-  return { status: 'ok', grants, recorded, text: `${agentsMd.slice(start, endOfEnd)}\n` };
+  const endOfEnd = end.offset + POLICY_END_MARKER.length;
+  return {
+    status: 'ok',
+    grants: interior.grants,
+    recorded: interior.recorded,
+    text: `${agentsMd.slice(begin.offset, endOfEnd)}\n`,
+  };
 }
 
 /** Known policies in table order, then unknown names in the order given. */
@@ -1106,8 +1154,9 @@ function withPolicyBlockLf(agentsMd: string, block: string): string {
     );
   }
 
-  const policyStart = indexOfPolicyMarkerLine(restamped, 'begin', located.bodyStart);
-  const policyEndMarker = indexOfPolicyMarkerLine(restamped, 'end', located.bodyStart);
+  const inBody = topLevelMarkerLines(restamped).filter((line) => line.offset >= located.bodyStart);
+  const policyStart = inBody.find((line) => POLICY_BEGIN_LINE.test(line.text))?.offset ?? -1;
+  const policyEndMarker = inBody.find((line) => line.text === POLICY_END_MARKER)?.offset ?? -1;
   if (policyStart >= 0 && policyEndMarker >= 0 && policyEndMarker < located.endMarker) {
     let policyEnd = policyEndMarker + POLICY_END_MARKER.length;
     if (restamped[policyEnd] === '\n') {

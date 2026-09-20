@@ -1,7 +1,10 @@
 import type { Stats } from 'node:fs';
-import { lstat, readFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
+import { AGENTS_MD_LOCK_DIR } from '../../lib/paths.js';
+import { topLevelMarkerLines } from '../../lib/policy-grants.js';
+import { withLockfile, type LockfileOptions } from '../../utils/lockfile.js';
 import { CLIError } from './errors.js';
 
 export type ManagedArtifactState = 'current' | 'stale' | 'missing' | 'user-owned' | 'too-new';
@@ -32,14 +35,57 @@ export interface SafeManagedArtifactTargetOptions {
   allowMissing?: boolean;
   /** Also reject linked or non-directory parents below this selected project root. */
   projectRoot?: string;
+  /**
+   * The verb for the refusal message. `tbd uninstall` and `tbd doctor` do not
+   * update anything, so "Refusing to update" misdescribes what they were doing.
+   */
+  operation?: string;
+}
+
+/**
+ * A managed-file target that tbd will not touch: a link or other non-regular
+ * entry, a linked or non-directory parent, or a path outside the project.
+ *
+ * Callers act on this differently and none of them should abort a whole run over
+ * it: setup records it as that surface's failure, uninstall treats the path as
+ * not tbd's and skips it. `reason` is the cause alone, for a caller that frames
+ * it in its own sentence.
+ */
+export class ManagedArtifactTargetError extends CLIError {
+  constructor(
+    readonly targetPath: string,
+    readonly reason: string,
+    fix: string,
+    operation: string,
+  ) {
+    super(`Refusing to ${operation} ${targetPath}: ${reason}.${fix ? ` ${fix}` : ''}`);
+    this.name = 'ManagedArtifactTargetError';
+  }
+}
+
+/**
+ * The only two conditions that stop a whole `tbd setup` run, because continuing
+ * would destroy data rather than skip one surface: a generated surface stamped
+ * by a newer tbd than this client understands, and a policy block this client
+ * cannot read and so must not overwrite.
+ */
+export class SetupHardStopError extends CLIError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SetupHardStopError';
+  }
 }
 
 /** Check parents from the selected root outward, before following any of them. */
-async function assertSafeManagedArtifactParents(path: string, projectRoot: string): Promise<void> {
+async function assertSafeManagedArtifactParents(
+  path: string,
+  projectRoot: string,
+  operation: string,
+): Promise<void> {
   const root = resolve(projectRoot);
   const parents = relative(root, dirname(resolve(path)));
   if (parents === '..' || parents.startsWith(`..${sep}`) || isAbsolute(parents)) {
-    throw new CLIError(`Refusing to update ${path}: the target is outside the project.`);
+    throw new ManagedArtifactTargetError(path, 'the target is outside the project', '', operation);
   }
   let parent = root;
   for (const component of parents.split(sep).filter(Boolean)) {
@@ -54,14 +100,23 @@ async function assertSafeManagedArtifactParents(path: string, projectRoot: strin
       }
       throw error;
     }
+    // Both parent refusals are one type, so a caller classifies them together
+    // rather than by an errno that only one of them carries.
     if (stats.isSymbolicLink()) {
-      throw new CLIError(
-        `Refusing to update ${path}: parent ${parent} is a symbolic link. ` +
-          'Use regular directories inside the project and retry.',
+      throw new ManagedArtifactTargetError(
+        path,
+        `parent ${parent} is a symbolic link`,
+        'Use regular directories inside the project and retry.',
+        operation,
       );
     }
     if (!stats.isDirectory()) {
-      throw new Error(`ENOTDIR: not a directory: ${parent}`);
+      throw new ManagedArtifactTargetError(
+        path,
+        `parent ${parent} is not a directory`,
+        'Use regular directories inside the project and retry.',
+        operation,
+      );
     }
   }
 }
@@ -75,8 +130,9 @@ export async function assertSafeManagedArtifactTarget(
   path: string,
   options: SafeManagedArtifactTargetOptions = {},
 ): Promise<void> {
+  const operation = options.operation ?? 'update';
   if (options.projectRoot !== undefined) {
-    await assertSafeManagedArtifactParents(path, options.projectRoot);
+    await assertSafeManagedArtifactParents(path, options.projectRoot, operation);
   }
   let stats: Stats;
   try {
@@ -86,8 +142,11 @@ export async function assertSafeManagedArtifactTarget(
       if (options.allowMissing) {
         return;
       }
-      throw new CLIError(
-        `Refusing to update ${path}: the file does not exist. Create it as a regular file and retry.`,
+      throw new ManagedArtifactTargetError(
+        path,
+        'the file does not exist',
+        'Create it as a regular file and retry.',
+        operation,
       );
     }
     throw error;
@@ -97,10 +156,53 @@ export async function assertSafeManagedArtifactTarget(
     return;
   }
 
-  throw new CLIError(
-    `Refusing to update ${path}: expected a regular file, but found ${managedTargetKind(stats)}. ` +
-      'Replace it with a regular file inside the project and retry.',
+  throw new ManagedArtifactTargetError(
+    path,
+    `expected a regular file, but found ${managedTargetKind(stats)}`,
+    'Replace it with a regular file inside the project and retry.',
+    operation,
   );
+}
+
+/**
+ * Lock timing for one managed-file rewrite: read a file, replace a block, rename
+ * it. Seconds are generous for that, and a waiter should give up and say so
+ * rather than block an agent. `timeoutMs` stays above `staleMs` so a crashed
+ * holder is always broken as stale before a waiter times out.
+ */
+const MANAGED_ARTIFACT_LOCK_OPTIONS: Required<LockfileOptions> = {
+  timeoutMs: 15_000,
+  pollMs: 50,
+  staleMs: 10_000,
+};
+
+/**
+ * Serialize one read/compute/write cycle on this checkout's AGENTS.md.
+ *
+ * Atomic publication alone cannot prevent a concurrent revocation being lost, so
+ * the whole cycle is serialized. The lock lives beside the file it guards, under
+ * the checkout's gitignored `.tbd/`, and deliberately not under the repository's
+ * shared `$GIT_COMMON_DIR/tbd`: AGENTS.md is per worktree, the shared tree is
+ * unwritable in a common agent sandbox, and taking the data-sync lock also bumps
+ * the epoch the web board reads on every grant.
+ */
+export async function withAgentsMdLock<T>(projectRoot: string, fn: () => Promise<T>): Promise<T> {
+  const lockPath = join(projectRoot, AGENTS_MD_LOCK_DIR);
+  await mkdir(dirname(lockPath), { recursive: true });
+  if (await pathIsPresent(lockPath)) {
+    // Progress, not data: a `--json` caller's stdout must stay parseable.
+    process.stderr.write('Waiting for another tbd process to finish writing AGENTS.md...\n');
+  }
+  return withLockfile(lockPath, () => fn(), MANAGED_ARTIFACT_LOCK_OPTIONS);
+}
+
+async function pathIsPresent(path: string): Promise<boolean> {
+  try {
+    await lstat(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -220,49 +322,35 @@ export function extractManagedBlock(
 }
 
 /**
- * Locate one complete managed block using marker lines, never marker substrings in
- * prose or inline code. The returned end is suitable for exact prefix/block/suffix
- * replacement, so readers and writers share one boundary calculation.
+ * Locate one complete managed block using top-level marker lines, never marker
+ * substrings in prose or inline code, and never a marker-shaped line inside
+ * fenced or indented code (a documented example used to anchor the block, so an
+ * update replaced the project's text between the example and the real END
+ * marker). Begin markers are stable prefixes whose metadata may change; end
+ * markers are complete, exact lines. The returned end is suitable for exact
+ * prefix/block/suffix replacement, so readers and writers share one boundary
+ * calculation, the same one the policy block reader uses.
  */
 export function locateManagedBlock(
   content: string,
   beginMarker: string,
   endMarker: string,
 ): ManagedBlockLocation | null {
-  const start = indexOfMarkerLine(content, beginMarker, false);
-  if (start < 0) {
+  const lines = topLevelMarkerLines(content);
+  const begin = lines.find((line) => line.text.startsWith(beginMarker));
+  if (!begin) {
     return null;
   }
-  const endOffset = indexOfMarkerLine(content.slice(start), endMarker, true);
-  if (endOffset < 0) {
+  const end = lines.find((line) => line.offset > begin.offset && line.text === endMarker);
+  if (!end) {
     return null;
   }
 
-  const endStart = start + endOffset;
-  const nextNewline = content.indexOf('\n', endStart + endMarker.length);
+  const nextNewline = content.indexOf('\n', end.offset + endMarker.length);
   return {
-    start,
+    start: begin.offset,
     end: nextNewline < 0 ? content.length : nextNewline + 1,
   };
-}
-
-/**
- * Offset of the first marker line, or -1. Begin markers are stable prefixes
- * whose metadata may change; end markers are complete, exact lines.
- */
-function indexOfMarkerLine(content: string, marker: string, exact: boolean): number {
-  let offset = 0;
-  for (const line of content.split('\n')) {
-    const trimmed = line.trim();
-    const isMarker = exact
-      ? trimmed === marker
-      : trimmed.startsWith(marker) && trimmed.endsWith('-->');
-    if (isMarker) {
-      return offset + (line.length - line.trimStart().length);
-    }
-    offset += line.length + 1;
-  }
-  return -1;
 }
 
 function isErrorWithCode(error: unknown, code: string): boolean {

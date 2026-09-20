@@ -94,6 +94,17 @@ function tbdBlockOf(agentsMd: string): string {
   return extractManagedBlock(agentsMd, CODEX_BEGIN_MARKER, CODEX_END_MARKER);
 }
 
+/**
+ * `extractManagedBlock` ends the block it returns with exactly one LF, whatever
+ * the file's own line endings are, so a CRLF fixture's block comes back with a
+ * lone LF on its last line. Comparing under this normalization keeps the CRLF
+ * cases honest about the block's content; its exact byte span is pinned
+ * separately by `locateManagedBlock`.
+ */
+function toLf(text: string): string {
+  return text.replace(/\r\n/gu, '\n');
+}
+
 function runTbd(cwd: string, args: string[]): { stdout: string; stderr: string; status: number } {
   const result = spawnSync('node', [tbdBin, ...args], {
     cwd,
@@ -234,22 +245,82 @@ describe('AGENTS.md managed block boundaries', () => {
     expect(location).not.toBeNull();
     expect(content.slice(location!.start, location!.end)).toBe(block);
 
-    const falseMarkers =
-      `${CODEX_BEGIN_MARKER} without a closing comment\n` +
-      block.replace(
-        CODEX_END_MARKER,
-        `${CODEX_END_MARKER} trailing prose\nstill managed\n${CODEX_END_MARKER}`,
-      );
-    const falseMarkerLocation = locateManagedBlock(
-      falseMarkers,
+    // Prose after an END marker does not end the block: the boundary is the next
+    // line that is the END marker and nothing else.
+    const trailingProse = block.replace(
+      CODEX_END_MARKER,
+      `${CODEX_END_MARKER} trailing prose\nstill managed\n${CODEX_END_MARKER}`,
+    );
+    const trailingLocation = locateManagedBlock(
+      trailingProse,
       CODEX_BEGIN_MARKER,
       CODEX_END_MARKER,
     );
-    expect(falseMarkerLocation).not.toBeNull();
-    expect(falseMarkers.slice(falseMarkerLocation!.start, falseMarkerLocation!.end)).toContain(
+    expect(trailingLocation).not.toBeNull();
+    expect(trailingProse.slice(trailingLocation!.start, trailingLocation!.end)).toContain(
       `${CODEX_END_MARKER} trailing prose\nstill managed\n${CODEX_END_MARKER}\n`,
     );
+
+    // An unclosed `<!--` runs to the next `-->`, which here is the one that ends
+    // the real BEGIN line, so both BEGIN lines sit inside an HTML comment and a
+    // reader on GitHub sees no marker at all. With no visible BEGIN there is no
+    // managed block to locate, and locating fails closed rather than guessing a
+    // span: setup appends a fresh block below the file instead of overwriting
+    // bytes nobody can see, so the prior content survives as an exact prefix.
+    const unclosedComment = `${CODEX_BEGIN_MARKER} without a closing comment\n${trailingProse}`;
+    expect(locateManagedBlock(unclosedComment, CODEX_BEGIN_MARKER, CODEX_END_MARKER)).toBeNull();
   });
+
+  const BEGIN_LINE = `${CODEX_BEGIN_MARKER} format=${AGENT_INTEGRATION_FORMAT} surface=agents-md -->`;
+  /** A documented BEGIN marker with no END: text Markdown shows as code, never a marker. */
+  const BEGIN_ONLY_EXAMPLES = {
+    fenced: `\`\`\`markdown\n${BEGIN_LINE}\n\`\`\`\n`,
+    'four-space-indented': `Example:\n\n    ${BEGIN_LINE}\n`,
+  } as const;
+  const BEGIN_ONLY_SHAPES = ['fenced', 'four-space-indented'] as const;
+
+  it.each(BEGIN_ONLY_SHAPES)('N10: a %s BEGIN-only example does not anchor the block', (shape) => {
+    // The example line used to anchor the block, so an update replaced everything
+    // from it to the real END marker, project text included.
+    const block = withPolicyBlock(getCodexTbdSection(), HAND_BLOCK);
+    const prefix = `# Project\n\n${BEGIN_ONLY_EXAMPLES[shape]}\nProject text that must survive.\n\n`;
+    const suffix = '\n## My Notes\n\nKeep me.\n';
+    for (const newline of ['\n', '\r\n']) {
+      const [before, managed, after] = [prefix, block, suffix].map((part) =>
+        part.replace(/\n/gu, newline),
+      ) as [string, string, string];
+      const content = before + managed + after;
+      const location = locateManagedBlock(content, CODEX_BEGIN_MARKER, CODEX_END_MARKER);
+      expect(location).toEqual({ start: before.length, end: before.length + managed.length });
+      expect(toLf(tbdBlockOf(content))).toBe(toLf(managed));
+
+      // Setup's update writes the regenerated section over exactly the located span.
+      const section = getCodexTbdSectionPreservingGrants(content).replace(/\n/gu, newline);
+      expect(section).toBe(managed);
+      expect(content.slice(0, location!.start) + section + content.slice(location!.end)).toBe(
+        content,
+      );
+    }
+  });
+
+  it.each(BEGIN_ONLY_SHAPES)(
+    'N10: setup keeps the project text below a %s BEGIN-only example',
+    async (shape) => {
+      const dir = await setUpRepo();
+      const agentsPath = join(dir, 'AGENTS.md');
+      const prefix = `${BEGIN_ONLY_EXAMPLES[shape]}\nProject text that must survive.\n\n`;
+      await writeFile(agentsPath, prefix + staleAgentsMd(HAND_BLOCK));
+
+      const result = runTbd(dir, ['setup', '--auto', '--surfaces=agents-md']);
+      expect(result.status, result.stderr).toBe(0);
+      const after = await readFile(agentsPath, 'utf-8');
+      expect(after.startsWith(`${prefix}# Project Instructions for AI Agents\n\n`)).toBe(true);
+      expect(after.endsWith('\n## My Notes\n\nKeep me.\n')).toBe(true);
+      expect(after).not.toContain('Stale body from an earlier release.');
+      expect(tbdBlockOf(after)).toBe(withPolicyBlock(getCodexTbdSection(), HAND_BLOCK));
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
 
   it(
     'leaves a current block and its quoted-marker prefix and suffix byte-identical',
