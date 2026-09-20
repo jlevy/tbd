@@ -417,6 +417,27 @@ Example text mentions ${POLICY_BEGIN_MARKER_PREFIX} v=example --> without defini
     });
   });
 
+  it('rejects raw HTML policy examples and accepts visible grants after HTML', () => {
+    const grant = '- `github-merge`: autonomous';
+    const block = `${POLICY_BEGIN_MARKER}\n${grant}\n${POLICY_END_MARKER}\n`;
+    for (const tag of ['pre', 'script', 'style', 'textarea', 'div']) {
+      for (const example of [
+        `<${tag}>\n${block}</${tag}>\n`,
+        `${POLICY_BEGIN_MARKER}\n<${tag}>\n${grant}\n</${tag}>\n\n${POLICY_END_MARKER}\n`,
+      ]) {
+        const parsed = parsePolicyBlock(agentsMdWith(example));
+        expect(parsed.status, tag).toBe('malformed');
+        expect(
+          resolvePolicyStatuses(parsed).find((status) => status.name === 'github-merge'),
+        ).toMatchObject({ answered: false, effective: 'confirm-every' });
+      }
+      expect(
+        parsePolicyBlock(agentsMdWith(`<${tag}>\nexample\n</${tag}>\n\n${block}`)),
+        tag,
+      ).toMatchObject({ status: 'ok', grants: [{ name: 'github-merge', value: 'autonomous' }] });
+    }
+  });
+
   it('reads a block in a file that uses lone carriage returns', () => {
     const lf = agentsMdWith(GUIDELINE_BLOCK);
     expect(parsePolicyBlock(lf.replace(/\n/gu, '\r'))).toEqual(parsePolicyBlock(lf));

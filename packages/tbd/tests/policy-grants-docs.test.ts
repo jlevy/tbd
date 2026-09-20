@@ -317,6 +317,20 @@ describe('long-lived docs state the merge ladder and review invariance', () => {
 });
 
 describe('documents that act on grants link to agent-policy-grants', () => {
+  it('refreshes the trusted policy ref at both the merge gate and delegation', async () => {
+    const review = flat(await readDoc(`${SHORTCUTS}/review-and-merge-prs.md`));
+    const delegate = flat(
+      section(await readDoc(`${SHORTCUTS}/delegate-to-subagents.md`), 2, 'Check Authorization'),
+    );
+    expect(review).toContain('"+refs/heads/$POLICY_BRANCH:$POLICY_REF"');
+    const gate = review.slice(review.indexOf('5. **Merge gate'));
+    for (const doc of [gate, delegate]) {
+      expect(doc).not.toContain('`git fetch <remote> <default-branch>`');
+      expect(doc).toContain('explicit destination ref');
+      expect(doc).toContain('Prepare');
+    }
+  });
+
   it('the generated tbd block links to the guideline', () => {
     expect(flat(getCodexTbdSection())).toContain(LINK);
   });
@@ -353,6 +367,15 @@ describe('stacked-PR documents state the github-stacked-prs condition', () => {
 });
 
 describe('setup-tbd follows the guideline setup questions', () => {
+  it('reconciles pending proposals before recording the all-recommended answer', async () => {
+    const record = flat(section(await readDoc(SETUP_TBD), 2, 'Record'));
+    expect(record).toContain('working-tree entries');
+    expect(record).toContain('`github-merge: autonomous`');
+    expect(record).toContain('`tbd policy grant github-merge`');
+    expect(record).toContain('before `--policies=recommended`');
+    expect(record).toContain('Do not commit unconfirmed proposals');
+  });
+
   it('keeps pending working-tree proposals out of setup authorization', async () => {
     const setup = await readDoc(SETUP_TBD);
     const review = flat(section(setup, 2, 'Review Policies'));

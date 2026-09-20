@@ -12,12 +12,14 @@
 import { spawnSync } from 'node:child_process';
 import {
   access,
+  lstat,
   mkdir,
   mkdtemp,
   readFile,
   readdir,
   realpath,
   rm,
+  symlink,
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -72,8 +74,10 @@ const USER_OWNED_STRONG =
 
 describe('setup tier agent definitions', { timeout: subprocessTestTimeout(45_000) }, () => {
   let projectDir: string;
+  let outsideDirs: string[];
 
   beforeEach(async () => {
+    outsideDirs = [];
     projectDir = await realpath(await mkdtemp(join(tmpdir(), 'tbd-tier-agents-')));
     run(['git', 'init', '--initial-branch=main']);
     run(['git', 'config', 'user.email', 'test@example.com']);
@@ -82,6 +86,9 @@ describe('setup tier agent definitions', { timeout: subprocessTestTimeout(45_000
 
   afterEach(async () => {
     await rm(projectDir, { recursive: true, force: true });
+    for (const dir of outsideDirs) {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   function run(command: [string, ...string[]]): void {
@@ -412,7 +419,7 @@ describe('setup tier agent definitions', { timeout: subprocessTestTimeout(45_000
     let writes = 0;
 
     await expect(
-      writeTierAgentFiles(files, async (path, content) => {
+      writeTierAgentFiles(projectDir, files, async (path, content) => {
         writes += 1;
         if (writes === 2) {
           throw new Error('injected write failure');
@@ -432,7 +439,7 @@ describe('setup tier agent definitions', { timeout: subprocessTestTimeout(45_000
     await writeFile(agentsDir, 'user file at parent path\n');
 
     await expect(
-      writeTierAgentFiles([
+      writeTierAgentFiles(projectDir, [
         {
           rel: '.claude/agents/tbd-fast.md',
           path: join(agentsDir, 'tbd-fast.md'),
@@ -514,6 +521,60 @@ describe('setup tier agent definitions', { timeout: subprocessTestTimeout(45_000
     expect(await exists(join(projectDir, CODEX_AGENTS_DIR_REL))).toBe(false);
     expect(await exists(join(projectDir, CLAUDE_AGENTS_DIR_REL))).toBe(true);
   });
+
+  it.each(
+    (['claude', 'codex'] as const).flatMap((platform) =>
+      (['platform directory', 'agents directory', 'definition file'] as const).map((boundary) => ({
+        platform,
+        boundary,
+      })),
+    ),
+  )(
+    'refuses a linked $platform $boundary during setup and uninstall',
+    async ({ platform, boundary }) => {
+      const init = runTbd(['init', '--prefix=test']);
+      expect(init.status, init.stderr).toBe(0);
+      const outsideDir = await realpath(await mkdtemp(join(tmpdir(), 'tbd-tier-outside-')));
+      outsideDirs.push(outsideDir);
+      const externalAgents =
+        boundary === 'platform directory' ? join(outsideDir, 'agents') : outsideDir;
+      await mkdir(externalAgents, { recursive: true });
+      const filename = platform === 'claude' ? 'tbd-strong-max.md' : 'tbd-strong-max.toml';
+      const externalFile = join(externalAgents, filename);
+      const original = platform === 'claude' ? STALE_CLAUDE_FAST : STALE_CODEX_FAST;
+      await writeFile(externalFile, original);
+      const link =
+        boundary === 'platform directory'
+          ? join(projectDir, `.${platform}`)
+          : boundary === 'agents directory'
+            ? join(projectDir, `.${platform}`, 'agents')
+            : join(projectDir, `.${platform}`, 'agents', filename);
+      await mkdir(dirname(link), { recursive: true });
+      await symlink(
+        boundary === 'definition file' ? externalFile : outsideDir,
+        link,
+        boundary === 'definition file' ? 'file' : 'junction',
+      );
+
+      const setupResult = runTbd(['setup', '--auto', `--surfaces=${platform}-agents`]);
+      expect.soft(setupResult.status).not.toBe(0);
+      expect.soft(setupResult.stdout + setupResult.stderr).toContain('symbolic link');
+      expect.soft(await readFile(externalFile, 'utf-8')).toBe(original);
+      expect.soft(await readdir(externalAgents)).toEqual([filename]);
+      expect.soft((await lstat(link)).isSymbolicLink()).toBe(true);
+
+      const uninstall = runTbd(['uninstall', '--confirm']);
+      expect.soft(uninstall.status).not.toBe(0);
+      expect.soft(uninstall.stdout + uninstall.stderr).toContain('symbolic link');
+      expect.soft(await exists(join(projectDir, '.tbd', 'config.yml'))).toBe(true);
+      expect.soft(await exists(externalFile)).toBe(true);
+      if (await exists(externalFile)) {
+        expect.soft(await readFile(externalFile, 'utf-8')).toBe(original);
+      }
+      expect.soft(await readdir(externalAgents)).toEqual([filename]);
+      expect.soft(await exists(link)).toBe(true);
+    },
+  );
 
   it('doctor reports the definitions only once any exist, and flags stale ones', async () => {
     setup(SKILL_SURFACES);

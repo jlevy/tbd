@@ -17,6 +17,8 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { lexer } from 'marked';
+
 import { git, GitError } from '../file/git.js';
 import {
   integrationFormatNumber,
@@ -424,7 +426,7 @@ interface MarkdownLineState {
   hiddenBy: MarkdownHiddenContext | null;
 }
 
-type MarkdownHiddenContext = 'comment' | 'fence' | 'indented-code';
+type MarkdownHiddenContext = 'comment' | 'fence' | 'indented-code' | 'html';
 
 interface FenceState {
   character: '`' | '~';
@@ -523,10 +525,32 @@ function commentStateAfter(line: string, initiallyOpen: boolean): boolean {
  */
 function scanMarkdownLines(agentsMd: string): MarkdownLineState[] {
   const lines: MarkdownLineState[] = [];
+  // Raw-text HTML tags close at their end tag; ordinary block tags end at a blank
+  // line. Reuse Markdown's grammar instead of maintaining another tag parser.
+  // Marker comments stay under the comment scanner so visible marker lines count.
+  const htmlRanges: { start: number; end: number }[] = [];
+  let tokenOffset = 0;
+  for (const token of lexer(agentsMd)) {
+    const end = tokenOffset + token.raw.length;
+    if (token.type === 'html' && !/^ {0,3}<!--/.test(token.raw)) {
+      htmlRanges.push({ start: tokenOffset, end });
+    }
+    tokenOffset = end;
+  }
+  let htmlIndex = 0;
   let offset = 0;
   let inComment = false;
   let fence: FenceState | null = null;
   for (const raw of agentsMd.split('\n')) {
+    while (htmlRanges[htmlIndex] && htmlRanges[htmlIndex]!.end <= offset) {
+      htmlIndex += 1;
+    }
+    const htmlRange = htmlRanges[htmlIndex];
+    if (htmlRange && htmlRange.start <= offset) {
+      lines.push({ raw, trimmed: raw.trim(), offset, hiddenBy: 'html' });
+      offset += raw.length + 1;
+      continue;
+    }
     const indentedCode = INDENTED_CODE_LINE.test(raw);
     const hiddenBy = fence
       ? 'fence'
@@ -561,6 +585,9 @@ function scanMarkdownLines(agentsMd: string): MarkdownLineState[] {
 }
 
 function describeHiddenContext(hiddenBy: MarkdownHiddenContext): string {
+  if (hiddenBy === 'html') {
+    return 'a raw HTML block';
+  }
   return hiddenBy === 'indented-code' ? 'an indented code block' : `a ${hiddenBy}`;
 }
 

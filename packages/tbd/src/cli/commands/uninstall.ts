@@ -17,6 +17,7 @@ import { findTbdRoot, readConfig } from '../../file/config.js';
 import { TIER_AGENTS_DISPLAY } from '../../lib/integration-paths.js';
 import { SYNC_BRANCH, resolveSharedTbdPaths } from '../../lib/paths.js';
 import { listGeneratedTierAgentFiles } from './setup.js';
+import { assertSafeManagedArtifactTarget } from '../lib/managed-artifact.js';
 
 interface UninstallOptions {
   confirm?: boolean;
@@ -267,6 +268,10 @@ class UninstallHandler extends BaseCommand {
     if (tierAgentFiles.length > 0) {
       let removed = 0;
       for (const file of tierAgentFiles) {
+        await assertSafeManagedArtifactTarget(file.path, {
+          projectRoot: tbdRoot,
+          allowMissing: true,
+        });
         try {
           await rm(file.path, { force: true });
           removed++;

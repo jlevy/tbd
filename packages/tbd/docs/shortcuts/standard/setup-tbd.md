@@ -130,7 +130,15 @@ Record only what the user explicitly answered:
 | Not now | Nothing |
 
 `--policies=recommended` records the recommended value for every unanswered policy
-except `linear` and leaves answered policies unchanged.
+except `linear` and leaves existing working-tree entries unchanged, including pending
+proposals. Reconcile pending values with the user’s answers before
+`--policies=recommended`: use `tbd policy grant <policy>` or
+`tbd policy set <policy> <value>` for each accepted answer that differs from the pending
+value. For example, if the default branch leaves merging unanswered and the working tree
+proposes `github-merge: autonomous`, accepting all recommended requires
+`tbd policy grant github-merge` to record `confirm-session` before the bulk command.
+Do not commit unconfirmed proposals with the accepted answers; leave them out of that
+commit. A “not now” answer stays unanswered, rather than recording a revoke value.
 Record any individual answers first, then run it for the rest; if the user said “not
 now” to any policy, use `tbd policy grant` for each accepted policy instead.
 Record `github-merge: never`, `github-merge: autonomous`, or

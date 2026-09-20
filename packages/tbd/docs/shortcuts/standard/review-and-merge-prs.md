@@ -99,6 +99,8 @@ Several PRs when the request names more than one):
      fetch must not be followed by acting on stale grants.
      With no remotes, skip the fetch and use `tbd policy show` under the documented
      local-repository rules.
+     Keep the explicit destination ref in the fetch: a single-branch clone can otherwise
+     update only `FETCH_HEAD`, leaving the policy ref stale.
 
      The request needs:
      - `github-editing` in every mode, for publishing reviews, pushing fixes, and
@@ -247,8 +249,9 @@ Several PRs when the request names more than one):
 
    This is the authoritative merge gate.
    Check every condition at the moment of merging, from fresh reads, not from state
-   recorded earlier. Immediately before `tbd policy show`, run
-   `git fetch <remote> <default-branch>` (read-only) so the ref is not stale:
+   recorded earlier. Immediately before `tbd policy show`, repeat the policy refresh
+   procedure in Prepare (step 1). Use its explicit destination ref and stop on fetch
+   failure, so the trusted ref is current even in a single-branch clone:
 
    - The `pr-review-requirements` policy is met: under `standard`, a senior engineering
      review at a pinned head and a pass addressing all its findings, plus each dedicated

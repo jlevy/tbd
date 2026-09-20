@@ -1,5 +1,6 @@
 import type { Stats } from 'node:fs';
 import { lstat, readFile } from 'node:fs/promises';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { CLIError } from './errors.js';
 
@@ -29,17 +30,54 @@ export interface ManagedBlockLocation {
 export interface SafeManagedArtifactTargetOptions {
   /** Accept ENOENT when the caller is allowed to create the file. */
   allowMissing?: boolean;
+  /** Also reject linked or non-directory parents below this selected project root. */
+  projectRoot?: string;
+}
+
+/** Check parents from the selected root outward, before following any of them. */
+async function assertSafeManagedArtifactParents(path: string, projectRoot: string): Promise<void> {
+  const root = resolve(projectRoot);
+  const parents = relative(root, dirname(resolve(path)));
+  if (parents === '..' || parents.startsWith(`..${sep}`) || isAbsolute(parents)) {
+    throw new CLIError(`Refusing to update ${path}: the target is outside the project.`);
+  }
+  let parent = root;
+  for (const component of parents.split(sep).filter(Boolean)) {
+    parent = join(parent, component);
+    let stats: Stats;
+    try {
+      stats = await lstat(parent);
+    } catch (error) {
+      if (isErrorWithCode(error, 'ENOENT')) {
+        // No deeper component can exist until this missing directory is created.
+        return;
+      }
+      throw error;
+    }
+    if (stats.isSymbolicLink()) {
+      throw new CLIError(
+        `Refusing to update ${path}: parent ${parent} is a symbolic link. ` +
+          'Use regular directories inside the project and retry.',
+      );
+    }
+    if (!stats.isDirectory()) {
+      throw new Error(`ENOTDIR: not a directory: ${parent}`);
+    }
+  }
 }
 
 /**
  * Refuse managed-file targets that can redirect or invalidate a project-local write.
- * `lstat` is deliberate: `stat` and `realpath` follow a symlink before the caller can
- * enforce that AGENTS.md itself is a regular file in the selected project.
+ * `lstat` checks the entry itself; with projectRoot, parents are checked first so
+ * neither reading nor mutation follows a linked directory below the selected root.
  */
 export async function assertSafeManagedArtifactTarget(
   path: string,
   options: SafeManagedArtifactTargetOptions = {},
 ): Promise<void> {
+  if (options.projectRoot !== undefined) {
+    await assertSafeManagedArtifactParents(path, options.projectRoot);
+  }
   let stats: Stats;
   try {
     stats = await lstat(path);

@@ -1037,6 +1037,7 @@ async function ensureDirectory(dir: string): Promise<void> {
  * progress if a later filesystem operation fails.
  */
 export async function writeTierAgentFiles(
+  projectRoot: string,
   files: readonly TierAgentFileWrite[],
   writer: (path: string, content: string) => Promise<void> = async (path, content) =>
     writeFile(path, content),
@@ -1044,7 +1045,9 @@ export async function writeTierAgentFiles(
   let written = 0;
   for (const file of files) {
     try {
+      await assertSafeManagedArtifactTarget(file.path, { projectRoot, allowMissing: true });
       await ensureDirectory(dirname(file.path));
+      await assertSafeManagedArtifactTarget(file.path, { projectRoot, allowMissing: true });
       await writer(file.path, file.expected);
       written += 1;
     } catch (error) {
@@ -1071,6 +1074,7 @@ export async function inspectTierAgentSurface(
     const rel = getTierAgentRel(platform, definition.name);
     const path = join(cwd, rel);
     const expected = renderTierAgentDefinition(platform, definition);
+    await assertSafeManagedArtifactTarget(path, { projectRoot: cwd, allowMissing: true });
     const inspection = await inspectManagedArtifact({
       path,
       expectedContent: expected,
@@ -3121,7 +3125,7 @@ class SetupAutoHandler extends BaseCommand {
         }
         return result;
       }
-      await writeTierAgentFiles(pending);
+      await writeTierAgentFiles(cwd, pending);
       result.installed = true;
     } catch (error) {
       // The format guard is a hard stop; surface it instead of swallowing.
