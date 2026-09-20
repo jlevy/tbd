@@ -47,9 +47,13 @@ Create a to-do list with the following items then perform all of them:
      `gh pr diff <PR_NUMBER> --repo $REPO`)
    - This loads the general and language-specific guidelines and also checks
      documentation consistency (specs, architecture docs)
-   - If the PR’s base is another feature branch and the PR is not in a formal GitHub
-     stack, report a High finding on that informal chain: fold it into the survivor; do
-     not ask for more layers (see `tbd shortcut stacked-prs`)
+   - Check formal remote membership using `tbd shortcut stacked-prs`; do not infer it
+     from local tracking alone, and stop if the membership lookup fails.
+     If the PR’s base is another feature branch and the PR is not in a formal GitHub
+     stack, report a High finding on that informal chain.
+     Fold layers that fail the review-unit test into a surviving PR; otherwise link and
+     verify the existing layers as a formal stack.
+     Do not ask for more layers.
    - After the PR-level review, if the PR is in a formal stack, also review the stack as
      a whole
 

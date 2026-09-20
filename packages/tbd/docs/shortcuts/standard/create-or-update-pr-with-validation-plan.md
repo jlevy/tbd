@@ -59,6 +59,17 @@ Create a to-do list with the following items then perform all of them:
      `tbd shortcut stacked-prs` and use the official `gh-stack` skill to initialize and
      submit a local stack or link existing PRs with `gh stack link`. Chained branch
      bases alone are not a formal GitHub stack.
+   - **Reviewable unit (before `gh pr create`):** Apply Reviewable Units in
+     `tbd shortcut stacked-prs` before updating the branch, creating, or retargeting.
+     Focused, isolated work that will be reviewed and merged on its own stays one PR
+     based on `$TRUNK` (any size).
+     Consolidate incremental spec or bead-driven work into reviewable PRs; use a stack
+     when the work warrants dependent layers.
+     If an existing PR’s `$PR_BASE` or a new PR’s intended base is another feature
+     branch and neither stack check finds membership, stop and run
+     `tbd shortcut stacked-prs`. Fold work that fails the review-unit test, or formalize
+     valid dependent layers, then repeat the membership checks before continuing.
+     Do not pass `--base` onto a feature branch by hand.
    - Only after this classification, update a branch that is behind its base:
      - For an unstacked branch, run `tbd shortcut merge-upstream` when needed.
      - For a locally tracked stack, use `gh stack sync`.
@@ -126,14 +137,6 @@ Create a to-do list with the following items then perform all of them:
    Link any related beads using their IDs.
 
 6. Create or update the PR:
-   - **Reviewable unit (before `gh pr create`):** Apply Reviewable Units in
-     `tbd shortcut stacked-prs` before creating or retargeting.
-     Focused, isolated work that will be reviewed and merged on its own stays one PR
-     based on `$TRUNK` (any size).
-     Incremental spec or bead-driven work consolidates into larger PRs, then into
-     stacks. If the intended base is another feature branch and the branch is not in a
-     formal stack, stop and run `tbd shortcut stacked-prs`. Do not pass `--base` onto a
-     feature branch by hand.
    - **Locally tracked stack:** run `gh stack submit --auto`, then set the title and
      body with `gh pr edit`. This creates new PRs as drafts and preserves existing PR
      review state. Add `--open` only when the user explicitly asks to mark every new and

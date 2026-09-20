@@ -253,9 +253,13 @@ describe('integration file formats', () => {
         expect(content, `${name} must apply Reviewable Units before creating`).toContain(
           'Reviewable unit (before `gh pr create`)',
         );
-        expect(content, `${name} must stop informal feature-branch bases`).toContain(
-          'stop and run `tbd shortcut stacked-prs`',
+        expect(content, `${name} must stop informal feature-branch bases`).toMatch(
+          /stop and run\s+`tbd shortcut stacked-prs`/u,
         );
+        expect(
+          content.indexOf('Reviewable unit (before `gh pr create`)'),
+          `${name} must classify informal chains before updating the branch from trunk`,
+        ).toBeLessThan(content.indexOf('Only after this classification, update a branch'));
       }
     });
 

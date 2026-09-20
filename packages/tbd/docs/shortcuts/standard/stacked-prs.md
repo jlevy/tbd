@@ -78,15 +78,19 @@ otherwise non-interactive:
 
 ## Reviewable Units
 
-A PR is a **review unit**. A reviewer must be able to accept or reject it without
-reading its parent or child.
-If they cannot, fold it into the survivor.
+A PR is a **review unit**. A reviewer must be able to assess its change against the
+declared base without reviewing another layer’s diff to understand its purpose or
+correctness. Depending on an API supplied by the base is normal; requiring a later layer
+to make the change correct is not.
+If a layer fails this test, fold it into a surviving PR that forms a complete review
+unit.
 
 **Standalone work stays standalone.** A focused fix or isolated change can be its own PR
 of any size when it will be reviewed and merged on its own.
 
 **Spec and bead-driven work consolidates.** Incremental work across a large spec or bead
 tree should usually land in larger reviewable PRs, then in stacks.
+Use a stack only when the resulting PRs warrant dependent layers (see When to Stack).
 Beads are not PRs: several beads may share one PR. Lettered sub-phases (`0A`, `0B.1`)
 are implementation notes, not automatic PR boundaries.
 
