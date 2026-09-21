@@ -5,7 +5,7 @@ title: "PR #310: accidental packages/tbd/node_modules symlink breaks all CI inst
 kind: bug
 status: in_progress
 priority: 0
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 delegate: unknown@cursor
 labels: []
@@ -14,7 +14,7 @@ parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
 hold: null
 hold_until: null
 created_at: 2026-09-21T00:35:20.794Z
-updated_at: 2026-09-21T00:35:29.304Z
+updated_at: 2026-09-21T00:45:35.887Z
 started_at: 2026-09-21T00:35:29.304Z
 ---
 85e2d023 on claude/sharp-tesla-dqt372 (PR #310) committed a symlink
@@ -29,3 +29,11 @@ cannot `mkdir packages/tbd/node_modules` and every CI job fails at install
 Not rebase wreckage: #309 head c122b241 is green 7/7; #310 unique Review F
 work is real. Fix: untrack the symlink, keep the rest of 85e2d023, ignore
 `node_modules` without a trailing slash.
+
+## Notes
+
+Root cause: 85e2d023 added a symlink packages/tbd/node_modules -> /Users/levy/wrk/github/tbd/packages/tbd/node_modules. .gitignore had node_modules/ (dirs only), so git accepted the link. Checkout left a dangling symlink; pnpm install could not mkdir packages/tbd/node_modules. All six failing jobs died at install (not a Windows flake, not rebase wreckage).
+
+#309 head c122b241 stayed green 7/7. #310 unique Review F work was real.
+
+Someone rewrote 85e2d023 -> 493e418f (same unique files, symlink dropped). This session pushed 38519193 on top: ignore node_modules without a trailing slash so a host symlink cannot be committed again.
