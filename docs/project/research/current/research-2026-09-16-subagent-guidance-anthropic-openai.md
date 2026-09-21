@@ -945,8 +945,8 @@ before the work itself.
 The fork also cannot change model or effort and is anchored on the coordinator’s
 reading. For review, fresh is both cheaper per turn and better.
 
-Where the multiplier in Anthropic’s “3 to 15 times” figure [V10], [V11] actually comes
-from, given caching:
+Where the 3 to 10 times single-agent multiplier [V11], about 15 times chat [V10],
+actually comes from, given caching:
 
 - **More turns, not more expensive turns.** Each sub-agent gathers its own context
   (reads the diff, the files, the docs) that the coordinator may already hold, and each
@@ -1154,24 +1154,25 @@ returns to the coordinator [V1]. The trade is:
 Worked through for a 30-turn review on Opus 5, base $5 per million:
 
 - *As a fork of a 150k-token coordinator:* first request reads 150k (about $0.075), and
-  every later turn reads 150k plus what the review has added; about 30 × $0.08 =
-  **$2.40** in context reads, plus the review’s own reads and output.
+  every later turn reads 150k plus what the review has added; on the same growth the
+  fresh example assumes, that averages about 170k per turn, so 30 × $0.085 = **$2.55**
+  in context reads, plus the review’s own reads and output.
   The fork keeps its 30 turns of new tool output isolated and returns only its final
   report, but it still carries the inherited 150k-token input on every turn.
 - *As a fresh sub-agent with a 20k prefix that grows to 60k:* one write of 20k (about
   $0.13), then reads averaging 40k per turn, about 30 × $0.02 = **$0.60**, plus the same
   review work, and afterwards the coordinator carries a two-page report.
-- *On Fable 5.1* the fork’s reads fall by half (about $1.20 for the same 30 turns,
+- *On Fable 5.1* the fork’s reads fall by half (about $1.27 for the same 30 turns,
   because reads are $0.25 per million) and the fresh sub-agent’s to about $0.30, while
   the one-time write rises to about $0.25; the ranking does not change.
 
 The review’s own work (reading a diff of 20k tokens, running tests that return 5k tokens
 each, writing 5k tokens of findings at $25 per million output on Opus) costs on the
-order of $0.50 to $1.50 either way and dominates.
-So for anything longer than a few turns, the fresh sub-agent is cheaper as well as
-independent, and the “3 to 15 times” multiplier for multi-agent work [V10], [V11] comes
-from doing more work (N agents each reading the code, plus the coordinator), not from
-paying a fresh-context penalty.
+order of $0.50 to $1.50. That dominates the fresh sub-agent’s context reads; it does not
+dominate the fork’s. So for anything longer than a few turns, the fresh sub-agent is
+cheaper as well as independent, and the 3 to 10 times multiplier for multi-agent work
+[V11] comes from doing more work (N agents each reading the code, plus the coordinator),
+not from paying a fresh-context penalty.
 
 Where a fork *is* cheaper: a one- or two-turn task that needs the conversation, such as
 “summarize what we decided” or “check the thing we discussed against this file”, where a
@@ -1201,9 +1202,9 @@ What expiry costs, and when it happens in a tbd workflow:
   The 5-minute default is fine for a reviewer or an addressing agent.
 - *A sub-agent that waits* expires whenever a single wait exceeds the TTL. A CI poll
   every 10 minutes under a 5-minute TTL rewrites the whole prefix on every poll (at
-  1.25x), which for a 30k prefix on Opus is about $0.19 per poll, or about $1.10 per
-  hour of waiting. Polling inside the 5-minute TTL avoids those repeated writes, but the
-  extra polls are still paid reads.
+  1.25x), which for a 30k prefix on Opus is $0.1875 per poll, or about $1.13 per hour of
+  waiting. Polling inside the 5-minute TTL avoids those repeated writes, but the extra
+  polls are still paid reads.
   With a constant 30k-token Opus prefix and no output, polls at minutes 0, 4, …, 60 cost
   one $0.1875 write plus 15 × $0.015 reads, or **$0.4125**. Polls at minutes 0, 10, …,
   60 under a 1-hour TTL cost one $0.30 write plus 6 × $0.015 reads, or **$0.3900**
@@ -2146,7 +2147,7 @@ instead of repeating it.
 | Tell Astra to delegate whenever parallel work saves time or improves quality | [V18] | Followed | The `subagents` grant plus the shortcut is that standing instruction |
 | Set `fork_turns` to `none` or a number when choosing a tier | [V16], [V38] | Followed | Assign Tiers and Spawn (Codex) |
 | Lighter models for lighter sub-agent work; a custom agent file’s model and effort take precedence over the spawn | [V13] | Deviated on models (Deviations, row 5); followed on precedence | `agent-model-tiers`; Assign Tiers and Spawn (Codex) |
-| Cost: 3 to 15 times one agent; smaller models and `low` effort for simple stages; cap turns and spend | [V4], [V6], [V10], [V11] | Followed on cost; smaller models are Deviations, row 5; caps added | When to Delegate (Cost) |
+| Cost: 3 to 10 times one agent, about 15 times chat; smaller models and `low` effort for simple stages; cap turns and spend | [V4], [V6], [V10], [V11] | Followed on cost; smaller models are Deviations, row 5; caps added | When to Delegate (Cost) |
 | **Claude Code prompts** |  |  |  |
 | Delegate when a task matches an agent type, is independent and parallel, or reads across many files; do single-fact lookups directly; do not duplicate delegated work | [V21], [V22] | Followed; “do not duplicate” added | When to Delegate |
 | Restraint: only independent, sizeable, or parallel work; no fan-out on small tasks; no spawning to re-verify; low counts; when in doubt, do not spawn | [V21] | Followed, with tbd’s encouragement scoped to its defined roles (Deviations, row 7) | When to Delegate |
@@ -2252,8 +2253,8 @@ applied; rows 3 and 8 are design choices that can be revisited without one.
 - **Independent review is recommended; self-verification instructions are not** [V2],
   [V7], [V8].
 
-- **Delegation multiplies cost** by roughly 3 to 15 times, so one agent is often right
-  for small or tightly sequential work [V10], [V11].
+- **Delegation multiplies cost** by roughly 3 to 10 times one agent, about 15 times
+  chat, so one agent is often right for small or tightly sequential work [V10], [V11].
 
 - **Self-managed compaction beats auto-compaction.** A curated handoff (tbd
   agent-handoff, an outer `claude -p` loop, or a bead-managed loop) preserves failed

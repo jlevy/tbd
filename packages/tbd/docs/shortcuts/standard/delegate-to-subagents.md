@@ -222,8 +222,12 @@ Each brief states:
   letter, working tree path, bead IDs, spec sections.
 - **Boundaries:**
   - its write set, when it writes;
-  - whether it commits, pushes, or runs `tbd sync` (a reviewer does none of these, and
-    the addressing agent is the sole committer on its branch);
+  - whether it commits or pushes (a reviewer does neither, and the addressing agent is
+    the sole committer on its branch);
+  - whether the coordinator reserves `tbd sync` for itself.
+    Syncing needs no grant and is never withheld as a permission; reserve it only to
+    keep one writer on the bead data, and say so explicitly, since an agent otherwise
+    syncs its own bead updates;
   - whether it may run tests or builds, when it shares a checkout with other writers;
   - in a shared tree, that it is not alone and must not revert or overwrite others’
     changes.
