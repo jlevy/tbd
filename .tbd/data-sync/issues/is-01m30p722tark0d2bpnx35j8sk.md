@@ -3,9 +3,9 @@ type: is
 id: is-01m30p722tark0d2bpnx35j8sk
 title: "PR #310: accidental packages/tbd/node_modules symlink breaks all CI installs"
 kind: bug
-status: in_progress
+status: closed
 priority: 0
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-09-16-pr-review-lifecycle-and-agent-delegation.md
 delegate: unknown@cursor
 labels: []
@@ -14,8 +14,12 @@ parent_id: is-01m2ppwdem47zfrrfhh1rgbvzp
 hold: null
 hold_until: null
 created_at: 2026-09-21T00:35:20.794Z
-updated_at: 2026-09-21T00:45:35.887Z
+updated_at: 2026-09-21T02:35:48.025Z
 started_at: 2026-09-21T00:35:29.304Z
+closed_at: 2026-09-21T02:35:48.025Z
+close_reason: "Symlink hole closed in 38519193 (gitignore node_modules without trailing slash). Later F6 golden drift was a separate issue (tbd-d9yu / 4d80424c). PR #310 is 7/7 at 4d80424c."
+resolution: null
+duplicate_of: null
 ---
 85e2d023 on claude/sharp-tesla-dqt372 (PR #310) committed a symlink
 `packages/tbd/node_modules` pointing at the author's machine path
