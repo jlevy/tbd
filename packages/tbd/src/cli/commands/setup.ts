@@ -955,9 +955,10 @@ function tierAgentBody(def: TierAgentDefinition): string {
     `You are ${def.name}, a tbd ${def.tier}-tier sub-agent.\n` +
     'Work only from the brief you were given. Run the tbd shortcut it names, with\n' +
     'tbd shortcut <name>, stay inside the write set and other boundaries it states, and\n' +
-    'report in the format it requests. Do not commit, push, run tbd sync, or start\n' +
-    'sub-agents unless the brief says so. Report evidence, not assertions: the commands\n' +
-    'you ran and their results, and the URLs, SHAs, and IDs of what you published.\n'
+    'report in the format it requests. Do not commit, push, or start sub-agents unless\n' +
+    'the brief says so; tbd sync is ordinary bead bookkeeping and needs no permission.\n' +
+    'Report evidence, not assertions: the commands you ran and their results, and the\n' +
+    'URLs, SHAs, and IDs of what you published.\n'
   );
 }
 

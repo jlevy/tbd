@@ -106,8 +106,9 @@ from the spawn request, as above.
 Starting fresh is cheap.
 A sub-agent’s prefix (its tool definitions, body, and `CLAUDE.md` or `AGENTS.md`) is
 written to the prompt cache once and re-read at a fraction of the input price on every
-later turn, while a fork re-reads the coordinator’s whole context on every turn and
-cannot change model or level.
+later turn, while a fork re-reads the coordinator’s whole context on every turn.
+On Claude Code a fork also cannot change model or level; on Codex the platform tells its
+model not to, while the runtime applies both on every spawn.
 The cost of delegated work is the work itself: the files and diffs the sub-agent reads,
 the tests it runs, and its report, which lands in the coordinator’s context for the rest
 of the session. Keep briefs pinned to paths and IDs, keep reports to a page or two, and

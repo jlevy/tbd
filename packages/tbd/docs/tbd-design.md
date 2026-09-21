@@ -5783,8 +5783,13 @@ Claude Code cannot set the reasoning level per spawn, so the `claude-agents` and
   convenience rather than a requirement.
 
 Every body is the same short, project-neutral prompt: work only from the brief, run the
-shortcut the brief names, stay inside its write set, report in the requested format, and
-do not commit, push, run `tbd sync`, or start sub-agents unless the brief says so.
+shortcut the brief names, stay inside its write set, report in the requested format,
+report evidence rather than assertions, and do not commit, push, or start sub-agents
+unless the brief says so.
+A body states neither its model nor its reasoning level.
+A per-spawn override changes the model, so a body naming one would describe an agent the
+platform did not spawn, and the level is carried by the frontmatter the platform reads
+rather than by prose the model reads.
 The models come from the dated suggestions in `agent-model-tiers`, and
 `tests/setup-tier-agents.test.ts` keeps that table and the generator in agreement.
 Setup rewrites stale definitions on every run, so upgrading tbd updates them.
