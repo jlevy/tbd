@@ -75,11 +75,11 @@ the platform.
   `tbd-strong-max` (`max`), `tbd-strong` (`xhigh`), `tbd-moderate` (`xhigh`), and
   `tbd-fast` (`medium`). Use `tbd-strong-max` for the harder or riskier strong-tier
   work. A definition is needed to set a reasoning level different from the session’s.
-  Independently, it supplies a model default and the body, so prefer a `tbd-*`
-  definition whenever the brief does not restate those rules.
-  A session already at `xhigh` gets the same model and level from naming the tier’s
-  model on the Agent tool as from `tbd-strong` or `tbd-moderate`. A sub-agent spawned
-  without one inherits the session’s level; record that level.
+  Independently, it supplies a model default and the body, and that body carries the
+  rules described below, so prefer a `tbd-*` definition whenever the brief does not
+  restate them. A session already at `xhigh` gets the same model and level from naming
+  the tier’s model on the Agent tool as from `tbd-strong` or `tbd-moderate`. A sub-agent
+  spawned without one inherits the session’s level; record that level.
   A Claude Code sub-agent runs under its definition body plus `CLAUDE.md`, not the
   Claude Code system prompt, so the body carries the rules a sub-agent would otherwise
   never see (work from the brief, do not commit or push unless told, report evidence),

@@ -906,6 +906,8 @@ The Claude Code prompt caching page has a section on this [V39], and its rules a
 - **Different tiers do not share.** `tbd-strong` (Fable) and `tbd-moderate` (Opus) are
   on different models; `tbd-moderate` (`xhigh`) and `tbd-fast` (`medium`) are on the
   same model at different effort levels, which on Opus are different caches.
+  Their definition bodies also differ, naming the agent and its tier, so the prefixes
+  diverge in the body as well as in the model and effort.
   Nothing is lost by this, because they were never going to share a prefix with the
   coordinator either.
 
