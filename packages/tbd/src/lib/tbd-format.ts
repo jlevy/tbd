@@ -8,9 +8,10 @@
  * - Bump when changes REQUIRE migration (deleting files, changing formats, moving files)
  * - Bump for config removals, renames, semantic changes, or additions inside a nested
  *   schema that does not preserve unknown keys when an older client could lose data.
- * - Bump when the shape of a format-stamped agent-integration surface changes
- *   incompatibly (e.g. the managed AGENTS.md block). The same format is stamped there
- *   via AGENT_INTEGRATION_FORMAT (integration-paths.ts).
+ * - Do NOT bump for a change to a generated agent-integration surface (the managed
+ *   AGENTS.md block, generated SKILL.md files). Those carry their own format,
+ *   AGENT_INTEGRATION_FORMAT in integration-paths.ts, split from this one after f08;
+ *   bump that constant instead. Bump both only when a change needs both.
  * - Do NOT bump merely because the implementation of a content-managed launcher script
  *   changes compatibly. Those scripts are refreshed by content comparison and select a
  *   CLI by probing this repository format at runtime.

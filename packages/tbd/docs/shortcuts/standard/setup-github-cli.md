@@ -86,8 +86,10 @@ Every step is idempotent, so re-running the whole sequence is safe.
    [Authentication](#authentication).
    Either is fine; see [Two Ways to Authenticate](#two-ways-to-authenticate).
 
-3. **Install stacked-PR tooling** (optional, only if you use stacked PRs) with the same
-   agent-specific script:
+3. **Install stacked-PR tooling** only when `github-stacked-prs` is granted (see
+   `tbd guidelines agent-policy-grants`; `tbd policy show` reports it).
+   Without the grant, skip this step.
+   Otherwise run the same agent-specific script:
 
    Codex:
    ```bash
@@ -337,7 +339,7 @@ report the limitation — do not attempt to tunnel around network policy.
 | `gh --version` fails | gh is broken, reinstall via ensure script |
 | `gh --version` is below 2.97.0 | Run the ensure script; it installs the pinned build to `~/.local/bin` |
 | Ensure script ran but `gh --version` is still old | An older gh precedes `~/.local/bin` in PATH; reorder PATH |
-| `gh: unknown command "stack"` | Extension not installed: run the current agent’s ensure script with `--with-stack` (`.codex/ensure-gh-cli.sh` for Codex or `.claude/scripts/ensure-gh-cli.sh` for Claude Code) |
+| `gh: unknown command "stack"` | Extension not installed: if `github-stacked-prs` is granted, run the current agent’s ensure script with `--with-stack` (`.codex/ensure-gh-cli.sh` for Codex or `.claude/scripts/ensure-gh-cli.sh` for Claude Code); otherwise ask the user before installing it |
 | `gh stack view` hangs and never returns | Bare `view` opens a TUI; always pass `--json` |
 | `gh auth status` passes but the hook says GH_TOKEN is unset | Normal: authenticated via the OS keyring instead of a token |
 | `gh auth status` errors and `HTTPS_PROXY` is set | Proxied session: apply the NO_PROXY recipe above before trusting the error |

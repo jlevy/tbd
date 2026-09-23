@@ -41,9 +41,9 @@ Note: Output includes size/token info like “(2.99 kB, ~847 tok)”
 
 ```console
 $ tbd --color=never guidelines --list | head -3
-agent-run-operations-rules (8.2 kB, ~2.3k tok)
-   Agent Run Operations Rules: Launching, monitoring, and diagnosing long agent
-   and batch runs—pinned launch checkouts, one scheduler per host budget,
+agent-model-tiers (5.65 kB, ~1.6k tok)
+   Agent Model Tiers: Provider-neutral model tiers for delegated agent work.
+   Defines the strong, moderate, and fast tiers by model rank and reasoning
 ? 0
 ```
 
@@ -55,7 +55,7 @@ $ tbd guidelines --list --json | head -6
   "docmap": "docmap/0.1",
   "documents": [
     {
-      "name": "agent-run-operations-rules",
+      "name": "agent-model-tiers",
       "type": "guideline",
 ? 0
 ```

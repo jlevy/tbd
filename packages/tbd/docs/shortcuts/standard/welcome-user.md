@@ -24,6 +24,14 @@ If no tracker is configured, mention optional Linear setup without derailing the
 welcome. If all offline checks pass, say that Linear is configured locally and the user
 can ask for a live verification.
 
+New projects and upgrades go through `tbd shortcut setup-tbd`, which runs setup and asks
+the user which policy grants agents have in this project: GitHub workflows and merging,
+sub-agents, PR review requirements, and Linear.
+If `tbd status` shows tbd is not initialized here, follow `setup-tbd` before the
+welcome. Otherwise run `tbd policy show`; if any policy is unanswered, say so in one
+sentence and offer to go through `setup-tbd` now or right after the welcome.
+Skip the offer if `setup-tbd` already ran in this session.
+
 Then make the two-axis guidelines offer, one short question per axis:
 
 1. **Scope:** keep **all** standard guidelines active (recommended), or just a subset
@@ -83,7 +91,11 @@ For a project outside the agent’s current working directory, it can use
 | “Implement these issues” | Works through beads systematically (`tbd shortcut implement-beads`) |
 | “Commit this code” | Reviews changes and commits properly (`tbd shortcut code-review-and-commit`) |
 | “Create a PR” | Creates a pull request with summary (`tbd shortcut create-or-update-pr-simple`) |
+| “Review PR #N” | Reviews the pull request and publishes the review (`tbd shortcut review-github-pr`) |
+| “Review and fix PR #N” | Reviews it and addresses every finding (`tbd shortcut review-and-merge-prs`) |
+| “Make sure PR #N is reviewed and merged” | Reviews it, addresses the findings, and merges it once the merge gate passes (`tbd shortcut review-and-merge-prs`) |
 | “Review this for best practices” | Performs a code review with guidelines |
+| “Set up tbd” | Refreshes setup and asks which policy grants agents have in this project (`tbd shortcut setup-tbd`) |
 | “Set up Linear” / “Add my Linear key” | Walks through connecting this repo to Linear (`tbd shortcut setup-linear`) |
 
 ### Guidelines
@@ -102,6 +114,10 @@ For a project outside the agent’s current working directory, it can use
 
 - Say **“Is there a shortcut for ...?”** or **“Use the shortcut to …”** and I’ll look
   for the shortcut for that workflow.
+
+- Agents here follow the policy grants recorded for this project, such as whether I may
+  merge PRs or use sub-agents.
+  Say **“Set up tbd”** to answer any open policy questions, or ask me to change a grant.
 
 - The browser is a live viewer, not an editor.
   Ask me to create, update, close, label, or sync beads; I will run the ordinary tbd

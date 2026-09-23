@@ -52,23 +52,34 @@ Plain `tbd sync` also runs trackers according to `integrations.on_tbd_sync`; use
 | --- | --- |
 | Found a bug | `tbd create "..." --type=bug` |
 | Show beads in a browser | `tbd web --open` (run it yourself and keep it running) |
+| “Set up tbd” (also after upgrading tbd) | `tbd shortcut setup-tbd` |
 | Plan a feature | `tbd shortcut new-plan-spec` |
 | Set up Linear / add my Linear key | `tbd shortcut setup-linear` |
 | Commit code | `tbd shortcut code-review-and-commit` |
 | Create a PR | `tbd shortcut create-or-update-pr-simple` |
 | Stack dependent PRs | `tbd shortcut stacked-prs` |
+| “Review PR #N” | `tbd shortcut review-github-pr` |
+| “Address the reviews on PR #N” | `tbd shortcut address-pr-review` |
+| “Review and fix PR #N” / “Get PR #N merge-ready” / “Make sure PR #N is reviewed and merged” | `tbd shortcut review-and-merge-prs` (fix, merge-ready, or merge mode) |
+| “You can use sub-agents” (or any delegation) | `tbd shortcut delegate-to-subagents` |
 | TypeScript review | `tbd guidelines typescript-rules` |
 
 For explicit stacked or dependent PR intent, run `tbd shortcut stacked-prs` first.
+Creating or submitting a new stack needs the `github-stacked-prs` grant, or a request
+for a stack in this conversation, which authorizes that one stack; without either,
+propose PRs that each target the trunk, or one folded PR, never a `--base` chain.
 Chained branch bases alone are not a formal GitHub stack; link and verify the PRs with
 `gh stack`. If the current branch is based on another feature branch, run
 `tbd shortcut stacked-prs` before creating a PR.
+
+Before a GitHub mutation, a merge, or a delegation, check grants with `tbd policy show`
+(rules: `tbd guidelines agent-policy-grants`).
 
 ## Session Protocol
 
 **Before ending ANY session:**
 
-1. Commit and push: `git add . && git commit && git push`
+1. Commit and push as separate commands: `git add <files>`, `git commit`, `git push`
 2. Watch CI: `gh pr checks <PR> --watch 2>&1`
 3. Update beads: `tbd close <id1> <id2> … --reason="..."` (bulk per shared reason, not a
    loop)

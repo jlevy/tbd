@@ -47,6 +47,8 @@ Create a to-do list with the following items then perform all of them:
      Exit 0 with a stack containing `$BRANCH` means the branch is locally tracked.
      Exit 2 means only that the branch is not tracked *locally*; `gh stack link` can
      create a formal GitHub stack without creating local tracking.
+     If `gh` does not recognize the `stack` command, the extension is not installed:
+     treat the branch as not tracked locally, and do not install it just for this check.
    - When a PR exists, check its authoritative remote membership:
      ```bash
      REMOTE_STACK_NUMBER=$(gh api "repos/$REPO/stacks?pull_request=$PR_NUMBER" \
@@ -55,10 +57,19 @@ Create a to-do list with the following items then perform all of them:
      If this API call fails, stop; do not assume the PR is unstacked.
      A nonempty result means the PR belongs to a formal GitHub stack, even when the
      local check exits 2.
-   - If the user requested a stack and neither check finds one, run
-     `tbd shortcut stacked-prs` and use the official `gh-stack` skill to initialize and
-     submit a local stack or link existing PRs with `gh stack link`. Chained branch
-     bases alone are not a formal GitHub stack.
+   - If the user requested a stack and neither check finds one, that request authorizes
+     this stack for this task whatever the `github-stacked-prs` grant says (see
+     `tbd guidelines agent-policy-grants`): run `tbd shortcut stacked-prs` and use the
+     official `gh-stack` skill to initialize and submit a local stack, or link existing
+     PRs with `gh stack link`. If `github-stacked-prs` is not granted, offer to record
+     the standing grant as well.
+   - If no one asked for a stack and `github-stacked-prs` is not granted, do not build
+     one: propose PRs that each target `$TRUNK`, or one folded PR, and never a `--base`
+     chain, which is a stack under another name.
+     Chained branch bases alone are not a formal GitHub stack.
+     The grant covers installing the tooling and creating or submitting a new stack: a
+     branch or PR that is already stacked keeps the stacked paths in this and later
+     steps, under `github-editing` and `github-merge`.
    - **Reviewable unit (before `gh pr create`):** Apply Reviewable Units in
      `tbd shortcut stacked-prs` before updating the branch, creating, or retargeting.
      Focused, isolated work that will be reviewed and merged on its own stays one PR
@@ -145,8 +156,10 @@ Create a to-do list with the following items then perform all of them:
      commit workflow and update its existing PR with `gh pr edit`. Do not pass
      `--base $TRUNK` or call the flat-PR creation path; either would retarget or replace
      the linked layer.
-   - **Explicit stack request with no stack yet:** follow `tbd shortcut stacked-prs` and
-     the official `gh-stack` skill.
+   - **Explicit stack request with no stack yet:** if step 3 settled on trunk-targeted
+     PRs because no one asked for a stack and `github-stacked-prs` is not granted, use
+     the unstacked paths below.
+     Otherwise follow `tbd shortcut stacked-prs` and the official `gh-stack` skill.
      Use `gh stack init` or `gh stack add` followed by `gh stack submit --auto`, or use
      `gh stack link` for existing PRs.
      Creating branch-based PRs without one of these formal stack operations does not
