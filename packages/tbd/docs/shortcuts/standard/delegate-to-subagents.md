@@ -150,9 +150,20 @@ tbd’s generated `tbd-*` definitions stay in the project (`.claude/agents/` and
 
 - Spawn with the Agent tool and set `model` on every spawn.
 - The Agent tool cannot set a reasoning level.
-  To run at a tier’s level, spawn one of the `tbd-*` agent definitions that `tbd setup`
-  generates (see `agent-model-tiers`). Without one, the sub-agent inherits the session’s
-  level; record that level.
+  To run at a tier’s level that differs from the session’s, spawn one of the `tbd-*`
+  agent definitions that `tbd setup` generates (see `agent-model-tiers`). Without one,
+  the sub-agent inherits the session’s level; record that level.
+- A sub-agent does not get the Claude Code system prompt: it runs under its definition
+  body, `CLAUDE.md`, and your brief.
+  Rules you take for granted (commit only when asked, how to report) exist for it only
+  if its definition body, your brief, or the shortcut that brief names states them.
+  A platform’s own tool descriptions may carry some of them; do not rely on that.
+- Sub-agents get the 5-minute prompt cache lifetime by default.
+  When a sub-agent will wait in intervals longer than that, set `subagentPromptCacheTtl`
+  to `1h` or keep its polls under five minutes (see `agent-model-tiers`, Sub-Agent Cost
+  and Caching). Those two settings, `subagentPromptCacheTtl` and
+  `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL`, need Claude Code v2.1.242 or later; older
+  builds ignore them silently and keep the 5-minute default.
 - Use the Workflow tool only when the user asks for a workflow in their own words.
   A `subagents` grant is not the explicit opt-in that tool requires.
 - A sub-agent started with `isolation: worktree` gets a worktree from the default
@@ -213,8 +224,12 @@ Each brief states:
   letter, working tree path, bead IDs, spec sections.
 - **Boundaries:**
   - its write set, when it writes;
-  - whether it commits, pushes, or runs `tbd sync` (a reviewer does none of these, and
-    the addressing agent is the sole committer on its branch);
+  - whether it commits or pushes (a reviewer does neither, and the addressing agent is
+    the sole committer on its branch);
+  - whether the coordinator reserves `tbd sync` for itself.
+    Syncing needs no grant and is never withheld as a permission; reserve it only to
+    keep one writer on the bead data, and say so explicitly, since an agent otherwise
+    syncs its own bead updates;
   - whether it may run tests or builds, when it shares a checkout with other writers;
   - in a shared tree, that it is not alone and must not revert or overwrite others’
     changes.
@@ -249,7 +264,9 @@ Current models verify their own work, and extra instructions cause over-verifica
 - Do not read a running sub-agent’s transcript; read it after the sub-agent stops.
 - **Continue, don’t restart.** For follow-up work on the same task, continue the
   existing sub-agent (SendMessage in Claude Code, a follow-up task in Codex): it keeps
-  its context and its warmed cache.
+  its context, and its cache is still warm when the gap is shorter than the TTL. After a
+  longer gap the context survives but the prefix is rewritten, so continuing then costs
+  about what a fresh start costs.
   A sub-agent that is nearing its context limit should hand off to a fresh one with
   `tbd shortcut agent-handoff` rather than compact.
 
