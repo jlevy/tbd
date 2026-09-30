@@ -188,7 +188,9 @@ const MANAGED_ARTIFACT_LOCK_OPTIONS: Required<LockfileOptions> = {
  */
 export async function withAgentsMdLock<T>(projectRoot: string, fn: () => Promise<T>): Promise<T> {
   const lockPath = join(projectRoot, AGENTS_MD_LOCK_DIR);
+  await assertSafeManagedArtifactParents(lockPath, projectRoot, 'lock');
   await mkdir(dirname(lockPath), { recursive: true });
+  await assertSafeManagedArtifactParents(lockPath, projectRoot, 'lock');
   if (await pathIsPresent(lockPath)) {
     // Progress, not data: a `--json` caller's stdout must stay parseable.
     process.stderr.write('Waiting for another tbd process to finish writing AGENTS.md...\n');
@@ -346,14 +348,15 @@ export function locateManagedBlock(
     return null;
   }
 
-  const nextNewline = content.indexOf('\n', end.offset + endMarker.length);
+  const afterMarker = end.offset + endMarker.length;
+  const newline = /\r\n|\r|\n/u.exec(content.slice(afterMarker));
   return {
     start: begin.offset,
-    end: nextNewline < 0 ? content.length : nextNewline + 1,
+    end: newline ? afterMarker + newline.index + newline[0].length : content.length,
   };
 }
 
-function isErrorWithCode(error: unknown, code: string): boolean {
+export function isErrorWithCode(error: unknown, code: string): boolean {
   return (
     error instanceof Error &&
     'code' in error &&

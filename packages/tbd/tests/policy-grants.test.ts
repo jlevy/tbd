@@ -1449,7 +1449,7 @@ describe('default branch resolution', () => {
       const withoutTarget = await readEffectiveGrants(missingTarget);
       expect(withoutTarget.source).toMatchObject({ branch: 'trunk', kind: 'unresolved' });
       expect(withoutTarget.source?.repair).toBe(
-        'git fetch origin refs/heads/trunk:refs/remotes/origin/trunk',
+        'git fetch origin +refs/heads/trunk:refs/remotes/origin/trunk',
       );
     },
     GIT_TEST_TIMEOUT_MS,

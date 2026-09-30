@@ -1604,8 +1604,8 @@ export async function readEffectiveGrants(repoDir: string): Promise<EffectiveGra
     if (resolution.source === null) {
       const repair =
         resolution.failure === 'missing-remote-target' && resolution.branch
-          ? `git fetch ${remote} refs/heads/${resolution.branch}:refs/remotes/${remote}/${resolution.branch}`
-          : `identify ${remote}'s actual default branch, run git fetch ${remote} refs/heads/<branch>:refs/remotes/${remote}/<branch>, then git remote set-head ${remote} --auto`;
+          ? `git fetch ${remote} +refs/heads/${resolution.branch}:refs/remotes/${remote}/${resolution.branch}`
+          : `identify ${remote}'s actual default branch, run git fetch ${remote} +refs/heads/<branch>:refs/remotes/${remote}/<branch>, then git remote set-head ${remote} --auto`;
       return unansweredGrants(unresolvedSource(resolution.branch ?? remote, repair));
     }
     source = resolution.source;

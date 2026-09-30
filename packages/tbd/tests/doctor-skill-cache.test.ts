@@ -90,6 +90,11 @@ it(
       for (const finding of findings()) {
         expect(finding?.message).toBe('freshness unknown: doc cache is incomplete');
       }
+      await mkdir(cachedDoc);
+      for (const finding of findings()) {
+        expect(finding?.message).toBe('freshness unknown: doc cache is incomplete');
+      }
+      await rm(cachedDoc, { recursive: true });
       await writeFile(cachedDoc, savedDoc);
       for (const finding of findings()) {
         expect(finding).toMatchObject({ status: 'ok', message: 'current' });

@@ -892,16 +892,76 @@ describe('review lifecycle contract', () => {
       }
     });
 
-    it('fails the CI condition when no workflow run completed for the head', async () => {
+    it('requires actual CI evidence at the head without requiring Actions', async () => {
       const doc = await shortcutDoc('review-and-merge-prs');
       const gate = collapse(step(doc, 5));
-      expect(gate).toContain('at least one completed workflow run for `HEAD_SHA`');
-      expect(gate).toContain('An empty run list fails this condition');
+      expect(gate).toContain('at least one completed validation for this head');
+      expect(gate).toContain('Missing expected CI evidence fails this condition');
       expect(gate).toContain('the user has said this repository has no CI');
+      expect(gate).toContain('GitHub Actions is not required');
+      expect(gate).toContain('commits/$HEAD_SHA/check-runs?per_page=100');
+      expect(gate).toContain('commits/$HEAD_SHA/statuses?per_page=100');
+      expect(gate).toContain('latest applicable result');
+      expect(gate).toContain('Superseded attempts and unrelated optional runs do not block');
+      expect(gate).toContain('A skipped check is not evidence that validation ran');
+      expect(gate).not.toContain('every run concluded `success`');
 
       const address = collapse(step(doc, 3));
-      expect(address).toContain('at least one completed run');
-      expect(address).toContain('An empty list is not a pass');
+      expect(address).toContain('apply the CI evidence procedure in step 5');
+      expect(address).toContain('Missing expected CI evidence is not a pass');
+      expect(collapse(step(await shortcutDoc('address-pr-review'), 7))).toContain(
+        'including external CI when applicable',
+      );
+    });
+
+    it('finishes stack-wide review and addressing before the first layer merges', async () => {
+      const several = collapse(
+        section(await shortcutDoc('review-and-merge-prs'), '## Several PRs'),
+      );
+      expect(several).toContain('Run steps 1 to 4 bottom-up for all included layers');
+      expect(several).toContain('Only after this work is complete may steps 5 and 6 run');
+      expect(several).toContain('A lower layer must remain unmerged');
+      expect(several).not.toContain('steps 1 to 6 for each PR');
+      const stack = collapse(section(await shortcutDoc('pr-review-workflows'), '## Stacked PRs'));
+      expect(stack).toContain('before any included layer merges');
+    });
+
+    it('discovers closed issue-channel reviews and reads paginated issue comments', async () => {
+      const sweep = collapse(
+        section(await shortcutDoc('pr-review-workflows'), '### Discovery Sweep'),
+      );
+      expect(sweep).toContain('including closed issues');
+      expect(sweep).toContain('--method GET --paginate search/issues');
+      expect(sweep).toContain('repo:$REPO is:issue <PR_NUMBER>');
+      expect(sweep).toContain('--paginate repos/$REPO/issues/<ISSUE_NUMBER>/comments');
+      expect(sweep).toContain('incomplete_results');
+      expect(sweep).toContain('partition the search by creation date');
+      expect(sweep).toContain('closed state is not a disposition');
+      for (const name of ['review-github-pr', 'address-pr-review']) {
+        const doc = collapse(await shortcutDoc(name));
+        expect(doc, name).toContain('all-state, paginated issue search');
+        expect(doc, name).not.toContain('gh issue list --repo $REPO --search');
+      }
+    });
+
+    it('decides trust before checkout and routes untrusted PR metadata through a trusted checkout', async () => {
+      for (const [name, stepNumber] of [
+        ['review-and-merge-prs', 1],
+        ['review-github-pr', 3],
+      ] as const) {
+        const prepare = collapse(step(await shortcutDoc(name), stepNumber));
+        expect(prepare, name).toContain('trusted checkout');
+        expect(prepare.indexOf('isCrossRepository'), name).toBeLessThan(
+          prepare.indexOf('gh pr checkout'),
+        );
+        expect(prepare, name).toMatch(/[Bb]efore checkout or any `tbd` command/u);
+      }
+      const addressing = collapse(step(await shortcutDoc('address-pr-review'), 1));
+      expect(addressing).toContain('Before checkout or any `tbd` command');
+      expect(addressing).toContain('trusted checkout');
+      const prepare = collapse(step(await shortcutDoc('review-and-merge-prs'), 1));
+      expect(prepare).toContain('For a trusted PR, re-run `tbd policy show`');
+      expect(prepare).toContain('without executing `tbd` in the PR tree');
     });
 
     it('skips one named pre-push hook rather than every hook', async () => {

@@ -596,6 +596,10 @@ within whatever provider the agent’s platform uses.
 
 **Selection rules:**
 
+Explicit user or project model preferences take precedence over rank defaults.
+The shipped Claude preference is Opus 5.5; see `agent-model-tiers` for current models,
+provider caveats, and the explicit GPT-6 Sol fallback when GPT-6.1 Sol is unavailable.
+
 - Rank the models your own platform offers from its provider, and choose the best
   available match for each tier.
 - Within a tier’s range, use the higher reasoning level for harder or riskier work.
@@ -610,16 +614,16 @@ within whatever provider the agent’s platform uses.
 **Suggested examples.** The guideline presents examples in a clearly marked, dated
 block:
 
-> **Suggestions as of 2026-09-16, not requirements.** Model names and reasoning levels
+> **Suggestions as of 2026-09-30, not requirements.** Model names and reasoning levels
 > change quickly, and other providers’ models map to the tiers the same way.
 > Update these examples when the landscape changes, and prefer a current equivalent over
 > a retired name.
 
 | Tier | Anthropic example | OpenAI example |
 | --- | --- | --- |
-| strong | Fable at `max` or `xhigh` | GPT-6 Astra (`gpt-6-astra`) at `max` or `xhigh` |
-| moderate | Opus at `max` or `xhigh` | GPT-5.6 Sol (`gpt-5.6-sol`) at `max` or `xhigh` |
-| fast | Opus at `high` or `medium` | GPT-5.6 Sol at `high` or `medium` |
+| strong | Opus 5.5 (`claude-opus-5-5`) at `max` or `xhigh` | GPT-6 Astra (`gpt-6-astra`) at `max` or `xhigh` |
+| moderate | Opus 5.5 (`claude-opus-5-5`) at `max` or `xhigh` | GPT-6.1 Sol (`gpt-6.1-sol`) at `max` or `xhigh` |
+| fast | Opus 5.5 (`claude-opus-5-5`) at `high` or `medium` | GPT-6.1 Sol at `high` or `medium` |
 
 ### Policy Grants
 
@@ -1452,6 +1456,24 @@ is what surfaced it.
 - `tbd update --notes` replaces the notes body (skill, and already the CLI manual).
 - Reviews API 403: post the same marked body on a working channel
   (`pr-review-workflows`, `review-github-pr`, `address-pr-review`).
+
+## Stack review follow-up (2026-09-30)
+
+Review P and security review Q on #309 identified six findings, addressed with
+provider-neutral CI gates at the exact PR head, whole-stack review before merging,
+all-state paginated review-artifact discovery, current model defaults, preservation of
+user text after lone-CR managed markers, and rejection of symlinked lock parents.
+Regression tests cover the file-safety fixes and workflow contracts.
+The follow-up also removes dead setup paths, shares existing helpers, and avoids
+repeated reads of the complete skill-document cache during doctor checks.
+
+The standard Claude model is Opus 5.5 for all tiers; Codex uses GPT-6 Astra for strong
+work and GPT-6.1 Sol for moderate and fast work, with a documented availability
+fallback. The lower-layer full suite passed 3,017 tests across 192 files, with one
+skipped test. The existing seven-policy proposal still requires its named user
+confirmation before merge.
+Pre-existing dependency-audit findings and broader Codex hook ownership concerns are
+tracked separately as `tbd-b24q` and `tbd-d2bp`.
 
 ## References
 

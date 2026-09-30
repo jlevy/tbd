@@ -33,6 +33,11 @@ Create a to-do list with the following items then perform all of them:
    - Get repo:
      `REPO=$(git remote get-url origin | sed -E 's#.*/git/##; s#.*github.com[:/]##; s#\.git$##')`
    - Use `--repo $REPO` on all gh commands
+   - Before checkout or any `tbd` command, apply the trust preflight in Pinning and the
+     Working Tree in `tbd shortcut pr-review-workflows`. Keep policy, documentation, and
+     bead commands in a trusted checkout for an untrusted PR; do not run its hooks,
+     tests, builds, or project-local tools unless the user confirms in the conversation.
+     Carry the coordinator’s trust decision and trusted checkout path forward
 
 2. **Locate the review(s) to address:**
    - If the user or the coordinator’s brief pointed at a specific review (review letter,
@@ -43,8 +48,8 @@ Create a to-do list with the following items then perform all of them:
      - Inline review comments:
        `gh api --paginate repos/$REPO/pulls/<PR_NUMBER>/comments`
      - PR comments: `gh pr view <PR_NUMBER> --repo $REPO --comments`
-     - GitHub issues referencing the PR:
-       `gh issue list --repo $REPO --search "<PR_NUMBER>"`
+     - GitHub issues referencing the PR: use the all-state, paginated issue search and
+       linked-issue reads in Discovery Sweep; read closed issues and all comments too
      - In-repo review docs linked from the PR or its comments (for example under
        `docs/project/reviews/`), including their status addenda
    - **Match by marker.** A review carries `<!-- tbd:review v=1 id=<letter> ... -->`,
@@ -227,8 +232,10 @@ Create a to-do list with the following items then perform all of them:
      `git rev-parse HEAD`
    - Run `gh pr checks <PR_NUMBER> --repo $REPO --watch 2>&1` and wait for the **final
      summary**; do not stop at early “passing” output
-   - Record the CI run IDs for that head:
-     `gh run list --repo $REPO --commit <head-sha> --json databaseId,name,conclusion`
+   - Verify CI evidence for that head using the CI evidence procedure in step 5 of
+     `tbd shortcut review-and-merge-prs`, including external CI when applicable.
+     Record provider URLs and Actions run IDs; an empty Actions run list alone is
+     neither a pass nor a failure
    - If CI fails: analyze, fix, push, and restart this step
    - After CI is final and before step 8, repeat the discovery sweep for content that
      arrived since step 2 and disposition each new item (a new review gets its own

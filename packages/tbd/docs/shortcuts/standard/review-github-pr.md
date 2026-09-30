@@ -46,6 +46,25 @@ Create a to-do list with the following items then perform all of them:
        session’s actual model and reasoning level when no one delegated the review
 
 3. **Pin the head:**
+   - Decide whether this PR’s code may be run, as Pinning and the Working Tree in
+     `tbd shortcut pr-review-workflows` defines:
+
+     ```bash
+     gh pr view <PR_NUMBER> --repo $REPO --json isCrossRepository,author
+     gh api repos/$REPO/pulls/<PR_NUMBER> --jq .author_association
+     ```
+
+     `isCrossRepository` true, or an `author_association` other than `OWNER`, `MEMBER`,
+     or `COLLABORATOR`, makes the PR untrusted: review it by reading only, and record
+     that in the header’s `Tests run` line
+
+   - Make this decision before checkout or any `tbd` command.
+     For an untrusted PR, use the trusted checkout for all policy, documentation, and
+     bead commands, as Pinning and the Working Tree requires, unless the user confirms
+     in the conversation.
+     Use trusted Git tooling with checkout hooks disabled and carry the trust decision
+     into every step below.
+
    - If a coordinator already pinned the PR (its brief gives the head and merge base),
      confirm `git rev-parse HEAD` equals that head, set `HEAD_SHA` and `BASE_SHA` from
      the brief, and do not switch the tree
@@ -65,18 +84,6 @@ Create a to-do list with the following items then perform all of them:
    - If the tree has uncommitted changes, or `HEAD` does not equal `HEAD_SHA` after
      checkout, stop and ask the user rather than reviewing the wrong tree
 
-   - Decide whether this PR’s code may be run, as Pinning and the Working Tree in
-     `tbd shortcut pr-review-workflows` defines:
-
-     ```bash
-     gh pr view <PR_NUMBER> --repo $REPO --json isCrossRepository,author
-     gh api repos/$REPO/pulls/<PR_NUMBER> --jq .author_association
-     ```
-
-     `isCrossRepository` true, or an `author_association` other than `OWNER`, `MEMBER`,
-     or `COLLABORATOR`, makes the PR untrusted: review it by reading only, and record
-     that in the header’s `Tests run` line
-
 4. **Check CI status:**
    - Run: `gh pr checks <PR_NUMBER> --repo $REPO`
    - Note any failing or pending checks for the review’s CI status section
@@ -88,8 +95,8 @@ Create a to-do list with the following items then perform all of them:
      - Inline review comments:
        `gh api --paginate repos/$REPO/pulls/<PR_NUMBER>/comments`
      - PR comments: `gh pr view <PR_NUMBER> --repo $REPO --comments`
-     - GitHub issues referencing the PR:
-       `gh issue list --repo $REPO --search "<PR_NUMBER>"`
+     - GitHub issues referencing the PR: use the all-state, paginated issue search and
+       linked-issue reads in Discovery Sweep; read closed issues and all comments too
      - In-repo review docs linked from the PR or its comments (for example under
        `docs/project/reviews/`)
    - Match reviews and disposition replies with markers (`tbd:review v=1`,

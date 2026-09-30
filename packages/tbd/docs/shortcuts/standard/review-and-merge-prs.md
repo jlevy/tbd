@@ -74,6 +74,17 @@ Several PRs when the request names more than one):
      guidance that changes the defaults.
      Keep the user’s authorizing words verbatim for the briefs
 
+   - Before checkout or any `tbd` command, determine whether the PR is untrusted using
+     `gh pr view <N> --repo $REPO --json isCrossRepository,author` and
+     `gh api repos/$REPO/pulls/<N> --jq .author_association`, as defined in Pinning and
+     the Working Tree in `tbd shortcut pr-review-workflows`. Keep a trusted checkout for
+     policy, documentation, and bead commands.
+     For an untrusted PR, use that checkout for every `tbd` invocation, including
+     delegated work, unless the user confirms execution in the conversation.
+     If the session is already in the untrusted checkout, move these operations to a
+     trusted checkout before continuing; do not run the PR’s hooks or project-local
+     executables
+
    - Check the grants with a fresh fetch of the default branch, then `tbd policy show`,
      applying the precedence in `tbd guidelines agent-policy-grants` (only the user’s
      own messages override the recorded block):
@@ -151,11 +162,14 @@ Several PRs when the request names more than one):
      step 5 of `address-pr-review`; a missing `gh stack` means not tracked locally); for
      a stack layer, note the layers below it
 
-   - Re-run `tbd policy show` now that the pinned head is checked out, because the
-     earlier run compared a different tree.
-     If it reports that the working tree `AGENTS.md` differs from the default branch at
-     this pinned head, tell the user before step 2: the PR proposes policy changes and
-     must not merge them without named confirmation
+   - For a trusted PR, re-run `tbd policy show` now that the pinned head is checked out,
+     because the earlier run compared a different tree.
+     For an untrusted PR, keep that command in the trusted checkout and inspect
+     `git diff $BASE_SHA $HEAD_SHA -- AGENTS.md` for proposed policy changes without
+     executing `tbd` in the PR tree.
+     If the comparison reports that the working tree `AGENTS.md` differs from the
+     default branch at this pinned head, tell the user before step 2: the PR proposes
+     policy changes and must not merge them without named confirmation
 
    - Record the trusted marker authors for this PR: the user’s own account
      (`gh api user --jq .login`) and any account the user named in this conversation.
@@ -190,9 +204,10 @@ Several PRs when the request names more than one):
      fresh strong-tier reviewer (Assign Tiers and Spawn in `delegate-to-subagents`) with
      a brief per Write a Self-Contained Brief there: run `tbd shortcut review-github-pr`
      with the review kind; the pinned inputs (PR, `HEAD_SHA`, `BASE_SHA`, tree path,
-     letters used, round); the channel; the tier, model, and reasoning level to record
-     in the header; that it may run tests but does not commit or push and leaves the
-     tree as it found it; and the condensed report from step 12 of `review-github-pr`
+     letters used, round); the trust decision and trusted checkout path; the channel;
+     the tier, model, and reasoning level to record in the header; whether the trust
+     decision permits tests; that it does not commit or push and leaves the tree as it
+     found it; and the condensed report from step 12 of `review-github-pr`
 
    - Reviews run in sequence in the tree, because they share it and each may run tests;
      do not change the tree while a reviewer works in it
@@ -231,12 +246,12 @@ Several PRs when the request names more than one):
    - Spawn one fresh moderate-tier addressing agent for the PR, the sole committer on
      its branch, with a brief: run `tbd shortcut address-pr-review` for the letters of
      this round and any other unaddressed content the sweep found; the pinned inputs
-     (PR, `HEAD_SHA`, tree path, review letters and URLs); that it commits and pushes to
-     the PR branch and posts the disposition replies, and does not run `tbd sync`
-     (reserved for the coordinator); the escalation rule; the interruption brief from
-     Brief Delegated Agents for Interruption in
-     `tbd guidelines agent-run-operations-rules`; and the condensed report from step 10
-     of `address-pr-review`
+     (PR, `HEAD_SHA`, tree path, review letters and URLs); the trust decision and
+     trusted checkout path; that it commits and pushes to the PR branch and posts the
+     disposition replies, and does not run `tbd sync` (reserved for the coordinator);
+     the escalation rule; the interruption brief from Brief Delegated Agents for
+     Interruption in `tbd guidelines agent-run-operations-rules`; and the condensed
+     report from step 10 of `address-pr-review`
    - On an escalation (a design decision, a Blocker or High finding it would rebut or
      decline, or two conflicting findings): decide, delegate the question to a
      strong-tier sub-agent, or ask the user, then continue the same sub-agent with the
@@ -247,13 +262,10 @@ Several PRs when the request names more than one):
        `git ls-remote origin <headRefName>` agree;
      - the fix commits contain the claimed changes:
        `git log --oneline $HEAD_SHA..<new-head>` and `git diff $HEAD_SHA <new-head>`;
-     - required checks are final and green at the new head: `gh pr checks <N>` shows
-       none pending, and `gh run list --repo $REPO --commit <new-head>` lists at least
-       one completed run and every run concluded `success`. An empty list is not a pass:
-       a `[skip ci]` commit, a path filter, a fork run awaiting approval, or a check
-       read moments after a force-push all produce one.
-       Treat it as a failure and resolve it, unless the user has said this repository
-       has no CI;
+     - required checks are final and green at the new head, and the expected validation
+       actually ran for it: apply the CI evidence procedure in step 5 to `<new-head>`.
+       Missing expected CI evidence is not a pass, including when Actions has no runs;
+       external CI can supply the evidence;
      - a disposition reply from a trusted author, for every review of this round that
        has findings, lists every finding: repeat the sweep;
      - every inline comment posted since the pinned head is answered (thread reply or
@@ -311,12 +323,25 @@ Several PRs when the request names more than one):
    - The head is unchanged since the final CI run, CI actually ran for that head, and
      required checks are final and green for it.
      Check: `gh pr view <N> --repo $REPO --json headRefOid` equals `HEAD_SHA`;
-     `gh pr checks <N> --repo $REPO` shows every required check passed and none pending;
-     `gh run list --repo $REPO --commit $HEAD_SHA` lists at least one completed workflow
-     run for `HEAD_SHA` and every run concluded `success`. An empty run list fails this
-     condition rather than passing it, since a `[skip ci]` commit, a path filter, a fork
-     run awaiting approval, or a read moments after a force-push all produce one; it
-     passes only when the user has said this repository has no CI.
+     `gh pr checks <N> --repo $REPO --required` shows every required check passed and
+     none pending. Establish the expected validation from repository CI configuration and
+     branch rules; an empty required-check list alone proves nothing.
+     Read checks and commit statuses for `HEAD_SHA` with
+     `gh api --paginate "repos/$REPO/commits/$HEAD_SHA/check-runs?per_page=100"` and
+     `gh api --paginate "repos/$REPO/commits/$HEAD_SHA/statuses?per_page=100"`. These
+     include external CI providers; GitHub Actions is not required.
+     Confirm each expected validation’s latest applicable result and provider URL,
+     including at least one completed validation for this head.
+     For Actions, use `gh run list --repo $REPO --commit $HEAD_SHA` to inspect relevant
+     runs and attempts. Superseded attempts and unrelated optional runs do not block a
+     passing required result.
+     A skipped check is not evidence that validation ran; accept it only when the
+     repository’s documented conditions make that check inapplicable.
+     Missing expected CI evidence fails this condition: a `[skip ci]` commit, a path
+     filter, a fork run awaiting approval, or an immediate post-push read can otherwise
+     look green without validation.
+     The exception is when the user has said this repository has no CI. Record provider
+     URLs and, for Actions, run IDs.
    - GitHub reports the PR mergeable, with no blocking review state.
      Check:
      `gh pr view <N> --repo $REPO --json isDraft,mergeable,mergeStateStatus,reviewDecision`
@@ -411,9 +436,17 @@ Several PRs when the request names more than one):
 
 ## Several PRs
 
-- **One at a time by default.** The shared tree holds one PR head at a time, so run
-  steps 1 to 6 for each PR in the order given (bottom-up for a stack) before starting
-  the next.
+- **Unrelated PRs run one at a time by default.** The shared tree holds one PR head at a
+  time, so run steps 1 to 6 for each unrelated PR before starting the next.
+
+- **Review the whole requested stack before any layer merges.** Run steps 1 to 4
+  bottom-up for all included layers, including the top requested layer’s assessment of
+  the stack as a whole.
+  Address its findings on the owning layers, rebase the layers above, and refresh their
+  pinned heads and CI evidence.
+  Only after this work is complete may steps 5 and 6 run for the included set.
+  A lower layer must remain unmerged until the whole-stack assessment and its addressing
+  are complete, so a finding can still change or fold that layer.
 
 - **Worktrees for parallel work.** When the user asks for parallel work or authorizes
   sub-agents for several PRs in one request, each PR gets its own worktree, shared by
@@ -431,8 +464,9 @@ Several PRs when the request names more than one):
   worktree path. Bead data is shared across worktrees; the coordinator syncs once, at the
   end.
 
-- **Merges one at a time.** In merge mode, each PR passes steps 5 and 6 in turn.
-  After each merge the base has moved: re-pin every remaining PR (step 1), and if GitHub
+- **Merge after the applicable reviews finish.** Unrelated PRs pass steps 5 and 6 in
+  turn; a formal stack passes them for the included set as described in step 6. After
+  each merge the base has moved: re-pin every remaining PR (step 1), and if GitHub
   reports it `BEHIND` or conflicting, the addressing agent updates it from the base and
   CI must pass again at the new head; a conflict resolution is a signal for another
   round (step 4).

@@ -213,8 +213,28 @@ finding.
 
 ### Pinning and the Working Tree
 
+**Decide whether the PR’s code may be run before checkout or any `tbd` command.** Read
+its origin and author through GitHub:
+
+```bash
+gh pr view <PR_NUMBER> --repo $REPO --json isCrossRepository,author
+gh api repos/$REPO/pulls/<PR_NUMBER> --jq .author_association
+```
+
+A PR is **untrusted** when `isCrossRepository` is true, or when `author_association` is
+anything other than `OWNER`, `MEMBER`, or `COLLABORATOR`. Review an untrusted PR by
+reading only: run no tests, builds, installs, or hooks in that tree, and no `tbd`
+command in it, unless the user confirms in the conversation.
+Use a trusted checkout and installed CLI for policy, documentation, and bead commands;
+pass that path and the trust decision to every delegated agent.
+Read the PR’s proposed policy changes from the diff; policy checks in the trusted
+checkout do not compare the PR’s working-tree block.
+For an untrusted PR, use trusted Git tooling with checkout hooks disabled when pinning
+its head. Do not execute checkout hooks before deciding whether execution is authorized.
+Say in the review’s `Tests run` line that nothing was run and why.
+
 Before a review starts, the coordinator records the PR’s `headRefOid` and merge base and
-checks out that head in the working tree:
+checks out that head in the working tree under that trust decision:
 
 ```bash
 gh pr view <PR_NUMBER> --repo $REPO --json headRefOid,baseRefName
@@ -229,22 +249,6 @@ If the tree has uncommitted changes, stop and ask the user rather than switching
 By default the reviewer is a sub-agent working in that same tree.
 A separate worktree or session is used when the user asks for one, or when several PRs
 are handled in parallel (see `tbd shortcut review-and-merge-prs`).
-
-**Decide whether the PR’s code may be run.** In the same step, read who wrote it:
-
-```bash
-gh pr view <PR_NUMBER> --repo $REPO --json isCrossRepository,author
-gh api repos/$REPO/pulls/<PR_NUMBER> --jq .author_association
-```
-
-A PR is **untrusted** when `isCrossRepository` is true, or when `author_association` is
-anything other than `OWNER`, `MEMBER`, or `COLLABORATOR`. Review an untrusted PR by
-reading only: run no tests, builds, installs, or hooks in that tree, and no `tbd`
-command in it, unless the user confirms in the conversation.
-Checking such a PR out puts code, `.tbd/config.yml`, and hooks the PR author controls in
-a session that holds `gh` credentials and whatever push and merge grants the project
-records; running them hands that session to the PR author.
-Say in the review’s `Tests run` line that nothing was run and why.
 
 Otherwise the reviewer is encouraged to run the test suite and targeted reproduction
 scripts to uncover bugs, unless the user says otherwise.
@@ -289,7 +293,15 @@ Reviewing and addressing use one procedure to find review content on a PR:
 - Formal reviews: `gh api --paginate repos/$REPO/pulls/<PR_NUMBER>/reviews`
 - Inline review comments: `gh api --paginate repos/$REPO/pulls/<PR_NUMBER>/comments`
 - PR comments: `gh pr view <PR_NUMBER> --repo $REPO --comments`
-- GitHub issues referencing the PR: `gh issue list --repo $REPO --search "<PR_NUMBER>"`
+- GitHub issues referencing the PR: follow every review-issue link in the PR and its
+  comments, including closed issues.
+  Also search both states with
+  `gh api --method GET --paginate search/issues -f q="repo:$REPO is:issue <PR_NUMBER>" -F per_page=100`.
+  Read each matching issue’s body and all its comments
+  (`gh api --paginate repos/$REPO/issues/<ISSUE_NUMBER>/comments`). If search reports
+  `incomplete_results` or more than its 1,000-result limit, partition the search by
+  creation date and paginate each partition before treating the sweep as complete.
+  An issue’s closed state is not a disposition; read its findings and replies.
 - In-repo review docs linked from the PR or its comments (for example under
   `docs/project/reviews/`)
 
@@ -418,6 +430,7 @@ time, with four adjustments:
 - **The stack itself is assessed once.** After the per-layer reviews, the reviewer of
   the top layer the request covers assesses the stack as a whole: layer boundaries,
   changes that sit in the wrong layer, and the order of the layers.
+  Complete this assessment and address its findings before any included layer merges.
   Every other layer’s reviewer reviews its own layer and stops there.
   Each stack-level finding is filed on the PR of the layer that must change, carrying
   the letter and ID of the review that raised it.

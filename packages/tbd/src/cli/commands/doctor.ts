@@ -7,7 +7,8 @@
  */
 
 import { Command } from 'commander';
-import { access, mkdir, readdir, readFile, rm, unlink } from 'node:fs/promises';
+import { access, mkdir, readdir, readFile, rm, stat, unlink } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
@@ -874,6 +875,7 @@ class DoctorHandler extends BaseCommand {
   private dataSyncDir = '';
   private cwd = '';
   private config: Config | null = null;
+  private skillDocCacheComplete: Promise<boolean> | undefined;
   private issues: Issue[] = [];
   private invalidIssueFiles: InvalidIssueFile[] = [];
 
@@ -2287,7 +2289,12 @@ class DoctorHandler extends BaseCommand {
     return managedArtifactFinding(name, displayPath, surface, inspection);
   }
 
-  private async hasCompleteSkillDocCache(): Promise<boolean> {
+  private hasCompleteSkillDocCache(): Promise<boolean> {
+    this.skillDocCacheComplete ??= this.inspectSkillDocCache();
+    return this.skillDocCacheComplete;
+  }
+
+  private async inspectSkillDocCache(): Promise<boolean> {
     if (!this.config) {
       return false;
     }
@@ -2302,7 +2309,11 @@ class DoctorHandler extends BaseCommand {
         continue;
       }
       try {
-        await readFile(join(this.cwd, path), 'utf8');
+        const cachedPath = join(this.cwd, path);
+        if (!(await stat(cachedPath)).isFile()) {
+          return false;
+        }
+        await access(cachedPath, constants.R_OK);
       } catch {
         return false;
       }

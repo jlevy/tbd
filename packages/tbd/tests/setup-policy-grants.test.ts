@@ -233,6 +233,36 @@ describe('older-release guard', () => {
 });
 
 describe('AGENTS.md managed block boundaries', () => {
+  it(
+    'setup preserves user notes after a lone-CR managed block',
+    async () => {
+      const dir = await setUpRepo();
+      const agentsPath = join(dir, 'AGENTS.md');
+      const before = staleAgentsMd('').replace(/\n/gu, '\r');
+      await writeFile(agentsPath, before);
+      const result = runTbd(dir, ['setup', '--auto', '--surfaces=agents-md']);
+      expect(result.status, result.stderr).toBe(0);
+      const after = await readFile(agentsPath, 'utf8');
+      expect(after.startsWith('# Project Instructions for AI Agents\r\r')).toBe(true);
+      expect(after.endsWith('\r## My Notes\r\rKeep me.\r')).toBe(true);
+      expect(after).not.toContain('Stale body from an earlier release.');
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  it.each(['\r', '\n', '\r\n'])(
+    'keeps the suffix beyond an END marker with %j line endings',
+    (newline) => {
+      const prefix = `# Project${newline}${newline}`;
+      const block = getCodexTbdSection().replace(/\n/gu, newline);
+      const suffix = `${newline}## User notes${newline}Keep these instructions.${newline}`;
+      const content = prefix + block + suffix;
+      const location = locateManagedBlock(content, CODEX_BEGIN_MARKER, CODEX_END_MARKER);
+      expect(location).toEqual({ start: prefix.length, end: prefix.length + block.length });
+      expect(content.slice(location!.end)).toBe(suffix);
+    },
+  );
+
   it('locates only complete marker lines and ignores quoted marker text', () => {
     const quoted =
       'The block starts with `<!-- BEGIN TBD INTEGRATION`.\n' +

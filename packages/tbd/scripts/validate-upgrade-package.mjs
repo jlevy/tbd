@@ -1258,6 +1258,25 @@ function readPath(value, path) {
  * cover that write path; what changes is that it must then stop with the upgrade message
  * and leave every stamped surface, grants included, byte for byte.
  */
+/** Read and verify the generated surfaces shared by the two upgrade scenarios. */
+async function readStampedSurfaces(repository, label) {
+  const stampedSurfaces = [
+    'AGENTS.md',
+    '.agents/skills/tbd/SKILL.md',
+    '.claude/skills/tbd/SKILL.md',
+  ];
+  const surfacesBefore = new Map();
+  for (const surface of stampedSurfaces) {
+    const content = await readFile(join(repository, surface), 'utf8');
+    invariant(
+      content.includes(`format=${CANDIDATE_INTEGRATION_FORMAT}`),
+      `${label}: candidate did not stamp ${surface} with ${CANDIDATE_INTEGRATION_FORMAT}`,
+    );
+    surfacesBefore.set(surface, content);
+  }
+  return surfacesBefore;
+}
+
 /**
  * The f100 split's own contract, asserted against a pinned pre-split release: a client
  * from before the split must stop instead of rewriting a surface this candidate stamped,
@@ -1291,20 +1310,7 @@ async function validatePreSplitSurfaceRefusal({
     setup.code === 0,
     `${label}: candidate ${candidateVersion} setup failed\n${setup.stdout}\n${setup.stderr}`,
   );
-  const stampedSurfaces = [
-    'AGENTS.md',
-    '.agents/skills/tbd/SKILL.md',
-    '.claude/skills/tbd/SKILL.md',
-  ];
-  const surfacesBefore = new Map();
-  for (const surface of stampedSurfaces) {
-    const content = await readFile(join(repository, surface), 'utf8');
-    invariant(
-      content.includes(`format=${CANDIDATE_INTEGRATION_FORMAT}`),
-      `${label}: candidate did not stamp ${surface} with ${CANDIDATE_INTEGRATION_FORMAT}`,
-    );
-    surfacesBefore.set(surface, content);
-  }
+  const surfacesBefore = await readStampedSurfaces(repository, label);
   invariant(
     surfacesBefore.get('AGENTS.md').includes('<!-- BEGIN TBD POLICY GRANTS'),
     `${label}: candidate setup --policies=recommended recorded no policy block, so this ` +
@@ -1353,21 +1359,7 @@ async function validateOldClientConfigRoundTrip({
     '--policies=recommended',
   ]);
   invariant(setup.code === 0, `${label}: candidate setup failed\n${setup.stdout}\n${setup.stderr}`);
-  // The stamped surfaces a pre-split release manages and would otherwise rewrite.
-  const stampedSurfaces = [
-    'AGENTS.md',
-    '.agents/skills/tbd/SKILL.md',
-    '.claude/skills/tbd/SKILL.md',
-  ];
-  const surfacesBefore = new Map();
-  for (const surface of stampedSurfaces) {
-    const content = await readFile(join(repository, surface), 'utf8');
-    invariant(
-      content.includes(`format=${CANDIDATE_INTEGRATION_FORMAT}`),
-      `${label}: candidate did not stamp ${surface} with ${CANDIDATE_INTEGRATION_FORMAT}`,
-    );
-    surfacesBefore.set(surface, content);
-  }
+  const surfacesBefore = await readStampedSurfaces(repository, label);
   invariant(
     surfacesBefore.get('AGENTS.md').includes('<!-- BEGIN TBD POLICY GRANTS'),
     `${label}: candidate setup --policies=recommended recorded no policy block`,

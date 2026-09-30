@@ -42,6 +42,10 @@ model rather than a smaller one.
 
 ## Selection Rules
 
+An explicit user or project model preference takes precedence over the rank-based
+defaults. Record the choice; do not describe a preferred model as the provider’s
+strongest when a stronger model exists.
+
 - Rank the models your own platform offers from its provider, and choose the best
   available match for each tier.
 - Within a tier’s range, use the higher reasoning level for harder or riskier work.
@@ -83,18 +87,36 @@ They are deliberately small: each sets a model and a level, and the brief names 
 shortcut to run, so they preload no skills and keep no memory, and the same brief works
 on every platform.
 
-## Suggested Models as of 2026-09-16
+## Suggested Models as of 2026-09-30
 
-> **Suggestions as of 2026-09-16, not requirements.** Model names and reasoning levels
+> **Suggestions as of 2026-09-30, not requirements.** Model names and reasoning levels
 > change quickly and must be kept current: update these examples when a provider’s
 > lineup changes, and prefer a current equivalent over a retired name.
 > Other providers’ models map to the tiers the same way.
 
 | Tier | Anthropic example | OpenAI example |
 | --- | --- | --- |
-| strong | Fable (`fable`) at `max` or `xhigh` | GPT-6 Astra (`gpt-6-astra`) at `max` or `xhigh` |
-| moderate | Opus (`opus`) at `max` or `xhigh` | GPT-5.6 Sol (`gpt-5.6-sol`) at `max` or `xhigh` |
-| fast | Opus (`opus`) at `high` or `medium` | GPT-5.6 Sol (`gpt-5.6-sol`) at `high` or `medium` |
+| strong | Opus 5.5 (`claude-opus-5-5`) at `max` or `xhigh` | GPT-6 Astra (`gpt-6-astra`) at `max` or `xhigh` |
+| moderate | Opus 5.5 (`claude-opus-5-5`) at `max` or `xhigh` | GPT-6.1 Sol (`gpt-6.1-sol`) at `max` or `xhigh` |
+| fast | Opus 5.5 (`claude-opus-5-5`) at `high` or `medium` | GPT-6.1 Sol (`gpt-6.1-sol`) at `high` or `medium` |
+
+The standard Claude model is pinned to Opus 5.5 for every tier; reasoning level
+separates the work. Fable 5.1 remains an optional escalation when requested, rather than
+an implicit replacement for that preference.
+The exact pin avoids provider-specific `opus` aliases resolving to an older version.
+
+The current OpenAI examples follow the
+[Codex model documentation](https://learn.chatgpt.com/docs/models).
+Availability depends on account, client, and rollout.
+Check the runtime’s model catalog before spawning; if GPT-6.1 Sol is unavailable, select
+the available GPT-6 Sol (`gpt-6-sol`) and record that substitution.
+Generated Codex definitions pin their model and override a per-spawn model selection.
+For this fallback, use a generic agent without a `tbd-*` custom agent type, explicitly
+select `gpt-6-sol`, and preserve the requested tier’s reasoning level.
+GPT-6 Luna (`gpt-6-luna`) and Claude Sonnet 5.5 (`claude-sonnet-5-5`) are lighter
+alternatives when the user explicitly prefers lower cost over the tier defaults; Haiku
+4.5 remains `claude-haiku-4-5`. Claude names and supported effort levels follow the
+[Claude Code model configuration](https://code.claude.com/docs/en/model-config).
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
