@@ -23,15 +23,19 @@ allowed-tools: Bash(tbd:*) Read Write
 ---
 **`tbd` helps humans and agents ship code with greater speed, quality, and discipline.**
 
-1. **Beads**: Git-native issue tracking (tasks, bugs, features).
-   Never lose work across sessions.
-   Drop-in replacement for `bd`.
-2. **Spec-Driven Workflows**: Plan features → break into beads → implement
+1. **Beads**: Git-native issue tracking for tasks, bugs, and features, shared across
+   sessions and machines.
+2. **Spec-Driven Workflows**: Plan features, break them into beads, and implement them
    systematically.
-3. **Knowledge Injection**: 40+ engineering guidelines (TypeScript, Python, Rust, TDD,
-   testing, Convex, monorepos) available on demand.
-4. **Shortcuts**: Reusable instruction templates for common workflows (code review,
-   commits, PRs, cleanup, handoffs).
+3. **Knowledge Injection**: Engineering guidelines for languages, testing, architecture,
+   and other topics, loaded on demand.
+4. **Shortcuts**: Reusable instructions for code review, commits, PRs, cleanup, and
+   handoffs.
+
+Use the capabilities the user wants; they can adopt beads alone or choose individual
+guidelines and workflows.
+The bundled docs are customizable defaults.
+Load relevant guidelines as needed and preserve the user’s task-specific instructions.
 
 ## Installation
 

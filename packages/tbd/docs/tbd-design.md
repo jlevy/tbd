@@ -9,7 +9,7 @@ agents.
 
 **First drafted**: January 2025
 
-**Last updated**: 2026-09-19
+**Last updated**: 2026-09-30
 
 * * *
 
@@ -248,24 +248,29 @@ agents.
 for AI coding agents.**
 
 tbd ("To Be Done" or “TypeScript Beads”) is a git-native issue tracker that stores
-issues as Markdown files with YAML frontmatter on a dedicated sync branch, enabling
-conflict-free collaboration without daemons or databases.
+issues as Markdown files with YAML frontmatter on a dedicated sync branch.
+Agents share task state through Git without a required daemon or database.
 It also bundles spec-driven workflows, reusable workflow shortcuts, and a curated
 knowledge base of engineering best practices that agents can inject into their context
 on demand.
 
-tbd provides **four integrated capabilities**, listed identically in the README and the
-installed skill:
+tbd provides **four capabilities** that can be adopted gradually.
+Their names and descriptions are shared with the README and installed skill:
 
-1. **Beads**: Git-native issue tracking (tasks, bugs, features).
-   Never lose work across sessions.
-   Drop-in replacement for `bd`.
-2. **Spec-Driven Workflows**: Plan features → break into beads → implement
+1. **Beads**: Git-native issue tracking for tasks, bugs, and features, shared across
+   sessions and machines.
+2. **Spec-Driven Workflows**: Plan features, break them into beads, and implement them
    systematically.
-3. **Knowledge Injection**: 40+ engineering guidelines (TypeScript, Python, Rust, TDD,
-   testing, Convex, monorepos) available on demand.
-4. **Shortcuts**: Reusable instruction templates for common workflows (code review,
-   commits, PRs, cleanup, handoffs).
+3. **Knowledge Injection**: Engineering guidelines for languages, testing, architecture,
+   and other topics, loaded on demand.
+4. **Shortcuts**: Reusable instructions for code review, commits, PRs, cleanup, and
+   handoffs.
+
+Beads work independently of the agent integrations.
+Guidelines, shortcuts, and templates can be selected by task, forked, or replaced with
+project documentation.
+Bundled defaults provide a starting point without requiring every workflow or external
+integration.
 
 On top of these, `tbd web` shows beads live in a browser (§4.15), `tbd watch` wakes
 agents when bead state changes (§4.14), `tbd integration` syncs beads with Linear

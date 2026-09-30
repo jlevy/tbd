@@ -1,393 +1,188 @@
 ---
-title: README Restructure Review
-description: Information-architecture review of the main README—optional incremental adoption, replaceable guidelines and shortcuts, and how to stay current without a kitchen-sink landing page
-author: Review session operated with LLM assistance
+title: README Restructure Review and Implementation Plan
+description: Review and implementation plan for a current, concise README that explains tbd's core value, gradual adoption, and customizable workflows
+author: Joshua Levy with LLM assistance
 ---
-# README Restructure Review
+# README Restructure Review and Implementation Plan
 
-**Date:** 2026-09-19
+**Updated:** 2026-09-30\
+**PR:** [#313](https://github.com/jlevy/tbd/pull/313)\
+**Implementation bead:** `tbd-athj`
 
-**Reviewed texts:**
+## Decision and Scope
 
-- `main` `README.md` at `528083ce` (864 lines).
-  Outdated product picture.
-- PR [#309](https://github.com/jlevy/tbd/pull/309) `README.md` at `eca9187c` (667
-  lines). Latest committed landing page.
-  PR [#310](https://github.com/jlevy/tbd/pull/310) is byte-identical.
-- Cross-checked against `packages/tbd/src/lib/policy-grants.ts`,
-  `packages/tbd/docs/guidelines/agent-policy-grants.md`,
-  `packages/tbd/docs/shortcuts/standard/` (setup-tbd, pr-review-workflows,
-  review-and-merge-prs, stacked-prs, welcome-user),
-  `packages/tbd/docs/shortcuts/system/skill-baseline.md`,
-  `packages/tbd/docs/tbd-design.md` §1, `packages/tbd/docs/tbd-docs.md`,
-  `packages/tbd/scripts/generate-readme-tables.ts`, and the Unreleased notes in
-  `packages/tbd/CHANGELOG.md`.
+Restructure the merged README while preserving the product positioning: tbd is a skill
+and CLI for coding quality, task tracking, and workflows for coding agents.
+Its three adoption principles are **gradual**, **customizable**, and **batteries
+included**. The README should make a useful first session easy and point to maintained
+references for advanced work.
 
-**Scope:** How the landing page should be structured.
-Not a rewrite of `README.md` in this change.
-[Refresh tbd design docs](bc-b240dfab-eff7-53d7-8b12-f193b38e55fd) may still edit
-`README.md` for factual consistency; this review does not.
+The user requested a deep review, an updated plan, and end-to-end implementation on
+2026-09-30, after merging #309 and #310. This supersedes the September 19 decision to
+make only a light framing edit (`tbd-eti9`, completed).
+That framing remains the starting point; the earlier proposal to position tbd primarily
+as an issue tracker is not adopted.
 
-Implementation follow-up: bead `tbd-eti9`.
+The baseline is `origin/main` at `f08eeee9`, with a 677-line README. Root `README.md` is
+the source for GitHub, the npm package, and `tbd readme`; package and distribution
+copies are generated.
+No CLI behavior, policy values, or model defaults change here.
 
-## 1. Verdict
+## Review Findings
 
-**Restructure the #309 README. Medium information-architecture pass, not a rewrite from
-`main` and not another feature catch-up.**
+### 1. Preserve the Broader Product Value
 
-#309 already did the hard catch-up: policies, the PR review lifecycle, six agent
-surfaces, `setup-tbd`, generated catalogs, and a factual tone.
-What is still wrong is the *shape*. The page now lists the product’s power as if those
-flows were the default religion.
-A first-time reader cannot tell that install-plus-beads is a complete use, or that every
-other surface is optional and replaceable.
+The old proposal’s issue-tracker-first opening narrows the product beyond the user’s
+stated pitch. Keep coding quality, task tracking, and workflows together.
+Explain what beads, guidelines, and shortcuts do with concrete examples, without
+promising that instructions guarantee good code or prevent every loss of work.
 
-Do not start from `main`. Do not reopen [#174](https://github.com/jlevy/tbd/pull/174)
-(June 2026; stale). Do not implement until #309’s README is the base and
-[Refresh tbd design docs](bc-b240dfab-eff7-53d7-8b12-f193b38e55fd) has finished any
-factual README edits (`tbd-6mmb`).
+Keep the four capability names shared with the skill and design: Beads, Spec-Driven
+Workflows, Knowledge Injection, and Shortcuts.
+Their descriptions should be count-free, accurate, and consistent across those surfaces.
 
-Target after the pass: about 350–450 lines of authored prose, plus the generated catalog
-regions if they stay as an appendix.
-One sitting for a human who already has #309 in front of them.
+### 2. Distinguish Minimal Use from Default Setup
 
-## 2. Job of the README
+The proposed adoption ladder calls `tbd setup --auto` the minimal core, but that command
+installs six agent surfaces by default.
+Use the supported `tbd init --prefix=<name>` path to explain CLI-only beads.
+Keep agent-assisted setup as the main quick start.
+Do not imply that npm installation alone initializes a repository.
 
-The root `README.md` is the GitHub landing page and the body of `tbd readme`. It should
-answer, in about a minute: what tbd is, how to install it, that the rest is optional,
-and where the live indexes live.
+`--surfaces` selects what a setup run installs or refreshes; it does not remove surfaces
+installed by an earlier run.
+Initialization, migrations, and documentation refresh still happen.
+Replace the proposal’s misleading “keeps only” wording.
 
-It is not the operator manual (`tbd prime` / skill-baseline), not the CLI reference
-(`tbd docs show tbd-docs`), not the architecture (`tbd design`), not a workflow
-procedure (shortcuts), and not the policy schema (`agent-policy-grants.md` on #309,
-implemented by `policy-grants.ts`). Those documents already exist and are tested against
-the code.
-Duplicating them in the README is how the landing page went stale on `main` and
-how the #309 policy and merge-gate sections will go stale next.
+### 3. Explain Choice Without Inventing Prerequisites
 
-## 3. What the Current README Does Well
+Web viewing and watching are useful with beads alone.
+They do not require adopting workflow shortcuts, standing GitHub grants, or Linear.
+Keep local viewing distinct from remote observation and explicit synchronization.
 
-**`main`:** Clear install commands, a working “what you say” table, and an honest Beads
-comparison. The rest is first-person, enthusiastic, and factually behind the product.
+Setup offers policy questions; users may defer them.
+Most unanswered action policies require authorization when needed, while review
+requirements default to `standard` and merge authorization defaults to `confirm-every`.
+A sentence saying that every unanswered policy is simply “ask-first” hides those
+distinctions.
+Policies describe agent instructions and consent; they are not a sandbox or
+enforcement mechanism.
+Link the full policy definitions rather than reproducing their schema.
 
-**#309 (the text to restructure):**
+### 4. Remove Reference Duplication, Not Useful Discovery
 
-- Factual tone. The Ralph-loop / overnight-agent framing is gone.
-- Product catch-up: policy grants, `setup-tbd`, `review-and-merge-prs`, stacked PRs, six
-  surfaces, `tbd web` / `tbd watch` / Linear as named capabilities.
-- Generated shortcut, guideline, and template tables
-  (`pnpm --filter get-tbd generate:readme`) with a drift test.
-  Counts can no longer silently rot the way `main`’s “25+” / “40+” / “over a dozen” did.
-- `setup-tbd` as the setup path; `--surfaces=` documented; “Can I add my own
-  guidelines?” is already a yes.
-- FAQ states the four `github-merge` values and that `pr-review-requirements` is a
-  separate bar. That matches `policy-grants.ts` (`never` | `confirm-every` |
-  `confirm-session` recommended | `autonomous`; no `discouraged` field).
+The README currently repeats the operator manual in its request table, commands, policy
+block, merge checklist, and FAQ. Keep representative requests and the distinction
+between reviewing, fixing, preparing to merge, and actually merging.
+Link the full lifecycle rather than copying its process.
 
-## 4. Gaps Versus Current Product
+Keep the generated catalogs as a collapsible appendix after the main guide.
+Their markers, generator, counts, and drift tests already prevent stale names; retain
+that mechanism. Do not replace it with a second hand-maintained roster.
 
-The product is a **core plus optional layers**. Design principle 6 already says
-“Progressive enhancement: Core works standalone, bridges/UI are optional layers”
-(`tbd-design.md` §1.5). `welcome-user` already asks whether to keep all bundled
-guidelines or a subset, and whether to leave them cached or fork them.
-`setup-tbd` already accepts “Not now” for every unanswered policy.
-The README does not lead with any of that.
+### 5. Make Customization Practical
 
-Specific gaps, all on the #309 text:
+Explain the three choices: load bundled docs when needed, fork and edit them in the
+repository, or add the team’s own docs.
+Show the supported commands and link to the manual for configuration and update
+conflicts. Keep project files visible and reviewable; do not recommend editing the
+disposable `.tbd/docs/` cache.
 
-1. **Optionality is an afterthought.** “What You Get”, “Talking to Your Agent”, and “Why
-   tbd” present beads, specs, the full PR lifecycle, delegation, and policies as the
-   product. A reader who wants only git-native issues has to infer that is allowed.
-2. **Quick Start implies a full policy ceremony.** It sends the agent through
-   `setup-tbd`, which *asks* about every unanswered grant.
-   That is correct product behavior, but the README never says unanswered is a valid
-   steady state, or that “not now” is an answer.
-   Incremental adoption starts after npm install, not after granting merge, stacks,
-   sub-agents, and Linear.
-3. **Replaceability is a FAQ.** Bundled guidelines and shortcuts are a default library.
-   You can load some, fork and edit, add from a URL (`tbd docs add` / per-kind `--add`),
-   serve replacements from `docs_cache.files` and `docs_cache.local_dirs`, or write your
-   own. #309 mentions add/fork/config at the bottom.
-   It should be a first-class rung of the adoption ladder, matching `welcome-user`’s
-   two-axis offer (scope, visibility).
-4. **The talking table is a second skill-baseline.** Twenty-plus rows, including all
-   three `review-and-merge-prs` modes.
-   Useful as a map; fatal as the first “how to use this” section, because it implies you
-   use all of it.
-5. **Policy section is a second `agent-policy-grants`.** Full seven-row table, example
-   `AGENTS.md` block with a date, CLI verbs, and a merge-gate FAQ that restates
-   dispositions, pinned heads, and `--admin`. That schema is already the single
-   definition, kept in agreement with `policy-grants.ts` by tests.
-   Inlining it is how `main`’s `tbd prime` still says `per-request` while #309 says
-   `confirm-session`.
-6. **“Why tbd” still narrates one path.** Plan → beads → implement → validate →
-   `review-and-merge-prs` is *a* optional flow.
-   Presenting it as the way tbd is used undoes the optionality claim.
-7. **Stale counts in authored prose.** “What You Get” still says “40+” guidelines while
-   the generated table says 46. `main` also contradicts itself (25+ vs 40+; “over a
-   dozen” shortcuts vs the real set).
-   Authored counts should die.
-8. **Power is listed, not framed.** The PR lifecycle, stacks, grants, and delegation
-   *are* much stronger than `main` implied.
-   The fix is a short capabilities map that says each item is optional, then links.
-   Not another dump of procedure.
+### 6. Keep Claims Current and Qualified
 
-`main`-only staleness (do not “fix `main`”; #309 already did): four surfaces instead of
-six; no `setup-tbd` / `review-and-merge-prs` / `delegate-to-subagents`; no policy
-section; incomplete shortcut table; first-person voice.
+Remove authored catalog counts, old PR-relative implementation instructions, opaque chat
+links, and unsupported promises such as conflict-free collaboration or almost automatic
+implementation.
+Describe tbd’s own storage and compatibility scope without asserting what
+another project’s latest architecture is.
 
-## 5. Proposed Outline
+Model names, hook implementation details, credential permissions, policy grammar, and
+merge gates belong in their maintained references.
+Keep requirements, setup effects, upgrade guidance, and migration verification visible
+where a new user needs them.
 
-Keep the badges. Then:
+## Information Architecture
 
-1. **Opening (8–12 lines).** What tbd is in one sentence (git-native beads; Markdown on
-   `tbd-sync`; no daemon).
-   Second sentence: optional layers exist and are not required.
-   Third: drop-in `bd` replacement; works through the CLI in any agent.
-2. **What You Can Use (the four capabilities, labeled optional).** Same four items the
-   skill and `tbd-design.md` §1.1 already share (beads, spec workflows, guidelines,
-   shortcuts), plus a one-line “also available” for web, watch, Linear, and policy
-   grants. One clause each that they are optional.
-3. **Quick Start.** npm install; tell the agent to run `tbd prime` and set up tbd;
-   prefix required. One sentence that `setup-tbd` *offers* policy questions and that “not
-   now” / unanswered is fine.
-   Link Installation for cloud, upgrade, Beads import.
-4. **Adopt Only What You Want.** The adoption ladder (section 7). This is the spine.
-   Four rungs, no procedure.
-5. **Talking to Your Agent.** Six to ten exemplar requests (create a bead, show the
-   board, plan a spec, review a PR, set up tbd).
-   One line that every shortcut default yields to the user’s wording.
-   Point at `tbd shortcut --list`, `tbd guidelines --list`, and “what can I do with
-   tbd?” (`welcome-user`).
-6. **Optional Capabilities (glance list).** One bullet each: beads architecture;
-   spec/PR/stack workflows; policy grants (four merge values, separate review bar);
-   web/watch; Linear; replaceable docs.
-   Each bullet is a link, not a how-to.
-7. **Installation and Setup.** Requirements, the three `tbd setup` forms, team join,
-   `--surfaces=` in a short table, `gh` as optional, Linear as optional, Beads
-   migration. Cut hook-script and token-permission detail to `setup-github-cli` /
-   `setup-linear`.
-8. **Commands.** A short beads/docs/maintenance cheatsheet.
-   Link `tbd-docs` for flags, watch selectors, and integration verbs.
-9. **Bundled Library (generated appendix).** Keep the generate:readme regions if they
-   stay, but title them as an optional index, not “what you get.”
-   Or replace with counts plus six exemplars and `tbd shortcut --list`.
-10. **Why tbd / Compared to Beads.** Problem (session memory, prompt-pasted rules), core
-    (git-native beads), optional quality layer (guidelines and shortcuts you choose).
-    Beads comparison in a short paragraph plus the existing note on capitalization.
-    Spec-driven cycle as *one* optional flow, not the plot.
-11. **FAQ (four questions).** Beads vs tbd; seeing beads without the CLI; can agents
-    merge (four values + “review bar is separate” + link); replacing guidelines and
-    shortcuts. No merge-gate checklist.
-12. **Contributing / License.** Unchanged.
+1. **Opening and capabilities:** retain the product pitch and explain the four shared
+   capabilities without stale counts.
+2. **Quick Start:** install, ask the agent to set up the project, choose a prefix,
+   understand the files and optional policy questions, and give a first task.
+3. **Adopt Only What You Want:** CLI-only beads, selected agent integrations,
+   customizable docs, and optional workflows.
+   These are choices, not mandatory stages.
+4. **Talking to Your Agent:** a short example table; retain precise review/merge request
+   routing and link the full request vocabulary.
+5. **Optional Capabilities:** web/watch, project policies and delegation, and Linear,
+   each with the relevant boundary and a maintained reference.
+6. **Installation and Setup:** prerequisites, existing projects and upgrades, selected
+   surfaces, team setup, GitHub tooling, and Beads import.
+   Avoid copying hook scripts or credential setup procedures.
+7. **Guidelines and Shortcuts:** on-demand loading, forking, adding team docs, and links
+   to the complete manual and generated appendix.
+8. **Commands and Background:** a small task/doc/status reference and a brief
+   explanation of durable task memory and repeatable engineering practices.
+9. **Contributing, License, and Bundled Library:** preserve contributor links and
+   license; put the generated catalogs last so they do not interrupt orientation.
 
-## 6. Focused Suggestions
+Aim for roughly 350 authored lines plus the generated appendix.
+Length is a check on duplication, not a reason to omit installation effects or important
+boundaries. Use the common documentation guidelines: progressive disclosure,
+present-state prose, concrete examples, stable links, consistent headings, and one
+footer at the end.
 
-**A. Lead with optional incremental adoption.** Opening and “What You Can Use.”
-Why: the #309 lede is accurate and still reads as a bundle you buy whole.
-Where: replace the current subtitle and the unlabeled four-item list with the opening in
-section 9.
+## Implementation Checklist
 
-**B. Put the adoption ladder immediately after Quick Start.** Why: optionality cannot
-survive as FAQ #4. Where: new H2, section 7.
+- [x] Rebase #313 onto merged main and inspect the current README, CLI, manual, design,
+  installed skill sources, and generator contracts.
+- [x] Replace the stale proposal and historical implementation stop with this current
+  decision and plan; track new work separately from completed `tbd-eti9`.
+- [x] Restructure root README and preserve all generated catalog regions.
+- [x] Align the shared capability descriptions in skill-baseline and design §1.1;
+  regenerate committed skill copies rather than editing generated content by hand.
+- [x] Verify minimal initialization and selected-surface setup in isolated fixtures,
+  including the fact that surface selection does not uninstall existing files.
+- [x] Check Markdown links and anchors, generated catalogs, request routing, installed
+  skill drift, and the packaged `tbd readme` copy.
+- [x] Format with the repository’s pinned formatter, review the complete diff, and run
+  the required checks.
+- [x] Prepare the PR title and description for the implemented scope and track final
+  publication, final-head CI, and closure in `tbd-athj`.
 
-**C. Shrink “Talking to Your Agent” to exemplars.** Why: the current table is a
-skill-baseline for humans and trains readers that the PR lifecycle is ordinary day-one
-use. Where: keep 6–10 rows; move the rest to `welcome-user` and `tbd shortcut --list`.
+## Validation Record
 
-**D. Cut the policy section to a pitch.** Why: the seven-row table, sample block, and
-merge-gate FAQ will rot the next time a value is renamed (already happened:
-`per-request` → `confirm-session`; `discouraged` removed).
-Where: 8–12 lines under Optional Capabilities: grants live in `AGENTS.md`; they are
-preferences; unanswered means ask-first; `github-merge` is `never` | `confirm-every` |
-`confirm-session` (recommended) | `autonomous`; `pr-review-requirements` is independent
-and still applies under `autonomous`. Link `agent-policy-grants` and `tbd policy show`.
-Delete the example block.
+The README is 486 lines, including 114 lines of generated catalogs, down from 677. The
+three catalog regions remain generated and unchanged in content.
+The final read-only workflow audit found no blocking issues; its minor correction to the
+setup link description was applied.
 
-**E. Keep generated catalogs as an appendix, or drop them to a live index.** Why:
-generation solves *staleness of names* and creates *implied obligation* (“Available
-shortcuts (43)”). Prefer a heading that says “bundled, all optional” plus
-`tbd shortcut --list`. Do not hand-maintain counts in prose.
+- **Documentation contracts:** 72 tests passed across `readme-reference-tables`,
+  `review-lifecycle-contract`, and `integration-files`. The full suite also caught a
+  missing template example; `tbd template plan-spec` was restored alongside the shortcut
+  and guideline examples.
+  Both doc-reference tests pass after that fix, and all 27 prime CLI golden checks pass.
+- **Links:** all 135 relative links and fragments in the README and this plan resolve.
+- **Setup examples:** in a fresh temporary Git repository with an initial commit,
+  `tbd init --prefix=myapp` created configuration without agent integrations, and a
+  created bug appeared in `tbd ready`. Setup with
+  `--surfaces=portable,agents-md --no-gh-cli` created only those surfaces.
+  After installing Claude separately, repeating that selection retained Claude;
+  unrestricted setup then installed the remaining surfaces.
+  This confirms both the selection boundary and its per-invocation scope.
+- **Packaging and final checks:** the implementation bead and PR review record the full
+  suite, packaged README verification, and final-head CI results.
 
-**F. Rewrite “Why tbd” so spec-driven and review-and-merge are one optional path.** Why:
-that five-step list is the strongest all-or-nothing signal on the page.
-Where: one paragraph on beads as the core; one on optional knowledge and workflows; the
-numbered cycle only after “if you want that flow.”
+## Source and Maintenance Map
 
-**G. Say Quick Start can stop at beads.** Why: `setup-tbd` asking every unanswered
-policy is fine; implying the user must answer them is not.
-Where: one sentence next to the setup prompt: unanswered grants stay ask-first; “not
-now” is valid; grant merge, stacks, sub-agents, or Linear later.
-
-**H. Do not put the following in the README.** Detail that belongs elsewhere and will
-rot: merge-gate checklist; review marker format; lettered finding IDs; disposition
-vocabulary; policy-block example; per-policy coverage paragraphs; session-closing
-protocol; worktree/attic/LWW; Linear `field_sync`; sub-agent tier research; hook script
-names; PAT permission lists; `main`’s first-person “I use tbd most frequently…” and
-concurrent-agent counts.
-The Jan 2026 plan (`plan-2026-01-27-improve-readme-value-proposition.md`) pushed full
-guideline tables and equal-weight pillars; do not revive that.
-It produced the kitchen-sink `main` README.
-
-## 7. Adoption Ladder
-
-Present this as the spine, not a tip.
-Four rungs, each sufficient to stop:
-
-1. **Install the core.** `npm install -g get-tbd@latest`, then
-   `tbd setup --auto --prefix=<name>` (or `--from-beads`). Beads work.
-   Sync with `tbd sync`. This is a complete use.
-2. **Pick surfaces.** Default setup writes portable, `AGENTS.md`, Claude, and Codex
-   files, plus tier-agent definitions on #309. `--surfaces=` keeps only the generated
-   agent files you want.
-   Initialization, format migration, and the docs cache still run.
-3. **Pick or replace guidelines and shortcuts.** Load none until a task needs one.
-   Keep the standard set, keep a language/stack subset (`welcome-user` already asks),
-   fork into `docs/tbd/` and edit, add your own from a URL, or point `docs_cache.files`
-   / `docs_cache.local_dirs` at replacements.
-   The bundled library is a default, not a contract.
-4. **Set policies when a workflow needs them.** Grants in `AGENTS.md` are settable
-   preferences for the whole project.
-   Unanswered is ask-first (`confirm-every` for merge, `standard` for review
-   requirements). Record `github-merge`, `pr-review-requirements`, `github-stacked-prs`,
-   `subagents`, `linear`, or the GitHub editing/workflow grants only if you want that
-   flow on a standing basis.
-
-Web, watch, Linear, stacked PRs, the PR review lifecycle, and sub-agent delegation sit
-on rungs 3–4. They are capabilities you turn on by asking, not a process you opt out of.
-
-## 8. Freshness Strategy
-
-**Allowed to inline (product pitch; change only with a deliberate README edit):**
-
-1. Git-native beads: one Markdown file per issue, `tbd-sync` branch, no daemon, no
-   SQLite.
-2. The agent operates tbd; the user talks in natural language.
-3. Layers above beads are optional; adoption is incremental.
-4. Guidelines and shortcuts are a replaceable library (subset, fork, `--add`, config).
-5. Policy grants are settable preferences in `AGENTS.md`.
-6. `github-merge` is `never` | `confirm-every` | `confirm-session` (recommended) |
-   `autonomous`; `pr-review-requirements` is a separate policy and still applies under
-   `autonomous`.
-7. Core CLI is a drop-in `bd` replacement.
-
-Do not inline counts (“40+”, “43”, “46”). Do not inline the full policy table, merge
-gate, or shortcut roster.
-
-**Generate, do not hand-edit:** the shortcut / guideline / template regions via
-`pnpm --filter get-tbd generate:readme`. `tests/readme-reference-tables.test.ts` fails
-on drift. Generation writes root `README.md` only
-(`packages/tbd/scripts/readme-reference-tables.ts`). The package README is a publish
-copy, not a second source; on `main` it is not even in git.
-
-**Link, do not copy:**
-
-| Fact | Live source |
+| Topic | Maintained source |
 | --- | --- |
-| Policy names, values, unanswered defaults | `agent-policy-grants.md` (#309) and `policy-grants.ts` |
-| PR review stages, markers, merge gate | `tbd shortcut pr-review-workflows` and `review-and-merge-prs.md` (#309) |
-| Setup questions and “not now” | `setup-tbd.md` (#309) |
-| Guideline scope / visibility offer | `tbd shortcut welcome-user` |
-| Command flags, integration, watch | `tbd docs show tbd-docs` |
-| Architecture | `tbd design` |
-| Operator rules | `tbd prime` / skill-baseline |
-
-**Sync triangle.** `tbd-design.md` §1.1 says the four capabilities are “listed
-identically in the README and the installed skill.”
-If the README opening changes, update skill-baseline and §1.1 in the same change or they
-will fight. That is the one intentional duplication; keep it to the four names plus
-“optional.”
-
-## 9. Draft Snippets
-
-Repo voice: factual, second person, no intensifiers.
-Matches #309, not `main`.
-
-### Opening
-
-```markdown
-# tbd
-
-**Git-native issue tracking for coding agents, plus optional workflows you adopt
-incrementally.**
-
-`tbd` stores issues (beads) as Markdown files on a dedicated sync branch: no daemon,
-no database, and a drop-in replacement for [Beads](https://github.com/steveyegge/beads)
-(`bd`).
-You can stop there.
-
-On top of that core, tbd can add spec-driven planning, on-demand engineering
-guidelines, reusable workflow shortcuts, a live web board, Linear sync, a PR review
-lifecycle, stacked PRs, and project-wide policy grants.
-Each of those is optional. Install tbd, use beads, and pick up a layer when you want
-it. You can use some of the bundled guidelines and shortcuts, or replace them with
-your own.
-```
-
-### Optional, Incremental
-
-```markdown
-## Adopt Only What You Want
-
-tbd is a kit. After install, each layer is optional:
-
-1. **Beads.** `tbd setup --auto --prefix=<name>` is enough. Track work; run
-   `tbd sync`. This is a complete use.
-2. **Surfaces.** Setup can write agent files for Claude, Codex, and portable skills.
-   `--surfaces=` keeps only the ones you want.
-3. **Guidelines and shortcuts.** The bundled set is a default library. Load some,
-   fork and edit some, add your own from a URL, or replace them in
-   `.tbd/config.yml`. `tbd shortcut --list` and `tbd guidelines --list` are the live
-   indexes. “What can I do with tbd?” runs the welcome shortcut, which also asks
-   whether to keep all guidelines or a subset.
-4. **Policies.** Grants in `AGENTS.md` are settable preferences, not a required
-   ceremony. Unanswered stays ask-first. Say “not now” during setup, or record only
-   the grants a workflow needs (`github-merge`, `pr-review-requirements`, `linear`,
-   and the rest).
-
-The PR review lifecycle, stacked PRs, Linear, `tbd web`, and `tbd watch` work the
-same way: capabilities you turn on by asking for them.
-```
-
-## Notes for the Implementer
-
-- Base the edit on the #309 README (`eca9187c` or later on that branch), after
-  `tbd-6mmb` finishes any factual README touch-ups.
-  Do not merge this review’s outline into a competing `README.md` rewrite on the same
-  files.
-- Root `README.md` is the source.
-  Do not invent a second long-form package README.
-- If the four-capability list changes wording, change skill-baseline and `tbd-design.md`
-  §1.1 in the same PR.
-- Keep `generate:readme` regions valid; run the generator if the appendix stays.
-- Tone: no enthusiasm, no “unreasonably effective,” no first person.
-
-## Addendum: User-supplied product pitch (2026-09-19)
-
-The user supplied the product positioning after this review was written, then
-course-corrected: do not implement the medium IA pass (no adoption-ladder rewrite, no
-talking-table or policy cuts).
-Keep the #309 README’s style, spirit, and structure.
-Customize only the core-value and background framing.
-
-**What landed:** a light opening edit on the #309 README. The talking table, policy and
-merge sections, generated catalogs, and FAQ shape stay.
-
-**Core value:** tbd is a skill and CLI that upgrades coding quality, task tracking, and
-workflows for any coding agent.
-
-**Philosophy:** give agents task tracking for longer unattended operation (beads),
-better engineering knowledge (reusable guidelines), and better workflows (code reviews,
-PR workflows, shortcuts), in a way that is **gradual** (use only what you want),
-**customizable** (override or change skills and guidelines), and **batteries included**
-(defaults include hard-learned practices).
-Optionality is a clarification in that opening, not a new architecture for the page.
-
-**History (one short beat):** tbd started in January 2026 as a better Beads and has
-since extended to include improved workflows of many kinds.
-
-Implementation bead: `tbd-eti9`. This review remains IA rationale only; the user chose
-not to execute it.
+| Product capabilities and principles | [Design §1](../../../packages/tbd/docs/tbd-design.md#1-introduction), [skill-baseline](../../../packages/tbd/docs/shortcuts/system/skill-baseline.md) |
+| Setup behavior and choices | [setup-tbd](../../../packages/tbd/docs/shortcuts/standard/setup-tbd.md), `src/cli/commands/init.ts`, `src/cli/commands/setup.ts` |
+| Policy definitions and defaults | [agent-policy-grants](../../../packages/tbd/docs/guidelines/agent-policy-grants.md), `src/lib/policy-grants.ts` |
+| Review request vocabulary | [pr-review-workflows](../../../packages/tbd/docs/shortcuts/standard/pr-review-workflows.md) |
+| Commands, docs, viewing, watching, and Linear | [CLI manual](../../../packages/tbd/docs/tbd-docs.md) |
+| Catalog generation | `packages/tbd/scripts/generate-readme-tables.ts`, `tests/readme-reference-tables.test.ts` |
+| README and skill packaging | `packages/tbd/scripts/copy-docs.mjs`, `tests/integration-files.test.ts` |
+| Writing conventions | [common-doc-guidelines](../../../packages/tbd/docs/guidelines/common-doc-guidelines.md) |
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
