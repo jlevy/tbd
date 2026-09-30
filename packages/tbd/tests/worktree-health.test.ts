@@ -4,7 +4,7 @@
  * See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdir, rm, writeFile as fsWriteFile, readdir, access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir, platform } from 'node:os';
@@ -364,79 +364,134 @@ describeUnlessWindows('repairWorktree', () => {
     expect(healthAfter.status).toBe('valid');
   });
 
-  it('repairs corrupted worktree by backing up and reinitializing', async () => {
-    // Initialize worktree first
-    await initWorktree(workRepoPath);
+  it.each(['corrupted', 'prunable'] as const)(
+    'repairs %s worktree by backing up unsynced data and reinitializing',
+    async (status) => {
+      // Initialize worktree first
+      await initWorktree(workRepoPath);
 
-    // Corrupt the worktree by removing .git file but keeping directory
-    const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
-    const dotGitPath = join(worktreePath, '.git');
-    await rm(dotGitPath, { force: true });
+      // Corrupt the worktree by removing .git file but keeping directory
+      const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
+      const dotGitPath = join(worktreePath, '.git');
+      await rm(dotGitPath, { force: true });
 
-    // Write some test data that should be backed up
-    const testFile = join(worktreePath, 'test-data.txt');
-    await fsWriteFile(testFile, 'important data');
+      // Write some test data that should be backed up
+      const relativeFile = join(DATA_SYNC_DIR, 'issues', 'is-unsynced.md');
+      const testFile = join(worktreePath, relativeFile);
+      await mkdir(join(worktreePath, DATA_SYNC_DIR, 'issues'), { recursive: true });
+      await fsWriteFile(testFile, 'Unsynced bead contents');
+      expect((await checkWorktreeHealth(workRepoPath)).status).toBe('prunable');
 
-    // Repair the corrupted worktree
-    const result = await repairWorktree(workRepoPath, 'corrupted');
+      // Repair the corrupted worktree
+      const result = await repairWorktree(workRepoPath, status);
 
-    expect(result.success).toBe(true);
-    expect(result.path).toBeTruthy();
-    expect(result.backedUp).toBeTruthy();
+      expect(result.success).toBe(true);
+      expect(result.path).toBeTruthy();
+      expect(result.backedUp).toBeTruthy();
 
-    // Verify backup was created
-    const backupExists = await access(result.backedUp!).then(
-      () => true,
-      () => false,
-    );
-    expect(backupExists).toBe(true);
+      // Verify backup was created
+      const backupExists = await access(result.backedUp!).then(
+        () => true,
+        () => false,
+      );
+      expect(backupExists).toBe(true);
+      await expect(readFile(join(result.backedUp!, relativeFile), 'utf8')).resolves.toBe(
+        'Unsynced bead contents',
+      );
 
-    // Verify worktree is now valid
-    const healthAfter = await checkWorktreeHealth(workRepoPath);
-    expect(healthAfter.status).toBe('valid');
-  });
+      // Verify worktree is now valid
+      const healthAfter = await checkWorktreeHealth(workRepoPath);
+      expect(healthAfter.status).toBe('valid');
+    },
+  );
 
   /**
    * A backup that did not happen must stop the repair.
    *
-   * The corrupted branch removes the worktree recursively and then reports a
+   * Repair removes the damaged worktree recursively and then reports a
    * `backedUp` path. If the copy that was supposed to fill that path failed, the
    * removal destroys the only copy of whatever the worktree held — which for the
    * data-sync worktree is unsynced bead work — and the caller is handed a path that
    * does not exist. Losing data is worse than leaving a corrupted worktree in place
    * for the operator to look at, so the repair fails closed instead.
    *
-   * The copy is forced to fail by occupying its destination with a regular file:
-   * `fs.cp` refuses to copy a directory onto a non-directory. The destination name
-   * carries a whole-second timestamp, so every candidate in the next few seconds is
-   * occupied to keep the test off a second boundary.
+   * A FIFO makes fs.cp fail deterministically without permission assumptions or
+   * timestamp races. This suite already runs only on POSIX platforms.
    */
-  it('aborts the repair and keeps the worktree when the backup copy fails', async () => {
+  it.each(['corrupted', 'prunable'] as const)(
+    'aborts %s repair and keeps the worktree when the backup copy fails',
+    async (status) => {
+      await initWorktree(workRepoPath);
+
+      const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
+      await rm(join(worktreePath, '.git'), { force: true });
+      const testFile = join(worktreePath, 'test-data.txt');
+      await fsWriteFile(testFile, 'important data');
+
+      await execFileAsync('mkfifo', [join(worktreePath, 'uncopyable.fifo')]);
+
+      const result = await repairWorktree(workRepoPath, status);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/backup/i);
+      // No path is reported, because none was written.
+      expect(result.backedUp).toBeUndefined();
+      // The worktree and its contents survive for the operator to recover by hand.
+      await expect(readFile(testFile, 'utf8')).resolves.toBe('important data');
+    },
+  );
+
+  it('repeated repairs in one second preserve both backups', async () => {
     await initWorktree(workRepoPath);
-
     const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
-    await rm(join(worktreePath, '.git'), { force: true });
-    const testFile = join(worktreePath, 'test-data.txt');
-    await fsWriteFile(testFile, 'important data');
-
-    const { sharedBackupsDir } = await resolveSharedTbdPaths(workRepoPath);
-    await mkdir(sharedBackupsDir, { recursive: true });
-    for (let offset = 0; offset <= 3; offset++) {
-      const stamp = new Date(Date.now() + offset * 1000)
-        .toISOString()
-        .replace(/[:.]/g, '-')
-        .slice(0, 19);
-      await fsWriteFile(join(sharedBackupsDir, `corrupted-worktree-backup-${stamp}`), 'occupied');
+    const backups: string[] = [];
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-30T12:00:00Z'));
+    try {
+      for (const contents of ['first unsynced edit', 'second unsynced edit']) {
+        await fsWriteFile(join(worktreePath, 'test-data.txt'), contents);
+        await rm(join(worktreePath, '.git'));
+        const result = await repairWorktree(workRepoPath, 'prunable');
+        expect(result.success, result.error).toBe(true);
+        expect(result.backedUp).toBeDefined();
+        backups.push(result.backedUp!);
+      }
+      expect(backups[0]).not.toBe(backups[1]);
+      await expect(readFile(join(backups[0]!, 'test-data.txt'), 'utf8')).resolves.toBe(
+        'first unsynced edit',
+      );
+      await expect(readFile(join(backups[1]!, 'test-data.txt'), 'utf8')).resolves.toBe(
+        'second unsynced edit',
+      );
+    } finally {
+      vi.useRealTimers();
     }
+  });
 
-    const result = await repairWorktree(workRepoPath, 'corrupted');
+  it('automatic prunable repair reports the backup holding unsynced data', async () => {
+    const bin = join(__dirname, '..', 'dist', 'bin.mjs');
+    await execFileAsync(process.execPath, [bin, 'init', '--prefix=test'], { cwd: workRepoPath });
+    const { sharedWorktreePath, sharedBackupsDir } = await resolveSharedTbdPaths(workRepoPath);
+    const relativeFile = join(DATA_SYNC_DIR, 'issues', 'is-unsynced.md');
+    await fsWriteFile(join(sharedWorktreePath, relativeFile), 'Unsynced bead contents');
+    await rm(join(sharedWorktreePath, '.git'));
 
-    expect(result.success).toBe(false);
-    expect(result.error).toMatch(/backup/i);
-    // No path is reported, because none was written.
-    expect(result.backedUp).toBeUndefined();
-    // The worktree and its contents survive for the operator to recover by hand.
-    await expect(readFile(testFile, 'utf8')).resolves.toBe('important data');
+    const result = await execFileAsync(process.execPath, [bin, 'list', '--json'], {
+      cwd: workRepoPath,
+    });
+    expect(() => {
+      JSON.parse(result.stdout);
+    }).not.toThrow();
+    const backup = (await readdir(sharedBackupsDir)).find((name) =>
+      name.startsWith('prunable-worktree-backup-'),
+    );
+    expect(backup).toBeDefined();
+    const backupPath = join(sharedBackupsDir, backup!);
+    expect(result.stderr).toContain(backupPath);
+    expect(result.stderr).toContain('not restored automatically');
+    await expect(readFile(join(backupPath, relativeFile), 'utf8')).resolves.toBe(
+      'Unsynced bead contents',
+    );
   });
 });
 

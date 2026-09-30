@@ -731,8 +731,16 @@ const CODEX_GH_CLI_SCRIPT_REL = '.codex/ensure-gh-cli.sh';
  * SessionStart and PreCompact run `tbd prime`, PostToolUse reminds about sync
  * after `git push`, and (when enabled) a second SessionStart entry ensures gh.
  */
-function getCodexHooksConfig(useGhCli: boolean): { hooks: Record<string, unknown[]> } {
-  const sessionStart: unknown[] = [
+interface CodexHookEntry extends Record<string, unknown> {
+  hooks: Record<string, unknown>[];
+}
+
+interface CodexHooksFile extends Record<string, unknown> {
+  hooks?: Record<string, CodexHookEntry[]>;
+}
+
+function getCodexHooksConfig(useGhCli: boolean): { hooks: Record<string, CodexHookEntry[]> } {
+  const sessionStart: CodexHookEntry[] = [
     { matcher: '', hooks: [{ type: 'command', command: `bash ${CODEX_SESSION_SCRIPT_REL}` }] },
   ];
   if (useGhCli) {
@@ -760,6 +768,86 @@ function getCodexHooksConfig(useGhCli: boolean): { hooks: Record<string, unknown
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Read a hook configuration only after all files this surface may change are safe. */
+async function readCodexHooksForSetup(cwd: string): Promise<CodexHooksFile | undefined> {
+  const hooksPath = getCodexPaths(cwd).hooks;
+  for (const target of [
+    hooksPath,
+    join(cwd, CODEX_SESSION_SCRIPT_REL),
+    join(cwd, CODEX_CLOSING_REMINDER_REL),
+    join(cwd, CODEX_GH_CLI_SCRIPT_REL),
+  ]) {
+    await assertSafeManagedArtifactTarget(target, { projectRoot: cwd, allowMissing: true });
+  }
+  let content: string;
+  try {
+    content = await readFile(hooksPath, 'utf-8');
+  } catch (error) {
+    if (isErrorWithCode(error, 'ENOENT')) {
+      return undefined;
+    }
+    throw error;
+  }
+  const invalid = () =>
+    new CLIError(
+      `${hooksPath} is not a valid hooks configuration. Repair it before running setup; it was left unchanged.`,
+    );
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw invalid();
+  }
+  if (!isRecord(parsed)) {
+    throw invalid();
+  }
+  if (parsed.hooks !== undefined) {
+    if (!isRecord(parsed.hooks)) {
+      throw invalid();
+    }
+    for (const entries of Object.values(parsed.hooks)) {
+      if (!Array.isArray(entries)) {
+        throw invalid();
+      }
+      for (const entry of entries) {
+        if (!isRecord(entry) || !Array.isArray(entry.hooks) || !entry.hooks.every(isRecord)) {
+          throw invalid();
+        }
+      }
+    }
+  }
+  return parsed as CodexHooksFile;
+}
+
+/** Ownership is an exact generated command, never merely a path under .codex/. */
+function isTbdCodexHook(hook: Record<string, unknown>): boolean {
+  return (
+    hook.type === 'command' &&
+    typeof hook.command === 'string' &&
+    [
+      `bash ${CODEX_SESSION_SCRIPT_REL}`,
+      `bash ${CODEX_SESSION_SCRIPT_REL} --brief`,
+      `bash ${CODEX_CLOSING_REMINDER_REL}`,
+      `bash ${CODEX_GH_CLI_SCRIPT_REL}`,
+    ].includes(hook.command)
+  );
+}
+
+/** Select individual handlers while retaining the surrounding entry's metadata. */
+function selectCodexHooks(entries: CodexHookEntry[], owned: boolean): CodexHookEntry[] {
+  return entries.flatMap((entry) => {
+    const hooks = entry.hooks.filter((hook) => isTbdCodexHook(hook) === owned);
+    if (hooks.length === 0) {
+      return !owned && entry.hooks.length === 0 ? [entry] : [];
+    }
+    return [{ ...entry, hooks }];
+  });
+}
+
 async function useGhCliForProject(cwd: string): Promise<boolean> {
   try {
     const tbdRoot = await findTbdRoot(cwd);
@@ -775,26 +863,13 @@ async function useGhCliForProject(cwd: string): Promise<boolean> {
 
 /** Inspect the tbd-owned part of Codex hooks while preserving unrelated hooks. */
 export async function inspectCodexHooksSurface(cwd: string): Promise<ManagedArtifactInspection> {
-  const codexPaths = getCodexPaths(cwd);
-  let parsed: { hooks?: Record<string, unknown[]> };
-  try {
-    parsed = JSON.parse(await readFile(codexPaths.hooks, 'utf-8')) as {
-      hooks?: Record<string, unknown[]>;
-    };
-  } catch (error) {
-    if (isErrorWithCode(error, 'ENOENT')) {
-      return { state: 'missing' };
-    }
-    return { state: 'user-owned' };
+  const parsed = await readCodexHooksForSetup(cwd);
+  if (parsed === undefined) {
+    return { state: 'missing' };
   }
-
-  const isTbdOwned = (entry: unknown): boolean => {
-    const hooks = (entry as { hooks?: { command?: string }[] }).hooks ?? [];
-    return hooks.some((hook) => hook.command?.includes('.codex/'));
-  };
-  const actualOwned: Record<string, unknown[]> = {};
+  const actualOwned: Record<string, CodexHookEntry[]> = {};
   for (const [event, entries] of Object.entries(parsed.hooks ?? {})) {
-    const owned = entries.filter(isTbdOwned);
+    const owned = selectCodexHooks(entries, true);
     if (owned.length > 0) {
       actualOwned[event] = owned;
     }
@@ -1673,6 +1748,7 @@ class SetupCodexHandler extends BaseCommand {
    * the Claude install but live under .codex/ so Codex never references .claude/.
    */
   private async installCodexHooks(cwd: string): Promise<void> {
+    const existing = (await readCodexHooksForSetup(cwd)) ?? {};
     if (this.checkDryRun('Would install Codex hooks', { path: './.codex/hooks.json' })) {
       return;
     }
@@ -1695,28 +1771,14 @@ class SetupCodexHandler extends BaseCommand {
       await rm(join(cwd, CODEX_GH_CLI_SCRIPT_REL), { force: true });
     }
 
-    // Merge our hooks into any existing .codex/hooks.json, removing prior
-    // tbd-owned entries (identified by the .codex/ script paths) so repeated
-    // runs stay idempotent and user-authored hooks are preserved.
-    let existing: { hooks?: Record<string, unknown[]> } = {};
-    try {
-      existing = JSON.parse(await readFile(codexPaths.hooks, 'utf-8')) as {
-        hooks?: Record<string, unknown[]>;
-      };
-    } catch {
-      // No existing file or unparseable; start fresh.
+    // Remove only generated handlers, including those in mixed user entries.
+    const merged: Record<string, CodexHookEntry[]> = {};
+    for (const [event, entries] of Object.entries(existing.hooks ?? {})) {
+      merged[event] = selectCodexHooks(entries, false);
     }
-
-    const isTbdOwned = (entry: unknown): boolean => {
-      const hooks = (entry as { hooks?: { command?: string }[] }).hooks ?? [];
-      return hooks.some((h) => h.command?.includes('.codex/'));
-    };
-
-    const merged: Record<string, unknown[]> = { ...(existing.hooks ?? {}) };
     const tbdHooks = getCodexHooksConfig(useGhCli).hooks;
     for (const [event, entries] of Object.entries(tbdHooks)) {
-      const userEntries = (merged[event] ?? []).filter((e) => !isTbdOwned(e));
-      merged[event] = [...userEntries, ...entries];
+      merged[event] = [...(merged[event] ?? []), ...entries];
     }
 
     await writeFile(

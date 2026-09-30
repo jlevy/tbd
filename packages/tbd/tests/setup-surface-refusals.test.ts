@@ -13,6 +13,7 @@
 import { spawnSync } from 'node:child_process';
 import {
   access,
+  mkdir,
   mkdtemp,
   readFile,
   readdir,
@@ -131,5 +132,87 @@ describe('setup surface refusals', { timeout: subprocessTestTimeout(60_000) }, (
     expect(agentsMd[0]!.status).toBe('warn');
     expect(agentsMd[0]!.message).toContain('symbolic link');
     expect(agentsMd[0]!.suggestion).toContain('regular file');
+  });
+
+  it('preserves unrelated Codex commands and mixed hook entries across refreshes', async () => {
+    const dir = join(projectDir, '.codex');
+    await mkdir(dir);
+    const unrelated = { type: 'command', command: 'bash .codex/custom.sh' };
+    const wrapped = { type: 'command', command: 'bash .codex/tbd-session.sh && echo custom' };
+    await writeFile(
+      join(dir, 'hooks.json'),
+      JSON.stringify({
+        custom: true,
+        hooks: {
+          SessionStart: [
+            {
+              matcher: 'custom',
+              extra: true,
+              hooks: [{ type: 'command', command: 'bash .codex/tbd-session.sh' }, unrelated],
+            },
+            { hooks: [wrapped] },
+          ],
+        },
+      }),
+    );
+    for (let runIndex = 0; runIndex < 2; runIndex++) {
+      const result = runTbd([
+        'setup',
+        '--auto',
+        '--prefix=test',
+        '--surfaces=codex',
+        '--no-gh-cli',
+      ]);
+      expect(result.status, result.stdout + result.stderr).toBe(0);
+      const parsed = JSON.parse(await readFile(join(dir, 'hooks.json'), 'utf-8'));
+      expect(parsed.custom).toBe(true);
+      expect(parsed.hooks.SessionStart).toEqual([
+        { matcher: 'custom', extra: true, hooks: [unrelated] },
+        { hooks: [wrapped] },
+        { matcher: '', hooks: [{ type: 'command', command: 'bash .codex/tbd-session.sh' }] },
+      ]);
+    }
+  });
+
+  it.each([
+    'invalid-json',
+    'invalid-shape',
+    'directory',
+    'linked-file',
+    'linked-directory',
+    'linked-script',
+  ])('refuses unsafe Codex %s before writing scripts or hooks', async (fixture) => {
+    const dir = join(projectDir, '.codex');
+    const sentinel = 'outside contents\n';
+    const outside = join(outsideDir, 'target');
+    await writeFile(outside, sentinel);
+    if (fixture === 'linked-directory') {
+      await symlink(outsideDir, dir, 'junction');
+    } else {
+      await mkdir(dir);
+      const hooks = join(dir, 'hooks.json');
+      if (fixture === 'directory') {
+        await mkdir(hooks);
+      } else if (fixture === 'linked-file') {
+        await symlink(outside, hooks, 'file');
+      } else if (fixture === 'linked-script') {
+        await symlink(outside, join(dir, 'tbd-closing-reminder.sh'), 'file');
+      } else {
+        await writeFile(
+          hooks,
+          fixture === 'invalid-json' ? '{broken' : '{"hooks":{"SessionStart":null}}',
+        );
+      }
+    }
+    const before = await readdir(dir);
+    const result = runTbd(['setup', '--auto', '--prefix=test', '--surfaces=codex', '--no-gh-cli']);
+    expect(result.status, result.stdout + result.stderr).not.toBe(0);
+    expect(await readdir(dir)).toEqual(before);
+    expect(await readFile(outside, 'utf-8')).toBe(sentinel);
+    if (fixture === 'invalid-json' || fixture === 'invalid-shape') {
+      expect(await readFile(join(dir, 'hooks.json'), 'utf-8')).toBe(
+        fixture === 'invalid-json' ? '{broken' : '{"hooks":{"SessionStart":null}}',
+      );
+    }
   });
 });

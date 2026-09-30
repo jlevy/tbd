@@ -905,7 +905,9 @@ worktrees. This provides:
 
 `tbd init` creates the shared worktree.
 In an initialized clone where it is missing or prunable, the first ordinary command that
-opens the data store materializes it under the shared lock:
+opens the data store repairs it under the shared lock.
+A prunable registration can leave the directory behind when only its `.git` file is
+missing; repair backs up that directory before removing it:
 
 ```bash
 # Create hidden worktree (done by tbd internally)
@@ -1010,10 +1012,10 @@ ls "$WORKTREE/.tbd/data-sync/issues/"
 | Operation | Worktree Action |
 | --- | --- |
 | `tbd init` | Attach an existing local/remote `tbd-sync`, or create and best-effort publish a fresh orphan when the remote branch is confirmed absent |
-| Ordinary data command | Auto-materialize a missing or prunable worktree under the shared lock; reject a corrupted worktree with `tbd doctor --fix` guidance |
+| Ordinary data command | Auto-materialize a missing worktree or repair a prunable one under the shared lock; back up any surviving prunable directory before removal and reject a corrupted worktree with `tbd doctor --fix` guidance |
 | `tbd sync --pull` | Fetch and merge through the shared worktree |
 | `tbd sync --push` | Commit and push directly from the attached shared worktree |
-| `tbd doctor` | Report worktree health; `--fix` initializes missing state and repairs prunable or corrupted state. The current corrupted-worktree backup defect below is a release blocker |
+| `tbd doctor` | Report worktree health; `--fix` initializes missing state and repairs prunable or corrupted state, backing up a surviving directory before removal |
 | Repo clone | Worktree created on the first ordinary data command |
 
 **Invariant:** The hidden worktree at `$GIT_COMMON_DIR/tbd/data-sync-worktree/` always
@@ -1036,7 +1038,8 @@ START: Ordinary tbd data command
     │   ├─ CORRUPTED → Fail without removing anything; run `tbd doctor --fix`
     │   └─ MISSING or PRUNABLE ↓
     │
-    ├─ Acquire the shared data-sync lock; prune stale worktree registration
+    ├─ Acquire the shared data-sync lock; back up any surviving prunable directory,
+    │  then remove it and prune stale worktree registration
     │
     ├─ Does tbd-sync exist locally or remotely?
     │   ├─ YES (local) → git worktree add $GIT_COMMON_DIR/tbd/data-sync-worktree tbd-sync
@@ -1057,7 +1060,8 @@ START: Ordinary tbd data command
 | Fresh `tbd init` | Create and scaffold an orphan worktree; immediately attempt to publish it when a remote is configured |
 | Clone with a missing worktree | The first ordinary data command fetches and creates the worktree automatically |
 | Registered worktree whose directory was removed | The first ordinary data command prunes and recreates it automatically |
-| Existing local worktree corrupted | Ordinary commands fail closed; `tbd doctor --fix` attempts a backup, removes it, and recreates it. See the release blocker below |
+| Prunable worktree with a surviving directory | The first ordinary data command backs up the directory, removes it, and recreates the worktree; a failed backup leaves the directory untouched |
+| Existing local worktree corrupted | Ordinary commands fail closed; `tbd doctor --fix` backs it up before removal and recreation, or leaves it untouched if backup fails |
 | Worktree exists but stale | `tbd sync` updates to latest commit |
 
 #### Worktree Health States
@@ -1068,19 +1072,16 @@ The worktree can be in one of four states, detected by `checkWorktreeHealth()`:
 | --- | --- | --- | --- |
 | `valid` | Healthy, ready to use | Directory has a live registration, a valid `.git` link, and an attached `HEAD` on the configured sync branch | None needed |
 | `missing` | Directory doesn’t exist and Git has no live registration | Filesystem and worktree-registry checks | Auto-create from the local or remote branch on the next ordinary data command |
-| `prunable` | Directory was deleted but Git still tracks it | `git worktree list --porcelain` shows prunable | Auto-prune and recreate on the next ordinary data command |
-| `corrupted` | Directory exists but is unregistered, invalid, detached, or on the wrong branch | Filesystem, `.git`, registry, `HEAD`, and branch checks | Fail closed; `tbd doctor --fix` attempts a backup, then removes and recreates the directory. See the release blocker below |
+| `prunable` | Git still tracks a worktree whose directory or `.git` file is missing | `git worktree list --porcelain` shows prunable | Auto-prune and recreate on the next ordinary data command; if the directory survives, back it up before removal and report its path for manual recovery |
+| `corrupted` | Directory exists but is unregistered, invalid, detached, or on the wrong branch | Filesystem, `.git`, registry, `HEAD`, and branch checks | Fail closed; `tbd doctor --fix` backs up the directory before removal and recreation |
 
-**Release blocker: backup before removal (`tbd-dmkd`).** A corrupted worktree may still
-contain uncommitted issue data.
-The required behavior is to finish a verified backup in
-`$GIT_COMMON_DIR/tbd/backups/corrupted-worktree-backup-<timestamp>/` before removing the
-occupant.
-
-The shipped `tbd doctor --fix` implementation attempts that copy, but catches a copy
-failure, continues with recursive removal, and still reports the intended backup path.
-It therefore does not currently guarantee backup-before-delete or prevent data loss.
-`tbd-dmkd` is a P0 release blocker for that guarantee.
+A damaged worktree may contain uncommitted issue data.
+Repair copies a surviving `prunable` or `corrupted` directory to
+`$GIT_COMMON_DIR/tbd/backups/` before removing it.
+If the copy fails, repair leaves the original directory untouched and reports the
+failure.
+The backup path is reported for manual recovery; unsynced files are not restored
+automatically.
 
 **Detection algorithm:** `checkWorktreeHealth()` first inspects the worktree registry so
 it can distinguish a missing checkout from a prunable registration.
@@ -3792,8 +3793,10 @@ async run(options: SyncOptions): Promise<void> {
 ```
 
 The shared context repairs missing and prunable worktrees for ordinary commands.
-It never removes a corrupted worktree; only explicit `tbd doctor --fix` attempts that
-repair, subject to the `tbd-dmkd` P0 backup defect in §2.3.
+If a prunable directory survives, it backs up that directory and reports where to
+recover unsynced files.
+It never removes a corrupted worktree; only explicit `tbd doctor --fix` repairs one
+after a successful backup (§2.3).
 
 **Path Consistency Invariant:** All sync operations MUST use the resolved `dataSyncDir`
 path consistently.
@@ -4061,8 +4064,8 @@ The doctor command performs comprehensive health checks organized into categorie
 | Check | Severity | Auto-fixable | Detection |
 | --- | --- | --- | --- |
 | Worktree missing | ok (`not created yet`) | yes, with `--fix`; otherwise the next data command initializes it | Directory and live registration are absent |
-| Worktree prunable | error | yes | `git worktree list` shows prunable |
-| Worktree corrupted | error | yes, only through explicit `doctor --fix` | Unregistered occupant, missing or invalid `.git`, detached `HEAD`, or wrong branch |
+| Worktree prunable | error | yes | `git worktree list` shows prunable; the directory may still exist without its `.git` file |
+| Worktree corrupted | error | yes, only through explicit `doctor --fix` | Unregistered occupant, invalid `.git` not marked prunable by Git, detached `HEAD`, or wrong branch |
 
 An ordinary data command also repairs a missing or prunable worktree under the shared
 lock. Doctor keeps the prunable state visible when run without `--fix`, while a missing
@@ -4145,11 +4148,11 @@ Run `tbd doctor --fix` to auto-fix 2 issue(s)
 
 The `--fix` flag performs repairs in this order:
 
-1. If worktree corrupted:
-   - Attempt to copy it to
-     `$GIT_COMMON_DIR/tbd/backups/corrupted-worktree-backup-YYYYMMDD-HHMMSS/`
-   - Remove the corrupted worktree directory
-2. If worktree prunable: `git worktree prune`
+1. If a corrupted or prunable worktree still has a directory:
+   - Back it up under `$GIT_COMMON_DIR/tbd/backups/` before removing it; if backup
+     fails, leave the original directory untouched and report the failure
+   - Report the backup path so unsynced files can be recovered manually
+2. If worktree prunable: `git worktree prune` after preserving any surviving directory
 3. If worktree missing (or was just removed):
    - If local tbd-sync exists:
      `git worktree add $GIT_COMMON_DIR/tbd/data-sync-worktree tbd-sync`
@@ -4174,10 +4177,8 @@ The `--fix` flag performs repairs in this order:
 > Older clients may still have data in `.tbd/backups/`, which is kept gitignored for
 > legacy compatibility but is no longer the active write location.
 > Users can manually inspect backups in either location to recover any data that wasn’t
-> committed before the worktree became corrupted.
-> The current copy failure is swallowed before deletion and the intended path is still
-> reported. This is the `tbd-dmkd` P0 release blocker described under Worktree Lifecycle;
-> do not rely on the backup until that defect is fixed.
+> committed before the worktree became damaged.
+> Repair does not restore those files automatically.
 
 #### Compact (Future)
 
@@ -5743,6 +5744,10 @@ initialization, format migration, and the docs refresh run either way.
 | `codex` | `.codex/hooks.json` and scripts | The Codex hooks |
 | `codex-agents` | `.codex/agents/tbd-*.toml` | Codex tier agent definitions (§6.4.7) |
 
+The `codex` surface replaces only hook commands whose command exactly matches a
+generated tbd script, preserving unrelated commands even when they share an entry.
+It refuses malformed hook configuration and unsafe targets before changing Codex files.
+
 Setup and doctor inspect each generated file the same way, as `current`, `stale`,
 `missing`, `user-owned` (no tbd marker), or `too-new`, so they cannot disagree about
 whether a file is safe to replace.
@@ -6171,7 +6176,8 @@ checkout.
 
 - Edge case: stale worktree if not synced recently
 
-- Edge case: worktree can become “prunable” if directory deleted outside of git
+- Edge case: worktree can become “prunable” if its directory or `.git` file is deleted
+  outside of git
 
 **Mitigations**:
 
@@ -6180,8 +6186,10 @@ checkout.
 
 - Ordinary data commands heal missing and prunable worktrees at the point of use
 
-- `tbd doctor --fix` attempts to back up and repair corrupted worktrees.
-  The backup-before-delete failure in `tbd-dmkd` is a P0 release blocker
+- `tbd doctor --fix` backs up corrupted worktrees before removing them, and refuses
+  removal if the backup fails.
+  Ordinary commands apply the same rule to a surviving prunable directory and report the
+  backup for manual recovery
 
 - The direct `.tbd/data-sync/` fallback remains limited to tests and diagnostics
 
@@ -6504,7 +6512,7 @@ This is sufficient for the `ready` command algorithm.
 | `bd status` | `tbd stats` | ⚡ Different | Beads aliases status=stats; tbd separates them |
 | *(no equivalent)* | `tbd status` | ✅ New | Works pre-init, detects beads, shows integrations |
 | `bd doctor` | `tbd doctor` | ✅ Full | Health checks |
-| `bd doctor --fix` | `tbd doctor --fix` | ⚠️ Current defect | `tbd-dmkd` blocks backup-before-delete safety |
+| `bd doctor --fix` | `tbd doctor --fix` | ✅ Full | Backs up damaged worktrees before removal; refuses repair if backup fails |
 | `bd stats` | `tbd stats` | ✅ Full | Issue statistics |
 | Beads migration | `tbd setup --from-beads` | ⚠️ Current defect | One-source setup flow; see `tbd-lgtd` |
 | `bd import` | `tbd import <file>` | ✅ Partial | Explicit Beads-compatible JSONL import |
