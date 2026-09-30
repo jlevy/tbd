@@ -1,6 +1,6 @@
 # Research: Sub-Agents in Claude Code and Codex: Mechanics, Vendor Guidance, and Practice
 
-**Date:** 2026-02-13 (last updated 2026-09-18)
+**Date:** 2026-02-13 (last updated 2026-09-30)
 
 **Author:** Joshua Levy, with Claude (Opus 5 and Fable 5.1) and research sub-agents
 
@@ -11,7 +11,9 @@ The Codex and OpenAI facts were re-verified on 2026-09-17 against the Codex and 
 documentation and the openai/codex source at commit `b0659c53`; corrections are noted
 where they were made.
 OpenAI prompt-caching figures (retention, write/read multipliers, `prompt_cache_key`,
-and reasoning-effort invalidation) were re-read on 2026-09-18 [V42], [V46].
+and reasoning-effort invalidation) were re-read on 2026-09-18 [V42], [V46]. Current
+model mappings and the Opus 5.5 and GPT-6.1 Sol cache exceptions were checked on
+2026-09-30 [V17], [V23], [V39], [V40], [V42], [V43], [V46].
 
 **Related:**
 
@@ -303,21 +305,20 @@ while a spawn or definition that names a model keeps it unless the force flag is
 
 #### Model Aliases and Environment Overrides
 
-*(Table re-verified 2026-09-16 [V23]; the February 2026 table had `opus` at Opus 4.6 and
-`sonnet` at Sonnet 4.5 and did not list `fable` or `best`.)*
+*(Re-verified 2026-09-30 [V23]. Provider mappings can lag the Anthropic API.)*
 
-| Alias | Resolves to (Anthropic API, 2026-09-16) |
+| Alias | Resolves to (Anthropic API, 2026-09-30) |
 | --- | --- |
 | `default` | Clears the override; the account type’s default (below) |
 | `best` | `fable` where available, otherwise `opus` |
 | `fable` | Fable 5.1 (Fable 5 through the Claude apps gateway); the top tier above Opus |
-| `opus` | Opus 5 (Opus 4.6 on Microsoft Foundry) |
-| `sonnet` | Sonnet 5 (Sonnet 4.6 on Claude Platform on AWS; 4.5 on Bedrock, Google Cloud, and Foundry) |
+| `opus` | Opus 5.5 (Opus 4.6 on Microsoft Foundry) |
+| `sonnet` | Sonnet 5.5 (Sonnet 4.6 on Claude Platform on AWS; 4.5 on Bedrock, Google Cloud, and Foundry) |
 | `haiku` | Latest Haiku |
 | `opus[1m]`, `sonnet[1m]` | The same models with a 1M-token context window |
 | `opusplan` | Opus in plan mode, Sonnet for execution |
 
-To pin a specific version, use the full model ID (for example `claude-opus-5`).
+To pin a specific version, use the full model ID (for example `claude-opus-5-5`).
 Environment variables override the aliases [V23]:
 
 | Environment variable | Overrides |
@@ -330,14 +331,13 @@ Environment variables override the aliases [V23]:
 
 #### Default Model by Account Type, and Fallback
 
-*(Table re-verified 2026-09-16 [V23]; the February 2026 table listed Opus 4.6
-throughout.)*
+*(Re-verified 2026-09-30 [V23]; user and organization selections can override these
+account-type defaults.)*
 
-| Account type | Default model (2026-09-16) |
+| Account type | Default model (2026-09-30) |
 | --- | --- |
-| Max, Team Premium, Enterprise, Anthropic API | Opus 5 |
-| Pro, Team Standard | Sonnet 5 |
-| Claude Platform on AWS, Amazon Bedrock, Google Cloud Agent Platform | Opus 5 |
+| Pro, Max, Team, Enterprise, Anthropic API | Opus 5.5 |
+| Claude Platform on AWS, Amazon Bedrock, Google Cloud Agent Platform | Opus 5.5 |
 | Microsoft Foundry | Sonnet 4.5 |
 
 An organization default model (v2.1.196+) replaces these when an admin sets one.
@@ -350,9 +350,9 @@ re-verified. What the page documents [V23]:
   in settings switches models when the primary is overloaded or returns a non-retryable
   server error. When a sub-agent’s request fails over (v2.1.247+), the sub-agent
   continues on the fallback model and the session’s model is unchanged.
-- **Content-based fallback:** safety classifiers can move a Fable 5.x or Opus 5 request
-  to an older model for flagged categories; the session then stays on that model until
-  `/model` is run.
+- **Content-based fallback:** safety classifiers can move a Fable 5.x or Opus 5.5
+  request to an older model for flagged categories; the session then stays on that model
+  until `/model` is run.
 
 Either kind can put strong-tier work on a weaker model without the coordinator noticing,
 one reason the tbd plan records the requested tier rather than trusting a sub-agent’s
@@ -365,39 +365,46 @@ self-report.
 - The `fable` alias is the most capable model and ranks above `opus` [V1], [V6], [V23].
 - Effort levels are `low`, `medium`, `high`, `xhigh`, and `max`; not every model that
   supports `max` supports `xhigh` [V6].
-- `high` is the default and the recommended starting point for Fable 5.1 and Opus 5.
-  Step up to `xhigh` or `max` for the most capability-sensitive agentic and coding work,
-  and down to `medium` or `low` for routine work once evaluations show quality holds
-  [V6].
+- `high` is the default starting point for Fable 5.1. Opus 5.5 and Sonnet 5.5 default to
+  `medium`; start there for routine work and step up for tasks that need more
+  verification or deeper reasoning [V23].
 - The effort table lists `low` for simple tasks “such as subagents” [V6].
 - Opus 5 review accuracy holds at lower effort [V7].
 
-**OpenAI** (re-read 2026-09-17):
+**OpenAI** (current Codex models re-read 2026-09-30 [V17]):
 
 - GPT-6 Astra (`gpt-6-astra`) is OpenAI’s most capable model, for the hardest end-to-end
   work; it runs in the Codex CLI, app, and IDE extension but not Codex cloud, and
   supports `low`, `medium`, `high`, `xhigh`, and `max` but not `none` [V17], [V18].
-- The GPT-5.6 family ranks below it: Sol (`gpt-5.6-sol`, the most capable GPT-5.6
-  model), Terra (balanced), and Luna (fast and inexpensive).
-  In the API, `gpt-5.6` routes to Sol, and Sol supports `none`, `low`, `medium` (the
-  default), `high`, `xhigh`, and `max`; of the four, only Sol runs in Codex cloud [V17].
-  The subagents page suggests `gpt-5.6` for demanding agents and `gpt-5.6-terra` or
-  `gpt-5.6-luna` for lighter sub-agent work [V13].
+- GPT-6.1 Sol (`gpt-6.1-sol`) is the recommended Codex model for complex coding when
+  available to the account and client.
+  GPT-6 Sol (`gpt-6-sol`) remains an available fallback during its rollout.
+  GPT-6 Luna (`gpt-6-luna`) suits focused, repeatable tasks.
+  Astra remains the most capable choice for the hardest work [V17]. The September 17
+  research used GPT-5.6 Sol before the GPT-6 Sol and GPT-6.1 Sol recommendations
+  appeared.
 - In Codex, `model_reasoning_effort` sets the level; the app’s “Extra High” is `xhigh`,
   `max` spends more time on one task, and `ultra` also uses sub-agents in parallel;
   `ultra` is limited to eligible accounts and supported models, and in the source it is
   the level at which V2 switches from explicit-request-only to proactive delegation
   [V13], [V16], [V17].
-- GPT-5.5 retires from Codex for ChatGPT sign-in on 2026-10-14, replaced by
-  `gpt-5.6-sol` [V17].
+- GPT-5.5 retires from Codex for ChatGPT sign-in on 2026-10-14; choose an available
+  GPT-6 model for saved settings and custom agents [V17].
 
-**Mapping to tbd’s tiers** (suggestions as of 2026-09-16):
+**Mapping to tbd’s tiers** (suggestions as of 2026-09-30; check local model availability
+before spawning [V17], [V23]). The tier definitions rank capability in general; this
+project’s standard Claude choice is pinned Opus 5.5 for all three tiers.
 
 | Tier | Definition | Anthropic example | OpenAI example |
 | --- | --- | --- | --- |
-| strong | Strongest model from the provider, highest or second-highest level | Fable at `max` or `xhigh` | GPT-6 Astra at `max` or `xhigh` |
-| moderate | Next-tier model, highest or second-highest level | Opus at `max` or `xhigh` | GPT-5.6 Sol at `max` or `xhigh` |
-| fast | Next-tier model, middle levels | Opus at `high` or `medium` | GPT-5.6 Sol at `high` or `medium` |
+| strong | Strongest model from the provider by default, highest or second-highest level | Opus 5.5 (`claude-opus-5-5`) at `max` or `xhigh` | GPT-6 Astra (`gpt-6-astra`) at `max` or `xhigh` |
+| moderate | Next-tier model, highest or second-highest level | Opus 5.5 (`claude-opus-5-5`) at `max` or `xhigh` | GPT-6.1 Sol (`gpt-6.1-sol`) at `max` or `xhigh` |
+| fast | Next-tier model, middle levels | Opus 5.5 (`claude-opus-5-5`) at `high` or `medium` | GPT-6.1 Sol (`gpt-6.1-sol`) at `high` or `medium` |
+
+Use `gpt-6-sol` for moderate and fast Codex agents when `gpt-6.1-sol` is unavailable in
+the session’s model catalog.
+The 2026-09-16 mapping used Fable for strong Claude work and GPT-5.6 Sol for moderate
+and fast Codex work; it is historical.
 
 ### Context Transfer and Forks
 
@@ -851,10 +858,12 @@ instructions, and file reads append as messages, so they never disturb the cache
 [V39].
 
 Pricing (Claude API) [V40]: a cache write costs 1.25 times the base input price with the
-5-minute TTL and 2 times with the 1-hour TTL; a cache read costs 0.1 times base (0.025
-times on Fable 5.1 and Mythos 5.1). The minimum cacheable prefix is 512 tokens on Fable
-5, Fable 5.1, and Opus 5 (1,024 on Sonnet 5 and Opus 4.8; 4,096 on Opus 4.6 and Haiku
-4.5). The TTL is measured from the start of the request that wrote or read the entry,
+5-minute TTL and 2 times with the 1-hour TTL; a cache read costs 0.1 times base, 0.05
+times on Opus 5.5, or 0.025 times on Fable 5.1 and Mythos 5.1. The minimum cacheable
+prefix is 512 tokens on Fable 5, Fable 5.1, Opus 5.5, Opus 5, and Sonnet 5.5 (1,024 on
+Sonnet 5 and Opus 4.8; 4,096 on Opus 4.6 and Haiku 4.5). Bedrock has its own model
+minimums.
+The TTL is measured from the start of the request that wrote or read the entry,
 and reading within the TTL refreshes it at no extra cost.
 Caches are per model: identical prompts to Fable and to Opus are two entries [V39].
 Caches are effectively per machine and directory in Claude Code, because the system
@@ -866,11 +875,13 @@ Two settings split the cache without changing the prompt text [V39], [V40]:
 
 - **Model.** Each model has its own cache; a switch recomputes the entire request.
 - **Effort.** On most models each effort level has its own cache, so a change recomputes
-  the entire request. On Fable 5.1 with an API key or a Claude subscription the cache
-  survives an effort change (v2.1.260+); this does not hold on Bedrock, Google Cloud, or
-  a Claude apps gateway, or with `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS`. At the API
-  level, a change to `output_config.effort` always invalidates the messages cache, and
-  whether it invalidates the tools and system caches is model-specific.
+  the entire request. On Opus 5.5, Sonnet 5.5, and Fable 5.1 with an API key or a Claude
+  subscription, Claude Code preserves the cache across effort changes [V39]. This does
+  not hold on Bedrock, Google Cloud, a Claude apps gateway, HIPAA configurations, or
+  with `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS`. Before v2.1.260, Fable 5.1 also missed.
+  At the API level, changing top-level `output_config.effort` invalidates the messages
+  cache, except that explicitly setting the default equals omitting it.
+  Whether the change invalidates tools and system caches is model-specific [V40].
 
 #### Prompt Caching: What Happens When a Sub-Agent Starts
 
@@ -903,13 +914,12 @@ The Claude Code prompt caching page has a section on this [V39], and its rules a
   sub-agents spawned in the same instant all miss; the Workflow tool holds all but the
   first of a same-prefix fan-out for up to 5 seconds for this reason; the page documents
   the hold for workflow fan-outs only.
-- **Different tiers do not share.** `tbd-strong` (Fable) and `tbd-moderate` (Opus) are
-  on different models; `tbd-moderate` (`xhigh`) and `tbd-fast` (`medium`) are on the
-  same model at different effort levels, which on Opus are different caches.
-  Their definition bodies also differ, naming the agent and its tier, so the prefixes
-  diverge in the body as well as in the model and effort.
-  Nothing is lost by this, because they were never going to share a prefix with the
-  coordinator either.
+- **Different tiers do not share a full prefix.** The current Claude tier definitions
+  use Opus 5.5 at different effort levels, but their definition bodies also differ,
+  naming the agent and its tier.
+  That difference prevents a full-prefix match even where Claude Code preserves the
+  cache across effort changes.
+  They do not share a full prefix with the coordinator either.
 
 Cache hits and misses are visible per turn as `cache_read_input_tokens` and
 `cache_creation_input_tokens`, per session in `/usage` (the `Prompt cache (main)` line
@@ -932,7 +942,7 @@ as of 2026-09-17 (about 4 bytes per token):
 | Docs `CLAUDE.md` tells the agent to read (`development.md`, `docs-overview.md`, `general-eng-agent-principles`) | about 10k | Once per spawn, as ordinary input that is then cached |
 | `tbd shortcut review-github-pr` + `pr-review-workflows` + `code-review-rules` | about 3k + 5k + 3k | Once per spawn, then cached |
 | The diff and the files it reads | task-dependent | Once, then cached |
-| Every later turn | the whole prefix at 0.1x (0.025x on Fable 5.1) plus the new tool result | Per turn |
+| Every later turn | the whole prefix at the model’s cache-read rate plus the new tool result | Per turn |
 
 At Opus 5 list prices ($5 per million input tokens), the one-time write of a 20k-token
 prefix is about $0.13 with the 5-minute TTL, and each later turn re-reads it for about
@@ -941,7 +951,7 @@ it runs, and its output), not by starting fresh.
 
 A fork of a 150k-token coordinator context, by comparison, pays a cache read of 150k
 tokens on its first request (about $0.075 at Opus, less on Fable 5.1) and again on every
-turn. The worked example below (a 30-turn review on Opus 5) puts that at about $2.40 in
+turn. The worked example below (a 30-turn review on Opus 5) puts that at about $2.55 in
 cache reads as a fork against about $0.60 as a fresh sub-agent with a 20k-to-60k prefix,
 before the work itself.
 The fork also cannot change model or effort and is anchored on the coordinator’s
@@ -984,8 +994,8 @@ Three practical rules follow:
 
 *(Added 2026-09-17.)* The rules above follow from one mechanism, and working from it
 explains every cost figure in this brief.
-Prices are Claude API list prices on 2026-09-17 [V43]. OpenAI multipliers and list
-prices were re-read on 2026-09-18 [V42], [V46].
+The worked examples use Claude API list prices from 2026-09-17 [V43]. Current Claude and
+OpenAI model prices were re-read on 2026-09-30 [V42], [V43], [V46].
 
 **Why a cache exists.** A model has no memory between requests.
 Every turn of an agent loop is a new request carrying the entire conversation so far:
@@ -1005,7 +1015,7 @@ is model-specific) and why any change before a given point changes everything af
 
 | Bucket | Field | Price (multiplier of base input) |
 | --- | --- | --- |
-| Read from cache | `cache_read_input_tokens` | 0.1x (0.025x on Fable 5.1 and Mythos 5.1) |
+| Read from cache | `cache_read_input_tokens` | 0.1x on most models; 0.05x on Opus 5.5; 0.025x on Fable 5.1 and Mythos 5.1 |
 | Written to cache now | `cache_creation_input_tokens` | 1.25x for a 5-minute entry, 2x for a 1-hour entry |
 | Neither (after the last breakpoint) | `input_tokens` | 1x |
 
@@ -1020,10 +1030,11 @@ the previous turn’s entry [V40].
 
 The consequence for an agent loop: on a normal turn, the whole prior conversation is a
 read and only the last exchange (the model’s previous output plus the new tool result)
-is a write. A turn costs roughly `0.1 × prefix + 1.25 × new` (Opus) or
-`0.025 × prefix + 1.25 × new` (Fable 5.1), in units of the base input price, plus
-output. Growing context therefore costs about a tenth of what the context size suggests,
-and a long session’s per-turn cost grows linearly but slowly.
+is a write. At the dated Opus 5 prices below, a turn costs roughly
+`0.1 × prefix + 1.25 × new`, in units of the base input price, plus output.
+For Opus 5.5 the prefix factor is `0.05`; for Fable 5.1 it is `0.025`. Growing context
+therefore costs a fraction of what the context size suggests, and a long session’s
+per-turn cost grows linearly but slowly.
 
 **Why writes cost more than reads and why the 1-hour entry costs twice.** A write is the
 full prefill plus storage; a read is storage retrieval.
@@ -1034,24 +1045,27 @@ caching after a few turns; the 1-hour entry beats the 5-minute one only when a g
 between requests exceeds five minutes, and an agent that takes one turn and stops pays
 double for nothing.
 
-**Per-model prices as of 2026-09-17** [V43], per million tokens:
+**Per-model prices.** The Opus 5.5 and Sonnet 5.5 rows were checked on 2026-09-30; the
+other rows preserve the 2026-09-17 comparison [V40], [V43]. Prices are per million
+tokens:
 
 | Model | Base input | 5m write | 1h write | Read | Output | Min cacheable prefix |
 | --- | --- | --- | --- | --- | --- | --- |
 | Fable 5.1 | $10 | $12.50 | $20 | $0.25 | $50 | 512 |
 | Fable 5 | $10 | $12.50 | $20 | $1 | $50 | 512 |
+| Opus 5.5 | $4 | $5 | $8 | $0.20 | $20 | 512 |
 | Opus 5 | $5 | $6.25 | $10 | $0.50 | $25 | 512 |
 | Opus 4.8 | $5 | $6.25 | $10 | $0.50 | $25 | 1,024 |
+| Sonnet 5.5 | $2 | $2.50 | $4 | $0.20 | $10 | 512 |
 | Sonnet 5 | $2 | $2.50 | $4 | $0.20 | $10 | 1,024 |
 | Haiku 4.5 | $1 | $1.25 | $2 | $0.10 | $5 | 4,096 |
 
 Three things in this table change the arithmetic between tiers:
 
-- **Fable 5.1 reads at 2.5%, not 10%.** Its base input is twice Opus 5’s, but a cached
-  read is half the price of an Opus 5 read.
-  A long strong-tier review on Fable 5.1 therefore pays less per turn for its context
-  than the same review on Opus 5, and the Fable premium is concentrated in the first
-  write and in output.
+- **Fable 5.1 reads at 2.5%, not 10%.** In the September 17 comparison, its base input
+  is twice Opus 5’s, but a cached read is half the price of an Opus 5 read.
+  Opus 5.5 now reads at 5%, or $0.20 per million, less than Fable 5.1’s $0.25. The dated
+  strong-tier Fable comparison below uses Opus 5 prices, not today’s Opus 5.5 tier.
   Fable 5 (not 5.1) reads at 10%, so this applies to 5.1 only.
 - **Models from Opus 4.7 on tokenize about 30% more tokens for the same text** [V43], so
   a token count measured on Sonnet 4.6 or earlier understates what Opus 5 and Fable
@@ -1114,15 +1128,16 @@ for sub-agents:
   escape hatch on Fable 5.1, Mythos 5.1, and Opus 5: a `{"role": "system"}` message with
   empty content and an `output_config.effort`, appended to `messages` (beta
   `mid-conversation-output-config-2026-07-01`), changes the effort from that point on
-  without touching the cached prefix [V45]. Claude Code uses this so that Fable 5.1 on
-  an API key or subscription keeps the cache across an effort change (v2.1.260+), and
-  documents the exception for Fable 5.1 only [V39]. Thinking configuration
-  (`budget_tokens`, mode) behaves the same way as a top-level effort change.
-  For tiers: `tbd-moderate` at `xhigh` and `tbd-fast` at `medium` on Opus have separate
-  full prefixes. On Fable 5.1 through the API or a subscription, effort alone does not
-  invalidate an otherwise identical prefix.
-  `tbd-strong` and `tbd-strong-max` still have different definition bodies, so they do
-  not share a full prefix [V39].
+  without touching the cached prefix [V45]. Claude Code now keeps the cache across an
+  effort change on Opus 5.5, Sonnet 5.5, and Fable 5.1 with an API key or subscription
+  [V39]. Thinking configuration (`budget_tokens`, mode) behaves the same way as a
+  top-level effort change.
+  For tiers: `tbd-moderate` at `xhigh` and `tbd-fast` at `medium` on Opus 5.5 have
+  different definition bodies and therefore separate full prefixes.
+  With an API key or subscription, effort alone does not invalidate an otherwise
+  identical prefix on Opus 5.5, Sonnet 5.5, or Fable 5.1. `tbd-strong` and
+  `tbd-strong-max` still have different definition bodies, so they do not share a full
+  prefix [V39].
 - *Thinking blocks across turns.* On Opus 4.5 and later and Sonnet 4.6 and later,
   earlier thinking blocks stay in the context and the cache holds across a
   non-tool-result user turn; on earlier models and Haiku 4.5, a non-tool-result user
@@ -1242,23 +1257,25 @@ It also displaces context.
 This is the arithmetic behind the “page or two” rule in `delegate-to-subagents`.
 
 **Bedrock, Google Cloud, Foundry, and gateways.** The mechanism is the same but the
-cache lives in the provider’s infrastructure, prompt caching support and 1-hour
-availability vary by model on Bedrock (the per-model minimum prefix is the same on every
-platform [V40]), the effort-change exception for Fable 5.1 does not apply, and a gateway
-that strips `cache_control` markers silently turns every turn into full-price input
-[V39]. Check `cache_read_input_tokens` in the response before assuming caching works
-through any intermediary.
+cache lives in the provider’s infrastructure, and prompt caching support, minimum prefix
+length, and 1-hour availability vary by model on Bedrock [V39], [V40]. The effort-change
+exception for Opus 5.5, Sonnet 5.5, and Fable 5.1 does not apply on Bedrock or Google
+Cloud. A gateway that strips `cache_control` markers silently turns every turn into
+full-price input [V39]. Check `cache_read_input_tokens` in the response before assuming
+caching works through any intermediary.
 
-**Codex and the OpenAI API.** *(OpenAI pages re-read 2026-09-18 [V42], [V46]; Codex
+**Codex and the OpenAI API.** *(OpenAI pages re-read 2026-09-30 [V42], [V46]; Codex
 facts remain from source [V44].)*
 
 OpenAI now has two caching regimes, and the older “automatic prefix, no write premium”
 description applies only to models before GPT-5.6.
 
-- **GPT-5.6 and later** (including `gpt-5.6-sol` and `gpt-6-astra`) [V42], [V46]: cache
-  writes cost 1.25× uncached input and cache reads 0.1× (list prices on 2026-09-18,
-  standard short context: `gpt-5.6-sol` $4 / $0.40 cached / $5.00 write per 1M;
-  `gpt-6-astra` $10 / $1.00 / $12.50). The minimum cacheable prefix is 1,024 tokens.
+- **GPT-5.6 and later** (including `gpt-6.1-sol` and `gpt-6-astra`) [V42], [V46]: cache
+  writes cost 1.25× uncached input and cache reads 0.1× on most models, or 0.05× on
+  GPT-6.1 Sol (standard short-context list prices on 2026-09-30: `gpt-6.1-sol` $2 /
+  $0.10 cached / $2.50 write per 1M; `gpt-6-astra` $10 / $1.00 / $12.50). The earlier
+  2026-09-18 comparison used `gpt-5.6-sol` at $4 / $0.40 cached / $5.00 write per 1M.
+  The minimum cacheable prefix is 1,024 tokens.
   Default lifetime is `prompt_cache_options.ttl: "30m"` (the only supported TTL): an
   entry stays eligible for 30 minutes after the latest write or reuse, and OpenAI may
   keep it longer. Both implicit and explicit caching exist.
@@ -1312,9 +1329,10 @@ description applies only to models before GPT-5.6.
   different task message misses the parent’s prefix.
 
 The practical difference is no longer “Claude charges for writes, OpenAI does not.”
-On GPT-5.6+ both providers bill a 1.25× write and a 0.1× read.
-Claude still offers an explicit 1-hour TTL (2× write) beside the 5-minute default;
-OpenAI’s documented TTL on GPT-5.6+ is 30 minutes.
+On GPT-5.6+ both providers bill a 1.25× write.
+Most models read at 0.1×; Opus 5.5 and GPT-6.1 Sol read at 0.05×, and Fable 5.1 and
+Mythos 5.1 at 0.025×. Claude still offers an explicit 1-hour TTL (2× write) beside the
+5-minute default; OpenAI’s documented TTL on GPT-5.6+ is 30 minutes.
 On earlier OpenAI models there is still no write premium, a shorter in-memory lifetime,
 and key-based routing.
 On both providers, keep the prefix constant per definition, append rather than edit,
@@ -2302,11 +2320,11 @@ coordination, but they are experimental and cost more tokens.
 - [x] Re-read the OpenAI prompt caching documentation and confirm the retention,
   discount, `prompt_cache_key`, and reasoning-effort figures marked as not re-verified
   in Caching From First Principles (the Codex and the OpenAI API paragraph).
-  Done 2026-09-18: GPT-5.6+ bills 1.25× writes and 0.1× reads with a 30-minute TTL and
-  needs an explicit breakpoint after stable instructions when the task suffix changes,
-  because implicit mode writes only at the latest eligible message ([V42], “A shared
-  prefix is not always a cached prefix”); earlier models keep automatic caching with no
-  write premium and no stated token minimum.
+  Done 2026-09-18: GPT-5.6+ billed 1.25× writes and 0.1× reads for the models checked
+  then, with a 30-minute TTL, and needs an explicit breakpoint after stable instructions
+  when the task suffix changes, because implicit mode writes only at the latest eligible
+  message ([V42], “A shared prefix is not always a cached prefix”); earlier models keep
+  automatic caching with no write premium and no stated token minimum.
   `client.rs` was re-read the same day and sets no `prompt_cache_options`, so Codex is
   in implicit mode. Tracked as `tbd-2f9j`.
 - [ ] Track openai/codex#20077: the handler applies overrides on full-history forks, but
@@ -2465,10 +2483,11 @@ added at consolidation for sources that only the Claude Code research cited.
   `multi_agents_tests.rs`; issue [#20077](https://github.com/openai/codex/issues/20077)
   (open, last updated 2026-09-01).
 
-- **[V17] ✓ (2026-09-17)** Codex, [Models](https://learn.chatgpt.com/docs/models) and
-  OpenAI, [GPT-5.6 Sol](https://developers.openai.com/api/docs/models/gpt-5.6-sol):
-  model lineup, ranking, surfaces, effort levels, `max` and `ultra`, GPT-5.5 retirement
-  date.
+- **[V17] ✓ (2026-09-30)** Codex, [Models](https://learn.chatgpt.com/docs/models) and
+  OpenAI, [GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol):
+  current model lineup, ranking, surfaces, rollout, effort levels, `max` and `ultra`,
+  GPT-5.5 retirement date.
+  The September 17 check used GPT-5.6 Sol.
 
 - **[V18] ✓ (2026-09-17)** OpenAI,
   [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra) and
@@ -2508,7 +2527,7 @@ added at consolidation for sources that only the Claude Code research cited.
   prompt and tool definitions (2026-09-16), kept outside the repository because it
   contains user-specific details; reviewed directly.
 
-- **[V23] ✓** Claude Code,
+- **[V23] ✓ (2026-09-30)** Claude Code,
   [Model configuration](https://code.claude.com/docs/en/model-config): model aliases,
   `ANTHROPIC_DEFAULT_*_MODEL` variables, `CLAUDE_CODE_SUBAGENT_MODEL` as the sub-agent
   default, effort levels, `opusplan`, default model by account type, fallback.
@@ -2595,13 +2614,13 @@ added at consolidation for sources that only the Claude Code research cited.
   full-history forks”, merged 2026-08-06 and first released in rust-v0.148.0
   (2026-08-18): removed the V2 rejection of `agent_type` on full-history forks.
 
-- **[V39] ✓ (2026-09-17)** Claude Code,
+- **[V39] ✓ (2026-09-30)** Claude Code,
   [How Claude Code uses prompt caching](https://code.claude.com/docs/en/prompt-caching):
   request layering, actions that invalidate or keep the cache, the two TTL buckets and
   `subagentPromptCacheTtl`, cache scope, the “Subagents and the cache” section, and how
   to read cache usage.
 
-- **[V40] ✓ (2026-09-17)** Claude Platform,
+- **[V40] ✓ (2026-09-30)** Claude Platform,
   [Prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching):
   pricing multipliers, minimum cacheable length per model, prefix order and invalidation
   (including thinking and effort changes), TTL and refresh, concurrency, and per-model
@@ -2615,20 +2634,21 @@ added at consolidation for sources that only the Claude Code research cited.
   embedded config files), and `codex-rs/core/assets/agent/builtins/awaiter.toml` (the
   built-in awaiter at `low` reasoning effort).
 
-- **[V42] ✓ (2026-09-18)** OpenAI,
+- **[V42] ✓ (2026-09-30)** OpenAI,
   [Prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching):
-  GPT-5.6+ vs earlier-model regimes; 1.25× cache writes and 0.1× cache reads on
-  GPT-5.6+; 1,024-token minimum; `prompt_cache_options.mode` / `ttl: "30m"`;
-  `prompt_cache_breakpoint`; `prompt_cache_key` as accounting on GPT-5.6+ and as routing
-  on earlier models; `prompt_cache_retention` (`in_memory`, `24h`) on earlier models;
-  `reasoning.effort` invalidation and `configuration_update` on supported GPT-6 models;
-  `cached_tokens` / `cache_write_tokens`. Replaces the 2026-09-17 memory-only note.
+  GPT-5.6+ vs earlier-model regimes; 1.25× cache writes, 0.1× reads on most models, and
+  0.05× reads on GPT-6.1 Sol; 1,024-token minimum; `prompt_cache_options.mode` /
+  `ttl: "30m"`; `prompt_cache_breakpoint`; `prompt_cache_key` as accounting on GPT-5.6+
+  and as routing on earlier models; `prompt_cache_retention` (`in_memory`, `24h`) on
+  earlier models; `reasoning.effort` invalidation and `configuration_update` on
+  supported GPT-6 models; `cached_tokens` / `cache_write_tokens`. Replaces the
+  2026-09-17 memory-only note.
 
-- **[V43] ✓ (2026-09-17)** Claude Platform,
+- **[V43] ✓ (2026-09-30)** Claude Platform,
   [Pricing](https://platform.claude.com/docs/en/about-claude/pricing): per-model base,
   cache write, cache read, and output prices; the Fable 5.1 and Mythos 5.1 0.025x read
-  rate; the tokenizer note for Opus 4.7 and later; break-even for the two cache
-  durations.
+  rate and Opus 5.5 0.05x read rate; the tokenizer note for Opus 4.7 and later;
+  break-even for the two cache durations.
 
 - **[V44] ✓ (2026-09-17)** openai/codex at `main` on 2026-09-17,
   `codex-rs/core/src/client.rs`: `prompt_cache_key` (session ID, or
@@ -2643,12 +2663,13 @@ added at consolidation for sources that only the Claude Code research cited.
   `mid-conversation-output-config-2026-07-01` on Fable 5.1, Mythos 5.1, and Opus 5);
   preserved thinking and the history-editing check on Fable 5.1. The public prompt
   caching page [V40] is the primary cite for the `max_tokens: 0` keep-alive and the
-  per-model minimum cacheable prefix applying on every platform.
+  per-model minimum cacheable prefix, with Bedrock-specific limits.
 
-- **[V46] ✓ (2026-09-18)** OpenAI,
+- **[V46] ✓ (2026-09-30)** OpenAI,
   [Pricing](https://developers.openai.com/api/docs/pricing): standard short-context list
-  prices for `gpt-6-astra` and `gpt-5.6-sol` (input, cached input, cache writes,
-  output). Cache-write is 1.25× input and cached input is 0.1× input on both.
+  prices for `gpt-6-astra` and `gpt-6.1-sol` (input, cached input, cache writes,
+  output). Cache-write is 1.25× input on both; cached input is 0.1× on Astra and 0.05× on
+  GPT-6.1 Sol. The September 18 check used GPT-5.6 Sol.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
