@@ -12,6 +12,25 @@ import { promisify } from 'node:util';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { subprocessTestTimeout } from './test-helpers.js';
+import { webUrlWithView } from '../src/cli/commands/web.js';
+
+describe('web view URL options', () => {
+  it('passes through untouched with no view options', () => {
+    expect(webUrlWithView('http://127.0.0.1:7777', {})).toBe('http://127.0.0.1:7777');
+  });
+
+  it('encodes the chosen view, and grouping implies the workmap', () => {
+    expect(webUrlWithView('http://127.0.0.1:7777', { view: 'workmap' })).toBe(
+      'http://127.0.0.1:7777/?view=workmap',
+    );
+    expect(webUrlWithView('http://127.0.0.1:7777', { groupPrefix: 'area:' })).toBe(
+      'http://127.0.0.1:7777/?view=workmap&group=area%3A',
+    );
+    expect(webUrlWithView('http://127.0.0.1:7777', { view: 'list', groupPrefix: 'area:' })).toBe(
+      'http://127.0.0.1:7777/?view=list&group=area%3A',
+    );
+  });
+});
 
 const execFileAsync = promisify(execFile);
 const packageDir = fileURLToPath(new URL('..', import.meta.url));
