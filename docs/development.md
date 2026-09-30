@@ -144,6 +144,54 @@ report the exact package/tag version.
 Design and implementation details are in
 [plan-2026-08-10-tbd-web-live-bead-view.md](project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md).
 
+### Review and policy contracts across docs
+
+Like the `tbd web` interaction contract, three agent workflow contracts are stated in
+several packaged docs and must read the same everywhere.
+Each has one defining document; the others route to it or summarize it.
+Tests in `packages/tbd/tests/` pin them, and they need no build, so run them after any
+edit to these docs:
+
+```bash
+pnpm --filter get-tbd exec vitest run \
+  tests/review-lifecycle-contract.test.ts tests/policy-grants-docs.test.ts
+```
+
+- **Review vocabulary.** The Request Vocabulary table in `pr-review-workflows` defines
+  the review requests, from “Review PR #N” to “Make sure PR #N is reviewed and merged”,
+  with the shortcut and mode each runs; the Modes table in `review-and-merge-prs`
+  matches it. Every skill tier (`skill-baseline`, `skill-brief`, `skill-minimal`) and the
+  README request table route each phrase, plus “Set up tbd” to `setup-tbd` and “You can
+  use sub-agents” to `delegate-to-subagents`; `welcome-user` routes “Set up tbd”.
+  `tests/review-lifecycle-contract.test.ts` checks the vocabulary and the skill tier
+  routes, and `tests/policy-grants-docs.test.ts` checks the setup and delegation routes.
+- **Review-state contract.** `pr-review-workflows` defines the versioned
+  `tbd:review v=1` and `tbd:dispositions v=1` markers and their field order, the five
+  review kinds, finding IDs, the four dispositions (fixed, rebutted, declined, or
+  deferred) with their evidence, and the one-round default; `review-and-merge-prs` holds
+  the one full merge gate.
+  `tests/review-lifecycle-contract.test.ts` checks every marker in the shipped docs,
+  that no doc states another disposition count or an incomplete set, the
+  cross-references between the lifecycle shortcuts, the round and merge-gate rules, and
+  the tiers in `agent-model-tiers`, whose dated suggestions are the only place those
+  docs name a model.
+- **Policy grants.** `agent-policy-grants` defines the policies, their values and
+  recommendations, the recommended set, the block syntax, and the setup questions.
+  The schema and block renderer in `packages/tbd/src/lib/policy-grants.ts` implement it;
+  the generated tbd block in `AGENTS.md`, `setup-tbd`, `delegate-to-subagents`,
+  `review-and-merge-prs`, and the skill’s GitHub Authorization section link to it; and
+  `stacked-prs`, both `create-or-update-pr` shortcuts, `setup-github-cli`, and the
+  generated tbd block state the `github-stacked-prs` condition.
+  `tests/policy-grants-docs.test.ts` compares the guideline’s tables, custom-value
+  examples, recommended set, and example block with the schema and renderer, and checks
+  those links, that condition, and the setup questions in `setup-tbd`.
+  `setup-flows.test.ts` and `golden-output.test.ts` pin the route from `tbd setup`
+  output to `setup-tbd`. The README, CLI manual (`tbd-docs.md`), and design doc
+  (`tbd-design.md` §6.4.8–6.4.9) summarize the contract and link to the guideline.
+  The design and CLI manual state that merge and review requirements are settable
+  grants: the four `github-merge` values, and that no value weakens
+  `pr-review-requirements`.
+
 ### Developing external tracker integrations
 
 Build first and exercise the published entry point; integration acceptance tests spawn

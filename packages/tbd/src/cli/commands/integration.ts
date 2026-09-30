@@ -873,7 +873,7 @@ class IntegrationUnlinkHandler extends BaseCommand {
 }
 
 export const integrationCommand = new Command('integration')
-  .description('Manage external tracker integrations (Linear, GitHub)')
+  .description('Manage external tracker integrations (Linear)')
   .addCommand(
     new Command('status')
       .description('Report whether each integration is configured, credentialed, and reachable')

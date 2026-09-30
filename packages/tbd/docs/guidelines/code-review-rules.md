@@ -18,7 +18,8 @@ Do not spend manual review time repeating work an effective passing gate already
 
 **Related**:
 
-- `tbd shortcut review-code` (the review procedure and artifact format)
+- `tbd shortcut review-code` (the review procedure)
+- `tbd shortcut pr-review-workflows` (finding IDs, review header, and artifact format)
 - `rust-code-review-rules` (unsafe and FFI review)
 - `general-eng-agent-principles` (objectivity)
 - `ci-and-gates-rules` (when the change is to a gate rather than to code)
@@ -113,6 +114,11 @@ If the design is sound, say so in one line and move on.
 “No better alternative found” is a finding worth recording; silence is not.
 
 ## Write Findings That Can Be Acted On
+
+The finding format (lettered IDs, the review header, and the artifact sections) is the
+review-state contract in `tbd shortcut pr-review-workflows`; this section covers the
+substance. Report every finding with its severity, and do not filter by severity: a Low
+finding is still reported, and the addressing agent can decline it.
 
 Each finding contains:
 

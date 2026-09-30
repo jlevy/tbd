@@ -68,6 +68,7 @@ Setup & Configuration:
   config                             Manage configuration
   setup [options]                    Configure tbd integration with editors and
                                      tools
+  policy                             Show and record agent policy grants
 
 Working With Issues:
   create [options] [title]           Create a new issue
@@ -112,7 +113,7 @@ Sync and Status:
                                      when claiming work
   stats                              Show repository statistics
   integration                        Manage external tracker integrations
-                                     (Linear, GitHub)
+                                     (Linear)
 
 Maintenance:
   doctor [options]                   Diagnose and repair repository

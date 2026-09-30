@@ -44,6 +44,12 @@ Every session must end with tbd in a clean state:
   `tbd shortcut setup-github-cli` and follow “Proxied Remote Sessions” before concluding
   gh is unavailable
 - Use `tbd create` for creating beads
+- Check agent policy grants before GitHub mutations, merging, or delegating to
+  sub-agents: `tbd prime` shows them, and `tbd policy show` is the full check.
+  Merge authorization (`github-merge`: `never`, `confirm-every`, `confirm-session`,
+  `autonomous`) and review requirements (`pr-review-requirements`) are settable grants,
+  not hardcoded; no `github-merge` value weakens `pr-review-requirements`. See
+  `tbd guidelines agent-policy-grants`
 - Git workflow: update or close issues and run `tbd sync` at session end
 - If not given specific directions, check `tbd ready` for available work
 
@@ -76,7 +82,8 @@ Every session must end with tbd in a clean state:
   never pipe to `head` (`tbd show --max-lines <n>`) or `grep` for IDs
   (`tbd search <partial-id>`). A bulk call shares one reason/field-set, so group beads
   by shared mutation and make one call per group
-- **Tip**: When creating multiple issues, use parallel subagents for efficiency
+- **Sub-agents**: To split work such as creating many issues across sub-agents, follow
+  `tbd shortcut delegate-to-subagents`; delegation requires the `subagents` grant
 
 Use `tbd start`, not a raw status update, to claim work.
 It records the acting agent in `delegate`. On an already in-progress bead, it reports a
@@ -151,7 +158,8 @@ tbd dep add <tests-id> <feature-id>   # Tests depend on feature
 - `tbd setup --from-beads` - In an uninitialized repository, import
   `.beads/issues.jsonl` and rename `.beads/` to `.beads-disabled/`; verify the import
 - `tbd setup --auto --surfaces=<list>` - Generate a comma-separated subset of
-  `portable`, `agents-md`, `claude`, and `codex`; omission installs all four
+  `portable`, `agents-md`, `claude`, `claude-agents`, `codex`, and `codex-agents` (the
+  `-agents` surfaces are the tier agent definitions); omission installs all six
 
 The surface selector controls only agent files; initialization, config and format
 migrations, and docs refresh still run.

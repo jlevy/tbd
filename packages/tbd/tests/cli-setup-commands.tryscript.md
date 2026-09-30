@@ -44,7 +44,10 @@ Options:
   --force            Allow non-recommended prefix format (not 2-8 alphabetic)
   --no-gh-cli        Disable automatic GitHub CLI installation hook
   --surfaces <list>  Comma-separated agent surfaces to install: portable,
-                     agents-md, claude, codex (or "all"). Default: all
+                     agents-md, claude, claude-agents, codex, codex-agents (or
+                     "all"). Default: all
+  --policies <set>   Record policy grants in AGENTS.md for unanswered policies;
+                     implies --auto (choices: "recommended")
   -h, --help         display help for command
 
 Global Options:

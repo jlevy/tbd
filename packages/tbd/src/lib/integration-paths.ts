@@ -13,21 +13,44 @@
  */
 
 import { join } from 'node:path';
-import { CURRENT_FORMAT } from './tbd-format.js';
 
 /**
- * Format version stamped into generated agent integration artifacts (e.g. the
- * AGENTS.md managed block's begin marker: `... format=f03 surface=...`).
+ * Format stamped into generated agent integration surfaces: the AGENTS.md
+ * managed block's begin marker (`<!-- BEGIN TBD INTEGRATION format=f100
+ * surface=agents-md -->`) and the DO NOT EDIT marker of every generated
+ * SKILL.md. It is a compatibility gate for those surfaces only.
  *
- * UNIFIED with the `.tbd/` directory format (`tbd_format`): there is one format
- * code for all tbd-managed surfaces, sourced from `tbd-format.ts` (the single
- * source of truth). Bump `CURRENT_FORMAT` there when any managed surface (config
- * schema OR a generated agent surface) changes shape. A marked AGENTS.md block
- * with no `format=` field predates this and is treated as `f01`; a running tbd
- * that finds a HIGHER format than it knows refuses to overwrite it and tells the
- * user to upgrade tbd.
+ * SEPARATE from the repository format (`CURRENT_FORMAT` in tbd-format.ts, the
+ * `tbd_format` in .tbd/config.yml). Through tbd 0.9.0 this constant aliased
+ * `CURRENT_FORMAT`, so the two series share the values f01 through f08. They
+ * were split so that a generated surface can gain content an older release must
+ * not rewrite (the policy grants block inside the AGENTS.md block) without
+ * migrating every repository and without spending f09, which
+ * docs/tbd-format-versioning.md reserves for the native-comments repository
+ * format.
+ *
+ * Values: the integration series continues at f100 and counts up by one (f100,
+ * f101, ...). Every reader, old and new, parses `format=f(\d+)` and compares
+ * the number (see managed-artifact.ts), so a pre-split release, whose ceiling
+ * is a two-digit repository format, refuses any three-digit stamp and prints
+ * the upgrade message instead of rewriting the surface. The width also keeps
+ * the two series apart for a human reader: two digits is a repository format,
+ * three digits is an integration format. No three-digit value is a key of
+ * FORMAT_HISTORY, so none can be accepted as a repository format.
+ *
+ * A marked AGENTS.md block with no `format=` field predates stamping and is
+ * read as f01; any stamp at or below this constant is rewritten in place.
+ *
+ * History:
+ * - f01..f08: aliased the repository format (tbd through 0.9.0).
+ * - f100: split from the repository format; the AGENTS.md block may carry a
+ *   policy grants block that older releases must not delete.
+ *
+ * Bump this constant, not CURRENT_FORMAT, when a generated surface changes so
+ * that an older release rewriting it would lose data or break the surface. See
+ * docs/tbd-format-versioning.md, "Generated Integration Format".
  */
-export const AGENT_INTEGRATION_FORMAT = CURRENT_FORMAT;
+export const AGENT_INTEGRATION_FORMAT = 'f100';
 
 // =============================================================================
 // Claude Code Integration Paths (project-local)
@@ -114,6 +137,40 @@ export const CODEX_HOOKS_REL = '.codex/hooks.json';
  * Codex project-local config; may also carry an inline `[hooks]` table.
  */
 export const CODEX_CONFIG_REL = '.codex/config.toml';
+
+// =============================================================================
+// Tier Agent Definition Paths (project-local)
+// =============================================================================
+
+/**
+ * Claude Code project agent definitions directory. `tbd setup` writes the
+ * generated tier definitions (`tbd-*.md`) here and never to `~/.claude/agents/`:
+ * a user-level definition appears in every project's agent list, so it would
+ * carry one project's instructions into every other project's sessions.
+ */
+export const CLAUDE_AGENTS_DIR_REL = '.claude/agents';
+
+/**
+ * Codex project custom agents directory; the generated tier definitions are
+ * `tbd-*.toml`. Project-scoped for the same reason as the Claude Code ones.
+ */
+export const CODEX_AGENTS_DIR_REL = '.codex/agents';
+
+/** The two platforms that get generated tier agent definitions. */
+export type TierAgentPlatform = 'claude' | 'codex';
+
+/** Relative path of one generated tier agent definition, by platform and name. */
+export function getTierAgentRel(platform: TierAgentPlatform, name: string): string {
+  return platform === 'claude'
+    ? `${CLAUDE_AGENTS_DIR_REL}/${name}.md`
+    : `${CODEX_AGENTS_DIR_REL}/${name}.toml`;
+}
+
+/** Display path for a platform's generated tier definitions in doctor output. */
+export const TIER_AGENTS_DISPLAY: Record<TierAgentPlatform, string> = {
+  claude: `${CLAUDE_AGENTS_DIR_REL}/tbd-*.md`,
+  codex: `${CODEX_AGENTS_DIR_REL}/tbd-*.toml`,
+};
 
 // Note on hook scripts: each agent surface writes its own copy of the hook
 // scripts under its own directory (Claude Code under `.claude/scripts/` and

@@ -445,6 +445,8 @@ const ALWAYS_LOAD_NAMES = new Set(['general-eng-agent-principles']);
 
 /** Language-neutral guidelines loaded when the work touches their topic. */
 const CROSS_CUTTING_NAMES = new Set([
+  'agent-model-tiers',
+  'agent-policy-grants',
   'agent-run-operations-rules',
   'backward-compatibility-rules',
   'ci-and-gates-rules',

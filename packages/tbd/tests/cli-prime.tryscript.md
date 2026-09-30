@@ -160,6 +160,80 @@ error: unknown option '--full'
 
 * * *
 
+## Prime with Agent Policy Grants
+
+Prime prints the grants committed on the default branch and names unanswered policies.
+Without a committed tbd block in AGENTS.md it says nothing about grants.
+
+# Test: Prime says nothing about grants without AGENTS.md
+
+```console
+$ tbd prime | grep -c "AGENT POLICY GRANTS"
+0
+? 1
+```
+
+# Test: Record grants in a working tree AGENTS.md
+
+```console
+$ printf '# Project\n\n<!-- BEGIN TBD INTEGRATION -->\n## tbd\n\n<!-- END TBD INTEGRATION -->\n' > AGENTS.md
+? 0
+```
+
+```console
+$ tbd policy grant github-editing && tbd policy set github-merge confirm-session && tbd policy set pr-review-requirements "standard + security"
+✓ Recorded github-editing: granted in AGENTS.md
+  Commit AGENTS.md on main for it to take effect. `tbd policy show` reports effective grants.
+✓ Recorded github-merge: confirm-session in AGENTS.md
+  Commit AGENTS.md on main for it to take effect. `tbd policy show` reports effective grants.
+✓ Recorded pr-review-requirements: standard + security in AGENTS.md
+  Commit AGENTS.md on main for it to take effect. `tbd policy show` reports effective grants.
+? 0
+```
+
+# Test: Uncommitted grants are not effective
+
+```console
+$ tbd prime | grep -c "AGENT POLICY GRANTS"
+0
+? 1
+```
+
+# Test: Prime shows committed grants and unanswered policies
+
+```console
+$ git add AGENTS.md && git commit -q -m "Record grants"
+? 0
+```
+
+```console
+$ tbd prime | sed -n '/=== AGENT POLICY GRANTS ===/,/setup-tbd/p'
+=== AGENT POLICY GRANTS ===
+Effective grants from AGENTS.md on main ...
+  github-editing: granted, github-merge: confirm-session,
+  pr-review-requirements: standard + security
+Unanswered (treated as not-granted): github-workflows, github-stacked-prs, subagents,
+  linear
+Ask the user when a task needs one, or run `tbd shortcut setup-tbd` to ask about all.
+? 0
+```
+
+# Test: Prime --brief keeps the grants section
+
+```console
+$ tbd prime --brief | sed -n '/=== AGENT POLICY GRANTS ===/,/setup-tbd/p'
+=== AGENT POLICY GRANTS ===
+Effective grants from AGENTS.md on main ...
+  github-editing: granted, github-merge: confirm-session,
+  pr-review-requirements: standard + security
+Unanswered (treated as not-granted): github-workflows, github-stacked-prs, subagents,
+  linear
+Ask the user when a task needs one, or run `tbd shortcut setup-tbd` to ask about all.
+? 0
+```
+
+* * *
+
 ## Prime with --export Flag
 
 # Test: Prime --export outputs default dashboard

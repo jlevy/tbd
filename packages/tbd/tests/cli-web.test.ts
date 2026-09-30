@@ -298,7 +298,7 @@ afterEach(async () => {
   );
 });
 
-describe('tbd web CLI', { timeout: subprocessTestTimeout(45_000) }, () => {
+describe('tbd web CLI', { timeout: subprocessTestTimeout(90_000) }, () => {
   it('serves a clean empty state from an initialized repository with zero beads', async () => {
     const { repoDir } = await createRepo({ withIssue: false });
     const port = await availablePort();

@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { subprocessTestTimeout } from './test-helpers.js';
-import { CURRENT_FORMAT } from '../src/lib/tbd-format.js';
+import { AGENT_INTEGRATION_FORMAT } from '../src/lib/integration-paths.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TBD_BIN = join(__dirname, '..', 'dist', 'bin.mjs');
@@ -22,10 +22,12 @@ interface DoctorResult {
   integrationChecks: DiagnosticResult[];
 }
 
-describe('doctor managed agent surfaces', { timeout: subprocessTestTimeout(45_000) }, () => {
+describe('doctor managed agent surfaces', { timeout: subprocessTestTimeout(180_000) }, () => {
   let projectDir: string;
   let fakeHome: string;
 
+  // `setup --auto` writes every surface; Windows CI under parallel load has
+  // exceeded the previous 60s subprocess floor in this hook.
   beforeEach(async () => {
     projectDir = await mkdtemp(join(tmpdir(), 'tbd-doctor-surfaces-'));
     fakeHome = join(projectDir, '.home');
@@ -39,7 +41,7 @@ describe('doctor managed agent surfaces', { timeout: subprocessTestTimeout(45_00
 
     const setup = runTbd(['setup', '--auto', '--prefix=test']);
     expect(setup.status).toBe(0);
-  }, subprocessTestTimeout(30_000));
+  }, subprocessTestTimeout(90_000));
 
   afterEach(async () => {
     await rm(projectDir, { recursive: true, force: true });
@@ -120,16 +122,19 @@ describe('doctor managed agent surfaces', { timeout: subprocessTestTimeout(45_00
     const agentsPath = join(projectDir, 'AGENTS.md');
     await writeFile(
       agentsPath,
-      `User note mentioning format=f99.\n\n${await readFile(agentsPath, 'utf-8')}`,
+      `User note mentioning format=f999.\n\n${await readFile(agentsPath, 'utf-8')}`,
     );
     expect(findingNamed('AGENTS.md').finding).toMatchObject({ status: 'ok', message: 'current' });
 
-    await writeFile(skillPath, expected.replace(`format=${CURRENT_FORMAT}`, 'format=f99'));
+    await writeFile(
+      skillPath,
+      expected.replace(`format=${AGENT_INTEGRATION_FORMAT}`, 'format=f999'),
+    );
     const tooNew = portableFinding();
     expect(tooNew.result.status).toBe(1);
     expect(tooNew.finding).toMatchObject({
       status: 'error',
-      message: `managed file uses newer integration format f99 (supported: ${CURRENT_FORMAT})`,
+      message: `managed file uses newer integration format f999 (supported: ${AGENT_INTEGRATION_FORMAT})`,
       suggestion: 'Upgrade tbd to manage this file: npm install -g get-tbd@latest',
     });
   });

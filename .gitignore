@@ -51,7 +51,8 @@ bower_components
 build/Release
 
 # Dependency directories
-node_modules/
+# Unslashed so a node_modules *symlink* is ignored too (`foo/` matches dirs only).
+node_modules
 jspm_packages/
 
 # Snowpack dependency directory (https://snowpack.dev/)

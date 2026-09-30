@@ -96,8 +96,9 @@ between them.
 **Out of scope:** agent *identity* (covered by
 [the identity brief](research-2026-08-14-agent-and-session-identity.md)); prompt and
 context engineering; Claude Code’s internal sub-agent architecture (covered by
-`research-claude-code-sub-agents.md`); and the Linear mirror mechanism itself (covered
-by [the Linear briefs](research-2026-08-09-linear-task-surfaces.md)).
+[the sub-agent brief](research-2026-09-16-subagent-guidance-anthropic-openai.md)); and
+the Linear mirror mechanism itself (covered by
+[the Linear briefs](research-2026-08-09-linear-task-surfaces.md)).
 
 **Method note:** vendor documentation and repository sources were read directly rather
 than summarized from secondary coverage, and repository metadata (stars, licence, last
@@ -125,7 +126,7 @@ The other two are not:
 | --- | --- | --- |
 | `research-running-claude-code.md` | **Subsumed** | Part 6 (execution environments) and Part 10 (ecosystem update) are this brief’s subject and are stale |
 | `research-claude-code-orchestration-and-uis.md` | **Subsumed** | Control protocols and orchestration interfaces; status was still “In Progress” |
-| `research-claude-code-sub-agents.md` | Kept | Internal sub-agent architecture; different subject, still accurate |
+| `research-claude-code-sub-agents.md` | Kept; consolidated on 2026-09-16 into [the sub-agent brief](research-2026-09-16-subagent-guidance-anthropic-openai.md) | Internal sub-agent architecture; different subject, still accurate |
 | `api-references-bridge-integrations.md` | Kept | Protocol reference material; [§6.1](#61-acp-the-real-standard-and-what-it-does-not-cover) supplies an ACP update rather than replacing it |
 
 ### 1.2 What carried forward

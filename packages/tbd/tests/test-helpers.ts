@@ -12,12 +12,12 @@ import type { InternalIssueId } from '../src/lib/ids.js';
  * Completion budget for integration tests that exercise Git or Node subprocesses.
  *
  * Full-suite parallel load gives process-spawn and file-I/O tests much higher tail
- * latency than focused runs: use 30 seconds by default and a 60-second Windows floor.
+ * latency than focused runs: use 30 seconds by default and a 90-second Windows floor.
  * Explicitly larger budgets remain larger. Performance assertions keep their own
  * tighter thresholds, so this only prevents functional tests from becoming load probes.
  */
 export function subprocessTestTimeout(nonWindowsMs = 30_000): number {
-  return process.platform === 'win32' ? Math.max(60_000, nonWindowsMs) : nonWindowsMs;
+  return process.platform === 'win32' ? Math.max(90_000, nonWindowsMs) : nonWindowsMs;
 }
 
 // Valid ULID strings for testing (exactly 26 lowercase alphanumeric characters)

@@ -2,9 +2,10 @@
 name: tbd
 description: >-
   Git-native issue tracking, coding guidelines, and workflow shortcuts for AI
-  coding agents. Use when managing tasks, committing code, following engineering
-  best practices, planning features, setting up a Linear/external tracker integration
-  or personal Linear API key, or viewing beads in a live browser.
+  coding agents. Use when setting up tbd, managing tasks, committing code, reviewing
+  or merging PRs, delegating to sub-agents, following engineering best practices,
+  planning features, setting up a Linear/external tracker integration or personal
+  Linear API key, or viewing beads in a live browser.
 license: MIT
 compatibility: Requires Node.js 22.12.0 or newer and git. Install CLI first: npm install -g get-tbd@latest
 metadata:
@@ -28,7 +29,8 @@ local state. Never sync merely because the viewer started.
 
 ## Prerequisites
 
-Before using tbd commands, ensure the CLI is installed:
+Before using tbd commands, ensure the CLI is installed (for a new project and after
+every upgrade, follow `tbd shortcut setup-tbd`):
 
 ```bash
 npm install -g get-tbd@latest
@@ -38,7 +40,7 @@ tbd setup --from-beads            # Uninitialized repo: import and archive .bead
 ```
 
 If `tbd` is not available, install it first.
-All commands below require the CLI. Setup installs all four agent surfaces by default;
+All commands below require the CLI. Setup installs all six agent surfaces by default;
 `--surfaces=<comma-list>` narrows only generated agent files, not initialization,
 migrations, or docs refresh.
 Verify a Beads import because setup can continue after a warning.
@@ -88,6 +90,11 @@ Plain `tbd sync` also runs trackers according to `integrations.on_tbd_sync`; use
 | `tbd shortcut new-plan-spec` | Plan a new feature |
 | `tbd shortcut setup-linear` | Set up Linear or add a personal Linear key |
 | `tbd shortcut review-code` | Comprehensive code review |
+| `tbd shortcut review-github-pr` | “Review PR #N” |
+| `tbd shortcut address-pr-review` | “Address the reviews on PR #N” |
+| `tbd shortcut review-and-merge-prs` | “Review and fix PR #N” / “Get PR #N merge-ready” / “Make sure PR #N is reviewed and merged” (fix, merge-ready, or merge mode) |
+| `tbd shortcut delegate-to-subagents` | “You can use sub-agents” (or any delegation) |
+| `tbd shortcut setup-tbd` | “Set up tbd” (also after upgrading tbd) |
 | `tbd shortcut implement-beads` | Implement from a spec |
 | `tbd shortcut merge-upstream` | Merge main into branch |
 | `tbd shortcut agent-handoff` | Hand off to another agent |
@@ -95,9 +102,15 @@ Plain `tbd sync` also runs trackers according to `integrations.on_tbd_sync`; use
 Run `tbd shortcut --list` for all available shortcuts.
 
 For explicit stacked or dependent PR intent, run `tbd shortcut stacked-prs` first.
+Creating or submitting a new stack needs the `github-stacked-prs` grant, or a request
+for a stack in this conversation, which authorizes that one stack; without either,
+propose PRs that each target the trunk, or one folded PR, never a `--base` chain.
 Chained branch bases alone are not a formal GitHub stack; link and verify the PRs with
 `gh stack`. If the current branch is based on another feature branch, run
 `tbd shortcut stacked-prs` before creating a PR.
+
+Before a GitHub mutation, a merge, or a delegation, check grants with `tbd policy show`
+(rules: `tbd guidelines agent-policy-grants`).
 
 ## Key Guidelines
 

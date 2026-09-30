@@ -18,6 +18,8 @@ wrong explanation that sends the next hour of work to the wrong place.
 - `ci-and-gates-rules` (evidence a machine records about itself; recorded timeouts)
 - `general-testing-rules` (raising a timeout only with a measurement)
 - `error-handling-rules` (honest partial success)
+- `delegate-to-subagents` shortcut (authorization, tiers, briefs, and verification for
+  sub-agents)
 
 ## Launch Long Runs From a Pinned Checkout
 
@@ -151,6 +153,10 @@ Include in every worktree agent’s brief:
 
 Give concurrent agents disjoint file ownership where possible.
 Resume an interrupted agent with its transcript rather than starting a fresh one.
+
+This list is the interruption part of a delegated agent’s brief.
+For authorization, model tiers, the rest of the brief, and verifying what the agent
+reports, follow `tbd shortcut delegate-to-subagents`.
 
 ## Show Partial Failure at Its Real Scale
 
