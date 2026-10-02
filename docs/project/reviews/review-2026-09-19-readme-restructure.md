@@ -141,6 +141,9 @@ footer at the end.
   regenerate committed skill copies rather than editing generated content by hand.
 - [x] Verify minimal initialization and selected-surface setup in isolated fixtures,
   including the fact that surface selection does not uninstall existing files.
+- [x] Clarify both user-run and agent-run CLI installation, then prime, prefix
+  selection, repository initialization, and the setup shortcut; verify that shortcut
+  lookup requires initialization before policy review.
 - [x] Check Markdown links and anchors, generated catalogs, request routing, installed
   skill drift, and the packaged `tbd readme` copy.
 - [x] Format with the repository’s pinned formatter, review the complete diff, and run

@@ -10,6 +10,11 @@ The output of `tbd setup` ends by pointing here, and “Set up tbd” is the req
 runs it. Re-running it is safe: setup is idempotent, and each run asks only about
 policies that are still unanswered.
 
+The CLI shortcut requires an initialized tbd repository.
+For a fresh project, run `tbd prime` first: it tells you to ask for an issue prefix and
+run `tbd setup --auto --prefix=<prefix>`. Then load this shortcut to review policies and
+finish setup.
+
 Operate tbd for the user throughout: run the commands yourself, and ask the user only
 for decisions (the prefix and the policy answers) and for authentication that must come
 from them (a `gh` login or token, a personal Linear key).

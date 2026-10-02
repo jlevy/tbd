@@ -42,19 +42,29 @@ instructions.
 ## Quick Start
 
 Requires Node.js 22.12.0 or newer and Git 2.42 or newer.
-In your project, install the CLI:
+Install the CLI:
 
 ```bash
 npm install -g get-tbd@latest
 ```
 
-Then tell your agent:
+Then, with your agent working in your project’s Git repository, tell it:
 
 **“Run tbd prime, then set up tbd in this project.”**
 
-The agent follows
-[`tbd shortcut setup-tbd`](packages/tbd/docs/shortcuts/standard/setup-tbd.md), asks for
-a short issue-ID prefix, and initializes the project.
+Or ask the agent to handle both steps:
+
+**“Run `npm install -g get-tbd@latest`, then run `tbd prime` and set up tbd in this
+project.”**
+
+Installing the CLI does not initialize the project.
+`tbd prime` gives the agent instructions: for a new project, it asks you for a short
+issue-ID prefix and runs `tbd setup --auto --prefix=<prefix>`. For an existing tbd
+project, it runs `tbd setup --auto` without a new prefix.
+After initialization, the agent can run
+[`tbd shortcut setup-tbd`](packages/tbd/docs/shortcuts/standard/setup-tbd.md) to review
+policy choices and verify setup.
+The shortcut is available only inside an initialized tbd repository.
 Default setup writes the project’s tbd configuration, agent skills, hooks, and sub-agent
 definitions. Review and commit those files so teammates share the setup.
 See [Agent Surfaces](#agent-surfaces) to select which integrations are installed.
