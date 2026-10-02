@@ -58,9 +58,10 @@ Or ask the agent to handle both steps:
 project.”**
 
 Installing the CLI does not initialize the project.
-`tbd prime` gives the agent instructions: for a new project, it asks you for a short
-issue-ID prefix and runs `tbd setup --auto --prefix=<prefix>`. For an existing tbd
-project, it runs `tbd setup --auto` without a new prefix.
+`tbd prime` gives the agent instructions.
+For a new project, the agent asks you for a short issue-ID prefix and runs
+`tbd setup --auto --prefix=<prefix>`. For an existing tbd project, the agent runs
+`tbd setup --auto` without a new prefix.
 After initialization, the agent can run
 [`tbd shortcut setup-tbd`](packages/tbd/docs/shortcuts/standard/setup-tbd.md) to review
 policy choices and verify setup.

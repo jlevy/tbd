@@ -39,10 +39,18 @@ Load relevant guidelines as needed and preserve the user’s task-specific instr
 
 ## Installation
 
-**For a new project, and again after every tbd upgrade, run `tbd shortcut setup-tbd` and
-follow it.** It installs or upgrades the CLI, runs setup, and asks the user about any
-unanswered policy grants.
-The setup commands it runs:
+Check `tbd --version` first.
+Install the CLI if missing, or install/upgrade it when the user explicitly requests it.
+Then run `tbd prime` in the project’s Git repository.
+For a fresh project, ask the user for the issue-ID prefix and run
+`tbd setup --auto --prefix=<name>`; never guess the prefix.
+
+**Once the project is initialized, run `tbd shortcut setup-tbd` and follow it.** The
+shortcut is unavailable before initialization.
+It reviews setup and unanswered policy grants; run it again after every tbd upgrade.
+With an existing working CLI, ask before upgrading unless the user already requested the
+upgrade or tbd requires a newer version.
+The installation and setup commands are:
 
 ```bash
 npm install -g get-tbd@latest      # Install or upgrade the CLI (same command for both)
@@ -153,7 +161,7 @@ or want help → run `tbd shortcut welcome-user`
 | “Update the guidelines to the latest” | `tbd docs update`; on conflicts ask the user, then `--merge` or `--keep-ours` |
 | “I deleted a forked doc file” | `tbd docs status` shows it `missing`; restore with `tbd docs fork <name> --force` or finalize with `tbd docs unfork <name>` |
 | **Setup** |  |
-| “Set up tbd” / *(after upgrading tbd)* | `tbd shortcut setup-tbd` |
+| “Set up tbd” / *(after upgrading tbd)* | Follow Installation above; initialize a fresh project before `tbd shortcut setup-tbd` |
 | **External Trackers** |  |
 | “Set up Linear” / “Connect this repo to Linear” | `tbd shortcut setup-linear` |
 | “My Linear sync isn’t working” / “Add my Linear key” | `tbd shortcut setup-linear` |
