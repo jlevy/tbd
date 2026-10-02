@@ -400,9 +400,12 @@ describe('prime command', { timeout: subprocessTestTimeout() }, () => {
       expect(result.stdout).toContain('NOT INITIALIZED');
       // Should explain what tbd is
       expect(result.stdout).toContain('WHAT tbd IS');
-      // Should show setup command
-      expect(result.stdout).toContain('tbd setup');
-      expect(result.stdout).toContain('--prefix');
+      // Fresh setup needs the user's prefix before the shortcut can be loaded.
+      expect(result.stdout).toContain('```bash\ntbd setup --auto --prefix=<name>\n```');
+      expect(result.stdout).not.toContain('tbd setup --auto                   #');
+      expect(result.stdout).toContain('Never guess a prefix');
+      expect(result.stdout).toContain('After setup, run `tbd shortcut setup-tbd`');
+      expect(result.stdout).toContain('Run `tbd prime` again if you need');
     });
   });
 });

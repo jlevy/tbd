@@ -12,7 +12,7 @@
 import { execFile } from 'node:child_process';
 
 import { gitSafeEnv } from '../lib/git-env.js';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, mkdtemp } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { basename, dirname, join, normalize } from 'node:path';
 
@@ -1535,7 +1535,7 @@ export async function getRemoteUrl(remote: string): Promise<string | null> {
 // See: tbd-design.md §2.3 Hidden Worktree Model
 // =============================================================================
 
-import { access, rm, cp, readdir, readFile, realpath } from 'node:fs/promises';
+import { access, rm, cp, readdir, readFile, realpath, lstat } from 'node:fs/promises';
 import {
   WORKTREE_DIR_NAME,
   LEGACY_WORKTREE_DIR,
@@ -3124,7 +3124,7 @@ export async function removeWorktree(
  * Repair an unhealthy worktree.
  *
  * Follows decision tree from spec Appendix E:
- * - PRUNABLE: git worktree prune, then recreate
+ * - PRUNABLE: back up any surviving directory, remove, prune, then recreate
  * - CORRUPTED: backup to .tbd/backups/, remove, then recreate
  * - MISSING: just create
  *
@@ -3154,25 +3154,36 @@ export async function repairWorktree(
   const { sharedWorktreePath: worktreePath, sharedBackupsDir } = await getSharedPaths(baseDir);
 
   try {
-    // Always prune stale worktree entries first for missing and prunable states
-    // This ensures git's worktree list is clean before creating a new worktree
-    if (status === 'missing' || status === 'prunable') {
-      await git('-C', baseDir, 'worktree', 'prune');
+    // Git also reports a surviving directory as prunable when only its .git
+    // file is missing. Its uncommitted data must survive reinitialization.
+    let prunableDirectoryExists = false;
+    if (status === 'prunable') {
+      try {
+        await lstat(worktreePath);
+        prunableDirectoryExists = true;
+      } catch (error) {
+        if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
+          throw error;
+        }
+      }
     }
 
-    // Handle corrupted status: backup before removal
-    if (status === 'corrupted') {
+    // Preserve recoverable data before either removal or pruning registration.
+    if (status === 'corrupted' || prunableDirectoryExists) {
       await mkdir(sharedBackupsDir, { recursive: true });
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      const backupPath = join(sharedBackupsDir, `corrupted-worktree-backup-${timestamp}`);
+      // Reserve a unique directory so repeated repairs cannot overwrite an earlier backup.
+      const backupPath = await mkdtemp(
+        join(sharedBackupsDir, `${status}-worktree-backup-${timestamp}-`),
+      );
 
-      // Copy corrupted worktree to backup before removal.
+      // Copy the damaged worktree to backup before removal.
       //
-      // The removal below is recursive and unrecoverable, and a corrupted data-sync
+      // The removal below is recursive and unrecoverable, and a damaged data-sync
       // worktree can still hold bead writes that were never synced. So the backup is
       // a precondition for removing anything, not a courtesy: if it did not happen,
-      // the only copy of that work is the corrupted worktree itself. Leaving it in
+      // the only copy of that work is the damaged worktree itself. Leaving it in
       // place is recoverable by hand; deleting it is not. Returning a `backedUp` path
       // that was never written also tells the caller to look somewhere empty.
       try {
@@ -3182,13 +3193,13 @@ export async function repairWorktree(
         return {
           success: false,
           error:
-            `Refusing to repair the corrupted worktree: its backup to ${backupPath} failed ` +
+            `Refusing to repair the ${status} worktree: its backup to ${backupPath} failed ` +
             `(${reason}). The worktree at ${worktreePath} was left untouched so its contents ` +
             `can be recovered by hand; re-run the repair once the backup location is writable.`,
         };
       }
 
-      // Remove the corrupted worktree
+      // Remove the damaged worktree
       await rm(worktreePath, { recursive: true, force: true });
       await git('-C', baseDir, 'worktree', 'prune');
 
@@ -3197,7 +3208,8 @@ export async function repairWorktree(
       return { ...result, backedUp: backupPath };
     }
 
-    // For missing or prunable (after prune), just initialize
+    // No directory remains to preserve. Clear stale registration before creating it.
+    await git('-C', baseDir, 'worktree', 'prune');
     const result = await initWorktree(baseDir, remote, syncBranch);
     return result;
   } catch (error) {

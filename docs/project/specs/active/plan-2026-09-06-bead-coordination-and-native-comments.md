@@ -557,9 +557,14 @@ sync and current integration comments remain usable.
 - [ ] Make fixed-commit `--ready` reports replayable by pinning or persisting their
   readiness evaluation instant (`tbd-obw9`). Until then, identical commit endpoints can
   report a different ready edge after `deferred_until` elapses.
-- [ ] Abort corrupted-worktree repair before removal when its backup cannot be
-  materialized (`tbd-dmkd`, release blocker).
-  A reported backup path must exist.
+- [x] Abort corrupted-worktree repair before removal when its backup cannot be
+  materialized (`tbd-dmkd`, shipped in v0.9.0). A reported backup path must exist.
+- [x] Apply backup-before-removal to surviving prunable worktrees (`tbd-mr8s`,
+  implemented in the v0.10.0 candidate, pending merge).
+  Automatic repair reports the backup for manual recovery, and repeated repairs reserve
+  distinct backup directories.
+  Filesystem regressions cover successful preservation, failed copies, and repeated
+  repairs in the same second.
 - [ ] Stop `tbd search` from recording a freshness checkpoint when it has performed no
   pull (`tbd-iwup`), or make the documented refresh real.
 - [ ] Specify concurrent dependency removal and validate merged parent/dependency graphs

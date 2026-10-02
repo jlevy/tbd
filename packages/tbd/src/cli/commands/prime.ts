@@ -143,13 +143,15 @@ tbd is an AI-agent-optimized issue tracker and workflow assistant providing:
 
 tbd is not yet initialized. To set it up, run:
 
-  tbd setup --auto --prefix=<name>   # REQUIRES prefix for new projects
-  tbd setup --auto                   # If .tbd/ already exists (prefix already set)
+\`\`\`bash
+tbd setup --auto --prefix=<name>
+\`\`\`
 
 CRITICAL: Never guess a prefix. Always ask the user what prefix they want.
-Do NOT tell the user to run these commands; run them yourself on their behalf.
+Do NOT tell the user to run this command; run it yourself on their behalf.
 
-After setup, run 'tbd' again to get project status and workflow guidance.`;
+After setup, run \`tbd shortcut setup-tbd\` to review policy choices and finish setup.
+Run \`tbd prime\` again if you need project status or workflow guidance.`;
 
 /** What prime read of the agent policy grants on the default branch. */
 export type PrimeGrantsReading =
