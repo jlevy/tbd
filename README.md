@@ -14,7 +14,7 @@ The defaults are ready to use, and you can customize or replace them with your t
 practices.
 
 1. **Beads**: Git-native issue tracking for tasks, bugs, and features, shared across
-   sessions and machines.
+   agents, sessions, and machines.
 2. **Spec-Driven Workflows**: Plan features, break them into beads, and implement them
    systematically.
 3. **Knowledge Injection**: Engineering guidelines for languages, testing, architecture,
@@ -27,6 +27,13 @@ guidelines and workflows.
 `tbd` stores beads as Markdown files on a dedicated Git branch, with no required daemon
 or database. It installs project skills and hooks for Claude Code and Codex and works
 through the CLI in other agent environments.
+
+**Coordinate across agents and sessions.** Tasks, plans, specs, and progress are
+recorded in the Git repository, not tied to a Claude Code or Codex account or to local
+or cloud app state.
+Sessions from either tool can use the shared repository to coordinate
+on the same beads and plans or hand off ongoing work, following the project’s workflow
+instructions.
 
 [Quick Start](#quick-start) · [Adoption Choices](#adopt-only-what-you-want) ·
 [Setup](#installation-and-setup) · [CLI Reference](packages/tbd/docs/tbd-docs.md) ·
@@ -107,6 +114,7 @@ provide the complete routing.
 | “Make sure PR #N is reviewed and merged” | Reviews, addresses findings, and merges when the requirements are met | [`tbd shortcut review-and-merge-prs`](packages/tbd/docs/shortcuts/standard/review-and-merge-prs.md) (merge mode) |
 | “Set up tbd” | Checks project setup and unanswered policy choices | [`tbd shortcut setup-tbd`](packages/tbd/docs/shortcuts/standard/setup-tbd.md) |
 | “You can use sub-agents” | Delegates with scoped briefs and verifies the results | [`tbd shortcut delegate-to-subagents`](packages/tbd/docs/shortcuts/standard/delegate-to-subagents.md) |
+| “Hand this off to another agent” | Prepares a handoff with the spec, beads, branch, and current context | [`tbd shortcut agent-handoff`](packages/tbd/docs/shortcuts/standard/agent-handoff.md) |
 
 Your specific instructions take precedence over shortcut defaults: for example, “also do
 a security review,” “post it as a PR comment,” or “don’t merge anything today.”
