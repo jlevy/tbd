@@ -5,14 +5,14 @@ title: Correct README setup bootstrap ordering
 kind: bug
 status: in_progress
 priority: 2
-version: 2
+version: 3
 delegate: claude-code@spud10.local
 labels: []
 dependencies: []
 hold: null
 hold_until: null
 created_at: 2026-10-02T05:36:07.643Z
-updated_at: 2026-10-02T05:37:11.769Z
+updated_at: 2026-10-02T05:40:00.266Z
 started_at: 2026-10-02T05:37:11.765Z
 ---
-User reproduced shortcut setup-tbd failing before repository initialization in 0.9.0; candidate 0.10.0 behaves the same. Correct README Quick Start and setup-tbd introduction to install CLI, use prime for initial instructions, ask prefix and run setup, then load shortcut to review policies. Validate before/after in isolated fixture, commit to README stack layer and restack release; refresh applicable review/package evidence and push. No merge or release.
+Verify standard first-install and existing-project flows, whether the user installs the CLI or explicitly asks the agent to run npm install -g get-tbd@latest. Correct README and setup shortcut ordering. Fix pre-init prime command rendering and handoff to setup-tbd after initialization. Add sequence regression and golden coverage; validate packed CLI installation, prime, setup, post-setup shortcut and existing-project refresh. Changes in README/release owning stack layers, refresh proofs/reviews and push; no merge or release.
