@@ -126,8 +126,18 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       expect(config).toContain(`tbd_format: ${CURRENT_FORMAT}`);
     });
 
-    it("shows What's Next section after setup", () => {
+    it('bootstraps from prime, then offers the setup shortcut', () => {
       initGitRepo();
+
+      const beforeSetupShortcut = runTbd(['shortcut', 'setup-tbd']);
+      expect(beforeSetupShortcut.status).not.toBe(0);
+      expect(beforeSetupShortcut.stderr).toContain("run 'tbd setup --auto --prefix=<name>' first");
+
+      const prime = runTbd(['prime']);
+      expect(prime.status).toBe(0);
+      expect(prime.stdout).toContain('```bash\ntbd setup --auto --prefix=<name>\n```');
+      expect(prime.stdout).toContain('Never guess a prefix');
+      expect(prime.stdout).toContain('After setup, run `tbd shortcut setup-tbd`');
 
       const result = runTbd(['setup', '--auto', '--prefix=test']);
 
@@ -150,6 +160,10 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       expect(result.stdout).toContain(
         '7 policies are unanswered; setup-tbd asks the user about them.',
       );
+
+      const setupShortcut = runTbd(['shortcut', 'setup-tbd']);
+      expect(setupShortcut.status).toBe(0);
+      expect(setupShortcut.stdout).toContain('## 1. Check the CLI, and Install Only If Needed');
 
       const integrationStatus = runTbd(['integration', 'status', '--offline']);
       expect(integrationStatus.status).toBe(0);

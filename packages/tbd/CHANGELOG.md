@@ -87,7 +87,9 @@ tbd setup --auto
   A cold documentation cache yields unknown skill freshness instead of a false stale
   warning.
 - **CLI guidance:** integration help lists only the supported Linear adapter, and a
-  missing bundled shortcut in stale managed docs points to `tbd setup --auto`.
+  missing bundled shortcut in stale managed docs points to `tbd setup --auto`. First-run
+  `tbd prime` shows the initialization command in a code block and directs agents to the
+  setup shortcut after initialization for policy review and verification.
 - **Stack-tool installation:** generated GitHub setup scripts verify the pinned
   `gh-stack` release digest and installed extension identity before enabling it.
 
