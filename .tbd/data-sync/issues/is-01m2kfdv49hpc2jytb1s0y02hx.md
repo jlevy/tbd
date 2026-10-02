@@ -3,9 +3,9 @@ type: is
 id: is-01m2kfdv49hpc2jytb1s0y02hx
 title: Automatic repair of a prunable data-sync worktree may delete it without a backup (tbd-dmkd class)
 kind: bug
-status: in_progress
+status: closed
 priority: 1
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 delegate: claude-code@spud10.local
 labels: []
@@ -16,8 +16,12 @@ parent_id: is-01m1w3d1e63qg5e2wpz31qkmvn
 hold: null
 hold_until: null
 created_at: 2026-09-15T21:26:35.400Z
-updated_at: 2026-09-30T08:19:39.436Z
+updated_at: 2026-10-02T06:50:05.764Z
 started_at: 2026-09-30T07:40:06.469Z
+closed_at: 2026-10-02T06:50:05.764Z
+close_reason: "Merged in formal stack #322 (PR313 and PR321) at bc33631efb2bd95f41e61c1acf1fe63f848f6e56, exactly matching candidate50902c72 tree. Final pinned reviews B313 and D321 posted; all seven checks on both PRs passed. Full local suite3028pass/1skip and final package/bootstrap/downstream proofs recorded in PR321 and durable bootstrap-final evidence. Pre-existing low hook-ordering finding deferred as tbd-twbc; dev advisories retained as documented exceptions. Publication remains tracked separately in tbd-4ccr."
+resolution: null
+duplicate_of: null
 ---
 Same failure class as tbd-dmkd (fixed in #287), on a path that fix did not cover. Pre-existing. Inferred from code by the 2026-09-15 release-readiness review of main @ 1238038e; the git behaviour was not run, so reproduce first.
 
