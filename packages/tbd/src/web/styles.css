@@ -897,6 +897,89 @@ label.check {
   font-size: var(--font-size-small);
   line-height: 1.35;
 }
+/* ── Workmap view ─────────────────────────────────────────────────
+   The same board response as the list, projected into groups by a
+   label prefix the user's own data states. Cards reuse the board's
+   vocabulary (.issue-status colors, .priority-*, mono ids); the
+   group name reuses the .section-heading recipe, so no treatment
+   here is new — only layout is. */
+#boardheadingrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 7px;
+}
+#boardheadingrow #boardheading {
+  padding: 0;
+}
+#viewchooser .seg {
+  flex: 0 0 auto;
+  height: 24px;
+  padding: 0 10px;
+  font-size: var(--font-size-small);
+}
+#workmapgroup {
+  font-size: var(--font-size-small);
+  padding: 2px 6px;
+}
+#workmapwrap {
+  padding: 12px 16px;
+}
+#workmapgroups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.workmap-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.workmap-group-name {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.workmap-group-name .num {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.workmap-card {
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+.workmap-card + .workmap-card {
+  border-top: 1px solid var(--border);
+}
+.workmap-card:hover {
+  background: var(--panel);
+}
+.workmap-card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.workmap-card-id {
+  font-family: var(--mono);
+  font-size: var(--font-size-small);
+}
+.workmap-card-note {
+  font-family: var(--mono);
+  font-size: var(--font-size-small);
+  color: var(--error);
+}
+.workmap-card-title {
+  margin-top: 2px;
+}
+.workmap-card-body {
+  margin-top: 8px;
+  cursor: auto;
+}
 .copyable {
   display: inline-flex;
   max-width: 100%;

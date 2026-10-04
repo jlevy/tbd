@@ -349,6 +349,104 @@ export function formatDeltaValue(value: unknown): { full: string; preview: strin
   return { full, preview: truncateMiddle(full, DELTA_VALUE_PREVIEW_CHARS) };
 }
 
+/** One workmap group: every row whose labels carry exactly one value under the prefix. */
+export interface WorkmapGroupView {
+  value: string;
+  rows: BoardRowView[];
+}
+
+/**
+ * The workmap projection of one board response: rows grouped by the value each bead's
+ * labels state under a caller-chosen label prefix.
+ */
+export interface WorkmapProjectionView {
+  prefix: string;
+  /** Groups ordered by size (largest first), then value. */
+  groups: WorkmapGroupView[];
+  /** Rows stating two or more distinct values — a data error surfaced, never picked from. */
+  conflicted: { row: BoardRowView; values: string[] }[];
+  /** Rows stating no value under the prefix — a visible gap, never a guess. */
+  ungrouped: BoardRowView[];
+}
+
+/**
+ * Label prefixes present on a board, counted by bead.
+ *
+ * A prefix is everything up to and including a label's first `:` (so `cat:caching`
+ * offers `cat:`). tbd assigns no meaning to any particular prefix — which prefixes
+ * exist, and what they mean, is entirely the user's own labeling convention; this
+ * only reports what the data states so a viewer can offer the choices.
+ */
+export function detectLabelPrefixes(rows: readonly BoardRowView[]): ValueFacetView<string>[] {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const seen = new Set<string>();
+    for (const label of row.labels) {
+      const colon = label.indexOf(':');
+      // A leading colon has an empty prefix and a trailing colon an empty value;
+      // neither states a usable prefix:value pair.
+      if (colon <= 0 || colon === label.length - 1) {
+        continue;
+      }
+      seen.add(label.slice(0, colon + 1));
+    }
+    for (const prefix of seen) {
+      counts.set(prefix, (counts.get(prefix) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .map(([value, count]) => ({ value, count }))
+    .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
+}
+
+/**
+ * Group board rows by the value their labels state under `prefix`.
+ *
+ * Exactly one distinct value places the row in that value's group. Two or more is a
+ * conflict — reported as such rather than resolved by any tie-break, because the label
+ * convention this projects (one value per bead under a grouping prefix) is the user's,
+ * and only they can say which label is wrong. No value leaves the row ungrouped and
+ * visible. Rows keep the board's served order inside every bucket, so the active sort
+ * controls order the cards too.
+ */
+export function projectWorkmap(
+  rows: readonly BoardRowView[],
+  prefix: string,
+): WorkmapProjectionView {
+  const projection: WorkmapProjectionView = { prefix, groups: [], conflicted: [], ungrouped: [] };
+  if (prefix.trim() === '') {
+    projection.ungrouped = [...rows];
+    return projection;
+  }
+  const byValue = new Map<string, BoardRowView[]>();
+  for (const row of rows) {
+    const values = [
+      ...new Set(
+        row.labels
+          .filter((label) => label.startsWith(prefix) && label.length > prefix.length)
+          .map((label) => label.slice(prefix.length)),
+      ),
+    ];
+    if (values.length === 0) {
+      projection.ungrouped.push(row);
+    } else if (values.length > 1) {
+      projection.conflicted.push({ row, values: values.sort() });
+    } else {
+      const value = values[0]!;
+      const bucket = byValue.get(value);
+      if (bucket === undefined) {
+        byValue.set(value, [row]);
+      } else {
+        bucket.push(row);
+      }
+    }
+  }
+  projection.groups = [...byValue.entries()]
+    .map(([value, groupRows]) => ({ value, rows: groupRows }))
+    .sort((a, b) => b.rows.length - a.rows.length || a.value.localeCompare(b.value));
+  return projection;
+}
+
 const DEFAULT_SORT_DIRECTIONS: Readonly<Record<BoardSortKeyView, BoardSortDirectionView>> = {
   id: 'asc',
   priority: 'asc',

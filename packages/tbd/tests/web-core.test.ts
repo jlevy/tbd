@@ -8,7 +8,9 @@ import {
   DEFAULT_BOARD_SORTS,
   DELTA_VALUE_PREVIEW_CHARS,
   deltasValid,
+  detectLabelPrefixes,
   formatDeltaValue,
+  projectWorkmap,
   MAX_BODY_CACHE_ENTRIES,
   MAX_BODY_REQUEST_CONCURRENCY,
   MAX_EXPANDED_ROWS,
@@ -913,5 +915,70 @@ describe('createClientStore transport orchestration', () => {
     expect(store.getView().ghostRows).toHaveLength(MAX_GHOST_ROWS);
     expect(store.getView().ghostRows.map((row) => row.id)).toEqual(ids.slice(0, MAX_GHOST_ROWS));
     store.stop();
+  });
+});
+
+describe('workmap projection', () => {
+  const seed = board(state()).rows[0]!;
+  const row = (id: string, labels: string[]): BoardRowView => ({ ...seed, id, labels });
+
+  it('groups rows by the value under a caller-chosen prefix, largest group first', () => {
+    const projection = projectWorkmap(
+      [
+        row('web-1', ['area:caching', 'phase-2']),
+        row('web-2', ['area:tracker']),
+        row('web-3', ['area:tracker', 'bug']),
+        row('web-4', []),
+      ],
+      'area:',
+    );
+    expect(projection.prefix).toBe('area:');
+    expect(
+      projection.groups.map((group) => ({
+        value: group.value,
+        ids: group.rows.map((groupRow) => groupRow.id),
+      })),
+    ).toEqual([
+      { value: 'tracker', ids: ['web-2', 'web-3'] },
+      { value: 'caching', ids: ['web-1'] },
+    ]);
+    expect(projection.ungrouped.map((ungrouped) => ungrouped.id)).toEqual(['web-4']);
+    expect(projection.conflicted).toEqual([]);
+  });
+
+  it('reports two distinct values as a conflict instead of picking one', () => {
+    const projection = projectWorkmap([row('web-9', ['area:caching', 'area:tracker'])], 'area:');
+    expect(projection.groups).toEqual([]);
+    expect(projection.conflicted).toEqual([
+      { row: row('web-9', ['area:caching', 'area:tracker']), values: ['caching', 'tracker'] },
+    ]);
+  });
+
+  it('treats a repeated identical value as one value, and a bare prefix as no value', () => {
+    const projection = projectWorkmap(
+      [row('web-5', ['area:caching', 'area:caching']), row('web-6', ['area:'])],
+      'area:',
+    );
+    expect(projection.groups.map((group) => group.value)).toEqual(['caching']);
+    expect(projection.conflicted).toEqual([]);
+    expect(projection.ungrouped.map((ungrouped) => ungrouped.id)).toEqual(['web-6']);
+  });
+
+  it('projects an empty prefix as fully ungrouped rather than grouping on accident', () => {
+    const projection = projectWorkmap([row('web-7', ['area:caching'])], '  ');
+    expect(projection.groups).toEqual([]);
+    expect(projection.ungrouped.map((ungrouped) => ungrouped.id)).toEqual(['web-7']);
+  });
+
+  it('detects the prefixes the data states, counted by bead, with no built-in names', () => {
+    const prefixes = detectLabelPrefixes([
+      row('web-1', ['area:caching', 'phase:2']),
+      row('web-2', ['area:tracker', 'area:caching']),
+      row('web-3', ['plain-label', ':leading', 'trailing:']),
+    ]);
+    expect(prefixes).toEqual([
+      { value: 'area:', count: 2 },
+      { value: 'phase:', count: 1 },
+    ]);
   });
 });
