@@ -127,6 +127,9 @@ Then order the work:
 - **Parallel work goes in separate worktrees,** one per PR or branch, created by the
   coordinator. Bead data is shared by every worktree of a clone, so sub-agents in
   different worktrees see the same beads.
+- When independently running collaborators choose beads rather than receiving bounded
+  coordinator-owned assignments, follow `tbd shortcut coordinate-collaborators`. It
+  defines distinct acting names, structured claim checks, and explicit takeover.
 - **Parallel writers in one checkout** are acceptable only with disjoint write sets and
   the coordinator as the only committer.
   Only one of them runs tests or builds that regenerate shared outputs (such as a

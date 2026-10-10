@@ -14,6 +14,10 @@ The next agent has access to tbd and will orient themselves.
 updates are pushed to the remote.
 The next agent needs the latest issue state.
 
+If the outgoing and incoming agents may overlap instead of transferring work in
+sequence, also follow `tbd shortcut coordinate-collaborators`. A visible claim remains
+owned by its current delegate until the coordinator explicitly reassigns it.
+
 ## What to Include
 
 - **Task**: One line on what we’re doing

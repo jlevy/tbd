@@ -171,6 +171,7 @@ or want help → run `tbd shortcut welcome-user`
 | **Sessions & Handoffs** |  |
 | “Hand off to another agent” | `tbd shortcut agent-handoff` |
 | “You can use sub-agents” / *(delegating any work)* | `tbd shortcut delegate-to-subagents` |
+| “Coordinate several collaborators on beads” | `tbd shortcut coordinate-collaborators` |
 | “Check out this library’s source” | `tbd shortcut checkout-third-party-repo` |
 | *(your choice whenever appropriate)* | `tbd list`, `tbd dep add`, `tbd close`, `tbd sync`, etc. |
 
@@ -349,6 +350,8 @@ The acting name resolves from `start --as`, then `TBD_AGENT`, then the machine-l
 session identity, and finally a derived `<harness>@<host>` fallback.
 Use `tbd whoami` to inspect it; setup hooks call `tbd whoami --ensure-id` idempotently
 to persist a local ID and friendly name.
+When several independently running collaborators may overlap, follow
+`tbd shortcut coordinate-collaborators` and inspect the structured claim result.
 
 **IMPORTANT: if you are about to shell-loop or pipe around tbd, stop; the bulk or filter
 form exists.** `show`, `close`, `reopen`, and `update` take multiple IDs;

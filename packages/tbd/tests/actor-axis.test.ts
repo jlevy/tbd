@@ -89,6 +89,22 @@ describe('tbd start claims the acting axis', () => {
     expect(show(id).delegate).toBe('agent-one');
   });
 
+  it('reports a foreign claim as structured skipped work without failing', () => {
+    const id = create('Structured contention');
+    tbd(['start', id], { TBD_AGENT: 'agent-one' });
+
+    const result = JSON.parse(tbd(['start', id, '--json'], { TBD_AGENT: 'agent-two' })) as {
+      claimed: string[];
+      skipped: { id: string; reason: string }[];
+      delegate: string;
+    };
+
+    expect(result.claimed).toEqual([]);
+    expect(result.skipped).toEqual([{ id, reason: 'already claimed by agent-one' }]);
+    expect(result.delegate).toBe('agent-two');
+    expect(show(id).delegate).toBe('agent-one');
+  });
+
   it('is idempotent for the same agent', () => {
     const id = create('Mine already');
     tbd(['start', id], { TBD_AGENT: 'agent-one' });
