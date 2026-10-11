@@ -5,7 +5,7 @@ title: Address PR324 senior review A and restore green CI
 kind: task
 status: in_progress
 priority: 2
-version: 10
+version: 11
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
 delegate: sol-pr324-fixes-01a127df
 labels: []
@@ -18,10 +18,11 @@ child_order_hints:
   - is-01m4maqtrqmjmzea7w8m73t8mj
   - is-01m4maqvrcm3yda3aa4k3rfjvt
   - is-01m4mavm9rmssr0zvsr5k06gme
+  - is-01m4mbt3yte2j9433cr22xty72
 hold: null
 hold_until: null
 created_at: 2026-10-11T01:54:07.805Z
-updated_at: 2026-10-11T02:07:12.202Z
+updated_at: 2026-10-11T02:14:01.432Z
 started_at: 2026-10-11T01:54:20.311Z
 ---
 
