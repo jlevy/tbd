@@ -15,8 +15,7 @@ Zod 4.x is the recommended validation companion.
 **Related**:
 
 - `typescript-rules`
-- `supply-chain-hardening`—follow the 14-day package-age rule for `yaml`, `zod`, and
-  `gray-matter`.
+- `supply-chain-hardening`—follow the 14-day package-age rule for `yaml` and `zod`.
 
 These guidelines ensure consistent, safe, and readable YAML handling across TypeScript
 codebases. YAML is deceptively tricky—inconsistent quoting, serialization differences,
@@ -172,54 +171,28 @@ const config = parse(content) as Config;
 const config = ConfigSchema.parse(parse(content));
 ```
 
-### Antipattern: Using gray-matter Directly for Serialization
+### Antipattern: Generic Frontmatter Engines in a YAML-only Format
+
+`gray-matter` includes a JavaScript evaluator and a legacy `js-yaml` dependency.
+A YAML-only application needs neither; keep delimiter handling in a small central
+boundary and parse the header with `yaml`.
 
 ```ts
-// Bad: gray-matter.stringify() has limited formatting control
-import matter from 'gray-matter';
-const output = matter.stringify(body, frontmatter);
-
-// Good: Centralize gray-matter and route both parsing and serialization through yaml
-import matter from 'gray-matter';
-import { parse } from 'yaml';
+import { parseMarkdownMatter } from './frontmatter.js';
 import { stringifyYaml } from './yaml-utils.js';
 
-const matterOptions = {
-  engines: {
-    yaml: {
-      parse: (input: string) => parse(input.replace(/\r\n?/g, '\n')),
-      stringify: stringifyYaml,
-    },
-  },
-};
-
-function parseMarkdownMatter(input: string) {
-  if (matter.test(input, matterOptions)) {
-    const language = matter.language(input, matterOptions).name.toLowerCase();
-    if (language !== '' && language !== 'yaml' && language !== 'yml') {
-      throw new Error(`Unsupported front-matter language: ${language}`);
-    }
-  }
-  return matter(input, matterOptions);
-}
-
 const { data, content } = parseMarkdownMatter(input);
-const output = `---\n${stringifyYaml(data)}---\n\n${content}`;
+const output = `---\n${stringifyYaml(data)}---\n${content}`;
 ```
 
-Keep this option object and the gray-matter call in one wrapper module.
-Direct calls silently fall back to gray-matter’s legacy `js-yaml` engine, which changes
-YAML semantics such as converting date-looking scalars to `Date` objects and can
-reintroduce advisories in that transitive parser.
-gray-matter also includes a JavaScript engine that evaluates explicit `---javascript`
-front matter; a YAML-only application must reject non-YAML language markers before
-calling gray-matter.
-A gray-matter closing delimiter on CRLF input can leave the preceding carriage return in
-the extracted YAML block.
-Normalize line endings in the engine input, not the Markdown body, so final plain
-scalars stay exact without rewriting body bytes.
-A wrapper preserves gray-matter’s delimiter handling without allowing call sites to
-select inconsistent YAML engines.
+The boundary must recognize complete delimiter lines, handle a leading BOM before
+checking the language marker, and reject unsupported languages without evaluating them.
+Return an empty object for empty or comment-only headers, and reject unterminated
+headers and invalid YAML. Normalize line endings in the YAML header only; return
+Markdown body bytes unchanged.
+Use YAML 1.2 so date-looking scalars remain strings, then validate the data with the
+consumer’s schema. Test BOM, LF/CRLF, language markers, empty headers, malformed
+delimiters, body preservation, and executable-input rejection at that shared boundary.
 
 ## Testing YAML Output
 

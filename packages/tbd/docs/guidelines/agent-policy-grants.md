@@ -400,8 +400,11 @@ cannot delete grants.
 - **`tbd sync`:** needs no grant, ever, and no permission to ask for.
   No value of `github-editing`, `github-merge`, or any other policy restricts it,
   including `not-granted`, so a missing grant is never a reason to skip it.
-  Running it is required by the session closing protocol in the skill, and leaving a
-  session unsynced strands the bead updates other replicas and agents depend on.
+  Run it at claim, checkpoint, and handoff boundaries when separate clones exchange bead
+  state or project policy requires publication; explicit project requirements remain
+  authoritative. Linked worktrees in one clone see accepted changes immediately through
+  their shared data store.
+  Local-only or offline work needs no remote exchange unless project policy requires it.
   It pushes only tbd’s own data-sync branch (`tbd-sync` unless the project configures
   another), which carries bead and doc data and never code, a PR, or the branch under
   review; `github-editing` covers the branches and PRs a change is delivered through.

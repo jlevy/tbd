@@ -1,11 +1,11 @@
 /**
  * Markdown utilities for processing markdown content.
  *
- * Uses the centralized gray-matter boundary for delimiter handling and yaml-utils
+ * Uses the centralized YAML-only frontmatter boundary for delimiter handling and yaml-utils
  * for serialization, ensuring consistent YAML semantics everywhere.
  */
 
-import { hasMarkdownFrontmatter, parseMarkdownMatter } from './gray-matter.js';
+import { hasMarkdownFrontmatter, parseMarkdownMatter } from './frontmatter.js';
 import { stringifyYamlCompact } from './yaml-utils.js';
 
 export interface ParsedMarkdown {
