@@ -5,16 +5,18 @@ title: Add opt-in coordination guidance and explicit claim-conflict handling
 kind: task
 status: in_progress
 priority: 1
-version: 4
+version: 6
 spec_path: docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md
-delegate: squares-reconcile-upstream
+delegate: codex-pr324-ci-01a127df
 labels: []
 dependencies: []
 parent_id: is-01m1w3d1e63qg5e2wpz31qkmvn
+child_order_hints:
+  - is-01m4madt9jmnbg4npfwpyge98r
 hold: null
 hold_until: null
 created_at: 2026-10-10T22:25:49.004Z
-updated_at: 2026-10-10T23:19:44.026Z
+updated_at: 2026-10-11T01:50:06.997Z
 started_at: 2026-10-10T22:26:03.414Z
 ---
 Add a lightweight, optional coordination shortcut or guideline for projects with multiple collaborators. Clarify that tbd start claims are advisory, that skipped claims must be checked explicitly, and that same-clone and cross-clone behavior differ. Add minimal routes from the baseline skill, delegation, and handoff guidance. Preserve lightweight use: do not require beads, sync, or network access for every session, read, or trivial task. Do not add a distributed lease. Assess released CLI compatibility before changing start exit behavior; prefer structured explicit outcomes and documentation unless a narrowly compatible runtime improvement is proven. Coordinate scope with tbd-6nmq and tbd-zxg6 rather than duplicating their identity and worker-loop implementation.
