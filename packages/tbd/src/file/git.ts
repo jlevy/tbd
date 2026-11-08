@@ -591,7 +591,7 @@ const METADATA_ONLY_FIELDS: ReadonlySet<keyof Issue> = new Set(['version', 'upda
  * real changes during outbox saves and sync operations.
  */
 export function issuesSubstantivelyEqual(a: Issue, b: Issue): boolean {
-  for (const key of Object.keys(FIELD_STRATEGIES) as (keyof Issue)[]) {
+  for (const key of Object.keys(FIELD_STRATEGIES)) {
     if (METADATA_ONLY_FIELDS.has(key)) {
       continue;
     }
@@ -1140,7 +1140,7 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
   ];
 
   for (const [field, strategy] of strategyPairs) {
-    const key = field as keyof Issue;
+    const key: keyof Issue = field;
     const localVal = local[key];
     const remoteVal = remote[key];
     const baseVal = base[key];

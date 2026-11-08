@@ -26,7 +26,7 @@ const NativeCommentDisplayText = z
   .trim()
   .min(1)
   .max(200)
-  .refine(isWellFormedUnicode, { message: 'must contain well-formed Unicode' });
+  .refine(isWellFormedUnicode, { error: 'must contain well-formed Unicode' });
 
 /** Portable identity minted for an agent independently of its runtime or checkout. */
 export const AgentId = z.string().regex(/^agid-[0-9a-z]{26}$/);
@@ -34,7 +34,7 @@ export const AgentId = z.string().regex(/^agid-[0-9a-z]{26}$/);
 /** Native comment ID in its own namespace, independent of issue display IDs. */
 export const NativeCommentId = z
   .string()
-  .refine(validateCommentId, { message: 'must be cm- plus a lowercase canonical ULID' });
+  .refine(validateCommentId, { error: 'must be cm- plus a lowercase canonical ULID' });
 
 /** Maximum durable native-comment body size, measured after UTF-8 encoding. */
 export const NATIVE_COMMENT_BODY_MAX_BYTES = 64 * 1024;
@@ -60,7 +60,7 @@ export const NativeCommentAuthorSchema = z
   .superRefine((author, ctx) => {
     if (author.agent_id !== undefined && author.kind !== 'agent') {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['agent_id'],
         message: 'agent_id is only valid for an agent author',
       });
@@ -78,14 +78,14 @@ export const NativeCommentSchema = z
     reply_to: NativeCommentId.optional(),
     body: z
       .string()
-      .refine(isWellFormedUnicode, { message: 'body must contain well-formed Unicode' })
+      .refine(isWellFormedUnicode, { error: 'body must contain well-formed Unicode' })
       .refine((body) => body.trim().length > 0, {
-        message: 'body must contain visible content',
+        error: 'body must contain visible content',
       })
       .refine(
         (body) => new TextEncoder().encode(body).byteLength <= NATIVE_COMMENT_BODY_MAX_BYTES,
         {
-          message: `body must be at most ${NATIVE_COMMENT_BODY_MAX_BYTES} UTF-8 bytes`,
+          error: `body must be at most ${NATIVE_COMMENT_BODY_MAX_BYTES} UTF-8 bytes`,
         },
       ),
   })
@@ -93,7 +93,7 @@ export const NativeCommentSchema = z
   .superRefine((comment, ctx) => {
     if (comment.reply_to === comment.id) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['reply_to'],
         message: 'a native comment cannot reply to itself',
       });
