@@ -519,7 +519,7 @@ defines for every shell; in summary:
 ```python
 import json, os, signal, socket, sys, threading
 
-secret = sys.stdin.readline().strip()            # line 1: the per-launch secret
+bearer = sys.stdin.readline().strip()            # line 1: the per-launch secret
 
 def shut_down_on_stdin_eof() -> None:
     while sys.stdin.buffer.read(65536):          # returns b"" only at EOF
@@ -534,7 +534,7 @@ sock.listen(128)                                 # connections now queue in the 
 port = sock.getsockname()[1]
 print(json.dumps({"event": "ready", "protocol": 1, "url": f"http://127.0.0.1:{port}/",
                   "port": port, "pid": os.getpid(), "version": __version__}), flush=True)
-serve(sock, secret)  # e.g. uvicorn.Config(app, fd=sock.fileno(), timeout_graceful_shutdown=5)
+serve(sock, bearer)  # e.g. uvicorn.Config(app, fd=sock.fileno(), timeout_graceful_shutdown=5)
 ```
 
 The shell’s half:
@@ -582,7 +582,7 @@ const { randomBytes } = require('node:crypto');
 const path = require('node:path');
 const readline = require('node:readline');
 
-const TOKEN = randomBytes(32).toString('base64url');
+const BEARER = randomBytes(32).toString('base64url');
 const COOKIE = 'app_session'; // make it per-instance if several servers share a session
 const ALLOWED_PERMISSIONS = new Set(['clipboard-sanitized-write']); // only what the UI uses
 let appOrigin = ''; // for example http://127.0.0.1:53124, known once the backend listens
@@ -608,7 +608,7 @@ const backend = spawn(path.join(data, 'env', 'bin', 'python'),
     stdio: ['pipe', 'pipe', 'inherit'], // stdin carries the secret, then stays open as the lifeline
     detached: true, // own process group, so quitting can signal grandchildren
   });
-backend.stdin.write(`${TOKEN}\n`); // not argv (visible to ps) or env (inherited by every child)
+backend.stdin.write(`${BEARER}\n`); // not argv (visible to ps) or env (inherited by every child)
 backend.once('exit', (code) => { if (!quitting) showBackendError(code); });
 /** @type {Promise<string>} */
 const ready = new Promise((resolve, reject) => {
@@ -664,7 +664,7 @@ function openTarget(target) {
 app.whenReady().then(async () => {
   appOrigin = await ready;
   const ses = session.defaultSession;
-  await ses.cookies.set({ url: appOrigin, name: COOKIE, value: TOKEN,
+  await ses.cookies.set({ url: appOrigin, name: COOKIE, value: BEARER,
                           httpOnly: true, sameSite: 'strict' });
   ses.setPermissionRequestHandler((_wc, permission, callback, details) =>
     callback(ALLOWED_PERMISSIONS.has(permission) && isAppUrl(details.requestingUrl)));

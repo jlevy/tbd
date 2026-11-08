@@ -798,7 +798,7 @@ def request_graceful_stop() -> None:
     stop_requested.set()  # for uvicorn: server.should_exit = True
 
 
-def serve(sock: socket.socket, secret: str) -> None:
+def serve(sock: socket.socket, bearer: str) -> None:
     stop_requested.wait()  # replace: serve HTTP on `sock` until a stop is requested
 
 
@@ -826,7 +826,7 @@ def watch_stdin() -> None:
     begin_shutdown()  # EOF: the shell closed the pipe, or died
 
 
-secret = sys.stdin.readline().strip()  # first stdin line; never argv or the environment
+bearer = sys.stdin.readline().strip()  # first stdin line; never argv or the environment
 threading.Thread(target=watch_stdin, daemon=True).start()
 signal.signal(signal.SIGTERM, lambda signum, frame: begin_shutdown())
 
@@ -842,7 +842,7 @@ ready = {
 }
 print(json.dumps(ready), flush=True)
 try:
-    serve(sock, secret)
+    serve(sock, bearer)
 finally:
     kill_child_groups(signal.SIGTERM)
 ```
