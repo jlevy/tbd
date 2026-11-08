@@ -723,7 +723,10 @@ describe('tbd policy refresh', () => {
   it(
     'refreshes old guidance while preserving decisions, notes, date and line endings',
     async () => {
-      const oldProse = POLICY_BLOCK_PROSE.split('\nOnly the copy committed')[0]!;
+      const oldProse = POLICY_BLOCK_PROSE.slice(
+        0,
+        POLICY_BLOCK_PROSE.indexOf('Only the copy'),
+      ).trimEnd();
       const current = withPolicyBlock(
         getCodexTbdSection(),
         renderPolicyBlock(
@@ -781,7 +784,10 @@ describe('tbd policy refresh', () => {
       const stale = withPolicyBlock(
         getCodexTbdSection(),
         renderPolicyBlock([{ name: 'github-merge', value: 'never' }], '2026-01-02'),
-      ).replace(POLICY_BLOCK_PROSE, POLICY_BLOCK_PROSE.split('\nOnly the copy committed')[0]!);
+      ).replace(
+        POLICY_BLOCK_PROSE,
+        POLICY_BLOCK_PROSE.slice(0, POLICY_BLOCK_PROSE.indexOf('Only the copy')).trimEnd(),
+      );
       const dir = await createRepo({ agentsMd: stale });
 
       const dryJson = runTbd(dir, ['--dry-run', 'policy', 'refresh', '--json']);
@@ -841,7 +847,7 @@ describe('policy dry-run shared-state invariant', () => {
       );
       const stale = current.replace(
         POLICY_BLOCK_PROSE,
-        POLICY_BLOCK_PROSE.split('\nOnly the copy committed')[0]!,
+        POLICY_BLOCK_PROSE.slice(0, POLICY_BLOCK_PROSE.indexOf('Only the copy')).trimEnd(),
       );
       const dir = await createRepo({ agentsMd: stale });
       const paths = await resolveSharedTbdPaths(dir);

@@ -4114,7 +4114,7 @@ Reported under `INTEGRATIONS`. None is auto-fixable: the suggestion names the
 
 | Check | Severity | Auto-fixable | Detection |
 | --- | --- | --- | --- |
-| Generated surface stale or missing | warning | no | Portable skill, Claude Code skill, `AGENTS.md` block, or Codex hooks differ from what this tbd generates, or are absent |
+| Generated surface stale or missing | warning | no | Portable skill, Claude Code skill, `AGENTS.md` block, or Codex hooks differ from what this tbd generates, or are absent. The `AGENTS.md` block is compared ignoring Markdown line wrapping, so a formatter that rewraps it does not make it stale, and setup leaves it as formatted |
 | Generated surface too new | error | no | `format=` stamp above this tbd’s integration format (§6.4.6) |
 | Tier agent definitions | warning (stale, missing), error (too new) | no | Checked per platform only when a `tbd-*` definition exists; files without the `DO NOT EDIT` marker are user overrides and only counted (§6.4.7) |
 | Policy block unreadable | error | no | Working-tree block is malformed or has an unknown `v=` version (§6.4.8) |

@@ -20,6 +20,12 @@ export interface InspectManagedArtifactOptions {
   ownershipMarker: string;
   supportedFormat: string;
   selectManagedContent?: (content: string) => string;
+  /**
+   * Treat content that differs only in Markdown line wrapping as current (see
+   * {@link sameMarkdownIgnoringWrapping}). For a block that a project's Markdown
+   * formatter may rewrap, such as the AGENTS.md block.
+   */
+  ignoreLineWrapping?: boolean;
 }
 
 /** Byte span occupied by one complete marker-delimited managed block. */
@@ -286,8 +292,9 @@ export async function inspectManagedArtifact(
     return { state: 'too-new', format };
   }
 
+  const same = options.ignoreLineWrapping ? sameMarkdownIgnoringWrapping : sameManagedContent;
   return {
-    state: sameManagedContent(managedContent, options.expectedContent) ? 'current' : 'stale',
+    state: same(managedContent, options.expectedContent) ? 'current' : 'stale',
     format,
   };
 }
@@ -304,6 +311,66 @@ function sameManagedContent(actual: string, expected: string): boolean {
 
 function toLf(text: string): string {
   return text.replace(/\r\n/gu, '\n');
+}
+
+/** A line that starts a Markdown block: a list item, heading, comment, quote, table row, or fence. */
+const MARKDOWN_BLOCK_START = /^\s*(?:[-*+]\s|\d+[.)]\s|#{1,6}(?:\s|$)|<!--|>|\||```|~~~)/u;
+/** A line that is a whole block by itself, so the next line never continues it. */
+const MARKDOWN_SINGLE_LINE_BLOCK = /^\s*(?:#{1,6}(?:\s|$)|<!--.*-->\s*$|\|)/u;
+
+/**
+ * Markdown with its soft line breaks removed: each paragraph or list item becomes one
+ * line, with runs of whitespace inside it collapsed to one space. Blank lines, the
+ * lines that start a block, and fenced code are kept as they are, so list structure,
+ * headings, and code still have to match.
+ */
+export function unwrapMarkdown(text: string): string {
+  const lines: string[] = [];
+  let fence: string | undefined;
+  let joinable = false;
+  for (const raw of toLf(text).split('\n')) {
+    const line = raw.trimEnd();
+    if (fence !== undefined) {
+      lines.push(line);
+      if (line.trimStart().startsWith(fence)) {
+        fence = undefined;
+      }
+      continue;
+    }
+    const content = line.trimStart();
+    if (content === '') {
+      lines.push('');
+      joinable = false;
+      continue;
+    }
+    if (content.startsWith('```') || content.startsWith('~~~')) {
+      fence = content.slice(0, 3);
+      lines.push(line);
+      joinable = false;
+      continue;
+    }
+    const previous = lines.at(-1);
+    if (joinable && previous !== undefined && !MARKDOWN_BLOCK_START.test(line)) {
+      lines[lines.length - 1] = `${previous} ${content.replace(/\s+/gu, ' ')}`;
+      continue;
+    }
+    const indent = line.slice(0, line.length - content.length);
+    lines.push(indent + content.replace(/\s+/gu, ' '));
+    joinable = !MARKDOWN_SINGLE_LINE_BLOCK.test(line);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Whether two Markdown texts differ only in line endings and in how their prose is
+ * wrapped. A formatter run over AGENTS.md (flowmark, Prettier with proseWrap) rewraps
+ * the generated block; byte comparison then called it stale forever, and setup's
+ * rewrite undid the formatter on every run.
+ */
+export function sameMarkdownIgnoringWrapping(actual: string, expected: string): boolean {
+  return (
+    sameManagedContent(actual, expected) || unwrapMarkdown(actual) === unwrapMarkdown(expected)
+  );
 }
 
 /**

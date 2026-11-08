@@ -2404,6 +2404,8 @@ class DoctorHandler extends BaseCommand {
       supportedFormat: AGENT_INTEGRATION_FORMAT,
       selectManagedContent: (content) =>
         extractManagedBlock(content, CODEX_BEGIN_MARKER, CODEX_END_MARKER),
+      // A project's Markdown formatter may rewrap the block; that is not drift.
+      ignoreLineWrapping: true,
     });
     if (!comparable && inspection.state === 'stale') {
       return {
