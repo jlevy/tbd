@@ -31,6 +31,7 @@ import {
   type WorkingTreeGrants,
 } from '../src/lib/policy-grants.js';
 import { subprocessTestTimeout } from './test-helpers.js';
+import { TBD_INSTALL_COMMAND } from '../src/lib/install-advice.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TBD_BIN = join(__dirname, '..', 'dist', 'bin.mjs');
@@ -154,7 +155,7 @@ describe('policyGrantFindings', () => {
         status: 'error',
         message: 'policy block version v=2 is not supported (this tbd reads v=1)',
         path: 'AGENTS.md',
-        suggestion: 'Upgrade tbd: npm install -g get-tbd@latest',
+        suggestion: `Upgrade tbd: ${TBD_INSTALL_COMMAND}`,
       },
     ]);
   });
@@ -303,7 +304,7 @@ describe('policyGrantFindings', () => {
         status: 'warn',
         message: 'policy block version v=2 on origin/main is not supported (this tbd reads v=1)',
         path: 'AGENTS.md',
-        suggestion: 'Upgrade tbd: npm install -g get-tbd@latest',
+        suggestion: `Upgrade tbd: ${TBD_INSTALL_COMMAND}`,
       },
     ]);
   });

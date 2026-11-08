@@ -37,7 +37,9 @@ Install or upgrade only when tbd is missing, or when it refuses with “This rep
 requires a newer version of tbd”:
 
 ```bash
-npm install -g get-tbd@latest   # Installs or upgrades
+# Installs or upgrades: the newest release published at least 14 days ago, without
+# install scripts (`tbd guidelines supply-chain-hardening`)
+npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" get-tbd
 tbd --version
 ```
 

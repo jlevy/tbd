@@ -44,12 +44,13 @@ import {
   withPolicyBlock,
 } from '../../lib/policy-grants.js';
 import { refreshPolicyBlockProse } from '../../lib/policy-block-prose.js';
+import { TBD_INSTALL_COMMAND } from '../../lib/install-advice.js';
 import { BaseCommand } from '../lib/base-command.js';
 import { CLIError, ValidationError, requireInit } from '../lib/errors.js';
 import { assertSafeManagedArtifactTarget, withAgentsMdLock } from '../lib/managed-artifact.js';
 
 const GUIDELINE_HINT = 'tbd guidelines agent-policy-grants';
-const UPGRADE_HINT = 'npm install -g get-tbd@latest';
+const UPGRADE_HINT = TBD_INSTALL_COMMAND;
 
 /** A parse without the block text, for JSON output. */
 type PolicyBlockSummary =
@@ -111,7 +112,7 @@ function describeSource(source: DefaultBranchRef | null): string {
 function unknownVersionMessage(where: string, version: string): string {
   const shown = displayPolicyValue(version, 32);
   return (
-    `${where} has a policy block with version v=${shown}; this tbd reads v=${POLICY_BLOCK_VERSION}. ` +
+    `${where} has a policy block with version v=${shown}; this tbd reads v=${POLICY_BLOCK_VERSION}.\n` +
     `Upgrade tbd: ${UPGRADE_HINT}`
   );
 }

@@ -42,10 +42,11 @@ instructions.
 ## Quick Start
 
 Requires Node.js 22.12.0 or newer and Git 2.42 or newer.
-Install the CLI:
+Install the CLI (the newest release published at least 14 days ago, without install
+scripts, per the [supply-chain rules](SUPPLY-CHAIN-SECURITY.md)):
 
 ```bash
-npm install -g get-tbd@latest
+npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" get-tbd
 ```
 
 Then, with your agent working in your project’s Git repository, tell it:
@@ -54,8 +55,8 @@ Then, with your agent working in your project’s Git repository, tell it:
 
 Or ask the agent to handle both steps:
 
-**“Run `npm install -g get-tbd@latest`, then run `tbd prime` and set up tbd in this
-project.”**
+**“Install get-tbd (the newest release at least 14 days old, with `--ignore-scripts`),
+then run `tbd prime` and set up tbd in this project.”**
 
 Installing the CLI does not initialize the project.
 `tbd prime` gives the agent instructions.
@@ -191,9 +192,9 @@ for selection, linking, and synchronization behavior.
 
 ### Existing projects and upgrades
 
-Install or upgrade with `npm install -g get-tbd@latest`, then ask your agent to **“Set
-up tbd.”** The setup shortcut checks the installed CLI, refreshes the project, and asks
-about unanswered policies.
+Install or upgrade with the command in [Quick Start](#quick-start), then ask your agent
+to **“Set up tbd.”** The setup shortcut checks the installed CLI, refreshes the project,
+and asks about unanswered policies.
 It installs a missing or incompatible CLI and asks before an optional upgrade of a
 working installation.
 

@@ -1782,7 +1782,7 @@ const ConfigSchema = z.object({
 >    could lose or misinterpret data.
 > 3. Pre-f07 clients still parse in strip mode.
 >    The f07 gate makes those clients fail before they can rewrite configuration, with
->    an instruction to upgrade via `npm install -g get-tbd@latest`.
+>    an instruction to upgrade tbd.
 > 
 > This preserves future additive configuration while keeping destructive or semantic
 > changes behind an explicit, migratable compatibility gate.
@@ -5533,8 +5533,8 @@ all environments including cloud sandboxes.
 
 | Method | Command | Best For |
 | --- | --- | --- |
-| **npm** (primary) | `npm install -g get-tbd` | Most users, cloud environments |
-| **npx** (no install) | `npx get-tbd <command>` | One-off usage, testing |
+| **npm** (primary) | `npm install -g --ignore-scripts --before=<14 days ago> get-tbd` | Most users, cloud environments |
+| **npx** (no install) | `npx --yes --ignore-scripts --before=<14 days ago> get-tbd@<version> <command>` | One-off usage, testing |
 | **From source** | `pnpm install && pnpm build` | Contributors |
 
 **npm is the recommended approach** because:
@@ -5704,7 +5704,8 @@ bootstrap script to your repository:
 ```bash
 # .claude/hooks/session-start.sh
 #!/bin/bash
-command -v tbd &>/dev/null || npm install -g get-tbd --quiet
+command -v tbd &>/dev/null ||
+  npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" get-tbd --quiet
 [ -d ".tbd" ] && tbd prime
 ```
 

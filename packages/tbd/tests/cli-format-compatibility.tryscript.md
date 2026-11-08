@@ -45,7 +45,7 @@ $ tbd list 2>&1
 Error: This repository requires a newer version of tbd.
 Config format 'f99' is from a newer tbd version.
 This tbd version supports up to format 'f08'.
-Upgrade tbd: npm install -g get-tbd@latest
+Upgrade tbd: npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" get-tbd
 ? 1
 ```
 

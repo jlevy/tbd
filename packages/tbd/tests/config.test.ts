@@ -22,6 +22,7 @@ import {
 import { CONFIG_FILE } from '../src/lib/paths.js';
 import { CURRENT_FORMAT } from '../src/lib/tbd-format.js';
 import type { Config } from '../src/lib/types.js';
+import { TBD_INSTALL_COMMAND } from '../src/lib/install-advice.js';
 
 describe('config operations', () => {
   let tempDir: string;
@@ -171,7 +172,7 @@ describe('config operations', () => {
         'This repository requires a newer version of tbd.\n' +
           "Config format 'f99' is from a newer tbd version.\n" +
           `This tbd version supports up to format '${CURRENT_FORMAT}'.\n` +
-          'Upgrade tbd: npm install -g get-tbd@latest',
+          `Upgrade tbd: ${TBD_INSTALL_COMMAND}`,
       );
     });
   });

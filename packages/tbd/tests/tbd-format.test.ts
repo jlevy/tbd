@@ -22,6 +22,7 @@ import {
   integrationFormatNumber,
   parseManagedIntegrationFormat,
 } from '../src/cli/lib/managed-artifact.js';
+import { TBD_INSTALL_COMMAND } from '../src/lib/install-advice.js';
 
 describe('tbd-format', () => {
   describe('constants', () => {
@@ -395,7 +396,7 @@ describe('tbd-format', () => {
         'This repository requires a newer version of tbd.\n' +
           "Config format 'f04' is from a newer tbd version.\n" +
           "This tbd version supports up to format 'f03'.\n" +
-          'Upgrade tbd: npm install -g get-tbd@latest',
+          `Upgrade tbd: ${TBD_INSTALL_COMMAND}`,
       );
     });
   });

@@ -41,7 +41,7 @@
  *    format version (e.g., f07 → f08)
  * 2. config.ts checks format compatibility via isCompatibleFormat()
  * 3. Older tbd versions will error with "format 'fXX' is from a newer tbd version"
- * 4. The error tells users to upgrade: npm install -g get-tbd@latest
+ * 4. The error tells users to upgrade with TBD_INSTALL_COMMAND (install-advice.ts)
  *
  * This ensures older versions fail fast rather than silently corrupting config.
  * A purely additive config key no longer needs a bump once every client in use is
@@ -49,6 +49,8 @@
  * new key to a pre-f07 client would be damaging.
  * See ConfigSchema in schemas.ts and checkFormatCompatibility() in config.ts.
  */
+
+import { TBD_INSTALL_COMMAND } from './install-advice.js';
 
 // =============================================================================
 // Format Constants
@@ -832,7 +834,7 @@ export function formatUpgradeMessage(
     `This repository requires a newer version of tbd.\n` +
     `${subject} format '${foundFormat}' is from a newer tbd version.\n` +
     `This tbd version supports up to format '${supportedFormat}'.\n` +
-    `Upgrade tbd: npm install -g get-tbd@latest`
+    `Upgrade tbd: ${TBD_INSTALL_COMMAND}`
   );
 }
 

@@ -7,7 +7,7 @@ description: >-
   planning features, setting up a Linear/external tracker integration or personal
   Linear API key, or viewing beads in a live browser.
 license: MIT
-compatibility: Requires Node.js 22.12.0 or newer and git. Install CLI first: npm install -g get-tbd@latest
+compatibility: Requires Node.js 22.12.0 or newer and git. Install the CLI first, as Prerequisites shows (the newest release at least 14 days old, without install scripts).
 metadata:
   author: jlevy
   repository: https://github.com/jlevy/tbd
@@ -33,7 +33,8 @@ Before using tbd commands, ensure the CLI is installed (for a new project and af
 every upgrade, follow `tbd shortcut setup-tbd`):
 
 ```bash
-npm install -g get-tbd@latest
+# The newest release published at least 14 days ago, without install scripts
+npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" get-tbd
 tbd setup --auto --prefix=<name>  # Fresh repository; ask the user for the prefix
 tbd setup --auto                  # Existing tbd repository; reads its config
 tbd setup --from-beads            # Uninitialized repo: import and archive .beads/

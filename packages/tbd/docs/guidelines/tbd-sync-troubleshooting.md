@@ -106,7 +106,8 @@ auto-saving, since the issue is likely temporary.
   falling back to saving all issues
 
 **If you encounter this with an older version:**
-1. Update tbd: `npm install -g get-tbd@latest`
+1. Update tbd:
+   `npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" get-tbd`
 2. If you already have a large outbox, you can safely import it—the import will merge
    using field-level LWW and the trivial changes will be harmless
 3. Run `tbd sync` to clear the outbox

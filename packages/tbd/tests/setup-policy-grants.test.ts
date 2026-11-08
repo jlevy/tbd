@@ -53,6 +53,7 @@ import {
   withPolicyBlock,
 } from '../src/lib/policy-grants.js';
 import { subprocessTestTimeout } from './test-helpers.js';
+import { TBD_INSTALL_COMMAND } from '../src/lib/install-advice.js';
 
 const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
 const CLI_TEST_TIMEOUT_MS = subprocessTestTimeout(90_000);
@@ -197,7 +198,7 @@ describe('getCodexTbdSectionPreservingGrants', () => {
       CLIError,
     );
     expect(() => getCodexTbdSectionPreservingGrants(staleAgentsMd(UNKNOWN_VERSION_BLOCK))).toThrow(
-      /v=2[\s\S]*unchanged[\s\S]*get-tbd@latest/,
+      /v=2[\s\S]*unchanged[\s\S]*npm install -g --ignore-scripts --before=/,
     );
   });
 });
@@ -619,7 +620,7 @@ describe('tbd setup --auto preserves the policy block', () => {
       const result = runTbd(dir, ['setup', '--auto']);
       expect(result.status).not.toBe(0);
       expect(result.stderr).toContain('v=2');
-      expect(result.stderr).toContain('get-tbd@latest');
+      expect(result.stderr).toContain(TBD_INSTALL_COMMAND);
       expect(await readFile(agentsPath, 'utf-8')).toBe(newer);
     },
     CLI_TEST_TIMEOUT_MS,
