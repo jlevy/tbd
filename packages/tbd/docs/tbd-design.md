@@ -5574,7 +5574,7 @@ in any environment (local dev, Claude Code Cloud, etc.).
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/tbd-closing-reminder.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/tbd-closing-reminder.sh"
           }
         ]
       }
@@ -5590,6 +5590,14 @@ in any environment (local dev, Claude Code Cloud, etc.).
 All hook commands use project-relative paths (e.g.,
 `bash .claude/scripts/tbd-session.sh`) so they work regardless of where tbd was
 installed globally.
+A project may spell a command differently as long as it runs the same
+script with the same arguments, for example
+`bash "$CLAUDE_PROJECT_DIR"/.claude/scripts/tbd-session.sh` or
+`bash "$(git rev-parse --show-toplevel)/.codex/tbd-session.sh"`. Setup keeps such a
+command as written, adds no duplicate beside it, and reports it as a customized hook
+command; `tbd doctor` reports the surface as current.
+A command that adds anything else (another command, other arguments) is the project’s
+own and does not stand in for tbd’s.
 
 **B. Session Script** (installed to `.claude/scripts/tbd-session.sh`)
 
@@ -5599,6 +5607,34 @@ It contains no tbd release literal: it uses an installed CLI when that CLI can r
 repository’s `tbd_format`, otherwise it invokes the strictly validated exact
 `tbd_fallback_version` stored once in `.tbd/config.yml`. Compatible package upgrades
 therefore update the central pin without rewriting the script.
+
+The script finds the repository from its own install location (`.claude/scripts/` or
+`.codex/`), not by asking git or searching parent directories, so it works without git
+and fails closed when that repository has no `.tbd/config.yml` rather than adopting an
+enclosing directory’s configuration.
+The npx fallback runs under the 14-day supply-chain cool-off:
+`npx --yes --before=<now minus 14 days> --ignore-scripts --cache=<dedicated cache>`. npm
+then resolves the pin and every dependency only from versions published before the
+cutoff, so a pin newer than 14 days fails until it ages, and it runs no install scripts.
+The policy is passed as flags, which npm ranks above inherited `NPM_CONFIG_*` variables,
+and the cache (`${XDG_CACHE_HOME:-~/.cache}/tbd-fallback-npm`) is used only by these
+runs, because npx reuses a cached package by its spec without resolving it again.
+The cutoff is computed with node; without a working node the fallback stops.
+Failures of the local CLI and of npx propagate as the hook’s exit status, and without
+npx the script prints an install command carrying the same `--ignore-scripts` and
+`--before` flags.
+
+**C. Closing Reminder** (installed to `.claude/hooks/tbd-closing-reminder.sh`)
+
+The PostToolUse hook reads the hook’s JSON input and runs `tbd closing` only when the
+Bash command runs `git push`. It parses the command with an embedded node program that
+separates commands and words as a shell does, so it recognizes `git -C dir push`,
+`env VAR=1 git push`, or a push on a later line, and ignores `echo git push`. It needs
+no jq, and invalid hook JSON exits 1 with a message instead of skipping the reminder.
+It locates the repository and runs tbd the same way as the session script.
+The Codex PostToolUse command walks up from the working directory only to the first
+directory with `.git` or `.codex/hooks.json` and runs that directory’s own
+`.codex/tbd-closing-reminder.sh`, so a stray copy in a nested directory never runs.
 
 **Setup command:**
 
