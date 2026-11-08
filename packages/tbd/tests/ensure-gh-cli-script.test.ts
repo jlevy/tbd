@@ -712,4 +712,139 @@ exec /bin/mv "$@"
       ]),
     ).toBe(false);
   });
+
+  it('never advises creating or deleting refs through the GitHub API', async () => {
+    // A session git broker that refuses tag pushes does so on purpose, and a v* tag can
+    // publish a release; the script must not point agents around it.
+    const source = await readScriptSource();
+    expect(source).not.toMatch(/gh api (-X \S+ )?repos\/\S*\/git\/refs/u);
+    expect(source).not.toContain('create tags on the direct channel');
+    expect(source).toContain('Report the refusal and ask the user to create the tag.');
+  });
+
+  describe('replacing an existing ~/.local/bin/gh', () => {
+    const LINUX_AMD64_SHA256 = 'a2c9b8497e1f85b1ad0dfcb78b5a622e098801b8e461e459e88e1ee12f018112';
+
+    /**
+     * Run the full install path offline: curl, the checksum tool, and tar are shell
+     * functions that produce the pinned archive's expected digest and a pinned gh.
+     */
+    async function runPinnedInstall(oldGh: string): Promise<{
+      result: ReturnType<typeof spawnSync>;
+      localBin: string;
+      directory: string;
+    }> {
+      const directory = await mkdtemp(join(tmpdir(), 'tbd-gh-backup-'));
+      const homeDirectory = join(directory, 'home');
+      const localBin = join(homeDirectory, '.local', 'bin');
+      const fixtureBin = join(directory, 'bin');
+      const tempDirectory = join(directory, 'tmp');
+      await Promise.all([
+        mkdir(localBin, { recursive: true }),
+        mkdir(fixtureBin, { recursive: true }),
+        mkdir(tempDirectory, { recursive: true }),
+      ]);
+      await writeFile(join(localBin, 'gh'), oldGh);
+      await chmod(join(localBin, 'gh'), 0o755);
+      const bashEnvironment = await writeBashEnvironment(fixtureBin, [
+        'curl() {',
+        '    local output=""',
+        '    while [ "$#" -gt 0 ]; do',
+        '        case "$1" in',
+        '            -o) output=$2; shift 2 ;;',
+        '            *) shift ;;',
+        '        esac',
+        '    done',
+        '    printf "pinned archive" > "$output"',
+        '}',
+        `sha256sum() { printf "%s  %s\\n" "${LINUX_AMD64_SHA256}" "$1"; }`,
+        'tar() {',
+        '    local dir=""',
+        '    while [ "$#" -gt 0 ]; do',
+        '        case "$1" in',
+        '            -C) dir=$2; shift 2 ;;',
+        '            *) shift ;;',
+        '        esac',
+        '    done',
+        '    mkdir -p "$dir/gh_2.97.0_linux_amd64/bin"',
+        `    printf '#!/bin/bash\\nif [ "\${1:-}" = "--version" ]; then echo "gh version 2.97.0 (pinned)"; exit 0; fi\\nexit 1\\n' > "$dir/gh_2.97.0_linux_amd64/bin/gh"`,
+        '}',
+      ]);
+      const result = spawnSync(BASH, [bashPath(SCRIPT)], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          BASH_ENV: bashPath(bashEnvironment),
+          GH_TOKEN: '',
+          HOME: bashPath(homeDirectory),
+          PATH: bashPathWith(fixtureBin),
+          TMPDIR: bashPath(tempDirectory),
+        },
+      });
+      return { result, localBin, directory };
+    }
+
+    it.each([
+      ['an old version', '#!/bin/bash\necho "gh version 2.10.0 (old wrapper)"\n'],
+      ['no usable version', '#!/bin/bash\n# a user wrapper that prints nothing\nexit 0\n'],
+    ])('moves one that reports %s to a timestamped backup', async (_label, oldGh) => {
+      const { result, localBin, directory } = await runPinnedInstall(oldGh);
+      try {
+        expect(result.status, `${String(result.stdout)}\n${String(result.stderr)}`).toBe(0);
+        expect(result.stdout).toContain(
+          'existing ~/.local/bin/gh moved aside to a timestamped backup',
+        );
+        const backups = (await readdir(localBin)).filter((name) => name.startsWith('gh.backup-'));
+        expect(backups).toHaveLength(1);
+        expect(backups[0]).toMatch(/^gh\.backup-\d{8}T\d{6}Z$/u);
+        expect(await readFile(join(localBin, backups[0]!), 'utf8')).toBe(oldGh);
+        expect(await readFile(join(localBin, 'gh'), 'utf8')).toContain('2.97.0 (pinned)');
+        expect(result.stdout).toContain(`aside to `);
+        expect(result.stdout).toContain('To restore it: mv -f');
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    });
+
+    /** Run the shipped backup function against a disposable HOME with a fixed clock. */
+    async function runBackup(home: string): Promise<ReturnType<typeof spawnSync>> {
+      const fn = await extractFunction('backup_existing_local_gh');
+      return spawnSync(
+        BASH,
+        ['-c', `date() { echo 20260101T000000Z; }\n${fn}\nbackup_existing_local_gh`],
+        { encoding: 'utf8', env: { ...process.env, HOME: bashPath(home) } },
+      );
+    }
+
+    it('picks a free backup name, and refuses rather than overwrite when none is free', async () => {
+      const home = await mkdtemp(join(tmpdir(), 'tbd-gh-backup-name-'));
+      const localBin = join(home, '.local', 'bin');
+      try {
+        await mkdir(localBin, { recursive: true });
+        expect((await runBackup(home)).status).toBe(0);
+        expect(await readdir(localBin)).toEqual([]);
+
+        await writeFile(join(localBin, 'gh'), 'current');
+        await writeFile(join(localBin, 'gh.backup-20260101T000000Z'), 'earlier');
+        expect((await runBackup(home)).status).toBe(0);
+        expect(await readFile(join(localBin, 'gh.backup-20260101T000000Z'), 'utf8')).toBe(
+          'earlier',
+        );
+        expect(await readFile(join(localBin, 'gh.backup-20260101T000000Z-1'), 'utf8')).toBe(
+          'current',
+        );
+
+        await writeFile(join(localBin, 'gh'), 'newest');
+        for (let suffix = 2; suffix <= 99; suffix++) {
+          await writeFile(join(localBin, `gh.backup-20260101T000000Z-${suffix}`), 'taken');
+        }
+        const refused = await runBackup(home);
+        expect(refused.status).toBe(1);
+        expect(refused.stdout).toContain('refusing to replace it');
+        expect(await readFile(join(localBin, 'gh'), 'utf8')).toBe('newest');
+      } finally {
+        await rm(home, { recursive: true, force: true });
+      }
+    });
+  });
 });

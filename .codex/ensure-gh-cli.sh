@@ -92,6 +92,30 @@ checksum_for() {
     esac
 }
 
+# Move an existing ~/.local/bin/gh aside before the pinned build takes its place. That
+# file can be a user's own wrapper, or a gh that reports an old or unreadable version;
+# renaming it to a timestamped backup keeps it recoverable. Refuses (returns 1) rather
+# than overwrite when no free backup name exists.
+backup_existing_local_gh() {
+    local target="$HOME/.local/bin/gh" stamp backup suffix=0
+    if [ ! -e "$target" ] && [ ! -L "$target" ]; then
+        return 0
+    fi
+    stamp=$(date -u +%Y%m%dT%H%M%SZ)
+    backup="${target}.backup-${stamp}"
+    while [ -e "$backup" ] || [ -L "$backup" ]; do
+        suffix=$((suffix + 1))
+        if [ "$suffix" -gt 99 ]; then
+            echo "[gh] ERROR: no free backup name for ${target}; refusing to replace it"
+            return 1
+        fi
+        backup="${target}.backup-${stamp}-${suffix}"
+    done
+    mv -- "$target" "$backup"
+    echo "[gh] Moved the existing ${target} aside to ${backup}"
+    echo "[gh] To restore it: mv -f \"${backup}\" \"${target}\""
+}
+
 # Compare dotted versions without sort -V (absent on stock macOS) or python.
 # Returns 0 when $1 >= $2. Any prerelease suffix is stripped before comparing, so
 # 2.97.0-rc1 compares equal to 2.97.0; gh ships no prereleases through this path.
@@ -119,19 +143,30 @@ installed_gh_version() {
 # Decide whether to install. Presence alone is not enough: a distro-packaged gh is
 # routinely several minor versions behind, and accepting it silently is how the pin
 # fails to apply on exactly the machines that need it.
+# What happens to the gh at GH_PATH when the pinned build is installed. A gh elsewhere
+# stays where it is; one at the destination is moved aside (see backup_existing_local_gh).
+existing_gh_disposition() {
+    if [ "$1" = "$HOME/.local/bin/gh" ]; then
+        echo "existing ~/.local/bin/gh moved aside to a timestamped backup"
+    else
+        echo "existing gh left in place"
+    fi
+}
+
 NEED_INSTALL=0
 if command -v gh &> /dev/null; then
     GH_PATH="$(command -v gh)"
     GH_CURRENT="$(installed_gh_version "$GH_PATH")"
     if [ -z "$GH_CURRENT" ]; then
-        echo "[gh] CLI at ${GH_PATH} does not report a usable version; installing pinned v${GH_VERSION}"
+        echo "[gh] CLI at ${GH_PATH} does not report a usable version"
+        echo "[gh] Installing pinned v${GH_VERSION} to ~/.local/bin ($(existing_gh_disposition "$GH_PATH"))"
         NEED_INSTALL=1
     elif version_ge "$GH_CURRENT" "$GH_MIN_VERSION"; then
         # Newer than the pin is fine and is left alone; this must never downgrade.
         echo "[gh] CLI found at ${GH_PATH} (v${GH_CURRENT})"
     else
         echo "[gh] CLI at ${GH_PATH} is v${GH_CURRENT}, below the required v${GH_MIN_VERSION}"
-        echo "[gh] Installing pinned v${GH_VERSION} to ~/.local/bin (existing gh left in place)"
+        echo "[gh] Installing pinned v${GH_VERSION} to ~/.local/bin ($(existing_gh_disposition "$GH_PATH"))"
         NEED_INSTALL=1
     fi
 else
@@ -210,6 +245,7 @@ if [ "$NEED_INSTALL" = "1" ]; then
     INSTALL_STAGING=$(mktemp "$HOME/.local/bin/.gh.XXXXXX")
     cp "${EXTRACT_DIR}/bin/gh" "$INSTALL_STAGING"
     chmod +x "$INSTALL_STAGING"
+    backup_existing_local_gh
     mv -f "$INSTALL_STAGING" "$HOME/.local/bin/gh"
     INSTALL_STAGING=""
 
@@ -269,8 +305,9 @@ if [ -n "${GH_TOKEN:-}" ]; then
             echo "[gh]   - pushes to refs/heads/* succeed; pushes to refs/tags/* fail with HTTP 403."
             echo "[gh]   - 'git push --dry-run' PASSES for tags the broker later refuses"
             echo "[gh]     (it refuses at receive-pack, after ref advertisement); it proves nothing."
-            echo "[gh]   - create tags on the direct channel instead:"
-            echo "[gh]       gh api repos/OWNER/REPO/git/refs -f ref=refs/tags/vX.Y.Z -f sha=SHA"
+            echo "[gh]   - a refused tag push is the broker's policy. Do not create the tag another way"
+            echo "[gh]     (gh api .../git/refs or any other channel): a v* tag can publish a release."
+            echo "[gh]     Report the refusal and ask the user to create the tag."
             echo "[gh]   - a GitHub-host 403 with NO x-github-request-id header is proxy-manufactured,"
             echo "[gh]     not an egress denial. Run the egress test before reporting a block."
             echo "[gh] Details: tbd shortcut setup-github-cli (Proxied Remote Sessions)"
