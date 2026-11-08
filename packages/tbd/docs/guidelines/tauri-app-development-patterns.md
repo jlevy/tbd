@@ -1,73 +1,108 @@
 ---
 title: Tauri App Development Patterns
-description: Building desktop apps with Tauri 2—the Rust core and system webview model, capabilities and permissions, typed commands and IPC, attaching Rust or non-Rust backends, packaging, signing, and the signed updater
+description: Building desktop apps with Tauri 2—capabilities and IPC, Rust and non-Rust backends, sidecar lifecycle, wrapping a loopback web server, WKWebView gaps on macOS, signing and notarization, the signed updater, and the Cargo cool-off
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: desktop
 ---
 # Tauri App Development Patterns
 
-**Last Updated**: 2026-08-16
+**Last Updated**: 2026-11-08
 
 **Related**:
 
 - [Tauri documentation](https://v2.tauri.app/)
 - [Tauri source](https://github.com/tauri-apps/tauri)
+- [Tauri plugins source](https://github.com/tauri-apps/plugins-workspace)
 - [awesome-tauri](https://github.com/tauri-apps/awesome-tauri)
 - [Companion: Electron App Development Patterns](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/electron-app-development-patterns.md)
 - [Companion: Electrobun App Development Patterns](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/electrobun-app-development-patterns.md)
+- [Companion: macOS WebView Shell Patterns](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/macos-webview-shell-patterns.md)
+  (the hand-written AppKit and WKWebView alternative for macOS-only apps)
+- [Companion: Desktop Python Runtime Patterns](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/desktop-python-runtime-patterns.md)
+  (shipping a Python backend with uv)
+- [Companion: Supply-Chain Hardening](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/supply-chain-hardening.md)
+- [Companion: TypeScript Rules](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/typescript-rules.md)
 
 * * *
 
 ## Updating This Document
 
-Tauri releases steadily and its 2.x line is stable, so the facts here age more slowly
-than in the Electrobun guideline.
-The parts most worth rechecking are the Linux webview situation and the Tauri 3.0
-roadmap, both of which are actively changing.
+Tauri’s 2.x core is stable, but its plugins publish almost weekly and 3.0 is in alpha,
+so version facts here age within weeks.
+The parts most worth rechecking are the plugin pins against the cool-off, the security
+floor, the open macOS issues, the Linux webview situation, and the Tauri 3.0 status.
 
 ### Last Researched Versions
 
-Observed 2026-08-16 by querying crates.io and the npm registry directly.
-Every pin below clears the 14-day cool-off in `tbd guidelines supply-chain-hardening` by
-at least 46 days.
+Observed 2026-11-08 by querying the crates.io API, the npm registry, and GitHub releases
+directly. The 14-day cool-off in `tbd guidelines supply-chain-hardening` put the cut-off
+at 2026-10-25: a release is eligible if its UTC publish date is on or before that date,
+**Pin** is the newest eligible release, and a release marked *too new* becomes eligible
+on the date given.
 
-| Thing | Version | Check For Updates |
-| --- | --- | --- |
-| **tauri** (Rust crate) | 2.11.5 | [crates.io/crates/tauri](https://crates.io/crates/tauri)—published 2026-07-01. Still the 2.x line; **no v3 yet**. |
-| **tauri-build** | 2.6.3 | Versions on its own 2.6.x line, not in lockstep with the core crate. |
-| **tauri-cli / @tauri-apps/cli** | 2.11.4 | Published 2026-06-28. |
-| **@tauri-apps/api** | 2.11.1 | Published 2026-06-17. |
-| **tauri-plugin-updater / @tauri-apps/plugin-updater** | 2.10.1 | Rust crate and JS package share a version. |
-| **tauri-plugin-shell / @tauri-apps/plugin-shell** | 2.3.5 | Needed for sidecars. |
-| **Minimum version to pin** | **2.11.1** | 2.11.1 shipped security fixes: ACL enforcement for remote origins, and localhost suffix handling. Do not pin below it. |
-| **Linux webview** | webkit2gtk **4.1** | `4.0` was removed in Ubuntu 24 and Debian 13. Engine capability tracks the distro, not your build. |
-| **Windows webview** | WebView2 (Evergreen) | Preinstalled on Windows 11; bootstrapped on older versions. |
+| Thing | Pin | Newest release | Notes |
+| --- | --- | --- | --- |
+| **tauri** (Rust crate) | **2.12.5** | 2.12.5, 2026-10-21 | MSRV 1.90. The stable line is 2.x; 3.0 is alpha only (see [Tauri 3.0](#10-tauri-30)). |
+| **tauri-build** | 2.7.4 | 2.7.4, 2026-10-21 | Versions on its own 2.7.x line. |
+| **tauri-cli / @tauri-apps/cli** | 2.12.4 | 2.12.4, 2026-10-21 | 2.12.0+ writes the app version into updater signatures. The npm package has no JavaScript dependencies, only per-platform optional binaries. |
+| **@tauri-apps/api** | 2.12.4 | 2.12.4, 2026-10-14 | Not needed when the page makes no IPC calls. |
+| **tauri-plugin-updater / @tauri-apps/plugin-updater** | **2.14.0** (2026-10-14) | 2.14.1, 2026-10-28: *too new* until 2026-11-11 | 2.14.1 only moves to `zip` 9 (Windows extraction) and `base64` 0.23. `requireSignedVersion` needs 2.12.0+. |
+| **tauri-plugin-shell / @tauri-apps/plugin-shell** | **2.5.0** (2026-10-10) | 2.6.0, 2026-10-28: *too new* until 2026-11-11 | 2.5.0 adds process groups; 2.6.0 adds `Command::kill_on_drop`. Never below 2.2.1 (GHSA-c9pr-q8gx-3mgp). |
+| **tauri-plugin-single-instance** | **2.5.4** (2026-10-14) | 2.5.5, 2026-10-28: *too new* until 2026-11-11 | Rust only; there is no JavaScript package. |
+| **tauri-plugin-deep-link / @tauri-apps/plugin-deep-link** | **2.6.2** (2026-10-14) | 2.6.3, 2026-10-28: *too new* until 2026-11-11 |  |
+| **tauri-plugin-window-state / @tauri-apps/plugin-window-state** | 2.5.0 | 2.5.0, 2026-09-26 |  |
+| **wry / tao** | transitive | 0.57.1 / 0.37.2, 2026-10-23 | Pulled in by `tauri`; the WKWebView behavior in [§8](#8-what-actually-breaks-across-webviews) was read from these versions. |
+| **tauri-apps/tauri-action** | action-v1.0.0, by commit SHA | action-v1.0.0, 2026-06-29 | v1.0.0 renamed inputs; see [CI](#ci). |
+| **Swatinem/rust-cache** | v2.9.3, by commit SHA | v2.9.3, 2026-10-20 |  |
+| **Minimum version to pin** | **2.11.6** |  | 2.11.6 fixes GHSA-w28w-mhc8-qvjv (high). Do not pin below it. |
+| **Linux webview** | webkit2gtk **4.1** |  | `4.0` was removed in Ubuntu 24 and Debian 13. Engine capability tracks the distro, not your build. |
+| **Windows webview** | WebView2 (Evergreen) |  | Preinstalled on Windows 11; bootstrapped on older versions. Tauri 2.12.0 dropped Windows 7. |
+| **macOS webview** | WKWebView |  | The system WebKit, which updates with Safari. Safari 27 (2026-09-14) is available for macOS Sequoia (15) and Tahoe (26). |
 
 A version-alignment note, because the obvious guess is wrong: **the ecosystem is
 near-lockstep but not uniform.** A plugin’s Rust crate and JS package share a version
-(`tauri-plugin-updater` 2.10.1 matches `@tauri-apps/plugin-updater` 2.10.1), but the
-core crates version independently—`tauri` at 2.11.5, the CLI at 2.11.4, `tauri-build` at
-2.6.3. Match plugin pairs; do not try to force the core crates to one number.
+(`tauri-plugin-updater` 2.14.0 matches `@tauri-apps/plugin-updater` 2.14.0), but the
+core crates version independently—`tauri` at 2.12.5, the CLI at 2.12.4, `tauri-build` at
+2.7.4, `@tauri-apps/api` at 2.12.4. Match plugin pairs; do not try to force the core
+crates to one number.
 
 ### Reminders When Updating
 
-1. **Recheck the Linux webview story first.** It is the weakest part of Tauri and the
-   part changing fastest.
-   Tauri 3.0’s headline item is the GTK4 and WebKitGTK 6.0 migration, which addresses
-   much of [What Breaks on Linux](#6-what-actually-breaks-across-webviews).
+1. **Re-run the cool-off check, including the transitive graph.** On 2026-10-28 four of
+   the five plugins tracked here released at once, and a fresh lockfile pulls young
+   transitive crates even when every direct pin is old enough (see
+   [§7](#7-the-rust-supply-chain)).
 
-2. **Recheck the security advisories** and the minimum safe version.
-   The 2.11.1 fixes above are the current floor.
+2. **Recheck the security advisories** with
+   `gh api repos/tauri-apps/tauri/security-advisories` and the same for
+   `tauri-apps/plugins-workspace`. 2.11.6 is the current floor.
 
-3. **Recheck `webviewInstallMode` sizes.** The bootstrapper options change, and
-   `embedBootstrapper` currently costs roughly 190MB.
+3. **Recheck the open macOS issues**, each of which changes advice here when it closes:
+   `ExitRequested` on quit ([#9198](https://github.com/tauri-apps/tauri/issues/9198)),
+   HTML5 drag-and-drop ([#16373](https://github.com/tauri-apps/tauri/pull/16373)),
+   sidecar notarization ([#11992](https://github.com/tauri-apps/tauri/issues/11992)),
+   and the Dock menu ([#9916](https://github.com/tauri-apps/tauri/issues/9916)).
 
-4. **Re-measure bundle sizes** rather than repeating claims.
-   The numbers here come from real release assets and vary enormously with what you put
-   in the Rust half.
+4. **Recheck the Linux webview story.** The GTK4 and WebKitGTK 6.0 migration
+   ([#14684](https://github.com/tauri-apps/tauri/pull/14684)) addresses much of
+   [What Breaks on Linux](#8-what-actually-breaks-across-webviews) and was still an open
+   pull request on 2026-11-08.
 
-5. **Recheck the deprecation list.** The signer environment variables were renamed
-   recently and the tray API is deprecated.
+5. **Recheck Tauri 3.0.** It was at 3.0.0-alpha.6 with no announced release date.
+
+6. **Recheck Cargo’s publish-age gate.** It is respected from Rust 1.100, scheduled for
+   2026-11-12; once that toolchain is the norm, the manual workaround in
+   [§7](#7-the-rust-supply-chain) can go.
+
+7. **Recheck `webviewInstallMode` sizes** against the
+   [Windows installer docs](https://v2.tauri.app/distribute/windows-installer/).
+
+8. **Re-measure bundle sizes and CI times** from real release assets and Actions runs
+   rather than repeating claims.
+   The numbers here vary enormously with what you put in the Rust half.
+
+9. **Recheck the deprecation list.** The signer environment variables were renamed
+   (`tauri signer sign` still reads `TAURI_PRIVATE_KEY`) and the tray API is deprecated.
 
 * * *
 
@@ -78,12 +113,15 @@ It ships no browser engine, which is where its small bundles come from, and it r
 Electron’s “secure it yourself” posture with a compile-time permission system that
 denies everything by default.
 
-Four things matter most when deciding:
+Five things matter most when deciding:
 
-- **The updater verifies what it installs.** The downloaded payload is checked with
-  minisign against a public key compiled into your app, and the update aborts if
-  verification fails. This is a categorical difference from an updater that trusts its
-  host, and it is the single strongest reason to prefer Tauri over less mature
+- **The updater verifies what it installs, and can bind the version.** The downloaded
+  payload is checked with minisign against a public key compiled into your app, and the
+  update aborts if verification fails.
+  Since CLI 2.12 the signature also covers the release’s version, and
+  `requireSignedVersion` rejects a manifest that pairs one version with another
+  release’s artifact. This is a categorical difference from an updater that trusts its
+  host, and it is the strongest single reason to prefer Tauri over less mature
   alternatives.
 
 - **The security model is genuinely two-sided.** `core:default` grants the default sets
@@ -93,25 +131,37 @@ Four things matter most when deciding:
   default, and **the webview’s patch cycle belongs to the user’s operating system, not
   to you**.
 
-- **Linux is the weak platform.** WebRTC is unavailable in distro WebKitGTK, media
-  served through Tauri’s own asset protocol does not play, and drag-and-drop is broken
-  across several open issues.
-  If Linux is a first-class target, read
-  [What Breaks](#6-what-actually-breaks-across-webviews) before committing.
+- **A thin native window over an existing local web server is small.** Point a window at
+  `http://127.0.0.1:<port>`, skip the frontend build, and grant no capabilities: the
+  page then has no IPC reach at all (see
+  [§4](#4-wrapping-an-existing-loopback-web-app)).
 
-- **You pay in build time, not in bundle size.** Rust builds impose a real 3-5x CI
-  penalty against a JavaScript-only toolchain, and you cannot cross-compile.
+- **The system webview becomes your engine.** On macOS, WKWebView leaves `target=_blank`
+  links, downloads, Reload, Back and Forward, and Find doing nothing until the app wires
+  them, and any performance work measured in Chromium needs re-measuring in WebKit.
+  Linux is weaker still: WebRTC is unavailable in distro WebKitGTK, media served through
+  Tauri’s own asset protocol does not play, and drag-and-drop is broken across several
+  open issues. Read [What Breaks](#8-what-actually-breaks-across-webviews) before
+  committing.
+
+- **You pay in build time, not in bundle size.** Rust builds add minutes per CI job
+  against a JavaScript-only toolchain, you cannot cross-compile macOS bundles, and Cargo
+  adds a third dependency graph to keep inside your cool-off.
 
 **Recommendation in one line:** the default choice when you want a small, signed,
 auto-updating desktop app and can accept Rust in the build and system webviews in the
-product—with Linux support verified early rather than assumed.
+product—with WebKit QA budgeted on macOS and Linux support verified early rather than
+assumed.
 
 **Research questions this document answers**:
 
 1. What runs where, and what is the actual security boundary?
 2. How do capabilities and permissions work, and how tightly do real apps scope them?
-3. How do you attach a backend—in Rust, or in Python, Node, Bun, or Go?
-4. What does it take to package, sign, and ship verified updates?
+3. How do you attach a backend—in Rust, or in Python, Node, Bun, or Go—and keep its
+   processes from outliving the app?
+4. How thin can a wrapper around an existing local web server be?
+5. What does it take to package, sign, and ship verified updates?
+6. What does the system webview not do until you wire it?
 
 * * *
 
@@ -122,8 +172,8 @@ product—with Linux support verified early rather than assumed.
 | Layer | What it is | Role |
 | --- | --- | --- |
 | **Rust core** | Your `src-tauri` crate | Privileged process. Owns the filesystem, OS APIs, and command handlers. |
-| **TAO** | Windowing crate (0.36.0) | Windows, menus, tray, events. |
-| **WRY** | Webview abstraction (0.56.0) | Wraps each platform’s native webview. |
+| **TAO** | Windowing crate (0.37.2) | Windows, menus, tray, events. |
+| **WRY** | Webview abstraction (0.57.1) | Wraps each platform’s native webview. |
 | **Webview** | WebView2, WKWebView, WebKitGTK, Android System WebView | Your UI. No filesystem, no OS access. |
 
 The webview has no ambient privilege.
@@ -169,7 +219,8 @@ my-app/
 ├── src/                        # frontend—any framework; Vite is the near-universal bundler
 ├── package.json
 └── src-tauri/
-    ├── Cargo.toml              # tauri = "2.11.1"+, plugins as crates
+    ├── Cargo.toml              # tauri = "=2.12.5" (never below 2.11.6), plugins as crates
+    ├── Cargo.lock              # committed; build with --locked
     ├── tauri.conf.json
     ├── capabilities/
     │   └── default.json        # permission grants (see §2)
@@ -265,7 +316,8 @@ A real `src-tauri/capabilities/default.json`:
 
 Naming follows `<name>:default`, `<name>:allow-<command>`, and `<name>:deny-<command>`.
 Scopes accept glob patterns and variables such as `$HOME`, `$APPDATA`, and `$DESKTOP`,
-and **deny always beats allow**.
+and **deny always beats allow**. Since 2.12.0 a deny applies only to the execution
+context (local or remote) of the capability that declares it.
 
 ### What You Get by Default
 
@@ -274,6 +326,10 @@ menu, tray, app, event, image, path, resources, and webview—**and no filesyste
 HTTP, or plugin access whatsoever.** That is the fact to internalize: the default is a
 fully usable UI with no reach into the machine.
 Every capability beyond drawing a window is something you deliberately added.
+
+A page loaded from a remote origin, which includes a loopback server at
+`http://127.0.0.1:<port>`, gets less than that: nothing at all unless a capability names
+its URL in `remote.urls` (see [§4](#4-wrapping-an-existing-loopback-web-app)).
 
 ### What Real Apps Actually Do
 
@@ -333,6 +389,8 @@ store, and shell plugins already expose what a typical app needs.
 Rust starts to matter when you write custom commands, and the friction is concentrated
 in serde derives, serializable error types, and `State<'_, T>` inside async functions
 rather than in lifetimes or ownership.
+A shell that wraps an existing server needs a little Rust and no commands at all
+([§4](#4-wrapping-an-existing-loopback-web-app)).
 
 If your team genuinely will not write Rust, sidecars are the sanctioned escape
 hatch—paid for in bundle size and process lifecycle complexity.
@@ -362,12 +420,17 @@ src-tauri/binaries/my-sidecar-x86_64-pc-windows-msvc.exe
 
 Get the current triple with `rustc --print host-tuple` (Rust 1.84 and later).
 Your build script must produce correctly suffixed copies for every target you ship.
+The bundler copies each one next to the main executable with the suffix stripped (on
+macOS, `Contents/MacOS/my-sidecar`), so Rust can find it with
+`std::env::current_exe()?.with_file_name("my-sidecar")`. On macOS the bundler also signs
+it; see [What the macOS Bundler Signs](#what-the-macos-bundler-signs).
 
 A second gotcha, easy to lose an hour to: **the Rust and JavaScript APIs take different
 arguments.** `Command::sidecar()` in Rust takes the **filename only**, while
 `Command.sidecar()` in JavaScript takes the **full `externalBin` path**.
 
-Spawning a sidecar requires permissions, each with a scope marking it as a sidecar:
+Spawning a sidecar from JavaScript requires permissions, each with a scope marking it as
+a sidecar:
 
 ```json
 {
@@ -377,7 +440,8 @@ Spawning a sidecar requires permissions, each with a scope marking it as a sidec
 ```
 
 You will typically also need `shell:allow-kill` and, if you write to the process,
-`shell:allow-stdin-write`.
+`shell:allow-stdin-write`. Spawning from Rust needs no capability, which is the better
+default when the page has no reason to control the process.
 
 ### Non-Rust Backends
 
@@ -386,35 +450,105 @@ You will typically also need `shell:allow-kill` and, if you write to the process
 | **Go** | Compile a static binary. No extra tooling. | Smallest and simplest. |
 | **Bun** | `bun build --compile` produces a single executable. | **~29MB added to a .dmg**, against ~5MB for pure Rust. |
 | **Node** | The official docs use `@yao-pkg/pkg`. No real Node SEA examples were found in the wild. | Comparable to Bun. |
-| **Python** | PyInstaller sidecar, or PyTauri with python-build-standalone. | Largest; see below. |
+| **Python** | **uv** as a signed `externalBin` that installs a pinned Python and the locked dependencies on first run; or a PyInstaller sidecar; or a bundled python-build-standalone tree. | uv adds about 14MB compressed (the 0.13.5 aarch64 tarball is 14.4MB) and needs the network on first launch; a bundled interpreter adds tens of MB and must be signed by your own script. |
 
-For **Python**, the PyInstaller route is the well-trodden one and has a working
-reference implementation, but two problems recur: one-file mode (`-F`) unpacks on every
-launch and is slow, and shutdown is unreliable because the PyInstaller bootloader’s PID
-differs from the Python process’s PID, so killing the PID you spawned may leave the
-interpreter alive.
-PyTauri with python-build-standalone is better integrated but drags in
-PyO3 and platform-specific rpath and linker configuration.
-The tradeoffs mirror those in `tbd guidelines electron-app-development-patterns`, which
-covers Python packaging in more depth; the analysis is framework-independent.
+For **Python**, the recommended shape is uv as a signed `externalBin`. Ship
+`pyproject.toml` and `uv.lock` as read-only resources, and on first launch run uv with
+its cache, Python installs, and project environment pointed into the app-data directory.
+Nothing interpreter-sized enters the bundle, so uv is the only extra code the bundler
+signs, and an app update that carries a new lock re-syncs the environment under the same
+updater signature. `tbd guidelines desktop-python-runtime-patterns` covers the layouts,
+isolation variables, Gatekeeper and library-validation behavior, and the offline-first
+variants. The Tauri-specific parts are the signing rules in
+[What the macOS Bundler Signs](#what-the-macos-bundler-signs) and the process-group
+handling below.
+
+The PyInstaller route remains well trodden, with two recurring problems: one-file mode
+(`-F`) unpacks on every launch and is slow, and the bootloader’s PID differs from the
+interpreter’s, so killing the PID you spawned can leave Python running unless you kill
+the whole process group.
+PyTauri with python-build-standalone is better integrated but drags in PyO3 and
+platform-specific rpath and linker configuration.
 
 ### Process Lifecycle
 
-Sidecars spawned through the shell plugin **are** tracked and killed when the app exits.
-Orphans still occur in three edge cases worth guarding against: `prevent_exit()`
-combined with `AppHandle::exit()` on Windows, the macOS `MenuItem::Quit` bypassing
-`RunEvent` handlers, and grandchild processes that escape the process group.
+**The shell plugin kills only the children spawned from JavaScript.** Its
+`RunEvent::Exit` handler kills every process in its child store, and only the JavaScript
+`spawn` command adds to that store.
+A child spawned from Rust, whether through `app.shell().sidecar(..).spawn()` or
+`std::process::Command`, outlives the app unless you kill it yourself (read from
+`plugins/shell/src/lib.rs` and `commands.rs` at 2.6.0, 2026-11-08).
 
-The reliable pattern is to build explicitly and handle exit:
+Rules for every child the Rust side spawns:
+
+- **Give it its own process group** so one signal reaches the whole tree, including the
+  grandchildren that launchers create (a PyInstaller bootloader, `uv run`, a shell
+  script). With `std::process::Command`, call `CommandExt::process_group(0)` on Unix and
+  signal the group with `killpg`; on Windows a Job Object does the same job.
+  The shell plugin wraps both from 2.5.0: `Command::set_process_group(true)` in Rust or
+  `processGroup: true` in JavaScript, after which `CommandChild::kill()` sends `SIGKILL`
+  to the group or terminates the job.
+
+- **Kill it in `RunEvent::Exit`, synchronously.** On macOS, Cmd+Q, the predefined Quit
+  menu item, Dock › Quit, logout, and restart all reach tao’s
+  `applicationWillTerminate:`, which emits `RunEvent::Exit`, after which the process
+  ends. **`RunEvent::ExitRequested` is not raised on those paths**
+  ([#9198](https://github.com/tauri-apps/tauri/issues/9198), open; tao 0.37.2 implements
+  no `applicationShouldTerminate:`), so `prevent_exit()` cannot veto them, and work
+  handed to an async runtime from the `Exit` handler may never run.
+
+- **Send `SIGTERM` first if the child needs a clean shutdown.** The plugin’s `kill()`
+  sends `SIGKILL`.
+
+- **Make the child exit when the parent dies.** A force-quit or crash runs no handler,
+  but the kernel closes the app’s end of a stdin pipe however it dies.
+  Give the child a stdin pipe, keep it open, and have the child treat EOF like `SIGTERM`
+  (as the [shell–server contract](#follow-the-shellserver-contract) requires).
+
+- **Drain its stdout and stderr** on a thread or into a log file; a full pipe blocks the
+  child.
+
+- **Use `kill_on_drop(true)`** (shell 2.6.0, inside the cool-off on 2026-11-08) when you
+  want a dropped `CommandChild` to kill its process or group.
+  It has no effect on JavaScript-spawned children.
+
+Two further orphan cases are worth guarding against: `prevent_exit()` combined with
+`AppHandle::exit()` on Windows, and grandchildren that leave the process group (for
+example by calling `setsid`).
+
+The pattern for a Unix sidecar spawned from Rust (add `libc` as a dependency):
 
 ```rust
-tauri::Builder::default()
-    .build(tauri::generate_context!())?
-    .run(|app_handle, event| {
-        if let tauri::RunEvent::Exit = event {
-            // kill children held in managed state
+use std::os::unix::process::CommandExt;
+use std::process::{Child, Command, Stdio};
+use std::sync::Mutex;
+use tauri::{Manager, RunEvent};
+
+struct Backend(Mutex<Option<Child>>);
+
+fn main() {
+    let app = tauri::Builder::default()
+        .setup(|app| {
+            let bin = std::env::current_exe()?.with_file_name("my-sidecar");
+            let child = Command::new(bin)
+                .stdin(Stdio::piped()) // the child exits on EOF if the app dies
+                .process_group(0)
+                .spawn()?;
+            app.manage(Backend(Mutex::new(Some(child))));
+            Ok(())
+        })
+        .build(tauri::generate_context!())
+        .expect("failed to build app");
+
+    app.run(|handle, event| {
+        if let RunEvent::Exit = event {
+            if let Some(child) = handle.state::<Backend>().0.lock().unwrap().take() {
+                // Runs on every macOS quit path; the process ends when this returns.
+                unsafe { libc::killpg(child.id() as libc::pid_t, libc::SIGTERM) };
+            }
         }
     });
+}
 ```
 
 ### Sidecars Versus Plugins
@@ -436,12 +570,236 @@ GitButler git binaries.
 **Yaak** is the instructive variant: it bundles a whole Node.js runtime as a
 **resource** rather than an `externalBin`, which is the right move when you need an
 interpreter rather than a single triple-named executable.
-A python-build-standalone tree ships the same way: as a resource directory, spawned by
-path, with the target-triple convention reserved for single-file binaries.
+A python-build-standalone tree can ship the same way, spawned by path, but the bundler
+does not sign anything under resources, so every Mach-O file in the tree must be signed
+by your own CI step first (see
+[What the macOS Bundler Signs](#what-the-macos-bundler-signs)).
 
 * * *
 
-## 4. Security Baseline
+## 4. Wrapping an Existing Loopback Web App
+
+When the product already exists as a local web server with a browser UI, in any
+language, the thinnest Tauri app is a native window pointed at that server.
+Everything below was read from tauri 2.12.5 and wry 0.57.1 source on 2026-11-08.
+[Pake](https://github.com/tw93/Pake) is the closest shipping precedent: it wraps remote
+websites in Tauri windows the same way, with DMGs of 9–14MB.
+
+### Load the Loopback URL Directly
+
+- **Create the window in Rust.** `WebviewUrl::External` accepts any `http` or `https`
+  URL. The server’s port is chosen at runtime, so set `app.windows: []` in the config
+  and build the window with
+  `WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))` once the port is
+  known. The official
+  [`tauri-plugin-localhost` README](https://github.com/tauri-apps/plugins-workspace/tree/v2/plugins/localhost)
+  uses the same `WebviewUrl::External` pattern; the plugin itself serves bundled assets
+  and is not needed here.
+
+- **Skip the frontend build.** `build.frontendDist` is optional, and without it nothing
+  is embedded: no Node, no Vite, no `@tauri-apps/api`. A two-file static directory for a
+  splash and error page is still worth embedding (see
+  [Startup Without a Blank Window](#startup-without-a-blank-window)).
+
+### Grant No Capabilities
+
+- **The loopback page is a remote origin.** Tauri treats a URL as local only if it is
+  Tauri’s own protocol, relative to `devUrl` or `frontendDist`, or a custom scheme you
+  registered (`Webview::is_local_url`). The ACL branch in `Webview::on_message` rejects
+  every command from a non-local origin unless a capability grants it through
+  `remote.urls`, so **with zero capability files the page can invoke nothing.**
+
+- **The IPC object still exists.** Tauri injects `window.__TAURI_INTERNALS__` into every
+  page, so `invoke()` is present but rejects.
+  Keep `withGlobalTauri` off.
+  The one command exempt from the ACL check, `plugin:__TAURI_CHANNEL__|fetch`, is the
+  subject of GHSA-w28w-mhc8-qvjv; 2.11.6+ binds its data to the webview that owns it.
+
+- **Do not make the server’s origin local for convenience.** Setting `devUrl` or
+  `frontendDist` to the server’s URL makes that origin local to Tauri.
+  Run `tauri dev` through the same External-URL code path as release builds.
+
+- **The server sets the CSP.** `app.security.csp` applies to assets Tauri serves, not to
+  the loopback page; the server’s own `Content-Security-Policy` header governs it.
+
+- **Drive privileged features from Rust.** The updater, menus, and native dialogs need
+  no capability when Rust calls them, so the page never gains them.
+
+### Follow the Shell–Server Contract
+
+Any local process can reach a loopback port, and DNS rebinding lets web pages try, so
+the server needs a per-launch secret whatever shell wraps it.
+Use the framework-independent
+[shell–server contract](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/macos-webview-shell-patterns.md#the-shellserver-contract)
+in `tbd guidelines macos-webview-shell-patterns`, which owns the details.
+In brief:
+
+- The server binds `127.0.0.1` on port 0 and, once listening, prints one stdout line:
+  `{"event":"ready","protocol":1,"url":"http://127.0.0.1:<port>/","port":<port>,"pid":<pid>,"version":"<server version>"}`.
+- The shell writes a per-launch secret as the first stdin line, never in argv (which
+  `ps` shows) or the environment (which children inherit), and keeps stdin open.
+  EOF on stdin, like `SIGTERM`, starts a graceful shutdown with a bounded deadline.
+- Programmatic clients send `Authorization: Bearer <secret>`. A web view needs a cookie,
+  because `EventSource` cannot send custom headers: a shell that controls its cookie
+  store may set the session cookie directly, and otherwise a single-use exchange code,
+  distinct from the secret, at a one-time URL sets an `HttpOnly` cookie and redirects.
+- Cookies are not isolated by port
+  ([RFC 6265 §8.5](https://www.rfc-editor.org/rfc/rfc6265#section-8.5)), so name the
+  session cookie per instance, and the server checks `Host` and `Origin`.
+
+Tauri’s half of the contract:
+
+- **Spawn with pipes.** `std::process::Command` with `stdin(Stdio::piped())`,
+  `stdout(Stdio::piped())`, and `process_group(0)`. Write the secret and a newline to
+  the `ChildStdin`, then keep that handle in managed state for the app’s lifetime:
+  dropping it closes the pipe, which the server treats as a shutdown request.
+- **Read the ready line on a thread.** Parse stdout lines until one is JSON with
+  `"event":"ready"` and a `protocol` you support, take its `url`, and keep draining
+  stdout into a log afterwards so the pipe never fills.
+- **Point the window at `url`.** Tauri controls its cookie store, so
+  `WebviewWindow::set_cookie` before `navigate()` can set the session cookie directly.
+  On macOS, wry passes `HttpOnly` to WebKit through an undocumented `NSHTTPCookie`
+  property key, so confirm with `cookies()` that the flag survived; the alternative is
+  to load the server’s one-time exchange URL as the window’s first server page and let
+  the server set its own cookie.
+  On Windows, call the cookie APIs off the main thread
+  ([wry#583](https://github.com/tauri-apps/wry/issues/583)).
+
+Avoid an `initialization_script` that sets a JavaScript global: it needs page changes
+and cannot reach `EventSource`.
+
+### Navigation, New Windows, and Downloads
+
+Without handlers, an external link replaces your app’s page (Tauri allows every
+navigation by default), `target=_blank` does nothing, and downloads are cancelled (see
+the macOS table in [§8](#8-what-actually-breaks-across-webviews)). Wire all three when
+you build the window.
+
+A macOS sketch that combines those handlers with the contract (it needs `serde_json`,
+and reuses the `Backend` state and exit handler from
+[Process Lifecycle](#process-lifecycle)):
+
+```rust
+use std::io::{BufRead, BufReader, Write};
+use std::os::unix::process::CommandExt;
+use std::process::{ChildStdin, Command, Stdio};
+use std::sync::{Arc, Mutex, OnceLock};
+use tauri::webview::{NewWindowResponse, cookie::{Cookie, SameSite}};
+use tauri::{Manager, Url, WebviewUrl, WebviewWindowBuilder};
+
+struct ServerStdin(Mutex<Option<ChildStdin>>); // dropping it asks the server to stop
+
+fn open_in_browser(url: &Url) {
+    // Scheme allowlist: never hand file:, javascript:, or custom schemes to the OS.
+    if matches!(url.scheme(), "http" | "https" | "mailto") {
+        let _ = Command::new("/usr/bin/open").arg(url.as_str()).spawn();
+    }
+}
+
+fn start(app: &tauri::App, secret: String) -> Result<(), Box<dyn std::error::Error>> {
+    let server: Arc<OnceLock<Url>> = Arc::default();
+    let allowed = server.clone();
+    let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("splash.html".into()))
+        .visible(false) // show it from on_page_load once the server page has loaded
+        .on_navigation(move |url| {
+            let ok = url.scheme() == "tauri" // the embedded splash page
+                || allowed.get().is_some_and(|s| url.origin() == s.origin());
+            if !ok {
+                open_in_browser(url);
+            }
+            ok
+        })
+        .on_new_window(|url, _features| {
+            open_in_browser(&url);
+            NewWindowResponse::Deny
+        })
+        .on_download(|_webview, _event| true) // save to ~/Downloads
+        .build()?;
+
+    let bin = std::env::current_exe()?.with_file_name("my-server"); // externalBin
+    let mut child = Command::new(bin)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .process_group(0)
+        .spawn()?;
+    let mut stdin = child.stdin.take().expect("piped");
+    writeln!(stdin, "{secret}")?; // first stdin line; never argv or the environment
+    app.manage(ServerStdin(Mutex::new(Some(stdin))));
+    let stdout = child.stdout.take().expect("piped");
+    app.manage(Backend(Mutex::new(Some(child)))); // killed in RunEvent::Exit
+
+    std::thread::spawn(move || {
+        let mut lines = BufReader::new(stdout).lines().map_while(Result::ok);
+        for line in lines.by_ref() {
+            let Ok(msg) = serde_json::from_str::<serde_json::Value>(&line) else { continue };
+            if msg["event"] != "ready" || msg["protocol"] != 1 {
+                continue;
+            }
+            let Some(url) = msg["url"].as_str().and_then(|u| u.parse::<Url>().ok()) else { break };
+            let _ = server.set(url.clone());
+            let port = url.port().unwrap_or_default();
+            let cookie = Cookie::build((format!("session-{port}"), secret.clone()))
+                .domain("127.0.0.1")
+                .path("/")
+                .http_only(true)
+                .same_site(SameSite::Strict)
+                .build(); // name and value as your server's contract defines them
+            let _ = window.set_cookie(cookie);
+            let _ = window.navigate(url);
+            break;
+        }
+        lines.for_each(drop); // keep draining; write to a log file in practice
+    });
+    Ok(())
+}
+```
+
+A complete shell along these lines (spawn, ready handshake, window and navigation
+policy, menus, updater, exit handling) is roughly 150–250 lines of Rust and 40 lines of
+`tauri.conf.json`, estimated from an uncompiled sketch rather than measured from a
+shipped app.
+
+### Startup Without a Blank Window
+
+- **Do not block `setup` waiting for the server.** `setup` runs before the event loop,
+  so a blocking wait delays the first window.
+  Open the window on the embedded splash page, wait for the server on a thread, then
+  call `navigate()`.
+- **Wait for the ready line, not a poll.** The contract’s ready line arrives after the
+  socket is listening, so the first request queues in the backlog instead of failing.
+- **Avoid the white flash on macOS.** `background_color` is not implemented for the
+  macOS webview layer, so create the window with `visible(false)` and show it from
+  `on_page_load` when the load finishes.
+- **Fix `PATH` for Finder launches.** A GUI-launched app gets launchd’s minimal `PATH`,
+  without Homebrew or `~/.local/bin`. If the server shells out to developer tools,
+  resolve the login shell’s `PATH` at startup (tauri-apps publishes
+  [fix-path-env-rs](https://github.com/tauri-apps/fix-path-env-rs)) or pass an explicit
+  one.
+
+### Opened Files, URLs, and Single Instance on macOS
+
+- **LaunchServices keeps one instance and delivers opens to it.** Files dropped on the
+  Dock icon, Open With, and registered URL schemes arrive as
+  `RunEvent::Opened { urls }`; a Dock click on the running app arrives as
+  `RunEvent::Reopen`. Translate each into a request to the server.
+- **File and folder associations:** `bundle.fileAssociations` writes
+  `CFBundleDocumentTypes`, and a `src-tauri/Info.plist` is merged into the generated one
+  for anything the config cannot express, such as a `public.folder` document type.
+- **URL schemes:** on macOS the deep-link plugin amounts to writing `CFBundleURLTypes`
+  at build time plus handling `Opened`, which a few lines of your own do equally well.
+  Treat every incoming URL as untrusted: any web page in the user’s browser can fire
+  your scheme.
+- **Single instance:** the plugin’s macOS implementation is a Unix socket at
+  `/tmp/<identifier>_si.sock`, which matters only when a second copy starts outside
+  LaunchServices (`open -n`, or running `Contents/MacOS/<bin>` directly).
+  It is optional on macOS and needed on Windows and Linux.
+- **Dock menu:** not exposed by Tauri 2
+  ([#9916](https://github.com/tauri-apps/tauri/issues/9916), open since 2024-05); it
+  needs objc2 code against the `NSApplication` delegate that tao owns.
+
+* * *
+
+## 5. Security Baseline
 
 ### Where Tauri Is Stronger Than Electron
 
@@ -473,6 +831,22 @@ path, with the target-triple convention reserved for single-file binaries.
   dangerous—and **on Linux and Android, iframes from remote origins cannot be
   distinguished from main-window requests**.
 
+### Advisories That Set the Floor
+
+From the GitHub security advisories of `tauri-apps/tauri` and
+`tauri-apps/plugins-workspace`, observed 2026-11-08:
+
+| Advisory | Severity, published | Affected | Fixed in | What it was |
+| --- | --- | --- | --- | --- |
+| [GHSA-w28w-mhc8-qvjv](https://github.com/tauri-apps/tauri/security/advisories/GHSA-w28w-mhc8-qvjv) | High, 2026-09-26 | `tauri` 2.0.0–2.11.5 | **2.11.6** (2026-09-19), carried into 2.12.0 | The internal channel-fetch command skipped the ACL check and keyed queued large IPC responses by a global sequential `u32`, so one webview could read and drain another’s payloads. No workaround. |
+| [GHSA-7gmj-67g7-phm9](https://github.com/tauri-apps/tauri/security/advisories/GHSA-7gmj-67g7-phm9) | Medium, 2026-05-06 | `tauri` 2.0–2.11.0 | 2.11.1 | Origin confusion let remote pages invoke local-only IPC commands. |
+| [GHSA-c9pr-q8gx-3mgp](https://github.com/tauri-apps/plugins-workspace/security/advisories/GHSA-c9pr-q8gx-3mgp) | High, 2025-04-02 | `tauri-plugin-shell` ≤ 2.2.0 | 2.2.1 | Improper scope validation in the `open` endpoint. |
+| [GHSA-9g54-6x48-9vpw](https://github.com/tauri-apps/plugins-workspace/security/advisories/GHSA-9g54-6x48-9vpw) | Low, 2026-08-31 | `tauri-plugin-fs` < 2.5.2 | 2.5.2 | Default permissions were broader than intended. |
+
+If you use the HTTP plugin, also enable its `scopeRedirects` option (2.7.0+). Without
+it, a server on an allowed origin can redirect a request to any other origin, including
+`localhost` services and cloud metadata endpoints, and the plugin follows.
+
 ### CSP: What the Docs Say and What Apps Do
 
 The documentation recommends a real CSP. The ecosystem largely does not follow it, and a
@@ -487,7 +861,9 @@ Of the fourteen apps surveyed:
 | **Strict (SHA-256 script hashes)** | **1** |
 
 Only Wealthfolio does what the documentation actually recommends.
-Apps that wrap external web content essentially cannot set a strict policy.
+Apps that wrap external web content essentially cannot set a strict policy through
+Tauri, because `app.security.csp` does not reach a remote page; the serving origin must
+send its own.
 
 The advice stands regardless: **set a CSP, and prefer script hashes to
 `unsafe-inline`.** Tauri injects nonces and hashes at compile time for bundled code, so
@@ -496,7 +872,7 @@ Configure it under `app.security.csp`, with `devCsp` for development.
 
 * * *
 
-## 5. Packaging, Signing, and Updates
+## 6. Packaging, Signing, and Updates
 
 ### Bundle Targets
 
@@ -510,17 +886,18 @@ Real release assets, not marketing figures:
 
 | App | Artifact | Size |
 | --- | --- | --- |
-| Pake 3.15.6 (thin wrapper) | MSI | **3.5MB** |
-| Pake 3.15.6 | deb | 4.5MB |
-| Pake 3.15.6 | DMG | 9.4MB |
-| Pake 3.15.6 | **AppImage** | **75.5MB** |
-| Spacedrive 0.4.3 (heavy Rust) | DMG | ~80-86MB |
-| Clash Verge Rev 2.5.0 (~50MB sidecar) | Windows x64 | 47MB |
+| Pake V3.18.0 thin wrappers (2026-11-04) | MSI | **3.6–4.0MB** |
+| Pake V3.18.0 | deb | 4.6–5.6MB |
+| Pake V3.18.0 | DMG, universal (arm64 and x86_64) | 8.7–14.1MB |
+| Pake V3.18.0 | **AppImage** | **80.2–80.9MB** |
+| Spacedrive 0.4.3 (heavy Rust), August 2026 survey | DMG | ~80-86MB |
+| Clash Verge Rev 2.5.0 (~50MB sidecar), August 2026 survey | Windows x64 | 47MB |
 
 Three honest conclusions.
-The small-bundle claim is **true for `.msi` and `.deb` with a thin frontend**. It is
-**false for AppImage**, which is always 70MB or more because it bundles WebKitGTK. And
-it **collapses entirely once you add a sidecar or a substantial Rust backend**—at which
+The small-bundle claim is **true for `.msi` and `.deb` with a thin frontend**, and for a
+DMG, which is roughly halved again by shipping arm64 only.
+It is **false for AppImage**, which is about 80MB because it bundles WebKitGTK. And it
+**collapses entirely once you add a sidecar or a substantial Rust backend**—at which
 point your binary, not the framework, is the size.
 
 The best like-for-like data point available: the Hoppscotch team reported going from
@@ -529,10 +906,16 @@ The best like-for-like data point available: the Hoppscotch team reported going 
 ### The Updater, and Why It Is the Headline Feature
 
 Tauri’s updater verifies the payload before applying it.
-From `plugins/updater/src/updater.rs`:
+From `plugins/updater/src/updater.rs` (2.14.x):
 
 ```rust
-fn verify_signature(data: &[u8], release_signature: &str, pub_key: &str) -> Result<()> {
+fn verify_signature(
+    data: &[u8],
+    release_signature: &str,
+    pub_key: &str,
+    announced_version: &str,
+    require_signed_version: bool,
+) -> Result<()> {
     let pub_key_decoded = base64_to_string(pub_key)?;
     let public_key = PublicKey::decode(&pub_key_decoded)?;
     let signature_base64_decoded = base64_to_string(release_signature)?;
@@ -540,24 +923,68 @@ fn verify_signature(data: &[u8], release_signature: &str, pub_key: &str) -> Resu
 
     // Validate signature or bail out
     public_key.verify(data, &signature, true)?;
-    Ok(())
+
+    // Only now is the trusted comment usable: the global signature covers it.
+    verify_signed_version(signature.trusted_comment(), announced_version, require_signed_version)
 }
 ```
 
 The verification uses **minisign**, runs against the **downloaded bytes**, checks them
-with a **public key compiled into your application**, and **aborts the update on
-failure**.
+with a **public key compiled into your application** (`plugins.updater.pubkey`, embedded
+by `generate_context!`), and **aborts the update on failure**. Since 2.14.0,
+`Update::install` verifies the bytes again before installing, so a cached or restored
+package is rechecked too; `Update::verify` exposes the same check.
 
 Why this matters more than it sounds: the private key never touches the update server,
 so **compromising your update host is not sufficient to ship code to your users**.
 Integrity comes from the key, not from trusting the host.
 Generate the keypair with `tauri signer generate`, keep the private key in CI secrets as
-**`TAURI_SIGNING_PRIVATE_KEY`** (renamed from `TAURI_PRIVATE_KEY`; the old name still
-works), and put the public key in your config.
+**`TAURI_SIGNING_PRIVATE_KEY`** (or point `TAURI_SIGNING_PRIVATE_KEY_PATH` at a file;
+the older `TAURI_PRIVATE_KEY` is still read), and put the public key in your config.
+
+**The signature binds the version; enforce it.** The update manifest is fetched over TLS
+but is not itself signed, and the signature alone covers only the artifact.
+Since CLI 2.12.0, `tauri build` writes `version:<x>` into the minisign trusted comment,
+which the signature covers (`tauri signer sign --app-version` does the same by hand).
+The updater compares that signed version with the one the manifest announces and rejects
+a mismatch. A signature with no version, made by an older CLI or by hand without
+`--app-version`, still passes unless **`requireSignedVersion: true`** (updater 2.12.0+).
+Without the flag, anyone who can serve your manifest can pair a new version number with
+an older release whose signature carries no version and force a downgrade to that
+genuine but outdated build.
+Enable it from the first release; `tauri plugin add updater` now does.
+For an existing app, re-sign and republish every release your users can still update
+from, then enable it.
+
+**Downgrades are an app decision, not a page decision.** Updater 2.12.0 removed
+`allowDowngrades` from the JavaScript `check()` options, where any page script could
+relax “must be newer” to “must be different,” and moved it to plugin configuration.
+It defaults to `false` and is ignored when you set
+`Builder::default_version_comparator`.
+
+**The macOS install is atomic.** Since 2.13.2 the updater extracts the new bundle on the
+same volume, swaps it with `renamex_np(RENAME_SWAP)`, falls back to rename-and-restore,
+and reports `Error::PreviousAppNotRestored` (keeping the old copy) if even that fails.
+It asks for administrator rights through AppleScript when the app’s directory is not
+writable.
+`AppHandle::restart()` then relaunches through LaunchServices (`open -n`, since
+tauri 2.12.2), so the new instance does not inherit the old one’s stdio and process
+group.
+
+**The minisign key authorizes code.** The app, not a browser, downloads the update, so
+the new bundle normally carries no quarantine attribute; what Gatekeeper checks for such
+code is covered in
+[Quarantine and Gatekeeper](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/macos-webview-shell-patterns.md#quarantine-and-gatekeeper).
+Protect the minisign private key as you protect the Developer ID key.
+
+**App Translocation blocks self-update.** A quarantined app launched where the user
+downloaded it, or straight from the mounted DMG, runs from a randomized read-only path,
+and the updater cannot replace it.
+Tell users to move the app to `/Applications`, or detect a translocated path and say so.
 
 The wiring is three pieces.
 First, tell the bundler to produce signed update artifacts, and give the updater plugin
-your public key and endpoints:
+your public key, endpoints, and the version requirement:
 
 ```json
 {
@@ -567,7 +994,8 @@ your public key and endpoints:
       "pubkey": "…base64 minisign public key from tauri signer generate…",
       "endpoints": [
         "https://releases.example.com/{{target}}/{{arch}}/{{current_version}}"
-      ]
+      ],
+      "requireSignedVersion": true
     }
   }
 }
@@ -575,6 +1003,8 @@ your public key and endpoints:
 
 The `{{target}}`, `{{arch}}`, and `{{current_version}}` variables are substituted at
 request time, so one endpoint template serves every platform.
+Endpoints must use `https` unless you set `dangerousInsecureTransportProtocol`, and
+2.14.0 warns when a download URL does not.
 
 Second, host a manifest at that endpoint—either a static JSON file or a dynamic server
 response:
@@ -594,22 +1024,40 @@ response:
 The `signature` values are the contents of the `.sig` files the build emits beside each
 updater artifact; the verification above runs against exactly these.
 
-Third, call `check()` and `downloadAndInstall()` from `@tauri-apps/plugin-updater` when
-your app wants to update.
+Third, check and install when your app wants to update.
+From JavaScript, call `check()` and `downloadAndInstall()` from
+`@tauri-apps/plugin-updater` (this needs the `updater:default` permission).
+When the page should not control updates, drive it from Rust and grant no updater
+permission at all:
+
+```rust
+use tauri_plugin_updater::UpdaterExt;
+
+async fn update(app: tauri::AppHandle) -> tauri_plugin_updater::Result<()> {
+    if let Some(update) = app.updater()?.check().await? {
+        update.download_and_install(|_chunk, _total| {}, || {}).await?;
+        app.restart();
+    }
+    Ok(())
+}
+```
 
 This is near-universal practice, not just documentation: **ten of the surveyed apps ship
 the official updater, and every one of them ships a pubkey.**
 
 ### Code Signing
 
-**macOS.** Sign with a Developer ID certificate and notarize, supplying either Apple ID
-credentials or App Store Connect API key credentials through the standard environment
-variables.
+**macOS.** Sign with a Developer ID certificate and notarize.
+In CI, `APPLE_CERTIFICATE` and `APPLE_CERTIFICATE_PASSWORD` import the certificate, and
+either an App Store Connect API key (`APPLE_API_KEY`, `APPLE_API_ISSUER`,
+`APPLE_API_KEY_PATH`) or Apple ID credentials (`APPLE_ID`, `APPLE_PASSWORD`,
+`APPLE_TEAM_ID`) authenticate notarization.
 
 One point worth stating because it is widely assumed otherwise: **Tauri does not need
-JIT entitlements.** Electron requires `com.apple.security.cs.allow-jit` and
-`allow-unsigned-executable-memory` because it signs its own Chromium helper processes,
-in which V8 JIT-compiles.
+JIT entitlements.** Electron requires `com.apple.security.cs.allow-jit` because it signs
+its own Chromium processes, in which V8 JIT-compiles; electron-builder 27’s default
+template and `@electron/osx-sign`’s default app entitlements grant `allow-jit` and no
+other code-signing exception.
 Tauri’s web content runs in Apple’s own out-of-process `com.apple.WebKit.WebContent`,
 which carries Apple’s entitlements.
 Tauri’s signing documentation does not mention entitlements at all, and Spacedrive,
@@ -618,46 +1066,240 @@ Add entitlements for features you actually use—**Cap** ships them for camera,
 microphone, USB, and library validation because it is a screen recorder loading its own
 media sidecars, not because the webview demands it.
 
+#### What the macOS Bundler Signs
+
+Read from `tauri-bundler` 2.10.4 (`bundle/macos/app.rs`, `sign.rs`) and
+`tauri-macos-sign` 2.4.3, the versions CLI 2.12.4 uses:
+
+| Content | Signed by `tauri build`? |
+| --- | --- |
+| Main executable | Yes, with hardened runtime when enabled |
+| Each `bundle.externalBin` | Yes, as an executable |
+| `bundle.macOS.frameworks` (`.framework`, `.dylib`, and nested code inside them) | Yes |
+| Anything under `bundle.resources` | **No** |
+| Anything under `bundle.macOS.files` | **No** |
+| The outer `.app` | Yes, last (inside-out order) |
+| The `.dmg` | Signed, **not notarized** |
+
+Each call is
+`codesign --force -s <identity> [--options runtime] [--entitlements <file>]` with no
+`--deep`, and **the same entitlements file is passed for every target**, sidecars
+included. A request for per-sidecar entitlements
+([#16211](https://github.com/tauri-apps/tauri/issues/16211), with PR #16212 adding
+`sidecarEntitlements`) was closed as not planned on 2026-10-05.
+
+Consequences and workarounds:
+
+- **Sign Mach-O files under resources or `macOS.files` yourself, before `tauri build`.**
+  The bundler copies them with whatever signature they have, and notarization rejects
+  unsigned or ad-hoc code anywhere in the bundle.
+  Sign each one inside-out with
+  `codesign --force --options runtime --timestamp --sign "$IDENTITY"`, adding that
+  binary’s own `--entitlements` where needed; the outer signature then seals them.
+  Prefer `bundle.macOS.files` for trees with symlinks (a Python install links
+  `bin/python3` to the versioned binary): it recreates symlinks, while
+  `bundle.resources` follows them and copies each target as a separate file.
+
+- **Give a sidecar different entitlements by not making it an `externalBin`.** The
+  bundler re-signs every `externalBin` with `--force` and the app’s entitlements.
+  Ship a pre-signed binary through `bundle.macOS.files` and spawn it by path, or build
+  with `--no-sign` and sign and notarize the whole bundle yourself, inside-out.
+  An interpreter that loads third-party native extensions under the hardened runtime
+  needs `com.apple.security.cs.disable-library-validation` on that executable only; see
+  `tbd guidelines desktop-python-runtime-patterns`.
+
+- **Notarize the DMG yourself.** The bundler notarizes and staples only the `.app`.
+  Submit the DMG with `xcrun notarytool submit --wait` and staple it with
+  `xcrun stapler staple`, as Pake’s release workflow does in a separate step.
+
+- **Test sidecar notarization in the first spike.**
+  [#11992](https://github.com/tauri-apps/tauri/issues/11992) (open since 2024-12)
+  reports “nested code is modified or invalid” failures with `externalBin`, root cause
+  unresolved.
+
+- `tauri build --no-binary-patching` (CLI 2.12+) leaves an already-signed main
+  executable untouched.
+
+- The bundler does not set `LSFileQuarantineEnabled`; keep it unset.
+  With it, every file the app or its children download, including runtimes a sidecar
+  fetches, is quarantined (see
+  [Quarantine and Gatekeeper](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/macos-webview-shell-patterns.md#quarantine-and-gatekeeper)).
+
 **Windows.** Authenticode has required a hardware security module since June 2023, so a
 local `.pfx` is no longer viable.
 Use `signCommand` with Azure Key Vault or Azure Trusted Signing.
 
-Then choose how WebView2 reaches the user via `webviewInstallMode`:
+Then choose how WebView2 reaches the user via `webviewInstallMode` (sizes from the
+[Windows installer docs](https://v2.tauri.app/distribute/windows-installer/)):
 
-| Mode | Tradeoff |
-| --- | --- |
-| `downloadBootstrapper` (default) | Smallest installer; needs network at install time. |
-| `embedBootstrapper` | No network needed; **adds roughly 190MB**. |
-| `offlineInstaller` | Fully offline; largest. |
-| `fixedVersion` | Pins an engine version; you own its security updates. |
-| `skip` | Assumes it is present; the app will not launch if it is not. |
+| Mode | Installer growth | Tradeoff |
+| --- | --- | --- |
+| `downloadBootstrapper` (default) | 0MB | Smallest installer; needs network at install time. |
+| `embedBootstrapper` | ~1.8MB | Embeds the bootstrapper, which still downloads the runtime. |
+| `offlineInstaller` | ~127MB | Fully offline install. |
+| `fixedVersion` | ~180MB | Pins an engine version; you own its security updates. |
+| `skip` | 0MB | Assumes it is present; the app will not launch if it is not. |
 
 **Linux.** No signing story comparable to the other platforms; distribution goes through
 deb, rpm, and AppImage.
 
 ### CI
 
-You **cannot cross-compile**—build on each target OS. A realistic matrix is five
-entries: macOS arm64, macOS x64, Ubuntu x64, Ubuntu arm64, and Windows.
+You **cannot cross-compile macOS bundles**—build on each target OS. (A request to bundle
+macOS from Linux, [#16340](https://github.com/tauri-apps/tauri/issues/16340), was closed
+by its author on 2026-10-26 with its pull request unmerged.)
+A realistic full matrix is five entries: macOS arm64, macOS x64, Ubuntu x64, Ubuntu
+arm64, and Windows; a macOS-only, arm64-only app needs one.
 Note that surveyed apps pin **`ubuntu-22.04` rather than a newer image**, because of
 WebKit dependencies.
 macOS universal binaries are an option but double the file size.
 
-**Budget for Rust build time honestly.** A clean build runs 3-8 minutes locally and 5-15
-in CI. With `swatinem/rust-cache@v2` that drops to 2-5 minutes.
-macOS notarization adds another 2-5 minutes and cannot be cached.
-A parallel five-runner release lands around 15 minutes wall-clock.
-Against a JavaScript-only pipeline this is a real **3-5x penalty**, and it is the cost
-that most surprises teams arriving from Electron.
+Pin actions by full commit SHA. `tauri-action` v1.0.0 (2026-06-29) made breaking
+changes: `assetNamePattern` became `releaseAssetNamePattern`, `includeUpdaterJson`
+became `uploadUpdaterJson`, `includeRelease`, `includeDebug`, and
+`updaterJsonKeepUniversal` were removed (use `args: --debug` for debug builds), the
+`.app.tar.gz` and `.sig` names now include the version, the `latest.json` download URLs
+changed form, and Tauri v1 and v2 prereleases are no longer supported.
+
+```yaml
+- uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+  with:
+    workspaces: src-tauri
+- uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # action-v1.0.0
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+    APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+    APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+    APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+    APPLE_API_KEY_PATH: ${{ runner.temp }}/AuthKey.p8 # written by an earlier step
+    TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+    TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+  with:
+    tagName: v__VERSION__
+    releaseName: v__VERSION__
+    uploadUpdaterJson: true
+    args: -- --locked
+```
+
+A plain script calling `tauri build -- --locked` and uploading the `.dmg`,
+`.app.tar.gz`, `.sig`, and `latest.json` works as well.
+
+**Budget for Rust build time honestly.** Measured macOS jobs on GitHub-hosted
+`macos-latest` runners:
+
+| Run | What it builds | Job | Bundle step |
+| --- | --- | --- | --- |
+| Pake `Build Single Popular App`, run 38505787689, 2026-10-14 | Thin wrapper, universal binary, notarized | **4m09s** | 2m42s build; DMG notarization 26s |
+| Yaak `Release App Artifacts`, run 41178983389, 2026-10-31 | Heavy Rust app with a Node runtime resource, `rust-cache` warm | **21m49s** aarch64; 10m20s x86_64 | 14m46s; 6m06s |
+
+So a thin shell costs a few minutes per macOS job and a large Rust app tens of minutes;
+notarization cannot be cached, and its time depends on Apple’s queue.
+Against a JavaScript-only pipeline this is a real multiple, and it is the cost that most
+surprises teams arriving from Electron.
 Locally, switching to the LLD linker is the single biggest win, taking one measured
 incremental build from 14.8s to 3.7s.
 
 * * *
 
-## 6. What Actually Breaks Across Webviews
+## 7. The Rust Supply Chain
+
+A Tauri app adds Cargo as a dependency ecosystem beside npm and whatever the backend
+uses, and its graph is large.
+Measured on 2026-11-08 with `cargo tree --target aarch64-apple-darwin -e normal,build`:
+`tauri` 2.12.5 alone resolves 220 crate versions; adding the updater, single-instance,
+deep-link, and window-state plugins brings it to 278, about 58 of them from the updater
+(reqwest, hyper, rustls, ring, tar, minisign-verify, and others).
+
+**Pinning only direct crates does not satisfy a cool-off.** The same day, a fresh
+`cargo generate-lockfile` for those five crates resolved **19 of 278** crate versions
+published within the previous 14 days (for example `cc` 1.11.1, `flate2` 1.1.11, `uuid`
+1.29.1, and `smallvec` 1.16.5, all published 2026-11-06), although every direct crate
+cleared the window. The young versions arrive through semver ranges in the dependencies’
+own manifests.
+
+Rules:
+
+- **Commit `Cargo.lock` and build with `--locked` everywhere**, including
+  `tauri build -- --locked`, so nothing re-resolves without review.
+
+- **Use Cargo’s native publish-age gate once your toolchain respects it.**
+  `registry.global-min-publish-age` (and per-registry
+  `registries.<name>.min-publish-age`) makes the resolver skip versions newer than the
+  window. `resolver.incompatible-publish-age` defaults to `"deny"`, which ignores such
+  versions unless they are already in the lock file.
+  The feature was stabilized in
+  [rust-lang/cargo#17335](https://github.com/rust-lang/cargo/pull/17335) (merged
+  2026-08-28), and the
+  [Cargo configuration reference](https://doc.rust-lang.org/beta/cargo/reference/config.html)
+  marks both keys “Respected as of 1.100+.” On 2026-11-08 stable was Rust 1.99.1 and
+  1.100.0 was in beta, scheduled for release on 2026-11-12 on the six-week cadence.
+  Pin the toolchain in `rust-toolchain.toml` so every machine enforces the same gate.
+
+  ```toml
+  # .cargo/config.toml
+  [registry]
+  global-min-publish-age = "14 days"
+
+  [resolver]
+  incompatible-publish-age = "deny" # the default, stated for readers
+  ```
+
+- **The gate acts only when resolving.** It does not audit a lock you already have, and
+  the check-an-existing-lock half is still open
+  ([rust-lang/cargo#17246](https://github.com/rust-lang/cargo/issues/17246)). When you
+  adopt it, audit the current lock once against publish dates (the crates.io sparse
+  index records each version’s `pubtime`).
+
+- **Until then, choose versions by hand.** Hold the lock, and when you must update, pick
+  a version at least 14 days old (`cargo info <crate>@<version>` shows its publish date)
+  and apply it with `cargo update -p <crate> --precise <version>`.
+
+- **Take security fixes inside the window through the documented exception** in
+  `tbd guidelines supply-chain-hardening`, as you would have for tauri 2.11.6 when
+  GHSA-w28w-mhc8-qvjv was published.
+
+- **Audit in CI** with `cargo audit` or `cargo deny check advisories`. Tauri itself
+  publishes `cargo vet` audits in its repository’s `supply-chain/` directory and runs an
+  audit workflow.
+
+* * *
+
+## 8. What Actually Breaks Across Webviews
 
 Shipping no engine means inheriting whatever engine the user has.
 This section exists because “system webviews vary” is too vague to plan around.
+
+### macOS: What WKWebView Does Not Do Until You Wire It
+
+Read from wry 0.57.1 (`src/wkwebview/`) and tauri 2.12.5 on 2026-11-08. Most of these
+fail silently, which is why they are easy to ship.
+
+| Behavior | Default on macOS | Wire it with |
+| --- | --- | --- |
+| **`target=_blank` and `window.open`** | Without `on_new_window`, wry’s `createWebViewWithConfiguration` returns no view: **the click does nothing.** | `on_new_window`: hand external URLs to the default browser and return `NewWindowResponse::Deny`, or create a window for popups you want. |
+| **Links to other origins** | Allowed: they replace your page in the app window. | `on_navigation`: allow same-origin, send the rest to the browser through a scheme allowlist. |
+| **Downloads** | Without `on_download`, navigations WebKit marks as downloads (including `<a download>`) are **cancelled**, and responses WebKit cannot display are neither shown nor saved. | `on_download` returning `true`: wry saves to `~/Downloads` under the suggested name, adding ` (n)` on collision. Set `destination` in `DownloadEvent::Requested` to choose; reveal the file on `Finished`. |
+| **Reload, Back and Forward, Zoom** | The default macOS menu (used when you set none) has App, File, Edit, View, Window, and Help, but View holds only Enter Full Screen. **No Reload, Back, Forward, or zoom.** Tauri 2 has no `go_back` and does not expose wry’s back/forward swipe option. | A custom menu: `webview.reload()`, `eval("history.back()")` and `eval("history.forward()")`, and `set_zoom` from Rust for Cmd+=, Cmd+-, and Cmd+0. The `zoom_hotkeys_enabled` polyfill needs `core:webview:allow-set-webview-zoom`, which a remote origin does not have. |
+| **Copy, paste, undo** | Work only because the default menu has Edit items with those key equivalents. | When you replace the menu, keep the predefined Edit items. |
+| **Find in page** | No find bar, and no find API on macOS in Tauri or wry: **Cmd+F does nothing.** | Bind Cmd+F to the app’s own search, or call WKWebView’s find API through `with_webview` and objc2. |
+| **`alert`, `confirm`, `prompt`** | wry implements none of WebKit’s JavaScript panel delegate methods, so WebKit behaves as if each was dismissed. The dialog plugin’s replacements go through IPC, which a remote origin cannot use. | In-page dialogs. |
+| **Drag and drop** | Either-or. With the default handler, wry consumes drags without passing them to WebKit, so **HTML5 drops, including in-page element drag-and-drop, do not fire**; Rust instead receives `DragDropEvent::Drop { paths }` with **real filesystem paths**, which a browser page never gets. | Keep the handler for “drop a folder to open it.” For HTML5 drag-and-drop, call `disable_drag_drop_handler()` on windows built in Rust (the `dragDropEnabled` config key does not apply to them, [#13761](https://github.com/tauri-apps/tauri/issues/13761)); files then arrive as `File` objects without paths. Both at once waits on draft PR [#16373](https://github.com/tauri-apps/tauri/pull/16373). |
+| **Devtools in release builds** | Need the `devtools` Cargo feature, which uses the public `isInspectable` (macOS 13.3+) plus the private `developerExtrasEnabled` key and `_inspector`. **This makes the app ineligible for the App Store**; Developer ID distribution is unaffected. | Put devtools behind a menu item. Safari’s Develop menu can also attach to an inspectable webview. |
+| **`<input type=file>`** | Works (wry implements the open panel). | Nothing. |
+| **Hidden windows** | WebKit throttles timers in hidden or minimized views. | `background_throttling` (macOS 14+) if background work such as an event stream must keep up. |
+
+**WebKit becomes the app’s engine.** The engine is whatever WebKit the user’s Safari
+ships: Safari 27 (2026-09-14) is available for macOS Sequoia and Tahoe, so macOS 15 and
+later share a current engine while older systems stay behind.
+The bundler’s default `minimumSystemVersion` is 10.13; raise it to the oldest macOS you
+test, since it sets your CSS and JavaScript floor (13.3 for public `isInspectable`, 14.0
+for `background_throttling` and `data_store_identifier`). **Performance work measured in
+Chromium does not transfer.** Any size limit, render budget, or virtualization threshold
+you set from Chrome measurements needs re-measuring in WebKit, and APIs you use without
+feature detection need checking there.
+Electron avoids this cost by shipping Chromium; Tauri 3’s CEF runtime avoids it only by
+becoming Electron-sized ([§10](#10-tauri-30)).
 
 ### Linux Is the Weak Platform
 
@@ -680,26 +1322,26 @@ Engine capability tracks the distribution: Ubuntu 22.04 ships WebKitGTK 2.36 (ro
 Safari 16), Ubuntu 20.04 ships 2.28-2.32. Your users’ CSS and JavaScript support is set
 by their OS, not your build.
 
-**Tauri 3.0’s headline item is the GTK4 and WebKitGTK 6.0 migration**, which addresses
-much of this. It is a milestone in progress, not a shipped fix.
+**The GTK4 and WebKitGTK 6.0 migration**
+([#14684](https://github.com/tauri-apps/tauri/pull/14684)) addresses much of this.
+It was an open pull request on 2026-11-08, last updated 2026-05-29, not a shipped fix.
 
-### Windows and macOS
+### Windows and Cross-Platform
 
 - **Windows**: on machines without WebView2, the installer triggers a UAC prompt to
   install “Windows Edge Update,” which looks alarming to users; declining leaves an app
   that cannot launch. Apps also fail to start under Windows Administrator Protection.
-- **macOS**: enabling devtools uses private WebKit APIs and **makes the app ineligible
-  for the App Store**. WKWebView restricts media autoplay, and `convertFileSrc` fails on
+- **macOS media**: WKWebView restricts media autoplay, and `convertFileSrc` fails on
   very large files.
 - **Fonts render differently on every platform** (DirectWrite, CoreText, FreeType).
   Bundle your own fonts if visual consistency matters.
 
 * * *
 
-## 7. What Shipping Apps Actually Do
+## 9. What Shipping Apps Actually Do
 
-Fourteen serious open-source apps, read from their configuration rather than their
-READMEs.
+Fourteen serious open-source apps surveyed in August 2026, read from their configuration
+rather than their READMEs, plus two November additions.
 
 | App | What it demonstrates |
 | --- | --- |
@@ -711,6 +1353,8 @@ READMEs.
 | [Yaak](https://github.com/mountain-loop/yaak) | Bundles a **Node.js runtime as a resource** for its plugin system. |
 | [Wealthfolio](https://github.com/afadil/wealthfolio) | **The only app with a strict CSP** (SHA-256 script hashes); ships mobile. |
 | [Clash Verge Rev](https://github.com/clash-verge-rev/clash-verge-rev) | Go proxy sidecar; multiple updater endpoints with mirrors. Also the broadest permissions. |
+| [Pake](https://github.com/tw93/Pake) | Thin wrappers around existing web apps; separate DMG notarization step in CI. |
+| [Livebook](https://github.com/livebook-dev/livebook) | Replaced a native Swift macOS shell and a C# Windows shell with one Tauri app ([#3112](https://github.com/livebook-dev/livebook/pull/3112), merged 2026-01-07); the legacy shells were deleted on 2026-04-10. |
 
 Patterns appearing in three or more apps, which is the bar for putting something in a
 guideline:
@@ -721,6 +1365,8 @@ guideline:
 - **`fs:scope` confined to `$APPDATA/**`** as the minimum viable filesystem scope.
 - **Cargo features** `devtools` and `protocol-asset` (6 apps each).
 - **`macOSPrivateApi: true`** for vibrancy and transparency (4 apps).
+  Since 2.12.1 it is no longer required for transparency or fullscreen, so drop it
+  unless you use another private API.
 - **Custom title bars** via `titleBarStyle: "Overlay"` or `hiddenTitle` (4 apps).
 - **Vite** as the bundler, near-universally.
 
@@ -736,38 +1382,83 @@ holdouts show reduced maintenance.
 
 * * *
 
+## 10. Tauri 3.0
+
+Status on 2026-11-08, from crates.io, the `v3` branch, and the
+[3.0 milestone](https://github.com/tauri-apps/tauri/milestone/5):
+
+- **Alpha only.** `tauri` 3.0.0-alpha.0 shipped 2026-09-13 and alpha.6 on 2026-11-06,
+  seven alphas in eight weeks.
+  The [Tauri blog](https://tauri.app/blog/) has no 3.0 post or date; its newest post
+  announces 2.12 (2026-09-26). The 3.0 milestone had 11 open and 5 closed items, and a
+  2.13 milestone (30 open) shows 2.x is still developed.
+- **Do not pin alphas** in a product.
+  They are far inside any cool-off and change weekly.
+- **Pluggable runtimes are the headline change.** The app depends on a runtime crate and
+  selects it with `tauri::Builder::default().runtime(tauri_runtime_wry::Wry::default())`
+  or `tauri_runtime_cef::Cef::default()`. `tauri-runtime-cef` bundles Chromium through
+  CEF and, on macOS, replaces WKWebView; the v3 bundler creates the CEF helper apps.
+  `tauri-runtime-cef` 3.0.0-alpha.7 pins `cef` 154.5.0 (CEF 154.0.34), whose macOS arm64
+  *minimal* distribution is 126.1MiB compressed; the current CEF 156.0.26 is 128.7MiB
+  ([CEF builds index](https://cef-builds.spotifycdn.com/index.json)). **A CEF-runtime
+  app is Electron-sized**, so it trades away Tauri’s size advantage for engine control.
+- **Linux remains open.** The CEF runtime uses GTK 4, while the wry runtime stays on GTK
+  3 until [#14684](https://github.com/tauri-apps/tauri/pull/14684) lands.
+- **Other changes that touch an app:** MSRV 1.95; the `macos-private-api` feature and
+  `macOSPrivateApi` config are removed because transparency and fullscreen no longer use
+  private APIs; the `devtools` and `unstable` features move to the runtime crate; and a
+  new `Plugin::cleanup_before_exit` hook runs on exit paths that bypass the event loop,
+  such as `AppHandle::restart`.
+- **Porting cost:** small for a thin shell that registers no commands, and proportional
+  to custom plugin and runtime-API use otherwise.
+
+* * *
+
 ## Best Practices
 
-- [ ] Pin at least **2.11.1** for the ACL and localhost security fixes.
+- [ ] Pin **tauri 2.12.5** today and never below **2.11.6** (GHSA-w28w-mhc8-qvjv).
+- [ ] Check every plugin pin, and the full lockfile, against the 14-day cool-off.
+- [ ] Commit `Cargo.lock`, build with `--locked`, and set
+  `registry.global-min-publish-age = "14 days"` once the toolchain is Rust 1.100+.
 - [ ] Match plugin crate and JS package versions; do not force core crates to one
   number.
 - [ ] Keep `withGlobalTauri` off and import `@tauri-apps/api` instead.
 - [ ] Scope capabilities to specific windows where you can, and to `$APPDATA` at minimum
   for the filesystem.
+- [ ] For a loopback web app, grant **zero capabilities** and keep the server’s origin
+  out of `devUrl` and `frontendDist`.
+- [ ] Follow the shell–server contract: port 0, a JSON ready line, the per-launch secret
+  as the first stdin line, stdin kept open, and a session cookie for the web view.
 - [ ] **Rewrite capabilities by hand when migrating from v1**; never ship
   `migrated.json`.
 - [ ] Set a CSP with script hashes, and `devCsp` separately for development.
 - [ ] Enable `security.freezePrototype` unless a dependency breaks under it.
 - [ ] Use the Isolation pattern if your frontend has a large dependency tree.
-- [ ] Ship the official updater with `bundle.createUpdaterArtifacts: true` and a
-  minisign key; keep the private key in CI secrets only.
+- [ ] Ship the official updater with `bundle.createUpdaterArtifacts: true`, a minisign
+  key kept in CI secrets only, and **`requireSignedVersion: true`**.
+- [ ] Drive the updater from Rust when the page has no reason to control it.
 - [ ] Use `ipc::Response` or `Channel<T>` for binary and streaming payloads.
 - [ ] Suffix sidecar binaries with the correct target triple, and remember the Rust and
   JS APIs take different path arguments.
-- [ ] Handle `RunEvent::Exit` to kill sidecars; do not assume automatic cleanup covers
-  every path.
+- [ ] Spawn Rust-side children in their own process group and kill the group
+  synchronously in `RunEvent::Exit`; do not rely on `ExitRequested` on macOS.
+- [ ] Pre-sign every Mach-O file under `bundle.resources` or `bundle.macOS.files`, and
+  notarize the DMG yourself.
+- [ ] On macOS, wire `on_new_window`, `on_navigation`, `on_download`, and a menu with
+  Reload, Back, Forward, zoom, Find, and the Edit items.
+- [ ] Re-measure Chromium-derived performance limits in WebKit before shipping on macOS.
 - [ ] Pin `ubuntu-22.04` in CI for WebKit compatibility.
-- [ ] Cache Rust builds with `swatinem/rust-cache`; expect notarization to stay
-  uncached.
+- [ ] Pin actions by commit SHA, cache Rust builds with `Swatinem/rust-cache`, and
+  expect notarization to stay uncached.
 - [ ] Test on real Linux hardware early if Linux matters.
 
 * * *
 
 ## Open Research Questions
 
-1. **When does Tauri 3.0’s GTK4 and WebKitGTK 6.0 migration land, and does it resolve
-   the Linux media and drag-and-drop problems?** This is the single largest open
-   question for anyone targeting Linux.
+1. **When does the GTK4 and WebKitGTK 6.0 migration land for the wry runtime, and does
+   it resolve the Linux media and drag-and-drop problems?** This is the single largest
+   open question for anyone targeting Linux.
 
 2. **What is the practical exposure from the unpatched-webview problem?** Users on old
    operating systems run old engines, and no data was found quantifying how often that
@@ -782,6 +1473,13 @@ holdouts show reduced maintenance.
 5. **Does `fixedVersion` WebView2 make sense for enterprise deployment**, given it moves
    engine security updates onto you?
 
+6. **What causes the `externalBin` notarization failures in #11992?** No root cause was
+   published as of 2026-11-08.
+
+7. **What does a thin Tauri shell cost in idle memory and clean build time on Apple
+   Silicon?** No reproducible measurement was found; measure the whole process group
+   (app, WebKit WebContent and Networking processes, and the backend) with `footprint`.
+
 * * *
 
 ## Recommendations
@@ -791,6 +1489,9 @@ holdouts show reduced maintenance.
 - You want a small, signed, auto-updating desktop app and can accept Rust in the build.
 - **Update integrity matters.** The signed updater is the strongest reason to choose
   Tauri over less mature small-bundle frameworks.
+- **You already have a local web server** and want a native window, menus, file
+  associations, and verified updates around it with little code
+  ([§4](#4-wrapping-an-existing-loopback-web-app)).
 - Your team is comfortable with a permission model that must be configured deliberately.
 - You are Windows-first or macOS-first, with Linux as a secondary target you will test.
 - You want mobile from the same codebase, accepting that backend logic must be plugins
@@ -800,12 +1501,21 @@ holdouts show reduced maintenance.
 
 - **Your app depends on WebRTC, media playback through local protocols, or drag-and-drop
   on Linux.** Verify before committing.
-- **You need a guaranteed rendering engine across platforms.** Electron ships one; Tauri
-  inherits whatever is installed.
-- **Your CI budget cannot absorb a 3-5x build-time increase.**
+- **You need a guaranteed rendering engine across platforms**, or Chromium parity with
+  performance work already measured in Chrome.
+  Electron ships one; Tauri inherits whatever is installed until its CEF runtime is
+  stable, and that runtime is Electron-sized.
+- **Your CI budget cannot absorb Rust build times.**
 - **You need an OS-level renderer sandbox**, which Electron provides and Tauri does not.
 - **Your team will write no Rust and your backend cannot be a sidecar**—for example
   because you need mobile support.
+- **You ship on macOS only and want the thinnest possible layer.** A hand-written AppKit
+  and WKWebView shell in Swift has the same engine and the same gaps as Tauri on macOS,
+  but no Rust toolchain or bundler, and direct access to what Tauri does not expose (a
+  quit veto through `applicationShouldTerminate:`, a Dock menu, the native find bar).
+  See `tbd guidelines macos-webview-shell-patterns`. The cost arrives if you go
+  cross-platform later: one native shell per OS. Livebook ran Swift and C# shells from
+  2023 and consolidated them into one Tauri app in 2026.
 
 Choose **Electron** for maximum maturity, a controlled engine, the richest ecosystem,
 and a real renderer sandbox; see `tbd guidelines electron-app-development-patterns`.
@@ -815,9 +1525,15 @@ verification.
 
 ### If You Adopt It
 
-Pin 2.11.1 or later, scope capabilities deliberately rather than accepting the migration
-output, ship the signed updater from day one, budget for Rust build times in CI, and put
-a real Linux machine in your test matrix before you promise Linux support.
+Pin tauri 2.12.5 (never below 2.11.6) and plugins that clear the cool-off, commit and
+lock `Cargo.lock`, scope capabilities deliberately rather than accepting the migration
+output, ship the signed updater with `requireSignedVersion` from day one, kill every
+Rust-spawned child by process group in `RunEvent::Exit`, budget for Rust build times in
+CI, budget a WebKit QA pass on macOS, and put a real Linux machine in your test matrix
+before you promise Linux support.
+For a Python backend, ship uv as a signed `externalBin` and let it install the pinned
+interpreter and locked environment into app data on first run; see
+`tbd guidelines desktop-python-runtime-patterns`.
 
 * * *
 
@@ -832,10 +1548,34 @@ a real Linux machine in your test matrix before you promise Linux support.
 - [Updater plugin](https://v2.tauri.app/plugin/updater/)
 - [Embedding external binaries](https://v2.tauri.app/develop/sidecar/)
 - [macOS signing](https://v2.tauri.app/distribute/sign/macos/)
+- [Windows installer and `webviewInstallMode`](https://v2.tauri.app/distribute/windows-installer/)
 - [Webview versions](https://v2.tauri.app/reference/webview-versions/)
+- [Announcing Tauri 2.12](https://tauri.app/blog/tauri-2.12/) (2026-09-26)
+- [tauri-action v1.0.0 release notes](https://github.com/tauri-apps/tauri-action/releases/tag/action-v1.0.0)
+- [Cargo configuration reference (beta)](https://doc.rust-lang.org/beta/cargo/reference/config.html),
+  for `min-publish-age`
 - [awesome-tauri](https://github.com/tauri-apps/awesome-tauri)
 
-### Issues Cited
+### Source Read (2026-11-08)
+
+- tauri `tauri-v2.12.5`: `crates/tauri/src/webview/mod.rs` (`is_local_url`, the
+  `on_message` ACL branch), `crates/tauri/src/manager/webview.rs`,
+  `crates/tauri/src/menu/menu.rs` (default menu), `crates/tauri/src/app.rs`,
+  `crates/tauri-runtime-wry/src/lib.rs`, `crates/tauri-bundler/src/bundle/macos/`,
+  `crates/tauri-macos-sign/src/keychain.rs`, and the `tauri` and `tauri-cli` changelogs
+- plugins-workspace `v2`: `plugins/updater/src/{updater.rs,config.rs}`,
+  `plugins/shell/src/{lib.rs,commands.rs,process/mod.rs}`, and each plugin’s changelog
+- wry `wry-v0.57.1`: `src/wkwebview/`; tao `tao-v0.37.2`:
+  `src/platform_impl/macos/app_delegate.rs`; tauri `v3` branch changelogs
+
+### Advisories
+
+- [GHSA-w28w-mhc8-qvjv](https://github.com/tauri-apps/tauri/security/advisories/GHSA-w28w-mhc8-qvjv)
+- [GHSA-7gmj-67g7-phm9](https://github.com/tauri-apps/tauri/security/advisories/GHSA-7gmj-67g7-phm9)
+- [GHSA-c9pr-q8gx-3mgp](https://github.com/tauri-apps/plugins-workspace/security/advisories/GHSA-c9pr-q8gx-3mgp)
+- [GHSA-9g54-6x48-9vpw](https://github.com/tauri-apps/plugins-workspace/security/advisories/GHSA-9g54-6x48-9vpw)
+
+### Issues and Pull Requests Cited
 
 - [WebRTC unavailable on Linux (wry#85)](https://github.com/tauri-apps/wry/issues/85)
 - [Media via custom protocol fails on Linux (#3725)](https://github.com/tauri-apps/tauri/issues/3725)
@@ -843,13 +1583,24 @@ a real Linux machine in your test matrix before you promise Linux support.
 - [Wayland shadow DOM duplication (#13157)](https://github.com/tauri-apps/tauri/issues/13157)
 - [WebView2 install UX (#4389)](https://github.com/tauri-apps/tauri/issues/4389)
 - [Windows Administrator Protection (#13926)](https://github.com/tauri-apps/tauri/issues/13926)
+- [`ExitRequested` not fired on macOS (#9198)](https://github.com/tauri-apps/tauri/issues/9198)
+- [macOS HTML5 drag-and-drop fix, draft (#16373)](https://github.com/tauri-apps/tauri/pull/16373)
+- [`dragDropEnabled` ignored for Rust-built windows (#13761)](https://github.com/tauri-apps/tauri/issues/13761)
+- [Sidecars signed with the app’s entitlements, not planned (#16211)](https://github.com/tauri-apps/tauri/issues/16211)
+- [Sidecar notarization failures (#11992)](https://github.com/tauri-apps/tauri/issues/11992)
+- [macOS Dock menu (#9916)](https://github.com/tauri-apps/tauri/issues/9916)
+- [macOS bundles from Linux, closed unimplemented (#16340)](https://github.com/tauri-apps/tauri/issues/16340)
+- [GTK4 and WebKitGTK 6.0 migration (#14684)](https://github.com/tauri-apps/tauri/pull/14684)
+- [Cargo min-publish-age stabilization (cargo#17335)](https://github.com/rust-lang/cargo/pull/17335)
+  and [lock enforcement (cargo#17246)](https://github.com/rust-lang/cargo/issues/17246)
+- [Livebook Desktop with Tauri (livebook#3112)](https://github.com/livebook-dev/livebook/pull/3112)
 
-## Related Guidelines
+### Measurements
 
-- For Electron, see `tbd guidelines electron-app-development-patterns`
-- For Electrobun, see `tbd guidelines electrobun-app-development-patterns`
-- For dependency policy, see `tbd guidelines supply-chain-hardening`
-- For TypeScript conventions, see `tbd guidelines typescript-rules`
+- [Pake V3.18.0 release assets](https://github.com/tw93/Pake/releases/tag/V3.18.0)
+- GitHub Actions runs `tw93/Pake` 38505787689 and `mountain-loop/yaak` 41178983389
+- [CEF builds index](https://cef-builds.spotifycdn.com/index.json)
+- [Safari 27 security content](https://support.apple.com/en-us/149039)
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

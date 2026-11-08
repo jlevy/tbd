@@ -1,12 +1,12 @@
 ---
 title: Electron App Development Patterns
-description: Building a clean, minimal, standalone Electron app—process model, modern Vite-based build system, attaching a Node/Bun/Python backend, security baseline, packaging, code signing, and auto-update
+description: Building a clean, minimal, standalone Electron app—process model, Vite-based build, wrapping a local web server, Node, Bun, or Python backends, security baseline, packaging, macOS signing and notarization, and auto-update
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: desktop
 ---
 # Electron App Development Patterns
 
-**Last Updated**: 2026-08-16
+**Last Updated**: 2026-11-08
 
 **Related**:
 
@@ -15,8 +15,19 @@ category: desktop
 - [electron-vite](https://electron-vite.org/)
 - [electron-builder](https://www.electron.build/)
 - [Electron Forge](https://www.electronforge.io/)
+- [Companion: Desktop Python Runtime Patterns](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/desktop-python-runtime-patterns.md)
+  (`tbd guidelines desktop-python-runtime-patterns`)—uv layouts, isolation flags, hash
+  pinning, and macOS Python hazards
+- [Companion: macOS WebView Shell Patterns](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/macos-webview-shell-patterns.md)
+  (`tbd guidelines macos-webview-shell-patterns`)—the full macOS platform rules and the
+  AppKit plus WKWebView alternative
+- [Companion: Tauri App Development Patterns](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/tauri-app-development-patterns.md)
+- [Companion: Electrobun App Development Patterns](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/electrobun-app-development-patterns.md)
 - [Companion: pnpm Monorepo Patterns](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/pnpm-monorepo-patterns.md)
+- [Companion: Bun Monorepo Patterns](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/bun-monorepo-patterns.md)
 - [Companion: Supply-Chain Hardening](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/supply-chain-hardening.md)
+- [Companion: CI and Quality Gate Rules](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/ci-and-gates-rules.md)
+- [Companion: TypeScript Rules](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/typescript-rules.md)
 
 * * *
 
@@ -24,39 +35,77 @@ category: desktop
 
 Electron ships a major version every 8 weeks and supports only the latest three, so this
 document goes stale faster than most.
-Recheck it at least every two majors.
+Since Chrome moved to a stable milestone every two weeks (M152 on 2026-08-25 through
+M157 on 2026-11-03, per [Chromium Dash](https://chromiumdash.appspot.com/schedule)),
+each Electron major jumps four Chromium milestones, and each supported line gets about
+two patch releases a week.
+Recheck this document at least every two majors.
 
 ### Last Researched Versions
 
-Versions observed 2026-08-16 by querying the npm registry and official release pages
-directly. Where the newest release is younger than 14 days, the older aged version is
-given as the pin, per [Supply-Chain Mitigation](#supply-chain-mitigation).
+Versions observed 2026-11-08 by querying the npm registry (`time` and `dist-tags`),
+[releases.electronjs.org](https://releases.electronjs.org/), and GitHub releases
+directly.
+A release is eligible under the 14-day cool-off when its UTC publish date is on
+or before 2026-10-25. Where the newest release is younger, the newest eligible version
+is given as the pin, per [Supply-Chain Mitigation](#supply-chain-mitigation).
 
 | Tool / Package | Version | Check For Updates |
 | --- | --- | --- |
-| **Electron** | ^43.2.0 (43.3.0/43.4.0 too recent) | [releases.electronjs.org](https://releases.electronjs.org/)—**43.4.0** (2026-08-11) is current stable: Chromium 150, Node 24.18.1, V8 15.0. Supported majors are **41, 42, 43**; **41 reaches EOL 2026-08-25**, so 42 is the practical floor. 44 is in beta and **drops macOS 12, 32-bit Windows (ia32), and linux-armv7l**. Security fixes ship on the supported line only—track the latest patch, not just the major. |
-| **Node.js (host toolchain)** | 24 (LTS “Krypton”) | [nodejs.org/releases](https://nodejs.org/en/about/previous-releases)—Node 24 Active LTS (EOL Apr 2028; moves to maintenance when Node 26 enters LTS in Oct 2026); Node 26 Current; Node 22 in maintenance; **Node 20 EOL 2026-03-24**. Note the Node version *inside* Electron is set by Electron, not by your host Node (Electron 43.4.0 embeds Node 24.18.1). |
-| **electron-vite** | ^5.0.0 | [electron-vite.org](https://electron-vite.org/)—5.0.0 (2025-12-07). Supports Vite 7 and 8. Added `build.isolatedEntries` for multi-entry isolation and stronger bytecode string protection. 6.0.0-beta.1 exists; not stable. |
-| **vite-plugin-electron** | ^1.1.0 (1.1.1 too recent) | [github.com/electron-vite/vite-plugin-electron](https://github.com/electron-vite/vite-plugin-electron)—**Pinned to 1.1.0 (2026-06-24) per the 14-day rule**; 1.1.1 (2026-08-03) is 12 days old today. Same org as electron-vite, currently the more frequently released of the two. Auto-selects `rolldownOptions` on Vite 8+ and `rollupOptions` below. Use when you want a plugin inside a standard Vite project rather than a separate CLI. |
-| **Vite** | ^8.2.0 (8.2.1 too recent) | [vite.dev](https://vite.dev/blog/announcing-vite8)—Vite 8 (2026-03-12) ships **Rolldown as its sole bundler**, replacing the esbuild-for-dev / Rollup-for-prod split. Requires Node 20.19+ or 22.12+. |
-| **Rolldown** | ^1.2.1 (1.2.2+ too recent) | [rolldown.rs](https://rolldown.rs/)—1.0 stable May 2026; 1.2.4 (2026-08-12) newest. Adopted Rollup’s plugin API, so most Vite plugins work unmodified. Maintained by VoidZero, **acquired by Cloudflare 2026-06-04**; tools remain MIT. |
-| **esbuild** | ^0.28.1 (0.28.2 too recent) | [github.com/evanw/esbuild/releases](https://github.com/evanw/esbuild/releases)—still pre-1.0. No longer inside Vite’s production path, but still the simplest standalone choice for bundling a main process without adopting a framework. |
-| **electron-builder** | ^26.15.7 | [electron.build](https://www.electron.build/)—**The `latest` dist-tag points at 26.15.3 (2026-06-09) while 26.15.7 (2026-07-18) is the newest v26**, published under a separate `v26` tag; a bare `npm i electron-builder` therefore pins lower than you may expect. 27.0.0-alpha.6 is in progress: native ESM, Node 22.12+, signing consolidated under `mac.sign`/`win.sign`, APFS DMGs, MSIX target, Azure Artifact Signing via `signtool /dlib`, and an `electron-builder migrate-schema` CLI. |
-| **electron-updater** | ^6.8.9 | [npmjs.com/package/electron-updater](https://www.npmjs.com/package/electron-updater)—6.8.9 (2026-06-05). 7.0.0-alpha.5 tracks electron-builder 27. |
-| **Electron Forge** | ^7.11.2 | [electronforge.io](https://www.electronforge.io/)—7.11.2 (2026-05-20). 8.0.0-alpha.10 targets Node 22.12+, ESM-only, and Vite 8. The Vite plugin is still marked experimental. Supports npm, Yarn Classic, and pnpm (since 7.7.0, requires hoisted `node_modules`); **Bun is not supported** ([forge#3906](https://github.com/electron/forge/issues/3906)). |
-| **@electron/packager** | ^20.0.4 (20.1.0+ too recent) | [npmjs.com/package/@electron/packager](https://www.npmjs.com/package/@electron/packager)—20.3.0 (2026-08-11) newest. The low-level bundler that Forge wraps; use directly only for a custom pipeline. |
-| **@electron/rebuild** | ^4.2.0 | [github.com/electron/rebuild](https://github.com/electron/rebuild)—4.2.0 (2026-07-07). Requires Node ≥22.12.0. |
-| **@electron/notarize** | ^3.1.1 | [github.com/electron/notarize](https://github.com/electron/notarize)—3.1.1 (2025-10-31). Wraps `xcrun notarytool`. |
-| **@electron/osx-sign** | ^2.6.0 | [github.com/electron/osx-sign](https://github.com/electron/osx-sign)—2.6.0 (2026-07-17). |
+| **Electron** | 45.2.3 (security exception; aged pin ^45.0.0) | [releases.electronjs.org](https://releases.electronjs.org/)—**45.2.3** (2026-11-04) is current stable: Chromium 156.0.8078.80, Node 24.22.2, V8 15.6. Its one code change is a batch of Chromium, V8, Skia, ANGLE, and other upstream fixes labeled `security` ([#55592](https://github.com/electron/electron/pull/55592)), so it qualifies for the cool-off exception; 45.0.0 (2026-10-21) is the newest stable past 14 days. Supported majors are **43, 44, 45**; **42 reached end of life 2026-10-20** and 43 ends 2027-01-05 (tentative), so 44 is the practical floor. **44 and later require macOS 13 Ventura** and dropped Windows ia32 and Linux armv7l. 46 (stable 2027-01-05, tentative) moves to Chromium 160 and Node 26.13.0. |
+| **Node.js (host toolchain)** | 24 or 26 (both LTS) | [nodejs.org/releases](https://nodejs.org/en/about/previous-releases)—Node 26 “Lithium” entered Active LTS 2026-10-28 (26.13.0); Node 24 “Krypton” moved to maintenance 2026-10-20 and is supported until 2028-04-30; Node 22 is in maintenance until 2027-04-30. The Node *inside* Electron is set by Electron, not by your host (45.2.3 embeds 24.22.2). |
+| **electron-vite** | ^6.0.0 | [electron-vite.org](https://electron-vite.org/)—6.0.0 (2026-10-14). Vite 8 support with both `rolldownOptions` and `rollupOptions`, while keeping Vite 6 and 7 working; single-session bytecode compilation; dev-mode signal forwarding to the Electron child. Node ^20.19 or ≥22.12. |
+| **vite-plugin-electron** | ^1.1.2 (1.2.0 too recent) | [github.com/electron-vite/vite-plugin-electron](https://github.com/electron-vite/vite-plugin-electron)—1.2.0 (2026-10-31) newest. Same org as electron-vite. Auto-selects `rolldownOptions` on Vite 8+ and `rollupOptions` below. Use when you want a plugin inside a standard Vite project rather than a separate CLI. |
+| **Vite** | ^8.3.5 (8.3.6 too recent) | [vite.dev](https://vite.dev/blog/announcing-vite8)—Vite 8 (2026-03-12) ships **Rolldown as its sole bundler**. `build.rollupOptions` is a deprecated alias of `build.rolldownOptions` ([build options](https://vite.dev/config/build-options)). Requires Node 20.19+ or 22.12+. |
+| **Rolldown** | ^1.2.15 (1.2.16 and 1.3.0 too recent) | [rolldown.rs](https://rolldown.rs/)—1.3.0 (2026-11-05) newest. Adopted Rollup’s plugin API, so most Vite plugins work unmodified. Maintained by VoidZero, **acquired by Cloudflare 2026-06-04**; tools remain MIT. |
+| **esbuild** | ^0.28.2 | [github.com/evanw/esbuild/releases](https://github.com/evanw/esbuild/releases)—0.28.2 (2026-08-08), still pre-1.0. No longer inside Vite’s production path, but still the simplest standalone choice for bundling a main process without adopting a framework. |
+| **electron-builder** | ^26.18.0 | [electron.build](https://www.electron.build/)—**The `latest` dist-tag is 26.18.0 (2026-10-20), while 26.18.1 (2026-10-26) is published under a separate `v26` tag**, so `latest` trails the newest v26 release. 26.x pins exact, older Electron tooling (`@electron/osx-sign` 1.3.3, `@electron/notarize` 2.5.0, `@electron/asar` 3.4.1). **Its default macOS entitlements grant `allow-jit`, `allow-unsigned-executable-memory`, and `disable-library-validation` to every binary; always supply your own** (see [Signing Nested Binaries](#signing-nested-binaries)). 27.0.0-alpha.14 (`next`, 2026-10-29) is still alpha: native ESM, Node 22.12+, an `allow-jit`-only default entitlements template, an embedded ASAR-integrity digest for Electron 41+, Ed25519-signed update manifests required by default, and a `migrate-schema` CLI ([what’s new in v27](https://www.electron.build/docs/migration/whats-new-v27/)). Rejecting plain-`http` update feeds (with an `allowInsecureFeed` opt-out) is on `main` as a pending changeset ([e9553386](https://github.com/electron-userland/electron-builder/commit/e9553386c9), 2026-11-05) and is not in alpha.14. |
+| **electron-updater** | ^6.8.11 | [npmjs.com/package/electron-updater](https://www.npmjs.com/package/electron-updater)—`latest` is 6.8.11 (2026-10-20); 6.8.12 (2026-10-26) is under the `v26` tag. In 6.x the `latest*.yml` manifest is unauthenticated: its SHA-512 for each download comes from the same host, so it guards transport, not the manifest’s author. The payload’s OS code signature is checked, though: on Windows, `verifyUpdateCodeSignature` matches the installer’s Authenticode signer against `publisherName` (falling open when PowerShell cannot run, which 7 closes), and on macOS Squirrel.Mac checks the app’s designated requirement. 7.0.0-alpha.13 (`next`) adds Ed25519-signed manifests (`updateManifestPublicKey`, with key lists for rotation) and a `verifyUpdateFile` hook; neither exists in 6.x. |
+| **Electron Forge** | ^8.0.1 | [electronforge.io](https://www.electronforge.io/)—8.0.1 (2026-09-29) is stable ([release notes](https://github.com/electron/forge/releases/tag/v8.0.1)): ESM-only on Node 22.17+, **the Vite plugin promoted to stable** and targeting Vite 8, main and preload emitted as `.cjs`, `publish` renamed `release`, DMGs moved to `out/make/dmg/<arch>/`, and far fewer dependencies. pnpm still needs hoisted `node_modules`; **Bun is not supported** ([forge#3906](https://github.com/electron/forge/issues/3906), open). |
+| **@electron/packager** | ^20.3.0 | [npmjs.com/package/@electron/packager](https://www.npmjs.com/package/@electron/packager)—20.3.0 (2026-08-11). The low-level bundler that Forge wraps; use directly only for a custom pipeline. |
+| **@electron/rebuild** | ^4.2.1 | [github.com/electron/rebuild](https://github.com/electron/rebuild)—4.2.1 (2026-10-06). Requires Node ≥22.12.0. |
+| **@electron/notarize** | ^3.1.2 | [github.com/electron/notarize](https://github.com/electron/notarize)—3.1.2 (2026-10-09). Wraps `xcrun notarytool`. |
+| **@electron/osx-sign** | ^2.7.2 | [github.com/electron/osx-sign](https://github.com/electron/osx-sign)—2.7.2 (2026-10-25). Signs every file under `Contents/` that `isbinaryfile` flags, inside out; see [Signing Nested Binaries](#signing-nested-binaries). |
 | **@electron/fuses** | ^2.1.3 | [github.com/electron/fuses](https://github.com/electron/fuses)—2.1.3 (2026-06-29). |
-| **@electron/asar** | ^4.2.1 | [github.com/electron/asar](https://github.com/electron/asar)—4.2.1 (2026-07-21). ASAR integrity needs ≥3.1.0; the macOS integrity digest added in Electron 41 needs ≥4.1.0. |
+| **@electron/asar** | ^4.3.1 | [github.com/electron/asar](https://github.com/electron/asar)—4.3.1 (2026-09-26). ASAR integrity needs ≥3.1.0; the macOS integrity digest added in Electron 41 needs ≥4.1.0. |
 | **@electron/universal** | ^3.0.6 | [github.com/electron/universal](https://github.com/electron/universal)—3.0.6 (2026-07-02). Merges x64 and arm64 macOS builds. |
 | **update-electron-app** | ^3.3.0 | [github.com/electron/update-electron-app](https://github.com/electron/update-electron-app)—3.3.0 (2026-06-28). |
-| **Playwright** | ^1.62.1 | [playwright.dev](https://playwright.dev/docs/api/class-electron)—1.62.1 (2026-07-30). `_electron` is still an experimental namespace but is the standard way to drive a packaged app in tests. |
-| **better-sqlite3** | ^13.0.2 (13.0.3 too recent) | [npmjs.com/package/better-sqlite3](https://www.npmjs.com/package/better-sqlite3)—13.0.3 (2026-08-05) newest. Needs `@electron/rebuild`. Consider `node:sqlite` first (see [Native Modules](#native-modules)). |
-| **pnpm** | ^11.19.0 (11.20+ too recent) | [github.com/pnpm/pnpm/releases](https://github.com/pnpm/pnpm/releases)—**Pinned to 11.19.0 (2026-07-31) per the 14-day rule**; 11.20.0 through 11.22.0 are all under 14 days old today. pnpm 11 moved `nodeLinker` and `shamefullyHoist` out of `.npmrc` into `pnpm-workspace.yaml`, replaced `onlyBuiltDependencies` with `allowBuilds`, and made `strictDepBuilds` default to `true`. |
-| **npm** | ^12.0.2 | [npmjs.com/package/npm](https://www.npmjs.com/package/npm)—npm 12 (2026-07-08) **disables dependency install scripts by default** (`allowScripts`); approve with `npm approve-scripts`. |
-| **Bun** | ^1.3.14 | [bun.com/blog](https://bun.com/blog)—1.3.14 (2026-05-13). Fine as a package manager and as a sidecar runtime; **not** a supported driver for Forge, and still unreliable through electron-builder’s script hooks. |
+| **Playwright** | ^1.64.1 (1.65.0 too recent) | [playwright.dev](https://playwright.dev/docs/api/class-electron)—1.65.0 (2026-11-05) newest. `_electron` is still an experimental namespace but is the standard way to drive a packaged app in tests. |
+| **better-sqlite3** | ^13.0.3 | [npmjs.com/package/better-sqlite3](https://www.npmjs.com/package/better-sqlite3)—13.0.3 (2026-08-05). Needs `@electron/rebuild`. Consider `node:sqlite` first (see [Native Modules](#native-modules)). |
+| **pnpm** | ^12.15.0 (12.16+ too recent) | [github.com/pnpm/pnpm/releases](https://github.com/pnpm/pnpm/releases)—12.18.0 (2026-11-05) newest; pnpm 12.0.0 shipped 2026-08-26, and the 11 line still gets releases (11.28.8 is its newest aged one). The Electron-relevant settings are unchanged from 11: `nodeLinker` and `allowBuilds` live in `pnpm-workspace.yaml`, and `strictDepBuilds` defaults to `true`. pnpm 12 fails on unrecognized `pnpm-workspace.yaml` settings when the project pins a pnpm version it satisfies. |
+| **npm** | ^12.2.1 (12.2.2 too recent) | [npmjs.com/package/npm](https://www.npmjs.com/package/npm)—12.2.2 (2026-11-04) newest. npm 12 **disables dependency install scripts by default** (`allowScripts`); approve with `npm approve-scripts`. |
+| **Bun** | ^1.4.4 | [bun.com/blog](https://bun.com/blog)—1.4.4 (2026-10-22). Fine as a package manager and as a sidecar runtime; **not** a supported driver for Forge, and still unreliable through electron-builder’s script hooks. Use ≥1.4.1 for `--compile` on macOS (see [Bun Backends](#bun-backends)). |
+
+### Recent Platform Changes
+
+These changes from Electron 44 through 46 affect application code, read from
+[breaking-changes.md](https://github.com/electron/electron/blob/main/docs/breaking-changes.md)
+and the API docs at each tag:
+
+- **The macOS built-in `autoUpdater` got sturdier (44.7.0 and later, and 45).** The
+  update zip streams to disk and an interrupted download resumes when the server sends
+  `ETag` or `Last-Modified` and honors `Range`. A feed entry may declare `sha256` and
+  `size`, and a mismatching download is discarded before it is unpacked.
+  An entry may also carry a `delta` (`from_version`, `url`, `sha256`, `size`) made with
+  Sparkle’s `BinaryDelta create`, which is tried first and falls back to the full zip
+  ([auto-updater.md](https://github.com/electron/electron/blob/v45.2.3/docs/api/auto-updater.md)).
+- **Native window-state persistence (44, experimental).**
+  `new BrowserWindow({ name: 'main', windowStatePersistence: true })` restores position,
+  size, and display mode across launches; `BaseWindow.clearPersistedState(name)` resets
+  it
+  ([base-window-options.md](https://github.com/electron/electron/blob/v45.2.3/docs/api/structures/base-window-options.md)).
+  This replaces the `electron-window-state` package.
+- **Sandboxed preloads lost their Node shims (45).** `require` loads only `electron`,
+  and the `events`, `timers`, and `url` shims and the `Buffer`, `setImmediate`, and
+  `clearImmediate` globals are gone.
+  Use Web APIs, or bundle the polyfill you need.
+- **`unload` handlers stop running on `http:` and `https:` pages (46).** Chromium
+  disables the `unload` Permissions Policy feature by default; `file:` and
+  custom-protocol pages are unaffected.
+  Any shell that loads a loopback `http://` server is affected: move the logic to
+  `pagehide` or `visibilitychange`.
+- **`utilityProcess` `child.kill()` no longer force-kills (46).** It sends `SIGTERM` and
+  returns, like Node’s `child_process`; the child must exit from its `SIGTERM` handler.
 
 ### Reminders When Updating
 
@@ -77,14 +126,18 @@ given as the pin, per [Supply-Chain Mitigation](#supply-chain-mitigation).
 
 5. **Recheck fuse names and defaults**, which have changed as fuses were added.
 
-6. **Update code examples**, not just the table—versions appear in `package.json`
-   examples, the GitHub Actions workflow in Appendix F, and `electron-builder.yml`.
+6. **Update code examples**, not just the table—versions appear in the `package.json`
+   and `main.js` examples, `electron-builder.yml`, Appendix E’s uv placement, and the
+   GitHub Actions workflow in Appendix F, whose actions are pinned by commit SHA.
 
 7. **Honor the 14-day package-age rule** when bumping versions here, with the documented
    exception for security fixes.
    Electron itself frequently qualifies for that exception.
 
-8. **Review [Open Research Questions](#open-research-questions)** for anything now
+8. **Recheck the default entitlements** of electron-builder and `@electron/osx-sign`,
+   which have changed between majors.
+
+9. **Review [Open Research Questions](#open-research-questions)** for anything now
    settled.
 
 * * *
@@ -95,13 +148,18 @@ This document is a reference for building a **clean, minimal, standalone Electro
 desktop app** with a modern build system and a backend written in whatever language
 suits the problem—Node.js, Bun, Python, Go, or a combination.
 
-The recommended default: **Electron 43 and electron-vite with TypeScript and
+The recommended default: **Electron 45 and electron-vite with TypeScript and
 electron-builder**, with the renderer as an ordinary Vite web app, the main process as a
 thin bundled CommonJS entry point, a CommonJS preload exposing a narrow typed API over
 `contextBridge`, and any substantial backend work pushed into a **`utilityProcess`**
 (for Node) or a **signed sidecar executable** (for anything else).
 
-Three claims in this document are worth stating up front because they contradict advice
+When the product is already a local web server with a browser UI, the shell is much
+smaller: one plain `main.js` of about 100 lines of code that Electron loads directly,
+with no bundler, preload, renderer build, or IPC
+([Wrapping an Existing Local Web App](#wrapping-an-existing-local-web-app)).
+
+Four claims in this document are worth stating up front because they contradict advice
 that is still widely repeated:
 
 - **Electron’s security defaults have been correct for years.** `sandbox: true`,
@@ -117,21 +175,29 @@ that is still widely repeated:
 
 - **The postinstall-binary problem is mostly over.** Since Electron 42, the npm package
   downloads its binary lazily on first run rather than in a `postinstall` script.
-  This lands at the same time as npm 12, pnpm 11, and Bun all blocking dependency
+  This lands at the same time as npm 12, pnpm 11 and 12, and Bun all blocking dependency
   lifecycle scripts by default, and it resolves that collision for current Electron.
+
+- **A Python interpreter the app spawns does not need `disable-library-validation`.**
+  Library validation is enforced per process, by the process doing the loading, from its
+  own code signature. It applies to an interpreter only when that interpreter is signed
+  inside your bundle with the hardened runtime; an interpreter that the bundled `uv`
+  installs into app data is outside its reach.
 
 **Research questions this document answers**:
 
 1. What is the minimum coherent structure of a standalone Electron app in 2026, and what
    builds what?
 
-2. Where should backend code live, and how do you ship a non-JavaScript runtime inside a
+2. What is the thinnest correct shell for a product that is already a local web server?
+
+3. Where should backend code live, and how do you ship a non-JavaScript runtime with a
    signed desktop app?
 
-3. What is the current security baseline beyond the three `webPreferences` flags
+4. What is the current security baseline beyond the three `webPreferences` flags
    everyone quotes?
 
-4. What does it actually take to get a signed, notarized, auto-updating app onto three
+5. What does it actually take to get a signed, notarized, auto-updating app onto three
    platforms?
 
 * * *
@@ -189,8 +255,11 @@ there.
 ### The Sandbox and the Preload Boundary
 
 With `sandbox: true` (the default since Electron 20), the renderer runs in an OS-level
-sandboxed process with no direct Node access, and the preload gets a polyfilled subset
-rather than full Node.
+sandboxed process with no direct Node access, and the preload gets a small subset rather
+than full Node.
+Since Electron 45 that subset is `require('electron')` plus `process` and
+`global`; the old `events`, `timers`, `url`, and `Buffer` shims are gone, so use Web
+APIs or bundle the polyfill.
 
 `contextIsolation: true` (default since Electron 12) means the preload’s JavaScript
 context is separate from the page’s. The page cannot reach into preload internals by
@@ -418,6 +487,268 @@ keep it that way:
 Everything in [Local Server Security](#local-server-security) applies with full
 force—wrapping a server in a shell does not make its loopback port private.
 
+#### The Thinnest Shape
+
+Because the page never touches Electron APIs, the whole shell is one plain CommonJS
+`main.js` that Electron runs directly (`"main": "main.js"`). There is no bundler, no
+TypeScript build, no preload, no renderer bundle, and no IPC. Type-check the file with
+`// @ts-check` and `tsc --checkJs` against the `electron.d.ts` that the `electron`
+package ships. With Electron’s built-in `autoUpdater`, the main process has **zero**
+runtime npm dependencies.
+
+The backend meets the shell–server contract that
+[macOS WebView Shell Patterns](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/macos-webview-shell-patterns.md#the-shellserver-contract)
+defines for every shell; in summary:
+
+1. **Bind `127.0.0.1` on port 0** and let the OS choose a free port, instead of probing
+   for one and binding later, which races.
+2. **Once the socket is listening, print one ready line on stdout**:
+   `{"event":"ready","protocol":1,"url":"http://127.0.0.1:<port>/","port":<port>,"pid":<pid>,"version":"<server version>"}`.
+   Connections queue in the listen backlog until the server loop runs, so the shell can
+   load the URL at once, with no polling and no regex over log text.
+3. **Read a per-launch secret from the first line of stdin**, never argv or the
+   environment, and keep reading: the shell holds stdin open.
+4. **Treat EOF on stdin like `SIGTERM`**: start a graceful shutdown with a bounded
+   deadline. The shell holds the only write end, so EOF means it quit or died
+   ([Process Lifecycle](#process-lifecycle)).
+5. **Require the secret on every request**: `Authorization: Bearer <secret>` from
+   programmatic clients, or the session cookie.
+   A shell that controls its cookie store sets that cookie directly, as below; otherwise
+   a single-use exchange code at a one-time URL sets it and redirects.
+
+```python
+import json, os, signal, socket, sys, threading
+
+secret = sys.stdin.readline().strip()            # line 1: the per-launch secret
+
+def shut_down_on_stdin_eof() -> None:
+    while sys.stdin.buffer.read(65536):          # returns b"" only at EOF
+        pass
+    os.kill(os.getpid(), signal.SIGTERM)         # the same graceful, bounded path as SIGTERM
+
+threading.Thread(target=shut_down_on_stdin_eof, daemon=True).start()
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.bind(("127.0.0.1", 0))                      # the OS picks a free port
+sock.listen(128)                                 # connections now queue in the backlog
+port = sock.getsockname()[1]
+print(json.dumps({"event": "ready", "protocol": 1, "url": f"http://127.0.0.1:{port}/",
+                  "port": port, "pid": os.getpid(), "version": __version__}), flush=True)
+serve(sock, secret)  # e.g. uvicorn.Config(app, fd=sock.fileno(), timeout_graceful_shutdown=5)
+```
+
+The shell’s half:
+
+- **Spawn the backend before `ready`.** Child processes do not need `ready`, so the
+  interpreter and Chromium start in parallel; show the window on `ready-to-show`.
+- **Set the secret as the session cookie with `session.cookies.set`** (`httpOnly`,
+  `sameSite: 'strict'`, host-only on the loopback origin) before the first `loadURL`.
+  Every `fetch`, `EventSource`, image, and navigation then carries it with no change to
+  the page. Do not inject it with `webRequest.onBeforeSendHeaders`: that runs a
+  main-process callback for every request, and a session keeps only the last listener
+  for each `webRequest` event, so it collides with any other code that needs that event.
+  A plain-browser tier uses the contract’s one-time URL instead, so the URL left in
+  history is worthless.
+- **Cookies are scoped by host, not port.** If several servers share one session, give
+  each a per-instance cookie name, and never let a window navigate to another loopback
+  port.
+- **Deny permissions by default** in both the request and check handlers, and allow only
+  what the UI uses, for the app origin only.
+- **Keep every window on the app origin** with `will-navigate` and
+  `setWindowOpenHandler` on every `webContents` (`web-contents-created` covers windows
+  the page opens), and hand allowlisted `http:` and `https:` URLs to
+  `shell.openExternal`.
+- **Call `app.requestSingleInstanceLock()`.** LaunchServices enforces a single instance
+  for Finder launches, but command-line launches bypass it.
+- **Register `open-file` and `open-url` before `ready`**, because launch-time opens
+  arrive early. `open-url` needs `CFBundleURLTypes` (electron-builder `protocols`), and
+  on macOS `setAsDefaultProtocolClient` can only claim schemes already in `Info.plist`.
+  A folder dropped on the Dock icon needs a `CFBundleDocumentTypes` entry with
+  `LSItemContentTypes: [public.folder]` through `mac.extendInfo`, since electron-builder
+  26’s `fileAssociations` has no content-type field.
+- **Add a Dock menu with `app.dock.setMenu`**, and stay running with no windows on macOS
+  so a Dock click reopens instantly against the warm server.
+- **Check `app.isInApplicationsFolder()` before relying on updates.** Squirrel.Mac
+  refuses to update from a read-only volume, which includes an app translocated because
+  it was launched from Downloads; offer to move it.
+
+```js
+// @ts-check
+// main.js: the whole shell for a product that is already a local web server.
+'use strict';
+const { app, autoUpdater, BrowserWindow, Menu, session, shell } = require('electron');
+const { spawn } = require('node:child_process');
+const { randomBytes } = require('node:crypto');
+const path = require('node:path');
+const readline = require('node:readline');
+
+const TOKEN = randomBytes(32).toString('base64url');
+const COOKIE = 'app_session'; // make it per-instance if several servers share a session
+const ALLOWED_PERMISSIONS = new Set(['clipboard-sanitized-write']); // only what the UI uses
+let appOrigin = ''; // for example http://127.0.0.1:53124, known once the backend listens
+let quitting = false;
+/** @type {string | undefined} */
+let pendingTarget;
+
+if (!app.requestSingleInstanceLock()) app.exit(0);
+
+// Launch-time opens arrive before 'ready', so register these first.
+app.on('open-file', (event, filePath) => { event.preventDefault(); openTarget(filePath); });
+app.on('open-url', (event, url) => { event.preventDefault(); openTarget(url); });
+app.on('second-instance', (_event, argv) => openTarget(argv.at(-1)));
+
+// Spawn before 'ready' so the backend and Chromium start in parallel. `env` is the
+// symlink that the environment lifecycle in desktop-python-runtime-patterns swaps to
+// `envs/<digest>` after the bundled uv builds and smoke-tests it (see Appendix E).
+const data = app.getPath('userData');
+const backend = spawn(path.join(data, 'env', 'bin', 'python'),
+  ['-m', 'myapp.server'], {
+    cwd: data,
+    env: allowlistedEnv(),
+    stdio: ['pipe', 'pipe', 'inherit'], // stdin carries the secret, then stays open as the lifeline
+    detached: true, // own process group, so quitting can signal grandchildren
+  });
+backend.stdin.write(`${TOKEN}\n`); // not argv (visible to ps) or env (inherited by every child)
+backend.once('exit', (code) => { if (!quitting) showBackendError(code); });
+/** @type {Promise<string>} */
+const ready = new Promise((resolve, reject) => {
+  backend.once('error', reject);
+  readline.createInterface({ input: backend.stdout }).once('line', (line) => {
+    const msg = JSON.parse(line); // the contract's ready line
+    if (msg.event === 'ready' && msg.protocol === 1) resolve(new URL(msg.url).origin);
+    else reject(new Error(`unexpected first line from the backend: ${line}`));
+  });
+});
+
+/** @param {string} url */
+function isAppUrl(url) {
+  try { return appOrigin !== '' && new URL(url).origin === appOrigin; } catch { return false; }
+}
+
+/** @param {string} url */
+function openExternal(url) {
+  if (/^https?:\/\//.test(url)) void shell.openExternal(url); // allowlist the scheme
+}
+
+// Every webContents, including windows the page opens, stays on the app origin.
+app.on('web-contents-created', (_event, contents) => {
+  contents.on('will-navigate', (event, url) => {
+    if (!isAppUrl(url)) { event.preventDefault(); openExternal(url); }
+  });
+  contents.setWindowOpenHandler(({ url }) => {
+    if (isAppUrl(url)) void createWindow(url); else openExternal(url);
+    return { action: 'deny' };
+  });
+});
+
+/** @param {string} [url] */
+async function createWindow(url) {
+  const first = BrowserWindow.getAllWindows().length === 0;
+  // No preload and no webPreferences: the page never uses Electron APIs, and the
+  // defaults (sandbox, contextIsolation, no nodeIntegration) are the secure ones.
+  const win = new BrowserWindow({
+    width: 1280, height: 860, show: false,
+    ...(first ? { name: 'main', windowStatePersistence: true } : {}), // 44+, experimental
+  });
+  win.once('ready-to-show', () => win.show());
+  await win.loadURL(url ?? `${appOrigin}/`);
+}
+
+/** @param {string | undefined} target a path or an app URL */
+function openTarget(target) {
+  if (!target || target.startsWith('-')) return void BrowserWindow.getAllWindows()[0]?.focus();
+  if (!appOrigin) { pendingTarget = target; return; }
+  void createWindow(`${appOrigin}/open?target=${encodeURIComponent(target)}`); // a server route
+}
+
+app.whenReady().then(async () => {
+  appOrigin = await ready;
+  const ses = session.defaultSession;
+  await ses.cookies.set({ url: appOrigin, name: COOKIE, value: TOKEN,
+                          httpOnly: true, sameSite: 'strict' });
+  ses.setPermissionRequestHandler((_wc, permission, callback, details) =>
+    callback(ALLOWED_PERMISSIONS.has(permission) && isAppUrl(details.requestingUrl)));
+  ses.setPermissionCheckHandler((_wc, permission, requestingOrigin) =>
+    ALLOWED_PERMISSIONS.has(permission) && isAppUrl(requestingOrigin));
+  app.dock?.setMenu(Menu.buildFromTemplate([{ label: 'New Window', click: () => void createWindow() }]));
+  if (pendingTarget) openTarget(pendingTarget); else await createWindow();
+  if (app.isPackaged) startUpdates();
+});
+
+app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) void createWindow(); });
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('before-quit', () => {
+  quitting = true;
+  try { if (backend.pid) process.kill(-backend.pid, 'SIGTERM'); } catch { /* already gone */ }
+});
+
+function startUpdates() {
+  // Built-in Squirrel.Mac, no npm dependency. On 44.7+ and 45 the entry's sha256 and size
+  // are checked before the update is unpacked.
+  autoUpdater.setFeedURL({ url: 'https://updates.example.com/darwin-arm64/RELEASES.json',
+                           serverType: 'json' });
+  autoUpdater.checkForUpdates();
+  setInterval(() => autoUpdater.checkForUpdates(), 6 * 60 * 60 * 1000);
+}
+
+function allowlistedEnv() {
+  // Finder and Terminal launches inherit different environments, and an inherited
+  // PYTHONPATH, VIRTUAL_ENV, or UV_* changes what the backend runs. Pass an allowlist.
+  /** @type {Record<string, string>} */
+  const env = { PATH: '/usr/bin:/bin:/usr/sbin:/sbin', PYTHONNOUSERSITE: '1' };
+  for (const key of ['HOME', 'USER', 'LOGNAME', 'TMPDIR', 'LANG', 'LC_ALL',
+                     'HTTPS_PROXY', 'HTTP_PROXY', 'NO_PROXY']) {
+    const value = process.env[key];
+    if (value) env[key] = value;
+  }
+  return env;
+}
+
+/** @param {number | null} code */
+function showBackendError(code) { /* error page with Restart and Reveal Logs; omitted */ }
+```
+
+The matching `package.json` and the packaging that differs from
+[Appendix B](#appendix-b-electron-builderyml):
+
+```json
+{
+  "name": "my-app-desktop",
+  "productName": "My App",
+  "version": "1.0.0",
+  "private": true,
+  "main": "main.js",
+  "scripts": { "start": "electron .", "dist": "electron-builder --mac --arm64" },
+  "devDependencies": { "electron": "45.2.3", "electron-builder": "26.18.0" }
+}
+```
+
+```yaml
+files: [main.js, package.json]
+electronLanguages: [en] # strips about 51 MB of .lproj locale directories
+protocols:
+  - name: My App
+    schemes: [myapp]
+mac:
+  minimumSystemVersion: '13.0' # Electron 44+ does not run on macOS 12
+  target:
+    - { target: dmg, arch: [arm64] }
+    - { target: zip, arch: [arm64] } # Squirrel.Mac consumes the zip
+  extendInfo:
+    CFBundleDocumentTypes:
+      - CFBundleTypeName: Folder
+        CFBundleTypeRole: Viewer
+        LSHandlerRank: Alternate
+        LSItemContentTypes: [public.folder]
+```
+
+`45.2.3` takes the security exception; `45.0.0` is the strictly aged pin.
+Built-in `autoUpdater` feeds are a static `RELEASES.json`; Forge’s `maker-zip` writes
+one from `macUpdateManifestBaseUrl` but does not add `sha256` or `size`, so a short
+post-build step must.
+Add `electron-updater` to `dependencies` only if you want its blockmap differential
+downloads or GitHub provider instead.
+
 ### Node Backends
 
 `utilityProcess` has been stable since Electron 22. It runs a Node script in a Chromium
@@ -446,6 +777,8 @@ Constraints worth knowing before you commit:
 - Native addons load normally.
   The macOS-only `allowLoadingUnsignedLibraries` option exists precisely for loading
   unsigned dylibs there.
+- **From Electron 46, `child.kill()` only sends `SIGTERM`** (it used to follow up with
+  `SIGKILL` after two seconds), so the child must exit from its `SIGTERM` handler.
 
 The capability that makes `utilityProcess` more than a `fork` replacement is
 `MessagePort`: you can create a channel and hand one end to a renderer, so heavy traffic
@@ -467,12 +800,13 @@ Before choosing this, weigh three facts:
   runtime baseline.
 - **Signing works, recently.** macOS codesigning of `--compile` output has been
   supported since Bun 1.2.4 (Feb 2025), via a dedicated `__BUN,__bun` Mach-O section.
-- **There is an open signing defect.** As of August 2026,
-  [bun#32159](https://github.com/oven-sh/bun/issues/32159) reports that binaries
-  compiled with Bun 1.3.13+ have invalid signatures on macOS 27, causing the process to
-  be killed on launch; macOS 26 tolerated the same signature.
-  A fix is in progress.
-  Verify against your minimum macOS target before shipping.
+- **Use Bun 1.4.1 or later for macOS targets.** Bun’s in-process signer hashed the last
+  partial page zero-padded and left stale bytes after the signature, so darwin-arm64
+  `--compile` output failed `codesign -v` (reported against 1.3.13 and 1.4.0); macOS 26
+  still ran it, and macOS 27 kills it at launch
+  ([bun#32159](https://github.com/oven-sh/bun/issues/32159)). The fix
+  ([#39837](https://github.com/oven-sh/bun/pull/39837), merged 2026-08-22) first shipped
+  in Bun 1.4.1 (2026-09-04). Re-sign the binary with your Developer ID either way.
 
 Bun is a reasonable sidecar runtime and a reasonable package manager.
 It is not a good fit for driving the Electron *build*—see
@@ -480,25 +814,55 @@ It is not a good fit for driving the Electron *build*—see
 
 ### Python Backends
 
-Shipping Python inside a desktop app has become substantially easier, and the current
-best practice is not the one most tutorials describe.
+Shipping Python with a desktop app has become substantially easier, and the current best
+practice is not the one most tutorials describe.
+This section covers what changes for an Electron app;
+`tbd guidelines desktop-python-runtime-patterns` is the authoritative reference for the
+uv layouts, isolation flags, hash pinning, and macOS Python hazards, and for the full
+packager comparison.
 
-| Approach | Status (Aug 2026) | Notes |
-| --- | --- | --- |
-| **python-build-standalone + uv** (recommended) | Actively maintained by Astral since Dec 2024; release tag 20260610 ships CPython 3.13.14 and 3.14.6 | Relocatable CPython builds—statically linked, with the build system patched to use relative paths. At build time, `uv pip sync` your lockfile **directly into the standalone tree** and ship that tree. Do not ship a venv: venv scripts and `pyvenv.cfg` hardcode build-machine paths, and the venv’s interpreter is a symlink back to wherever it was created. Most predictable and most debuggable. |
-| **PyInstaller** | 6.22.1, actively maintained, Python 3.8–3.15 | Mature and widely used. Sizes run ~28MB for a Flask app to ~180MB with PyTorch; startup ~2–3s, and onefile mode adds unpacking time that is worst on Windows. |
-| **Nuitka** | 4.x, actively maintained | Compiles to C. Faster execution, some IP protection. AGPLv3 with an exemption for compiled output; a commercial edition exists. Python 3.14 support is experimental. |
-| **Briefcase** (BeeWare) | Actively maintained | Whole-app packager rather than a backend packager. Cannot cross-build; you build on each target platform. |
-| **PyOxidizer** | **Dead** | Last meaningful commit Jan 2023; the author stated in Mar 2024 he is unlikely to return to it and asked for maintainers. None stepped forward. Do not start here. |
+The decision that shapes everything else is **where the interpreter lives**:
 
-The python-build-standalone route is worth the extra assembly step because it keeps a
-real Python tree in the bundle: you can read the traceback, you can `ls site-packages`,
-and startup is a normal interpreter start rather than an unpack.
-An end-to-end recipe is in [Appendix E](#appendix-e-python-sidecar-end-to-end).
+- **Ship only a signed `uv`, and let it install Python and the environment into app
+  data** on first run (recommended, and the natural fit when users install packages at
+  runtime). uv’s macOS release binaries have been Developer ID–signed and notarized since
+  0.12.12 (2026-09-09, per the
+  [0.12.x changelog](https://github.com/astral-sh/uv/blob/main/changelogs/0.12.x.md));
+  the packager re-signs the copy in your bundle with your identity, and it needs no
+  entitlements. The python-build-standalone interpreter uv downloads is ad-hoc signed
+  without the hardened runtime, and files written by uv’s own HTTP client carry no
+  `com.apple.quarantine` attribute, so Gatekeeper’s notarization check does not apply to
+  them and the interpreter loads any wheel’s `.so`. The bundle holds one extra Mach-O
+  instead of a tree, and the app needs no library-validation exception.
+  The costs: the first run needs the network unless you also ship the Python archive and
+  a wheelhouse as data, and trust moves to uv’s hash-checked download path.
+- **Bundle a python-build-standalone tree, frozen at build time.** This gives an offline
+  first run and no runtime installs.
+  Every Mach-O in the tree is signed with your Team ID, so the hardened-runtime
+  interpreter loads its own extensions without an exception.
+  It needs `com.apple.security.cs.disable-library-validation` only if it must load
+  native code signed by someone else or ad hoc, which is exactly what installing wheels
+  after signing produces.
+  It must never write into the bundle: set `PYTHONDONTWRITEBYTECODE=1` or point
+  `PYTHONPYCACHEPREFIX` at app data, because any write breaks the bundle’s
+  sealed-resources hash.
 
-Note the signing consequence: a Python tree contains many Mach-O objects (the
-interpreter plus every compiled extension module’s `.so`). Every one of them must be
-signed. See [Signing Nested Binaries](#signing-nested-binaries).
+uv and python-build-standalone ship per-architecture macOS binaries only; the Python
+guideline says how to handle that for uv
+([uv’s signed binary and re-signing](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/desktop-python-runtime-patterns.md#uvs-signed-binary-and-re-signing)).
+For Electron, where a universal build costs about 1.6x the runtime, separate arm64 and
+x64 artifacts are usually the better trade.
+
+Frozen packagers (PyInstaller, Nuitka, py2app, Briefcase, PyApp) remain the right tools
+for a fixed backend with no runtime installs; their current versions, cool-off pins, and
+fit are tracked in one place,
+[Frozen Packagers: Current Status](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/desktop-python-runtime-patterns.md#frozen-packagers-current-status).
+Do not start on PyOxidizer, which is abandoned.
+
+Both python-build-standalone layouts keep a real Python tree: you can read the
+traceback, you can `ls site-packages`, and startup is a normal interpreter start rather
+than an unpack. The Electron-specific parts of the uv-in-the-bundle layout are in
+[Appendix E](#appendix-e-python-sidecar-end-to-end).
 
 On performance: before considering a rewrite of a Python backend in a compiled language,
 move the measured hot paths into **native wheels** (Rust via PyO3/maturin is the current
@@ -536,7 +900,9 @@ electron-builder gives four placement mechanisms with materially different behav
 | `extraFiles` | Copies into the app content directory | macOS `Contents/`, elsewhere the install root | relative to `app.getAppPath()` |
 
 An executable cannot be run from inside an ASAR archive, so every sidecar needs
-`asarUnpack`, `extraResources`, or `extraFiles`.
+`asarUnpack`, `extraResources`, or `extraFiles`. On macOS, `extraFiles` with
+`to: Helpers/<name>` puts a helper executable in `Contents/Helpers`, one of Apple’s code
+locations; keep data (locks, configuration, archives) in `extraResources`.
 
 ```yaml
 extraResources:
@@ -553,8 +919,9 @@ const binDir = app.isPackaged
 
 **The executable bit gets lost.** Packaging does not reliably preserve `+x`
 ([electron-builder#1790](https://github.com/electron-userland/electron-builder/issues/1790)).
-Fix it in an `afterPack` hook, and defensively `fs.chmodSync(bin, 0o755)` before
-spawning on non-Windows.
+Fix it in an `afterPack` hook, which runs before signing, rather than with a runtime
+`chmod`: an installed bundle may be read-only (a translocated launch always is), and the
+fix belongs in what you sign and test.
 
 ### Runtime-Extensible Apps: The Two-Layer Artifact
 
@@ -566,12 +933,12 @@ updaters replace the install atomically.
 
 Split the artifact in two:
 
-- **Immutable layer, inside the signed bundle**: the shell, the runtime tree (for
-  example a python-build-standalone interpreter), a pinned copy of the package installer
-  itself (for example a `uv` binary), the application code, and a **hash-pinned
-  lockfile** for the base environment.
-- **Mutable layer, in per-user app data**: a real environment, materialized on first run
-  by the bundled installer syncing the bundled lock.
+- **Immutable layer, inside the signed bundle**: the shell, a pinned and signed copy of
+  the package installer (for example a `uv` binary), the application code or a pin of
+  its package, a **hash-pinned lockfile** for the base environment, and optionally the
+  runtime as an archive for offline first runs.
+- **Mutable layer, in per-user app data**: the interpreter the installer fetched, and a
+  real environment materialized by the bundled installer syncing the bundled lock.
   Plugins install here at runtime, through the same installer.
 
 This split preserves a clean **update-integrity chain**: shell updates arrive through
@@ -581,13 +948,28 @@ The only code outside the chain is what the user explicitly chose to install—w
 the package manager’s own trust model, stated honestly rather than laundered through
 your updater.
 
-Two consequences to plan for.
-Native code loaded from the mutable layer runs inside your signed processes, so on macOS
-the loading process needs `com.apple.security.cs.disable-library-validation` (see
-[Signing Nested Binaries](#signing-nested-binaries))—without it, natively compiled
-plugin packages fail to load under the hardened runtime.
-And first-run materialization is a real user-visible step: budget for progress UI and
-for recovery when it is interrupted.
+Three consequences to plan for:
+
+- **Keep the interpreter in the mutable layer too.** Library validation is enforced by
+  the process that loads the code, from its own signature, and it is not inherited by
+  processes it spawns.
+  An interpreter installed into app data is not hardened, so it loads plugin wheels’
+  `.so` files and your signed processes never load them.
+  An interpreter signed inside the bundle with the hardened runtime needs
+  `com.apple.security.cs.disable-library-validation` to load them, and electron-builder
+  26 applies one `entitlementsInherit` file to every nested binary, so that exception
+  would reach Electron’s helpers as well.
+- **Update the environment blue/green.** The platform updater replaces the bundle and
+  never touches app data, so on launch the shell compares the bundled lock’s digest with
+  the environment’s, builds a new environment beside the old one, smoke-tests it, and
+  switches a pointer atomically, keeping the previous one for rollback.
+  A base sync removes anything the lock does not list, so re-apply user-installed
+  packages after it.
+- **First-run materialization is a user-visible step**: budget for progress UI, never
+  open a Terminal window, and write a completion marker only after success so an
+  interrupted run repairs itself.
+
+`tbd guidelines desktop-python-runtime-patterns` has the exact uv layouts and commands.
 
 ### Signing Nested Binaries
 
@@ -600,6 +982,34 @@ Every Mach-O object you add to the bundle—the sidecar, the Python interpreter,
 `.so` extension module, every bundled `.dylib`—must be signed individually **before**
 the outer `.app` is signed.
 Notarization rejects the bundle if any of them is unsigned.
+
+**The packager already does this; do not add your own signing loop.**
+`@electron/osx-sign`, which electron-builder and Forge both use, walks all of
+`Contents/`, collects every file that `isbinaryfile` flags plus every `.app` and
+`.framework`, and signs them inside out with `codesign --force`
+([`src/util.ts`](https://github.com/electron/osx-sign/blob/main/src/util.ts),
+[`src/sign.ts`](https://github.com/electron/osx-sign/blob/main/src/sign.ts)). A bundled
+`uv`, sidecar, or Python tree is therefore signed with no hook, and a custom `afterPack`
+`codesign` loop is simply re-signed over.
+Two settings matter instead:
+
+- **`mac.signIgnore`** (regular expressions) excludes binary files that are not code.
+  The heuristic also flags `.pyc` files, zips, tarballs, and wheels, and codesign then
+  stores a signature for each in extended attributes; with a Python tree that is
+  thousands of pointless signatures.
+  Ignore them, or ship no `.pyc`.
+- **`mac.binaries`** adds code the walk misses.
+
+**Supply your own entitlements on electron-builder 26.** When neither option is set and
+the build-resources directory has no `entitlements.mac.plist` or
+`entitlements.mac.inherit.plist`, it signs the app *and every nested binary* with a
+template granting `allow-jit`, `allow-unsigned-executable-memory`, and
+`disable-library-validation`
+([`templates/entitlements.mac.plist`](https://github.com/electron-userland/electron-builder/blob/release/v26/packages/app-builder-lib/templates/entitlements.mac.plist)).
+Set both `mac.entitlements` (the app) and `mac.entitlementsInherit` (everything nested,
+including your sidecars); electron-builder 26 has no per-file setting short of a custom
+`mac.sign` function.
+The v27 template grants only `allow-jit`.
 
 **Placement follows Apple’s bundle layout.** `Contents/MacOS`, `Contents/Helpers`,
 `Contents/Frameworks`, `Contents/PlugIns`, and `Contents/XPCServices` are the code
@@ -614,23 +1024,47 @@ with `better-sqlite3` among the ones surveyed here, notarize and ship.
 Notarization checks that each Mach-O it finds is signed with the hardened runtime; it
 does not reject binaries for living under `Resources`. If an unusual layout does produce
 a nested-code error, relocating the binary to `Contents/Frameworks` or
-`Contents/Helpers` in an `afterPack` hook is the standard fix.
+`Contents/Helpers` is the standard fix, and for a new sidecar `extraFiles` with
+`to: Helpers/<name>` puts it there from the start.
 
 **Hardened runtime and entitlements.** Notarization requires signing with
-`--options runtime`. Electron’s V8 needs, at minimum:
+`--options runtime`. Current Electron needs only one exception, because V8 compiles
+JavaScript at runtime:
 
 ```xml
 <key>com.apple.security.cs.allow-jit</key><true/>
-<key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
 ```
 
-Sidecars that load unsigned or third-party dylibs commonly also need
-`com.apple.security.cs.disable-library-validation`, and Python trees typically need it.
+That is what `@electron/osx-sign`’s default entitlements and electron-builder 27’s
+template grant, and VS Code (built against Electron 43.8.6 on 2026-11-08) ships its app,
+renderer, and GPU helpers with `allow-jit` alone, adding
+`allow-unsigned-executable-memory` and `disable-library-validation` only to the
+extension-host helper that loads arbitrary native modules
+([entitlements](https://github.com/microsoft/vscode/tree/main/build/azure-pipelines/darwin)).
+Older guidance listing `allow-unsigned-executable-memory` as required for V8 is out of
+date.
+
+`disable-library-validation` belongs only on a hardened-runtime executable that loads
+native code signed by another team or ad hoc—in practice, an interpreter signed inside
+your bundle that imports packages installed after signing.
+Library validation is per process: the loading process enforces it from its own
+signature, entitlements apply to executables, and in-process libraries inherit their
+host’s
+([Hardened Runtime](https://developer.apple.com/documentation/security/hardened-runtime)).
+A child process runs under its own signature, so the app’s library validation does not
+reach an interpreter the app spawns from app data, and a bundled tree whose every `.so`
+carries your Team ID needs no exception either.
+A `uv` binary needs no entitlements at all.
 Add entitlements because a specific failure requires them, not preemptively—each one
 widens what an attacker who compromises your process can do.
 
-**Order of operations**: `afterPack` signs nested binaries → the outer app is signed →
-`afterSign` triggers notarization via `@electron/notarize` → staple the ticket.
+**Order of operations**: `afterPack` (restore `+x`; flip fuses here only if you do not
+use the `electronFuses` key) → `@electron/osx-sign` signs nested code inside out, then
+the app → electron-builder’s built-in notarization (`mac.notarize`, through
+`@electron/notarize`) submits and staples the `.app`. electron-builder 26 does not
+notarize the DMG; Apple’s guidance is to notarize the outermost container, so run
+`xcrun notarytool submit --wait` and `xcrun stapler staple` on the DMG afterward if you
+want it notarized too.
 
 ### Choosing an IPC Transport
 
@@ -653,7 +1087,7 @@ visiting.** A hostile site can point a hostname it controls at `127.0.0.1` and i
 requests to your server from the user’s browser.
 
 This is not theoretical.
-Two 2026 examples:
+Two recent examples:
 
 - **CVE-2026-22812** (CVSS 8.8): a developer tool exposed an unauthenticated local HTTP
   server with permissive CORS; any website could create sessions and execute shell
@@ -665,8 +1099,11 @@ Two 2026 examples:
 If you must bind a port:
 
 1. Bind `127.0.0.1` explicitly, never `0.0.0.0`.
-2. Use an **ephemeral port** and a **secret token** minted at startup, passed to the
-   backend out of band (argv or an environment variable) and required on every request.
+2. Use an **ephemeral port** (bind port 0; probing for a free port and binding later
+   races) and a **secret token** minted at startup and required on every request.
+   **Pass it on the child’s stdin**, not in argv, which `ps` shows to other users, and
+   not in the environment, which every grandchild inherits—plugins, `git`, language
+   servers, anything the backend spawns.
 3. **Validate the `Host` header** against an allowlist; this is what actually stops DNS
    rebinding.
 4. Set a strict CORS origin allowlist.
@@ -675,6 +1112,30 @@ If you must bind a port:
 Because a rebinding attack cannot carry the target’s cookies, real authentication on
 every endpoint defeats it—which is why the token in step 2 is the highest-value
 mitigation.
+
+**In the web view, carry the token in a cookie, not a header.** Programmatic clients can
+send `Authorization: Bearer <secret>`, but `EventSource` cannot send custom headers—its
+constructor takes only a URL and `withCredentials`
+([HTML spec](https://html.spec.whatwg.org/multipage/server-sent-events.html#the-eventsource-interface))—and
+neither can images, scripts, stylesheets, or navigations.
+A header-based token therefore leaves those routes open or pushes the token into URLs,
+where it lands in history and logs.
+An `HttpOnly`, `SameSite=Strict`, host-only cookie on the loopback origin covers every
+request type, and the shell can set it without touching the page
+([The Thinnest Shape](#the-thinnest-shape)).
+
+**Opaque-origin sandboxes need a separate gate.** A document with an opaque
+origin—served with a CSP `sandbox` directive that omits `allow-same-origin`, or loaded
+in a sandboxed `<iframe>`—is cross-site for SameSite purposes.
+Chromium nulls the site-for-cookies when any frame from the requester up to the top has
+an opaque origin
+([`site_for_cookies.cc`](https://github.com/chromium/chromium/blob/main/net/cookies/site_for_cookies.cc),
+`RenderFrameHostImpl::ComputeIsolationInfoInternal`), so that document’s subresource,
+`fetch`, and `EventSource` requests arrive without the `SameSite=Strict` cookie.
+If you render untrusted active content that way, gate the routes it needs with something
+the sandboxed document already holds, such as an unguessable per-instance path prefix,
+and keep those routes read-only and narrowly scoped.
+Do not weaken the cookie to `SameSite=None` to make them work.
 
 ### Process Lifecycle
 
@@ -687,9 +1148,14 @@ are invisible in development because you kill the terminal.
   waiting on it forever.
 - **Let the child detect parent death**, because the parent will eventually crash
   without running your handler.
-  On Linux, `prctl(PR_SET_PDEATHSIG)`. On macOS there is no equivalent: inherit a pipe
-  and exit on EOF, or poll `getppid()` for 1. On Windows there are no POSIX signals at
-  all.
+  On Linux, `prctl(PR_SET_PDEATHSIG)`. On macOS there is no equivalent, so use a **stdin
+  lifeline**: give the child a pipe as stdin, keep the write end only in the parent, and
+  have the child treat EOF like `SIGTERM`, shutting down gracefully within a bounded
+  deadline. The kernel closes that end however the parent dies, `SIGKILL` and crashes
+  included, and the same pipe can deliver the token first (the backend snippet in
+  [The Thinnest Shape](#the-thinnest-shape)). A stdio JSON-RPC sidecar gets this for
+  free, since its read loop ends at EOF. Polling `getppid()` for 1 is a fallback.
+  On Windows there are no POSIX signals at all.
 - **On Windows, use a Job Object** with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. This is
   the only mechanism that survives a parent crash.
   Node does not expose it; VS Code uses `windows-process-tree`. `taskkill /F /T /PID`
@@ -812,11 +1278,15 @@ code.
 ### Keeping Current
 
 Checklist item 16 is “use a current version of Electron,” and it has teeth.
-**CVE-2026-70601**, patched 2026-08-05, is a context isolation bypass via a
-`Function.prototype.bind` hijack—it defeats the boundary the rest of this section is
-built on.
-Because only three majors are supported at a time, staying inside the window is
-a prerequisite for receiving fixes at all.
+**CVE-2026-70601** (high, published 2026-07-27) is a context isolation bypass via a
+prototype hijack—it defeats the boundary the rest of this section is built on.
+Between 2026-08-16 and 2026-11-08 Electron published 15 more advisories of its own
+([security advisories](https://github.com/electron/electron/security/advisories)), on
+top of the Chromium backports in most patch releases, among them **CVE-2026-102672**, a
+local race in Squirrel.Mac’s update installer (fixed in every supported major), and
+**CVE-2026-115570** (high), blocking compromised eMudhra intermediate certificates.
+Because only three majors are supported at a time, staying inside the window is a
+prerequisite for receiving fixes at all.
 
 The full 20-item
 [official checklist](https://www.electronjs.org/docs/latest/tutorial/security) is
@@ -829,25 +1299,30 @@ deliberately partial.
 
 ### Choosing a Packager
 
-| Tool | Weekly downloads | Choose when |
+| Tool | Weekly npm downloads (week of 2026-11-01) | Choose when |
 | --- | --- | --- |
-| **electron-builder** | ~3M | You want the most capable packager: more targets, differential updates, mature signing integration, Linux formats. **Default recommendation.** |
-| **Electron Forge** | — | You want official Electron-team support and one tool for build/package/make/publish. |
-| **@electron/packager** | ~570k | You are building a custom pipeline and want only the bundling step. Forge wraps this. |
+| **electron-builder** | ~8.1M | You want the most capable packager: more targets, differential updates, mature signing integration, Linux formats, DMGs built with `hdiutil` and no native addons. **Default recommendation.** |
+| **Electron Forge** (`@electron-forge/cli`) | ~1.1M | You want official Electron-team support and one tool for build/package/make/release. |
+| **@electron/packager** | ~1.8M | You are building a custom pipeline and want only the bundling step. Forge wraps this. |
 
 There is a genuine tension here.
 Electron Forge is the officially supported tool, lives under the `electron/` GitHub org,
 and is what the Electron docs point you to.
 electron-builder is a community project with an uneven release cadence—its `latest`
-dist-tag currently lags its newest v26 release, and v27 has been in alpha for a while.
+dist-tag currently lags its newest v26 release, v27 has been in alpha since June 2026,
+and v26 still pins 2024–2025 releases of the Electron signing and notarization tools.
 
 The recommendation still goes to electron-builder, for two reasons.
-The capability gap is wide, particularly for Linux targets and differential updates.
+The capability gap is real, particularly for Linux targets and differential updates:
+Forge 8 updates through Electron’s built-in `autoUpdater`, which gained Sparkle binary
+deltas on macOS but has no blockmap downloads and no Linux updater.
 And the adoption evidence is lopsided: of the production apps surveyed in
-[§8](#8-what-shipping-apps-actually-do), every one whose packager could be confirmed
-uses electron-builder except VS Code, and **none use Forge**. Choose Forge if official
-support matters more to you than capability and you are willing to be an early adopter
-of its Vite plugin; that is a defensible choice, not the common one.
+[§8](#8-what-shipping-apps-actually-do), every one uses electron-builder except VS Code,
+and **none use Forge**. Forge 8 (2026-09-29) removed the main reasons to hesitate—its
+Vite plugin is stable and its install is much lighter—so choosing it for official
+support is a defensible choice.
+Note that its DMG maker reaches native addons (`fs-xattr` and `macos-alias`, through
+`electron-installer-dmg` and `appdmg`) that need install scripts and a compiler.
 A minimal annotated config is in [Appendix B](#appendix-b-electron-builderyml).
 
 ### macOS: Signing and Notarization
@@ -869,6 +1344,35 @@ the ticket → verify with `spctl`.
 - Since Electron 42, **macOS notifications require the app to be code signed**, so an
   unsigned local build will silently fail to show notifications.
   This surprises people who assume signing only matters at release.
+- **Notarization is effectively mandatory.** macOS 15 removed the Control-click
+  Gatekeeper override; users must approve unnotarized software in System Settings >
+  Privacy & Security
+  ([Apple, 2024-08-06](https://developer.apple.com/news/?id=saqachfa)). Homebrew 5.0.0
+  (2025-11-12) deprecated `--no-quarantine` and announced that official casks failing
+  Gatekeeper would be disabled in September 2026
+  ([announcement](https://brew.sh/2025/11/12/homebrew-5.0.0/)); most such casks carry
+  `disable! date: "2026-09-01", because: :fails_gatekeeper_check`. Homebrew quarantines
+  every cask download, so a personal tap needs a notarized app too.
+- **Never set `LSFileQuarantineEnabled`** in `Info.plist`. It quarantines every file the
+  app creates
+  ([Apple](https://developer.apple.com/documentation/bundleresources/information-property-list/lsfilequarantineenabled)),
+  child processes inherit the behavior, and Gatekeeper then blocks the ad-hoc-signed
+  interpreters, native modules, and helpers they write: a terminal running inside an app
+  that sets the key quarantined pnpm’s native `.node` files
+  ([pnpm#11056](https://github.com/pnpm/pnpm/issues/11056)). Electron’s default
+  `Info.plist` does not set it; Chrome’s does, so do not copy Chrome’s.
+- **TCC charges a child process’s file access to the app.** Privacy prompts for Desktop,
+  Documents, Downloads, and removable or network volumes name your app, use its
+  `NS*UsageDescription` strings, and record the decision against its signing identity,
+  because the app is the child’s responsible process
+  ([Quinn, Apple DTS](https://developer.apple.com/forums/thread/678819)). The same
+  backend started from Terminal uses Terminal’s grants instead.
+  Ship the usage strings, and do not touch protected folders until the user navigates
+  there.
+
+`tbd guidelines macos-webview-shell-patterns` has the full macOS platform rules: TCC,
+Local Network privacy, App Sandbox, App Translocation, Homebrew casks, and the minimum
+macOS version.
 
 ### Windows: Authenticode
 
@@ -908,16 +1412,20 @@ portable single file.
 | Option | Platforms | Constraints |
 | --- | --- | --- |
 | **`update-electron-app` + update.electronjs.org** | macOS, Windows | Free and hosted, but requires a **public GitHub repository**, releases published to GitHub Releases, and a **code-signed** app. **No Linux support.** |
-| **electron-updater** (electron-builder) | macOS, Windows, **Linux** | Works against GitHub Releases, S3, or any static host. NSIS differential updates via `.blockmap` download only changed byte ranges. |
-| **Electron `autoUpdater`** directly | macOS, Windows | The built-in module, backed by Squirrel.Mac and Squirrel.Windows. You supply the update feed. |
+| **electron-updater** (electron-builder) | macOS, Windows, **Linux** | Works against GitHub Releases, S3, or any static host. Differential downloads via `.blockmap` fetch only changed byte ranges (NSIS, and on macOS against the cached previous zip). The 6.x SHA-512 check comes from the same unsigned manifest; signed manifests arrive in 7. |
+| **Electron `autoUpdater`** directly | macOS, Windows | The built-in module, backed by Squirrel.Mac and Squirrel.Windows, with no npm dependency. You supply the feed; on macOS a static `RELEASES.json` (`serverType: 'json'`) works. On 44.7+ and 45 it resumes downloads, checks a declared `sha256` and `size`, and applies Sparkle binary deltas ([Recent Platform Changes](#recent-platform-changes)). |
 
-Electron update payloads are large because the runtime ships with the app, but
-differential mechanisms reduce this substantially: Squirrel deltas on macOS and Windows,
-and blockmap-based partial downloads for NSIS. Expect megabytes to tens of megabytes for
-a typical update, not a full re-download.
+Electron update payloads are large because the runtime ships with the app.
+Differential mechanisms help when only your code changes; an Electron bump rewrites the
+roughly 200 MB `Electron Framework` binary, so expect most of a full download then (not
+measured here).
 
 **Code signing is a prerequisite for auto-update, not an optional extra.** Squirrel.Mac
-refuses to apply an update that is not correctly signed.
+validates the unpacked update, nested code included, against the running app’s
+designated requirement—the same bundle identifier and Developer ID team—and refuses to
+run from a read-only volume, including a translocated launch
+([`SQRLCodeSignature.m`](https://github.com/Squirrel/Squirrel.Mac/blob/main/Squirrel/SQRLCodeSignature.m),
+[`SQRLUpdater.m`](https://github.com/Squirrel/Squirrel.Mac/blob/main/Squirrel/SQRLUpdater.m)).
 
 ### Native Modules
 
@@ -931,9 +1439,10 @@ Node, so a module built for your system Node will fail to load inside Electron.
   Prefer dependencies that ship them.
 - **For SQLite, check `node:sqlite` first.** It is built into Node, so it needs no
   rebuild step and no native dependency at all.
-  In the Node line Electron 43 embeds (24.18.1 as of Electron 43.4.0), `node:sqlite` is
-  at **Stability 1.2, release candidate**, promoted at Node 24.15.0—so treat the API as
-  settling rather than frozen, and keep data access behind a thin wrapper.
+  In the Node line Electron 43 through 45 embed (24.22.x on 2026-11-08), `node:sqlite`
+  is at **Stability 1.2, release candidate**, promoted at Node 24.15.0, and Node 26.13.0
+  (Electron 46’s) still marks it release candidate—so treat the API as settling rather
+  than frozen, and keep data access behind a thin wrapper.
   Use `better-sqlite3` when you need its richer API—transactions wrapper, user-defined
   function options, BigInt control—and accept the rebuild step.
   This single change removes the most common source of native-module pain in Electron
@@ -959,12 +1468,14 @@ safer posture anyway.
 
 | Manager | Version | Electron status |
 | --- | --- | --- |
-| **npm** | 12.0.2 | Full support. npm 12 disables install scripts by default (`allowScripts`); approve with `npm approve-scripts electron` if you are on Electron ≤41. |
-| **pnpm** | 11.21.0 | Full support, with configuration. See below. |
-| **Bun** | 1.3.14 | Fine for `bun install` (Electron is in Bun’s default trusted-dependency allowlist). **Not supported by Electron Forge** ([forge#3906](https://github.com/electron/forge/issues/3906), open). electron-builder’s script hooks remain unreliable under Bun ([bun#9895](https://github.com/oven-sh/bun/issues/9895), open since April 2024). |
+| **npm** | 12.2.1 | Full support. npm 12 disables install scripts by default (`allowScripts`); approve with `npm approve-scripts electron` if you are on Electron ≤41. |
+| **pnpm** | 12.15.0 | Full support, with configuration. See below. VS Code’s repository pins pnpm 12 (`packageManager: pnpm@12.16.0` on 2026-11-08). |
+| **Bun** | 1.4.4 | Fine for `bun install` (Electron is in Bun’s default trusted-dependency allowlist). **Not supported by Electron Forge** ([forge#3906](https://github.com/electron/forge/issues/3906), open). electron-builder’s script hooks remain unreliable under Bun ([bun#9895](https://github.com/oven-sh/bun/issues/9895), open since April 2024). |
 
-**pnpm configuration.** pnpm 11 moved these settings out of `.npmrc`; they now live in
-`pnpm-workspace.yaml`, and `.npmrc` is only read for auth and registry settings:
+**pnpm configuration.** Since pnpm 11, and unchanged in 12, these settings live in
+`pnpm-workspace.yaml`; `.npmrc` is read only for auth, registry, TLS, and proxy settings
+([pnpm settings](https://pnpm.io/settings)). Forge’s own pnpm check still suggests
+putting `node-linker` in `.npmrc`; on pnpm 11 and later use the workspace file:
 
 ```yaml
 # pnpm-workspace.yaml
@@ -976,8 +1487,8 @@ allowBuilds:
 Without `nodeLinker: hoisted`, packagers fail to resolve dependencies in the app
 directory.
 This requirement is documented in electron-builder’s issue tracker rather than
-its docs, and Electron Forge documents the equivalent requirement for its pnpm support
-added in 7.7.0.
+its docs, and Electron Forge enforces the equivalent requirement in its system check
+(since its pnpm support in 7.7.0, and still in 8).
 
 **On Bun specifically.** Advice that Bun and Electron are broadly incompatible rests on
 issue reports from 2024–2025, most of which have since been resolved: the
@@ -1019,6 +1530,16 @@ Specific things that bite:
 - **`@electron/rebuild` needs a native toolchain** on each runner.
 - **Cache the Electron binary download** between runs; it is the largest single cost in
   a cold build.
+- **Know which macOS you build on.** On GitHub Actions `macos-latest` and `macos-26` are
+  macOS 26 on arm64, `macos-15` is also available, and the macOS 14 images were retired
+  on 2026-11-02 ([runner images](https://github.com/actions/runner-images)).
+- **Verify what you ship**, after the build:
+  `codesign --verify --deep --strict --verbose=2`, `xcrun stapler validate`, and
+  `spctl -a -vvv -t exec` on the `.app`.
+- **Budget for the Electron release cadence.** With about two patch releases per
+  supported line per week, most of them carrying Chromium security backports, the
+  security exception to the cool-off is routine.
+  Make “bump Electron, rebuild, sign, notarize, publish” one cheap, scripted step.
 
 A complete release workflow is in
 [Appendix F](#appendix-f-github-actions-release-workflow).
@@ -1029,27 +1550,27 @@ A complete release workflow is in
 
 The recommendations above are not derived from first principles alone.
 The following is a survey of well-engineered open-source Electron apps, read from their
-actual build configuration on 2026-08-16.
+actual build configuration: the Electron and packager columns on 2026-11-08 (from each
+default branch’s `package.json`), the other columns on 2026-08-16.
 
 | App | Electron | Renderer bundler | Packager | Sandbox | Fuses |
 | --- | --- | --- | --- | --- | --- |
-| VS Code | 42.8.1 | esbuild (new pipeline) | custom (`@vscode/gulp-electron`) | Yes | Not visible in public config |
-| Signal Desktop | 43.0.0 | **Rolldown 1.0.1** (migrated from webpack) | electron-builder 26.11.1 | Partial (phased preloads) | `@electron/fuses` present |
-| Bitwarden | 43.2.0 | webpack 5.106.2 | electron-builder 26.9.0 | Yes | **7 flipped** |
-| Mattermost | 43.3.0 | webpack 5.100.2 | electron-builder 26.6.0 | — | — |
-| Joplin | 42.3.0 | esbuild | electron-builder 26.15.6 | — | — |
+| VS Code | 43.8.6 (`nativeBuild.target`) | esbuild (new pipeline) | custom (`@vscode/gulp-electron`) | Yes | Not visible in public config |
+| Signal Desktop | 45.2.1 | **Rolldown 1.0.1** (migrated from webpack) | electron-builder 26.11.1 | Partial (phased preloads) | `@electron/fuses` present |
+| Bitwarden | 43.8.3 | webpack | electron-builder 26.18.0 | Yes | **7 flipped** |
+| Mattermost | 45.2.1 | webpack | electron-builder 26.6.0 | — | — |
+| Joplin | 42.11.18 | esbuild | electron-builder 26.15.7 | — | — |
 | Element Desktop | 41.0.2 | n/a (wraps Element Web) | electron-builder 26.8.2 | Yes, `app.enableSandbox()` | **8 configured** |
-| Logseq | 38.4.0 | shadow-cljs + webpack + Vite | — | **No** (`sandbox: false`) | — |
-| Standard Notes | 35.2.0 | webpack | electron-builder 24.9.1 | — | — |
+| Logseq | 42.11.16 | shadow-cljs + webpack + Vite | electron-builder 26.17.0 | **No** (`sandbox: false`) | — |
+| Standard Notes | 35.2.0 | webpack | electron-builder ^24.9.1 | — | — |
 
 What generalizes, and what does not:
 
 - **electron-builder wins on adoption.** Every app here uses it except VS Code, which
-  runs a custom pipeline justified by its scale, and Logseq, whose packager could not be
-  confirmed. **None use Electron Forge**, despite Forge being the officially supported
-  tool. This is the strongest empirical signal in the survey, and it is why
-  electron-builder is the recommendation here despite not being an official Electron
-  project.
+  runs a custom pipeline justified by its scale.
+  **None use Electron Forge**, despite Forge being the officially supported tool.
+  This is the strongest empirical signal in the survey, and it is why electron-builder
+  is the recommendation here despite not being an official Electron project.
 
 - **CJS for main and preload is universal.** Every app in the survey emits CJS for the
   preload, and all but VS Code emit CJS for main.
@@ -1090,23 +1611,55 @@ What generalizes, and what does not:
 
 - **Bundler choice does not generalize yet.** Webpack is still the most common, but it
   is legacy weight rather than a current recommendation: Signal has moved to Rolldown,
-  VS Code and Joplin use esbuild, and the maintained templates (`electron-vite-react`
-  pins Electron 42.1.0, Vite 8.0.16, React 19.2.7) are all Vite.
+  VS Code and Joplin use esbuild, and the maintained templates are all Vite.
   New projects should start on Vite/Rolldown; the webpack majority reflects when these
   apps were built.
 
-- **Actively maintained apps stay inside the support window.** Six of the eight are on a
-  supported major (41 through 43), and five of those are on 42 or 43—within about ten
-  weeks of the newest release.
-  Logseq (38) and Standard Notes (35) have fallen outside it and are therefore no longer
-  receiving Electron security fixes.
-  Note that Element, at 41, is supported only until 2026-08-25; being inside the window
-  is not the same as having room to spare.
+- **Staying inside the support window takes continuous work.** On 2026-11-08 (supported
+  majors 43 through 45), four of the eight are inside it: Signal and Mattermost on 45,
+  VS Code and Bitwarden on 43. Joplin (42.11.18, the last 42.x release) and Logseq
+  (42.11.16, up from 38 on 2026-08-16) are one major behind, since 42 reached end of
+  life on 2026-10-20; Element (41) and Standard Notes (35) are further behind.
+  None of the four outside the window receive Electron security fixes.
 
-One caution on templates: `electron-react-boilerplate` (~24k stars) still pins Electron
-35 and webpack, and the `electron-vite-boilerplate` template pins Electron 28.
-Popularity is not currency.
-`electron-vite-react` was the most current template found.
+One caution on templates: popularity is not currency, and currency does not last.
+`electron-react-boilerplate` (~24k stars) has moved to electron-vite 5, Vite 7, and
+Electron ^44.4.0, while `electron-vite-react`, the most current template on 2026-08-16,
+still pins Electron ^42.1.0, which is past end of life.
+Check a template’s Electron major against the support window before starting from it.
+
+### Python-Backed Apps
+
+Four 2026 Electron apps that ship or install Python, read from source on 2026-11-08:
+
+| App | Electron | How Python arrives | Where the environment lives | Updates | macOS arm64 download |
+| --- | --- | --- | --- | --- | --- |
+| [Comfy Desktop 2](https://github.com/Comfy-Org/Comfy-Desktop) | 40.4.1 | A small bundled python-build-standalone “bootstrap” interpreter, plus a prebuilt relocatable environment downloaded per install (810 MB on macOS) | Per-install directory; app data in Application Support | ToDesktop and electron-updater | 196 MB DMG |
+| [Open WebUI Desktop](https://github.com/open-webui/desktop) | 45.2.1 | Downloads python-build-standalone 3.12.13 on first run and checks its SHA-256, then `pip install uv` and `uv pip install` of the app into that interpreter, with no venv | `userData/python` | electron-updater | 135 MB DMG |
+| [JupyterLab Desktop](https://github.com/jupyterlab/jupyterlab-desktop) | ^42.4.0 | A bundled conda-pack tarball, excluded from signing with `signIgnore` (CI signs the binaries inside it first), extracted with `conda-unpack` on first run | `~/Library/jupyterlab-desktop`, chosen because conda environments cannot live in paths with spaces | update-electron-app | 380 MB DMG |
+| [Positron](https://github.com/posit-dev/positron) | VS Code fork | None bundled; discovers the user’s interpreters and, with consent, installs uv with the official installer and runs `uv python install` | The user’s environments | VS Code-style | 881 MB DMG |
+
+What they show:
+
+- **Every app whose plugins are pip packages keeps a writable environment outside the
+  code signature**, in app data or the user’s home, as the
+  [two-layer artifact](#runtime-extensible-apps-the-two-layer-artifact) requires.
+- **Isolation from the user’s toolchain has to be explicit.** The predecessor of Comfy
+  Desktop 2 bundled uv without `--no-config`, so a user’s `~/.config/uv/uv.toml` made
+  installs unsatisfiable
+  ([Comfy-Org/desktop#1722](https://github.com/Comfy-Org/desktop/issues/1722)).
+- **Runtime-installed binaries meet Gatekeeper when anything quarantines them.** Comfy
+  Desktop 2 ships a repair step that strips `com.apple.quarantine` and ad-hoc re-signs
+  every Mach-O in the environment, and retries when macOS kills a process.
+- **Entitlements drift upward.** Open WebUI Desktop’s entitlements grant
+  `disable-library-validation`, `allow-unsigned-executable-memory`,
+  `allow-dyld-environment-variables`, and `debugger`, although its interpreter runs as a
+  separate process from app data, where the app’s library validation does not apply.
+- **The browser-patch burden is felt.** JupyterLab Desktop’s maintainers discussed
+  archiving it in 2025 partly because it ships “a whole browser, with all its zero days”
+  ([#890](https://github.com/jupyterlab/jupyterlab-desktop/issues/890)), and on
+  2026-11-08 its main branch pins Electron 42, two weeks past end of life.
+  Comfy Desktop 2’s Electron 40 is further behind.
 
 * * *
 
@@ -1123,6 +1676,9 @@ Electron-specific considerations:
 - **Security patches are the documented exception.** Electron ships fixes on supported
   lines only, and an Electron CVE is usually a renderer-reachable one.
   Take the patch and document the exception.
+  Patch releases whose changes are labeled `security` (Chromium and V8 backports)
+  qualify, and with about two releases per line per week they are the norm rather than
+  the exception.
 - **Lifecycle scripts are now blocked by default** across npm, pnpm, and Bun, and
   Electron no longer needs one.
   Keep them blocked.
@@ -1132,6 +1688,11 @@ Electron-specific considerations:
   dependency in a server, where at least it is not running with the user’s desktop
   privileges. Keep the main process’s dependency list short and audited; push incidental
   work into the renderer (sandboxed) or a sidecar (separately signed).
+  A shell around an existing local server can have none at all
+  ([The Thinnest Shape](#the-thinnest-shape)).
+- **A bundled Python environment has its own supply chain.** Apply the cool-off once, at
+  release time, when you lock it, and ship hash-pinned locks so nothing resolves on the
+  user’s machine; `tbd guidelines desktop-python-runtime-patterns` covers the details.
 - **ASAR integrity plus `onlyLoadAppFromAsar` are the tamper controls** that make
   signing meaningful after install.
 
@@ -1139,10 +1700,18 @@ Electron-specific considerations:
 
 ## When Not to Use Electron
 
-Electron’s cost is a Chromium and Node runtime per app: roughly 100–200MB installed
-depending on platform and compression, and a memory floor well above a native app.
-You are buying one rendering engine that behaves identically everywhere, the full web
-ecosystem, and a deep well of documentation and hiring.
+Electron’s cost is a Chromium and Node runtime per app, and a memory floor well above a
+native app. On macOS the runtime alone is about **121 MB to download** (the 45.2.3
+`darwin-arm64` zip is 121,208,238 bytes) and about **300 MB installed**: measured on
+2026-11-08 from installed Electron 44.9.3 arm64 apps, `Electron Framework.framework` is
+299.6 MB (a 202.2 MB Mach-O, 51 MB of `.lproj` locales, and 18.9 MB of libraries), so a
+minimal app lands just above it, or near 250 MB with `electronLanguages` set.
+A universal build is about 1.6x: the framework Mach-O doubles (430.6 MB in a 45.2.1
+universal app) while resources are shared, and the two universal apps measured have
+480–493 MB frameworks.
+Figures of 85–120 MB that circulate for Electron are the compressed download, not the
+installed size. You are buying one rendering engine that behaves identically everywhere,
+the full web ecosystem, in-app DevTools, and a deep well of documentation and hiring.
 
 Consider alternatives when bundle size or memory is a hard product constraint, or when
 the app is small enough that the runtime dominates it.
@@ -1153,12 +1722,25 @@ That cost is concrete rather than
 theoretical—`tbd guidelines tauri-app-development-patterns` catalogues what actually
 breaks, and the Linux list is long.
 
-The two alternatives worth evaluating have their own guidelines: **Tauri**
+The cross-platform alternatives worth evaluating have their own guidelines: **Tauri**
 (`tbd guidelines tauri-app-development-patterns`) for a small, signed, auto-updating app
 if you can accept Rust in the build, and **Electrobun**
 (`tbd guidelines electrobun-app-development-patterns`) for internal or trusted-audience
-distribution only, since its updater verifies nothing.
+distribution only, since its updater verifies no signature (it checks HTTPS, the
+manifest’s identity, and an optional digest).
 Wails and Neutralino are not covered.
+
+**For a macOS-only app, consider a hand-written AppKit plus `WKWebView` shell**
+(`tbd guidelines macos-webview-shell-patterns`). It suits the case where Electron’s
+cross-platform argument does not apply, such as a local web server that only needs a
+window, menus, and lifecycle on the Mac.
+The shell is a few megabytes instead of about 300, needs no `allow-jit` entitlement
+because page JavaScript runs in WebKit’s own WebContent process, and gets WebKit
+security fixes from macOS updates rather than from your release train.
+The trade-off is the engine: users get the system WebKit, which varies with their macOS
+version and cannot be pinned, with no Chromium parity—behavior, performance budgets, and
+automation measured in Chrome must be re-verified in Safari—and Web Inspector attaches
+from Safari rather than living in the window.
 
 * * *
 
@@ -1172,6 +1754,8 @@ Wails and Neutralino are not covered.
 - [ ] Every `ipcMain` handler validates its sender and its payload.
 - [ ] Long-running or CPU-bound work is in a `utilityProcess` or a sidecar, not in main.
 - [ ] Backend processes are spawned from main, supervised, and killed on quit.
+- [ ] Each backend shuts down on stdin EOF, as on `SIGTERM`, so it never outlives a
+  crashed shell.
 
 **Security**
 
@@ -1179,8 +1763,11 @@ Wails and Neutralino are not covered.
 - [ ] CSP set via response header, with no `unsafe-inline` or `unsafe-eval`.
 - [ ] `setWindowOpenHandler` denies by default.
 - [ ] `will-navigate` blocks navigation outside the URLs the app itself loads.
-- [ ] Permission request handler denies by default.
+- [ ] Permission request and check handlers deny by default.
 - [ ] `shell.openExternal` allowlists the scheme.
+- [ ] A loopback server binds `127.0.0.1` on port 0, validates `Host`, and requires a
+  per-launch token delivered on stdin and carried as an `HttpOnly`, `SameSite=Strict`
+  cookie.
 - [ ] Fuses flipped: `runAsNode`, `nodeCliInspect`, `nodeOptions`, and
   `grantFileProtocolExtraPrivileges` disabled; ASAR integrity and `onlyLoadAppFromAsar`
   enabled.
@@ -1190,11 +1777,15 @@ Wails and Neutralino are not covered.
 
 - [ ] Main, preload, and renderer have separate build configs.
 - [ ] Preload emits a single CJS file.
-- [ ] macOS: hardened runtime, minimal entitlements, every nested Mach-O signed,
-  notarized and stapled.
+- [ ] macOS: hardened runtime; explicit `entitlements` and `entitlementsInherit` files
+  granting `allow-jit` only unless a specific failure requires more; every nested Mach-O
+  signed by the packager; notarized and stapled.
+- [ ] macOS: no `LSFileQuarantineEnabled`, and no runtime writes into the bundle.
 - [ ] Windows: cloud-based signing; no expectation of instant SmartScreen bypass.
-- [ ] Sidecars are `chmod +x` at build time and their path resolves through
+- [ ] Sidecars get `+x` in `afterPack`, before signing, and their path resolves through
   `process.resourcesPath` when packaged.
+- [ ] macOS artifacts are per architecture unless a universal build is worth about 1.6x
+  the runtime size.
 - [ ] Auto-update configured, and the app is signed so updates can apply.
 - [ ] Playwright test launches the packaged app and exercises at least one IPC round
   trip.
@@ -1203,18 +1794,27 @@ Wails and Neutralino are not covered.
 
 ## Open Research Questions
 
-1. **When does the Bun `--compile` macOS 27 signature defect
-   ([bun#32159](https://github.com/oven-sh/bun/issues/32159)) land a fix?** This gates
-   Bun-compiled sidecars on the newest macOS.
+1. **Will electron-builder 27 ship, and on what timeline?** It has been in alpha since
+   June 2026 (27.0.0-alpha.14 on 2026-10-29). Its signed update manifests,
+   `allow-jit`-only default entitlements, and current `@electron/osx-sign` and
+   `@electron/notarize` are worth adopting, but not before it is stable.
 
-2. **Will electron-builder 27 ship, and on what timeline?** The alpha has been in
-   progress for a while.
-   Its ESM migration and consolidated signing config are worth adopting, but not before
-   it is stable.
+2. **Does the notary service accept data archives that contain ad-hoc-signed Mach-O
+   files?** Shipping a python-build-standalone archive or a wheelhouse as data enables
+   an offline first run without signing a Python tree.
+   Apple says the notary service processes nested containers; JupyterLab Desktop signs
+   the binaries inside its tarball before notarizing, which suggests the question is
+   real. Untested here.
 
-3. **Does Electron Forge 8 close the gap with electron-builder** on Linux targets and
-   differential updates?
-   If so, the default recommendation here should move to the officially supported tool.
+3. **How large are macOS delta updates in practice?** A Sparkle binary delta or an
+   electron-updater blockmap should keep a code-only update small; an Electron patch
+   bump rewrites the framework binary.
+   Neither has been measured here.
+
+Answered in the text: the Bun `--compile` signing defect is fixed in Bun 1.4.1
+([Bun Backends](#bun-backends)), and Forge 8 is stable but does not close the
+differential-update and Linux gap with electron-builder
+([Choosing a Packager](#choosing-a-packager)).
 
 * * *
 
@@ -1225,8 +1825,8 @@ Wails and Neutralino are not covered.
 For a new standalone desktop app with a TypeScript UI and a Node backend:
 
 ```
-Electron 43 + Node 24 (host toolchain) + pnpm 11
-├── electron-vite          # three-target build, HMR, hot restart
+Electron 45 + Node 24 or 26 (host toolchain) + pnpm 12
+├── electron-vite 6        # three-target build, HMR, hot restart
 ├── Vite 8 (Rolldown)      # renderer
 ├── TypeScript             # project references, three tsconfigs
 ├── utilityProcess         # backend
@@ -1249,20 +1849,36 @@ When the app is genuinely small and you want the fewest moving parts: Electron p
 esbuild for main and preload, Vite for the renderer, and `@electron/packager` behind a
 short script. Accept that you own the dev loop.
 
+### Local Web Server Shell
+
+When the product is already a local server with a browser UI: Electron plus
+electron-builder, one plain `main.js` with no build step, the built-in `autoUpdater`
+with a static `RELEASES.json`, and the backend contract in
+[The Thinnest Shape](#the-thinnest-shape).
+For a macOS-only product, compare it against an AppKit plus `WKWebView` shell
+(`tbd guidelines macos-webview-shell-patterns`) before committing to 300 MB of runtime.
+
 ### Polyglot Backend Stack
 
-When the backend is Python or another language, keep everything above and add: a sidecar
-built with python-build-standalone plus `uv` (or a compiled Go/Rust binary), stdio
-JSON-RPC as the transport, `extraResources` for placement, an `afterPack` hook that
-signs every nested Mach-O, and explicit lifecycle supervision with a Job Object on
-Windows.
+When the backend is Python or another language, keep everything above and add: a signed
+`uv` in the bundle that installs Python and a hash-pinned environment into app data
+(`tbd guidelines desktop-python-runtime-patterns`), or a compiled Go or Rust binary;
+stdio JSON-RPC as the transport, or loopback HTTP with the token and cookie rules above;
+`extraFiles` to `Contents/Helpers` for executables and `extraResources` for data;
+explicit entitlements files; and explicit lifecycle supervision, with a stdin lifeline
+on macOS and a Job Object on Windows.
+Ship separate arm64 and x64 macOS artifacts.
 
 ### What to Avoid
 
 - Driving the Electron **build** through Bun.
   Install with it if you like; package with Node.
 - Binding a loopback HTTP port when stdio would work.
-- Adding entitlements speculatively.
+- Adding entitlements speculatively, or shipping electron-builder 26’s default ones.
+- Signing a Python interpreter into the bundle with `disable-library-validation` when an
+  interpreter in app data would do.
+- Setting `LSFileQuarantineEnabled`, or writing into the signed bundle at runtime.
+- Passing a session token in argv or the environment.
 - Starting a Python sidecar on PyOxidizer.
 - Relying on an Electron major outside the three-version support window.
 
@@ -1281,8 +1897,12 @@ Windows.
 - [ASAR Integrity](https://www.electronjs.org/docs/latest/tutorial/asar-integrity)
 - [Code Signing](https://www.electronjs.org/docs/latest/tutorial/code-signing)
 - [Updating Applications](https://www.electronjs.org/docs/latest/tutorial/updates)
+- [autoUpdater API (v45.2.3)](https://github.com/electron/electron/blob/v45.2.3/docs/api/auto-updater.md)
+- [BaseWindow options, including `windowStatePersistence`](https://github.com/electron/electron/blob/v45.2.3/docs/api/structures/base-window-options.md)
 - [Breaking Changes](https://www.electronjs.org/docs/latest/breaking-changes)
+- [Electron release schedule](https://releases.electronjs.org/schedule)
 - [Electron Release Timelines](https://www.electronjs.org/docs/latest/tutorial/electron-timelines)
+- [Electron security advisories](https://github.com/electron/electron/security/advisories)
 - [Native Node Modules](https://www.electronjs.org/docs/latest/tutorial/using-native-node-modules)
 
 ### Build and Packaging Tools
@@ -1290,7 +1910,9 @@ Windows.
 - [electron-vite](https://electron-vite.org/)
 - [vite-plugin-electron](https://github.com/electron-vite/vite-plugin-electron)
 - [Electron Forge](https://www.electronforge.io/)
+- [Electron Forge 8 release notes](https://github.com/electron/forge/releases/tag/v8.0.1)
 - [electron-builder](https://www.electron.build/)
+- [electron-builder: what’s new in v27](https://www.electron.build/docs/migration/whats-new-v27/)
 - [electron-builder v27 migration](https://www.electron.build/docs/migration/v27-breaking-changes/)
 - [Vite 8 announcement](https://vite.dev/blog/announcing-vite8)
 - [Playwright Electron support](https://playwright.dev/docs/api/class-electron)
@@ -1298,10 +1920,19 @@ Windows.
 ### Signing, Notarization, and Distribution
 
 - [Apple TN2206: macOS Code Signing In Depth](https://developer.apple.com/library/archive/technotes/tn2206/_index.html)
+- [Apple: Hardened Runtime](https://developer.apple.com/documentation/security/hardened-runtime)
+- [Apple: `disable-library-validation` entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.cs.disable-library-validation)
+- [Apple: `LSFileQuarantineEnabled`](https://developer.apple.com/documentation/bundleresources/information-property-list/lsfilequarantineenabled)
+- [Apple: Gatekeeper changes in macOS Sequoia (2024-08-06)](https://developer.apple.com/news/?id=saqachfa)
+- [Quinn (Apple DTS): On File System Permissions](https://developer.apple.com/forums/thread/678819)
+- [@electron/osx-sign](https://github.com/electron/osx-sign)
+- [Squirrel.Mac](https://github.com/Squirrel/Squirrel.Mac)
 - [Electron Forge macOS signing guide](https://www.electronforge.io/guides/code-signing/code-signing-macos)
 - [Microsoft: code signing options](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options)
 - [Mac App Store submission guide](https://www.electronjs.org/docs/latest/tutorial/mac-app-store-submission-guide)
 - [update.electronjs.org](https://github.com/electron/update.electronjs.org)
+- [Homebrew 5.0.0](https://brew.sh/2025/11/12/homebrew-5.0.0/)
+- [GitHub Actions runner images](https://github.com/actions/runner-images)
 
 ### Backend Runtimes
 
@@ -1310,12 +1941,15 @@ Windows.
 - [Bun standalone executables](https://bun.com/docs/bundler/executables)
 - [python-build-standalone](https://github.com/astral-sh/python-build-standalone)
 - [uv](https://docs.astral.sh/uv/)
+- [uv 0.12.x changelog (Developer ID signing from 0.12.12)](https://github.com/astral-sh/uv/blob/main/changelogs/0.12.x.md)
 - [PyInstaller](https://pyinstaller.org/en/stable/)
 - [Nuitka](https://nuitka.net/)
 
 ### Security Background
 
 - [GitHub: localhost dangers, CORS and DNS rebinding](https://github.blog/security/application-security/localhost-dangers-cors-and-dns-rebinding/)
+- [HTML spec: the `EventSource` interface](https://html.spec.whatwg.org/multipage/server-sent-events.html#the-eventsource-interface)
+- [Chromium `site_for_cookies.cc`](https://github.com/chromium/chromium/blob/main/net/cookies/site_for_cookies.cc)
 
 ### Production Apps Surveyed
 
@@ -1339,17 +1973,27 @@ Read directly from their build configuration for
 - [laurent22/joplin](https://github.com/laurent22/joplin),
   [mattermost/desktop](https://github.com/mattermost/desktop),
   [logseq/logseq](https://github.com/logseq/logseq)
-- [electron-vite/electron-vite-react](https://github.com/electron-vite/electron-vite-react)—the
-  most current starter template found
+- [electron-react-boilerplate](https://github.com/electron-react-boilerplate/electron-react-boilerplate)
+  and
+  [electron-vite/electron-vite-react](https://github.com/electron-vite/electron-vite-react)—starter
+  templates
+- Python-backed apps, read from source on 2026-11-08:
+  [Comfy-Org/Comfy-Desktop](https://github.com/Comfy-Org/Comfy-Desktop),
+  [open-webui/desktop](https://github.com/open-webui/desktop),
+  [jupyterlab/jupyterlab-desktop](https://github.com/jupyterlab/jupyterlab-desktop),
+  [posit-dev/positron](https://github.com/posit-dev/positron)
 
 ### Issue Reports Cited
 
 - [bun#9895: electron-builder `rebuild` script not found](https://github.com/oven-sh/bun/issues/9895)—open
 - [bun#18249: segfault during electron-builder build](https://github.com/oven-sh/bun/issues/18249)—closed
 - [bun#1588: Electron failed to install correctly](https://github.com/oven-sh/bun/issues/1588)—closed
-- [bun#32159: `--compile` binaries fail signature validation on macOS 27](https://github.com/oven-sh/bun/issues/32159)—open
-- [forge#3906: Bun package manager support](https://github.com/electron/forge/issues/3906)—open
+- [bun#32159: `--compile` binaries fail signature validation on macOS 27](https://github.com/oven-sh/bun/issues/32159)—closed
+  by [#39837](https://github.com/oven-sh/bun/pull/39837), first released in Bun 1.4.1
+- [forge#3906: use Bun when `bunx` is used](https://github.com/electron/forge/issues/3906)—open
 - [electron-builder#1790: executable permissions lost in packaging](https://github.com/electron-userland/electron-builder/issues/1790)
+- [pnpm#11056: quarantine propagated to native `.node` files](https://github.com/pnpm/pnpm/issues/11056)—closed
+- [Comfy-Org/desktop#1722: the user’s global uv `exclude-newer` breaks installs](https://github.com/Comfy-Org/desktop/issues/1722)—open
 
 * * *
 
@@ -1385,7 +2029,7 @@ export default defineConfig({
     },
     plugins: [react()],
     build: {
-      rollupOptions: { input: resolve(__dirname, 'src/renderer/index.html') },
+      rolldownOptions: { input: resolve(__dirname, 'src/renderer/index.html') },
     },
   },
 });
@@ -1400,8 +2044,9 @@ Notes on why this is short:
 - `build.lib.formats: ['cjs']` is the supported way to pin the output format; the
   default is CJS or ESM depending on your `package.json` `type`, and being explicit
   avoids a surprise if that changes.
-- `rollupOptions` remains the option name on Vite 8 even though Rolldown is the bundler
-  underneath.
+- On Vite 8 the option is `rolldownOptions`; `rollupOptions` still works as a deprecated
+  alias. electron-vite 6 accepts both, so use `rollupOptions` only if you must also build
+  with Vite 7.
 - Leave `package.json` without `"type": "module"`. The built main and preload are CJS
   (emitted as `out/main/index.js` and `out/preload/index.js`), and a `"type": "module"`
   declaration would make Node treat those `.js` files as ESM.
@@ -1429,13 +2074,27 @@ asar: true
 asarUnpack:
   - '**/*.node' # native modules must be real files on disk
 
+# Flipped by electron-builder itself, so a failing hook cannot skip it.
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  grantFileProtocolExtraPrivileges: false # only with a custom protocol instead of file://
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+
 mac:
   category: public.app-category.productivity
+  minimumSystemVersion: '13.0' # Electron 44+ does not run on macOS 12
   hardenedRuntime: true
   gatekeeperAssess: false
+  # Always set both: without them, v26 signs the app and every nested binary with a
+  # template that also grants allow-unsigned-executable-memory and
+  # disable-library-validation.
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
-  notarize: true
+  signIgnore: ['\.pyc$', '\.whl$', '\.tar\.gz$'] # binary data that is not code
+  notarize: true # needs APPLE_API_KEY, APPLE_API_KEY_ID, APPLE_API_ISSUER
   target:
     - target: dmg
       arch: [x64, arm64]
@@ -1459,11 +2118,10 @@ linux:
 publish:
   provider: github
 
-afterPack: ./scripts/after-pack.js # sign nested binaries, restore +x
-afterSign: ./scripts/notarize.js # @electron/notarize
+afterPack: ./scripts/after-pack.js # restore +x on sidecars; osx-sign does the signing
 ```
 
-Matching `entitlements.mac.plist`:
+Matching `entitlements.mac.plist`, which must be ASCII with no byte-order mark:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -1472,12 +2130,15 @@ Matching `entitlements.mac.plist`:
 <plist version="1.0">
 <dict>
   <key>com.apple.security.cs.allow-jit</key><true/>
-  <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
-  <!-- Add only if a sidecar or native module actually requires it: -->
-  <!-- <key>com.apple.security.cs.disable-library-validation</key><true/> -->
 </dict>
 </plist>
 ```
+
+Add `allow-unsigned-executable-memory` or `disable-library-validation` only when a
+specific, reproduced failure requires it, and then prefer giving that one binary its own
+entitlements through a custom `mac.sign` function over widening `entitlementsInherit`
+for every helper. A file in `Contents/MacOS` that is not an executable slows
+notarization, so keep data out of it.
 
 ### Appendix C: Main Process Entry Point
 
@@ -1508,8 +2169,10 @@ function applySecurityPolicy(ses: Electron.Session): void {
     });
   });
 
-  // Deny every permission that has not been deliberately enabled.
+  // Deny every permission that has not been deliberately enabled, for both
+  // asynchronous requests and synchronous checks.
   ses.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
+  ses.setPermissionCheckHandler(() => false);
 }
 
 function createWindow(): BrowserWindow {
@@ -1641,27 +2304,50 @@ function assertTrustedSender(event: Electron.IpcMainInvokeEvent): void {
 
 ### Appendix E: Python Sidecar End to End
 
-**1. Build the interpreter tree** (at build time, not install time).
-Unpack a python-build-standalone release for each target and install the locked
-dependencies **directly into that tree**—not into a venv, whose scripts and `pyvenv.cfg`
-hardcode build-machine paths and whose interpreter is a symlink back to wherever the
-venv was created:
+This appendix covers the parts of a Python backend that are specific to Electron: where
+`uv` and the lock go in the bundle, how the main process finds them, what to sign and
+ignore, and how to supervise the backend.
+Everything uv does—isolation flags, the spawn environment, serialized calls, the
+release-time lock, and hash-verified installs—is owned by
+`tbd guidelines desktop-python-runtime-patterns`:
+[3. Isolating an App-Owned uv](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/desktop-python-runtime-patterns.md#3-isolating-an-app-owned-uv)
+and
+[4. Pinning Exactly What Was Tested](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/desktop-python-runtime-patterns.md#4-pinning-exactly-what-was-tested).
+Call its uv commands from one function in the main process, never from the renderer.
 
-```bash
-# One target shown; repeat per {os, arch}. Use the install_only variant.
-PBS=https://github.com/astral-sh/python-build-standalone/releases/download/20260610
-curl -LO $PBS/cpython-3.13.14+20260610-aarch64-apple-darwin-install_only.tar.gz
-mkdir -p resources/bin/darwin/arm64
-tar -xzf cpython-*.tar.gz -C resources/bin/darwin/arm64   # yields .../python/
+**1. Bundle `uv` and the lock.** Put the executable in `Contents/Helpers` with
+`extraFiles` and the data in `Contents/Resources` with `extraResources`, and restore
+`+x` on `uv` in `afterPack`, before signing (a translocated bundle is read-only at
+runtime):
 
-uv pip sync --python resources/bin/darwin/arm64/python/bin/python3 requirements.lock
-cp -r backend resources/bin/darwin/arm64/backend   # the app's own Python source
+```yaml
+extraFiles:
+  - from: vendor/uv/${arch}/uv # >= 0.12.12 is Developer ID-signed upstream; re-signed with yours
+    to: Helpers/uv # Contents/Helpers, an Apple code location
+extraResources:
+  - from: build/py # the app's uv.toml and the release-time lock: data, covered by the seal
+    to: py
 ```
 
-**2. Speak newline-delimited JSON over stdio** — no port, no auth, dies with the parent:
+**2. Resolve the paths in the main process:**
+
+```ts
+const data = app.getPath('userData'); // ~/Library/Application Support/<App>
+const uv = app.isPackaged
+  ? path.join(process.resourcesPath, '..', 'Helpers', 'uv')
+  : path.join(__dirname, '../../vendor/uv', process.arch, 'uv');
+const py = path.join(process.resourcesPath, 'py'); // uv.toml and the lock
+const env = path.join(data, 'env'); // the symlink the Python guideline's lifecycle swaps
+```
+
+Build the environment with the Python guideline’s reference implementation, under
+`data`, before starting the backend, and show progress in the app’s own window.
+
+**3. Speak newline-delimited JSON over stdio**—no port, no auth, and the read loop ends
+at EOF, so the backend exits when the shell does, however it dies:
 
 ```python
-# backend/main.py
+# myapp/backend.py
 import json, sys
 
 for line in sys.stdin:
@@ -1671,7 +2357,10 @@ for line in sys.stdin:
     sys.stdout.flush()   # without this, the parent waits forever
 ```
 
-**3. Supervise it from the main process:**
+A backend that serves the UI over loopback HTTP uses the shell–server contract instead
+([The Thinnest Shape](#the-thinnest-shape)).
+
+**4. Supervise it from the main process:**
 
 ```ts
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -1679,18 +2368,15 @@ import { spawn, type ChildProcess } from 'node:child_process';
 let backend: ChildProcess | undefined;
 
 export function startBackend(): void {
-  const root = app.isPackaged
-    ? path.join(process.resourcesPath, 'bin')
-    : path.join(__dirname, '../../resources/bin', process.platform, process.arch);
   const python =
     process.platform === 'win32'
-      ? path.join(root, 'python', 'python.exe')
-      : path.join(root, 'python', 'bin', 'python3');
+      ? path.join(env, 'Scripts', 'python.exe')
+      : path.join(env, 'bin', 'python');
 
-  if (process.platform !== 'win32') fs.chmodSync(python, 0o755); // +x is not reliably preserved
-
-  backend = spawn(python, [path.join(root, 'backend', 'main.py')], {
-    stdio: ['pipe', 'pipe', 'pipe'],
+  backend = spawn(python, ['-m', 'myapp.backend'], {
+    cwd: data,
+    env: backendEnv(), // an allowlist, per the Python guideline's spawn environment
+    stdio: ['pipe', 'pipe', 'pipe'], // stdin is both the request channel and the lifeline
     detached: process.platform !== 'win32', // own process group, so we can kill the tree
   });
   backend.on('exit', (code) => scheduleRestartWithBackoff(code));
@@ -1701,7 +2387,7 @@ export function stopBackend(): void {
   if (process.platform === 'win32') {
     spawn('taskkill', ['/pid', String(backend.pid), '/f', '/t']);
   } else {
-    process.kill(-backend.pid, 'SIGTERM'); // negative pid kills the group
+    process.kill(-backend.pid, 'SIGTERM'); // negative pid signals the group
   }
   backend = undefined;
 }
@@ -1711,30 +2397,27 @@ On Windows, prefer a Job Object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` over
 `taskkill` if you can add a native dependency: it is the only approach that also cleans
 up when the main process crashes.
 
-**4. Sign every Mach-O in the tree** in `afterPack`, before the outer app is signed:
+**5. Sign, ignore, and verify.** The only Mach-O this layout adds is `uv`, which
+`@electron/osx-sign` signs along with everything else under `Contents/`; it needs no
+entitlements, and the app keeps `allow-jit` as its only one.
+The interpreter in app data is ad-hoc signed, not hardened, and not quarantined, so it
+needs nothing from you.
+Use `mac.signIgnore` for binary data that is not code—a bundled Python archive or
+wheelhouse, and `.pyc` files if you bundle a tree—and verify after the build:
 
-```js
-// scripts/after-pack.js
-const { execFileSync } = require('node:child_process');
-const { globSync } = require('glob');
-
-exports.default = async function afterPack(context) {
-  if (context.electronPlatformName !== 'darwin') return;
-  const resources = `${context.appOutDir}/${context.packager.appInfo.productFilename}.app/Contents/Resources`;
-  // The interpreter, every .so extension module, and every bundled .dylib.
-  const machO = globSync(
-    [`${resources}/bin/**/*.so`, `${resources}/bin/**/*.dylib`, `${resources}/bin/**/bin/python*`],
-    { nodir: true },
-  );
-  for (const file of machO) {
-    execFileSync('codesign', [
-      '--force', '--options', 'runtime', '--timestamp',
-      '--entitlements', 'build/entitlements.mac.plist',
-      '--sign', process.env.CSC_NAME, file,
-    ]);
-  }
-};
+```bash
+APP="release/mac-arm64/My App.app"
+codesign --verify --deep --strict --verbose=2 "$APP"
+codesign -dvv "$APP/Contents/Helpers/uv" 2>&1 | grep Authority   # your Developer ID
+xcrun stapler validate "$APP"
+spctl -a -vvv -t exec "$APP"
 ```
+
+If you bundle a python-build-standalone tree instead, the Python guideline’s layout B
+covers installing into it; on the Electron side, keep the interpreter from writing
+bytecode into the bundle and grant it `disable-library-validation` only if it must load
+packages installed after signing, through a custom `mac.sign` function rather than
+`entitlementsInherit`.
 
 ### Appendix F: GitHub Actions Release Workflow
 
@@ -1744,13 +2427,16 @@ on:
   push:
     tags: ['v*']
 
+permissions:
+  contents: write # electron-builder uploads to the GitHub release
+
 jobs:
   build:
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
+          - os: macos-latest # macOS 26, arm64
           - os: windows-latest
           - os: ubuntu-latest
     runs-on: ${{ matrix.os }}
@@ -1759,15 +2445,16 @@ jobs:
       # correct on all three runners (the OS-default location differs per OS).
       ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      # Actions pinned by commit SHA (a tag is mutable); the comment names the release.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: pnpm
 
       # The Electron binary download is the largest cost in a cold build.
-      - uses: actions/cache@v4
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ github.workspace }}/.cache/electron
           key: electron-${{ matrix.os }}-${{ hashFiles('pnpm-lock.yaml') }}
@@ -1797,22 +2484,26 @@ jobs:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+      - name: Verify the macOS signature and ticket
+        if: runner.os == 'macOS'
+        run: |
+          for app in release/mac*/*.app; do
+            codesign --verify --deep --strict --verbose=2 "$app"
+            xcrun stapler validate "$app"
+            spctl -a -vvv -t exec "$app"
+          done
 ```
 
 Environment variables that do not apply to a given OS are ignored, so one shared step
 works across the matrix.
+electron-builder 26 needs `APPLE_API_KEY` as a path to the `.p8` file, hence the step
+that writes it; v27 also accepts the key’s base64 contents.
 
 Notarize on tags only.
 Pull request builds should package without signing, which is fast and needs no secrets.
-
-## Related Guidelines
-
-- For monorepo setup with pnpm, see `tbd guidelines pnpm-monorepo-patterns`
-- For monorepo setup with Bun, see `tbd guidelines bun-monorepo-patterns`
-- For Tauri, see `tbd guidelines tauri-app-development-patterns`
-- For Electrobun, see `tbd guidelines electrobun-app-development-patterns`
-- For dependency policy, see `tbd guidelines supply-chain-hardening`
-- For TypeScript conventions, see `tbd guidelines typescript-rules`
+Let an update bot propose SHA bumps for the actions, so pinning does not mean freezing
+(`tbd guidelines ci-and-gates-rules`).
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

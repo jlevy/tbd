@@ -137,10 +137,14 @@ describe('guidelineGroupFor', () => {
   });
 
   it('keeps the desktop frameworks together under their own heading', () => {
+    // The shell and runtime companions share no name prefix with the frameworks;
+    // the declared category is what keeps all five under one heading.
     for (const name of [
       'electron-app-development-patterns',
       'electrobun-app-development-patterns',
       'tauri-app-development-patterns',
+      'macos-webview-shell-patterns',
+      'desktop-python-runtime-patterns',
     ]) {
       expect(guidelineGroupFor(name, 'desktop'), name).toBe('Desktop app frameworks');
     }

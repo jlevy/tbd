@@ -597,9 +597,11 @@ Load the **General engineering** core, then only guidelines matching the task.
 
 | Name | Description |
 | --- | --- |
-| electrobun-app-development-patterns | Building desktop apps with Electrobun—runtime and process model, typed RPC, project layout, packaging and the delta updater, plus an evidence-based maturity and security assessment |
-| electron-app-development-patterns | Building a clean, minimal, standalone Electron app—process model, modern Vite-based build system, attaching a Node/Bun/Python backend, security baseline, packaging, code signing, and auto-update |
-| tauri-app-development-patterns | Building desktop apps with Tauri 2—the Rust core and system webview model, capabilities and permissions, typed commands and IPC, attaching Rust or non-Rust backends, packaging, signing, and the signed updater |
+| desktop-python-runtime-patterns | How a desktop app with a Python backend or Python plugins ships or provisions its runtime with uv under any shell (Electron, Tauri, a native Swift shell, Electrobun)—freezing versus a runtime-extensible environment, bundle and first-run layouts, isolating an app-owned uv, hash-pinned base environments, environment lifecycle and repair, user-installed plugins, sharing with a CLI install, and macOS signing, quarantine, and library validation. Load when designing, packaging, or debugging Python inside a desktop app. |
+| electrobun-app-development-patterns | Building desktop apps with Electrobun 2.x—runtime and process model, typed RPC, project layout, Hutch packaging and macOS signing, the delta updater, plus an evidence-based security, supply-chain, and maturity assessment |
+| electron-app-development-patterns | Building a clean, minimal, standalone Electron app—process model, Vite-based build, wrapping a local web server, Node, Bun, or Python backends, security baseline, packaging, macOS signing and notarization, and auto-update |
+| macos-webview-shell-patterns | Building a thin, signed, macOS-only Swift app (AppKit and WKWebView) around a local web server or web UI in any language. Covers choosing it over Tauri, Electron, Electrobun, or pywebview, WKWebView setup, supervising or attaching to a server process, SwiftPM builds, notarization in CI, Sparkle and Homebrew updates, and the TCC, quarantine, and Local Network rules a local-server shell must meet. |
+| tauri-app-development-patterns | Building desktop apps with Tauri 2—capabilities and IPC, Rust and non-Rust backends, sidecar lifecycle, wrapping a loopback web server, WKWebView gaps on macOS, signing and notarization, the signed updater, and the Cargo cool-off |
 
 ### Docs, process & tooling
 
