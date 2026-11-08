@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .codex/tbd-closing-reminder.sh"
+            "command": "bash -c 'repo_root=$(pwd -P); while [ \"$repo_root\" != \"/\" ] && [ ! -e \"$repo_root/.git\" ] && [ ! -f \"$repo_root/.codex/hooks.json\" ]; do repo_root=${repo_root%/*}; [ -n \"$repo_root\" ] || repo_root=/; done; if [ ! -f \"$repo_root/.codex/hooks.json\" ]; then exit 0; fi; if [ ! -f \"$repo_root/.codex/tbd-closing-reminder.sh\" ]; then echo \"[tbd] Cannot locate the Codex closing hook.\" >&2; exit 1; fi; exec bash \"$repo_root/.codex/tbd-closing-reminder.sh\"'"
           }
         ]
       }
