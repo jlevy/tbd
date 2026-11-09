@@ -5,7 +5,7 @@ title: Prepare and validate the get-tbd 0.11.0 minor release
 kind: task
 status: in_progress
 priority: 1
-version: 13
+version: 14
 delegate: codex@spud10
 labels: []
 dependencies: []
@@ -20,11 +20,15 @@ child_order_hints:
 hold: null
 hold_until: null
 created_at: 2026-11-09T01:41:26.909Z
-updated_at: 2026-11-09T06:25:38.010Z
+updated_at: 2026-11-09T06:48:13.979Z
 started_at: 2026-11-09T01:41:40.058Z
 ---
 Validate a packed v0.11.0 release and seamless CLI upgrades from published baselines, verify the Tryscript downstream upgrade, document the Zod 4 API migration, and prepare the release PR.
 
 ## Notes
 
-Merged #334, #335, #330, and #333 after review and CI. Combined main 30c8f597 passed all CI, including packed web and upgrade proofs, in https://github.com/jlevy/tbd/actions/runs/42550116634. Deferred #21, #174, #253, #324, #329, and #332 with published reviews and tracked findings. Production audit found zero advisories and 31 pins passed cooldown. Version awaits user decision: merged #331 breaks the exported Zod 3 schema types and APIs; Zod 4.6.7 /v3 still reproduced the advisory behavior. Continue with approved 0.11.0 and migration notes or a reviewed compatible backport for 0.10.1. Tryscript baseline cdbe59c is prepared, with all functional gates passing, zero production advisories and three existing moderate dev advisories. Durable evidence: /Users/levy/wrk/release-evidence/tbd-v0.10.1/downstream/current/. Version-specific package and downstream candidate gates remain to be run.
+User selected minor v0.11.0. Release PR #336 is ready at e9788ebbe6c76c90935c96fd959685b63a8400d7 above main 30c8f597. All seven checks passed, including Windows, macOS, both Ubuntu versions, coverage/lint, benchmark, and DeepSource Secrets, in https://github.com/jlevy/tbd/actions/runs/42573992096. Astra senior A and correctness B are recorded and dispositioned. Normal local pre-push passed 3,058 tests with one existing skip. Metadata, publint, packed web and standard upgrade proof passed. Production audit zero, 31 pins age-eligible. Dev-only findings remain tracked in tbd-ujyy and tbd-gx3a.
+
+Published v0.10.0 and packed v0.11.0 can share an f08 remote; the focused 44-assertion rolling proof preserves grants and custom text, unknown config and bead fields, timestamps and edits through both directions. Fresh Tryscript cdbe59c9 setup is byte-idempotent, with grants and lockfile preserved. 302 unit tests and 108 compatibility assertions pass; baseline and candidate have the same three moderate development advisories and zero production findings. Isolated public library checks with real Zod 3/4 pass 48 parser comparisons and 48 round trips. Existing harness gap tbd-88a6 is covered by that separate proof; existing Notes-heading issue remains tracked as tbd-w1kd. Evidence under /Users/levy/wrk/release-evidence/tbd-v0.11.0/.
+
+Train includes merged #331, #334, #335, #330, and #333. Deferred #21, #174, #253, #324, #329 and #332 after review. Await explicit approval to merge #336 and publish v0.11.0. After merge, require main CI success on its exact merge SHA, then tag once and verify npm version, package/provenance, CLI and GitHub release notes.
