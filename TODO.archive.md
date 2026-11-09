@@ -93,3 +93,7 @@ unknown-parent rejection, create-date rules, and both archive mutations.
 Work before 2026-08 lives in bead history and in the plan specs under
 [docs/project/specs/](./docs/project/specs/). `tbd list --status closed` is the full
 record — 1,599 closed beads as of this writing.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

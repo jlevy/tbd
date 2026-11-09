@@ -128,3 +128,7 @@ No migration needed since this is a new display-only flag.
 - Spec matching logic: `packages/tbd/src/lib/spec-matching.ts`
 - Tree view: `packages/tbd/src/cli/lib/tree-view.ts`
 - Issue formatting: `packages/tbd/src/cli/lib/issue-format.ts`
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

@@ -72,3 +72,7 @@ linked to specs:
 
 6. **No regressions**: Run `tbd list` (without `--specs`) and confirm output is
    identical to previous behavior.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

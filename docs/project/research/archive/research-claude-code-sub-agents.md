@@ -164,7 +164,7 @@ Each fresh instance reads current state, does one unit of work, writes updated s
   covered in the companion research doc; MCP server architecture; Anthropic API-level
   multi-agent patterns outside Claude Code; Codex platform facts and vendor guidance,
   which the
-  [2026-09-16 guidance brief](research-2026-09-16-subagent-guidance-anthropic-openai.md)
+  [2026-09-16 guidance brief](../current/research-2026-09-16-subagent-guidance-anthropic-openai.md)
   holds
 
 * * *
@@ -415,8 +415,8 @@ sub-agents specifically to balance capability and cost
 Current vendor cost guidance (smaller models or `low` effort for simple stages,
 condensed reports, few concurrent sub-agents) is collected as [V4], [V6], [V11], and
 [V12] in the
-[companion brief](research-2026-09-16-subagent-guidance-anthropic-openai.md); tbd’s
-answer is the model tiers in Section 11.
+[companion brief](../current/research-2026-09-16-subagent-guidance-anthropic-openai.md);
+tbd’s answer is the model tiers in Section 11.
 
 **Token usage scales with sub-agents:** Each sub-agent has its own context window.
 Running many sub-agents that each return detailed results can consume significant
@@ -1978,7 +1978,7 @@ The normative text is the
 guidelines; where this summary and the plan differ, the plan wins.
 Vendor citations [V1] to [V16] are defined in the plan’s Vendor Guidance section and
 collected in the
-[companion brief](research-2026-09-16-subagent-guidance-anthropic-openai.md).
+[companion brief](../current/research-2026-09-16-subagent-guidance-anthropic-openai.md).
 
 #### Coordinator and Roles
 
@@ -2115,8 +2115,8 @@ Vendor guidance supports the fallback when steps chain or share context [V3], [V
 
 The same workflow runs on Codex with different mechanics, summarized here from the
 plan’s Platform Facts table; the
-[companion brief](research-2026-09-16-subagent-guidance-anthropic-openai.md) holds the
-sourced detail and each fact’s re-verification status.
+[companion brief](../current/research-2026-09-16-subagent-guidance-anthropic-openai.md)
+holds the sourced detail and each fact’s re-verification status.
 Codex spawns with `spawn_agent`, which takes `model` and `reasoning_effort` per spawn
 (so tier definitions are a convenience there, not a requirement), while a full-history
 fork rejects both overrides; custom agents live in `.codex/agents/*.toml` with `model`,

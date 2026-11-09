@@ -6,7 +6,7 @@
 
 **Related**:
 
-- [Golden Testing Guidelines](../../agent-guidelines/golden-testing-guidelines.md)
+- [Golden Testing Guidelines](../../../../packages/tbd/docs/guidelines/golden-testing-guidelines.md)
 
 - [Modern TypeScript CLI Patterns](research-modern-typescript-cli-patterns.md)
 
@@ -1222,8 +1222,8 @@ Then evolve to the **full framework** as needs grow:
 
 ### Literature
 
-- [Golden Testing Guidelines](../../agent-guidelines/golden-testing-guidelines.md) —
-  Session-level golden testing principles
+- [Golden Testing Guidelines](../../../../packages/tbd/docs/guidelines/golden-testing-guidelines.md)
+  — Session-level golden testing principles
 
 - [Characterization Test (Wikipedia)](https://en.wikipedia.org/wiki/Characterization_test)
   — Foundational concepts
@@ -1370,3 +1370,7 @@ patterns:
     pattern: 'v?\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?'
     replace: '[VERSION]'
 ```
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

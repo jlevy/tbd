@@ -22,9 +22,8 @@ verification, cross-references, and pricing verification)
 
 **Related Research**:
 
-- [research-convex-durable-workflows-architecture.md](../../../project/research/current/research-convex-durable-workflows-architecture.md)
-  — Workflow and workpool architecture, overhead analysis, and best practices for
-  durable workflows
+- [Convex Workflow](https://www.convex.dev/components/workflow) documents the Workflow
+  component, its Workpool dependency, and durable execution and retry behavior.
 
 > Note: Backend limits implementation details (source code verification, self-hosted
 > configuration) have been integrated into this document.
@@ -1377,9 +1376,8 @@ requirements apply beyond OCC conflict handling:
   avoid re-processing on retry
 
 **See Also**:
-- [research-convex-durable-workflows-architecture.md](../../../project/research/current/research-convex-durable-workflows-architecture.md)
-  § “Best Practices for Efficient Workflows” for idempotency patterns and overhead
-  analysis
+- [Convex Workflows](https://docs.convex.dev/agents/workflows) describes patterns for
+  retries and durable execution.
 
 **🛠️ OCC Configuration (Self-Hosted)**:
 
@@ -1896,9 +1894,8 @@ But if those Node.js actions then call other Node.js actions, you recreate the
 problematic nested same-runtime pattern.
 
 **See Also**:
-- [research-convex-durable-workflows-architecture.md](../../../project/research/current/research-convex-durable-workflows-architecture.md)
-  § “Overhead Analysis” and “Best Practices for Efficient Workflows” for workflow
-  architecture details
+- [Convex Workflow](https://www.convex.dev/components/workflow) explains how the
+  component tracks and resumes steps.
 
 **Best Practices**:
 
@@ -2222,3 +2219,7 @@ constraints:
 | **10-50 KB** | Separate document or file storage | Use detail tables for on-demand fetch |
 | **50-900 KB** | **Must** use detail table or file storage | Approaching 1 MiB document limit |
 | **>900 KB** | **Must** use file storage with compression | Brotli compression for HTML/text (3:1 ratio) |
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

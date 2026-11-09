@@ -13,7 +13,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 ## Overview
 
-[plan-2026-06-13-agent-cli-ergonomics.md](plan-2026-06-13-agent-cli-ergonomics.md)
+[plan-2026-06-13-agent-cli-ergonomics.md](../active/plan-2026-06-13-agent-cli-ergonomics.md)
 (Phase 1, PR #176) made `close`/`reopen`/`update` variadic and fixed the output
 contract, and the anti-loop guidance for those verbs is now in the skill, manual, and
 `tbd prime`. Field transcripts show it worked for mutations, and show exactly where
@@ -326,7 +326,7 @@ settled by the bulk-show golden, not new scope.
 ## References
 
 - Prior round:
-  [plan-2026-06-13-agent-cli-ergonomics.md](plan-2026-06-13-agent-cli-ergonomics.md)
+  [plan-2026-06-13-agent-cli-ergonomics.md](../active/plan-2026-06-13-agent-cli-ergonomics.md)
   (Phase 1 shipped in PR #176; bulk `show` deferred there, delivered here).
 - Show rendering groundwork:
   [plan-2026-02-13-show-parent-context-and-max-lines.md](../done/plan-2026-02-13-show-parent-context-and-max-lines.md).

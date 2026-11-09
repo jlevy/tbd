@@ -18,9 +18,9 @@ Does not cover manual validation procedures.
 
 **Related Documents:**
 
-- [Golden Testing Guidelines](../../general/agent-guidelines/golden-testing-guidelines.md)
-- [TDD Guidelines](../../general/agent-guidelines/general-tdd-guidelines.md)
-- [tbd Design v3](tbd-design.md)
+- [Golden Testing Guidelines](../../../../packages/tbd/docs/guidelines/golden-testing-guidelines.md)
+- [TDD Guidelines](../../../../packages/tbd/docs/guidelines/general-tdd-guidelines.md)
+- [tbd Design v3](../../../../packages/tbd/docs/tbd-design.md)
 
 ## Test Category Philosophy
 
@@ -632,12 +632,16 @@ Data Flow for Golden Tests:
 
 ## References
 
-- [Golden Testing Guidelines](../../general/agent-guidelines/golden-testing-guidelines.md)
+- [Golden Testing Guidelines](../../../../packages/tbd/docs/guidelines/golden-testing-guidelines.md)
   \- Core methodology
-- [TDD Guidelines](../../general/agent-guidelines/general-tdd-guidelines.md) -
+- [TDD Guidelines](../../../../packages/tbd/docs/guidelines/general-tdd-guidelines.md) -
   Test-driven development
 - [vitest](https://vitest.dev/) - Test runner for unit/integration/golden tests
 - [tryscript](https://github.com/jlevy/tryscript) - Markdown-based CLI test runner
 - [picocolors](https://github.com/alexeyraspopov/picocolors) - Color output (tested with
   NO_COLOR)
 - [commander.js](https://github.com/tj/commander.js) - CLI framework
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

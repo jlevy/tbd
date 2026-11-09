@@ -239,3 +239,7 @@ A comprehensive review of all 8 spec phases was completed on 2026-01-22:
 - Research brief: `docs/project/research/current/research-cli-as-agent-skill.md`
 - Design spec:
   `docs/project/specs/active/plan-2026-01-20-streamlined-init-setup-design.md`
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

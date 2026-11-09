@@ -142,3 +142,7 @@ it('should pass complete user profile to recommendation engine', async () => {
 **Key Takeaway:** Integration tests should verify that components work together
 correctly by testing real interactions, data flow, error handling, business scenarios,
 and data contracts—not just that mocks exist or methods are called.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

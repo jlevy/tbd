@@ -117,3 +117,7 @@ Confirm the GitHub release notes match the CHANGELOG entry.
 | Finding | Bead | Status |
 | --- | --- | --- |
 |  |  |  |
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

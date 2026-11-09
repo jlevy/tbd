@@ -28,9 +28,9 @@ users can access via `tbd shortcut`, `tbd guidelines`, and `tbd template` comman
 
 ### Related Work
 
-- [plan-2026-01-22-doc-cache-abstraction.md](done/plan-2026-01-22-doc-cache-abstraction.md)
+- [plan-2026-01-22-doc-cache-abstraction.md](plan-2026-01-22-doc-cache-abstraction.md)
   \- Implemented the current DocCache system with path-ordered lookups
-- [plan-2026-01-25-gitignore-utils-library.md](done/plan-2026-01-25-gitignore-utils-library.md)
+- [plan-2026-01-25-gitignore-utils-library.md](plan-2026-01-25-gitignore-utils-library.md)
   \- Idempotent gitignore editing library used for `.tbd/.gitignore` management
 
 ### Tracked Issues
@@ -392,8 +392,8 @@ Modify `tbd setup --auto` to:
 4. **Config read/write** in file/config.ts
 5. **OutputManager** for consistent CLI output
 6. **`ensureGitignorePatterns()`** in
-   [gitignore-utils.ts](packages/tbd/src/utils/gitignore-utils.ts) - idempotent
-   gitignore management with return value indicating what changed
+   [gitignore-utils.ts](../../../../packages/tbd/src/utils/gitignore-utils.ts) -
+   idempotent gitignore management with return value indicating what changed
 
 ### Simplification Decisions
 
@@ -503,10 +503,12 @@ This is correct because:
 
 **Implementation:**
 
-- [ ] Update [setup.ts:1142-1159](packages/tbd/src/cli/commands/setup.ts#L1142-L1159) to
-  use `ensureGitignorePatterns()` return value for .tbd/.gitignore messaging
-- [ ] Update [setup.ts:678-680](packages/tbd/src/cli/commands/setup.ts#L678-L680) to use
-  return value for .claude/.gitignore messaging
+- [ ] Update
+  [setup.ts:1142-1159](../../../../packages/tbd/src/cli/commands/setup.ts#L1142-L1159)
+  to use `ensureGitignorePatterns()` return value for .tbd/.gitignore messaging
+- [ ] Update
+  [setup.ts:678-680](../../../../packages/tbd/src/cli/commands/setup.ts#L678-L680) to
+  use return value for .claude/.gitignore messaging
 - [ ] Add code comment explaining why pattern re-addition is intentional
 - [ ] Close beads tbd-mhob, tbd-v7n4, tbd-ne2f when complete
 
@@ -668,3 +670,7 @@ export function readConfig(tbdRoot: string): Config {
    unrelated commands like `tbd list` or `tbd show`. Commands that use docs (shortcut,
    guidelines, template) will trigger the check; other commands won’t incur the
    overhead.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

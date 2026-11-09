@@ -64,3 +64,7 @@ context once implementation is complete.
 > - Ask for any further updates or revisions needed.
 > - Add all feedback and requests for revisions below.
 > - Add new Phase above and revise the implementation if necessary.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

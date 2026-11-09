@@ -16,8 +16,8 @@ March 2026*
   architecture, model configuration, compaction/handoff patterns
 - [Claude Code Orchestration Interfaces and UIs](research-claude-code-orchestration-and-uis.md)
   — Control protocols, IDE surfaces, and external orchestration interfaces
-- [API References for Bridge Integrations](api-references-bridge-integrations.md) —
-  Multi-agent protocols (MCP, ACP, A2A, ANP) and bridge APIs
+- [API References for Bridge Integrations](../current/api-references-bridge-integrations.md)
+  — Multi-agent protocols (MCP, ACP, A2A, ANP) and bridge APIs
 
 * * *
 
@@ -1110,3 +1110,7 @@ is maturing rapidly.
 
 - [Integrating Claude Code with GitHub Actions - Steve Kinney](https://stevekinney.com/courses/ai-development/integrating-with-github-actions)
 - [Multiple branches and agents - Reddit](https://www.reddit.com/r/codex/comments/1o09pgj/multiple_branches_and_agents_working_at_the_same/)
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

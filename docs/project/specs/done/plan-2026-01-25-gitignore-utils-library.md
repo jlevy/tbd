@@ -7,9 +7,9 @@ Create a reusable utility library for idempotent .gitignore editing with atomic 
 ## Background
 
 Currently, gitignore handling is duplicated in
-[init.ts:70-89](packages/tbd/src/cli/commands/init.ts#L70-L89) and
-[setup.ts:1114-1136](packages/tbd/src/cli/commands/setup.ts#L1114-L1136). Both use
-full-file overwrite which:
+[init.ts:70-89](../../../../packages/tbd/src/cli/commands/init.ts#L70-L89) and
+[setup.ts:1114-1136](../../../../packages/tbd/src/cli/commands/setup.ts#L1114-L1136).
+Both use full-file overwrite which:
 - Loses user-added patterns
 - Is not idempotent
 - Has no pattern detection
@@ -248,3 +248,7 @@ All tasks completed 2026-01-25. Files changed:
 - `packages/tbd/src/cli/commands/init.ts` - Refactored
 - `packages/tbd/src/cli/commands/setup.ts` - Refactored + .claude/.gitignore
 - `packages/tbd/tests/gitignore-utils.test.ts` - NEW (18 tests)
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

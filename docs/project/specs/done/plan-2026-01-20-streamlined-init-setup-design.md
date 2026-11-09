@@ -1681,3 +1681,7 @@ The hooks installed by `tbd setup claude` call `tbd prime`:
 
 This ensures agents always have dynamic context (status + condensed rules) at session
 start and after compaction.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

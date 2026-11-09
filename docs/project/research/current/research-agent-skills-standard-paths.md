@@ -603,3 +603,7 @@ path synchronized when Claude Code is detected.
 - Garry Tan gstack: https://github.com/garrytan/gstack
 - GSD skills/extensions/agents: https://getshitdone.help/skills-extensions-agents/
 - Jesse Vincent Superpowers: https://github.com/obra/superpowers
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

@@ -1094,3 +1094,7 @@ This post-mortem builds on related fixes:
    swallowed other errors
 
 All share the same anti-pattern: failures handled in ways that don’t surface to users.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

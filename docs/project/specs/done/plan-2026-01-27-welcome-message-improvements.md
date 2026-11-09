@@ -421,8 +421,12 @@ Once tests are failing (proving the bug), fix the implementation.
 
 - [plan-2026-01-25-agent-orientation-experience.md](plan-2026-01-25-agent-orientation-experience.md)
   \- Related orientation improvements
-- [.tbd/config.yml](../../../.tbd/config.yml) - Current config structure
-- [packages/tbd/src/file/config.ts](../../../packages/tbd/src/file/config.ts) - Config
-  and LocalState implementation
-- [packages/tbd/src/lib/schemas.ts](../../../packages/tbd/src/lib/schemas.ts) -
+- [.tbd/config.yml](../../../../.tbd/config.yml) - Current config structure
+- [packages/tbd/src/file/config.ts](../../../../packages/tbd/src/file/config.ts) -
+  Config and LocalState implementation
+- [packages/tbd/src/lib/schemas.ts](../../../../packages/tbd/src/lib/schemas.ts) -
   LocalStateSchema definition
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

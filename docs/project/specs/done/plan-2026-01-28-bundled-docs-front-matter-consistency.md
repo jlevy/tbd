@@ -150,5 +150,9 @@ credits: Additional contributors or AI assistance acknowledgment (optional)
 
 ## References
 
-- Existing front matter in [guidelines/](../../packages/tbd/docs/guidelines/)
+- Existing front matter in [guidelines/](../../../../packages/tbd/docs/guidelines/)
 - YAML front matter spec: https://jekyllrb.com/docs/front-matter/
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

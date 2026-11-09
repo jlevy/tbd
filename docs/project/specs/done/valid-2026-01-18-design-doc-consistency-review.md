@@ -132,3 +132,7 @@ on multi-agent workflows.
 
 The `cache/` directory has been removed entirely.
 See the doc-cache abstraction spec for details on this simplification.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->
