@@ -6,9 +6,53 @@ category: desktop
 ---
 # macOS WebView Shell Patterns
 
-**Last Updated**: 2026-11-08
+**Last Updated:** 2026-11-08
 
-**Related**:
+## Executive Summary
+
+A native shell is a small Swift program that owns the macOS app identity (Dock icon,
+menus, windows, file and URL hand-off, signing, privacy prompts) and shows your existing
+web UI in the system `WKWebView`. The UI is served by a local server the shell starts
+(Python, Node, Go, Rust, anything), by a server something else already started, or by a
+remote URL. The shell has no engine to ship and no framework to track.
+
+What matters most when deciding:
+
+- **The shell can be small.** A measured example with menus, windows, navigation policy,
+  downloads, find, zoom, printing, file drops, and a supervised server is about 1,000
+  lines of Swift, builds clean in 10 to 14 seconds per architecture, and produces a 1MB
+  universal app bundle with no entitlements.
+  A WKWebView window measured about 78MB across all its processes against about 362MB
+  for headless Chrome on the same page.
+
+- **It is macOS only and WebKit only.** Your users get the WebKit their macOS version
+  ships, so Safari becomes a primary test target.
+  A later Windows or Linux build means a second shell or a framework migration.
+  Livebook maintained a Swift macOS shell beside a separate C# Windows shell from 2023,
+  then replaced both with one Tauri app in 2026.
+
+- **You write what frameworks give you.** Downloads, `target=_blank`, find in page,
+  printing, file drops, and menus are each 10 to 80 lines of AppKit and WebKit delegate
+  code, shown below. Most debugging time goes to signing, notarization, and
+  LaunchServices, not Swift.
+
+- **Process supervision is the real work.** macOS has no parent-death signal.
+  A robust shell spawns its server in its own process group, passes a per-launch secret
+  on stdin, and treats stdin EOF as the shutdown signal, so a crashed shell never leaves
+  an orphan holding a port.
+
+- **The platform rules are the same for every shell.** Developer ID signing, the
+  hardened runtime, notarization, TCC prompts attributed to the app, no quarantine flag,
+  no App Sandbox, and loopback-only binding apply whether the shell is Swift, Tauri, or
+  Electron. They are collected in
+  [Section 8](#8-macos-platform-rules-for-local-server-shells).
+
+**Recommendation in one line:** for a macOS-only app around a local server, write the
+shell in Swift with AppKit and `WKWebView`, build it with SwiftPM and a short script,
+ship a notarized DMG and ZIP on GitHub Releases, and add Sparkle only when shell updates
+become frequent.
+
+**Related:**
 
 - [Companion: Electron App Development Patterns](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/electron-app-development-patterns.md)
 - [Companion: Tauri App Development Patterns](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/tauri-app-development-patterns.md)
@@ -44,7 +88,7 @@ later is marked as inside the cool-off.
 | --- | --- | --- |
 | **macOS** | 27.x current; 26.7.x and 15.8.x receive security updates | macOS 27 shipped 2026-09-14 and runs only on Apple silicon. 26 is the last release for Intel Macs. 14 lost security updates in September 2026. |
 | **Xcode** | 26.6 (17F113), Swift 6.3.3 | Default on the `macos-26` runner. Xcode 27.1 is the default on the `xcode-27` preview image. |
-| **Swift** | 6.4.2 (GitHub release 2026-10-30), **inside the cool-off**; 6.4.1 (2026-10-15) is eligible | [swift.org](https://www.swift.org/install/macos/). Xcode 26.6 bundles 6.3.3. Everything here compiles with 6.3.3 in Swift 6 language mode. |
+| **Swift** | 6.4.2 (GitHub release 2026-10-30), **inside the cool-off**; 6.4.1 (2026-10-15) is eligible | [swift.org](https://www.swift.org/install/macos/). Xcode 26.6 bundles 6.3.3. The examples target Swift 6 language mode. |
 | **SwiftPM tools version** | 6.2 | Needed for `swiftSettings: [.defaultIsolation(MainActor.self)]`. |
 | **GitHub macOS runners** | `macos-26` / `macos-latest` (arm64): macOS 26.6.2, image 20261026, Xcode 26.0.1 to 26.6 | [actions/runner-images](https://github.com/actions/runner-images). `macos-15`: macOS 15.8.2, Xcode 16.4 default plus 26.0.1 to 26.3. **macOS 14 images retired from GitHub Actions on 2026-11-02**; Azure DevOps keeps macOS 14 Intel images until 2026-11-23 ([runner-images#15226](https://github.com/actions/runner-images/issues/15226)). |
 | **Sparkle** | 2.10.1 (2026-10-25), eligible | [Releases](https://github.com/sparkle-project/Sparkle/releases). Published on the cutoff date, so it is eligible; 2.10.0 (2026-09-13) is the previous release. **Never pin below 2.9.6** (see [Updates](#7-updates)). Minimum macOS 12. |
@@ -74,63 +118,6 @@ later is marked as inside the cool-off.
 
 5. **Re-measure sizes and build times** with the same commands rather than repeating
    them.
-
-* * *
-
-## Executive Summary
-
-A native shell is a small Swift program that owns the macOS app identity (Dock icon,
-menus, windows, file and URL hand-off, signing, privacy prompts) and shows your existing
-web UI in the system `WKWebView`. The UI is served by a local server the shell starts
-(Python, Node, Go, Rust, anything), by a server something else already started, or by a
-remote URL. The shell has no engine to ship and no framework to track.
-
-What matters most when deciding:
-
-- **It is the thinnest signed app of the options here.** A measured example with menus,
-  windows, navigation policy, downloads, find, zoom, printing, file drops, and a
-  supervised server is about 1,000 lines of Swift, builds clean in 10 to 14 seconds per
-  architecture, and produces a 1MB universal app bundle with no entitlements.
-  A WKWebView window measured about 78MB across all its processes against about 362MB
-  for headless Chrome on the same page.
-
-- **It is macOS only and WebKit only.** Your users get the WebKit their macOS version
-  ships, so Safari becomes a primary test target.
-  A later Windows or Linux build means a second shell or a framework migration.
-  Livebook maintained a Swift macOS shell beside a separate C# Windows shell from 2023,
-  then replaced both with one Tauri app in 2026.
-
-- **You write what frameworks give you.** Downloads, `target=_blank`, find in page,
-  printing, file drops, and menus are each 10 to 80 lines of AppKit and WebKit delegate
-  code, shown below. Most debugging time goes to signing, notarization, and
-  LaunchServices, not Swift.
-
-- **Process supervision is the real work.** macOS has no parent-death signal.
-  A robust shell spawns its server in its own process group, passes a per-launch secret
-  on stdin, and treats stdin EOF as the shutdown signal, so a crashed shell never leaves
-  an orphan holding a port.
-
-- **The platform rules are the same for every shell.** Developer ID signing, the
-  hardened runtime, notarization, TCC prompts attributed to the app, no quarantine flag,
-  no App Sandbox, and loopback-only binding apply whether the shell is Swift, Tauri, or
-  Electron. They are collected in
-  [Section 8](#8-macos-platform-rules-for-local-server-shells).
-
-**Recommendation in one line:** for a macOS-only app around a local server, write the
-shell in Swift with AppKit and `WKWebView`, build it with SwiftPM and a short script,
-ship a notarized DMG and ZIP on GitHub Releases, and add Sparkle only when shell updates
-become frequent.
-
-**Research questions this document answers**:
-
-1. When is a hand-written shell better than Tauri, Electron, Electrobun, or pywebview?
-2. How do you configure `WKWebView` for a local web UI, and what does it lack?
-3. How do you start, supervise, authenticate, and stop a local server child, or attach
-   to one that is already running?
-4. How do you build, sign, notarize, distribute, and update the app without the Xcode
-   GUI?
-5. Which macOS rules (TCC, quarantine, Local Network privacy, sandboxing) does a
-   local-server shell have to meet?
 
 * * *
 
@@ -226,7 +213,7 @@ Three ways to supply the UI:
 - **Attach to a server that is already running**
   ([Section 4](#4-attaching-to-a-server-something-else-started)): when a CLI, an agent,
   or a launch agent owns the server.
-- **Load a remote URL**: no child at all.
+- **Load a remote URL:** no child at all.
   The shell is a site-specific browser like
   [kofigumbs/multi](https://github.com/kofigumbs/multi).
   Use HTTPS, keep the navigation policy below with the remote origin as the app origin,
@@ -282,7 +269,7 @@ func application(_ application: NSApplication, open urls: [URL]) {
 Build menus in code.
 Items with a `nil` target travel the responder chain, so the focused `WKWebView` answers
 Cut, Copy, Paste, and Select All itself.
-**Without an Edit menu, Cmd+C, Cmd+V, and Cmd+A do nothing in a web view**:
+**Without an Edit menu, Cmd+C, Cmd+V, and Cmd+A do nothing in a web view:**
 webview/webview has that issue open
 ([issue #397](https://github.com/webview/webview/issues/397)).
 
@@ -420,6 +407,12 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
 - **WebContent can die.** If the WebContent process crashes or is killed under memory
   pressure, `webViewWebContentProcessDidTerminate(_:)` fires and the view goes blank.
   Reload or show an error; do not leave a white window.
+
+A new port is a new origin, even with a persistent website data store.
+Store durable drafts and preferences in the backend or native app data.
+If you require browser storage to survive restarts, use a stable origin and verify
+ownership before sending any credentials; test a restart with a deliberately changed
+port to catch accidental dependence on origin-bound storage.
 
 ### Navigation Policy
 
@@ -778,12 +771,15 @@ import signal
 import socket
 import sys
 import threading
+import time
 
 VERSION = "1.4.0"
 SHUTDOWN_DEADLINE_S = 5.0
 stop_requested = threading.Event()
-shutdown_started = threading.Event()
-child_pgids: set[int] = set()  # add each child you start with start_new_session=True
+cleanup_complete = threading.Event()
+# Register only groups this server owns. Stop spawning on shutdown, reap children,
+# and remove finished groups promptly so an old PGID cannot be signaled later.
+child_pgids: set[int] = set()
 
 
 def kill_child_groups(sig: int) -> None:
@@ -802,20 +798,21 @@ def serve(sock: socket.socket, bearer: str) -> None:
     stop_requested.wait()  # replace: serve HTTP on `sock` until a stop is requested
 
 
-def begin_shutdown() -> None:
-    """Shared by stdin EOF and SIGTERM: graceful first, forced after the deadline."""
-    if shutdown_started.is_set():
-        return
-    shutdown_started.set()
-
-    def force_exit() -> None:
+def enforce_deadline() -> None:
+    stop_requested.wait()
+    if not cleanup_complete.wait(SHUTDOWN_DEADLINE_S):
         kill_child_groups(signal.SIGKILL)
-        os._exit(1)
+        os._exit(1)  # last resort if HTTP shutdown or cleanup hangs
 
-    deadline = threading.Timer(SHUTDOWN_DEADLINE_S, force_exit)
-    deadline.daemon = True
-    deadline.start()
-    request_graceful_stop()
+
+def stop_child_groups() -> None:
+    kill_child_groups(signal.SIGTERM)
+    # A production supervisor can return early after reaping and confirming each
+    # group has exited. This skeleton gives registered groups a short grace period.
+    if child_pgids:
+        time.sleep(0.5)
+    kill_child_groups(signal.SIGKILL)
+    # Reap Popen children owned by the production supervisor here.
 
 
 def watch_stdin() -> None:
@@ -823,12 +820,25 @@ def watch_stdin() -> None:
     # its lock, and interpreter shutdown then aborts with a fatal error.
     while os.read(0, 65536):
         pass
-    begin_shutdown()  # EOF: the shell closed the pipe, or died
+    request_graceful_stop()  # EOF: the shell closed the pipe, or died
 
 
-bearer = sys.stdin.readline().strip()  # first stdin line; never argv or the environment
+# Handle SIGTERM without acquiring a Python lock from the signal handler.
+signal_read, signal_write = os.pipe()
+os.set_blocking(signal_write, False)
+signal.set_wakeup_fd(signal_write)
+signal.signal(signal.SIGTERM, lambda signum, frame: None)
+
+def watch_sigterm() -> None:
+    os.read(signal_read, 1)
+    request_graceful_stop()
+
+threading.Thread(target=enforce_deadline, daemon=True).start()
+threading.Thread(target=watch_sigterm, daemon=True).start()
+bearer = sys.stdin.readline(128).strip()  # first stdin line; never argv or environment
+if len(bearer) != 43:  # 32 random bytes encoded as unpadded base64url
+    raise SystemExit("missing or invalid launch credential")
 threading.Thread(target=watch_stdin, daemon=True).start()
-signal.signal(signal.SIGTERM, lambda signum, frame: begin_shutdown())
 
 sock = socket.create_server(("127.0.0.1", 0))  # binds and listens
 port = sock.getsockname()[1]
@@ -844,16 +854,16 @@ print(json.dumps(ready), flush=True)
 try:
     serve(sock, bearer)
 finally:
-    kill_child_groups(signal.SIGTERM)
+    request_graceful_stop()
+    stop_child_groups()
+    cleanup_complete.set()
 ```
 
-This exact file was run through the `posix_spawn` code below (Python 3.12.13, macOS
-26.5.2): closing stdin and sending `SIGTERM` each produced a graceful exit with status
-0\. Its first version read stdin through `sys.stdin.buffer` in the watcher thread, and
-on `SIGTERM` the interpreter aborted at shutdown with “Fatal Python error:
-_enter_buffered_busy: could not acquire lock for <_io.BufferedReader name='<stdin>'> at
-interpreter shutdown, possibly due to daemon threads.”
-Read the raw descriptor with `os.read`, as above.
+The watcher uses `os.read` because a daemon blocked in Python’s buffered stdin reader
+can hold its lock during interpreter shutdown.
+The orderly path also escalates against detached groups: a daemon watchdog alone cannot
+do that after the interpreter exits.
+Use a process supervisor that owns, waits for, and reaps its children in production.
 
 How the server binary itself gets onto the user’s Mac (bundled, installed with uv or
 npm, or downloaded at first run) is covered for Python in
@@ -889,7 +899,12 @@ public nonisolated final class PosixServerProcess: ServerProcess, @unchecked Sen
         var stdinPipe: [Int32] = [-1, -1]
         var stdoutPipe: [Int32] = [-1, -1]
         guard pipe(&stdinPipe) == 0 else { throw SpawnError.pipe(errno) }
-        guard pipe(&stdoutPipe) == 0 else { throw SpawnError.pipe(errno) }
+        guard pipe(&stdoutPipe) == 0 else {
+            let error = errno
+            close(stdinPipe[0])
+            close(stdinPipe[1])
+            throw SpawnError.pipe(error)
+        }
         // The parent's ends must not leak into any other child this app starts.
         _ = fcntl(stdinPipe[1], F_SETFD, FD_CLOEXEC)
         _ = fcntl(stdoutPipe[0], F_SETFD, FD_CLOEXEC)
@@ -934,9 +949,9 @@ public nonisolated final class PosixServerProcess: ServerProcess, @unchecked Sen
         lifeline = FileHandle(fileDescriptor: stdinPipe[1], closeOnDealloc: true)
         try? lifeline.write(contentsOf: Data((spec.secret + "\n").utf8))  // the first stdin line
 
-        // Lines for the readiness check (newest 200 kept), plus a log file tee.
+        // Reserve one slot for the first valid readiness line. Logs use a separate sink.
         let (lineStream, lineSink) = AsyncStream<String>.makeStream(
-            bufferingPolicy: .bufferingNewest(200))
+            bufferingPolicy: .bufferingOldest(1))
         lines = lineStream
         let log = try? FileHandle(forWritingTo: spec.logURL)
         _ = try? log?.seekToEnd()
@@ -951,7 +966,11 @@ public nonisolated final class PosixServerProcess: ServerProcess, @unchecked Sen
                 return
             }
             try? log?.write(contentsOf: chunk)
-            splitter.append(chunk) { lineSink.yield($0) }
+            splitter.append(chunk) { line in
+                guard ReadyLine.parse(line) != nil else { return }
+                lineSink.yield(line)
+                lineSink.finish()
+            }
         }
 
         // kqueue EVFILT_PROC with NOTE_EXIT; reap with waitpid so no zombie remains.
@@ -987,8 +1006,8 @@ on Darwin if you prefer a dependency to these 100 lines.
 
 1. Read the child’s output line by line until the JSON ready line appears, with a
    deadline (30 seconds is generous for an interpreted server; measure yours).
-   Accept it only if `protocol` is one you speak, the URL is `http` on `127.0.0.1` or
-   `::1`, and its port equals `port`.
+   Accept it only if `protocol` is one you speak and the URL exactly matches the
+   expected loopback address and announced port.
 2. Poll the health route every 50 milliseconds until it returns 2xx, with the same
    deadline. Use an ephemeral `URLSession` with `connectionProxyDictionary = [:]`, so a
    system proxy never intercepts loopback.
@@ -1016,9 +1035,8 @@ public nonisolated struct ReadyLine: Decodable, Equatable, Sendable {
         guard line.hasPrefix("{"),
               let ready = try? JSONDecoder().decode(ReadyLine.self, from: Data(line.utf8)),
               ready.event == "ready", ready.protocolVersion == 1,
-              ready.url.scheme == "http",
-              ready.url.host == "127.0.0.1" || ready.url.host == "::1",
-              ready.url.port == ready.port
+              (1...65535).contains(ready.port),
+              ready.url.absoluteString == "http://127.0.0.1:\(ready.port)/"
         else { return nil }
         return ready
     }
@@ -1078,7 +1096,7 @@ store (an “Open in Browser” menu item, a CLI that opens the default browser)
 server for a code with the bearer secret, then opens a URL carrying only that code:
 
 ```swift
-static func exchangeURL(server: URL, secret: String, next: String = "/") async throws -> URL {
+func exchangeURL(server: URL, secret: String, next: String = "/") async throws -> URL {
     var request = URLRequest(url: server.appending(path: "auth/code"))
     request.httpMethod = "POST"
     request.setValue("Bearer \(secret)", forHTTPHeaderField: "Authorization")
@@ -1097,17 +1115,27 @@ static func exchangeURL(server: URL, secret: String, next: String = "/") async t
 
 On `GET /auth/redeem`, the server checks the code in constant time, deletes it so it
 cannot be used twice, rejects it if it is more than a few seconds old, sets the session
-cookie with a freshly minted value, and answers `303` to `next`, accepting only a
-relative path. The redirect lands on a clean URL, so the code stays out of the address
-bar and page script, and it is useless once redeemed even if it was logged.
-The route names are examples; the shape is what matters.
+cookie with a freshly minted value, and answers `303` to a validated same-origin path.
+Reject network-path references such as `//other-host/path` and backslash variants, or
+use a fixed redirect target.
+Redeem the code atomically, use `Cache-Control: no-store` and
+`Referrer-Policy: no-referrer`, and redact codes from logs.
+The redirect lands on a clean URL; never assume the original URL was absent from browser
+history. The route names are examples; the shape is what matters.
 
 Caveats:
 
 - **Cookies are not isolated by port.** RFC 6265 §8.5: “If a cookie is readable by a
   service running on one port, the cookie is also readable by a service running on
   another port of the same server.”
-  Hence the per-instance name, a fresh secret every launch, and no expiry.
+  A per-instance name avoids collisions; it does not prevent another loopback listener
+  from receiving the cookie.
+  Use an isolated web view cookie store and restrict both navigation and subresources to
+  the exact app origin.
+  For example, use an exact-origin Content Security Policy for resource directives and
+  omit external or arbitrary loopback origins.
+  A system browser has no app-owned cookie store; for a threat model with untrusted
+  local listeners, use origin-scoped authentication for that mode or omit it.
 - **Do not inject the cookie with a user script.** Ollama’s app sets
   `document.cookie = "token=..."` from an injected script, and its own comment says the
   approach “isn’t working yet since it needs to be set on the first page load, ideally
@@ -1115,9 +1143,13 @@ Caveats:
   ([`app/cmd/app/webview.go`](https://github.com/ollama/ollama/blob/d63b702609c4300a2ca07be2bdb0adb9834725e5/app/cmd/app/webview.go)).
   A script-set cookie cannot be `HttpOnly` either.
 
-The secret protects against other local users, web pages, and processes that cannot read
-your files. It does not protect against code already running as the same user, which can
-read the app’s files anyway.
+The bearer protects requests from clients that cannot obtain it.
+Keep browser session credentials separate from the bearer where possible, and do not
+rely on cookie attributes to protect a browser session from another service on the same
+host.
+Test a hostile second loopback port as well as a page hosted on an external origin.
+This design does not defend against code already running with the same user’s access to
+the app.
 
 ### Shutdown and Orphans
 
@@ -1208,7 +1240,7 @@ struct ToolPaths: Codable {
 }
 
 /// A fixed, minimal PATH: the server and every tool it runs arrive by absolute path.
-static func serverEnvironment(python: Bool) -> [String: String] {
+func serverEnvironment(python: Bool) -> [String: String] {
     let inherited = ProcessInfo.processInfo.environment
     var env = inherited.filter { ["HOME", "USER", "LOGNAME", "TMPDIR", "LANG"].contains($0.key) }
     env["PATH"] = "/usr/bin:/bin:/usr/sbin:/sbin"
@@ -1242,7 +1274,7 @@ that ignores `SIGTERM`.
 ```swift
 public nonisolated protocol ServerProcess: AnyObject, Sendable {
     var pid: pid_t { get }
-    /// Lines the child writes to stdout and stderr; the newest 200 are buffered.
+    /// The first valid ready line, buffered separately from diagnostic output.
     var lines: AsyncStream<String> { get }
     /// The wait status once the child has exited, or nil if the waiting task was
     /// cancelled first.
@@ -1501,14 +1533,14 @@ plutil -replace CFBundleVersion -string "$BUILD" "$APP/Contents/Info.plist"
 if [[ -d packaging/AppIcon.iconset ]]; then   # icon_16x16.png ... icon_512x512@2x.png
   iconutil -c icns packaging/AppIcon.iconset -o "$APP/Contents/Resources/AppIcon.icns"
 fi
-# Helper executables (a server binary, a launcher script) go in Contents/MacOS or
-# Contents/Helpers; data files never go in Contents/MacOS.
+# Put Mach-O helpers in Contents/Helpers and interpreted scripts in Contents/Resources.
+# See Apple's "Placing content in a bundle" for other nested code types.
+# Copy any additional payloads before signing. This example has no nested code.
+# When adding a native helper, sign its explicit path before the outer app. Sign
+# nested bundles from the inside out. Resources, including scripts, are sealed by
+# the outer signature; do not sign a script separately or use --deep for signing.
 
-# 3. Sign inside out: nested code first, the app last. Never --deep when signing.
-find "$APP/Contents" -type f -perm -u+x ! -path "*/Contents/MacOS/ExampleShell" -print0 |
-  while IFS= read -r -d '' nested; do
-    codesign --force --sign "$SIGN_ID" --options runtime --timestamp "$nested"
-  done
+# 3. Sign the app after any nested code.
 codesign --force --sign "$SIGN_ID" --options runtime --timestamp "$APP"
 
 # 4. Verify. --deep is for verification only.
@@ -1690,6 +1722,10 @@ JIT runs in Apple’s WebContent process.
   needed only if the page uses them, and are checked on the responsible app.
 
 ### Signing Order
+
+Follow Apple’s
+[bundle placement rules](https://developer.apple.com/documentation/bundleresources/placing-content-in-a-bundle):
+put interpreted scripts in Resources and seal them with the containing bundle.
 
 Inside out, each item once:
 

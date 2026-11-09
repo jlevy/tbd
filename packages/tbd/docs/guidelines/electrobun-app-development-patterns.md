@@ -6,9 +6,54 @@ category: desktop
 ---
 # Electrobun App Development Patterns
 
-**Last Updated**: 2026-11-08
+**Last Updated:** 2026-11-08
 
-**Related**:
+## Executive Summary
+
+Electrobun builds desktop apps with a TypeScript main process (or a Zig, Rust, Go, or
+Odin one), a native Zig core, system webviews or bundled Chromium (CEF), and a typed RPC
+layer between the main process and its webviews.
+Its build CLI, Hutch, is MIT-licensed and open source; it produces signed and notarized
+macOS DMGs, installers for Windows and Linux, and the feed for a bsdiff-based delta
+updater. By default it does not ship Chromium, but a Bun main process still carries a
+JavaScript runtime of roughly 63 MB extracted (measured for Bun 1.3.13 on macOS arm64).
+
+**Bun is the default main-process runtime.** `build.mainProcess` accepts
+`bun | cottontail | zig | rust | go | odin` and defaults to `"bun"`
+(`package/src/config/ElectrobunConfig.ts:151`). Cottontail, Electrobun’s own
+JavaScriptCore runtime, is an experimental opt-in.
+The default has changed twice in two months of stable releases: 2.0.1 (2026-08-22) made
+Cottontail the default, and 2.0.4 (2026-10-18) moved it back to Bun.
+Material written between those dates describes Cottontail as the default.
+
+Three findings determine whether you should use it, and all three are verifiable in the
+repositories:
+
+- **The updater checks integrity, not authenticity.** Since 2.0.6 it requires HTTPS and
+  can check a SHA-256 digest of the update archive, but the digest is optional and comes
+  from the same host as the payload, so it detects corruption, not tampering.
+  There is no signature, no key compiled into the app, and no check of the staged
+  bundle’s code signature; on macOS the updater strips the quarantine flag from what it
+  downloaded. Anyone who controls your update host can run code on every installed copy.
+  Details and evidence are in
+  [The Updater](#the-updater-checks-integrity-not-authenticity).
+
+- **Sandboxing and IPC are mutually exclusive.** A sandboxed webview cannot use RPC at
+  all, so the Electron posture of “sandboxed renderer talking over a narrow audited
+  bridge” is not available.
+  There is also no `contextIsolation` equivalent.
+
+- **The bus factor is one.** All 481 commits on `main` between 2026-08-16 and 2026-11-08
+  are by one account, no pull request was merged in that period, 54 issues were opened
+  and 5 closed, private vulnerability reporting is disabled, and the two open security
+  reports (#515, #518) have no maintainer comment.
+
+**Recommendation in one line:** reasonable for internal tools, prototypes, and apps you
+distribute to a trusted audience without the built-in updater; not currently a
+responsible choice for a security-sensitive product or one shipped to the general
+public. The full form is in [Recommendations](#recommendations).
+
+**Related:**
 
 - [Electrobun documentation](https://docs.electrobun.dev/electrobun/)
 - [Electrobun changelog](https://docs.electrobun.dev/electrobun/guides/changelog/)
@@ -93,63 +138,6 @@ Sizes use MB = 10^6 bytes.
    Zig, Rust, Go, and Odin toolchains) and in `npm/electrobun/bin/resolve-hutch.cjs`.
 
 8. **Recheck the platform matrix.** It has both narrowed and widened between releases.
-
-* * *
-
-## Executive Summary
-
-Electrobun builds desktop apps with a TypeScript main process (or a Zig, Rust, Go, or
-Odin one), a native Zig core, system webviews or bundled Chromium (CEF), and a typed RPC
-layer between the main process and its webviews.
-Its build CLI, Hutch, is MIT-licensed and open source; it produces signed and notarized
-macOS DMGs, installers for Windows and Linux, and the feed for a bsdiff-based delta
-updater. By default it does not ship Chromium, but a Bun main process still carries a
-JavaScript runtime of roughly 63 MB extracted (measured for Bun 1.3.13 on macOS arm64).
-
-**Bun is the default main-process runtime.** `build.mainProcess` accepts
-`bun | cottontail | zig | rust | go | odin` and defaults to `"bun"`
-(`package/src/config/ElectrobunConfig.ts:151`). Cottontail, Electrobun’s own
-JavaScriptCore runtime, is an experimental opt-in.
-The default has changed twice in two months of stable releases: 2.0.1 (2026-08-22) made
-Cottontail the default, and 2.0.4 (2026-10-18) moved it back to Bun.
-Material written between those dates describes Cottontail as the default.
-
-Three findings determine whether you should use it, and all three are verifiable in the
-repositories:
-
-- **The updater checks integrity, not authenticity.** Since 2.0.6 it requires HTTPS and
-  can check a SHA-256 digest of the update archive, but the digest is optional and comes
-  from the same host as the payload, so it detects corruption, not tampering.
-  There is no signature, no key compiled into the app, and no check of the staged
-  bundle’s code signature; on macOS the updater strips the quarantine flag from what it
-  downloaded. Anyone who controls your update host can run code on every installed copy.
-  Details and evidence are in
-  [The Updater](#the-updater-checks-integrity-not-authenticity).
-
-- **Sandboxing and IPC are mutually exclusive.** A sandboxed webview cannot use RPC at
-  all, so the Electron posture of “sandboxed renderer talking over a narrow audited
-  bridge” is not available.
-  There is also no `contextIsolation` equivalent.
-
-- **The bus factor is one.** All 481 commits on `main` between 2026-08-16 and 2026-11-08
-  are by one account, no pull request was merged in that period, 54 issues were opened
-  and 5 closed, private vulnerability reporting is disabled, and the two open security
-  reports (#515, #518) have no maintainer comment.
-
-**Recommendation in one line:** reasonable for internal tools, prototypes, and apps you
-distribute to a trusted audience without the built-in updater; not currently a
-responsible choice for a security-sensitive product or one shipped to the general
-public. The full form is in [Recommendations](#recommendations).
-
-**Research questions this document answers**:
-
-1. What actually runs where in an Electrobun app, and which runtime should the main
-   process use?
-2. What does a minimal, correct project look like, and which config schema applies?
-3. What is the real security boundary, and how does it compare to Electron’s?
-4. What does it take to package, sign, and update an Electrobun app, and what is
-   missing?
-5. Which version is safe to adopt under a release-age cool-off?
 
 * * *
 
@@ -466,7 +454,7 @@ Two Electrobun-specific facts:
   (`hutch/src/electrobun.zig:2197-2295`). A bundled executable therefore receives the
   three default entitlements, including `disable-library-validation`, unless you set
   them to `false` (see [Code Signing](#code-signing)).
-- **The macOS bundle layout is standard**: executables in `Contents/MacOS/`, resources
+- **The macOS bundle layout is standard:** executables in `Contents/MacOS/`, resources
   in `Contents/Resources/`, app code in `Contents/Resources/app/`
   (`hutch/src/electrobun.zig:7889-7893`).
 
@@ -633,7 +621,7 @@ Consequences:
   bundles it installs (`extractor/main.zig:1584`, `:2046-2052`). For what the flag
   governs, see
   [Quarantine and Gatekeeper](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/macos-webview-shell-patterns.md#quarantine-and-gatekeeper).
-- **First launch briefly needs disk space for two copies**: the compressed app inside
+- **First launch briefly needs disk space for two copies:** the compressed app inside
   the wrapper and the extracted inner app.
 
 ### Bundle Size
@@ -964,7 +952,7 @@ npm registry.
   artifacts through Blackboard’s hosted Dash service, and Electrobun Insights, analytics
   built into the native core with a persistent installation ID. Insights is off by
   default (`insights.enabled` defaults to `false`).
-- **The maintainer’s surface keeps widening**: a Bun fork (`blackboardsh/bun`),
+- **The maintainer’s surface keeps widening:** a Bun fork (`blackboardsh/bun`),
   Cottontail, Hutch with its own package manager, a native GPU UI engine (2.0.6), and
   the hosted services.
   `CONTRIBUTING.md:5` calls Electrobun “10% of the vision.”
@@ -1135,12 +1123,16 @@ The recommendation:
    stanza must also remove `~/Library/Application Support/<identifier>` (inference from
    source); Sparkle has no integration path yet (see
    [Open Research Questions](#open-research-questions)).
-4. **Pin Bun with a digest.** Record the SHA-256 of the Bun archive for each target from
-   Bun’s `SHASUMS256.txt`, after checking that file against `SHASUMS256.txt.asc`. In a
-   `postBuild` hook, which runs after Hutch copies Bun to `Contents/MacOS/bun` and
-   before it re-signs it, compare that file against the binary from your verified
-   archive and fail the build on a mismatch.
-   Set `build.bun.version` so the version cannot drift (read from source; not tested).
+4. **Verify Bun before Hutch can execute it.** Verify Bun’s signed checksum file using a
+   trusted release key, then verify each target archive against its recorded SHA-256.
+   Provision Hutch with that verified runtime in an isolated build and confirm that it
+   does not fetch or execute an unchecked replacement.
+   If the pinned Hutch version cannot enforce that, isolate the build from signing
+   credentials and verify the artifact independently before promoting it to a separate
+   signing step.
+   [Hutch’s hook runner](https://github.com/blackboardsh/hutch/blob/v0.29.0/src/electrobun.zig#L5644-L5655)
+   executes `postBuild` through Bun, so a check in that hook is only an artifact check.
+   Pin `build.bun.version` as well; a version pin alone does not verify the download.
 5. **Notarize with an App Store Connect API key**, and keep it out of shell profiles.
 6. **Set entitlements explicitly**, writing `false` for any of the three defaults your
    app does not need, and test the signed build.

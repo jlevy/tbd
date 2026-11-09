@@ -6,9 +6,50 @@ category: desktop
 ---
 # Electron App Development Patterns
 
-**Last Updated**: 2026-11-08
+**Last Updated:** 2026-11-08
 
-**Related**:
+## Executive Summary
+
+This document is a reference for building a **clean, minimal, standalone Electron
+desktop app** with a modern build system and a backend written in whatever language
+suits the problem—Node.js, Bun, Python, Go, or a combination.
+
+The recommended default: **Electron 45 and electron-vite with TypeScript and
+electron-builder**, with the renderer as an ordinary Vite web app, the main process as a
+thin bundled CommonJS entry point, a CommonJS preload exposing a narrow typed API over
+`contextBridge`, and any substantial backend work pushed into a **`utilityProcess`**
+(for Node) or a **signed sidecar executable** (for anything else).
+
+When the product is already a local web server with a browser UI, the shell is much
+smaller: one plain `main.js` of about 100 lines of code that Electron loads directly,
+with no bundler, preload, renderer build, or IPC
+([Wrapping an Existing Local Web App](#wrapping-an-existing-local-web-app)).
+
+Four claims in this document are worth stating up front because they contradict advice
+that is still widely repeated:
+
+- **Electron’s security defaults have been correct for years.** `sandbox: true`,
+  `contextIsolation: true`, and `nodeIntegration: false` are all defaults.
+  The work is not turning them on.
+  It is refusing to turn them off, and designing a preload API narrow enough that an XSS
+  bug cannot escalate into code execution.
+
+- **`require('electron')` returning a file path is not a bug.** The npm package exports
+  the path to the Electron binary when it is loaded by plain Node.js.
+  Seeing a string instead of the API object means the script was run by `node`, not by
+  `electron`.
+
+- **The postinstall-binary problem is mostly over.** Since Electron 42, the npm package
+  downloads its binary lazily on first run rather than in a `postinstall` script.
+  This lands at the same time as npm 12, pnpm 11 and 12, and Bun all blocking dependency
+  lifecycle scripts by default, and it resolves that collision for current Electron.
+
+- **Apply library validation rules to the process that loads code.** An Electron parent
+  does not need an entitlement for libraries loaded by a separate Python interpreter.
+  Check the interpreter’s own code signature and what it loads; see
+  [Signing Nested Binaries](#signing-nested-binaries).
+
+**Related:**
 
 - [Electron Documentation](https://www.electronjs.org/docs/latest/)
 - [Electron Security Checklist](https://www.electronjs.org/docs/latest/tutorial/security)
@@ -139,66 +180,6 @@ and the API docs at each tag:
 
 9. **Review [Open Research Questions](#open-research-questions)** for anything now
    settled.
-
-* * *
-
-## Executive Summary
-
-This document is a reference for building a **clean, minimal, standalone Electron
-desktop app** with a modern build system and a backend written in whatever language
-suits the problem—Node.js, Bun, Python, Go, or a combination.
-
-The recommended default: **Electron 45 and electron-vite with TypeScript and
-electron-builder**, with the renderer as an ordinary Vite web app, the main process as a
-thin bundled CommonJS entry point, a CommonJS preload exposing a narrow typed API over
-`contextBridge`, and any substantial backend work pushed into a **`utilityProcess`**
-(for Node) or a **signed sidecar executable** (for anything else).
-
-When the product is already a local web server with a browser UI, the shell is much
-smaller: one plain `main.js` of about 100 lines of code that Electron loads directly,
-with no bundler, preload, renderer build, or IPC
-([Wrapping an Existing Local Web App](#wrapping-an-existing-local-web-app)).
-
-Four claims in this document are worth stating up front because they contradict advice
-that is still widely repeated:
-
-- **Electron’s security defaults have been correct for years.** `sandbox: true`,
-  `contextIsolation: true`, and `nodeIntegration: false` are all defaults.
-  The work is not turning them on.
-  It is refusing to turn them off, and designing a preload API narrow enough that an XSS
-  bug cannot escalate into code execution.
-
-- **`require('electron')` returning a file path is not a bug.** The npm package exports
-  the path to the Electron binary when it is loaded by plain Node.js.
-  Seeing a string instead of the API object means the script was run by `node`, not by
-  `electron`.
-
-- **The postinstall-binary problem is mostly over.** Since Electron 42, the npm package
-  downloads its binary lazily on first run rather than in a `postinstall` script.
-  This lands at the same time as npm 12, pnpm 11 and 12, and Bun all blocking dependency
-  lifecycle scripts by default, and it resolves that collision for current Electron.
-
-- **A Python interpreter the app spawns does not need `disable-library-validation`.**
-  Library validation is enforced per process, by the process doing the loading, from its
-  own code signature. It applies to an interpreter only when that interpreter is signed
-  inside your bundle with the hardened runtime; an interpreter that the bundled `uv`
-  installs into app data is outside its reach.
-
-**Research questions this document answers**:
-
-1. What is the minimum coherent structure of a standalone Electron app in 2026, and what
-   builds what?
-
-2. What is the thinnest correct shell for a product that is already a local web server?
-
-3. Where should backend code live, and how do you ship a non-JavaScript runtime with a
-   signed desktop app?
-
-4. What is the current security baseline beyond the three `webPreferences` flags
-   everyone quotes?
-
-5. What does it actually take to get a signed, notarized, auto-updating app onto three
-   platforms?
 
 * * *
 
@@ -504,8 +485,10 @@ defines for every shell; in summary:
    for one and binding later, which races.
 2. **Once the socket is listening, print one ready line on stdout**:
    `{"event":"ready","protocol":1,"url":"http://127.0.0.1:<port>/","port":<port>,"pid":<pid>,"version":"<server version>"}`.
-   Connections queue in the listen backlog until the server loop runs, so the shell can
-   load the URL at once, with no polling and no regex over log text.
+   The ready line identifies the listener.
+   If initialization can continue after binding, probe the authenticated health endpoint
+   before showing the window.
+   This example assumes the app is initialized before it announces readiness.
 3. **Read a per-launch secret from the first line of stdin**, never argv or the
    environment, and keep reading: the shell holds stdin open.
 4. **Treat EOF on stdin like `SIGTERM`**: start a graceful shutdown with a bounded
@@ -516,26 +499,9 @@ defines for every shell; in summary:
    A shell that controls its cookie store sets that cookie directly, as below; otherwise
    a single-use exchange code at a one-time URL sets it and redirects.
 
-```python
-import json, os, signal, socket, sys, threading
-
-bearer = sys.stdin.readline().strip()            # line 1: the per-launch secret
-
-def shut_down_on_stdin_eof() -> None:
-    while sys.stdin.buffer.read(65536):          # returns b"" only at EOF
-        pass
-    os.kill(os.getpid(), signal.SIGTERM)         # the same graceful, bounded path as SIGTERM
-
-threading.Thread(target=shut_down_on_stdin_eof, daemon=True).start()
-
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.bind(("127.0.0.1", 0))                      # the OS picks a free port
-sock.listen(128)                                 # connections now queue in the backlog
-port = sock.getsockname()[1]
-print(json.dumps({"event": "ready", "protocol": 1, "url": f"http://127.0.0.1:{port}/",
-                  "port": port, "pid": os.getpid(), "version": __version__}), flush=True)
-serve(sock, bearer)  # e.g. uvicorn.Config(app, fd=sock.fileno(), timeout_graceful_shutdown=5)
-```
+Use the
+[Python server skeleton in the shared contract](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/macos-webview-shell-patterns.md#the-shellserver-contract)
+for the server half, including its EOF watcher and shutdown deadline.
 
 The shell’s half:
 
@@ -549,15 +515,15 @@ The shell’s half:
   for each `webRequest` event, so it collides with any other code that needs that event.
   A plain-browser tier uses the contract’s one-time URL instead, so the URL left in
   history is worthless.
-- **Cookies are scoped by host, not port.** If several servers share one session, give
-  each a per-instance cookie name, and never let a window navigate to another loopback
-  port.
+- **Cookies are scoped by host, not port.** A per-instance name prevents collisions.
+  Use a dedicated in-memory session and block requests to any other loopback port,
+  including redirects and subresources.
+  See the shared contract for browser mode.
 - **Deny permissions by default** in both the request and check handlers, and allow only
   what the UI uses, for the app origin only.
-- **Keep every window on the app origin** with `will-navigate` and
-  `setWindowOpenHandler` on every `webContents` (`web-contents-created` covers windows
-  the page opens), and hand allowlisted `http:` and `https:` URLs to
-  `shell.openExternal`.
+- **Keep every window on the app origin.** Check frame navigation and redirects as well
+  as new windows, and check the URL passed to `loadURL`. Open allowlisted external links
+  in the system browser only for explicit link navigation.
 - **Call `app.requestSingleInstanceLock()`.** LaunchServices enforces a single instance
   for Finder launches, but command-line launches bypass it.
 - **Register `open-file` and `open-url` before `ready`**, because launch-time opens
@@ -579,45 +545,88 @@ The shell’s half:
 const { app, autoUpdater, BrowserWindow, Menu, session, shell } = require('electron');
 const { spawn } = require('node:child_process');
 const { randomBytes } = require('node:crypto');
+const { readFileSync } = require('node:fs');
 const path = require('node:path');
 const readline = require('node:readline');
 
 const BEARER = randomBytes(32).toString('base64url');
-const COOKIE = 'app_session'; // make it per-instance if several servers share a session
 const ALLOWED_PERMISSIONS = new Set(['clipboard-sanitized-write']); // only what the UI uses
 let appOrigin = ''; // for example http://127.0.0.1:53124, known once the backend listens
 let quitting = false;
 /** @type {string | undefined} */
 let pendingTarget;
 
-if (!app.requestSingleInstanceLock()) app.exit(0);
+if (!app.requestSingleInstanceLock()) {
+  app.exit(0);
+  return; // CommonJS entry point: do not spawn a second backend
+}
 
 // Launch-time opens arrive before 'ready', so register these first.
 app.on('open-file', (event, filePath) => { event.preventDefault(); openTarget(filePath); });
 app.on('open-url', (event, url) => { event.preventDefault(); openTarget(url); });
 app.on('second-instance', (_event, argv) => openTarget(argv.at(-1)));
 
-// Spawn before 'ready' so the backend and Chromium start in parallel. `env` is the
-// symlink that the environment lifecycle in desktop-python-runtime-patterns swaps to
-// `envs/<digest>` after the bundled uv builds and smoke-tests it (see Appendix E).
+// Spawn before 'ready' so the backend and Chromium start in parallel. This example
+// assumes provisioning already published a tested generation (see Appendix E).
 const data = app.getPath('userData');
-const backend = spawn(path.join(data, 'env', 'bin', 'python'),
+const runtime = path.join(data, 'python-runtime');
+let python;
+try {
+  const { active } = JSON.parse(readFileSync(path.join(runtime, 'state.json'), 'utf8'));
+  if (typeof active !== 'string' || !/^envs\/[a-zA-Z0-9_-]+$/.test(active)) {
+    throw new Error('Invalid Python environment pointer');
+  }
+  python = path.join(runtime, active, 'bin', 'python');
+} catch (error) {
+  void app.whenReady().then(() => showBackendError(new Error('Python environment is not ready', { cause: error })));
+  return;
+}
+const backend = spawn(python,
   ['-m', 'myapp.server'], {
     cwd: data,
     env: allowlistedEnv(),
     stdio: ['pipe', 'pipe', 'inherit'], // stdin carries the secret, then stays open as the lifeline
     detached: true, // own process group, so quitting can signal grandchildren
   });
-backend.stdin.write(`${BEARER}\n`); // not argv (visible to ps) or env (inherited by every child)
-backend.once('exit', (code) => { if (!quitting) showBackendError(code); });
 /** @type {Promise<string>} */
 const ready = new Promise((resolve, reject) => {
-  backend.once('error', reject);
-  readline.createInterface({ input: backend.stdout }).once('line', (line) => {
-    const msg = JSON.parse(line); // the contract's ready line
-    if (msg.event === 'ready' && msg.protocol === 1) resolve(new URL(msg.url).origin);
-    else reject(new Error(`unexpected first line from the backend: ${line}`));
+  const lines = readline.createInterface({ input: backend.stdout });
+  let announced = false;
+  const timeout = setTimeout(() => fail(new Error('Backend startup timed out')), 30_000);
+  /** @param {Error} error */
+  function fail(error) {
+    clearTimeout(timeout);
+    reject(error);
+  }
+  backend.once('error', fail);
+  backend.once('exit', (code, signal) => {
+    if (!announced) fail(new Error(`Backend exited before readiness: ${code ?? signal}`));
+    else {
+      appOrigin = ''; // stop requests before another process can claim the old port
+      if (!quitting) showBackendError(new Error(`Backend exited: ${code ?? signal}`));
+    }
   });
+  backend.stdin.on('error', fail); // a child that exits before reading can cause EPIPE
+  lines.once('close', () => {
+    if (!announced) fail(new Error('Backend closed stdout before readiness'));
+  });
+  lines.on('line', (line) => {
+    if (announced) return; // keep draining stdout; send log lines to a file in production
+    try {
+      const msg = JSON.parse(line);
+      if (msg.event !== 'ready' || msg.protocol !== 1) throw new Error('Invalid ready event');
+      if (!Number.isInteger(msg.port) || msg.port < 1 || msg.port > 65535 ||
+          msg.url !== `http://127.0.0.1:${msg.port}/`) {
+        throw new Error('Invalid backend address');
+      }
+      announced = true;
+      clearTimeout(timeout);
+      resolve(new URL(msg.url).origin);
+    } catch {
+      fail(new Error('Backend sent an invalid readiness line'));
+    }
+  });
+  backend.stdin.write(`${BEARER}\n`); // keep the pipe open as the parent lifeline
 });
 
 /** @param {string} url */
@@ -627,55 +636,75 @@ function isAppUrl(url) {
 
 /** @param {string} url */
 function openExternal(url) {
-  if (/^https?:\/\//.test(url)) void shell.openExternal(url); // allowlist the scheme
+  if (/^https?:\/\//.test(url)) void shell.openExternal(url).catch(showBackendError);
 }
 
 // Every webContents, including windows the page opens, stays on the app origin.
 app.on('web-contents-created', (_event, contents) => {
-  contents.on('will-navigate', (event, url) => {
-    if (!isAppUrl(url)) { event.preventDefault(); openExternal(url); }
+  contents.on('will-frame-navigate', (event) => {
+    if (isAppUrl(event.url)) return;
+    event.preventDefault();
+    if (event.isMainFrame) openExternal(event.url);
+  });
+  contents.on('will-redirect', (event) => {
+    if (!isAppUrl(event.url)) event.preventDefault();
   });
   contents.setWindowOpenHandler(({ url }) => {
-    if (isAppUrl(url)) void createWindow(url); else openExternal(url);
+    if (isAppUrl(url)) void createWindow(url).catch(showBackendError);
+    else openExternal(url);
     return { action: 'deny' };
   });
 });
 
 /** @param {string} [url] */
 async function createWindow(url) {
+  const target = url ?? `${appOrigin}/`;
+  if (!isAppUrl(target)) return;
   const first = BrowserWindow.getAllWindows().length === 0;
-  // No preload and no webPreferences: the page never uses Electron APIs, and the
-  // defaults (sandbox, contextIsolation, no nodeIntegration) are the secure ones.
+  // Use the secure renderer defaults and a dedicated in-memory session.
   const win = new BrowserWindow({
     width: 1280, height: 860, show: false,
+    webPreferences: { session: session.fromPartition('local-app') },
     ...(first ? { name: 'main', windowStatePersistence: true } : {}), // 44+, experimental
   });
   win.once('ready-to-show', () => win.show());
-  await win.loadURL(url ?? `${appOrigin}/`);
+  await win.loadURL(target);
 }
 
 /** @param {string | undefined} target a path or an app URL */
 function openTarget(target) {
   if (!target || target.startsWith('-')) return void BrowserWindow.getAllWindows()[0]?.focus();
   if (!appOrigin) { pendingTarget = target; return; }
-  void createWindow(`${appOrigin}/open?target=${encodeURIComponent(target)}`); // a server route
+  void createWindow(`${appOrigin}/open?target=${encodeURIComponent(target)}`).catch(showBackendError);
 }
 
-app.whenReady().then(async () => {
-  appOrigin = await ready;
-  const ses = session.defaultSession;
-  await ses.cookies.set({ url: appOrigin, name: COOKIE, value: BEARER,
-                          httpOnly: true, sameSite: 'strict' });
+Promise.all([app.whenReady(), ready]).then(async ([, origin]) => {
+  const ses = session.fromPartition('local-app');
+  ses.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] },
+    (details, callback) => callback({ cancel: !isAppUrl(details.url) }));
+  await ses.cookies.set({ url: origin, name: `session_${new URL(origin).port}`, value: BEARER,
+                          path: '/', httpOnly: true, sameSite: 'strict' });
+  if (backend.exitCode !== null || backend.signalCode !== null) {
+    throw new Error('Backend stopped while opening the session');
+  }
+  appOrigin = origin;
   ses.setPermissionRequestHandler((_wc, permission, callback, details) =>
     callback(ALLOWED_PERMISSIONS.has(permission) && isAppUrl(details.requestingUrl)));
   ses.setPermissionCheckHandler((_wc, permission, requestingOrigin) =>
     ALLOWED_PERMISSIONS.has(permission) && isAppUrl(requestingOrigin));
-  app.dock?.setMenu(Menu.buildFromTemplate([{ label: 'New Window', click: () => void createWindow() }]));
+  app.dock?.setMenu(Menu.buildFromTemplate([{ label: 'New Window', click: () => void createWindow().catch(showBackendError) }]));
   if (pendingTarget) openTarget(pendingTarget); else await createWindow();
   if (app.isPackaged) startUpdates();
+}).catch((error) => {
+  backend.stdin.destroy(); // EOF also covers a timed-out startup
+  showBackendError(error);
 });
 
-app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) void createWindow(); });
+app.on('activate', () => {
+  if (appOrigin && BrowserWindow.getAllWindows().length === 0) {
+    void createWindow().catch(showBackendError);
+  }
+});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('before-quit', () => {
   quitting = true;
@@ -704,8 +733,8 @@ function allowlistedEnv() {
   return env;
 }
 
-/** @param {number | null} code */
-function showBackendError(code) { /* error page with Restart and Reveal Logs; omitted */ }
+/** @param {Error} error */
+function showBackendError(error) { /* native error UI with Restart and Reveal Logs; omitted */ }
 ```
 
 The matching `package.json` and the packaging that differs from
@@ -933,11 +962,11 @@ updaters replace the install atomically.
 
 Split the artifact in two:
 
-- **Immutable layer, inside the signed bundle**: the shell, a pinned and signed copy of
+- **Immutable layer, inside the signed bundle:** the shell, a pinned and signed copy of
   the package installer (for example a `uv` binary), the application code or a pin of
   its package, a **hash-pinned lockfile** for the base environment, and optionally the
   runtime as an archive for offline first runs.
-- **Mutable layer, in per-user app data**: the interpreter the installer fetched, and a
+- **Mutable layer, in per-user app data:** the interpreter the installer fetched, and a
   real environment materialized by the bundled installer syncing the bundled lock.
   Plugins install here at runtime, through the same installer.
 
@@ -965,7 +994,7 @@ Three consequences to plan for:
   switches a pointer atomically, keeping the previous one for rollback.
   A base sync removes anything the lock does not list, so re-apply user-installed
   packages after it.
-- **First-run materialization is a user-visible step**: budget for progress UI, never
+- **First-run materialization is a user-visible step:** budget for progress UI, never
   open a Terminal window, and write a completion marker only after success so an
   interrupted run repairs itself.
 
@@ -1058,7 +1087,7 @@ A `uv` binary needs no entitlements at all.
 Add entitlements because a specific failure requires them, not preemptively—each one
 widens what an attacker who compromises your process can do.
 
-**Order of operations**: `afterPack` (restore `+x`; flip fuses here only if you do not
+**Order of operations:** `afterPack` (restore `+x`; flip fuses here only if you do not
 use the `electronFuses` key) → `@electron/osx-sign` signs nested code inside out, then
 the app → electron-builder’s built-in notarization (`mac.notarize`, through
 `@electron/notarize`) submits and staples the `.app`. electron-builder 26 does not
@@ -1152,8 +1181,8 @@ are invisible in development because you kill the terminal.
   lifeline**: give the child a pipe as stdin, keep the write end only in the parent, and
   have the child treat EOF like `SIGTERM`, shutting down gracefully within a bounded
   deadline. The kernel closes that end however the parent dies, `SIGKILL` and crashes
-  included, and the same pipe can deliver the token first (the backend snippet in
-  [The Thinnest Shape](#the-thinnest-shape)). A stdio JSON-RPC sidecar gets this for
+  included, and the same pipe can deliver the token first
+  ([The Thinnest Shape](#the-thinnest-shape)). A stdio JSON-RPC sidecar gets this for
   free, since its read loop ends at EOF. Polling `getppid()` for 1 is a fallback.
   On Windows there are no POSIX signals at all.
 - **On Windows, use a Job Object** with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. This is
@@ -2337,11 +2366,14 @@ const uv = app.isPackaged
   ? path.join(process.resourcesPath, '..', 'Helpers', 'uv')
   : path.join(__dirname, '../../vendor/uv', process.arch, 'uv');
 const py = path.join(process.resourcesPath, 'py'); // uv.toml and the lock
-const env = path.join(data, 'env'); // the symlink the Python guideline's lifecycle swaps
+const runtime = path.join(data, 'python-runtime');
+const env = readActiveEnvironment(runtime); // validate state.json and resolve envs/<generation>
 ```
 
-Build the environment with the Python guideline’s reference implementation, under
-`data`, before starting the backend, and show progress in the app’s own window.
+Build the environment under `runtime` before starting the backend, and show progress in
+the app’s own window.
+Read the active generation from the runtime’s `state.json` pointer.
+Resolve only an expected relative path under `envs/`, as in the loopback example above.
 
 **3. Speak newline-delimited JSON over stdio**—no port, no auth, and the read loop ends
 at EOF, so the backend exits when the shell does, however it dies:
@@ -2360,42 +2392,18 @@ for line in sys.stdin:
 A backend that serves the UI over loopback HTTP uses the shell–server contract instead
 ([The Thinnest Shape](#the-thinnest-shape)).
 
-**4. Supervise it from the main process:**
+**4. Supervise it from the main process.** Spawn the active generation’s interpreter
+(`bin/python` on Unix, `Scripts/python.exe` on Windows) with an explicit environment and
+three pipes. Drain stdout through the JSON-RPC reader and stderr through a log sink from
+the moment the child starts.
+Handle spawn errors and premature EOF, and fail any pending requests when the child
+exits. Restart with backoff only after unexpected exit.
 
-```ts
-import { spawn, type ChildProcess } from 'node:child_process';
-
-let backend: ChildProcess | undefined;
-
-export function startBackend(): void {
-  const python =
-    process.platform === 'win32'
-      ? path.join(env, 'Scripts', 'python.exe')
-      : path.join(env, 'bin', 'python');
-
-  backend = spawn(python, ['-m', 'myapp.backend'], {
-    cwd: data,
-    env: backendEnv(), // an allowlist, per the Python guideline's spawn environment
-    stdio: ['pipe', 'pipe', 'pipe'], // stdin is both the request channel and the lifeline
-    detached: process.platform !== 'win32', // own process group, so we can kill the tree
-  });
-  backend.on('exit', (code) => scheduleRestartWithBackoff(code));
-}
-
-export function stopBackend(): void {
-  if (!backend?.pid) return;
-  if (process.platform === 'win32') {
-    spawn('taskkill', ['/pid', String(backend.pid), '/f', '/t']);
-  } else {
-    process.kill(-backend.pid, 'SIGTERM'); // negative pid signals the group
-  }
-  backend = undefined;
-}
-```
-
-On Windows, prefer a Job Object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` over
-`taskkill` if you can add a native dependency: it is the only approach that also cleans
-up when the main process crashes.
+On quit, stop accepting requests, close stdin, wait for a bounded grace period, then
+terminate and reap any survivors.
+On Unix give the child its own process group and signal the group.
+On Windows use a Job Object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`; `taskkill` can
+help during orderly quit but cannot run after the main process crashes.
 
 **5. Sign, ignore, and verify.** The only Mach-O this layout adds is `uv`, which
 `@electron/osx-sign` signs along with everything else under `Contents/`; it needs no

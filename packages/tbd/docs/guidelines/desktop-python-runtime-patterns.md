@@ -6,9 +6,51 @@ category: desktop
 ---
 # Desktop Python Runtime Patterns
 
-**Last Updated**: 2026-11-08
+**Last Updated:** 2026-11-08
 
-**Related**:
+## Executive Summary
+
+This guideline covers how a desktop app gets a working Python: a backend server or
+worker written in Python, Python plugins that users install, or both.
+It applies to every shell that spawns a child process: Electron, Tauri, a native Swift
+or AppKit shell, and Electrobun.
+macOS is covered in depth because its signing rules shape the design; Windows and Linux
+facts are included where they exist and are marked.
+
+The recommended default for an app whose users install Python packages: **bundle a
+signed, pinned `uv` binary and a hash-pinned `pylock.toml`; on first run, install a
+pinned python-build-standalone interpreter and a real virtual environment into per-user
+app data, and install plugins into that environment with the same uv.** Optionally
+bundle the interpreter archive as a `file://` mirror so the first run works offline.
+
+Five claims are worth stating up front because they contradict common advice:
+
+- **Runtime plugin installs rule out freezing.** A frozen app has no installer and no
+  writable `site-packages`. Once you ship a real interpreter and uv for plugins anyway,
+  freezing the base adds a second, incompatible Python.
+
+- **`uv tool install` does not verify hashes,** even when given a constraints file or
+  requirements file full of them.
+  Hash-verified installs need `uv venv` plus
+  `uv pip sync --require-hashes --no-build pylock.toml`.
+
+- **`--no-config` does not isolate uv from environment variables.** Configuration flags
+  cannot disable `UV_*` variables, which outrank config files.
+  Isolation needs both the flag and a scrubbed child environment.
+
+- **`disable-library-validation` belongs only on an interpreter that is signed with the
+  hardened runtime and loads ad-hoc-signed or other-team code**, such as wheels
+  installed at runtime.
+  Library validation applies per process, from that process’s own signature, so a
+  hardened shell that spawns uv’s ad-hoc, unhardened Python needs no entitlement, and
+  neither does a bundled interpreter whose every library you signed with your own Team
+  ID. This was measured with ad-hoc signatures; the same test under a Developer
+  ID-signed, notarized shell is still an [open question](#open-research-questions).
+
+- **The cool-off belongs at release time.** The base environment installs from exact
+  pins and hashes, so nothing resolves on a user’s machine except plugins.
+
+**Related:**
 
 - [uv documentation](https://docs.astral.sh/uv/)
 - [python-build-standalone](https://github.com/astral-sh/python-build-standalone)
@@ -79,50 +121,6 @@ where the newest release is younger, the table gives the aged release as the pin
 
 5. **Update the code examples**, not just the table: version strings appear in the
    bundle layout, the release workflow, and the `uv.toml` examples.
-
-* * *
-
-## Executive Summary
-
-This guideline covers how a desktop app gets a working Python: a backend server or
-worker written in Python, Python plugins that users install, or both.
-It applies to every shell that spawns a child process: Electron, Tauri, a native Swift
-or AppKit shell, and Electrobun.
-macOS is covered in depth because its signing rules shape the design; Windows and Linux
-facts are included where they exist and are marked.
-
-The recommended default for an app whose users install Python packages: **bundle a
-signed, pinned `uv` binary and a hash-pinned `pylock.toml`; on first run, install a
-pinned python-build-standalone interpreter and a real virtual environment into per-user
-app data, and install plugins into that environment with the same uv.** Optionally
-bundle the interpreter archive as a `file://` mirror so the first run works offline.
-
-Five claims are worth stating up front because they contradict common advice:
-
-- **Runtime plugin installs rule out freezing.** A frozen app has no installer and no
-  writable `site-packages`. Once you ship a real interpreter and uv for plugins anyway,
-  freezing the base adds a second, incompatible Python.
-
-- **`uv tool install` does not verify hashes,** even when given a constraints file or
-  requirements file full of them.
-  Hash-verified installs need `uv venv` plus
-  `uv pip sync --require-hashes --no-build pylock.toml`.
-
-- **`--no-config` does not isolate uv from environment variables.** Configuration flags
-  cannot disable `UV_*` variables, which outrank config files.
-  Isolation needs both the flag and a scrubbed child environment.
-
-- **`disable-library-validation` belongs only on an interpreter that is signed with the
-  hardened runtime and loads ad-hoc-signed or other-team code**, such as wheels
-  installed at runtime.
-  Library validation applies per process, from that process’s own signature, so a
-  hardened shell that spawns uv’s ad-hoc, unhardened Python needs no entitlement, and
-  neither does a bundled interpreter whose every library you signed with your own Team
-  ID. This was measured with ad-hoc signatures; the same test under a Developer
-  ID-signed, notarized shell is still an [open question](#open-research-questions).
-
-- **The cool-off belongs at release time.** The base environment installs from exact
-  pins and hashes, so nothing resolves on a user’s machine except plugins.
 
 * * *
 
@@ -221,13 +219,15 @@ their dependencies) with 8 native extension modules and 19 MB of installed files
 Every command below runs through the single isolated invocation described in
 [§3](#3-isolating-an-app-owned-uv); `uvc` stands for
 `uv --no-config --config-file <bundle>/uv.toml` with the scrubbed environment.
+`ENV` is a fresh environment path under the runtime root
+([Environment Lifecycle](#5-the-two-layer-artifact-and-environment-lifecycle)).
 
 ```bash
 uvc python install --no-bin 3.14.9
-uvc venv --clear --no-project --managed-python --python 3.14.9 "$ROOT/envs/$LOCK_SHA"
-uvc pip sync --python "$ROOT/envs/$LOCK_SHA/bin/python" \
+uvc venv --no-project --managed-python --python 3.14.9 "$ENV"
+uvc pip sync --python "$ENV/bin/python" \
     --require-hashes --no-build "$BUNDLE/python-runtime/pylock.toml"
-"$ROOT/envs/$LOCK_SHA/bin/myapp-server" --self-test   # smoke test before switching
+"$ENV/bin/myapp-server" --self-test   # smoke test before switching
 ```
 
 - **First-run cost (measured):** Python 3.13.17 download and install 2.4–6.6 s on a fast
@@ -272,10 +272,14 @@ uvc python install --no-bin --mirror "file://$BUNDLE/python-runtime/python-mirro
   mirror holds it (measured; same file, `OfflinePythonMissing`).
 - **Result:** identical to layout A. The interpreter lives in app data with an ad-hoc
   signature, with no coupling to the bundle path and no library-validation entitlement.
-- **Offline wheels:** for a fully offline first run, also bundle a wheelhouse and pass
-  `--find-links` or seed `UV_CACHE_DIR`. Both the archive and the wheels are archives
-  containing unsigned or ad-hoc Mach-O files; how the notary service treats those nested
-  archives is untested ([Open Research Questions](#open-research-questions)).
+- **Offline wheels:** a wheelhouse alone cannot replace remote URLs recorded in a
+  pylock, even with `--find-links`
+  ([uv’s pylock resolution](https://github.com/astral-sh/uv/blob/0.13.5/crates/uv-pip-commands/src/sync.rs#L399-L433)).
+  For a fully offline first run, bundle the wheels with a pylock that names their hashed
+  relative paths, or supply a verified cache seeded for the exact lock and uv version.
+  Test the signed release with networking disabled and no preexisting user cache.
+  Notarization of the nested archives remains untested
+  ([Open Research Questions](#open-research-questions)).
 - **License:** bundling PBS redistributes CPython and its bundled libraries (OpenSSL,
   Tcl/Tk, ncurses, SQLite, and others); ship their notices from the PBS repository’s
   `LICENSE.*` files. Layout A does not redistribute PBS.
@@ -283,8 +287,8 @@ uvc python install --no-bin --mirror "file://$BUNDLE/python-runtime/python-mirro
 ### Layout B: Sign a PBS Tree Inside the Bundle
 
 ```bash
-uvc venv --clear --no-project --python "$BUNDLE/python/bin/python3.14" "$ROOT/envs/$LOCK_SHA"
-uvc pip sync --python "$ROOT/envs/$LOCK_SHA/bin/python" --require-hashes --no-build \
+uvc venv --no-project --python "$BUNDLE/python/bin/python3.14" "$ENV"
+uvc pip sync --python "$ENV/bin/python" --require-hashes --no-build \
     "$BUNDLE/python-runtime/pylock.toml"
 ```
 
@@ -394,7 +398,7 @@ first.
 | `UV_CACHE_DIR` | app cache | Keeps the app’s cache from mixing with, or being cleaned by, the user’s uv. uv 0.13 notes that “multiple versions of uv can still safely share the same cache directory”; isolation is still simpler to reason about. |
 | `UV_TOOL_DIR`, `UV_TOOL_BIN_DIR`, `UV_CREDENTIALS_DIR`, `UV_PYTHON_BIN_DIR` | app data | Point every remaining uv directory inside the app’s root, even ones you do not expect to use, so a future command cannot write into the user’s home. |
 | `python-downloads = "manual"` (in `uv.toml`) | always | Only the explicit `uv python install` step may fetch Python; no other command downloads one implicitly. |
-| `no-build = true` (in `uv.toml`) | recommended | Never runs a build backend on a user’s machine. It applies to `uv pip` commands and to the release-time `uv lock`, where an sdist-only dependency then fails the release instead of the user’s install (measured with `proxy_tools`). The cost: sdist-only plugins cannot be installed. |
+| `no-build = true` (in `uv.toml`) | recommended | Disallows builds from ordinary source distributions. Use it during release resolution and installation so an sdist-only dependency fails before shipping. Reject editable and other source inputs at the app boundary; the flag does not block editable builds. |
 | `cwd` = the app’s runtime root, and `uv venv --no-project` | always | No stray `pyproject.toml`, `uv.toml`, or `.python-version` above the working directory is discovered. |
 | `UV_NO_PROGRESS=1`, `NO_COLOR=1` | always | stderr carries plain lines the progress UI can parse. |
 | `UV_LINK_MODE=hardlink` | macOS | Cuts repeated first-import scanning ([§8](#first-import-security-scan-and-link-mode)). |
@@ -441,6 +445,7 @@ export interface RuntimePaths {
   uvToml: string; // the bundled uv.toml
   stubBin: string; // bundle directory holding the no-op install_name_tool (macOS)
   root: string; // per-user runtime root in app data
+  pythonRoot: string; // app-data directory keyed by the expected interpreter artifact
   cache: string; // per-user uv cache, on the same volume as root
 }
 
@@ -465,7 +470,7 @@ function uvEnv(p: RuntimePaths, systemCerts: boolean): NodeJS.ProcessEnv {
         : '/usr/bin:/bin';
   Object.assign(env, {
     UV_CACHE_DIR: p.cache,
-    UV_PYTHON_INSTALL_DIR: path.join(p.root, 'python'),
+    UV_PYTHON_INSTALL_DIR: p.pythonRoot,
     UV_PYTHON_BIN_DIR: path.join(p.root, 'python-bin'),
     UV_TOOL_DIR: path.join(p.root, 'tools'),
     UV_TOOL_BIN_DIR: path.join(p.root, 'tools-bin'),
@@ -550,8 +555,11 @@ quietly turns into a local build, which needs a build backend, may need a compil
 arbitrary build code on the user’s machine, and can produce a different artifact (the
 PyYAML case above).
 `--no-build` makes the only acceptable outcome the wheel you shipped.
-Putting `no-build = true` in the app’s `uv.toml` applies the same rule to plugin
-installs.
+Putting `no-build = true` in the app’s `uv.toml` applies the same rule to ordinary
+plugin packages. Editable requirements are an exception
+([uv’s editable test](https://github.com/astral-sh/uv/blob/0.13.5/crates/uv/tests/pip_install/pip_install.rs#L2728-L2749)).
+If the app requires wheel-only plugins, accept registry package names and approved
+version constraints rather than arbitrary requirements files or command-line options.
 
 ### The Release-Time Lock
 
@@ -593,15 +601,16 @@ In CI, with the exact uv binary the app bundles:
 UV="vendor/uv/0.13.5/$TARGET/uv"     # the same file that goes into the bundle
 uvc() { "$UV" --no-config --config-file runtime/uv.toml "$@"; }   # plus the scrubbed env
 
-uvc lock --project runtime --python 3.14.9
+# Manual downloads disable implicit interpreter provisioning during locking.
+uvc python install --no-bin 3.14.9
+uvc lock --check --project runtime --python 3.14.9
 uvc export --project runtime --frozen --no-emit-project --format pylock.toml \
     -o build/python-runtime/pylock.toml
 uvc export --project runtime --frozen --no-emit-project --no-hashes \
     --format requirements.txt -o build/python-runtime/base-constraints.txt
 
 # Materialize and test on every target architecture, exactly as a user's first run does.
-uvc python install --no-bin 3.14.9
-uvc venv --clear --no-project --managed-python --python 3.14.9 "$RUNNER_TEMP/env"
+uvc venv --no-project --managed-python --python 3.14.9 "$RUNNER_TEMP/env"
 uvc pip sync --python "$RUNNER_TEMP/env/bin/python" --require-hashes --no-build \
     build/python-runtime/pylock.toml
 "$RUNNER_TEMP/env/bin/myapp-server" --self-test
@@ -661,14 +670,24 @@ Desktop documents that an app update leaves its extracted environment stale
 
 ```
 python-runtime/
-  python/                      # UV_PYTHON_INSTALL_DIR: cpython-3.14.9-macos-aarch64-none/
+  python/
+    <interpreter-artifact-id>/  # UV_PYTHON_INSTALL_DIR for one Python/PBS build and target
   envs/
-    7f3c…e1/                   # one environment per (pylock SHA-256, plugin set)
-    a91b…04/                   # the previous one, kept for rollback
+    <runtime-id>-<generation>/ # a fresh environment built and tested at its final path
+    <previous-generation>/    # the previous one, kept for rollback
   plugins.in                   # the user's plugin requirements, one per line
   state.json                   # the active environment and what was verified
   logs/                        # uv and server output
 ```
+
+Compute the runtime ID from the uv artifact, exact Python and PBS build, target platform
+and architecture, base lock, and realized plugin set.
+Give every build or repair a fresh generation, even if the inputs match.
+For managed Python, key the installation directory by the pinned interpreter artifact:
+`uv python install` may reuse a matching patch version already in that directory without
+checking the PBS build.
+Do not reinstall in an interpreter directory still referenced by a live or rollback
+environment.
 
 `state.json` is the pointer.
 Write it atomically (write a temporary file, then rename it over the old one), which
@@ -696,8 +715,8 @@ environment’s own directory, so environments never need to move after they are
    terminal window appears”; an education admin reported Terminal blocked on managed
    Macs ([anki#4556](https://github.com/ankitects/anki/issues/4556)).
 2. Install Python (`python install --no-bin`, from the mirror in layout A′).
-3. Build the environment in a fresh staging directory named for its contents, with
-   `uv venv --clear`.
+3. Build the environment in a fresh generation directory with `uv venv`. Keep it at that
+   path after publishing; never clear the active or rollback generation.
 4. `pip sync --require-hashes --no-build` the bundled pylock.
 5. Reapply plugins, if any ([§6](#6-plugins-and-user-installed-packages)).
 6. Warm the native extensions by importing them once, so the first-load security scan
@@ -729,17 +748,20 @@ and the next run deletes it.
 
 ### At Every Launch
 
-1. Read the bundle manifest and `state.json`. If the pylock SHA-256, uv version, or
-   Python version differs, run the update flow below before starting the server.
+1. Read the bundle manifest and `state.json`. If any runtime identity input differs, run
+   the update flow before starting the server.
 2. In layout B, compare `pyvenv.cfg` `home` with the live bundle path.
-3. Run `uv pip sync --check --offline` against the pylock: 28 ms for the test set, exit
-   0 when the environment matches.
+3. Check installed package metadata against the complete expected set.
+   If there are no plugins, `uv pip sync --check --offline` against the base pylock is
+   sufficient for this metadata check (28 ms in the test set).
+   With plugins, record and check the resolved base and plugin packages, including their
+   dependencies, at build time.
+   Checking only the base lock would report healthy plugins as drift.
 4. Start the server. If it fails its readiness check, enter the repair ladder.
 
-`pip sync --check` detects metadata drift, such as an extra package (exit 1), but **not
-damaged files**: after deleting `starlette/routing.py`, `--check` still exited 0 while
-`import starlette.routing` failed (measured).
-Only the smoke test catches that.
+The metadata check cannot detect all file damage.
+In a probe, deleting `starlette/routing.py` left `--check` green while importing that
+module failed. Include imports and a real request in the smoke test.
 
 ### Updates: Versioned Environments and Atomic Swap
 
@@ -763,14 +785,16 @@ plugin changes.
 
 ### Repair Ladder
 
-Try the cheapest step first and smoke-test after each:
+Try the cheapest step first and smoke-test before switching generations:
 
-1. `uv pip sync --reinstall --offline` of the pylock into the active environment (0.18 s
-   measured; it repaired the deleted module).
-2. Rebuild the environment offline from the cache.
-3. Rebuild online.
-4. `uv python install --reinstall <version>`.
-5. `uv cache clean` (scoped to the app’s cache), then rebuild online.
+1. Rebuild offline from the cache in a fresh generation and replay the recorded plugins.
+2. Rebuild online and replay the plugins.
+3. Provision a fresh interpreter installation from the pinned artifact and rebuild the
+   environment; do not replace an interpreter that another generation still uses.
+4. Clean or replace the app-owned cache, then rebuild online.
+
+An in-place base sync removes extra packages and can modify a running environment.
+Do not use it to repair a published generation.
 
 Rename a failed environment aside (Mu used `.FAILED` and `.SUPERSEDED` suffixes;
 [virtual_environment.py](https://github.com/mu-editor/mu/blob/1cabc860416b93428af838adf83755ab9e38ab41/mu/virtual_environment.py#L590))
@@ -853,8 +877,10 @@ If the app must install in place, stop the server first.
   plugin named by remote content without the user’s confirmation.
 - **Advisories:** `uv audit` and `uv tool audit` query OSV and can warn about known
   vulnerable plugins; `UV_MALWARE_CHECK` covers only project syncs.
-- **Build code:** with `no-build = true`, installing a plugin never runs its build
-  backend. Without it, an sdist-only plugin runs arbitrary code at install time.
+- **Build code:** use `no-build = true` and accept only registry requirements backed by
+  wheels if build backends must not run at install time.
+  Reject editable and direct source requirements, including requirements-file options.
+  Wheel-only installation does not sandbox the plugin when the server imports it.
 
 * * *
 
@@ -1330,10 +1356,11 @@ without exceptions.
 
 ### Runtime-Extensible App That Must Start Offline or on Managed Networks
 
-Layout A′: layout A plus the PBS archive as a `file://` mirror, and optionally a
-wheelhouse. First run takes about a second for Python with no network, and the result is
-identical to layout A. Confirm notarization of the nested archive in the first signed
-build.
+Layout A′: ship the PBS archive as a `file://` mirror.
+For a fully offline launch, also ship the exact locked wheels with verified local paths,
+or seed the app’s cache for the pinned uv release.
+The measured interpreter install took about a second offline; test the complete install
+from the signed artifact with networking disabled.
 
 ### Fleets Where Ad-Hoc Executables Are Killed
 

@@ -6,9 +6,56 @@ category: desktop
 ---
 # Tauri App Development Patterns
 
-**Last Updated**: 2026-11-08
+**Last Updated:** 2026-11-08
 
-**Related**:
+## Executive Summary
+
+Tauri builds desktop apps from a Rust core plus the operating system’s own webview.
+It ships no browser engine, which is where its small bundles come from, and it replaces
+Electron’s “secure it yourself” posture with a compile-time permission system that
+denies everything by default.
+
+Five things matter most when deciding:
+
+- **The updater verifies what it installs, and can bind the version.** The downloaded
+  payload is checked with minisign against a public key compiled into your app, and the
+  update aborts if verification fails.
+  Since CLI 2.12 the signature also covers the release’s version, and
+  `requireSignedVersion` rejects a manifest that pairs one version with another
+  release’s artifact. This is a categorical difference from an updater that trusts its
+  host, and it is the strongest single reason to prefer Tauri over less mature
+  alternatives.
+
+- **The security model is genuinely two-sided.** `core:default` grants the default sets
+  of the nine core UI modules and *zero* filesystem, shell, or network access, so the
+  deny-all baseline is real.
+  But there is no equivalent of Electron’s OS-level renderer sandbox, CSP is off by
+  default, and **the webview’s patch cycle belongs to the user’s operating system, not
+  to you**.
+
+- **A thin native window over an existing local web server is small.** Point a window at
+  `http://127.0.0.1:<port>`, skip the frontend build, and grant no capabilities: the
+  page then has no IPC reach at all (see
+  [§4](#4-wrapping-an-existing-loopback-web-app)).
+
+- **The system webview becomes your engine.** On macOS, WKWebView leaves `target=_blank`
+  links, downloads, Reload, Back and Forward, and Find doing nothing until the app wires
+  them, and any performance work measured in Chromium needs re-measuring in WebKit.
+  Linux is weaker still: WebRTC is unavailable in distro WebKitGTK, media served through
+  Tauri’s own asset protocol does not play, and drag-and-drop is broken across several
+  open issues. Read [What Breaks](#8-what-actually-breaks-across-webviews) before
+  committing.
+
+- **You pay in build time, not in bundle size.** Rust builds add minutes per CI job
+  against a JavaScript-only toolchain, you cannot cross-compile macOS bundles, and Cargo
+  adds a third dependency graph to keep inside your cool-off.
+
+**Recommendation in one line:** the default choice when you want a small, signed,
+auto-updating desktop app and can accept Rust in the build and system webviews in the
+product—with WebKit QA budgeted on macOS and Linux support verified early rather than
+assumed.
+
+**Related:**
 
 - [Tauri documentation](https://v2.tauri.app/)
 - [Tauri source](https://github.com/tauri-apps/tauri)
@@ -103,65 +150,6 @@ crates to one number.
 
 9. **Recheck the deprecation list.** The signer environment variables were renamed
    (`tauri signer sign` still reads `TAURI_PRIVATE_KEY`) and the tray API is deprecated.
-
-* * *
-
-## Executive Summary
-
-Tauri builds desktop apps from a Rust core plus the operating system’s own webview.
-It ships no browser engine, which is where its small bundles come from, and it replaces
-Electron’s “secure it yourself” posture with a compile-time permission system that
-denies everything by default.
-
-Five things matter most when deciding:
-
-- **The updater verifies what it installs, and can bind the version.** The downloaded
-  payload is checked with minisign against a public key compiled into your app, and the
-  update aborts if verification fails.
-  Since CLI 2.12 the signature also covers the release’s version, and
-  `requireSignedVersion` rejects a manifest that pairs one version with another
-  release’s artifact. This is a categorical difference from an updater that trusts its
-  host, and it is the strongest single reason to prefer Tauri over less mature
-  alternatives.
-
-- **The security model is genuinely two-sided.** `core:default` grants the default sets
-  of the nine core UI modules and *zero* filesystem, shell, or network access, so the
-  deny-all baseline is real.
-  But there is no equivalent of Electron’s OS-level renderer sandbox, CSP is off by
-  default, and **the webview’s patch cycle belongs to the user’s operating system, not
-  to you**.
-
-- **A thin native window over an existing local web server is small.** Point a window at
-  `http://127.0.0.1:<port>`, skip the frontend build, and grant no capabilities: the
-  page then has no IPC reach at all (see
-  [§4](#4-wrapping-an-existing-loopback-web-app)).
-
-- **The system webview becomes your engine.** On macOS, WKWebView leaves `target=_blank`
-  links, downloads, Reload, Back and Forward, and Find doing nothing until the app wires
-  them, and any performance work measured in Chromium needs re-measuring in WebKit.
-  Linux is weaker still: WebRTC is unavailable in distro WebKitGTK, media served through
-  Tauri’s own asset protocol does not play, and drag-and-drop is broken across several
-  open issues. Read [What Breaks](#8-what-actually-breaks-across-webviews) before
-  committing.
-
-- **You pay in build time, not in bundle size.** Rust builds add minutes per CI job
-  against a JavaScript-only toolchain, you cannot cross-compile macOS bundles, and Cargo
-  adds a third dependency graph to keep inside your cool-off.
-
-**Recommendation in one line:** the default choice when you want a small, signed,
-auto-updating desktop app and can accept Rust in the build and system webviews in the
-product—with WebKit QA budgeted on macOS and Linux support verified early rather than
-assumed.
-
-**Research questions this document answers**:
-
-1. What runs where, and what is the actual security boundary?
-2. How do capabilities and permissions work, and how tightly do real apps scope them?
-3. How do you attach a backend—in Rust, or in Python, Node, Bun, or Go—and keep its
-   processes from outliving the app?
-4. How thin can a wrapper around an existing local web server be?
-5. What does it take to package, sign, and ship verified updates?
-6. What does the system webview not do until you wire it?
 
 * * *
 
@@ -476,79 +464,65 @@ platform-specific rpath and linker configuration.
 `RunEvent::Exit` handler kills every process in its child store, and only the JavaScript
 `spawn` command adds to that store.
 A child spawned from Rust, whether through `app.shell().sidecar(..).spawn()` or
-`std::process::Command`, outlives the app unless you kill it yourself (read from
+`std::process::Command`, can outlive the app unless you stop it yourself (read from
 `plugins/shell/src/lib.rs` and `commands.rs` at 2.6.0, 2026-11-08).
 
-Rules for every child the Rust side spawns:
+Give the sidecar its own process group on Unix with `CommandExt::process_group(0)`. On
+Windows, put it in a
+[Job Object](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects)
+before it can spawn descendants.
+The shell plugin wraps both from 2.5.0 with `Command::set_process_group(true)` in Rust
+or `processGroup: true` in JavaScript.
+`CommandChild::kill()` then sends `SIGKILL` to the group or terminates the job.
+A Unix descendant that calls `setsid` can escape the group.
+Shell 2.6.0 also offers `kill_on_drop(true)` for Rust-spawned children.
+That handles termination on drop.
+The supervisor still owns graceful shutdown and reaping.
 
-- **Give it its own process group** so one signal reaches the whole tree, including the
-  grandchildren that launchers create (a PyInstaller bootloader, `uv run`, a shell
-  script). With `std::process::Command`, call `CommandExt::process_group(0)` on Unix and
-  signal the group with `killpg`; on Windows a Job Object does the same job.
-  The shell plugin wraps both from 2.5.0: `Command::set_process_group(true)` in Rust or
-  `processGroup: true` in JavaScript, after which `CommandChild::kill()` sends `SIGKILL`
-  to the group or terminates the job.
+Keep the child and its process group or job in managed state.
+Drain piped stdout and stderr on a worker or send them to a log file so a full pipe
+cannot block the child.
+Keep the child’s stdin pipe open and have it treat EOF like a graceful shutdown request.
+The kernel closes the pipe on crash or force quit, when no exit handler runs.
+[The shell–server contract](#follow-the-shellserver-contract) uses that same pipe for
+the launch secret.
 
-- **Kill it in `RunEvent::Exit`, synchronously.** On macOS, Cmd+Q, the predefined Quit
-  menu item, Dock › Quit, logout, and restart all reach tao’s
-  `applicationWillTerminate:`, which emits `RunEvent::Exit`, after which the process
-  ends. **`RunEvent::ExitRequested` is not raised on those paths**
-  ([#9198](https://github.com/tauri-apps/tauri/issues/9198), open; tao 0.37.2 implements
-  no `applicationShouldTerminate:`), so `prevent_exit()` cannot veto them, and work
-  handed to an async runtime from the `Exit` handler may never run.
+Implement one synchronous, idempotent `shutdown_backend` routine for your platform.
+Serialize calls so the updater and the app’s exit handler cannot race to stop the same
+child. The routine follows this sequence:
 
-- **Send `SIGTERM` first if the child needs a clean shutdown.** The plugin’s `kill()`
-  sends `SIGKILL`.
+1. Close the managed stdin pipe.
+   On Unix, send `SIGTERM` to the process group if the backend uses signals for graceful
+   shutdown. On Windows, use EOF or the backend’s shutdown protocol for the graceful
+   request.
+2. Wait up to a deadline for the tree to stop.
+   Escalate with `killpg(SIGKILL)` on Unix or `TerminateJobObject` on Windows if it has
+   not stopped. On Unix, keep the leader unreaped until the final group signal so its ID
+   cannot be recycled. The leader’s exit alone does not show that its descendants exited.
+   If you have no reliable tree-exit check, give the group the full grace period and
+   send the final signal before reaping, treating an absent group (`ESRCH`) as stopped.
+3. Reap the direct child with
+   [`Child::try_wait`](https://doc.rust-lang.org/std/process/struct.Child.html#method.try_wait)
+   and a second deadline, including after escalation.
+   Log signal or wait failures and keep any unreaped child in the supervisor’s state so
+   it can retry if the app stays running.
 
-- **Make the child exit when the parent dies.** A force-quit or crash runs no handler,
-  but the kernel closes the app’s end of a stdin pipe however it dies.
-  Give the child a stdin pipe, keep it open, and have the child treat EOF like `SIGTERM`
-  (as the [shell–server contract](#follow-the-shellserver-contract) requires).
+Call this routine from `RunEvent::Exit` and from the
+[Windows updater hook](#the-updater-and-why-it-is-the-headline-feature).
+On macOS, Cmd+Q, the predefined Quit menu item, Dock › Quit, logout, and restart reach
+tao’s `applicationWillTerminate:`, which emits `RunEvent::Exit`. Those paths skip
+`RunEvent::ExitRequested`, and async work dispatched from `Exit` may never run.
+[tauri#9198](https://github.com/tauri-apps/tauri/issues/9198).
 
-- **Drain its stdout and stderr** on a thread or into a log file; a full pipe blocks the
-  child.
-
-- **Use `kill_on_drop(true)`** (shell 2.6.0, inside the cool-off on 2026-11-08) when you
-  want a dropped `CommandChild` to kill its process or group.
-  It has no effect on JavaScript-spawned children.
-
-Two further orphan cases are worth guarding against: `prevent_exit()` combined with
-`AppHandle::exit()` on Windows, and grandchildren that leave the process group (for
-example by calling `setsid`).
-
-The pattern for a Unix sidecar spawned from Rust (add `libc` as a dependency):
+This is the Tauri wiring for the app-defined routine.
+The Unix process group and Windows job implementations belong in the backend supervisor.
 
 ```rust
-use std::os::unix::process::CommandExt;
-use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
-use tauri::{Manager, RunEvent};
-
-struct Backend(Mutex<Option<Child>>);
-
-fn main() {
-    let app = tauri::Builder::default()
-        .setup(|app| {
-            let bin = std::env::current_exe()?.with_file_name("my-sidecar");
-            let child = Command::new(bin)
-                .stdin(Stdio::piped()) // the child exits on EOF if the app dies
-                .process_group(0)
-                .spawn()?;
-            app.manage(Backend(Mutex::new(Some(child))));
-            Ok(())
-        })
-        .build(tauri::generate_context!())
-        .expect("failed to build app");
-
-    app.run(|handle, event| {
-        if let RunEvent::Exit = event {
-            if let Some(child) = handle.state::<Backend>().0.lock().unwrap().take() {
-                // Runs on every macOS quit path; the process ends when this returns.
-                unsafe { libc::killpg(child.id() as libc::pid_t, libc::SIGTERM) };
-            }
-        }
-    });
-}
+app.run(|handle, event| {
+    if let tauri::RunEvent::Exit = event {
+        shutdown_backend(handle);
+    }
+});
 ```
 
 ### Sidecars Versus Plugins
@@ -590,8 +564,9 @@ websites in Tauri windows the same way, with DMGs of 9–14MB.
 - **Create the window in Rust.** `WebviewUrl::External` accepts any `http` or `https`
   URL. The server’s port is chosen at runtime, so set `app.windows: []` in the config
   and build the window with
-  `WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))` once the port is
-  known. The official
+  `WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))` after validating
+  the URL. For a splash screen, create the window on a bundled page first, then navigate
+  to the validated URL. The official
   [`tauri-plugin-localhost` README](https://github.com/tauri-apps/plugins-workspace/tree/v2/plugins/localhost)
   uses the same `WebviewUrl::External` pattern; the plugin itself serves bundled assets
   and is not needed here.
@@ -619,8 +594,13 @@ websites in Tauri windows the same way, with DMGs of 9–14MB.
   `frontendDist` to the server’s URL makes that origin local to Tauri.
   Run `tauri dev` through the same External-URL code path as release builds.
 
-- **The server sets the CSP.** `app.security.csp` applies to assets Tauri serves, not to
-  the loopback page; the server’s own `Content-Security-Policy` header governs it.
+- **The server sets the CSP.** `app.security.csp` governs assets Tauri serves.
+  Send a `Content-Security-Policy` header from the loopback server that confines
+  subresources, frames, and network requests to its own origin and restricts form
+  submissions to that origin.
+  Include the bound port in explicit source URLs.
+  Top-level navigation handlers alone do not stop requests to other ports from the page.
+  [Content Security Policy Level 3](https://www.w3.org/TR/CSP3/).
 
 - **Drive privileged features from Rust.** The updater, menus, and native dialogs need
   no capability when Rust calls them, so the page never gains them.
@@ -643,138 +623,84 @@ In brief:
   because `EventSource` cannot send custom headers: a shell that controls its cookie
   store may set the session cookie directly, and otherwise a single-use exchange code,
   distinct from the secret, at a one-time URL sets an `HttpOnly` cookie and redirects.
-- Cookies are not isolated by port
-  ([RFC 6265 §8.5](https://www.rfc-editor.org/rfc/rfc6265#section-8.5)), so name the
-  session cookie per instance, and the server checks `Host` and `Origin`.
+- Use `session_<port>` as the cookie name and have the server check `Host` and `Origin`.
+  Cookies ignore ports, so the name distinguishes instances when selecting the cookie
+  but does not keep other services on `127.0.0.1` from receiving it if the webview makes
+  requests to them. Keep the navigation policy and the server CSP scoped to the validated
+  origin. [RFC 6265 §8.5](https://www.rfc-editor.org/rfc/rfc6265#section-8.5).
 
-Tauri’s half of the contract:
-
-- **Spawn with pipes.** `std::process::Command` with `stdin(Stdio::piped())`,
-  `stdout(Stdio::piped())`, and `process_group(0)`. Write the secret and a newline to
-  the `ChildStdin`, then keep that handle in managed state for the app’s lifetime:
-  dropping it closes the pipe, which the server treats as a shutdown request.
-- **Read the ready line on a thread.** Parse stdout lines until one is JSON with
-  `"event":"ready"` and a `protocol` you support, take its `url`, and keep draining
-  stdout into a log afterwards so the pipe never fills.
-- **Point the window at `url`.** Tauri controls its cookie store, so
-  `WebviewWindow::set_cookie` before `navigate()` can set the session cookie directly.
-  On macOS, wry passes `HttpOnly` to WebKit through an undocumented `NSHTTPCookie`
-  property key, so confirm with `cookies()` that the flag survived; the alternative is
-  to load the server’s one-time exchange URL as the window’s first server page and let
-  the server set its own cookie.
-  On Windows, call the cookie APIs off the main thread
-  ([wry#583](https://github.com/tauri-apps/wry/issues/583)).
-
-Avoid an `initialization_script` that sets a JavaScript global: it needs page changes
-and cannot reach `EventSource`.
-
-### Navigation, New Windows, and Downloads
-
-Without handlers, an external link replaces your app’s page (Tauri allows every
-navigation by default), `target=_blank` does nothing, and downloads are cancelled (see
-the macOS table in [§8](#8-what-actually-breaks-across-webviews)). Wire all three when
-you build the window.
-
-A macOS sketch that combines those handlers with the contract (it needs `serde_json`,
-and reuses the `Backend` state and exit handler from
-[Process Lifecycle](#process-lifecycle)):
+Check the announcement before setting the cookie or loading any server URL. Compare the
+URL string to the exact URL you construct from the announced port, then parse the
+constructed URL for Tauri.
+This rejects other hosts or schemes, a different port, user info, extra path components,
+queries, and fragments.
 
 ```rust
-use std::io::{BufRead, BufReader, Write};
-use std::os::unix::process::CommandExt;
-use std::process::{ChildStdin, Command, Stdio};
-use std::sync::{Arc, Mutex, OnceLock};
-use tauri::webview::{NewWindowResponse, cookie::{Cookie, SameSite}};
-use tauri::{Manager, Url, WebviewUrl, WebviewWindowBuilder};
-
-struct ServerStdin(Mutex<Option<ChildStdin>>); // dropping it asks the server to stop
-
-fn open_in_browser(url: &Url) {
-    // Scheme allowlist: never hand file:, javascript:, or custom schemes to the OS.
-    if matches!(url.scheme(), "http" | "https" | "mailto") {
-        let _ = Command::new("/usr/bin/open").arg(url.as_str()).spawn();
+fn ready_endpoint(message: &serde_json::Value) -> Result<(tauri::Url, u16), &'static str> {
+    if message["event"].as_str() != Some("ready") || message["protocol"].as_u64() != Some(1) {
+        return Err("unsupported ready message");
     }
-}
-
-fn start(app: &tauri::App, secret: String) -> Result<(), Box<dyn std::error::Error>> {
-    let server: Arc<OnceLock<Url>> = Arc::default();
-    let allowed = server.clone();
-    let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("splash.html".into()))
-        .visible(false) // show it from on_page_load once the server page has loaded
-        .on_navigation(move |url| {
-            let ok = url.scheme() == "tauri" // the embedded splash page
-                || allowed.get().is_some_and(|s| url.origin() == s.origin());
-            if !ok {
-                open_in_browser(url);
-            }
-            ok
-        })
-        .on_new_window(|url, _features| {
-            open_in_browser(&url);
-            NewWindowResponse::Deny
-        })
-        .on_download(|_webview, _event| true) // save to ~/Downloads
-        .build()?;
-
-    let bin = std::env::current_exe()?.with_file_name("my-server"); // externalBin
-    let mut child = Command::new(bin)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .process_group(0)
-        .spawn()?;
-    let mut stdin = child.stdin.take().expect("piped");
-    writeln!(stdin, "{secret}")?; // first stdin line; never argv or the environment
-    app.manage(ServerStdin(Mutex::new(Some(stdin))));
-    let stdout = child.stdout.take().expect("piped");
-    app.manage(Backend(Mutex::new(Some(child)))); // killed in RunEvent::Exit
-
-    std::thread::spawn(move || {
-        let mut lines = BufReader::new(stdout).lines().map_while(Result::ok);
-        for line in lines.by_ref() {
-            let Ok(msg) = serde_json::from_str::<serde_json::Value>(&line) else { continue };
-            if msg["event"] != "ready" || msg["protocol"] != 1 {
-                continue;
-            }
-            let Some(url) = msg["url"].as_str().and_then(|u| u.parse::<Url>().ok()) else { break };
-            let _ = server.set(url.clone());
-            let port = url.port().unwrap_or_default();
-            let cookie = Cookie::build((format!("session-{port}"), secret.clone()))
-                .domain("127.0.0.1")
-                .path("/")
-                .http_only(true)
-                .same_site(SameSite::Strict)
-                .build(); // name and value as your server's contract defines them
-            let _ = window.set_cookie(cookie);
-            let _ = window.navigate(url);
-            break;
-        }
-        lines.for_each(drop); // keep draining; write to a log file in practice
-    });
-    Ok(())
+    let port = message["port"]
+        .as_u64()
+        .and_then(|port| u16::try_from(port).ok())
+        .filter(|&port| port != 0)
+        .ok_or("invalid ready port")?;
+    let expected = format!("http://127.0.0.1:{port}/");
+    if message["url"].as_str() != Some(expected.as_str()) {
+        return Err("unexpected ready URL");
+    }
+    let url = expected.parse().map_err(|_| "invalid loopback URL")?;
+    Ok((url, port))
 }
 ```
 
-A complete shell along these lines (spawn, ready handshake, window and navigation
-policy, menus, updater, exit handling) is roughly 150–250 lines of Rust and 40 lines of
-`tauri.conf.json`, estimated from an uncompiled sketch rather than measured from a
-shipped app.
+### Navigation, New Windows, and Downloads
+
+Allow the bundled startup pages and the validated server origin in `on_navigation`. Use
+`on_new_window` to deny popups in the app.
+Send approved external links to the system browser using an explicit scheme allowlist
+such as `https`, `http`, and `mailto`. Use `on_download` to approve intended downloads
+and choose where they go.
+Tauri otherwise allows navigation away from the app page, and on macOS the webview needs
+handlers for new windows and downloads.
+See [§8](#8-what-actually-breaks-across-webviews).
 
 ### Startup Without a Blank Window
 
-- **Do not block `setup` waiting for the server.** `setup` runs before the event loop,
-  so a blocking wait delays the first window.
-  Open the window on the embedded splash page, wait for the server on a thread, then
-  call `navigate()`.
-- **Wait for the ready line, not a poll.** The contract’s ready line arrives after the
-  socket is listening, so the first request queues in the backlog instead of failing.
-- **Avoid the white flash on macOS.** `background_color` is not implemented for the
-  macOS webview layer, so create the window with `visible(false)` and show it from
-  `on_page_load` when the load finishes.
-- **Fix `PATH` for Finder launches.** A GUI-launched app gets launchd’s minimal `PATH`,
-  without Homebrew or `~/.local/bin`. If the server shells out to developer tools,
-  resolve the login shell’s `PATH` at startup (tauri-apps publishes
-  [fix-path-env-rs](https://github.com/tauri-apps/fix-path-env-rs)) or pass an explicit
-  one.
+1. Create the window with `visible(false)` and attach `on_page_load` before building it.
+   If you start with a bundled splash page, call `show()` when that page finishes
+   loading. A hidden window avoids the white flash on macOS, where `background_color`
+   does not set the webview layer’s background.
+2. Spawn the backend with managed stdin and piped stdout.
+   A worker writes the secret, reads the ready line, and keeps draining stdout into a
+   log. Enforce a startup deadline outside the blocking reads so the event loop and
+   timeout can both run.
+   Treat spawn or pipe errors, an invalid ready line, EOF before readiness, and a
+   timeout as startup failures.
+3. After validation, set the navigation allowlist to the expected server origin.
+   Call `WebviewWindow::set_cookie` for host `127.0.0.1` and path `/`, with the
+   `session_<port>` name, the launch secret, `HttpOnly`, and `SameSite=Strict`. On
+   macOS, verify that `cookies()` reports `HttpOnly`, since wry sets the flag through an
+   undocumented WebKit property key.
+   On Windows, call the cookie APIs off the main thread.
+   [wry#583](https://github.com/tauri-apps/wry/issues/583).
+4. After successful cookie installation, call `navigate()` while startup is still
+   active. In `on_page_load`, wait for `PageLoadEvent::Finished` at the expected app URL,
+   then call `show()` if the window is still hidden.
+   Keep the deadline active through that callback.
+   Treat cookie, navigation, and window errors as startup failures.
+   On failure, stop accepting worker completions, show a bundled error page or native
+   dialog, and stop the backend through the same shutdown routine.
+
+If cookie injection cannot preserve the flags, the first server page can use the
+contract’s single-use exchange URL on the validated origin, then redirect to the
+expected app page.
+An `initialization_script` that sets a JavaScript global cannot supply
+authorization headers to `EventSource`.
+
+For Finder launches on macOS, pass an explicit `PATH` if the server runs developer
+tools. GUI apps get launchd’s minimal `PATH`, without Homebrew or `~/.local/bin`.
+[fix-path-env-rs](https://github.com/tauri-apps/fix-path-env-rs).
 
 ### Opened Files, URLs, and Single Instance on macOS
 
@@ -967,9 +893,11 @@ same volume, swaps it with `renamex_np(RENAME_SWAP)`, falls back to rename-and-r
 and reports `Error::PreviousAppNotRestored` (keeping the old copy) if even that fails.
 It asks for administrator rights through AppleScript when the app’s directory is not
 writable.
-`AppHandle::restart()` then relaunches through LaunchServices (`open -n`, since
-tauri 2.12.2), so the new instance does not inherit the old one’s stdio and process
-group.
+Tauri relaunches through LaunchServices (`open -n`, since tauri 2.12.2), so the
+new instance does not inherit the old one’s stdio and process group.
+Use `AppHandle::request_restart()` to run exit callbacks reliably.
+A main-thread call to `restart()` skips them.
+[Tauri AppHandle API](https://docs.rs/tauri/2.12.5/tauri/struct.AppHandle.html#method.request_restart).
 
 **The minisign key authorizes code.** The app, not a browser, downloads the update, so
 the new bundle normally carries no quarantine attribute; what Gatekeeper checks for such
@@ -1028,15 +956,33 @@ Third, check and install when your app wants to update.
 From JavaScript, call `check()` and `downloadAndInstall()` from
 `@tauri-apps/plugin-updater` (this needs the `updater:default` permission).
 When the page should not control updates, drive it from Rust and grant no updater
-permission at all:
+permission. On Windows, updater 2.14.0 runs the installer and calls
+`std::process::exit(0)`, bypassing `RunEvent::Exit`. Configure
+`UpdaterBuilder::on_before_exit` to run the same `shutdown_backend` routine used on
+normal exit and preserve the updater’s default Tauri cleanup call.
+The hook runs before the installer launches, so report installer launch failures even if
+the backend has already stopped.
+[UpdaterBuilder API](https://docs.rs/tauri-plugin-updater/latest/tauri_plugin_updater/struct.UpdaterBuilder.html#method.on_before_exit),
+[updater 2.14.0 source](https://github.com/tauri-apps/plugins-workspace/blob/updater-v2.14.0/plugins/updater/src/updater.rs#L944-L979).
 
 ```rust
 use tauri_plugin_updater::UpdaterExt;
 
 async fn update(app: tauri::AppHandle) -> tauri_plugin_updater::Result<()> {
-    if let Some(update) = app.updater()?.check().await? {
+    let updater = app.updater_builder();
+    #[cfg(windows)]
+    let updater = {
+        let handle = app.clone();
+        updater.on_before_exit(move || {
+            shutdown_backend(&handle);
+            handle.cleanup_before_exit();
+        })
+    };
+
+    if let Some(update) = updater.build()?.check().await? {
         update.download_and_install(|_chunk, _total| {}, || {}).await?;
-        app.restart();
+        #[cfg(not(windows))]
+        app.request_restart();
     }
     Ok(())
 }
@@ -1313,7 +1259,7 @@ Every item below is an open or documented issue, not speculation:
   Linux-specific and affects the ordinary way Tauri apps serve local media.
 - **Drag-and-drop is broken** across several issues: the drop event never fires, and
   file drops can navigate the webview to the file instead.
-- **Wayland rendering glitches**: maximizing produces duplicated “shadow” DOM over real
+- **Wayland rendering glitches:** maximizing produces duplicated “shadow” DOM over real
   content, reproducible on a vanilla scaffold.
 - **Performance degrades** until devtools is opened, and CSS animations blur the app.
 - Child webviews require X11.
@@ -1328,10 +1274,10 @@ It was an open pull request on 2026-11-08, last updated 2026-05-29, not a shippe
 
 ### Windows and Cross-Platform
 
-- **Windows**: on machines without WebView2, the installer triggers a UAC prompt to
+- **Windows:** on machines without WebView2, the installer triggers a UAC prompt to
   install “Windows Edge Update,” which looks alarming to users; declining leaves an app
   that cannot launch. Apps also fail to start under Windows Administrator Protection.
-- **macOS media**: WKWebView restricts media autoplay, and `convertFileSrc` fails on
+- **macOS media:** WKWebView restricts media autoplay, and `convertFileSrc` fails on
   very large files.
 - **Fonts render differently on every platform** (DirectWrite, CoreText, FreeType).
   Bundle your own fonts if visual consistency matters.
@@ -1361,7 +1307,7 @@ guideline:
 
 - **The official updater with a minisign pubkey** (10 apps—the strongest consensus in
   the dataset).
-- **Plugins**: `deep-link` (7), `window-state` (7), `single-instance` (6).
+- **Plugins:** `deep-link` (7), `window-state` (7), `single-instance` (6).
 - **`fs:scope` confined to `$APPDATA/**`** as the minimum viable filesystem scope.
 - **Cargo features** `devtools` and `protocol-asset` (6 apps each).
 - **`macOSPrivateApi: true`** for vibrancy and transparency (4 apps).
@@ -1370,7 +1316,7 @@ guideline:
 - **Custom title bars** via `titleBarStyle: "Overlay"` or `hiddenTitle` (4 apps).
 - **Vite** as the bundler, near-universally.
 
-**No frontend framework dominates**: React and Next.js account for five apps, Vue three,
+**No frontend framework dominates:** React and Next.js account for five apps, Vue three,
 Svelte and Solid one each.
 Framework choice is team preference, not a Tauri constraint.
 
@@ -1440,8 +1386,9 @@ Status on 2026-11-08, from crates.io, the `v3` branch, and the
 - [ ] Use `ipc::Response` or `Channel<T>` for binary and streaming payloads.
 - [ ] Suffix sidecar binaries with the correct target triple, and remember the Rust and
   JS APIs take different path arguments.
-- [ ] Spawn Rust-side children in their own process group and kill the group
-  synchronously in `RunEvent::Exit`; do not rely on `ExitRequested` on macOS.
+- [ ] Supervise Rust-spawned children in a Unix process group or Windows Job Object.
+  Run bounded shutdown and reap the child in `RunEvent::Exit` and the Windows updater’s
+  pre-exit hook.
 - [ ] Pre-sign every Mach-O file under `bundle.resources` or `bundle.macOS.files`, and
   notarize the DMG yourself.
 - [ ] On macOS, wire `on_new_window`, `on_navigation`, `on_download`, and a menu with
@@ -1527,10 +1474,10 @@ verification.
 
 Pin tauri 2.12.5 (never below 2.11.6) and plugins that clear the cool-off, commit and
 lock `Cargo.lock`, scope capabilities deliberately rather than accepting the migration
-output, ship the signed updater with `requireSignedVersion` from day one, kill every
-Rust-spawned child by process group in `RunEvent::Exit`, budget for Rust build times in
-CI, budget a WebKit QA pass on macOS, and put a real Linux machine in your test matrix
-before you promise Linux support.
+output, ship the signed updater with `requireSignedVersion` from day one, and
+[supervise every Rust-spawned child](#process-lifecycle).
+Budget for Rust build times in CI and a WebKit QA pass on macOS. Put a real Linux
+machine in your test matrix before you promise Linux support.
 For a Python backend, ship uv as a signed `externalBin` and let it install the pinned
 interpreter and locked environment into app data on first run; see
 `tbd guidelines desktop-python-runtime-patterns`.
