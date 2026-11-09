@@ -15,8 +15,14 @@ import { DISPLAY_PREFIX_PATTERN_SOURCE, EXTERNAL_SHORT_ID_PATTERN_SOURCE } from 
 
 /**
  * ISO8601 timestamp with Z suffix (UTC).
+ *
+ * Seconds are optional (`2026-01-01T09:00Z` parses), the grammar tbd accepted before
+ * zod 4. `z.iso.datetime()` alone requires seconds, which would turn a hand-edited
+ * `due_date` that once loaded into a read error. The value is returned unchanged.
  */
-export const Timestamp = z.string().datetime();
+export const Timestamp = z.union([z.iso.datetime(), z.iso.datetime({ precision: -1 })], {
+  error: 'Invalid ISO datetime',
+});
 
 /**
  * Issue ID: prefix + 26 lowercase alphanumeric characters (ULID format).
@@ -247,10 +253,10 @@ export const IssueRef = z.object({
  * consider it authoritative. See IdMappingYamlSchema (§2.6.8).
  */
 /**
- * The issue shape as *declared*, before `.passthrough()` is applied.
+ * The issue shape as *declared*, before `.loose()` is applied.
  *
- * Exists only so the field names can be enumerated. `.passthrough()` adds an index
- * signature, which widens `keyof Issue` to `string | number` and silently defeats any
+ * Exists only so the field names can be enumerated. `.loose()` adds an index
+ * signature, which widens `keyof Issue` to `string` and silently defeats any
  * `Record<keyof Issue, …>` exhaustiveness guard built on it — two such guards had been
  * dead since f08 without anyone noticing, because they still compiled.
  */
@@ -345,10 +351,10 @@ const IssueDeclaredShape = BaseEntity.extend({
   //
   // Preserving here is only half the job. `mergeIssues` (file/git.ts) must also carry
   // keys outside FIELD_STRATEGIES, or a preserved key is dropped at the next merge.
-  .passthrough();
+  .loose();
 
 /**
- * Field names the issue schema declares, un-widened by `.passthrough()`.
+ * Field names the issue schema declares, un-widened by `.loose()`.
  *
  * Use this, never `keyof Issue`, when a table must cover every field: it is what makes
  * a new field a compile error in the places that need to know about one.
@@ -364,35 +370,35 @@ export const IssueSchema = IssueDeclaredShape
   .superRefine((issue, ctx) => {
     if (issue.resolution != null && issue.status !== 'closed') {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['resolution'],
         message: `resolution is only valid on a closed issue (status: ${issue.status})`,
       });
     }
     if (issue.resolution === 'duplicate' && issue.duplicate_of == null) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['duplicate_of'],
         message: 'duplicate_of is required when resolution is duplicate',
       });
     }
     if (issue.hold != null && issue.status === 'closed') {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['hold'],
         message: 'hold is only valid on work that is not closed',
       });
     }
     if (issue.hold_until != null && issue.hold !== 'paused') {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['hold_until'],
         message: 'hold_until is only valid with hold: paused',
       });
     }
     if (issue.duplicate_of != null && issue.resolution !== 'duplicate') {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['duplicate_of'],
         message: 'duplicate_of is only valid with resolution: duplicate',
       });
@@ -577,7 +583,7 @@ export const IntegrationSelectSchema = z
   // tbd was stripped the next time an older one rewrote config.yml. That gap is why any
   // new selection clause had to wait for a bump; closing it here means it does not
   // recur.
-  .passthrough();
+  .loose();
 
 /**
  * One synchronized comment, as persisted in a bead's `extensions.<provider>`
@@ -595,7 +601,7 @@ export const CommentEntry = z
     body: z.string(),
   })
   .refine((entry) => entry.id !== undefined || entry.local_id !== undefined, {
-    message: 'a comment entry needs an id or a local_id',
+    error: 'a comment entry needs an id or a local_id',
   });
 
 /** Stored comment bodies are capped; the full text lives in the tracker. */
@@ -722,7 +728,7 @@ export const InboundClauseSchema = z
     as_kind: IssueKind.default('task'),
   })
   // Passthrough (f08+), same reason as IntegrationSelectSchema.
-  .passthrough();
+  .loose();
 
 /**
  * The field_sync clause: how a linked pair's fields and comments flow.
@@ -744,12 +750,14 @@ export const FieldSyncClauseSchema = z
         labels: FieldFlowRule.default('local'),
         assignee: FieldFlowRule.default('local'),
       })
-      .default({}),
+      // `prefault`, not `default`: the empty object is parsed, so the per-field
+      // defaults above fill it in. A `default` would be returned as-is, unparsed.
+      .prefault({}),
     comments: CommentsMode.default('two_way'),
     tie_break: TieBreak.default('newest'),
   })
   // Passthrough (f08+), same reason as IntegrationSelectSchema.
-  .passthrough();
+  .loose();
 
 /**
  * A linking policy: one structured object answering, per integration, when a
@@ -788,9 +796,10 @@ export const FieldSyncClauseSchema = z
 export const ArchiveMode = z.enum(['manual', 'on_close']);
 
 export const PolicyDefinitionSchema = z.object({
-  outbound: IntegrationSelectSchema.default({}),
-  inbound: InboundClauseSchema.default({}),
-  field_sync: FieldSyncClauseSchema.default({}),
+  // `prefault` so an absent clause is parsed from `{}` and gets its own defaults.
+  outbound: IntegrationSelectSchema.prefault({}),
+  inbound: InboundClauseSchema.prefault({}),
+  field_sync: FieldSyncClauseSchema.prefault({}),
   /** Optional so it is not written into configs that never set it; resolved to `manual`. */
   archive: ArchiveMode.optional(),
 });
@@ -811,7 +820,7 @@ export const IntegrationTargetSchema = z
     project: z.string().min(1).optional(),
     repo: z.string().min(1).optional(),
   })
-  .passthrough();
+  .loose();
 
 /**
  * How mirrored work is marked (f08+).
@@ -874,7 +883,7 @@ export const IntegrationLabelsSchema = z
     /** Which missing labels tbd may create on push. */
     create: LabelCreateMode.default('tbd'),
   })
-  .passthrough();
+  .loose();
 
 /**
  * Who work maps to (f08+).
@@ -901,7 +910,7 @@ export const IntegrationIdentitySchema = z
      */
     agent_map: z.record(z.string(), z.string()).optional(),
   })
-  .passthrough();
+  .loose();
 
 /**
  * Settings shared by every provider.
@@ -974,7 +983,7 @@ export const LinearIntegrationSchema = z
   })
   // Passthrough for the same reason as the block above: a per-provider setting added
   // by a newer tbd must survive this version rewriting config.yml.
-  .passthrough();
+  .loose();
 
 export const GithubIntegrationSchema = z
   .object({
@@ -982,7 +991,7 @@ export const GithubIntegrationSchema = z
     /** Legacy spelling of `target.repo` (pre-f08). */
     repo: z.string().min(1).optional(),
   })
-  .passthrough();
+  .loose();
 
 /**
  * What plain `tbd sync` does with enabled providers (f08+).
@@ -1036,7 +1045,7 @@ export const IntegrationsConfigSchema = z
   })
   // Passthrough so a provider this version does not know (a newer tbd's tracker)
   // survives a read/write round trip instead of being silently dropped.
-  .passthrough();
+  .loose();
 
 export const ConfigSchema = z
   .object({
@@ -1076,7 +1085,9 @@ export const ConfigSchema = z
         remote: GitRemoteName.default('origin'),
         storage: SyncStorage.default('git-common-dir-v1'),
       })
-      .default({}),
+      // `prefault` (here and on `settings`) so an absent block is parsed from `{}`
+      // and gets the field defaults above.
+      .prefault({}),
     display: z.object({
       id_prefix: z.string().min(1).max(20), // Required: set during init --prefix or import
     }),
@@ -1098,7 +1109,7 @@ export const ConfigSchema = z
          */
         use_gh_cli: z.boolean().default(true),
       })
-      .default({}),
+      .prefault({}),
     /**
      * Documentation cache configuration (consolidated).
      * Contains files to sync and lookup paths.
@@ -1115,7 +1126,7 @@ export const ConfigSchema = z
   // a newer version's configuration the first time it rewrites config.yml — which is
   // how the integrations block was lost three times during the Linear pilot. Keeping
   // them means a future additive block needs no format bump. See tbd-format.ts.
-  .passthrough();
+  .loose();
 
 // =============================================================================
 // Common-Dir Layout Schema
