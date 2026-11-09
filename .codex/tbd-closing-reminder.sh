@@ -36,13 +36,14 @@ fi
 
 # Print yes when the hook input's command runs git push, and no otherwise. The parser
 # separates commands and words as a shell does, so it finds `git -C dir push` or a push
-# on a later line and ignores `echo git push`. Input that is not valid hook JSON exits 1.
+# on a later line and ignores `echo git push`. Input that is not valid hook JSON exits 1,
+# and so does a node that fails, each with a message.
 tbd_detect_git_push() {
   if ! command -v node &> /dev/null; then
     echo "[tbd] node is required to read the closing hook input." >&2
     return 1
   fi
-  node -e 'const fs = require("node:fs");
+  if ! node -e 'const fs = require("node:fs");
 const SINGLE_QUOTE = String.fromCharCode(39);
 const SEPARATORS = new Set(["\n", ";", "&", "(", ")", "{", "|", "}"]);
 const DECORATORS = new Set(["command", "env", "eval", "exec", "nohup", "sudo", "time"]);
@@ -140,7 +141,10 @@ try {
 }
 const command = input?.tool_input?.command;
 process.stdout.write(typeof command === "string" && containsGitPush(command) ? "yes" : "no");
-'
+'; then
+    echo "[tbd] The closing hook could not read its input with node." >&2
+    return 1
+  fi
 }
 
 if ! is_git_push=$(tbd_detect_git_push); then
