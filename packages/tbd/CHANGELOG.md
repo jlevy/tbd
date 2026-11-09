@@ -1,5 +1,61 @@
 # get-tbd
 
+## 0.11.0
+
+This release secures Markdown frontmatter parsing, keeps the managed `AGENTS.md` block
+stable under formatters, and updates the desktop app guidelines.
+Existing projects can upgrade in place.
+The repository format remains `f08` and the generated agent integration format remains
+`f100`.
+
+### Upgrade
+
+Once the release meets your package cool-off policy, install it and run setup from each
+project’s root to refresh its managed agent files and bundled guidelines.
+
+```bash
+npm install -g --ignore-scripts get-tbd@0.11.0
+tbd setup --auto
+```
+
+If your application imports schemas from `get-tbd`, use Zod 4 in code that composes
+those schemas or infers their types with `z.infer`. Read validation errors through
+`error.issues`. The exported `Timestamp` schema is now a union, so use `.refine()` for
+additional validation instead of string-only methods such as `.min()`. It accepts UTC
+timestamps with or without seconds.
+See the [Zod 4 migration guide](https://zod.dev/v4/changelog).
+
+## What’s Changed
+
+### Security
+
+- Markdown frontmatter is restricted to YAML even when the file starts with a byte-order
+  mark. Explicit JavaScript frontmatter is rejected before it can execute.
+- The runtime dependency on Zod is upgraded from 3.25.76 to 4.6.7, which fixes excessive
+  validation work on oversized arrays.
+  The runtime audit reported zero advisories and all dependency pins passed the 14-day
+  age check. [Zod advisory](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)
+
+### Fixes
+
+- Running setup after a Markdown formatter no longer rewrites an equivalent managed
+  `AGENTS.md` block or its policy grants.
+- The GitHub CLI installer preserves the executable it replaces, reserves distinct
+  backup paths for concurrent installs, and avoids backing up its own managed copy.
+- Upgrade messages name the version recorded by the project when available and provide
+  an install command that observes the package cool-off period.
+
+### Guidelines and Content
+
+- New guides cover native macOS WebKit shells and Python runtimes for desktop apps,
+  including local process startup and shutdown, packaging, and code signing.
+- The Electron, Tauri, and Electrobun guides cover framework-specific trust boundaries,
+  packaging, and distribution.
+- GitHub setup guidance covers safer CLI replacement and working within brokered Git
+  permissions.
+
+[Full commit history](https://github.com/jlevy/tbd/compare/v0.10.0...v0.11.0)
+
 ## 0.10.0
 
 This release adds project policy grants, a consistent PR review lifecycle, and generated
@@ -1917,3 +1973,7 @@ tbd-managed repository must upgrade to v0.2.0; older clients fail closed.** See
 ### Patch Changes
 
 - Fix flaky performance test and clarify publishing documentation
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->
