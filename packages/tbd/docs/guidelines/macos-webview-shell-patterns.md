@@ -1156,8 +1156,13 @@ the app.
 Layer three mechanisms:
 
 1. **Orderly quit.** `applicationShouldTerminate` returns `.terminateLater`, sends
-   `SIGTERM` to the process group, waits a bounded grace period (2 to 5 seconds), sends
-   `SIGKILL`, and then replies.
+   `SIGTERM` to the process group, waits for the server to exit, then escalates to
+   `SIGKILL` if its own deadline expires.
+   The shell deadline must exceed the server’s full shutdown budget, including
+   detached-child cleanup, with scheduling margin.
+   For the five-second watchdog above, allow at least seven seconds in the shell.
+   Test a slow HTTP drain with a detached child that ignores `SIGTERM`. Killing the
+   server before it cleans up can leave that child outside the shell’s reach.
    Sending `SIGTERM` from `applicationWillTerminate` instead does not work: that method
    returns before any grace period runs, so a hung child survives quit.
 2. **Crash or force quit.** The stdin EOF rule makes the child exit on its own.
@@ -1549,8 +1554,10 @@ codesign -dv "$APP" 2>&1 | grep -E "Identifier|flags|TeamIdentifier"
 ```
 
 Bundled frameworks (Sparkle) and nested bundles (`.xpc`, `.app`) are signed as bundles,
-deepest first, before the app; the `find` loop above covers only loose executables.
-Livebook’s former shell used the same SwiftPM-plus-script shape, and
+deepest first, before the app.
+The example has no nested code.
+Sign additional Mach-O helpers and nested bundles explicitly before signing the outer
+app. Livebook’s former shell used the same SwiftPM-plus-script shape, and
 [kofigumbs/multi](https://github.com/kofigumbs/multi) does build, sign, DMG,
 notarization, and `brew bump-cask-pr` from one `Makefile`.
 

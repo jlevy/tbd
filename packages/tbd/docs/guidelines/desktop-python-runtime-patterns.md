@@ -137,12 +137,14 @@ else follows from it.
 | Freezing (PyInstaller, Nuitka, Briefcase) | Works | Works against you |
 | Recommended layout | Frozen app, or a PBS tree with dependencies installed into it at build time | [Layout A or A′](#2-layouts-and-their-trade-offs) |
 
-### Why Runtime Plugins Rule Out Freezing
+### Why Freezing Complicates Runtime Plugins
 
-A frozen app replaces the interpreter’s import system with a bundled archive and a fixed
-module search path.
-To accept a plugin that is a real package, with its own dependencies,
-entry points, and native extensions, it would need:
+A frozen app typically loads its bundled modules first.
+Some freezers, including
+[PyInstaller](https://pyinstaller.org/en/stable/advanced-topics.html#python-imports-in-a-bundled-app),
+also support external modules on the filesystem.
+To accept ordinary Python packages with dependencies, entry points, and native
+extensions, the app still needs:
 
 - An installer at runtime.
   Briefcase deliberately removes pip from packaged apps
@@ -161,10 +163,12 @@ entry points, and native extensions, it would need:
   A sidecar directory resolves separately from the frozen set, so a plugin can bring a
   second, conflicting copy of a base dependency.
 
-Each workaround reintroduces a real interpreter and an installer.
-At that point the frozen copy is a second Python with nothing to add.
+External packages can load into the frozen interpreter.
+Providing a writable environment with a normal installer is usually simpler when you
+need general package installation, dependency resolution, or subprocesses that invoke
+Python.
 
-The precedents split exactly along this line.
+The surveyed apps generally split along this line.
 Apps whose plugins are pip-installable packages (Datasette Desktop, Open WebUI Desktop,
 ComfyUI Desktop, Mu, JupyterLab Desktop, Spyder, napari) keep a writable environment
 outside the bundle. Apps whose plugins are not packages freeze: calibre plugins are zip

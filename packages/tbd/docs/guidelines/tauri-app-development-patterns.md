@@ -29,9 +29,9 @@ Five things matter most when deciding:
 - **The security model is genuinely two-sided.** `core:default` grants the default sets
   of the nine core UI modules and *zero* filesystem, shell, or network access, so the
   deny-all baseline is real.
-  But there is no equivalent of Electron’s OS-level renderer sandbox, CSP is off by
-  default, and **the webview’s patch cycle belongs to the user’s operating system, not
-  to you**.
+  Renderer isolation and patch timing depend on the platform webview.
+  Tauri capabilities restrict the Rust commands a page can invoke.
+  Configure CSP separately.
 
 - **A thin native window over an existing local web server is small.** Point a window at
   `http://127.0.0.1:<port>`, skip the frontend build, and grant no capabilities: the
@@ -741,9 +741,12 @@ tools. GUI apps get launchd’s minimal `PATH`, without Homebrew or `~/.local/bi
 
 ### Where Tauri Is Weaker, Stated Plainly
 
-- **There is no equivalent of Electron’s renderer sandbox.** Electron’s sandbox
-  restricts renderer syscalls at the OS level.
-  Tauri has no such layer.
+- **Renderer isolation varies by webview.** Electron ships Chromium and its sandbox.
+  Tauri relies on the system webview’s process isolation.
+  For example, Microsoft documents
+  [sandboxed WebView2 renderer processes](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/measures)
+  on Windows. Assess that boundary on each target separately from Tauri’s IPC
+  capabilities and Isolation pattern.
 - **CSP is not enabled by default.** It works well once configured, with compile-time
   nonce and hash injection, but you must opt in.
 - **`security.freezePrototype` defaults to `false`**, so prototype pollution defenses
@@ -1453,7 +1456,9 @@ Status on 2026-11-08, from crates.io, the `v3` branch, and the
   Electron ships one; Tauri inherits whatever is installed until its CEF runtime is
   stable, and that runtime is Electron-sized.
 - **Your CI budget cannot absorb Rust build times.**
-- **You need an OS-level renderer sandbox**, which Electron provides and Tauri does not.
+- **You need a consistent Chromium renderer sandbox across your desktop targets.**
+  Electron ships Chromium.
+  With Tauri, verify the system webview’s isolation on every supported platform.
 - **Your team will write no Rust and your backend cannot be a sidecar**—for example
   because you need mobile support.
 - **You ship on macOS only and want the thinnest possible layer.** A hand-written AppKit

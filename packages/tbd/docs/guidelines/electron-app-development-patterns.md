@@ -1256,12 +1256,12 @@ contents.setWindowOpenHandler(({ url }) => {
   return { action: 'deny' };
 });
 
-// 2. Navigation: allow only the URLs the app itself loads. With loadFile the
-//    renderer's origin is the opaque 'null', so compare against a URL prefix
-//    (dev server URL or the packaged renderer's file:// base), not an origin.
-//    A custom protocol gives you a real origin to compare instead.
-contents.on('will-navigate', (event, url) => {
-  if (!url.startsWith(trustedRendererBase)) event.preventDefault();
+// 2. Guard both new navigation and redirects. See Appendix C for the URL check.
+contents.on('will-frame-navigate', (event) => {
+  if (!isTrustedRenderer(event.url)) event.preventDefault();
+});
+contents.on('will-redirect', (event) => {
+  if (!isTrustedRenderer(event.url)) event.preventDefault();
 });
 
 // 3. Permissions: deny everything you have not deliberately enabled.
@@ -2176,13 +2176,24 @@ import { app, BrowserWindow, session, shell, ipcMain } from 'electron';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-// The URL prefix the renderer legitimately lives under: the dev server in
-// development, the packaged renderer directory in production. With loadFile
-// the page's origin is the opaque 'null', so trust is a URL prefix, not an
-// origin. (A custom app:// protocol would give you a real origin instead.)
-const trustedRendererBase =
-  process.env.ELECTRON_RENDERER_URL ??
-  pathToFileURL(path.join(__dirname, '../renderer/')).href;
+const rendererFile = path.join(__dirname, '../renderer/index.html');
+const devRenderer = app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL;
+const rendererEntry = devRenderer ? new URL(devRenderer) : pathToFileURL(rendererFile);
+
+function isTrustedRenderer(rawUrl: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+  if (rendererEntry.protocol === 'http:' || rendererEntry.protocol === 'https:') {
+    return url.protocol === rendererEntry.protocol && url.origin === rendererEntry.origin;
+  }
+  // File origins are opaque. Allow only the packaged entry document.
+  return !devRenderer && url.protocol === 'file:' &&
+    url.host === rendererEntry.host && url.pathname === rendererEntry.pathname;
+}
 
 function applySecurityPolicy(ses: Electron.Session): void {
   ses.webRequest.onHeadersReceived((details, callback) => {
@@ -2222,8 +2233,11 @@ function createWindow(): BrowserWindow {
   win.once('ready-to-show', () => win.show());
 
   // Never let the app navigate outside the URLs it loads itself.
-  win.webContents.on('will-navigate', (event, url) => {
-    if (!url.startsWith(trustedRendererBase)) event.preventDefault();
+  win.webContents.on('will-frame-navigate', (event) => {
+    if (!isTrustedRenderer(event.url)) event.preventDefault();
+  });
+  win.webContents.on('will-redirect', (event) => {
+    if (!isTrustedRenderer(event.url)) event.preventDefault();
   });
 
   // Open external links in the real browser; never in an app window.
@@ -2233,10 +2247,11 @@ function createWindow(): BrowserWindow {
     return { action: 'deny' };
   });
 
-  if (process.env.ELECTRON_RENDERER_URL) {
-    void win.loadURL(process.env.ELECTRON_RENDERER_URL);
+  if (devRenderer) {
+    if (!isTrustedRenderer(devRenderer)) throw new Error('invalid development renderer URL');
+    void win.loadURL(devRenderer);
   } else {
-    void win.loadFile(path.join(__dirname, '../renderer/index.html'));
+    void win.loadFile(rendererFile);
   }
   return win;
 }
@@ -2323,11 +2338,12 @@ export function registerIpcHandlers(ipcMain: Electron.IpcMain): void {
   });
 }
 
-// Same trustedRendererBase as the entry point (Appendix C): dev server URL in
-// development, the packaged renderer's file:// base in production.
+// Use the same origin and entry-document check as Appendix C.
 function assertTrustedSender(event: Electron.IpcMainInvokeEvent): void {
-  const url = event.senderFrame?.url ?? '';
-  if (!url.startsWith(trustedRendererBase)) throw new Error('untrusted IPC sender');
+  const frame = event.senderFrame;
+  if (frame === null || frame.parent !== null || !isTrustedRenderer(frame.url)) {
+    throw new Error('untrusted IPC sender');
+  }
 }
 ```
 
