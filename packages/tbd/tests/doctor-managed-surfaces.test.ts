@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { subprocessTestTimeout } from './test-helpers.js';
 import { AGENT_INTEGRATION_FORMAT } from '../src/lib/integration-paths.js';
-import { TBD_INSTALL_COMMAND } from '../src/lib/install-advice.js';
+import { tbdUpgradeAdvice } from '../src/lib/install-advice.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TBD_BIN = join(__dirname, '..', 'dist', 'bin.mjs');
@@ -136,7 +136,7 @@ describe('doctor managed agent surfaces', { timeout: subprocessTestTimeout(180_0
     expect(tooNew.finding).toMatchObject({
       status: 'error',
       message: `managed file uses newer integration format f999 (supported: ${AGENT_INTEGRATION_FORMAT})`,
-      suggestion: `Upgrade tbd to manage this file: ${TBD_INSTALL_COMMAND}`,
+      suggestion: tbdUpgradeAdvice('Upgrade tbd to manage this file'),
     });
   });
 

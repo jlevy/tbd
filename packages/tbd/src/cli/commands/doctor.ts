@@ -123,7 +123,7 @@ import {
   type WorkingTreeGrants,
 } from '../../lib/policy-grants.js';
 import { hasCurrentPolicyBlockProse } from '../../lib/policy-block-prose.js';
-import { TBD_INSTALL_COMMAND } from '../../lib/install-advice.js';
+import { TBD_INSTALL_COMMAND, tbdUpgradeAdvice } from '../../lib/install-advice.js';
 import {
   listLockSidecars,
   lockOwnerIsDefinitelyDead,
@@ -306,7 +306,7 @@ function managedArtifactFinding(
         status: 'error',
         message: `managed file uses newer integration format ${inspection.format} (supported: ${AGENT_INTEGRATION_FORMAT})`,
         path,
-        suggestion: `Upgrade tbd to manage this file: ${TBD_INSTALL_COMMAND}`,
+        suggestion: tbdUpgradeAdvice('Upgrade tbd to manage this file'),
       };
   }
 }
@@ -344,7 +344,7 @@ export function tierAgentsFinding(
       message: `managed file uses newer integration format ${tooNew[0]?.inspection.format} (supported: ${AGENT_INTEGRATION_FORMAT})`,
       path,
       details: tooNew.map((file) => file.rel),
-      suggestion: `Upgrade tbd to manage this file: ${TBD_INSTALL_COMMAND}`,
+      suggestion: tbdUpgradeAdvice('Upgrade tbd to manage this file'),
     };
   }
   const stale = inState('stale');
@@ -373,7 +373,7 @@ export function tierAgentsFinding(
 
 const POLICY_GRANTS_CHECK = 'Policy grants';
 const POLICY_GUIDELINE_HINT = 'tbd guidelines agent-policy-grants';
-const TBD_UPGRADE_SUGGESTION = `Upgrade tbd: ${TBD_INSTALL_COMMAND}`;
+const TBD_UPGRADE_SUGGESTION = tbdUpgradeAdvice('Upgrade tbd');
 
 /** How findings name the ref effective grants are read from (`origin/main`, `main`, `HEAD`). */
 function grantSourceLabel(source: DefaultBranchRef | null): string {
@@ -1336,7 +1336,7 @@ class DoctorHandler extends BaseCommand {
           status: 'error',
           message: `requires newer tbd (found ${error.foundFormat}, supported ${error.supportedFormat})`,
           path: configPath,
-          suggestion: `Upgrade: ${TBD_INSTALL_COMMAND}`,
+          suggestion: tbdUpgradeAdvice('Upgrade', error.requiredVersion),
         };
       }
       return {
@@ -2603,7 +2603,7 @@ class DoctorHandler extends BaseCommand {
         status: 'error',
         message: `requires newer tbd (found ${layout.tbd_format})`,
         path: layoutPath,
-        suggestion: `Upgrade: ${TBD_INSTALL_COMMAND}`,
+        suggestion: tbdUpgradeAdvice('Upgrade', this.config.tbd_fallback_version),
       };
     }
     // A layout from an older but compatible format than the (in-memory,

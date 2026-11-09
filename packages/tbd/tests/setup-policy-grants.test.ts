@@ -482,7 +482,7 @@ describe('AGENTS.md managed block boundaries', () => {
     expect(message).toContain('…');
     expect(message).not.toContain('\u001b');
     expect(message).not.toContain('\u0007');
-    expect(message.length).toBeLessThan(300);
+    expect(Math.max(...message.split('\n').map((line) => line.length))).toBeLessThan(200);
   });
 });
 

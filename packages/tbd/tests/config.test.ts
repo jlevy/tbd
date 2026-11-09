@@ -22,7 +22,11 @@ import {
 import { CONFIG_FILE } from '../src/lib/paths.js';
 import { CURRENT_FORMAT } from '../src/lib/tbd-format.js';
 import type { Config } from '../src/lib/types.js';
-import { TBD_INSTALL_COMMAND } from '../src/lib/install-advice.js';
+import {
+  TBD_COOL_OFF_NOTE,
+  TBD_INSTALL_COMMAND,
+  tbdUpgradeCommand,
+} from '../src/lib/install-advice.js';
 
 describe('config operations', () => {
   let tempDir: string;
@@ -172,8 +176,33 @@ describe('config operations', () => {
         'This repository requires a newer version of tbd.\n' +
           "Config format 'f99' is from a newer tbd version.\n" +
           `This tbd version supports up to format '${CURRENT_FORMAT}'.\n` +
-          `Upgrade tbd: ${TBD_INSTALL_COMMAND}`,
+          `Upgrade tbd: ${TBD_INSTALL_COMMAND}\n` +
+          TBD_COOL_OFF_NOTE,
       );
+    });
+
+    it("names the config's recorded release in the newer-version message", async () => {
+      await mkdir(join(tempDir, '.tbd'), { recursive: true });
+      const write = (pin: string) =>
+        writeFile(
+          join(tempDir, CONFIG_FILE),
+          `tbd_format: f99\ntbd_version: 0.11.0\ntbd_fallback_version: ${pin}\n` +
+            'display:\n  id_prefix: test\n',
+        );
+      await write('0.11.0');
+      const error = await readConfig(tempDir).catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(IncompatibleFormatError);
+      expect((error as IncompatibleFormatError).requiredVersion).toBe('0.11.0');
+      expect((error as Error).message).toContain(
+        `Upgrade tbd to get-tbd 0.11.0 or newer: ${tbdUpgradeCommand('0.11.0')}\n` +
+          TBD_COOL_OFF_NOTE,
+      );
+
+      // A recorded value that is not an exact release is never put in the command.
+      await write("'0.11.0; touch x'");
+      const unsafe = await readConfig(tempDir).catch((caught: unknown) => caught);
+      expect((unsafe as Error).message).toContain(`Upgrade tbd: ${TBD_INSTALL_COMMAND}\n`);
+      expect((unsafe as Error).message).not.toContain('touch');
     });
   });
 

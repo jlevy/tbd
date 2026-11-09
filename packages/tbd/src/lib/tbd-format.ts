@@ -41,7 +41,8 @@
  *    format version (e.g., f07 → f08)
  * 2. config.ts checks format compatibility via isCompatibleFormat()
  * 3. Older tbd versions will error with "format 'fXX' is from a newer tbd version"
- * 4. The error tells users to upgrade with TBD_INSTALL_COMMAND (install-advice.ts)
+ * 4. The error tells users to upgrade with tbdUpgradeAdvice (install-advice.ts), naming
+ *    the release that last set the repository up when the config records it
  *
  * This ensures older versions fail fast rather than silently corrupting config.
  * A purely additive config key no longer needs a bump once every client in use is
@@ -50,7 +51,7 @@
  * See ConfigSchema in schemas.ts and checkFormatCompatibility() in config.ts.
  */
 
-import { TBD_INSTALL_COMMAND } from './install-advice.js';
+import { tbdUpgradeAdvice } from './install-advice.js';
 
 // =============================================================================
 // Format Constants
@@ -823,18 +824,20 @@ export function isFormatCompatibleWithSupported(
 
 /**
  * Build the standard message shown when a repository has a format newer than
- * this tbd client supports.
+ * this tbd client supports. `requiredVersion` is the config's `tbd_fallback_version`,
+ * the release that last set the repository up, when it is known.
  */
 export function formatUpgradeMessage(
   subject: string,
   foundFormat: string,
   supportedFormat: string,
+  requiredVersion?: string,
 ): string {
   return (
     `This repository requires a newer version of tbd.\n` +
     `${subject} format '${foundFormat}' is from a newer tbd version.\n` +
     `This tbd version supports up to format '${supportedFormat}'.\n` +
-    `Upgrade tbd: ${TBD_INSTALL_COMMAND}`
+    tbdUpgradeAdvice('Upgrade tbd', requiredVersion)
   );
 }
 
