@@ -276,3 +276,7 @@ tbd show test-CCCC --json  # → new spec_path
 - `packages/tbd/src/lib/schemas.ts` - Issue schema definition
 - `packages/tbd/docs/tbd-design.md` - Design document (needs update)
 - `packages/tbd/docs/tbd-docs.md` - CLI reference (needs update)
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

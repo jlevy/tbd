@@ -588,7 +588,7 @@ this repository’s own data and board.
 Every phase above is provable against the mock server, and the recurring lesson of this
 integration is that **a mock is only as good as the constraints it models** — every
 defect found live came from the mock being kinder than Linear
-([valid-2026-08-16-linear-integration-live.md](./valid-2026-08-16-linear-integration-live.md)).
+([valid-2026-08-16-linear-integration-live.md](../done/valid-2026-08-16-linear-integration-live.md)).
 So the model is not done when its tests pass; it is done when this repository runs on
 it. The two axes exist to describe agent-driven work, and this repository is the
 agent-driven work they were derived from, which makes it the honest test.

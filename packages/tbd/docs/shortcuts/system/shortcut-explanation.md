@@ -74,3 +74,7 @@ description: Do something specific to my project
 
 Instructions here...
 ```
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

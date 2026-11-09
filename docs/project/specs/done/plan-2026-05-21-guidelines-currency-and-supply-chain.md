@@ -252,3 +252,7 @@ Validate by:
 - `packages/tbd/docs/guidelines/pnpm-monorepo-patterns.md`
 - Background research agent reports (Bun: 2026-05-21; npm/pnpm: pending).
   Inline citations will be added to the guideline edits.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

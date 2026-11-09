@@ -8,7 +8,7 @@
 
 **Related:**
 
-- [External Docs Repos Spec](../../specs/active/plan-2026-02-02-external-docs-repos.md)
+- [External Docs Repos Spec](../../specs/done/plan-2026-02-02-external-docs-repos.md)
 - [CLI as Agent Skill Research](./research-cli-as-agent-skill.md)
 - [Skills vs Meta-Skill Architecture](./research-skills-vs-meta-skill-architecture.md)
 - [Unix Philosophy for Agents](./research-unix-philosophy-for-agents.md)
@@ -1782,8 +1782,8 @@ These experiments validate the architecture before committing to full implementa
   Analysis of individual skills vs CLI resource library approaches
 - [Unix Philosophy for Agents](./research-unix-philosophy-for-agents.md) — Fundamental
   primitives for composable agent systems
-- [External Docs Repos Spec](../../specs/active/plan-2026-02-02-external-docs-repos.md)
-  — Current implementation of multi-source doc architecture in tbd
+- [External Docs Repos Spec](../../specs/done/plan-2026-02-02-external-docs-repos.md) —
+  Current implementation of multi-source doc architecture in tbd
 
 ### Forkable Registries
 
@@ -1903,3 +1903,7 @@ These experiments validate the architecture before committing to full implementa
 - Fork-the-Repo — Git-native forkability model: fork repo, change config URL, PR back
 - Vendor/Copy-In — shadcn-style model: adopt individual docs locally, track upstream
   provenance for optional merge
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

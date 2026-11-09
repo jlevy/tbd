@@ -763,3 +763,7 @@ If you want, I can go one level deeper and propose a minimal spec for:
 …but the core point is: define a thin waist (Artifacts/Actions/Events), then build an
 “agent shell” that composes those the way bash composes processes and pipes.
 The rest becomes an ecosystem.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

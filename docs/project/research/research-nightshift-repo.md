@@ -940,3 +940,7 @@ Custom tasks inherit the same execution infrastructure.
 - claude.md reader:
   [`internal/integrations/claudemd.go`](https://github.com/marcus/nightshift/blob/main/internal/integrations/claudemd.go)
 - README: [`README.md`](https://github.com/marcus/nightshift/blob/main/README.md)
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

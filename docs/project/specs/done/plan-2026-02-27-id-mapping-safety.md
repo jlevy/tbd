@@ -204,3 +204,7 @@ of them.
 - `packages/tbd/src/file/git.ts` — `migrateDataToWorktree()` function
 - `packages/tbd/src/utils/lockfile.ts` — Lockfile utility
 - `packages/tbd/src/file/workspace.ts` — Workspace merge (correct implementation)
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

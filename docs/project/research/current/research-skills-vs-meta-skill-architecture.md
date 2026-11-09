@@ -12,8 +12,8 @@ record.
 
 - [CLI as Agent Skill Research](./research-cli-as-agent-skill.md)
 - [Agent Skills Standard Paths](./research-agent-skills-standard-paths.md)
-- [Modernize Multi-Agent Skills and Hooks Setup Spec](../specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
-- [Agent Orientation Experience Spec](../specs/active/plan-2026-01-25-agent-orientation-experience.md)
+- [Modernize Multi-Agent Skills and Hooks Setup Spec](../../specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
+- [Agent Orientation Experience Spec](../../specs/done/plan-2026-01-25-agent-orientation-experience.md)
 - [Claude Code Skills Documentation](https://code.claude.com/docs/en/skills)
 - [Claude Code Plugins Documentation](https://code.claude.com/docs/en/plugins)
 
@@ -614,7 +614,7 @@ tbd itself could be listed as a skill on skills.sh (for discovery), while
 ### External Docs Repos Feature
 
 The new
-[external docs repos spec](../../specs/active/plan-2026-02-02-external-docs-repos.md)
+[external docs repos spec](../../specs/done/plan-2026-02-02-external-docs-repos.md)
 extends the meta-skill architecture to support external knowledge sources:
 
 ```bash
@@ -703,3 +703,7 @@ This pattern should be documented as a best practice for similar tools.
   https://scottspence.com/posts/how-to-make-claude-code-skills-activate-reliably
 - Claude Code Skills Guide (Gist):
   https://gist.github.com/mellanon/50816550ecb5f3b239aa77eef7b8ed8d
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

@@ -71,17 +71,17 @@ up, and each version that has touched it since.
 Findings from the current code:
 
 - **Written once:** `createDefaultConfig()`
-  ([config.ts:63-80](../../../packages/tbd/src/file/config.ts)) sets `tbd_version` from
-  the running `VERSION`, only at `initConfig()` (called by `tbd init` and fresh
+  ([config.ts:63-80](../../../../packages/tbd/src/file/config.ts)) sets `tbd_version`
+  from the running `VERSION`, only at `initConfig()` (called by `tbd init` and fresh
   `tbd setup`). No migration touches it.
 - **Read by nothing functional:** schema requires it
-  ([schemas.ts:296](../../../packages/tbd/src/lib/schemas.ts)); the only consumer is
-  `tbd config show` ([config.ts](../../../packages/tbd/src/cli/commands/config.ts)).
+  ([schemas.ts:296](../../../../packages/tbd/src/lib/schemas.ts)); the only consumer is
+  `tbd config show` ([config.ts](../../../../packages/tbd/src/cli/commands/config.ts)).
   `tbd status` uses the live binary `VERSION`, not the stored value.
 - **Separate from `tbd_format`:** `tbd_format` (`f01`…`f05`) is the functional version —
   it drives migration and the “requires a newer version of tbd” gate
-  ([tbd-format.ts](../../../packages/tbd/src/lib/tbd-format.ts)). `tbd_version` is pure
-  provenance.
+  ([tbd-format.ts](../../../../packages/tbd/src/lib/tbd-format.ts)). `tbd_version` is
+  pure provenance.
 - **The fork manifest has its own `tbd_version`** per entry that *is* used (fork
   version-skew guards).
   That is a different field and is out of scope here.
@@ -167,7 +167,7 @@ Seed + stamp compose: a multi-revision jump (say install `0.1.5`, now `0.3.0`) y
   version (with `at`), so a brand-new repo starts with a one-entry history.
 - **Existing repo (`tbd setup`):** stamping is applied in the setup path next to the
   migration write. Both the migrated-config write
-  ([data-context.ts `ensureSharedDataSyncLayout`](../../../packages/tbd/src/cli/lib/data-context.ts))
+  ([data-context.ts `ensureSharedDataSyncLayout`](../../../../packages/tbd/src/cli/lib/data-context.ts))
   and the already-current path must run the stamp, so the version advances even when no
   migration is needed.
   Exact placement chosen during implementation to keep it on the single explicit write

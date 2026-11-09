@@ -492,8 +492,8 @@ describe('YAML handling', () => {
 - [README.md](../../../../README.md) - Main project documentation
 - [claude-header.md](../../../../packages/tbd/docs/install/claude-header.md) - Source
   for skill frontmatter
-- [skill.md](../../../../packages/tbd/docs/shortcuts/system/skill.md) - Source for skill
-  content
+- [skill.md](../../../../packages/tbd/docs/shortcuts/system/skill-baseline.md) - Source
+  for skill content
 
 ### YAML Library References
 
@@ -505,3 +505,7 @@ describe('YAML handling', () => {
   parser with stringify support
 - [YAML multiline strings](https://yaml-multiline.info/) - Reference for block scalar
   syntax (`>-`, `|`, etc.)
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

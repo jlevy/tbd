@@ -432,7 +432,7 @@ Ask your agent to load a named document, or browse with `tbd shortcut --list`,
 
 <!-- BEGIN GENERATED guidelines (regenerate: pnpm --filter get-tbd generate:readme) -->
 
-**Available guidelines (46):**
+**Available guidelines (48):**
 
 | Group | Guideline | What it covers |
 | --- | --- | --- |
@@ -475,9 +475,11 @@ Ask your agent to load a named document, or browse with `tbd shortcut --list`,
 |  | [`rust-testing-rules`](packages/tbd/docs/guidelines/rust-testing-rules.md) | Rules for effective unit, integration, property, snapshot, and cross-platform testing in Rust |
 | **Convex** | [`convex-limits-best-practices`](packages/tbd/docs/guidelines/convex-limits-best-practices.md) | Comprehensive reference for Convex platform limits, workarounds, and performance best practices |
 |  | [`convex-rules`](packages/tbd/docs/guidelines/convex-rules.md) | Guidelines and best practices for building Convex projects, including database schema design, queries, mutations, and real-world examples |
-| **Desktop app frameworks** | [`electrobun-app-development-patterns`](packages/tbd/docs/guidelines/electrobun-app-development-patterns.md) | Building desktop apps with Electrobun—runtime and process model, typed RPC, project layout, packaging and the delta updater, plus an evidence-based maturity and security assessment |
-|  | [`electron-app-development-patterns`](packages/tbd/docs/guidelines/electron-app-development-patterns.md) | Building a clean, minimal, standalone Electron app—process model, modern Vite-based build system, attaching a Node/Bun/Python backend, security baseline, packaging, code signing, and auto-update |
-|  | [`tauri-app-development-patterns`](packages/tbd/docs/guidelines/tauri-app-development-patterns.md) | Building desktop apps with Tauri 2—the Rust core and system webview model, capabilities and permissions, typed commands and IPC, attaching Rust or non-Rust backends, packaging, signing, and the signed updater |
+| **Desktop app frameworks** | [`desktop-python-runtime-patterns`](packages/tbd/docs/guidelines/desktop-python-runtime-patterns.md) | How a desktop app with a Python backend or Python plugins ships or provisions its runtime with uv under any shell (Electron, Tauri, a native Swift shell, Electrobun) |
+|  | [`electrobun-app-development-patterns`](packages/tbd/docs/guidelines/electrobun-app-development-patterns.md) | Building desktop apps with Electrobun 2.x—runtime and process model, typed RPC, project layout, Hutch packaging and macOS signing, the delta updater, plus an evidence-based security, supply-chain, and maturity assessment |
+|  | [`electron-app-development-patterns`](packages/tbd/docs/guidelines/electron-app-development-patterns.md) | Building a clean, minimal, standalone Electron app—process model, Vite-based build, wrapping a local web server, Node, Bun, or Python backends, security baseline, packaging, macOS signing and notarization, and auto-update |
+|  | [`macos-webview-shell-patterns`](packages/tbd/docs/guidelines/macos-webview-shell-patterns.md) | Building a thin, signed, macOS-only Swift app (AppKit and WKWebView) around a local web server or web UI in any language |
+|  | [`tauri-app-development-patterns`](packages/tbd/docs/guidelines/tauri-app-development-patterns.md) | Building desktop apps with Tauri 2—capabilities and IPC, Rust and non-Rust backends, sidecar lifecycle, wrapping a loopback web server, WKWebView gaps on macOS, signing and notarization, the signed updater, and the Cargo cool-off |
 | **Docs, process & tooling** | [`agent-session-bootstrap`](packages/tbd/docs/guidelines/agent-session-bootstrap.md) | When and how to make a repository install its own pinned toolchain at agent session start, for repos whose agents run in containers they do not control |
 |  | [`cli-agent-skill-patterns`](packages/tbd/docs/guidelines/cli-agent-skill-patterns.md) | A concise decision guide for portable skills, local-first and exact-version CLI acquisition, safe bundle installation, and agent integration |
 |  | [`common-doc-guidelines`](packages/tbd/docs/guidelines/common-doc-guidelines.md) | Common cross-project standards for writing and organizing docs, code comments, and text files—how to organize, structure, write, and format documents, plus the guideline footer convention. Downstream of github.com/jlevy/practical-prose |

@@ -579,4 +579,8 @@ discoverable location and avoids issues with nested paths.
 - tbd CLI-as-skill research:
   [research-cli-as-agent-skill.md](../../research/current/research-cli-as-agent-skill.md)
 - External docs repos spec (related):
-  [plan-2026-02-02-external-docs-repos.md](plan-2026-02-02-external-docs-repos.md)
+  [plan-2026-02-02-external-docs-repos.md](../done/plan-2026-02-02-external-docs-repos.md)
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

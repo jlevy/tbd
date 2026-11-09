@@ -912,7 +912,7 @@ These are bounded decisions owned by their phase, not reasons to postpone Phase 
 ## References
 
 - [Coordination research and prior-plan ownership map](../../research/current/research-2026-09-06-bead-agent-coordination.md)
-- [Watch plan and historical evidence](plan-2026-07-19-bead-watch-and-external-sync.md)
+- [Watch plan and historical evidence](../done/plan-2026-07-19-bead-watch-and-external-sync.md)
 - [Linear integration contract](../../../../packages/tbd/docs/references/linear-integration-design.md)
 - [On-disk format versioning](../../../tbd-format-versioning.md)
 - [tbd design](../../../../packages/tbd/docs/tbd-design.md)

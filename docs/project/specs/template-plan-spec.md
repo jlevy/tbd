@@ -103,3 +103,7 @@ context once implementation is begun.
 >    - Update Stage 2 architecture to leverage reusable components found in Step 1
 >    - Remove any planned new code that duplicates existing functionality
 >    - Document why changes were made and code saved
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

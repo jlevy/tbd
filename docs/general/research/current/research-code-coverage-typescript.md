@@ -690,7 +690,7 @@ Upgrade to vitest 4.x+ or use LCOV merging.
 
 - [Vitest Coverage Documentation](https://vitest.dev/guide/coverage.html)
 - [Node.js NODE_V8_COVERAGE](https://nodejs.org/api/cli.html#node_v8_coveragedir)
-- [tryscript Reference](../../tryscript-reference.md)
+- [tryscript Reference](https://github.com/jlevy/tryscript#cli-reference)
 
 ### Tools
 
@@ -747,3 +747,7 @@ Upgrade to vitest 4.x+ or use LCOV merging.
 
 - Initial research on vitest coverage configuration
 - Basic thresholds and CI/CD integration
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

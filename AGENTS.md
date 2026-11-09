@@ -80,3 +80,7 @@ copy is a proposal, and `tbd policy show` reports the effective grants.
 Recorded 2026-09-17.
 <!-- END TBD POLICY GRANTS -->
 <!-- END TBD INTEGRATION -->
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->
