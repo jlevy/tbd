@@ -160,6 +160,7 @@ or want help → run `tbd shortcut welcome-user`
 | **Sessions & Handoffs** |  |
 | “Hand off to another agent” | `tbd shortcut agent-handoff` |
 | “You can use sub-agents” / *(delegating any work)* | `tbd shortcut delegate-to-subagents` |
+| “Coordinate several collaborators on beads” | `tbd shortcut coordinate-collaborators` |
 | “Check out this library’s source” | `tbd shortcut checkout-third-party-repo` |
 | *(your choice whenever appropriate)* | `tbd list`, `tbd dep add`, `tbd close`, `tbd sync`, etc. |
 
@@ -253,6 +254,13 @@ actions.
 
 ## CRITICAL: Session Closing Protocol
 
+The commit, push, and CI steps apply when the project workflow publishes code or a PR.
+Update the beads for every session.
+Run remote bead sync when separate clones exchange state or project policy requires
+publication; explicit project requirements remain authoritative.
+Local collaborators in one clone see accepted changes immediately, and local-only or
+offline work needs no remote exchange unless policy requires it.
+
 **Before saying “done”, you MUST complete this checklist:**
 
 ```
@@ -260,17 +268,18 @@ actions.
 [ ] 2. git push
 [ ] 3. gh pr checks <PR> --watch 2>&1 (IMPORTANT: WAIT for final summary, do NOT tell user it is done until you confirm it passes CI!)
 [ ] 4. tbd close <id1> <id2> ... --reason "..." — one bulk call per group of beads sharing a reason (never a per-ID loop)
-[ ] 5. tbd sync
+[ ] 5. tbd sync when replicas exchange state or project policy requires it
 [ ] 6. CONFIRM CI passed (if failed: fix, run tests, re-push, restart from step 3)
 ```
 
-**Work is not done until pushed, CI passes, and tbd is synced.**
+**Publishing work is not done until pushed, CI passes, and every project-required sync
+completes.**
 
 Step 2 is a GitHub action: `git push` needs `github-editing`. Without that grant, ask
 once before the first push rather than treating the checklist as the authorization, and
 say what is waiting on the answer.
-Step 5 is not: `tbd sync` needs no grant, ever, and no permission to ask for.
-No policy value stops it, so it is never the step you pause on.
+When step 5 applies, `tbd sync` needs no grant, ever, and no permission to ask for.
+GitHub policy values do not stop bead sync.
 It pushes only tbd’s own data-sync branch (`tbd-sync` unless the project configures
 another), which carries bead and doc data and never code or a PR. With an external
 tracker enabled it also syncs that tracker, under that tracker’s own grant.
@@ -297,7 +306,8 @@ concluding gh is unavailable.
   multi-session work)
 - When in doubt, create a bead
 - Check `tbd ready` when not given specific directions
-- Always close/update beads and run `tbd sync` at session end
+- Always close/update beads at session end; run `tbd sync` when replicas exchange state
+  or project policy requires publication
 
 ## Commands
 
@@ -331,13 +341,19 @@ Use `tbd start`, not a raw status update, to claim work.
 It records the acting agent in `delegate`. On an already in-progress bead, it reports a
 different visible delegate instead of overwriting that claim.
 It does not require readiness or coordinate with a stale clone.
-Before editing, run `tbd sync --pull`, re-read the bead, use `tbd start <id>`, and run
-`tbd sync` so other replicas can see the accepted claim.
+Before editing, re-read the bead and use `tbd start <id>`. When separate clones exchange
+bead state or project policy requires publication, run `tbd sync --pull` before that
+read and `tbd sync` after an accepted claim.
+Linked worktrees in one clone see the claim immediately through the shared data store;
+local-only or offline work needs no remote exchange unless project policy requires it.
 `assignee` remains the accountable person.
 The acting name resolves from `start --as`, then `TBD_AGENT`, then the machine-local
 session identity, and finally a derived `<harness>@<host>` fallback.
-Use `tbd whoami` to inspect it; setup hooks call `tbd whoami --ensure-id` idempotently
-to persist a local ID and friendly name.
+Use `tbd whoami --as <name> --json` to inspect an override, or `tbd whoami --json` for
+the default identity; setup hooks call `tbd whoami --ensure-id` idempotently to persist
+a local ID and friendly name.
+When several independently running collaborators may overlap, follow
+`tbd shortcut coordinate-collaborators` and inspect the structured claim result.
 
 **IMPORTANT: if you are about to shell-loop or pipe around tbd, stop; the bulk or filter
 form exists.** `show`, `close`, `reopen`, and `update` take multiple IDs;
@@ -355,7 +371,7 @@ mutation and make one call per group.
 | --- | --- |
 | `tbd dep add <bead> <blocker1> [<blocker2> …]` | Add blocker dependencies (one call per bead) |
 | `tbd blocked` | Show blocked beads |
-| `tbd sync` | Sync with git remote (run at session end) |
+| `tbd sync` | Sync with git remote (when replicas exchange state or project policy requires it) |
 | `tbd stats` | Project statistics |
 | `tbd doctor` | Check for problems |
 | `tbd doctor --fix` | Auto-fix repository problems |
@@ -469,6 +485,7 @@ Run `tbd shortcut <name>` to use any of these shortcuts:
 | code-cleanup-tests | Review and remove tests that do not add meaningful coverage |
 | code-review-and-commit | Run pre-commit checks, review changes, and commit code |
 | coding-spike | Prototype to validate a spec through hands-on implementation |
+| coordinate-collaborators | Opt-in claim protocol for several agents or people working from one clone or several replicas |
 | create-or-update-pr-simple | Create or update a pull request with a concise summary |
 | create-or-update-pr-with-validation-plan | Create or update a pull request with a detailed test/validation plan |
 | delegate-to-subagents | Delegate parts of any task to sub-agents on any platform. When to delegate and when not to, sizing, counts, and cost; check the subagents grant, split the work by role and order, assign model tiers and spawn fresh named sub-agents (Claude Code, Codex, other platforms), write self-contained briefs, wait and continue, verify every claim, handle failures, and clean up; or do every step in one session when sub-agents are not used. |

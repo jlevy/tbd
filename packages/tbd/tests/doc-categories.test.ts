@@ -14,7 +14,7 @@ import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { docCategory, parseCategoryOption } from '../src/lib/doc-categories.js';
-import { parseMarkdownMatter } from '../src/utils/gray-matter.js';
+import { parseMarkdownMatter } from '../src/utils/frontmatter.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const GUIDELINES_DIR = join(__dirname, '..', 'docs', 'guidelines');

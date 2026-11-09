@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url';
 
 import type { CachedDoc } from '../src/file/doc-cache.js';
 import { generateShortcutDirectory, guidelineGroupFor } from '../src/file/doc-cache.js';
-import { parseMarkdownMatter } from '../src/utils/gray-matter.js';
+import { parseMarkdownMatter } from '../src/utils/frontmatter.js';
 
 export const REFERENCE_KINDS = ['shortcuts', 'guidelines', 'templates'] as const;
 export type ReferenceKind = (typeof REFERENCE_KINDS)[number];

@@ -70,12 +70,16 @@ tbd web --open         # Open the live, read-only bead viewer
 tbd status             # Project status
 ```
 
-Before editing a bead, run `tbd sync --pull`, re-read it, use `tbd start <id>`, and run
-`tbd sync` so other replicas can see the claim.
+Before editing, re-read the bead and use `tbd start <id>`. When separate clones exchange
+bead state or project policy requires publication, run `tbd sync --pull` before that
+read and `tbd sync` after an accepted claim.
+Linked worktrees in one clone see the claim immediately through the shared data store;
+local-only or offline work needs no remote exchange unless project policy requires it.
 The guard is local and advisory; a stale clone can still race it.
 `start` preserves the accountable `assignee` and writes the acting name to `delegate`.
 That name resolves from `--as`, then `TBD_AGENT`, then the machine-local session
-identity, and finally `<harness>@<host>`; inspect it with `tbd whoami`. Top-level
+identity, and finally `<harness>@<host>`; inspect an override with
+`tbd whoami --as <name> --json`, or the default with `tbd whoami --json`. Top-level
 `sync --pull` updates issue Git only.
 Plain `tbd sync` also runs trackers according to `integrations.on_tbd_sync`; use
 `tbd integration status` for tracker health.
@@ -126,12 +130,17 @@ Run `tbd guidelines --list` for all available guidelines.
 
 ## Session Protocol
 
-Before ending any session:
+For a session that publishes code, follow the project commit and CI requirements.
+Update the beads in every session; sync when separate clones exchange state or project
+policy requires publication.
+Local collaborators see accepted changes immediately.
+
+For a publishing session:
 
 1. Commit and push code
 2. Watch CI: `gh pr checks <PR> --watch 2>&1`
 3. Update issues: `tbd close <id>`
-4. Sync: `tbd sync`
+4. Sync when replicas exchange state or policy requires it: `tbd sync`
 5. Confirm CI passed
 
 <!-- This document follows common-doc-guidelines.md.

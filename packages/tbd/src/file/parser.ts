@@ -17,7 +17,7 @@
  * See: tbd-design.md §2.1 Markdown + YAML Front Matter Format
  */
 
-import { hasMarkdownFrontmatter, parseMarkdownMatter } from '../utils/gray-matter.js';
+import { hasMarkdownFrontmatter, parseMarkdownMatter } from '../utils/frontmatter.js';
 import { normalizeLineEndings } from '../utils/markdown-utils.js';
 import { sortKeys, stringifyYaml } from '../utils/yaml-utils.js';
 import type { Issue } from '../lib/types.js';
@@ -42,40 +42,24 @@ export interface ParsedFrontmatterDocument {
  * Parse the common frontmatter envelope while leaving its Markdown body intact.
  */
 export function parseFrontmatterDocument(content: string): ParsedFrontmatterDocument {
-  const normalizedContent = normalizeLineEndings(content);
-
-  if (!hasMarkdownFrontmatter(normalizedContent)) {
+  if (!hasMarkdownFrontmatter(content)) {
     throw new Error('Invalid format: missing front matter opening delimiter');
   }
 
-  const parsed = parseMarkdownMatter(normalizedContent);
-
-  // gray-matter returns an empty matter string for an unterminated header. An actually
-  // empty header is valid, so distinguish it by looking for a later delimiter.
-  if (parsed.matter === '' && !normalizedContent.includes('---\n---')) {
-    const lines = normalizedContent.split('\n');
-    const hasClosing = lines.slice(1).some((line) => line.trim() === '---');
-    if (!hasClosing) {
-      throw new Error('Invalid format: missing front matter closing delimiter');
-    }
-  }
-
-  return {
-    frontmatter: parsed.data as Record<string, unknown>,
-    body: parsed.content,
-  };
+  const parsed = parseMarkdownMatter(content);
+  return { frontmatter: parsed.data, body: parsed.content };
 }
 
 /**
  * Parse a Markdown file with YAML front matter.
- * Uses gray-matter for consistent frontmatter parsing.
+ * Uses the centralized YAML-only frontmatter boundary.
  * Handles both LF and CRLF line endings.
  */
 export function parseMarkdownWithFrontmatter(content: string): ParsedIssueFile {
   const { frontmatter, body: rawBody } = parseFrontmatterDocument(content);
 
   // Parse body - split into description and notes
-  const body = rawBody.trim();
+  const body = normalizeLineEndings(rawBody).trim();
 
   // Find the notes section. The heading may open the body (an issue with notes
   // but no description serializes to a body that STARTS with `## Notes`), so

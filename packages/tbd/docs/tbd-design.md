@@ -6108,9 +6108,10 @@ We adopt this approach.
 
 **Mitigations**:
 
-- Use gray-matter for front-matter delimiters and the `yaml` package for all YAML
-  parsing and serialization, behind one wrapper that rejects non-YAML language markers
-  before gray-matter can select its built-in JavaScript evaluator
+- Use a centralized YAML-only front-matter boundary with complete delimiter lines,
+  BOM-aware language checks, and unchanged Markdown body bytes.
+  Use the `yaml` package for all YAML parsing and serialization; reject non-YAML
+  language markers without evaluating them
 
 - Canonical serialization rules ensure consistency
 

@@ -380,7 +380,7 @@ Ask your agent to load a named document, or browse with `tbd shortcut --list`,
 
 <!-- BEGIN GENERATED shortcuts (regenerate: pnpm --filter get-tbd generate:readme) -->
 
-**Available shortcuts (43):**
+**Available shortcuts (44):**
 
 | Category | Shortcut | Purpose |
 | --- | --- | --- |
@@ -416,6 +416,7 @@ Ask your agent to load a named document, or browse with `tbd shortcut --list`,
 |  | [`code-cleanup-docstrings`](packages/tbd/docs/shortcuts/standard/code-cleanup-docstrings.md) | Review and add concise docstrings to major functions and types |
 |  | [`code-cleanup-tests`](packages/tbd/docs/shortcuts/standard/code-cleanup-tests.md) | Review and remove tests that do not add meaningful coverage |
 | **Session** | [`agent-handoff`](packages/tbd/docs/shortcuts/standard/agent-handoff.md) | Generate a concise handoff prompt for another coding agent to continue work |
+|  | [`coordinate-collaborators`](packages/tbd/docs/shortcuts/standard/coordinate-collaborators.md) | Opt-in claim protocol for several agents or people working from one clone or several replicas |
 |  | [`delegate-to-subagents`](packages/tbd/docs/shortcuts/standard/delegate-to-subagents.md) | Delegate parts of any task to sub-agents on any platform. When to delegate and when not to, sizing, counts, and cost |
 |  | [`setup-github-cli`](packages/tbd/docs/shortcuts/standard/setup-github-cli.md) | Ensure GitHub CLI (gh) is installed and working |
 |  | [`setup-linear`](packages/tbd/docs/shortcuts/standard/setup-linear.md) | Set up the Linear integration end to end—the linear policy grant, first-time configuration for a repository with the epics selection as the default, or adding your own API key to a repository your team already configured |
