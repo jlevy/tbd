@@ -5,13 +5,16 @@
  * flowmark leaves it byte for byte: tests/fixtures/agents-md-block.md is this test's
  * expected output, and `pnpm format:md:check` runs flowmark over that fixture. A
  * formatter that wraps differently (another width, Prettier's proseWrap) changes only
- * line breaks, which doctor and setup ignore for this block.
+ * line breaks, and Prettier also puts blank lines around the marker comments; doctor
+ * and setup ignore both for this block. The repository's own pinned Prettier checks
+ * that here.
  */
 
 import { execSync, spawnSync } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { format as prettierFormat, type Options as PrettierOptions } from 'prettier';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { getCodexTbdSection } from '../src/cli/commands/setup.js';
@@ -29,6 +32,27 @@ import { subprocessTestTimeout } from './test-helpers.js';
 
 const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
 const FIXTURE = join(__dirname, 'fixtures', 'agents-md-block.md');
+/**
+ * The fixture with LF line endings. Git may check it out with CRLF (Windows runners
+ * have core.autocrlf), while the generator always emits LF.
+ */
+async function readFixture(): Promise<string> {
+  return (await readFile(FIXTURE, 'utf-8')).replace(/\r\n/gu, '\n');
+}
+
+/** The proseWrap settings a project's Prettier may use for Markdown. */
+const PRETTIER_MARKDOWN_OPTIONS: PrettierOptions[] = [
+  { proseWrap: 'preserve' },
+  { proseWrap: 'always' },
+  { proseWrap: 'always', printWidth: 60 },
+  { proseWrap: 'always', printWidth: 40 },
+  { proseWrap: 'never' },
+];
+
+function prettierMarkdown(text: string, options: PrettierOptions): Promise<string> {
+  return prettierFormat(text, { parser: 'markdown', ...options });
+}
+
 const FIXTURE_GRANTS = [
   { name: 'github-workflows', value: 'granted' },
   { name: 'github-editing', value: 'granted' },
@@ -71,7 +95,16 @@ describe('generated AGENTS.md block', () => {
       getCodexTbdSection(),
       renderPolicyBlock(FIXTURE_GRANTS, '2026-01-02'),
     );
-    expect(generated).toBe(await readFile(FIXTURE, 'utf-8'));
+    expect(generated).toBe(await readFixture());
+  });
+
+  it("compares current after the repository's pinned Prettier, under every proseWrap", async () => {
+    const fixture = await readFixture();
+    for (const options of PRETTIER_MARKDOWN_OPTIONS) {
+      const formatted = await prettierMarkdown(fixture, options);
+      expect(formatted, JSON.stringify(options)).not.toBe(fixture);
+      expect(sameMarkdownIgnoringWrapping(formatted, fixture), JSON.stringify(options)).toBe(true);
+    }
   });
 
   it('uses no em dash, which many repositories lint', () => {
@@ -107,6 +140,37 @@ describe('unwrapMarkdown', () => {
     expect(unwrapMarkdown('Para one\nwraps   here.\n- item\n  continues')).toBe(
       'Para one wraps here.\n- item continues',
     );
+  });
+
+  it('ignores blank lines next to a comment line, and only there', () => {
+    expect(
+      sameMarkdownIgnoringWrapping(
+        '<!-- a -->\n\n## tbd\n\nText\n\n<!-- b -->',
+        '<!-- a -->\n## tbd\n\nText\n<!-- b -->',
+      ),
+    ).toBe(true);
+    expect(sameMarkdownIgnoringWrapping('## tbd\n\nText', '## tbd\nText')).toBe(false);
+    expect(sameMarkdownIgnoringWrapping('One\n\nTwo', 'One\nTwo')).toBe(false);
+  });
+
+  it('keeps thematic breaks, setext underlines, and indented code as structure', () => {
+    for (const [structured, flattened] of [
+      ['Intro text\n---', 'Intro text ---'],
+      ['Intro text\n===', 'Intro text ==='],
+      ['Para one\n***', 'Para one ***'],
+      ['Para one\n***\nPara two', 'Para one\n*** Para two'],
+      ['Intro\n\n    a  b\n    c', 'Intro\n\n    a b c'],
+      ['Intro\n\n    a  b', 'Intro\n\n    a b'],
+    ]) {
+      expect(sameMarkdownIgnoringWrapping(structured!, flattened!), structured).toBe(false);
+    }
+    // Rewrapping prose around them is still only wrapping.
+    expect(
+      sameMarkdownIgnoringWrapping(
+        'Para one\nwraps\n\n***\n\nNext',
+        'Para one wraps\n\n***\n\nNext',
+      ),
+    ).toBe(true);
   });
 });
 
@@ -182,6 +246,26 @@ describe(
       expect(runTbd(['setup', '--auto']).status).toBe(0);
       expect(await readFile(agentsPath, 'utf-8')).toContain('(beads)');
       expect(agentsMdCheck()).toMatchObject({ status: 'ok', message: 'current' });
+    });
+
+    it('leaves a Prettier-formatted AGENTS.md current and unchanged', async () => {
+      expect(runTbd(['setup', '--auto', '--prefix=test']).status).toBe(0);
+      expect(runTbd(['policy', 'grant', 'subagents']).status).toBe(0);
+      const agentsPath = join(projectDir, 'AGENTS.md');
+      const original = await readFile(agentsPath, 'utf-8');
+      for (const options of [{ proseWrap: 'preserve' }, { proseWrap: 'always', printWidth: 60 }]) {
+        const formatted = await prettierMarkdown(original, options as PrettierOptions);
+        expect(formatted).not.toBe(original);
+        await writeFile(agentsPath, formatted);
+        expect(agentsMdCheck(), JSON.stringify(options)).toMatchObject({
+          status: 'ok',
+          message: 'current',
+        });
+        const setup = runTbd(['setup', '--auto']);
+        expect(setup.status, setup.stderr).toBe(0);
+        expect(setup.stdout + setup.stderr).not.toContain('Updated existing tbd section');
+        expect(await readFile(agentsPath, 'utf-8'), JSON.stringify(options)).toBe(formatted);
+      }
     });
   },
 );
