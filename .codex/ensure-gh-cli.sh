@@ -124,7 +124,7 @@ local_gh_is_tbd_install() {
 # rename cannot replace, is moved aside. The copy this script installed earlier needs
 # no backup. Refuses (returns 1) rather than overwrite when no free backup name exists.
 backup_existing_local_gh() {
-    local target="$HOME/.local/bin/gh" stamp backup suffix=0
+    local target="$HOME/.local/bin/gh" stamp backup reservation suffix=0 status=0
     if [ ! -e "$target" ] && [ ! -L "$target" ]; then
         return 0
     fi
@@ -133,7 +133,16 @@ backup_existing_local_gh() {
     fi
     stamp=$(date -u +%Y%m%dT%H%M%SZ)
     backup="${target}.backup-${stamp}"
-    while [ -e "$backup" ] || [ -L "$backup" ]; do
+    while :; do
+        # Reserve the candidate through the link or copy. Check the backup after
+        # winning the reservation in case another installer just finished it.
+        reservation="${backup}.reserve"
+        if mkdir -- "$reservation" 2>/dev/null; then
+            if [ ! -e "$backup" ] && [ ! -L "$backup" ]; then
+                break
+            fi
+            rmdir -- "$reservation"
+        fi
         suffix=$((suffix + 1))
         if [ "$suffix" -gt 99 ]; then
             echo "[gh] ERROR: no free backup name for ${target}; refusing to replace it"
@@ -142,11 +151,15 @@ backup_existing_local_gh() {
         backup="${target}.backup-${stamp}-${suffix}"
     done
     if [ -d "$target" ]; then
-        mv -- "$target" "$backup"
+        mv -- "$target" "$backup" || status=$?
     elif [ -L "$target" ]; then
-        cp -P -- "$target" "$backup"
+        cp -P -- "$target" "$backup" || status=$?
     else
-        ln -- "$target" "$backup" 2>/dev/null || cp -p -- "$target" "$backup"
+        ln -- "$target" "$backup" 2>/dev/null || cp -p -- "$target" "$backup" || status=$?
+    fi
+    rmdir -- "$reservation"
+    if [ "$status" -ne 0 ]; then
+        return "$status"
     fi
     echo "[gh] Backed up the existing ${target} to ${backup}"
     echo "[gh] To restore it: mv -f \"${backup}\" \"${target}\""

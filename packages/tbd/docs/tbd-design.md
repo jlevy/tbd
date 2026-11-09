@@ -5537,13 +5537,14 @@ all environments including cloud sandboxes.
 | **npx** (no install) | `npx --yes --ignore-scripts --before=<14 days ago> --cache=<dedicated cache> get-tbd@<version> <command>` | One-off usage, testing |
 | **From source** | `pnpm install && pnpm build` | Contributors |
 
-The npx row’s dedicated cache is the one the hook fallback uses,
-`${XDG_CACHE_HOME:-~/.cache}/tbd-fallback-npm`. npx reuses a cached package by its spec
-without resolving it again, so a tree cached once without `--before` would bypass the
-cool-off. When a repository requires a newer tbd, the error names the release that last
-set it up (`tbd_fallback_version`) and gives `npm install -g … 'get-tbd@>=<version>'`
-under the same cool-off, so npm reports no matching version while that release is under
-14 days old instead of installing an older one that still refuses the repository.
+For the manual npx command, use a cache reserved for cool-off runs, such as
+`${XDG_CACHE_HOME:-$HOME/.cache}/tbd-fallback-npm`. npx reuses a cached package by its
+spec without resolving it again, so a tree cached once without `--before` would bypass
+the cool-off. When a repository requires a newer tbd, the error names the release that
+last set it up (`tbd_fallback_version`) and gives
+`npm install -g … 'get-tbd@>=<version>'` under the same cool-off, so npm reports no
+matching version while that release is under 14 days old instead of installing an older
+one that still refuses the repository.
 
 **npm is the recommended approach** because:
 

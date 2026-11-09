@@ -895,7 +895,10 @@ exec /bin/mv "$@"
     );
 
     /** Run the shipped backup function against a disposable HOME with a fixed clock. */
-    async function runBackup(home: string): Promise<ReturnType<typeof spawnSync>> {
+    async function runBackup(
+      home: string,
+      commandFixtures: readonly string[] = [],
+    ): Promise<ReturnType<typeof spawnSync>> {
       const record = /^GH_INSTALL_RECORD=.*$/mu.exec(await readScriptSource())?.[0];
       expect(record).toBeDefined();
       const fns = await Promise.all(
@@ -905,9 +908,14 @@ exec /bin/mv "$@"
         BASH,
         [
           '-c',
-          ['date() { echo 20260101T000000Z; }', record!, ...fns, 'backup_existing_local_gh'].join(
-            '\n',
-          ),
+          [
+            'set -euo pipefail',
+            'date() { echo 20260101T000000Z; }',
+            ...commandFixtures,
+            record!,
+            ...fns,
+            'backup_existing_local_gh',
+          ].join('\n'),
         ],
         { encoding: 'utf8', env: { ...process.env, HOME: bashPath(home) } },
       );
@@ -939,6 +947,36 @@ exec /bin/mv "$@"
         expect(refused.status).toBe(1);
         expect(refused.stdout).toContain('refusing to replace it');
         expect(await readFile(join(localBin, 'gh'), 'utf8')).toBe('newest');
+      } finally {
+        await rm(home, { recursive: true, force: true });
+      }
+    });
+
+    it('preserves the user backup when installers overlap and a hard link fails', async () => {
+      const home = await mkdtemp(join(tmpdir(), 'tbd-gh-backup-race-'));
+      const localBin = join(home, '.local', 'bin');
+      try {
+        await mkdir(localBin, { recursive: true });
+        await writeFile(join(localBin, 'gh'), 'user wrapper');
+        const result = await runBackup(home, [
+          'ln() {',
+          // The second installer backs up and renames gh before the first falls back to copying.
+          '    (',
+          '        unset -f ln',
+          '        backup_existing_local_gh',
+          '        printf "pinned gh" > "$HOME/.local/bin/gh.replacement"',
+          '        mv -f "$HOME/.local/bin/gh.replacement" "$HOME/.local/bin/gh"',
+          '    )',
+          '    return 1',
+          '}',
+        ]);
+        expect(result.status, String(result.stderr)).toBe(0);
+        expect(await readFile(join(localBin, 'gh'), 'utf8')).toBe('pinned gh');
+        const backups = (await readdir(localBin)).filter((name) => name.startsWith('gh.backup-'));
+        const contents = await Promise.all(
+          backups.map((name) => readFile(join(localBin, name), 'utf8')),
+        );
+        expect(contents).toContain('user wrapper');
       } finally {
         await rm(home, { recursive: true, force: true });
       }
