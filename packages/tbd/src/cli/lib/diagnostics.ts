@@ -97,9 +97,12 @@ export function renderDiagnostic(result: DiagnosticResult, colors: Colors): void
     }
   }
 
-  // Suggestion (only for non-ok status)
+  // Suggestion (only for non-ok status). Each line of a multi-line suggestion keeps
+  // the indent.
   if (result.suggestion && result.status !== 'ok') {
-    console.log(`    ${colors.dim(result.suggestion)}`);
+    for (const line of result.suggestion.split('\n')) {
+      console.log(`    ${colors.dim(line)}`);
+    }
   }
 }
 

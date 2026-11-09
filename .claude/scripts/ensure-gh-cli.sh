@@ -92,6 +92,79 @@ checksum_for() {
     esac
 }
 
+# SHA-256 of a file, with sha256sum or (stock macOS) shasum.
+file_sha256() {
+    if command -v sha256sum &> /dev/null; then
+        sha256sum "$1" | awk '{print $1}'
+    else
+        shasum -a 256 "$1" | awk '{print $1}'
+    fi
+}
+
+# The SHA-256 of the gh this script last installed to ~/.local/bin, so a later pin bump
+# replaces that copy without keeping a backup of it.
+GH_INSTALL_RECORD="$HOME/.local/bin/.gh.tbd-installed"
+
+# Whether ~/.local/bin/gh is the regular file this script installed there, unchanged.
+local_gh_is_tbd_install() {
+    local target="$HOME/.local/bin/gh" recorded actual
+    if [ -L "$target" ] || [ ! -f "$target" ] || [ ! -f "$GH_INSTALL_RECORD" ]; then
+        return 1
+    fi
+    recorded=$(head -n 1 -- "$GH_INSTALL_RECORD" 2>/dev/null) || return 1
+    actual=$(file_sha256 "$target" 2>/dev/null) || return 1
+    [ -n "$recorded" ] && [ "$recorded" = "$actual" ]
+}
+
+# Keep a timestamped backup of an existing ~/.local/bin/gh before the pinned build takes
+# its place. That file can be a user's own wrapper, or a gh that reports an old or
+# unreadable version; the backup keeps it recoverable. A regular file is hard-linked
+# (copied where links fail) and a symlink is copied, so the gh name stays in place until
+# the single atomic rename that installs the pinned build. Only a directory, which that
+# rename cannot replace, is moved aside. The copy this script installed earlier needs
+# no backup. Refuses (returns 1) rather than overwrite when no free backup name exists.
+backup_existing_local_gh() {
+    local target="$HOME/.local/bin/gh" stamp backup reservation suffix=0 status=0
+    if [ ! -e "$target" ] && [ ! -L "$target" ]; then
+        return 0
+    fi
+    if local_gh_is_tbd_install; then
+        return 0
+    fi
+    stamp=$(date -u +%Y%m%dT%H%M%SZ)
+    backup="${target}.backup-${stamp}"
+    while :; do
+        # Reserve the candidate through the link or copy. Check the backup after
+        # winning the reservation in case another installer just finished it.
+        reservation="${backup}.reserve"
+        if mkdir -- "$reservation" 2>/dev/null; then
+            if [ ! -e "$backup" ] && [ ! -L "$backup" ]; then
+                break
+            fi
+            rmdir -- "$reservation"
+        fi
+        suffix=$((suffix + 1))
+        if [ "$suffix" -gt 99 ]; then
+            echo "[gh] ERROR: no free backup name for ${target}; refusing to replace it"
+            return 1
+        fi
+        backup="${target}.backup-${stamp}-${suffix}"
+    done
+    if [ -d "$target" ]; then
+        mv -- "$target" "$backup" || status=$?
+    elif [ -L "$target" ]; then
+        cp -P -- "$target" "$backup" || status=$?
+    else
+        ln -- "$target" "$backup" 2>/dev/null || cp -p -- "$target" "$backup" || status=$?
+    fi
+    rmdir -- "$reservation"
+    if [ "$status" -ne 0 ]; then
+        return "$status"
+    fi
+    echo "[gh] Backed up the existing ${target} to ${backup}"
+    echo "[gh] To restore it: mv -f \"${backup}\" \"${target}\""
+}
+
 # Compare dotted versions without sort -V (absent on stock macOS) or python.
 # Returns 0 when $1 >= $2. Any prerelease suffix is stripped before comparing, so
 # 2.97.0-rc1 compares equal to 2.97.0; gh ships no prereleases through this path.
@@ -116,26 +189,46 @@ installed_gh_version() {
     "$1" --version 2>/dev/null | awk 'NR==1 {print $3}'
 }
 
+# What installing the pinned build does to an existing gh. The destination,
+# ~/.local/bin/gh, is backed up (see backup_existing_local_gh) whether or not PATH
+# resolved gh there, unless it is the copy this script installed. A gh elsewhere stays
+# where it is.
+existing_gh_disposition() {
+    local target="$HOME/.local/bin/gh"
+    if [ ! -e "$target" ] && [ ! -L "$target" ]; then
+        echo "existing gh left in place"
+    elif local_gh_is_tbd_install; then
+        echo "replacing the gh this script installed there"
+    else
+        echo "existing ~/.local/bin/gh moved aside to a timestamped backup"
+    fi
+}
+
 # Decide whether to install. Presence alone is not enough: a distro-packaged gh is
 # routinely several minor versions behind, and accepting it silently is how the pin
 # fails to apply on exactly the machines that need it.
+
 NEED_INSTALL=0
 if command -v gh &> /dev/null; then
     GH_PATH="$(command -v gh)"
     GH_CURRENT="$(installed_gh_version "$GH_PATH")"
     if [ -z "$GH_CURRENT" ]; then
-        echo "[gh] CLI at ${GH_PATH} does not report a usable version; installing pinned v${GH_VERSION}"
+        echo "[gh] CLI at ${GH_PATH} does not report a usable version"
+        echo "[gh] Installing pinned v${GH_VERSION} to ~/.local/bin ($(existing_gh_disposition))"
         NEED_INSTALL=1
     elif version_ge "$GH_CURRENT" "$GH_MIN_VERSION"; then
         # Newer than the pin is fine and is left alone; this must never downgrade.
         echo "[gh] CLI found at ${GH_PATH} (v${GH_CURRENT})"
     else
         echo "[gh] CLI at ${GH_PATH} is v${GH_CURRENT}, below the required v${GH_MIN_VERSION}"
-        echo "[gh] Installing pinned v${GH_VERSION} to ~/.local/bin (existing gh left in place)"
+        echo "[gh] Installing pinned v${GH_VERSION} to ~/.local/bin ($(existing_gh_disposition))"
         NEED_INSTALL=1
     fi
 else
     echo "[gh] CLI not found, installing pinned v${GH_VERSION}..."
+    if [ -e "$HOME/.local/bin/gh" ] || [ -L "$HOME/.local/bin/gh" ]; then
+        echo "[gh] ($(existing_gh_disposition))"
+    fi
     NEED_INSTALL=1
 fi
 
@@ -185,11 +278,7 @@ if [ "$NEED_INSTALL" = "1" ]; then
     fi
 
     # Verify the download against the pinned checksum before extracting.
-    if command -v sha256sum &> /dev/null; then
-        ACTUAL=$(sha256sum "$ARCHIVE_PATH" | awk '{print $1}')
-    else
-        ACTUAL=$(shasum -a 256 "$ARCHIVE_PATH" | awk '{print $1}')
-    fi
+    ACTUAL=$(file_sha256 "$ARCHIVE_PATH")
     if [ "$ACTUAL" != "$EXPECTED" ]; then
         echo "[gh] ERROR: checksum mismatch for ${ASSET}"
         echo "[gh]   expected ${EXPECTED}"
@@ -210,8 +299,10 @@ if [ "$NEED_INSTALL" = "1" ]; then
     INSTALL_STAGING=$(mktemp "$HOME/.local/bin/.gh.XXXXXX")
     cp "${EXTRACT_DIR}/bin/gh" "$INSTALL_STAGING"
     chmod +x "$INSTALL_STAGING"
+    backup_existing_local_gh
     mv -f "$INSTALL_STAGING" "$HOME/.local/bin/gh"
     INSTALL_STAGING=""
+    file_sha256 "$HOME/.local/bin/gh" > "$GH_INSTALL_RECORD" || rm -f -- "$GH_INSTALL_RECORD"
 
     echo "[gh] Installed to $HOME/.local/bin/gh"
 fi
@@ -269,8 +360,9 @@ if [ -n "${GH_TOKEN:-}" ]; then
             echo "[gh]   - pushes to refs/heads/* succeed; pushes to refs/tags/* fail with HTTP 403."
             echo "[gh]   - 'git push --dry-run' PASSES for tags the broker later refuses"
             echo "[gh]     (it refuses at receive-pack, after ref advertisement); it proves nothing."
-            echo "[gh]   - create tags on the direct channel instead:"
-            echo "[gh]       gh api repos/OWNER/REPO/git/refs -f ref=refs/tags/vX.Y.Z -f sha=SHA"
+            echo "[gh]   - a refused tag push is the broker's policy. Do not create the tag another way"
+            echo "[gh]     (gh api .../git/refs or any other channel): a v* tag can publish a release."
+            echo "[gh]     Report the refusal and ask the user to create the tag."
             echo "[gh]   - a GitHub-host 403 with NO x-github-request-id header is proxy-manufactured,"
             echo "[gh]     not an egress denial. Run the egress test before reporting a block."
             echo "[gh] Details: tbd shortcut setup-github-cli (Proxied Remote Sessions)"

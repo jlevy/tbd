@@ -123,6 +123,7 @@ import {
   type WorkingTreeGrants,
 } from '../../lib/policy-grants.js';
 import { hasCurrentPolicyBlockProse } from '../../lib/policy-block-prose.js';
+import { TBD_INSTALL_COMMAND, tbdUpgradeAdvice } from '../../lib/install-advice.js';
 import {
   listLockSidecars,
   lockOwnerIsDefinitelyDead,
@@ -148,7 +149,7 @@ export function droppedIntegrationConfigFinding(
       '.tbd/config.yml is missing `integrations`, which is present in the committed ' +
       'version. A tbd older than f07 drops config it does not know when it rewrites the file.',
     suggestion:
-      'Restore: git checkout .tbd/config.yml (then upgrade tbd: npm install -g get-tbd@latest). ' +
+      `Restore: git checkout .tbd/config.yml (then upgrade tbd: ${TBD_INSTALL_COMMAND}). ` +
       'If you removed it deliberately, commit the change.',
   };
 }
@@ -305,7 +306,7 @@ function managedArtifactFinding(
         status: 'error',
         message: `managed file uses newer integration format ${inspection.format} (supported: ${AGENT_INTEGRATION_FORMAT})`,
         path,
-        suggestion: 'Upgrade tbd to manage this file: npm install -g get-tbd@latest',
+        suggestion: tbdUpgradeAdvice('Upgrade tbd to manage this file'),
       };
   }
 }
@@ -343,7 +344,7 @@ export function tierAgentsFinding(
       message: `managed file uses newer integration format ${tooNew[0]?.inspection.format} (supported: ${AGENT_INTEGRATION_FORMAT})`,
       path,
       details: tooNew.map((file) => file.rel),
-      suggestion: 'Upgrade tbd to manage this file: npm install -g get-tbd@latest',
+      suggestion: tbdUpgradeAdvice('Upgrade tbd to manage this file'),
     };
   }
   const stale = inState('stale');
@@ -372,7 +373,7 @@ export function tierAgentsFinding(
 
 const POLICY_GRANTS_CHECK = 'Policy grants';
 const POLICY_GUIDELINE_HINT = 'tbd guidelines agent-policy-grants';
-const TBD_UPGRADE_SUGGESTION = 'Upgrade tbd: npm install -g get-tbd@latest';
+const TBD_UPGRADE_SUGGESTION = tbdUpgradeAdvice('Upgrade tbd');
 
 /** How findings name the ref effective grants are read from (`origin/main`, `main`, `HEAD`). */
 function grantSourceLabel(source: DefaultBranchRef | null): string {
@@ -609,7 +610,7 @@ export function policyGrantFindings(
 /**
  * Map npm's global prefix to an "npm global bin" diagnostic.
  *
- * tbd gives `npm install -g get-tbd@latest` as its install and upgrade instruction in
+ * tbd gives `npm install -g` (TBD_INSTALL_COMMAND) as its install and upgrade instruction in
  * the skill, in doctor suggestions, and in the incompatible-format error. When npm's
  * global bin directory is not on PATH that command still exits 0 and the `tbd` binary
  * still does not resolve, which reads to an agent as "tbd is broken" rather than
@@ -639,7 +640,7 @@ export function classifyNpmGlobalBin(
     message: 'not on PATH',
     path: binDir,
     suggestion:
-      '`npm install -g get-tbd@latest` will succeed but leave tbd unresolvable. ' +
+      'Installing tbd with `npm install -g` will succeed but leave tbd unresolvable. ' +
       `Add ${binDir} to PATH, or point npm at a directory already on it: ` +
       'npm config set prefix <dir>',
   };
@@ -1335,7 +1336,7 @@ class DoctorHandler extends BaseCommand {
           status: 'error',
           message: `requires newer tbd (found ${error.foundFormat}, supported ${error.supportedFormat})`,
           path: configPath,
-          suggestion: 'Upgrade: npm install -g get-tbd@latest',
+          suggestion: tbdUpgradeAdvice('Upgrade', error.requiredVersion),
         };
       }
       return {
@@ -2604,7 +2605,7 @@ class DoctorHandler extends BaseCommand {
         status: 'error',
         message: `requires newer tbd (found ${layout.tbd_format})`,
         path: layoutPath,
-        suggestion: 'Upgrade: npm install -g get-tbd@latest',
+        suggestion: tbdUpgradeAdvice('Upgrade', this.config.tbd_fallback_version),
       };
     }
     // A layout from an older but compatible format than the (in-memory,

@@ -11,6 +11,7 @@ import { execSync, spawnSync } from 'node:child_process';
 import { subprocessTestTimeout } from './test-helpers.js';
 import { CURRENT_FORMAT } from '../src/lib/tbd-format.js';
 import { AGENT_INTEGRATION_FORMAT } from '../src/lib/integration-paths.js';
+import { TBD_INSTALL_COMMAND } from '../src/lib/install-advice.js';
 
 const itUnix = process.platform === 'win32' ? it.skip : it;
 
@@ -212,7 +213,7 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       // Hard stop with an actionable upgrade message; the newer skill is preserved.
       expect(result.status).not.toBe(0);
       expect(result.stderr + result.stdout).toContain('newer tbd');
-      expect(result.stderr + result.stdout).toContain('get-tbd@latest');
+      expect(result.stderr + result.stdout).toContain(TBD_INSTALL_COMMAND);
 
       const preserved = await readFile(portablePath, 'utf-8');
       expect(preserved).toContain('format=f999');
@@ -397,7 +398,7 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       // Hard stop with an actionable upgrade message; the newer block is preserved.
       expect(result.status).not.toBe(0);
       expect(result.stderr + result.stdout).toContain('newer tbd');
-      expect(result.stderr + result.stdout).toContain('get-tbd@latest');
+      expect(result.stderr + result.stdout).toContain(TBD_INSTALL_COMMAND);
 
       const agents = await readFile(join(tempDir, 'AGENTS.md'), 'utf-8');
       expect(agents).toContain('format=f999');

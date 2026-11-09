@@ -22,6 +22,7 @@ import {
   integrationFormatNumber,
   parseManagedIntegrationFormat,
 } from '../src/cli/lib/managed-artifact.js';
+import { TBD_COOL_OFF_NOTE, TBD_INSTALL_COMMAND } from '../src/lib/install-advice.js';
 
 describe('tbd-format', () => {
   describe('constants', () => {
@@ -395,8 +396,18 @@ describe('tbd-format', () => {
         'This repository requires a newer version of tbd.\n' +
           "Config format 'f04' is from a newer tbd version.\n" +
           "This tbd version supports up to format 'f03'.\n" +
-          'Upgrade tbd: npm install -g get-tbd@latest',
+          `Upgrade tbd: ${TBD_INSTALL_COMMAND}\n` +
+          TBD_COOL_OFF_NOTE,
       );
+    });
+
+    it('names the release the repository was set up with, so npm cannot install an older one', () => {
+      const message = formatUpgradeMessage('Config', 'f09', 'f08', '0.11.0');
+      expect(message).toContain(
+        'Upgrade tbd to get-tbd 0.11.0 or newer: npm install -g --ignore-scripts --before=',
+      );
+      expect(message).toContain(" 'get-tbd@>=0.11.0'\n");
+      expect(message.endsWith(TBD_COOL_OFF_NOTE)).toBe(true);
     });
   });
 

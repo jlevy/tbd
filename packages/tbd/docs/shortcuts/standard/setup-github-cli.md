@@ -261,10 +261,11 @@ its owner precisely so `gh` can use it here.
    - Ref deletions can silently no-op: the push reports “Everything up-to-date” while
      the remote ref persists.
      Always confirm deletions with `git ls-remote`.
-   - Remedy for all of these: do the ref operation on the direct channel instead, e.g.
-     `gh api repos/{owner}/{repo}/git/refs -f ref=refs/tags/NAME -f sha=SHA` to create a
-     tag and `gh api -X DELETE repos/{owner}/{repo}/git/refs/tags/NAME` to delete one
-     (both verified).
+   - These refusals are the broker’s policy, not faults to work around.
+     Never make the refused ref change another way, such as `gh api .../git/refs` on the
+     direct channel: a `v*` tag can trigger a release workflow, and tags and releases
+     are outside every policy grant (`tbd guidelines agent-policy-grants`). Report the
+     refusal, or the deletion that did not happen, and ask the user to make the change.
 
 2. **Proxied HTTPS to `api.github.com`.** The proxy may intercept GitHub and answer with
    its own 403s. Two intercept behaviors verified in Claude Code Cloud sessions:
@@ -309,9 +310,11 @@ NO_PROXY="api.github.com,github.com,release-assets.githubusercontent.com,objects
 ```
 
 This recipe was verified end to end in an egress-enabled Claude Code Cloud session:
-`gh auth status`, `gh pr list`, `gh release list`, tag creation and deletion via
-`gh api .../git/refs`, and the pinned-checksum binary download all succeed on the direct
-channel while the git broker or proxied channel refuses each of them.
+`gh auth status`, `gh pr list`, `gh release list`, and the pinned-checksum binary
+download all succeed on the direct channel while the git broker or proxied channel
+refuses each of them.
+The direct channel carries the GitHub work the session is already allowed to do; it is
+not a way around the git broker’s ref rules.
 (`release-assets.githubusercontent.com` is the current release-download host;
 `objects.githubusercontent.com` is its predecessor, kept for compatibility.)
 
@@ -349,8 +352,8 @@ report the limitation — do not attempt to tunnel around network policy.
 | 403 with no `x-github-request-id` header | Proxy-manufactured response, not GitHub — see Proxied Remote Sessions |
 | 403 body: “GitHub access is not enabled for this session…” | Mediation-layer message, not the egress policy — run the egress test; if egress is open, use the NO_PROXY recipe |
 | Exports vanish between agent tool calls | Prefix every `gh` command with the `NO_PROXY`/`no_proxy` assignments |
-| Tag push 403s but branch push works | Session git broker blocks `refs/tags` — create the tag on the direct channel via `gh api .../git/refs` |
-| Ref delete reports “Everything up-to-date” but ref persists | Broker silently drops deletions — delete via `gh api -X DELETE .../git/refs/...` and confirm with `git ls-remote` |
+| Tag push 403s but branch push works | Session git broker blocks `refs/tags` on purpose. Do not create the tag another way; report it and ask the user |
+| Ref delete reports “Everything up-to-date” but ref persists | Broker silently drops deletions. Confirm with `git ls-remote`, report it, and ask the user; do not delete through `gh api` |
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

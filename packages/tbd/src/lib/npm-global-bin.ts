@@ -1,7 +1,7 @@
 /**
  * Locate npm's global bin directory and decide whether it is reachable on PATH.
  *
- * tbd tells agents to install and upgrade the CLI with `npm install -g get-tbd@latest`
+ * tbd tells agents to install and upgrade the CLI with `npm install -g` (TBD_INSTALL_COMMAND)
  * (the skill, `tbd doctor` suggestions, and the incompatible-format error all say so).
  * That instruction silently does nothing useful when npm's global bin directory is not
  * on PATH: npm exits 0, prints an install summary, and the `tbd` binary still does not

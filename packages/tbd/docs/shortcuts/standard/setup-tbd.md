@@ -37,9 +37,20 @@ Install or upgrade only when tbd is missing, or when it refuses with “This rep
 requires a newer version of tbd”:
 
 ```bash
-npm install -g get-tbd@latest   # Installs or upgrades
+# Installs or upgrades: the newest release published at least 14 days ago, without
+# install scripts (`tbd guidelines supply-chain-hardening`)
+npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" get-tbd
 tbd --version
 ```
+
+When the refusal names the release this repository needs
+(`Upgrade tbd to get-tbd <version> or newer`), run the command it prints instead: it
+installs that release or a newer one, past the same cool-off.
+If npm reports no matching version, or `tbd --version` still names a release that
+refuses the repository, the release it needs is under 14 days old.
+Tell the user, then wait or ask them to approve an exception
+(`tbd guidelines supply-chain-hardening`). Never bypass the cool-off to get a newer
+release.
 
 With a working tbd and no such refusal, ask the user before upgrading and say which
 version they have. A global install on every “set up tbd” request fetches whatever the
