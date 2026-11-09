@@ -16,6 +16,34 @@ import type { WebServerHandle } from '../web/server.js';
 interface WebOptions {
   port?: string;
   open?: boolean;
+  view?: string;
+  groupPrefix?: string;
+}
+
+const BOARD_VIEWS = ['list', 'workmap'] as const;
+
+/**
+ * Fold the view options into the served URL as query parameters. The page owns the
+ * behavior (and remembers explicit in-page choices); the CLI only builds the link.
+ */
+export function webUrlWithView(url: string, options: WebOptions): string {
+  const params = new URLSearchParams();
+  if (options.view !== undefined) {
+    params.set('view', options.view);
+  }
+  if (options.groupPrefix !== undefined) {
+    // Grouping implies the workmap; saying so beats opening a list that ignores it.
+    params.set('view', options.view ?? 'workmap');
+    params.set('group', options.groupPrefix);
+  }
+  const query = params.toString();
+  return query === '' ? url : `${url}/?${query}`;
+}
+
+function parseView(value: string | undefined): void {
+  if (value !== undefined && !(BOARD_VIEWS as readonly string[]).includes(value)) {
+    throw new ValidationError(`--view must be one of: ${BOARD_VIEWS.join(', ')}`);
+  }
 }
 
 interface WebDescriptor {
@@ -68,6 +96,7 @@ async function resolveBaseDirectory(value: string | undefined): Promise<string> 
 class WebHandler extends BaseCommand {
   async run(baseDir: string | undefined, options: WebOptions): Promise<void> {
     const port = parsePort(options.port);
+    parseView(options.view);
     const repo = await requireInit(await resolveBaseDirectory(baseDir));
     const serverModule = await import('../web/server.js');
 
@@ -76,7 +105,7 @@ class WebHandler extends BaseCommand {
       const resolvedPort = await serverModule.resolveWebPort({ port });
       this.printDescriptor(
         {
-          url: `http://127.0.0.1:${resolvedPort}`,
+          url: webUrlWithView(`http://127.0.0.1:${resolvedPort}`, options),
           port: resolvedPort,
           pid: process.pid,
           repo,
@@ -144,7 +173,7 @@ class WebHandler extends BaseCommand {
       spinner.stop();
 
       const descriptor: WebDescriptor = {
-        url: handle.url,
+        url: webUrlWithView(handle.url, options),
         port: handle.port,
         pid: process.pid,
         repo,
@@ -154,7 +183,7 @@ class WebHandler extends BaseCommand {
 
       if (options.open === true && firstSignal === null) {
         try {
-          await serverModule.openWebBrowser(handle.url);
+          await serverModule.openWebBrowser(webUrlWithView(handle.url, options));
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           this.output.warn(`Could not open a browser (${message}); use ${handle.url}`);
@@ -203,6 +232,11 @@ export const webCommand = new Command('web')
   .argument('[path]', 'Repository or subdirectory to view (default: current directory)')
   .option('--port <n>', 'Bind exactly this loopback port (default: search from 7777)')
   .option('--open', 'Open the page in the default browser after HTTP readiness')
+  .option('--view <name>', 'Initial board view: list or workmap')
+  .option(
+    '--group-prefix <prefix>',
+    'Workmap grouping label prefix (e.g. area:) — any prefix:value convention your labels use',
+  )
   .action(async (path: string | undefined, options: WebOptions, command: Command) => {
     const handler = new WebHandler(command);
     await handler.run(path, options);
