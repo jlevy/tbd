@@ -169,7 +169,17 @@ describe('setup surface refusals', { timeout: subprocessTestTimeout(60_000) }, (
       expect(parsed.hooks.SessionStart).toEqual([
         { matcher: 'custom', extra: true, hooks: [unrelated] },
         { hooks: [wrapped] },
-        { matcher: '', hooks: [{ type: 'command', command: 'bash .codex/tbd-session.sh' }] },
+        {
+          matcher: '',
+          hooks: [
+            {
+              type: 'command',
+              command: expect.stringMatching(
+                /^bash -c 'repo_root=\$\(pwd -P\);.* exec bash "\$repo_root\/\.codex\/tbd-session\.sh"'$/u,
+              ),
+            },
+          ],
+        },
       ]);
     }
   });

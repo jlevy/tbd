@@ -5587,15 +5587,29 @@ in any environment (local dev, Claude Code Cloud, etc.).
 - **PreCompact**: Runs `tbd prime --brief` before context compaction
 - **PostToolUse**: Reminds about `tbd sync` after `git push`
 
-All hook commands use project-relative paths (e.g.,
-`bash .claude/scripts/tbd-session.sh`) so they work regardless of where tbd was
-installed globally.
-A project may spell a command differently as long as it runs the same
-script with the same arguments, for example
-`bash "$CLAUDE_PROJECT_DIR"/.claude/scripts/tbd-session.sh` or
-`bash "$(git rev-parse --show-toplevel)/.codex/tbd-session.sh"`. Setup keeps such a
-command as written, adds no duplicate beside it, and reports it as a customized hook
-command; `tbd doctor` reports the surface as current.
+Hook commands name the project’s own scripts, never a globally installed tbd, so they
+work regardless of where tbd was installed.
+The Claude closing command anchors its script at `"$CLAUDE_PROJECT_DIR"`, which Claude
+Code sets to the project for every hook, so it runs the project’s script even after the
+session has changed into a subdirectory or a nested checkout.
+The Claude SessionStart and PreCompact commands are still relative to the working
+directory (`bash .claude/scripts/tbd-session.sh`). Codex exports no project directory,
+so every Codex command is a `bash -c` wrapper that walks up from the working directory
+to the first `.git` or `.codex/hooks.json` boundary and runs that boundary’s own script
+(see C below).
+
+A project may spell a command differently when it runs the same script with the same
+arguments from the same anchor, for example
+`bash "${CLAUDE_PROJECT_DIR}"/.claude/scripts/tbd-session.sh`, in a `command` handler
+under the generated matcher.
+Setup keeps such a command as written, adds no duplicate beside it, and reports it as a
+customized hook command.
+A spelling that finds the script from the working directory or its Git checkout
+(`bash ./.claude/...`, `bash "$(git rev-parse --show-toplevel)/.codex/..."`), or one
+under another matcher or handler type, is still tbd’s: setup replaces it with the
+generated command, and `tbd doctor` reports a Codex hooks file holding one as stale.
+In a nested checkout such as a third-party clone under `attic/`, those spellings would
+run the clone’s script.
 A command that adds anything else (another command, other arguments) is the project’s
 own and does not stand in for tbd’s.
 
@@ -5632,9 +5646,12 @@ separates commands and words as a shell does, so it recognizes `git -C dir push`
 `env VAR=1 git push`, or a push on a later line, and ignores `echo git push`. It needs
 no jq, and invalid hook JSON exits 1 with a message instead of skipping the reminder.
 It locates the repository and runs tbd the same way as the session script.
-The Codex PostToolUse command walks up from the working directory only to the first
-directory with `.git` or `.codex/hooks.json` and runs that directory’s own
-`.codex/tbd-closing-reminder.sh`, so a stray copy in a nested directory never runs.
+When node fails without a message, the hook says so and exits 1. Each Codex hook command
+(SessionStart, PreCompact, the gh CLI script, and PostToolUse) walks up from the working
+directory only to the first directory with `.git` or `.codex/hooks.json` and runs that
+directory’s own script under `.codex/`, so a stray copy in a nested directory never
+runs. It exits 0 outside a Codex-configured project and fails visibly when a configured
+project lacks the script.
 
 **Setup command:**
 

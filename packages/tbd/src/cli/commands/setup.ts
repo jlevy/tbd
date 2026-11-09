@@ -72,10 +72,11 @@ import {
 } from '../../lib/integration-paths.js';
 import { GIT_PUSH_DETECTOR_JS } from '../lib/git-push-detector.js';
 import {
-  CLAUDE_HOOK_ROOTS,
-  CODEX_HOOK_ROOTS,
+  CLAUDE_HOOK_ANCHORS,
+  CODEX_HOOK_ANCHORS,
   customizedHookNote,
   scriptInvocationSpellings,
+  type ScriptInvocationSpellings,
 } from '../lib/hook-commands.js';
 import { initWorktree, isInGitRepo, findGitRoot, checkWorktreeHealth } from '../../file/git.js';
 import { readForkManifest } from '../../file/fork-manifest.js';
@@ -662,27 +663,34 @@ const CLAUDE_TBD_CLOSING_COMMAND =
 
 /**
  * Each generated Claude command with every spelling that runs the same script with the
- * same arguments (see hook-commands.ts). Setup keeps such a spelling in place of the
- * generated command and never adds a duplicate beside it.
+ * same arguments (see hook-commands.ts). Setup keeps an anchored spelling
+ * (`$CLAUDE_PROJECT_DIR`) in place of the generated command and never adds a duplicate
+ * beside it; it replaces an unanchored one.
  */
-const CLAUDE_TBD_COMMAND_SPELLINGS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+const CLAUDE_TBD_COMMAND_SPELLINGS: ReadonlyMap<string, ScriptInvocationSpellings> = new Map([
   [
     CLAUDE_TBD_SESSION_COMMAND,
-    scriptInvocationSpellings(TBD_SESSION_SCRIPT_REL, [], CLAUDE_HOOK_ROOTS),
+    scriptInvocationSpellings(TBD_SESSION_SCRIPT_REL, [], CLAUDE_HOOK_ANCHORS),
   ],
   [
     CLAUDE_TBD_PRECOMPACT_COMMAND,
-    scriptInvocationSpellings(TBD_SESSION_SCRIPT_REL, ['--brief'], CLAUDE_HOOK_ROOTS),
+    scriptInvocationSpellings(TBD_SESSION_SCRIPT_REL, ['--brief'], CLAUDE_HOOK_ANCHORS),
   ],
   [
     CLAUDE_TBD_CLOSING_COMMAND,
-    scriptInvocationSpellings(TBD_CLOSING_REMINDER_REL, [], CLAUDE_HOOK_ROOTS),
+    scriptInvocationSpellings(TBD_CLOSING_REMINDER_REL, [], CLAUDE_HOOK_ANCHORS),
   ],
 ]);
 
-/** Whether `command` is a generated Claude command or one of its equivalent spellings. */
+/**
+ * Whether `command` is a generated Claude command or a recognized spelling of one.
+ * Setup's Claude merge handles these handler by handler, so legacy cleanup leaves them.
+ */
 function isCurrentClaudeTbdHookCommand(command: string): boolean {
-  return [...CLAUDE_TBD_COMMAND_SPELLINGS.values()].some((spellings) => spellings.has(command));
+  return [...CLAUDE_TBD_COMMAND_SPELLINGS].some(
+    ([generated, spellings]) =>
+      command === generated || spellings.anchored.has(command) || spellings.unanchored.has(command),
+  );
 }
 
 const CLAUDE_SESSION_HOOKS = {
@@ -718,18 +726,21 @@ const CLAUDE_PROJECT_HOOKS = {
 };
 
 interface ClaudeHookEntry extends Record<string, unknown> {
-  hooks?: { command?: string }[];
+  matcher?: unknown;
+  hooks?: { type?: unknown; command?: string }[];
 }
 
 /**
  * Merge one event's generated tbd entry into the project's existing entries.
  *
- * A handler that is an equivalent spelling of the generated command (for example
+ * A handler that is an anchored spelling of the generated command (for example
  * `bash "$CLAUDE_PROJECT_DIR"/.claude/scripts/tbd-session.sh`) is the project's own
- * wiring of tbd's script: the first one is kept unchanged and stands in for the
- * generated entry, so setup neither rewrites it nor adds a duplicate. Every other
- * handler naming the script (`scriptMarker`) is tbd's, current or from an older
- * release, and is replaced. Unrelated handlers, and the entries holding them, are kept.
+ * wiring of tbd's script when it would fire exactly as the generated one does: a
+ * `command` handler in an entry with the generated matcher. The first such handler is
+ * kept unchanged and stands in for the generated entry, so setup neither rewrites it
+ * nor adds a duplicate. Every other handler naming the script (`scriptMarker`) is
+ * tbd's, current, unanchored, under another matcher or type, or from an older release,
+ * and is replaced. Unrelated handlers, and the entries holding them, are kept.
  * Returns the merged entries and the customized commands that were kept.
  */
 function mergeClaudeTbdHookEvent(
@@ -737,8 +748,9 @@ function mergeClaudeTbdHookEvent(
   generated: readonly ClaudeHookEntry[],
   scriptMarker: string,
 ): { entries: ClaudeHookEntry[]; kept: string[] } {
-  const generatedCommand = generated[0]?.hooks?.[0]?.command ?? '';
-  const spellings = CLAUDE_TBD_COMMAND_SPELLINGS.get(generatedCommand) ?? new Set<string>();
+  const generatedEntry = generated[0];
+  const generatedCommand = generatedEntry?.hooks?.[0]?.command ?? '';
+  const anchored = CLAUDE_TBD_COMMAND_SPELLINGS.get(generatedCommand)?.anchored ?? new Set();
   const kept: string[] = [];
   const entries: ClaudeHookEntry[] = [];
   for (const entry of existing ?? []) {
@@ -746,12 +758,19 @@ function mergeClaudeTbdHookEvent(
       entries.push(entry);
       continue;
     }
+    const sameMatcher = (entry.matcher ?? '') === (generatedEntry?.matcher ?? '');
     const hooks = entry.hooks.filter((hook) => {
       const command = hook.command;
       if (typeof command !== 'string' || !command.includes(scriptMarker)) {
         return true;
       }
-      if (command !== generatedCommand && spellings.has(command) && kept.length === 0) {
+      if (
+        sameMatcher &&
+        hook.type === 'command' &&
+        command !== generatedCommand &&
+        anchored.has(command) &&
+        kept.length === 0
+      ) {
         kept.push(command);
         return true;
       }
@@ -785,13 +804,17 @@ ${TBD_HOOK_PATH_SETUP}
 
 # Print yes when the hook input's command runs git push, and no otherwise. The parser
 # separates commands and words as a shell does, so it finds \`git -C dir push\` or a push
-# on a later line and ignores \`echo git push\`. Input that is not valid hook JSON exits 1.
+# on a later line and ignores \`echo git push\`. Input that is not valid hook JSON exits 1,
+# and so does a node that fails, each with a message.
 tbd_detect_git_push() {
   if ! command -v node &> /dev/null; then
     echo "[tbd] node is required to read the closing hook input." >&2
     return 1
   fi
-  node -e '${GIT_PUSH_DETECTOR_JS}'
+  if ! node -e '${GIT_PUSH_DETECTOR_JS}'; then
+    echo "[tbd] The closing hook could not read its input with node." >&2
+    return 1
+  fi
 }
 
 if ! is_git_push=$(tbd_detect_git_push); then
@@ -906,29 +929,44 @@ const CODEX_SESSION_SCRIPT_REL = '.codex/tbd-session.sh';
 const CODEX_CLOSING_REMINDER_REL = '.codex/tbd-closing-reminder.sh';
 const CODEX_GH_CLI_SCRIPT_REL = '.codex/ensure-gh-cli.sh';
 
-const CODEX_SESSION_COMMAND = `bash ${CODEX_SESSION_SCRIPT_REL}`;
-const CODEX_PRECOMPACT_COMMAND = `${CODEX_SESSION_COMMAND} --brief`;
-const CODEX_GH_CLI_COMMAND = `bash ${CODEX_GH_CLI_SCRIPT_REL}`;
-
 /**
- * The Codex PostToolUse command. Codex runs a hook in the session's working directory,
+ * A generated Codex hook command. Codex runs a hook in the session's working directory,
  * which need not be the project root, so the command locates the project itself: it
  * walks up from the physical working directory and stops at the first directory that
  * has `.git` or `.codex/hooks.json`, the project boundary. It runs only that boundary's
- * own closing hook, exits 0 outside a Codex-configured project, and fails visibly when a
- * configured project lacks the hook. A stray `.codex/` in a nested directory below the
- * boundary is never run.
+ * own `scriptRel`, exits 0 outside a Codex-configured project, and fails visibly when a
+ * configured project lacks the script. A stray `.codex/` in a nested directory below
+ * the boundary is never run. `label` names the hook in that failure.
  */
-const CODEX_CLOSING_COMMAND = `bash -c '${[
-  'repo_root=$(pwd -P)',
-  'while [ "$repo_root" != "/" ] && [ ! -e "$repo_root/.git" ] && [ ! -f "$repo_root/.codex/hooks.json" ]; do repo_root=${repo_root%/*}; [ -n "$repo_root" ] || repo_root=/; done',
-  'if [ ! -f "$repo_root/.codex/hooks.json" ]; then exit 0; fi',
-  `if [ ! -f "$repo_root/${CODEX_CLOSING_REMINDER_REL}" ]; then echo "[tbd] Cannot locate the Codex closing hook." >&2; exit 1; fi`,
-  `exec bash "$repo_root/${CODEX_CLOSING_REMINDER_REL}"`,
-].join('; ')}'`;
+function codexBoundaryCommand(label: string, scriptRel: string, args: readonly string[]): string {
+  const suffix = args.length > 0 ? ` ${args.join(' ')}` : '';
+  return `bash -c '${[
+    'repo_root=$(pwd -P)',
+    'while [ "$repo_root" != "/" ] && [ ! -e "$repo_root/.git" ] && [ ! -f "$repo_root/.codex/hooks.json" ]; do repo_root=${repo_root%/*}; [ -n "$repo_root" ] || repo_root=/; done',
+    'if [ ! -f "$repo_root/.codex/hooks.json" ]; then exit 0; fi',
+    `if [ ! -f "$repo_root/${scriptRel}" ]; then echo "[tbd] Cannot locate the Codex ${label} hook." >&2; exit 1; fi`,
+    `exec bash "$repo_root/${scriptRel}"${suffix}`,
+  ].join('; ')}'`;
+}
 
-/** The PostToolUse command tbd generated through 0.10.0; setup replaces it. */
-const LEGACY_CODEX_CLOSING_COMMAND = `bash ${CODEX_CLOSING_REMINDER_REL}`;
+const CODEX_SESSION_COMMAND = codexBoundaryCommand('session', CODEX_SESSION_SCRIPT_REL, []);
+const CODEX_PRECOMPACT_COMMAND = codexBoundaryCommand('session', CODEX_SESSION_SCRIPT_REL, [
+  '--brief',
+]);
+const CODEX_GH_CLI_COMMAND = codexBoundaryCommand('gh CLI', CODEX_GH_CLI_SCRIPT_REL, []);
+/** The PostToolUse command, byte-identical to the wrapper fsqlite validated downstream. */
+const CODEX_CLOSING_COMMAND = codexBoundaryCommand('closing', CODEX_CLOSING_REMINDER_REL, []);
+
+/**
+ * The working-directory-relative commands tbd generated through 0.10.0. Setup replaces
+ * them with the boundary-limited commands above.
+ */
+const LEGACY_CODEX_COMMANDS = [
+  `bash ${CODEX_SESSION_SCRIPT_REL}`,
+  `bash ${CODEX_SESSION_SCRIPT_REL} --brief`,
+  `bash ${CODEX_GH_CLI_SCRIPT_REL}`,
+  `bash ${CODEX_CLOSING_REMINDER_REL}`,
+];
 
 /**
  * Commands tbd owns outright, in any event: setup removes them and writes the current
@@ -939,27 +977,31 @@ const OWNED_CODEX_COMMANDS: ReadonlySet<string> = new Set([
   CODEX_PRECOMPACT_COMMAND,
   CODEX_GH_CLI_COMMAND,
   CODEX_CLOSING_COMMAND,
-  LEGACY_CODEX_CLOSING_COMMAND,
+  ...LEGACY_CODEX_COMMANDS,
 ]);
 
 /**
  * Each generated Codex command with every spelling that runs the same script with the
  * same arguments (see hook-commands.ts), for example
- * `bash "$(git rev-parse --show-toplevel)/.codex/tbd-session.sh"`.
+ * `bash "$(git rev-parse --show-toplevel)/.codex/tbd-session.sh"`. Codex has no anchor,
+ * so every such spelling is unanchored and setup replaces it.
  */
-const CODEX_TBD_COMMAND_SPELLINGS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+const CODEX_TBD_COMMAND_SPELLINGS: ReadonlyMap<string, ScriptInvocationSpellings> = new Map([
   [
     CODEX_SESSION_COMMAND,
-    scriptInvocationSpellings(CODEX_SESSION_SCRIPT_REL, [], CODEX_HOOK_ROOTS),
+    scriptInvocationSpellings(CODEX_SESSION_SCRIPT_REL, [], CODEX_HOOK_ANCHORS),
   ],
   [
     CODEX_PRECOMPACT_COMMAND,
-    scriptInvocationSpellings(CODEX_SESSION_SCRIPT_REL, ['--brief'], CODEX_HOOK_ROOTS),
+    scriptInvocationSpellings(CODEX_SESSION_SCRIPT_REL, ['--brief'], CODEX_HOOK_ANCHORS),
   ],
-  [CODEX_GH_CLI_COMMAND, scriptInvocationSpellings(CODEX_GH_CLI_SCRIPT_REL, [], CODEX_HOOK_ROOTS)],
+  [
+    CODEX_GH_CLI_COMMAND,
+    scriptInvocationSpellings(CODEX_GH_CLI_SCRIPT_REL, [], CODEX_HOOK_ANCHORS),
+  ],
   [
     CODEX_CLOSING_COMMAND,
-    scriptInvocationSpellings(CODEX_CLOSING_REMINDER_REL, [], CODEX_HOOK_ROOTS),
+    scriptInvocationSpellings(CODEX_CLOSING_REMINDER_REL, [], CODEX_HOOK_ANCHORS),
   ],
 ]);
 
@@ -1056,11 +1098,11 @@ async function readCodexHooksForSetup(cwd: string): Promise<CodexHooksFile | und
 }
 
 /**
- * Who a Codex handler belongs to. `tbd`: setup replaces it (an owned command, or an
- * equivalent spelling with no generated slot in its event or whose slot an earlier
- * handler already fills). `customized`: the first equivalent spelling of a generated
- * command in that command's event; it fills the slot and is kept as written. `user`:
- * anything else, kept.
+ * Who a Codex handler belongs to. `tbd`: setup replaces it (an owned command, an
+ * unanchored spelling, or an anchored spelling that would not fire as its generated
+ * command does, or whose slot an earlier handler already fills). `customized`: the first
+ * anchored spelling of a generated command, in that command's event and under its
+ * matcher; it fills the slot and is kept as written. `user`: anything else, kept.
  */
 type CodexHookRole = 'tbd' | 'customized' | 'user';
 
@@ -1081,32 +1123,42 @@ function classifyCodexHooks(
   const roles = new Map<Record<string, unknown>, CodexHookRole>();
   const filled = new Set<string>();
   for (const [event, entries] of Object.entries(hooks)) {
-    const slots = new Set(
-      (generated[event] ?? []).flatMap((entry) => entry.hooks.map((hook) => hook.command)),
+    // Each generated command in this event, with the matcher its entry carries.
+    const slots = new Map(
+      (generated[event] ?? []).flatMap((entry) =>
+        entry.hooks.map((hook) => [hook.command, entry.matcher ?? ''] as const),
+      ),
     );
-    for (const hook of entries.flatMap((entry) => entry.hooks)) {
-      const command = hook.command;
-      if (hook.type !== 'command' || typeof command !== 'string') {
-        roles.set(hook, 'user');
-        continue;
-      }
-      if (OWNED_CODEX_COMMANDS.has(command)) {
-        roles.set(hook, 'tbd');
-        continue;
-      }
-      const generatedCommand = [...CODEX_TBD_COMMAND_SPELLINGS].find(([, spellings]) =>
-        spellings.has(command),
-      )?.[0];
-      if (generatedCommand === undefined) {
-        roles.set(hook, 'user');
-        continue;
-      }
-      const slot = codexSlotKey(event, generatedCommand);
-      if (slots.has(generatedCommand) && !filled.has(slot)) {
-        filled.add(slot);
-        roles.set(hook, 'customized');
-      } else {
-        roles.set(hook, 'tbd');
+    for (const entry of entries) {
+      for (const hook of entry.hooks) {
+        const command = hook.command;
+        if (hook.type !== 'command' || typeof command !== 'string') {
+          roles.set(hook, 'user');
+          continue;
+        }
+        if (OWNED_CODEX_COMMANDS.has(command)) {
+          roles.set(hook, 'tbd');
+          continue;
+        }
+        const match = [...CODEX_TBD_COMMAND_SPELLINGS].find(
+          ([, spellings]) => spellings.anchored.has(command) || spellings.unanchored.has(command),
+        );
+        if (match === undefined) {
+          roles.set(hook, 'user');
+          continue;
+        }
+        const [generatedCommand, spellings] = match;
+        const slot = codexSlotKey(event, generatedCommand);
+        if (
+          spellings.anchored.has(command) &&
+          slots.get(generatedCommand) === (entry.matcher ?? '') &&
+          !filled.has(slot)
+        ) {
+          filled.add(slot);
+          roles.set(hook, 'customized');
+        } else {
+          roles.set(hook, 'tbd');
+        }
       }
     }
   }

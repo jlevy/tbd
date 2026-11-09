@@ -1,7 +1,7 @@
 /**
  * Behavior of the generated hook scripts: `tbd-session.sh` and
  * `tbd-closing-reminder.sh` (the same bytes under .claude/ and .codex/) and the Codex
- * PostToolUse wrapper command.
+ * hook commands, which are boundary-limited wrappers.
  *
  * The scripts come from a real `tbd setup --auto` run, then run as copies in fixture
  * repositories whose config each test controls, with a hermetic PATH of shims: no git,
@@ -67,9 +67,17 @@ describeUnix('generated hook scripts', { timeout: subprocessTestTimeout(60_000) 
   let npxArgv: string;
   const scripts = new Map<string, Buffer>();
   let codexClosingCommand: string;
+  let codexSessionCommands: { sessionStart: string[]; preCompact: string };
   let claudeClosingCommand: string;
   const bins: Record<
-    'full' | 'npxOnly' | 'nodeOnly' | 'noNode' | 'brokenNode' | 'brokenNodeNoNpx' | 'bashOnly',
+    | 'full'
+    | 'npxOnly'
+    | 'nodeOnly'
+    | 'noNode'
+    | 'brokenNode'
+    | 'brokenNodeNoNpx'
+    | 'silentNode'
+    | 'bashOnly',
     string
   > = {
     full: '',
@@ -78,6 +86,7 @@ describeUnix('generated hook scripts', { timeout: subprocessTestTimeout(60_000) 
     noNode: '',
     brokenNode: '',
     brokenNodeNoNpx: '',
+    silentNode: '',
     bashOnly: '',
   };
 
@@ -110,6 +119,10 @@ describeUnix('generated hook scripts', { timeout: subprocessTestTimeout(60_000) 
               'fi\n' +
               `exec "${process.execPath}" "$@"\n`,
           );
+          break;
+        case 'silent-node':
+          // Fails every invocation without printing anything.
+          await writeExecutable(join(dir, 'node'), '#!/bin/bash\nexit 1\n');
           break;
         case 'tbd':
           await writeExecutable(
@@ -247,6 +260,12 @@ describeUnix('generated hook scripts', { timeout: subprocessTestTimeout(60_000) 
     }
     const codexHooks = JSON.parse(await readFile(join(generated, '.codex/hooks.json'), 'utf-8'));
     codexClosingCommand = codexHooks.hooks.PostToolUse[0].hooks[0].command;
+    codexSessionCommands = {
+      sessionStart: codexHooks.hooks.SessionStart.map(
+        (entry: { hooks: { command: string }[] }) => entry.hooks[0]!.command,
+      ),
+      preCompact: codexHooks.hooks.PreCompact[0].hooks[0].command,
+    };
     const claudeSettings = JSON.parse(
       await readFile(join(generated, '.claude/settings.json'), 'utf-8'),
     );
@@ -258,6 +277,7 @@ describeUnix('generated hook scripts', { timeout: subprocessTestTimeout(60_000) 
     bins.noNode = await makeBin('no-node', ['bash', 'npx']);
     bins.brokenNode = await makeBin('broken-node', ['bash', 'broken-node', 'npx']);
     bins.brokenNodeNoNpx = await makeBin('broken-node-no-npx', ['bash', 'broken-node']);
+    bins.silentNode = await makeBin('silent-node', ['bash', 'silent-node', 'tbd']);
     bins.bashOnly = await makeBin('bash-only', ['bash']);
   });
 
@@ -476,6 +496,15 @@ describeUnix('generated hook scripts', { timeout: subprocessTestTimeout(60_000) 
       expect(result.stderr).toContain('node is required to read the closing hook input');
     });
 
+    it('explains a node that fails without a message', async () => {
+      const dir = await makeFixture(`${fixtureName}-silent-node`, PIN_CONFIG);
+      await resetRecords();
+      const result = run(join(dir, rel), bins.silentNode, { input: hookInput('git push') });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('The closing hook could not read its input with node');
+      expect(await tbdLog()).toBe('');
+    });
+
     it('exits quietly without its own .tbd, even inside a tbd repository', async () => {
       const ancestor = await makeFixture(`${fixtureName}-ancestor`, PIN_CONFIG);
       const nested = join(ancestor, 'nested');
@@ -558,7 +587,7 @@ describeUnix('generated hook scripts', { timeout: subprocessTestTimeout(60_000) 
     expect(await tbdLog()).toBe('tbd closing');
   });
 
-  describe('Codex PostToolUse command', () => {
+  describe('Codex hook commands', () => {
     async function markerHook(dir: string, marker: string): Promise<void> {
       await mkdir(join(dir, '.codex'), { recursive: true });
       await writeFile(
@@ -609,6 +638,50 @@ describeUnix('generated hook scripts', { timeout: subprocessTestTimeout(60_000) 
       expect(result.status).toBe(1);
       expect(result.stderr).toContain('Cannot locate the Codex closing hook');
       expect(existsSync(strayMarker)).toBe(false);
+    });
+
+    it('runs the session, PreCompact, and gh CLI hooks from a subdirectory', async () => {
+      const project = await makeFixture('codex-session-project', PIN_CONFIG);
+      await mkdir(join(project, '.git'));
+      await writeFile(join(project, '.codex', 'hooks.json'), '{}\n');
+      const ghMarker = join(root, 'codex-gh-cli-ran');
+      await writeFile(
+        join(project, '.codex', 'ensure-gh-cli.sh'),
+        `#!/bin/bash\nprintf "" > ${JSON.stringify(ghMarker)}\n`,
+      );
+      const cwd = join(project, 'packages', 'foo');
+      await mkdir(cwd, { recursive: true });
+      const [sessionStart, ghCli] = codexSessionCommands.sessionStart;
+      expect(ghCli).toBeDefined();
+
+      await resetRecords();
+      const session = runCommand(sessionStart!, bins.full, { cwd, env: { PWD: cwd } });
+      expect(session.status, session.stderr).toBe(0);
+      expect(await tbdLog()).toBe('tbd prime');
+
+      await resetRecords();
+      const brief = runCommand(codexSessionCommands.preCompact, bins.full, {
+        cwd,
+        env: { PWD: cwd },
+      });
+      expect(brief.status, brief.stderr).toBe(0);
+      expect(await tbdLog()).toBe('tbd prime --brief');
+
+      const gh = runCommand(ghCli!, bins.full, { cwd, env: { PWD: cwd } });
+      expect(gh.status, gh.stderr).toBe(0);
+      expect(existsSync(ghMarker)).toBe(true);
+    });
+
+    it('fails visibly when the Codex project lacks its session hook', async () => {
+      const project = join(root, 'codex-missing-session');
+      await mkdir(join(project, '.codex'), { recursive: true });
+      await writeFile(join(project, '.codex', 'hooks.json'), '{}\n');
+      const result = runCommand(codexSessionCommands.sessionStart[0]!, bins.bashOnly, {
+        cwd: project,
+        env: { PWD: project },
+      });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('Cannot locate the Codex session hook');
     });
 
     it('exits quietly in a Git project without Codex hooks', async () => {
