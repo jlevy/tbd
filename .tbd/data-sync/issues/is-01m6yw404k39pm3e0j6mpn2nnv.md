@@ -3,9 +3,9 @@ type: is
 id: is-01m6yw404k39pm3e0j6mpn2nnv
 title: "PR #330 A11: Release commands discover Python before installing it"
 kind: bug
-status: in_progress
+status: closed
 priority: 2
-version: 2
+version: 3
 delegate: claude-code@spud10.local
 labels: []
 dependencies: []
@@ -13,7 +13,11 @@ parent_id: is-01m6yvh4673rd60rmkc7jwwwxw
 hold: null
 hold_until: null
 created_at: 2026-11-09T00:42:50.386Z
-updated_at: 2026-11-09T00:44:37.329Z
+updated_at: 2026-11-09T01:04:09.976Z
 started_at: 2026-11-09T00:44:37.329Z
+closed_at: 2026-11-09T01:04:09.976Z
+close_reason: "Fixed in PR #330 at c031fa3a; all GitHub checks passed. Dispositions: https://github.com/jlevy/tbd/pull/330#issuecomment-6729775794"
+resolution: null
+duplicate_of: null
 ---
 Medium finding at packages/tbd/docs/guidelines/desktop-python-runtime-patterns.md:596. Review: https://github.com/jlevy/tbd/pull/330#pullrequestreview-5820486937

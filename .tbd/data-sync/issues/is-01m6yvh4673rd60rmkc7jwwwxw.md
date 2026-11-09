@@ -3,9 +3,9 @@ type: is
 id: is-01m6yvh4673rd60rmkc7jwwwxw
 title: "Review and harden the desktop guidelines in PR #330"
 kind: task
-status: in_progress
+status: closed
 priority: 2
-version: 23
+version: 24
 delegate: claude-code@spud10.local
 labels: []
 dependencies: []
@@ -34,7 +34,11 @@ child_order_hints:
 hold: null
 hold_until: null
 created_at: 2026-11-09T00:32:31.942Z
-updated_at: 2026-11-09T00:42:54.102Z
+updated_at: 2026-11-09T01:04:10.045Z
 started_at: 2026-11-09T00:32:50.017Z
+closed_at: 2026-11-09T01:04:10.045Z
+close_reason: "Fixed in PR #330 at c031fa3a; all GitHub checks passed. Dispositions: https://github.com/jlevy/tbd/pull/330#issuecomment-6729775794"
+resolution: null
+duplicate_of: null
 ---
 Review the five desktop guidelines for technical correctness and common documentation guidelines, fix confirmed findings in PR #330, and verify CI.
