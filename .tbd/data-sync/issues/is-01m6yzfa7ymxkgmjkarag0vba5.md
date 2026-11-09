@@ -1,11 +1,11 @@
 ---
 type: is
 id: is-01m6yzfa7ymxkgmjkarag0vba5
-title: Prepare and validate the get-tbd 0.10.1 patch release
+title: Prepare and validate the get-tbd 0.11.0 minor release
 kind: task
 status: in_progress
 priority: 1
-version: 12
+version: 13
 delegate: codex@spud10
 labels: []
 dependencies: []
@@ -20,10 +20,10 @@ child_order_hints:
 hold: null
 hold_until: null
 created_at: 2026-11-09T01:41:26.909Z
-updated_at: 2026-11-09T02:31:26.994Z
+updated_at: 2026-11-09T06:25:38.010Z
 started_at: 2026-11-09T01:41:40.058Z
 ---
-Review the open PR queue, merge eligible patch work after review and CI, audit the dependency delta, verify a packed release and downstream upgrade, and prepare the 0.10.1 release PR.
+Validate a packed v0.11.0 release and seamless CLI upgrades from published baselines, verify the Tryscript downstream upgrade, document the Zod 4 API migration, and prepare the release PR.
 
 ## Notes
 
