@@ -14,7 +14,9 @@ Once the release meets your package cool-off policy, install it and run setup fr
 project’s root to refresh its managed agent files and bundled guidelines.
 
 ```bash
-npm install -g --ignore-scripts get-tbd@0.11.0
+npm install -g --ignore-scripts \
+  --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" \
+  get-tbd@0.11.0
 tbd setup --auto
 ```
 
@@ -32,7 +34,7 @@ See the [Zod 4 migration guide](https://zod.dev/v4/changelog).
 - Markdown frontmatter is restricted to YAML even when the file starts with a byte-order
   mark. Explicit JavaScript frontmatter is rejected before it can execute.
 - The runtime dependency on Zod is upgraded from 3.25.76 to 4.6.7, which fixes excessive
-  validation work on oversized arrays.
+  validation work on oversized arrays with length limits.
   The runtime audit reported zero advisories and all dependency pins passed the 14-day
   age check. [Zod advisory](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)
 
