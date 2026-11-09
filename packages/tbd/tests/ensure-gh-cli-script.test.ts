@@ -1,6 +1,18 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmod, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  lstat,
+  mkdtemp,
+  mkdir,
+  readFile,
+  readdir,
+  readlink,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -729,7 +741,10 @@ exec /bin/mv "$@"
      * Run the full install path offline: curl, the checksum tool, and tar are shell
      * functions that produce the pinned archive's expected digest and a pinned gh.
      */
-    async function runPinnedInstall(oldGh: string): Promise<{
+    async function runPinnedInstall(
+      oldGh: string | null,
+      prepare?: (paths: { home: string; localBin: string }) => Promise<void>,
+    ): Promise<{
       result: ReturnType<typeof spawnSync>;
       localBin: string;
       directory: string;
@@ -744,8 +759,11 @@ exec /bin/mv "$@"
         mkdir(fixtureBin, { recursive: true }),
         mkdir(tempDirectory, { recursive: true }),
       ]);
-      await writeFile(join(localBin, 'gh'), oldGh);
-      await chmod(join(localBin, 'gh'), 0o755);
+      if (oldGh !== null) {
+        await writeFile(join(localBin, 'gh'), oldGh);
+        await chmod(join(localBin, 'gh'), 0o755);
+      }
+      await prepare?.({ home: homeDirectory, localBin });
       const bashEnvironment = await writeBashEnvironment(fixtureBin, [
         'curl() {',
         '    local output=""',
@@ -799,19 +817,98 @@ exec /bin/mv "$@"
         expect(backups[0]).toMatch(/^gh\.backup-\d{8}T\d{6}Z$/u);
         expect(await readFile(join(localBin, backups[0]!), 'utf8')).toBe(oldGh);
         expect(await readFile(join(localBin, 'gh'), 'utf8')).toContain('2.97.0 (pinned)');
-        expect(result.stdout).toContain(`aside to `);
+        expect(result.stdout).toContain('Backed up the existing');
         expect(result.stdout).toContain('To restore it: mv -f');
+        // The install records what it put there, so a later pin bump needs no backup.
+        expect((await readFile(join(localBin, '.gh.tbd-installed'), 'utf8')).trim()).toBe(
+          LINUX_AMD64_SHA256,
+        );
       } finally {
         await rm(directory, { recursive: true, force: true });
       }
     });
 
+    it('replaces the gh it installed earlier without keeping a backup', async () => {
+      const { result, localBin, directory } = await runPinnedInstall(
+        '#!/bin/bash\necho "gh version 2.10.0 (installed by this script)"\n',
+        // The fixture's checksum tool reports the pinned digest for every file.
+        ({ localBin: bin }) => writeFile(join(bin, '.gh.tbd-installed'), `${LINUX_AMD64_SHA256}\n`),
+      );
+      try {
+        expect(result.status, `${String(result.stdout)}\n${String(result.stderr)}`).toBe(0);
+        expect(result.stdout).toContain('replacing the gh this script installed there');
+        expect(result.stdout).not.toContain('Backed up');
+        expect((await readdir(localBin)).filter((name) => name.startsWith('gh.backup-'))).toEqual(
+          [],
+        );
+        expect(await readFile(join(localBin, 'gh'), 'utf8')).toContain('2.97.0 (pinned)');
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    });
+
+    it('still backs up a gh whose digest differs from the recorded install', async () => {
+      const oldGh = '#!/bin/bash\necho "gh version 2.10.0 (user wrapper)"\n';
+      const { result, localBin, directory } = await runPinnedInstall(oldGh, ({ localBin: bin }) =>
+        writeFile(join(bin, '.gh.tbd-installed'), 'not-this-file\n'),
+      );
+      try {
+        expect(result.status, `${String(result.stdout)}\n${String(result.stderr)}`).toBe(0);
+        const backups = (await readdir(localBin)).filter((name) => name.startsWith('gh.backup-'));
+        expect(backups).toHaveLength(1);
+        expect(await readFile(join(localBin, backups[0]!), 'utf8')).toBe(oldGh);
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    });
+
+    it.skipIf(process.platform === 'win32')(
+      'says it backs up ~/.local/bin/gh even when PATH resolved an older gh elsewhere',
+      async () => {
+        const { result, localBin, directory } = await runPinnedInstall(
+          null,
+          async ({ home, localBin: bin }) => {
+            // A dangling ~/.local/bin/gh is skipped by PATH lookup; ~/bin/gh is found.
+            await symlink(join(home, 'missing-gh'), join(bin, 'gh'));
+            await mkdir(join(home, 'bin'));
+            await writeFile(
+              join(home, 'bin', 'gh'),
+              '#!/bin/bash\necho "gh version 2.10.0 (elsewhere)"\n',
+            );
+            await chmod(join(home, 'bin', 'gh'), 0o755);
+          },
+        );
+        try {
+          expect(result.status, `${String(result.stdout)}\n${String(result.stderr)}`).toBe(0);
+          expect(result.stdout).toContain('/bin/gh is v2.10.0');
+          expect(result.stdout).toContain(
+            'existing ~/.local/bin/gh moved aside to a timestamped backup',
+          );
+          expect(result.stdout).not.toContain('existing gh left in place');
+          const backups = (await readdir(localBin)).filter((name) => name.startsWith('gh.backup-'));
+          expect(backups).toHaveLength(1);
+          expect((await lstat(join(localBin, backups[0]!))).isSymbolicLink()).toBe(true);
+        } finally {
+          await rm(directory, { recursive: true, force: true });
+        }
+      },
+    );
+
     /** Run the shipped backup function against a disposable HOME with a fixed clock. */
     async function runBackup(home: string): Promise<ReturnType<typeof spawnSync>> {
-      const fn = await extractFunction('backup_existing_local_gh');
+      const record = /^GH_INSTALL_RECORD=.*$/mu.exec(await readScriptSource())?.[0];
+      expect(record).toBeDefined();
+      const fns = await Promise.all(
+        ['file_sha256', 'local_gh_is_tbd_install', 'backup_existing_local_gh'].map(extractFunction),
+      );
       return spawnSync(
         BASH,
-        ['-c', `date() { echo 20260101T000000Z; }\n${fn}\nbackup_existing_local_gh`],
+        [
+          '-c',
+          ['date() { echo 20260101T000000Z; }', record!, ...fns, 'backup_existing_local_gh'].join(
+            '\n',
+          ),
+        ],
         { encoding: 'utf8', env: { ...process.env, HOME: bashPath(home) } },
       );
     }
@@ -842,6 +939,32 @@ exec /bin/mv "$@"
         expect(refused.status).toBe(1);
         expect(refused.stdout).toContain('refusing to replace it');
         expect(await readFile(join(localBin, 'gh'), 'utf8')).toBe('newest');
+      } finally {
+        await rm(home, { recursive: true, force: true });
+      }
+    });
+
+    it('keeps ~/.local/bin/gh in place, so the install replaces it in one rename', async () => {
+      const home = await mkdtemp(join(tmpdir(), 'tbd-gh-backup-link-'));
+      const localBin = join(home, '.local', 'bin');
+      const backup = join(localBin, 'gh.backup-20260101T000000Z');
+      try {
+        await mkdir(localBin, { recursive: true });
+        await writeFile(join(localBin, 'gh'), 'user wrapper');
+        const result = await runBackup(home);
+        expect(result.status, String(result.stderr)).toBe(0);
+        expect(await readFile(join(localBin, 'gh'), 'utf8')).toBe('user wrapper');
+        expect(await readFile(backup, 'utf8')).toBe('user wrapper');
+        if (process.platform !== 'win32') {
+          expect((await stat(backup)).ino).toBe((await stat(join(localBin, 'gh'))).ino);
+
+          await rm(backup);
+          await rm(join(localBin, 'gh'));
+          await symlink('/opt/user/gh', join(localBin, 'gh'));
+          expect((await runBackup(home)).status).toBe(0);
+          expect(await readlink(join(localBin, 'gh'))).toBe('/opt/user/gh');
+          expect(await readlink(backup)).toBe('/opt/user/gh');
+        }
       } finally {
         await rm(home, { recursive: true, force: true });
       }
