@@ -77,7 +77,7 @@ describe('policyGrantFindings', () => {
     const current = agentsMd(['- `subagents`: granted']);
     const stale = current.replace(
       POLICY_BLOCK_PROSE,
-      POLICY_BLOCK_PROSE.split('\nOnly the copy')[0]!,
+      POLICY_BLOCK_PROSE.slice(0, POLICY_BLOCK_PROSE.indexOf('Only the copy')).trimEnd(),
     );
     expect(policyGrantFindings(effectiveFrom(stale), workingTreeFrom(stale))).toEqual([
       expect.objectContaining({

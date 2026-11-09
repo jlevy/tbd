@@ -42,9 +42,9 @@ export const DocMapEntrySchema = z
     title: z.string().optional(),
     description: z.string().optional(),
   })
-  .passthrough()
+  .loose()
   .refine((entry) => entry.path !== undefined || entry.source !== undefined, {
-    message: 'docmap entry must have a location: path and/or source',
+    error: 'docmap entry must have a location: path and/or source',
   });
 
 export type DocMapEntry = z.infer<typeof DocMapEntrySchema>;
@@ -58,7 +58,7 @@ export const DocMapSchema = z
     name: z.string().optional(),
     documents: z.array(DocMapEntrySchema),
   })
-  .passthrough();
+  .loose();
 
 export type DocMap = z.infer<typeof DocMapSchema>;
 
