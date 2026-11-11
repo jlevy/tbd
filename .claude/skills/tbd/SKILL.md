@@ -42,7 +42,9 @@ upgrade or tbd requires a newer version.
 The installation and setup commands are:
 
 ```bash
-npm install -g get-tbd@latest      # Install or upgrade the CLI (same command for both)
+# Install or upgrade the CLI (same command for both): the newest release published at
+# least 14 days ago, without install scripts (`tbd guidelines supply-chain-hardening`)
+npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" get-tbd
 tbd setup --auto --prefix=<name>   # Fresh project (--prefix is REQUIRED: 2-8 alphabetic chars recommended. ALWAYS ASK THE USER FOR THE PREFIX; do not guess it)
 tbd setup --auto                   # Existing tbd project; also the upgrade step (applies any format migration; commit the diff it reports)
 tbd setup --from-beads             # Uninitialized repo: import and archive .beads/
@@ -280,9 +282,10 @@ tracker enabled it also syncs that tracker, under that tracker’s own grant.
 Three facts decide most of these:
 
 - The git remote may sit behind a **ref-scoped credential broker**: pushes to
-  `refs/heads/*` succeed, pushes to `refs/tags/*` fail with HTTP 403. Create the tag on
-  the direct channel instead:
-  `gh api repos/OWNER/REPO/git/refs -f ref=refs/tags/vX.Y.Z -f sha=SHA`.
+  `refs/heads/*` succeed, pushes to `refs/tags/*` fail with HTTP 403. That refusal is
+  the broker’s policy: never create the tag another way, such as `gh api .../git/refs`,
+  since a `v*` tag can publish a release.
+  Report the refusal and ask the user to create the tag.
 - `git push --dry-run` **passes** for tags the broker then refuses at receive-pack, so a
   clean dry run proves nothing.
 - A GitHub-host 403 carrying no `x-github-request-id` header is proxy-manufactured, not
@@ -597,9 +600,11 @@ Load the **General engineering** core, then only guidelines matching the task.
 
 | Name | Description |
 | --- | --- |
-| electrobun-app-development-patterns | Building desktop apps with Electrobun—runtime and process model, typed RPC, project layout, packaging and the delta updater, plus an evidence-based maturity and security assessment |
-| electron-app-development-patterns | Building a clean, minimal, standalone Electron app—process model, modern Vite-based build system, attaching a Node/Bun/Python backend, security baseline, packaging, code signing, and auto-update |
-| tauri-app-development-patterns | Building desktop apps with Tauri 2—the Rust core and system webview model, capabilities and permissions, typed commands and IPC, attaching Rust or non-Rust backends, packaging, signing, and the signed updater |
+| desktop-python-runtime-patterns | How a desktop app with a Python backend or Python plugins ships or provisions its runtime with uv under any shell (Electron, Tauri, a native Swift shell, Electrobun)—freezing versus a runtime-extensible environment, bundle and first-run layouts, isolating an app-owned uv, hash-pinned base environments, environment lifecycle and repair, user-installed plugins, sharing with a CLI install, and macOS signing, quarantine, and library validation. Load when designing, packaging, or debugging Python inside a desktop app. |
+| electrobun-app-development-patterns | Building desktop apps with Electrobun 2.x—runtime and process model, typed RPC, project layout, Hutch packaging and macOS signing, the delta updater, plus an evidence-based security, supply-chain, and maturity assessment |
+| electron-app-development-patterns | Building a clean, minimal, standalone Electron app—process model, Vite-based build, wrapping a local web server, Node, Bun, or Python backends, security baseline, packaging, macOS signing and notarization, and auto-update |
+| macos-webview-shell-patterns | Building a thin, signed, macOS-only Swift app (AppKit and WKWebView) around a local web server or web UI in any language. Covers choosing it over Tauri, Electron, Electrobun, or pywebview, WKWebView setup, supervising or attaching to a server process, SwiftPM builds, notarization in CI, Sparkle and Homebrew updates, and the TCC, quarantine, and Local Network rules a local-server shell must meet. |
+| tauri-app-development-patterns | Building desktop apps with Tauri 2—capabilities and IPC, Rust and non-Rust backends, sidecar lifecycle, wrapping a loopback web server, WKWebView gaps on macOS, signing and notarization, the signed updater, and the Cargo cool-off |
 
 ### Docs, process & tooling
 

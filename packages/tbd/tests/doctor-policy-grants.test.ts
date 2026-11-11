@@ -31,6 +31,7 @@ import {
   type WorkingTreeGrants,
 } from '../src/lib/policy-grants.js';
 import { subprocessTestTimeout } from './test-helpers.js';
+import { tbdUpgradeAdvice } from '../src/lib/install-advice.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TBD_BIN = join(__dirname, '..', 'dist', 'bin.mjs');
@@ -76,7 +77,7 @@ describe('policyGrantFindings', () => {
     const current = agentsMd(['- `subagents`: granted']);
     const stale = current.replace(
       POLICY_BLOCK_PROSE,
-      POLICY_BLOCK_PROSE.split('\nOnly the copy')[0]!,
+      POLICY_BLOCK_PROSE.slice(0, POLICY_BLOCK_PROSE.indexOf('Only the copy')).trimEnd(),
     );
     expect(policyGrantFindings(effectiveFrom(stale), workingTreeFrom(stale))).toEqual([
       expect.objectContaining({
@@ -154,7 +155,7 @@ describe('policyGrantFindings', () => {
         status: 'error',
         message: 'policy block version v=2 is not supported (this tbd reads v=1)',
         path: 'AGENTS.md',
-        suggestion: 'Upgrade tbd: npm install -g get-tbd@latest',
+        suggestion: tbdUpgradeAdvice('Upgrade tbd'),
       },
     ]);
   });
@@ -303,7 +304,7 @@ describe('policyGrantFindings', () => {
         status: 'warn',
         message: 'policy block version v=2 on origin/main is not supported (this tbd reads v=1)',
         path: 'AGENTS.md',
-        suggestion: 'Upgrade tbd: npm install -g get-tbd@latest',
+        suggestion: tbdUpgradeAdvice('Upgrade tbd'),
       },
     ]);
   });

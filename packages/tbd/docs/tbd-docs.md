@@ -89,11 +89,14 @@ but these map to unique ULID-based internal IDs for reliable sorting and storage
 # Check your Git version
 git --version  # Should be 2.42.0 or higher
 
-# Global install (recommended)
-npm install -g get-tbd@latest
+# Global install (recommended): the newest release published at least 14 days ago,
+# without install scripts
+npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" get-tbd
 
-# Or run without installing
-npx get-tbd@latest <command>
+# Or run one exact release without installing, under the same cool-off. The dedicated
+# cache matters: npx reuses a cached package by its spec without resolving it again, so
+# a tree cached without --before would bypass the cool-off.
+npx --yes --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" --cache="${XDG_CACHE_HOME:-$HOME/.cache}/tbd-fallback-npm" get-tbd@<version> <command>
 ```
 
 tbd requires Git 2.42+ for orphan worktree support (`git worktree add --orphan`). See

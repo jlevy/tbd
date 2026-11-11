@@ -164,3 +164,7 @@ None currently - straightforward restructure.
 
 - [plan-2026-01-26-configurable-doc-cache-sync.md](plan-2026-01-26-configurable-doc-cache-sync.md)
   \- Original doc cache implementation
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

@@ -18,7 +18,7 @@ release-validated.
 Watch infrastructure is delivered.
 This record retains its original runtime versions, results, and limits.
 The old Linear pilot was superseded by PR #206 and the
-[external-tracker plan](plan-2026-08-10-external-tracker-integrations.md).
+[external-tracker plan](../active/plan-2026-08-10-external-tracker-integrations.md).
 The tbd-t750 release campaign closed as superseded by later releases; closure is not
 evidence that unchecked manual validation passed.
 New release and runner checks use the

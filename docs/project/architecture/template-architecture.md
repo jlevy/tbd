@@ -82,3 +82,7 @@ Maintenance: When revising this doc you must follow instructions in
 ## References
 
 [Key links to relevant docs, APIs, libraries, etc.]
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

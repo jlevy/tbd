@@ -249,7 +249,8 @@ Applies to every migrated document.
 Current state was measured, not assumed:
 
 - [x] **Relative links to bare names.** All seven documents cross-link as
-  `](rust-rules.md)`, which breaks once served from `.tbd/docs/`.
+  `](../../../../packages/tbd/docs/guidelines/rust-rules.md)`, which breaks once served
+  from `.tbd/docs/`.
 - [x] **Anchors rewritten.** Three documents use section anchors that do not survive the
   split.
 - [x] **Repo-local links resolved.** `rust-project-setup` and `rust-release-rules` link

@@ -39,7 +39,7 @@ const CanonicalPatchSchema = z
     assignee: z.string().nullable().optional(),
     parentId: z.string().nullable().optional(),
   })
-  .passthrough();
+  .loose();
 
 const IntentOpSchema = z.discriminatedUnion('kind', [
   z.object({
@@ -93,8 +93,10 @@ const IntentOpSchema = z.discriminatedUnion('kind', [
     report: z.object({
       beadId: z.string().min(1),
       field: z.string().min(1),
-      keptValue: z.unknown(),
-      discardedValue: z.unknown(),
+      // Optional because either side of a conflict can be absent, and YAML drops an
+      // undefined value, so the key is missing when the intent file is read back.
+      keptValue: z.unknown().optional(),
+      discardedValue: z.unknown().optional(),
       atticPath: z.string().min(1),
     }),
   }),

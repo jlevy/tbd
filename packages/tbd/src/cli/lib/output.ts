@@ -14,6 +14,7 @@ import type { CommandContext, ColorOption } from './context.js';
 import { shouldColorize } from './context.js';
 import { PAGINATION_LINE_THRESHOLD } from '../../lib/settings.js';
 import { STATUS_ICONS } from '../../lib/status-icons.js';
+import { TBD_INSTALL_COMMAND } from '../../lib/install-advice.js';
 import { parseMarkdown } from '../../utils/markdown-utils.js';
 import type { OperationLogger } from '../../lib/types.js';
 
@@ -130,7 +131,8 @@ export function createHelpEpilog(colorOption: ColorOption = 'auto'): string {
     `  Agents unfamiliar with tbd should run ${colors.green('`tbd prime`')} for full workflow context.`,
     '',
     colors.bold('Getting Started:'),
-    `  ${colors.green('npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>')}`,
+    `  ${colors.green(TBD_INSTALL_COMMAND)}`,
+    `  ${colors.green('tbd setup --auto --prefix=<name>')}`,
     '',
     '  This initializes tbd and configures your coding agents automatically.',
     `  To refresh setup (idempotent, safe anytime): ${colors.green('`tbd setup --auto`')}`,

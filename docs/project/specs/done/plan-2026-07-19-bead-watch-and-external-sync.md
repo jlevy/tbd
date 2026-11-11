@@ -11,7 +11,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Status (2026-09-06):** Watch infrastructure is delivered.
 The old Linear pilot was superseded by PR #206 and the
-[External Tracker Integrations plan](plan-2026-08-10-external-tracker-integrations.md).
+[External Tracker Integrations plan](../active/plan-2026-08-10-external-tracker-integrations.md).
 The tbd-t750 release campaign closed as superseded by later releases; its closure does
 not establish that every manual check ran.
 The validation records below retain their original results and unchecked evidence.
@@ -354,7 +354,7 @@ Detailed provider designs are separate specs, written and revised against these 
 
 > **Status note (2026-08-13):** The next constraint records the experiment-phase
 > boundary. The successful tracker pilot was later promoted by
-> [External Tracker Integrations](plan-2026-08-10-external-tracker-integrations.md),
+> [External Tracker Integrations](../active/plan-2026-08-10-external-tracker-integrations.md),
 > which deliberately adds an `integrations` block behind format f07 and makes the
 > relevant config schemas passthrough.
 > It supersedes this constraint for the promoted implementation; the bead-side
@@ -474,7 +474,8 @@ Linear experiments end to end while provider bindings and state remain outside c
   PR #279 confines recovery union to the same compatible provider-link lineage and
   archives an incompatible complete namespace before its source can be cleared.
 - Generic `extensions` read/write/display on the CLI (tbd-z95g): still open, transferred
-  to the [external-tracker plan](plan-2026-08-10-external-tracker-integrations.md).
+  to the
+  [external-tracker plan](../active/plan-2026-08-10-external-tracker-integrations.md).
 - Linear pilot redesign (tbd-vm5s and tbd-g305): closed as superseded by the
   external-tracker plan and PR #206, not delivered according to the old pilot design.
   PR #197 remains historical reference material.
@@ -503,8 +504,8 @@ idempotency, platform shells, operator output, cleanup, and evidence capture.
   These modules have no watch/runtime caller or public surface.
   The format is not frozen, and active Git preservation, CLI activation, and provider
   projection remain gated by the
-  [September rollout plan](plan-2026-09-06-bead-coordination-and-native-comments.md) and
-  [research](../../research/current/research-2026-09-06-bead-agent-coordination.md).
+  [September rollout plan](../active/plan-2026-09-06-bead-coordination-and-native-comments.md)
+  and [research](../../research/current/research-2026-09-06-bead-agent-coordination.md).
   Notes remain replacement state.
 - The original module-location question was resolved for the shipped Linear bridge:
   provider-neutral core and Linear adapter modules live under

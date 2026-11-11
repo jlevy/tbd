@@ -36,7 +36,7 @@ describe('policy block prose', () => {
   it.each([
     INITIAL_PROSE,
     `${INITIAL_PROSE}\n${DEFAULT_GUIDANCE}`,
-    POLICY_BLOCK_PROSE.split('\nOnly the copy')[0]!,
+    POLICY_BLOCK_PROSE.slice(0, POLICY_BLOCK_PROSE.indexOf('Only the copy')).trimEnd(),
   ])('refreshes prior guidance without re-rendering grants or notes: %s', (legacy) => {
     for (const eol of ['\n', '\r\n']) {
       const current = CURRENT_CONTENT.replace(/\n/gu, eol);

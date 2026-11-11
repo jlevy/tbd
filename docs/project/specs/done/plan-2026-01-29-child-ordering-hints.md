@@ -670,3 +670,7 @@ This ensures compile-time safety when handling IDs in different contexts.
 - [ ] tbd-design.md merge strategies includes `child_order_hints: 'lww'`
 - [ ] CLI `--help` output matches documentation
 - [ ] Branded types (InternalIssueId, DisplayIssueId) are documented
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

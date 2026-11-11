@@ -1782,7 +1782,7 @@ const ConfigSchema = z.object({
 >    could lose or misinterpret data.
 > 3. Pre-f07 clients still parse in strip mode.
 >    The f07 gate makes those clients fail before they can rewrite configuration, with
->    an instruction to upgrade via `npm install -g get-tbd@latest`.
+>    an instruction to upgrade tbd.
 > 
 > This preserves future additive configuration while keeping destructive or semantic
 > changes behind an explicit, migratable compatibility gate.
@@ -4114,7 +4114,7 @@ Reported under `INTEGRATIONS`. None is auto-fixable: the suggestion names the
 
 | Check | Severity | Auto-fixable | Detection |
 | --- | --- | --- | --- |
-| Generated surface stale or missing | warning | no | Portable skill, Claude Code skill, `AGENTS.md` block, or Codex hooks differ from what this tbd generates, or are absent |
+| Generated surface stale or missing | warning | no | Portable skill, Claude Code skill, `AGENTS.md` block, or Codex hooks differ from what this tbd generates, or are absent. The `AGENTS.md` block is compared ignoring Markdown line wrapping and blank lines next to its marker comments, so a formatter that rewraps it (flowmark, Prettier with any `proseWrap`) does not make it stale, and setup leaves it as formatted |
 | Generated surface too new | error | no | `format=` stamp above this tbd’s integration format (§6.4.6) |
 | Tier agent definitions | warning (stale, missing), error (too new) | no | Checked per platform only when a `tbd-*` definition exists; files without the `DO NOT EDIT` marker are user overrides and only counted (§6.4.7) |
 | Policy block unreadable | error | no | Working-tree block is malformed or has an unknown `v=` version (§6.4.8) |
@@ -5533,9 +5533,18 @@ all environments including cloud sandboxes.
 
 | Method | Command | Best For |
 | --- | --- | --- |
-| **npm** (primary) | `npm install -g get-tbd` | Most users, cloud environments |
-| **npx** (no install) | `npx get-tbd <command>` | One-off usage, testing |
+| **npm** (primary) | `npm install -g --ignore-scripts --before=<14 days ago> get-tbd` | Most users, cloud environments |
+| **npx** (no install) | `npx --yes --ignore-scripts --before=<14 days ago> --cache=<dedicated cache> get-tbd@<version> <command>` | One-off usage, testing |
 | **From source** | `pnpm install && pnpm build` | Contributors |
+
+For the manual npx command, use a cache reserved for cool-off runs, such as
+`${XDG_CACHE_HOME:-$HOME/.cache}/tbd-fallback-npm`. npx reuses a cached package by its
+spec without resolving it again, so a tree cached once without `--before` would bypass
+the cool-off. When a repository requires a newer tbd, the error names the release that
+last set it up (`tbd_fallback_version`) and gives
+`npm install -g … 'get-tbd@>=<version>'` under the same cool-off, so npm reports no
+matching version while that release is under 14 days old instead of installing an older
+one that still refuses the repository.
 
 **npm is the recommended approach** because:
 
@@ -5757,7 +5766,8 @@ bootstrap script to your repository:
 ```bash
 # .claude/hooks/session-start.sh
 #!/bin/bash
-command -v tbd &>/dev/null || npm install -g get-tbd --quiet
+command -v tbd &>/dev/null ||
+  npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" get-tbd --quiet
 [ -d ".tbd" ] && tbd prime
 ```
 

@@ -20,6 +20,12 @@ export interface InspectManagedArtifactOptions {
   ownershipMarker: string;
   supportedFormat: string;
   selectManagedContent?: (content: string) => string;
+  /**
+   * Treat content that differs only in Markdown line wrapping as current (see
+   * {@link sameMarkdownIgnoringWrapping}). For a block that a project's Markdown
+   * formatter may rewrap, such as the AGENTS.md block.
+   */
+  ignoreLineWrapping?: boolean;
 }
 
 /** Byte span occupied by one complete marker-delimited managed block. */
@@ -286,8 +292,9 @@ export async function inspectManagedArtifact(
     return { state: 'too-new', format };
   }
 
+  const same = options.ignoreLineWrapping ? sameMarkdownIgnoringWrapping : sameManagedContent;
   return {
-    state: sameManagedContent(managedContent, options.expectedContent) ? 'current' : 'stale',
+    state: same(managedContent, options.expectedContent) ? 'current' : 'stale',
     format,
   };
 }
@@ -304,6 +311,104 @@ function sameManagedContent(actual: string, expected: string): boolean {
 
 function toLf(text: string): string {
   return text.replace(/\r\n/gu, '\n');
+}
+
+/**
+ * A thematic break (`***`, `---`, `___`) or a setext heading underline (`===`, `---`):
+ * a line that changes the block structure around it, so it is never joined to the
+ * line before it or the line after it.
+ */
+const MARKDOWN_RULE_LINE = /^ {0,3}(?:([-*_])(?:[ \t]*\1){2,}|=+|-+)[ \t]*$/u;
+/** A line that starts a Markdown block: a list item, heading, comment, quote, table row, or fence. */
+const MARKDOWN_BLOCK_START = /^\s*(?:[-*+]\s|\d+[.)]\s|#{1,6}(?:\s|$)|<!--|>|\||```|~~~)/u;
+/** A line that is a whole block by itself, so the next line never continues it. */
+const MARKDOWN_SINGLE_LINE_BLOCK = /^\s*(?:#{1,6}(?:\s|$)|<!--.*-->\s*$|\|)/u;
+/** A line holding only an HTML comment, such as a managed-block marker. */
+const MARKDOWN_COMMENT_LINE = /^\s*<!--.*-->\s*$/u;
+/** A line indented as code: four spaces or a tab. */
+const MARKDOWN_CODE_INDENT = /^(?: {4}|\t)/u;
+
+/**
+ * Markdown with its soft line breaks removed: each paragraph or list item becomes one
+ * line, with runs of whitespace inside it collapsed to one space. Blank lines, the
+ * lines that start a block, thematic breaks and setext underlines, and code (fenced, or
+ * indented after a blank line) are kept as they are, so list structure, headings, and
+ * code still have to match. Blank lines next to a line that holds only an HTML comment
+ * are dropped: an HTML comment block ends on that line and can interrupt a paragraph,
+ * so they never change the structure, and formatters such as Prettier add them around
+ * the managed-block markers.
+ */
+export function unwrapMarkdown(text: string): string {
+  const lines: string[] = [];
+  let fence: string | undefined;
+  let indentedCode = false;
+  let joinable = false;
+  // Whether the previous line was blank (or this is the first line), even when that
+  // blank line was dropped next to a comment.
+  let afterBlank = true;
+  for (const raw of toLf(text).split('\n')) {
+    const line = raw.trimEnd();
+    if (fence !== undefined) {
+      lines.push(line);
+      if (line.trimStart().startsWith(fence)) {
+        fence = undefined;
+      }
+      continue;
+    }
+    const content = line.trimStart();
+    if (content === '') {
+      joinable = false;
+      afterBlank = true;
+      if (indentedCode || !MARKDOWN_COMMENT_LINE.test(lines.at(-1) ?? '')) {
+        lines.push('');
+      }
+      continue;
+    }
+    const startsCode = MARKDOWN_CODE_INDENT.test(line) && (indentedCode || afterBlank);
+    afterBlank = false;
+    if (startsCode) {
+      indentedCode = true;
+      joinable = false;
+      lines.push(line);
+      continue;
+    }
+    indentedCode = false;
+    if (content.startsWith('```') || content.startsWith('~~~')) {
+      fence = content.slice(0, 3);
+      lines.push(line);
+      joinable = false;
+      continue;
+    }
+    if (MARKDOWN_COMMENT_LINE.test(line)) {
+      while (lines.at(-1) === '') {
+        lines.pop();
+      }
+    }
+    const previous = lines.at(-1);
+    const rule = MARKDOWN_RULE_LINE.test(line);
+    if (joinable && previous !== undefined && !rule && !MARKDOWN_BLOCK_START.test(line)) {
+      lines[lines.length - 1] = `${previous} ${content.replace(/\s+/gu, ' ')}`;
+      continue;
+    }
+    const indent = line.slice(0, line.length - content.length);
+    lines.push(indent + content.replace(/\s+/gu, ' '));
+    joinable = !rule && !MARKDOWN_SINGLE_LINE_BLOCK.test(line);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Whether two Markdown texts differ only in line endings, in how their prose is
+ * wrapped, and in blank lines next to HTML comment lines. A formatter run over
+ * AGENTS.md rewraps the generated block (flowmark at another width, Prettier with any
+ * proseWrap), and Prettier also separates the marker comments from their neighbors
+ * with blank lines; byte comparison then called the block stale forever, and setup's
+ * rewrite undid the formatter on every run.
+ */
+export function sameMarkdownIgnoringWrapping(actual: string, expected: string): boolean {
+  return (
+    sameManagedContent(actual, expected) || unwrapMarkdown(actual) === unwrapMarkdown(expected)
+  );
 }
 
 /**

@@ -187,10 +187,14 @@ then guideline updates (which require careful writing).
 
 ## References
 
-- [pnpm-monorepo-patterns.md](../../../packages/tbd/docs/guidelines/pnpm-monorepo-patterns.md)
+- [pnpm-monorepo-patterns.md](../../../../packages/tbd/docs/guidelines/pnpm-monorepo-patterns.md)
   — The guideline being synced
-- [development.md](../../development.md) — Project development guide
+- [development.md](../../../development.md) — Project development guide
 - [Vitest 4.0 Migration](https://vitest.dev/blog/vitest-4) — Migration guide
 - [Lefthook v2 Changelog](https://github.com/evilmartians/lefthook/releases) — Breaking
   changes
 - [actions/checkout v6](https://github.com/actions/checkout/releases) — Release notes
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

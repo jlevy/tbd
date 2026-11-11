@@ -12,7 +12,7 @@ output modes.
 **Current State:**
 
 tbd has a functional CLI output system built on:
-- `OutputManager` class in [output.ts](packages/tbd/src/cli/lib/output.ts)
+- `OutputManager` class in [output.ts](../../../../packages/tbd/src/cli/lib/output.ts)
 - `CommandContext` with modes: `verbose`, `debug`, `quiet`, `json`
 - Color support via `picocolors` with `--color=auto|always|never`
 - Markdown rendering via `marked-terminal`
@@ -27,10 +27,11 @@ tbd has a functional CLI output system built on:
 
 **Reference Documentation:**
 
-- [output.ts](packages/tbd/src/cli/lib/output.ts) - Current OutputManager
-- [context.ts](packages/tbd/src/cli/lib/context.ts) - Command context and modes
-- [errors.ts](packages/tbd/src/cli/lib/errors.ts) - Error types
-- [tbd-design.md](docs/tbd-design.md) - Overall product design
+- [output.ts](../../../../packages/tbd/src/cli/lib/output.ts) - Current OutputManager
+- [context.ts](../../../../packages/tbd/src/cli/lib/context.ts) - Command context and
+  modes
+- [errors.ts](../../../../packages/tbd/src/cli/lib/errors.ts) - Error types
+- [tbd-design.md](../../../../packages/tbd/docs/tbd-design.md) - Overall product design
 
 ## Summary of Task
 
@@ -856,3 +857,7 @@ Tasks are organized into subtasks that can each become a separate issue/bead.
 - Golden tests capture output format
 - Manual review of color output
 - Agent testing with JSON mode
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

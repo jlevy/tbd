@@ -57,14 +57,14 @@ export function isSafeDocName(name: string): boolean {
 export const ForkEntrySchema = z.object({
   /** Doc name (e.g. "python-rules"). Constrained so it cannot escape the fork dir. */
   name: z.string().min(1).refine(isSafeDocName, {
-    message: 'invalid doc name (no path separators, "..", or leading dot)',
+    error: 'invalid doc name (no path separators, "..", or leading dot)',
   }),
   /** Doc kind: must be one of the known fork kinds. */
   kind: z.enum(FORK_KINDS),
   /** Repo-relative path of the forked file (e.g. "docs/tbd/guidelines/python-rules.md"). */
   path: z.string().min(1),
   /** Provenance docref the fork was created from (docref-everywhere rule). */
-  source: z.string().min(1).refine(isDocRef, { message: 'source must be a valid docref' }),
+  source: z.string().min(1).refine(isDocRef, { error: 'source must be a valid docref' }),
   /** sha256: of the LF-normalized base content. */
   base_hash: z.string().min(1),
   /** tbd version when the base was last set. */

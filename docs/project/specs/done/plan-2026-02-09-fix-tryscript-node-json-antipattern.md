@@ -313,3 +313,7 @@ After all files are updated, run the full test suite to confirm no regressions.
   with visible output, `jq` for field extraction with data shown.
 - **`cli-crud.tryscript.md:140-147`** — Shows full JSON create output with real field
   values and patterns only for IDs.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

@@ -1765,7 +1765,7 @@ semantics; the mock-server golden-test approach; and raw `fetch` over `@linear/s
 
 - [research-2026-08-09-linear-task-surfaces.md](../../research/current/research-2026-08-09-linear-task-surfaces.md)
 - [plan-2026-08-10-tbd-web-live-bead-view.md](../done/plan-2026-08-10-tbd-web-live-bead-view.md)
-- [plan-2026-07-19-bead-watch-and-external-sync.md](plan-2026-07-19-bead-watch-and-external-sync.md)
+- [plan-2026-07-19-bead-watch-and-external-sync.md](../done/plan-2026-07-19-bead-watch-and-external-sync.md)
 - PR [#205](https://github.com/jlevy/tbd/pull/205), PR
   [#197](https://github.com/jlevy/tbd/pull/197)
 - [Linear GraphQL API](https://linear.app/developers/graphql) ·

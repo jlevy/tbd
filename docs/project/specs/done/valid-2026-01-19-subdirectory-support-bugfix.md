@@ -105,3 +105,7 @@ tbd list  # Should show "Not a tbd repository"
 - `src/cli/commands/*.ts` - 15 command files updated to use tbdRoot
 - `tests/subdirectory.test.ts` - New unit tests
 - `tests/cli-subdirectory.tryscript.md` - New golden tests
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

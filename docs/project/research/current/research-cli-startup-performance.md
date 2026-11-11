@@ -8,8 +8,10 @@
 
 - [tbd-1934](/.beads/issues/) - Implement lazy command loading for CLI startup
   performance
-- [benchmark.ts](packages/tbd/scripts/benchmark.ts) - Performance benchmark script
-- [tsdown.config.ts](packages/tbd/tsdown.config.ts) - Build configuration with bundling
+- [benchmark.ts](../../../../packages/tbd/scripts/benchmark.ts) - Performance benchmark
+  script
+- [tsdown.config.ts](../../../../packages/tbd/tsdown.config.ts) - Build configuration
+  with bundling
 
 * * *
 
@@ -721,3 +723,7 @@ class ListHandler extends BaseCommand {
   }
 }
 ```
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

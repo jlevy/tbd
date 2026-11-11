@@ -494,3 +494,7 @@ This PR ships the complete f05 experience as the next release; in priority order
    re-homing (Phase 2) and the agent surface (Phase 5) are the release-critical tail.
 4. Apply the DocRef/DocMap tightenings (§4) while nothing depends on them.
 5. Keep the PR title/description current with the phase checklist as items complete.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

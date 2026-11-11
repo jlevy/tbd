@@ -34,7 +34,9 @@ upgrade or tbd requires a newer version.
 The installation and setup commands are:
 
 ```bash
-npm install -g get-tbd@latest      # Install or upgrade the CLI (same command for both)
+# Install or upgrade the CLI (same command for both): the newest release published at
+# least 14 days ago, without install scripts (`tbd guidelines supply-chain-hardening`)
+npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" get-tbd
 tbd setup --auto --prefix=<name>   # Fresh project (--prefix is REQUIRED: 2-8 alphabetic chars recommended. ALWAYS ASK THE USER FOR THE PREFIX; do not guess it)
 tbd setup --auto                   # Existing tbd project; also the upgrade step (applies any format migration; commit the diff it reports)
 tbd setup --from-beads             # Uninitialized repo: import and archive .beads/
@@ -272,9 +274,10 @@ tracker enabled it also syncs that tracker, under that tracker’s own grant.
 Three facts decide most of these:
 
 - The git remote may sit behind a **ref-scoped credential broker**: pushes to
-  `refs/heads/*` succeed, pushes to `refs/tags/*` fail with HTTP 403. Create the tag on
-  the direct channel instead:
-  `gh api repos/OWNER/REPO/git/refs -f ref=refs/tags/vX.Y.Z -f sha=SHA`.
+  `refs/heads/*` succeed, pushes to `refs/tags/*` fail with HTTP 403. That refusal is
+  the broker’s policy: never create the tag another way, such as `gh api .../git/refs`,
+  since a `v*` tag can publish a release.
+  Report the refusal and ask the user to create the tag.
 - `git push --dry-run` **passes** for tags the broker then refuses at receive-pack, so a
   clean dry run proves nothing.
 - A GitHub-host 403 carrying no `x-github-request-id` header is proxy-manufactured, not

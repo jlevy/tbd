@@ -2549,8 +2549,8 @@ than discovering them when users try to use the library in browser/edge contexts
 
 **References**:
 
-- [CLI Tool Development Rules](../../agent-rules/typescript-cli-tool-rules.md)—CLI-specific
-  patterns using Commander.js, picocolors, and @clack/prompts
+- [CLI Tool Development Rules](typescript-cli-tool-rules.md)—CLI-specific patterns using
+  Commander.js, picocolors, and @clack/prompts
 
 * * *
 

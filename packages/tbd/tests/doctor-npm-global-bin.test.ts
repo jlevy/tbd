@@ -1,7 +1,7 @@
 /**
  * Unit tests for the "npm global bin" doctor finding.
  *
- * tbd's install and upgrade instruction is `npm install -g get-tbd@latest`. When npm's
+ * tbd's install and upgrade instruction is an `npm install -g` command. When npm's
  * global bin directory is not on PATH that command exits 0 and leaves the binary
  * unresolvable, so doctor has to name the PATH problem rather than let an agent
  * conclude the CLI is broken.
@@ -110,7 +110,7 @@ describe('classifyNpmGlobalBin', () => {
     );
     expect(diag.status).toBe('warn');
     expect(diag.path).toBe('/home/agent/.local/lib/nodejs/node-v24.18.0-linux-x64/bin');
-    expect(diag.suggestion).toMatch(/npm install -g get-tbd/);
+    expect(diag.suggestion).toMatch(/npm install -g/);
     expect(diag.suggestion).toMatch(/npm config set prefix/);
   });
 

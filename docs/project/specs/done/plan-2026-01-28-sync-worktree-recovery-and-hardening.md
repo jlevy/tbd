@@ -804,7 +804,7 @@ Update design specification to cover these corner cases.
 - [x] Add safety backup requirement for corrupted worktrees
 - [x] Add `.tbd/backups/` to .gitignore specification for local backups
 
-**Changes made to [tbd-design.md](../../../packages/tbd/docs/tbd-design.md):**
+**Changes made to [tbd-design.md](../../../../packages/tbd/docs/tbd-design.md):**
 
 1. **§2.3 Hidden Worktree Model** - Added three new subsections:
    - Worktree Health States (valid, missing, prunable, corrupted)
@@ -1137,7 +1137,7 @@ code.
 
 - Postmortem:
   [retro-2026-01-16-worktree-architecture-not-implemented.md](../../retrospectives/retro-2026-01-16-worktree-architecture-not-implemented.md)
-- Design spec: [tbd-design.md](../../../packages/tbd/docs/tbd-design.md) §2.3 Hidden
+- Design spec: [tbd-design.md](../../../../packages/tbd/docs/tbd-design.md) §2.3 Hidden
   Worktree Model
 - Related issues: tbd-1810, tbd-208
 
@@ -1411,3 +1411,7 @@ tbd stats
 2. Silent fallback in `resolveDataSyncDir()` - no warning or error
 3. `getSyncStatus()` checked git status on gitignored path (always empty)
 4. No check for “local has data but remote is empty”
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

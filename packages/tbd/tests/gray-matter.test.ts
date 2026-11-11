@@ -3,7 +3,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseMarkdownMatter } from '../src/utils/gray-matter.js';
+import { hasMarkdownFrontmatter, parseMarkdownMatter } from '../src/utils/gray-matter.js';
 
 const EXECUTION_MARKER = '__tbdGrayMatterExecutionMarker';
 const TEST_DIR = dirname(fileURLToPath(import.meta.url));
@@ -25,8 +25,8 @@ afterEach(() => {
 });
 
 describe('parseMarkdownMatter', () => {
-  it('rejects JavaScript front matter before gray-matter can evaluate it', () => {
-    const content = `---javascript
+  it.each(['', '\uFEFF'])('rejects JavaScript front matter with prefix %j', (prefix) => {
+    const content = `${prefix}---javascript
 (globalThis.${EXECUTION_MARKER} = true, { title: 'executed' })
 ---
 Body.`;
@@ -35,6 +35,15 @@ Body.`;
       'Unsupported front-matter language "javascript"; tbd accepts YAML only',
     );
     expect(Reflect.get(globalThis, EXECUTION_MARKER)).toBeUndefined();
+  });
+
+  it('detects and parses YAML front matter with a BOM', () => {
+    const content = '\uFEFF---yaml\r\ntitle: Safe\r\n---\r\nBody.\r\n';
+
+    expect(hasMarkdownFrontmatter(content)).toBe(true);
+    const parsed = parseMarkdownMatter(content);
+    expect(parsed.data).toEqual({ title: 'Safe' });
+    expect(parsed.content).toBe('Body.\r\n');
   });
 
   it('rejects non-executable non-YAML engines too', () => {
