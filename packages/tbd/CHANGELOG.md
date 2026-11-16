@@ -1,5 +1,22 @@
 # get-tbd
 
+## Unreleased
+
+### Features
+
+- **Opt-in PR delivery policy**: a new agent policy grant, `pr-delivery`, records
+  whether agents deliver the work you ask for as a pull request without asking first.
+  `tbd policy grant pr-delivery` records `autonomous`: a request for a change is also
+  the request for its PR, opened on a GitHub-native stack when the work builds on an
+  unmerged PR and otherwise standalone, following the `stacked-prs` and PR shortcut
+  rules. `ask`, the value an unanswered or revoked policy takes, asks once before opening
+  a PR the request did not ask for.
+  The policy is outside the recommended set, and `setup-tbd` asks about it separately.
+  It needs `github-editing: granted`, and `tbd doctor` warns when it is recorded without
+  it. It authorizes no merge and changes no review requirement: those stay under
+  `github-merge` and `pr-review-requirements`. Run `tbd setup --auto` after upgrading to
+  refresh the `AGENTS.md` block, which now states the rule.
+
 ## 0.11.0
 
 This release secures Markdown frontmatter parsing, keeps the managed `AGENTS.md` block

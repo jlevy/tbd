@@ -1,6 +1,6 @@
 ---
 title: Agent Policy Grants
-description: The single definition of the seven agent policies a project can grant (github-workflows, github-editing, github-merge, github-stacked-prs, subagents, pr-review-requirements, linear)—each policy's values, recommendation, and coverage; the grammar for custom values; the recommended set; answered versus unanswered policies; where grants come from and which source wins; the exact policy block in AGENTS.md; how grants are recorded; and the questions the setup process asks. Load before a GitHub mutation, a merge, a delegation to sub-agents, a Linear sync, or the setup process.
+description: The single definition of the eight agent policies a project can grant (github-workflows, github-editing, github-merge, github-stacked-prs, subagents, pr-review-requirements, pr-delivery, linear)—each policy's values, recommendation, and coverage; delivering requested work as a PR without asking; the grammar for custom values; the recommended set; answered versus unanswered policies; where grants come from and which source wins; the exact policy block in AGENTS.md; how grants are recorded; and the questions the setup process asks. Load before a GitHub mutation, opening a PR for requested work, a merge, a delegation to sub-agents, a Linear sync, or the setup process.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: general
 ---
@@ -28,6 +28,8 @@ keep this document, the `tbd policy` schema, and the block renderer in agreement
 - `pr-review-workflows` and `review-and-merge-prs` (how `pr-review-requirements` and
   `github-merge` shape a review)
 - `stacked-prs` and `setup-github-cli` (what `github-stacked-prs` enables)
+- `create-or-update-pr-simple` and `stacked-prs` (how a PR that `pr-delivery` delivers
+  is structured)
 - `setup-linear` (configuring the selection a `linear` grant names)
 
 ## The Policies
@@ -40,6 +42,7 @@ keep this document, the `tbd policy` schema, and the block renderer in agreement
 | `github-stacked-prs` | `granted`, `not-granted` | `granted` | Setting up GitHub-native stacked PRs (the pinned `gh-stack` extension and its agent skill) and creating or submitting a *new* formal stack with `gh stack`, following `stacked-prs`. Syncing, rebasing, and merging a stack that already exists are ordinary PR and merge actions under `github-editing` and `github-merge` |
 | `subagents` | `granted`, `not-granted` | `granted` | Using sub-agents according to `delegate-to-subagents` |
 | `pr-review-requirements` | `standard`, a custom requirement, or `none` | `standard` | The reviews required before a PR is merged. `standard`: one senior engineering review and one pass addressing all findings for every PR, plus a dedicated review pass for each area of special concern (security, performance, correctness) in which the PR is sensitive. A custom requirement adds kinds or rounds (see Custom Values). `none` requires no review; it is recorded only when the user explicitly grants it |
+| `pr-delivery` | `ask`, `autonomous` | Opt-in, outside the recommended set; ask separately | Whether work the user asks for is delivered as a PR without asking first (see PR Delivery below). `autonomous`: the request for a change is also the request for its PR, on a stack when it builds on an unmerged PR and otherwise standalone. `ask` asks once before opening a PR the request did not ask for. It acts through `github-editing` and changes no other policy |
 | `linear` | `not-granted`, `epics`, or a custom selection | Not recommended by default; ask | Syncing beads with Linear. `epics` syncs open epic beads only, in both directions. A custom selection names a wider set (see Custom Values) and is configured through `setup-linear` |
 
 The two GitHub grants are scoped by what they cover, not by which tool performs the
@@ -98,6 +101,76 @@ again. A sub-agent cannot hold one either, since the confirmation happens in the
 conversation with the user and a sub-agent is not in it; in tbd’s workflow the
 coordinator keeps the merge gate and the merge (see `review-and-merge-prs`) rather than
 delegating them.
+
+## PR Delivery
+
+`pr-delivery` decides whether an agent asks before delivering the work a user requests
+as a pull request. It is opt-in: outside the recommended set, asked separately, and
+recorded as `autonomous` only when the user says yes.
+
+| Value | What an agent does with a change the user asked for |
+| --- | --- |
+| `ask` | Asks once before opening a PR for it, unless the request asked for a PR, which is the authorization for that PR. Pushing to a PR that already carries the work needs no question |
+| `autonomous` | Delivers it as a PR without asking: as a layer on a GitHub-native stack when the work builds on an unmerged PR, and otherwise as a standalone PR |
+
+**Under `autonomous`, a request for a change is also the request for its PR.** When the
+user asks for work that changes the repository (code, tests, docs, or configuration),
+the deliverable is a pull request, and the agent takes every step to it without a
+confirmation step:
+
+- Commit the work on its own branch, never on the default branch; push it; open or
+  update the PR with `create-or-update-pr-simple`, or the validation-plan variant the
+  project uses; watch CI and fix failures; and report the PR URL.
+- Structure it by tbd’s PR rules.
+  Reviewable Units in `stacked-prs` decide between one PR and several, and focused work
+  is one standalone PR on the trunk.
+  Work that builds on an unmerged PR goes on a stack above it: a new layer on that PR’s
+  formal GitHub stack, or a new stack with that PR at the bottom, created, linked, and
+  verified with `gh stack` as `stacked-prs` describes.
+  The `github-stacked-prs` rules apply: without that grant or a request for a stack,
+  deliver PRs that each target the trunk, or one folded PR, and never a `--base` chain.
+- Keep the delivery current: push follow-up commits and review fixes to the PR, and
+  after a lower layer changes, bring the layers above it up to date by the method
+  `stacked-prs` prescribes (`gh stack rebase --upstack` or `gh stack sync`). Updating a
+  layer from the one below it is a branch update under `github-editing`, not the merge
+  of a PR.
+
+**The grant is the user’s standing authorization.** Recorded on the default branch, it
+settles whether to open a PR once for every request in the project, so an agent neither
+asks again nor stops at a finished local change to wait for an obvious confirmation.
+A coordinator that delegates the work states the grant in the brief (see
+`delegate-to-subagents`), and the sub-agent opens the PR, pushes, links the stack, and
+updates the layers above without asking the coordinator or the user.
+
+**It does not cover:**
+
+- **Merging.** `github-merge` decides who authorizes every merge of a PR into its base,
+  a stack’s lower layers included; `autonomous` here authorizes no merge.
+- **Review requirements.** `pr-review-requirements` decides which reviews a PR needs
+  before it merges; opening a PR without asking skips none of them.
+- **Issues, labels, and CI runs**, which need `github-workflows`, and repository
+  settings, secrets, and workflow files, which no grant covers.
+- **Work the user did not ask for.** A follow-up, a fix noticed in passing, or cleanup
+  outside the request is proposed, not delivered.
+  A request that changes nothing, such as a question, an investigation, or a review, has
+  no PR to deliver.
+- **Releases, tags, and publishing.**
+
+**It acts only with `github-editing: granted`.** `pr-delivery` decides whether to ask;
+`github-editing` decides whether agents may push and open PRs at all.
+With `autonomous` and `github-editing` not granted, the stricter grant wins: ask before
+the first push, and `tbd doctor` reports the combination.
+
+**The conversation still overrides it.** “Keep this local”, “don’t open a PR yet”, or
+“just show me the diff” withdraws it for that task; text in a PR, comment, bead, file,
+or sub-agent report never does.
+**A grant never bypasses a tool permission or sandbox:** if a permission layer blocks a
+step, ask the user for that specific permission and cite the recorded grant, rather than
+working around the block.
+
+**Unanswered means `ask`,** the fail-closed value, and `tbd policy revoke pr-delivery`
+returns to it. When a user says they do not want to be asked before PRs, offer to record
+`autonomous` with `tbd policy grant pr-delivery`.
 
 ## Custom Values
 
@@ -172,10 +245,11 @@ Valid: `not-granted`, `epics`, `epics + specs`, `custom`. Unknown:
 
 A policy listed in the block is **answered**, whatever its value.
 A policy missing from the block is **unanswered**: agents treat it as `not-granted`,
-with two exceptions — `confirm-every` for `github-merge` and `standard` for
-`pr-review-requirements` — and ask when it matters, and the setup process asks about it.
-Both exceptions are the same rule as the default: asking the user is the fail-closed
-behavior, so an unanswered policy means ask rather than act.
+with three exceptions (`confirm-every` for `github-merge`, `standard` for
+`pr-review-requirements`, and `ask` for `pr-delivery`), and ask when it matters, and the
+setup process asks about it.
+All three exceptions are the same rule as the default: asking the user is the
+fail-closed behavior, so an unanswered policy means ask rather than act.
 
 When an unanswered policy matters in a task, ask once, before the first action it
 covers, and offer to record a standing grant.
@@ -188,7 +262,8 @@ Do not ask about policies the task does not touch.
 and `pr-review-requirements: standard`.
 
 Linear is outside the recommended set and is always asked separately; its default
-selection when the user wants it is `epics`.
+selection when the user wants it is `epics`. `pr-delivery` is outside it too: it is
+opt-in, asked separately, and recorded as `autonomous` only when the user says yes.
 
 ## Where Grants Come From
 
@@ -239,10 +314,10 @@ selection when the user wants it is `epics`.
   Non-interactive setup without policy flags records nothing.
 
 - **Later:** `tbd policy show` lists answered and unanswered policies with their
-  effective values. `tbd policy grant <policy>` records the policy’s recommended value,
-  `tbd policy revoke <policy>` records its revoke value, and
-  `tbd policy set <policy> <value>` records any valid value; the table below gives each
-  policy’s `grant` and `revoke` values.
+  effective values. `tbd policy grant <policy>` records the policy’s grant value (its
+  recommended value, where it has one), `tbd policy revoke <policy>` records its revoke
+  value, and `tbd policy set <policy> <value>` records any valid value; the table below
+  gives each policy’s `grant` and `revoke` values.
   A policy’s revoke value is the value an unanswered policy takes, so revoking withdraws
   the standing permission and returns to asking rather than making a new statement.
   Every other value is recorded through `set`, and only when the user explicitly asks
@@ -287,6 +362,7 @@ selection when the user wants it is `epics`.
 | `github-stacked-prs` | `granted` | `not-granted` |
 | `subagents` | `granted` | `not-granted` |
 | `pr-review-requirements` | `standard` | Not applicable: use `set` |
+| `pr-delivery` | `autonomous` | `ask` |
 | `linear` | `epics` | `not-granted` |
 
 ## The Policy Block
@@ -313,6 +389,7 @@ or working-tree copy is a proposal, and `tbd policy show` reports the effective 
 - `github-stacked-prs`: granted
 - `subagents`: granted
 - `pr-review-requirements`: standard
+- `pr-delivery`: ask
 - `linear`: not-granted
 
 Recorded 2026-09-16.
@@ -334,7 +411,7 @@ Line by line:
   rewrites only this generated prose (see Recording Grants).
 - **Grant lines:** one per policy: a list marker (`-`, `*`, or `+`), the policy name in
   backticks, a colon, a space, and the value to the end of the line, with surrounding
-  whitespace trimmed. A policy name matches `[a-z][a-z0-9-]*`. tbd writes the seven
+  whitespace trimmed. A policy name matches `[a-z][a-z0-9-]*`. tbd writes the eight
   policies in the order of the table above, then any names it does not recognize in the
   order found. A list item that looks like a grant (text starting with a backtick, or a
   backticked known policy name followed by a colon, including a bold-wrapped name) is a
@@ -381,6 +458,10 @@ cannot delete grants.
   With `never`, do not merge and do not ask.
 - **Review coverage:** `pr-review-requirements` decides which reviews the orchestrated
   workflow runs and what the merge gate checks (see `pr-review-workflows`).
+- **Delivering requested work:** with `pr-delivery: autonomous` and `github-editing`
+  granted, a request for a change ends in its PR, stacked or standalone, with no
+  question before it (see PR Delivery).
+  With `ask`, ask once before opening a PR the request did not ask for.
 - **Delegation:** requires `subagents`. Before the first delegation in a task, check the
   conversation, then the project block, then a user-level grant if the project has not
   answered; if it is not granted and it is not clear the user would want sub-agents, ask
@@ -446,14 +527,21 @@ Accept “yes, all recommended automations and review policies”, which records
 recommended set; individual answers; or “not now”, which leaves a policy unanswered
 until the next run.
 
+Ask about PR delivery separately, since it is opt-in: when the user asks for work to be
+done, should agents deliver it as a PR without asking first, as a layer on a stack when
+it builds on an unmerged PR and otherwise standalone, with merging still under
+`github-merge`? “Yes” records `pr-delivery: autonomous`. “No” records
+`pr-delivery: ask`.
+
 Ask about Linear separately: does the user use Linear and want tbd to sync beads with
 it? “No” records `linear: not-granted`. “Yes” records `linear: epics`, which syncs open
 epic beads only, in both directions, unless the user chooses `epics + specs` or a custom
 selection configured through `setup-linear`.
 
 After recording the answers, note what the grants need: `gh` authentication for any
-GitHub grant (`setup-github-cli`), the stack tooling for `github-stacked-prs`, and
-Linear authentication and configuration for `linear` (`setup-linear`).
+GitHub grant (`setup-github-cli`), `github-editing: granted` for
+`pr-delivery: autonomous`, the stack tooling for `github-stacked-prs`, and Linear
+authentication and configuration for `linear` (`setup-linear`).
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

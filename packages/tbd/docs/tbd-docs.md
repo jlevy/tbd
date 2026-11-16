@@ -1093,7 +1093,7 @@ Common config keys:
 
 Show and record agent policy grants: the user’s standing consent for classes of agent
 actions (GitHub workflows and editing, merging, stacked PRs, sub-agents, PR review
-requirements, and Linear sync).
+requirements, PR delivery, and Linear sync).
 These are **user-settable preferences**, not hardcoded yes/no behavior.
 The policies, their values, and the block syntax are defined in
 `tbd guidelines agent-policy-grants`.
@@ -1106,10 +1106,18 @@ stack those merges include, and a PR outside that task needs its own confirmatio
 `autonomous`. No value weakens `pr-review-requirements`; that policy is independent and
 the merge gate checks it for every `github-merge` value, `autonomous` included.
 
+`pr-delivery` is opt-in and outside the recommended set: `ask` (unanswered and revoke)
+asks once before opening a PR the request did not ask for, and `autonomous` (what
+`grant` records) delivers requested work as a PR without asking, as a layer on a
+GitHub-native stack when it builds on an unmerged PR and otherwise standalone.
+It needs `github-editing: granted`, authorizes no merge, and changes no review
+requirement.
+
 ```bash
 tbd policy                                  # Same as `tbd policy show`
 tbd policy show                             # Answered and unanswered policies
-tbd policy grant subagents                  # Record the recommended value
+tbd policy grant subagents                  # Record the grant value (here, the recommended one)
+tbd policy grant pr-delivery                # Opt in: deliver requested work as PRs without asking
 tbd policy revoke github-merge              # Record the revoke value, what an unanswered policy takes
 tbd policy set linear epics                 # Record any valid value
 tbd policy refresh                          # Refresh guidance without changing grants
@@ -1119,7 +1127,8 @@ tbd policy set pr-review-requirements standard + 2 rounds
 Subcommands:
 - `show` - List answered policies with their recorded values and unanswered policies
   with the value agents assume until one is recorded
-- `grant <policy>` - Record the policy’s recommended value (`linear` records `epics`)
+- `grant <policy>` - Record the policy’s grant value: its recommended value, or `epics`
+  for `linear` and `autonomous` for `pr-delivery`, which have none
 - `revoke <policy>` - Record the policy’s revoke value, the value an unanswered policy
   takes (`pr-review-requirements` has none; use `set`)
 - `set <policy> <value...>` - Record any valid value; several words are joined with

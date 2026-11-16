@@ -321,10 +321,10 @@ The **issue tracking layer** has four core principles:
 
 - **Agent policy grants**: Standing, project-wide preferences (recorded grants) for
   classes of agent actions (GitHub workflows, editing, merging, and stacked PRs;
-  sub-agents; PR review requirements; Linear sync), recorded in `AGENTS.md` and managed
-  with `tbd policy` (§6.4.8). Merge authorization and review requirements are settable,
-  not hardcoded yes/no behavior: `github-merge` is a four-value ladder, and
-  `pr-review-requirements` is independent of it
+  sub-agents; PR review requirements; PR delivery; Linear sync), recorded in `AGENTS.md`
+  and managed with `tbd policy` (§6.4.8). Merge authorization and review requirements
+  are settable, not hardcoded yes/no behavior: `github-merge` is a four-value ladder,
+  and `pr-review-requirements` is independent of it
 
 - **PR review lifecycle**: Formal create, publish, and address cycle with lettered
   review IDs, four dispositions, and a policy-driven merge gate (§6.4.9)
@@ -4214,7 +4214,7 @@ tbd config set display.id_prefix cd
 
 ```bash
 tbd policy show                        # Default subcommand; --json for the full report
-tbd policy grant <policy>              # Record the recommended value (linear: epics)
+tbd policy grant <policy>              # Record the grant value (linear: epics, pr-delivery: autonomous)
 tbd policy revoke <policy>             # Record the ask-first default
 tbd policy set <policy> <value...>     # Record any valid value, e.g. standard + 2 rounds
 tbd policy refresh                    # Update generated guidance, preserving decisions
@@ -4229,11 +4229,12 @@ spelling (one space around each `+`, additions in a fixed order) into the workin
 block, rewrite its `Recorded` date, and say what makes the grant effective: a commit,
 plus a push or a merge to the default branch.
 They never commit. `tbd policy revoke` records each policy’s ask-first default, which is
-`not-granted` for the five binary policies and `confirm-every` for `github-merge`.
-`pr-review-requirements` has no revoke and is changed with `tbd policy set`. Every other
-value, `github-merge: never` and `github-merge: autonomous` among them, is recorded
-through `set`. The commands require an `AGENTS.md` that holds the tbd block, and refuse
-to write over a malformed or unknown-version policy block.
+`not-granted` for the five binary policies, `confirm-every` for `github-merge`, and
+`ask` for `pr-delivery`. `pr-review-requirements` has no revoke and is changed with
+`tbd policy set`. Every other value, `github-merge: never` and
+`github-merge: autonomous` among them, is recorded through `set`. The commands require
+an `AGENTS.md` that holds the tbd block, and refuse to write over a malformed or
+unknown-version policy block.
 `tbd policy refresh` updates recognized old guidance without changing grant lines,
 notes, or the recorded date, and restamps the integration block with the current format.
 Unknown prose edits, newer integration formats, and unreadable policy blocks are
@@ -5826,9 +5827,9 @@ A policy grant records the user’s explicit consent for a class of agent action
 project as a whole, so agents neither ask in every session nor act without consent.
 These are **user-settable preferences**, recorded as grants in `AGENTS.md` and changed
 with `tbd policy` — not hardcoded yes/no behavior an agent invents or a switch inside
-the CLI. The seven policies are `github-workflows`, `github-editing`, `github-merge`,
-`github-stacked-prs`, `subagents`, `pr-review-requirements`, and `linear`.
-`tbd guidelines agent-policy-grants` is their single definition (values,
+the CLI. The eight policies are `github-workflows`, `github-editing`, `github-merge`,
+`github-stacked-prs`, `subagents`, `pr-review-requirements`, `pr-delivery`, and
+`linear`. `tbd guidelines agent-policy-grants` is their single definition (values,
 recommendations, the recommended set, grant sources and precedence, block syntax, and
 setup questions); `src/lib/policy-grants.ts` implements it, and
 `tests/policy-grants-docs.test.ts` keeps the two in agreement.
@@ -5850,10 +5851,20 @@ That policy decides whether a PR is ready; `github-merge` decides who authorizes
 merge action. The merge gate checks review coverage separately in every case.
 No value weakens `pr-review-requirements`.
 
+**PR delivery is opt-in.** `pr-delivery` decides whether an agent asks before delivering
+requested work as a PR. `ask` is the unanswered and revoke value: ask once before
+opening a PR the request did not ask for.
+`autonomous`, what `tbd policy grant` records, makes a request for a change also the
+request for its PR: the agent opens it without a confirmation step, as a layer on a
+GitHub-native stack when the work builds on an unmerged PR and otherwise standalone, by
+the `stacked-prs` and PR shortcut rules, and keeps a stack current.
+It acts through `github-editing` (doctor reports `autonomous` without it), authorizes no
+merge, and changes no review requirement.
+
 **Recommended set.** “All recommended” is `github-workflows: granted`,
 `github-editing: granted`, `github-merge: confirm-session`,
 `github-stacked-prs: granted`, `subagents: granted`, and
-`pr-review-requirements: standard`. Linear is asked separately.
+`pr-review-requirements: standard`. PR delivery and Linear are asked separately.
 
 **The block.** Grants live in a policy block inside the generated tbd block in
 `AGENTS.md`, immediately before its end marker, so only this block differs between
@@ -5880,23 +5891,24 @@ Recorded 2026-09-17.
 `v=1` versions the block syntax; tbd neither reads nor rewrites a version it does not
 know. A grant line is a bullet, the policy name in backticks, a colon, and the value.
 A policy listed in the block is answered, whatever its value; a missing one is
-unanswered, and agents treat it as `not-granted`, with two exceptions (`confirm-every`
-for `github-merge` and `standard` for `pr-review-requirements`). tbd writes known
-policies in the guideline’s order with canonical values, then unknown names as found,
-and regenerates the heading, paragraph, and `Recorded` date on every write.
+unanswered, and agents treat it as `not-granted`, with three exceptions (`confirm-every`
+for `github-merge`, `standard` for `pr-review-requirements`, and `ask` for
+`pr-delivery`). tbd writes known policies in the guideline’s order with canonical
+values, then unknown names as found, and regenerates the heading, paragraph, and
+`Recorded` date on every write.
 A missing marker, a malformed grant line, a duplicate policy, a block outside the tbd
 block, or a second block makes it malformed, and agents then treat every policy as
 unanswered.
 
 **Recording.** Only explicit commands write grants: `tbd policy grant|revoke|set` (§4.9)
 and `tbd setup --policies=recommended`, which records the recommended value for each
-unanswered policy, keeps answered ones, leaves `linear` for a separate question, and is
-an error when `--surfaces` excludes `agents-md`. Writing a block restamps the tbd
-block’s begin marker with the current integration format (§6.4.6). Neither command
-commits; recording a grant is an ordinary commit to `AGENTS.md`. Policy writes and setup
-block rewrites hold the shared data-sync lock across the complete read/compute/write
-operation so a concurrent grant or revocation cannot be overwritten from a stale read.
-Dry runs perform the validation without acquiring the mutating lock.
+unanswered policy, keeps answered ones, leaves `pr-delivery` and `linear` for separate
+questions, and is an error when `--surfaces` excludes `agents-md`. Writing a block
+restamps the tbd block’s begin marker with the current integration format (§6.4.6).
+Neither command commits; recording a grant is an ordinary commit to `AGENTS.md`. Policy
+writes and setup block rewrites hold the shared data-sync lock across the complete
+read/compute/write operation so a concurrent grant or revocation cannot be overwritten
+from a stale read. Dry runs perform the validation without acquiring the mutating lock.
 
 **Preservation.** When setup regenerates the tbd block, it carries the existing policy
 block over byte for byte, including policy names it does not recognize, which may come

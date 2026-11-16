@@ -91,7 +91,9 @@ import {
   type ManagedBlockLocation,
 } from '../lib/managed-artifact.js';
 import {
+  POLICIES,
   POLICY_BLOCK_VERSION,
+  POLICY_NAMES,
   PolicyBlockError,
   RECOMMENDED_GRANTS,
   displayPolicyValue,
@@ -296,6 +298,11 @@ actions rather than telling them to run commands.
   \`github-stacked-prs\` is granted; otherwise propose separate PRs.
   A PR that is already stacked keeps its stack handling either way.
   Chained branch bases are not a formal stack.
+- When \`pr-delivery\` is \`autonomous\`, a request for a change is also the request for its
+  pull request: deliver it without asking, as a layer on a GitHub-native stack when it
+  builds on an unmerged PR and otherwise as a standalone PR. Merging stays under
+  \`github-merge\`; with any other value, ask before opening a PR the user did not
+  request.
 - Track all work as beads: \`tbd create\`, \`tbd ready\`, \`tbd start\`, \`tbd close\`, and
   \`tbd sync\`.
 - Before editing a bead, pull and re-read it, run \`tbd start <id>\`, then run \`tbd sync\`
@@ -2990,9 +2997,20 @@ class SetupAutoHandler extends BaseCommand {
       if (plan.added.length === 0) {
         console.log('  Every recommended policy is already answered; nothing recorded.');
       }
-      if (!plan.grants.some((grant) => grant.name === 'linear')) {
+      // Policies without a recommendation (pr-delivery, linear) are opt-in: the
+      // recommended set never records them, so the setup process asks about each.
+      const separate = POLICY_NAMES.filter(
+        (name) =>
+          POLICIES[name].recommended === null && !plan.grants.some((grant) => grant.name === name),
+      );
+      if (separate.length === 1) {
         console.log(
-          '  linear is not in the recommended set and stays unanswered; ask the user separately.',
+          `  ${separate[0]} is not in the recommended set and stays unanswered; ask the user separately.`,
+        );
+      } else if (separate.length > 1) {
+        const names = new Intl.ListFormat('en', { type: 'conjunction' }).format(separate);
+        console.log(
+          `  ${names} are not in the recommended set and stay unanswered; ask the user about each separately.`,
         );
       }
       if (plan.added.some((grant) => grant.name.startsWith('github-'))) {

@@ -8,7 +8,8 @@
  * renderer in src/lib/policy-grants.ts, so a change to either side fails here.
  * They also check that the generated tbd block and the shortcuts that act on
  * grants link to the guideline, that the stacked-PR docs state the
- * `github-stacked-prs` condition, that setup-tbd follows the guideline's setup
+ * `github-stacked-prs` condition, that the PR docs state the `pr-delivery`
+ * condition and its limits, that setup-tbd follows the guideline's setup
  * questions, and that the documents added for review and delegation resolve by
  * name with valid frontmatter and the doc footer.
  *
@@ -389,6 +390,91 @@ describe('stacked-PR documents state the github-stacked-prs condition', () => {
     'setup-github-cli',
   ])('%s states it', async (name) => {
     expect(flat(await readDoc(`${SHORTCUTS}/${name}.md`))).toMatch(CONDITION);
+  });
+});
+
+describe('the pr-delivery policy delivers requested work as PRs and nothing more', () => {
+  /** Delivery without asking is conditioned on the value, not merely mentioned. */
+  const CONDITION = /`pr-delivery(?:: |` is `)autonomous`/;
+
+  it('the guideline defines both values, the standing authorization, and the limits', async () => {
+    const delivery = flat(section(await readDoc(GUIDELINE), 2, 'PR Delivery'));
+    const rows = tableRows(section(await readDoc(GUIDELINE), 2, 'PR Delivery'));
+    expect(rows.slice(1).map((row) => codeSpans(row[0]!)[0])).toEqual([
+      ...POLICIES['pr-delivery'].values,
+    ]);
+    expect(delivery).toContain('a request for a change is also the request for its PR');
+    expect(delivery).toContain('standalone PR');
+    expect(delivery).toMatch(/GitHub-native stack/);
+    expect(delivery).toContain('`create-or-update-pr-simple`');
+    expect(delivery).toContain('`stacked-prs`');
+    expect(delivery).toContain('standing authorization');
+    expect(delivery).toContain('`delegate-to-subagents`');
+    // Updating a layer from the one below is a branch update, never a PR merge.
+    expect(delivery).toContain('not the merge of a PR');
+    const limits = delivery.slice(delivery.indexOf('It does not cover'));
+    expect(limits.length).toBeLessThan(delivery.length);
+    for (const excluded of [
+      '`github-merge`',
+      '`pr-review-requirements`',
+      '`github-workflows`',
+      'settings, secrets, and workflow files',
+      'Work the user did not ask for',
+    ]) {
+      expect(limits, excluded).toContain(excluded);
+    }
+    expect(delivery).toContain('authorizes no merge');
+    expect(delivery).toContain('It acts only with `github-editing: granted`');
+    expect(delivery).toContain('A grant never bypasses a tool permission or sandbox');
+    expect(delivery).toContain(`Unanswered means \`${POLICIES['pr-delivery'].unansweredValue}\``);
+  });
+
+  it('the generated tbd block states the condition and leaves merging to github-merge', () => {
+    const block = flat(getCodexTbdSection());
+    expect(block).toMatch(CONDITION);
+    expect(block).toContain('without asking');
+    expect(block).toContain('Merging stays under `github-merge`');
+  });
+
+  it.each([
+    `${SHORTCUTS}/create-or-update-pr-simple.md`,
+    `${SHORTCUTS}/create-or-update-pr-with-validation-plan.md`,
+    `${SHORTCUTS}/stacked-prs.md`,
+    `${SHORTCUTS}/delegate-to-subagents.md`,
+    'shortcuts/system/skill-baseline.md',
+    'shortcuts/system/skill-brief.md',
+    'shortcuts/system/skill-minimal.md',
+  ])('%s states the condition', async (rel) => {
+    expect(flat(await readDoc(rel))).toMatch(CONDITION);
+  });
+
+  it('the delegation brief keeps the merge with the coordinator', async () => {
+    const brief = flat(section(await readDoc(`${SHORTCUTS}/delegate-to-subagents.md`), 2, 'Brief'));
+    expect(brief).toMatch(/`pr-delivery: autonomous`[^.]*deliverable is a PR/);
+    expect(brief).toContain('covers no merge');
+  });
+
+  it('the guideline and setup-tbd ask separately and record the schema values', async () => {
+    const questions = flat(section(await readDoc(GUIDELINE), 2, 'Setup Questions'));
+    expect(questions).toMatch(/Ask about PR delivery separately/);
+    expect(/“Yes” records `pr-delivery: ([^`]+)`/.exec(questions)?.[1]).toBe(
+      POLICIES['pr-delivery'].grantValue,
+    );
+    expect(/“No” records `pr-delivery: ([^`]+)`/.exec(questions)?.[1]).toBe(
+      POLICIES['pr-delivery'].revokeValue,
+    );
+
+    const setup = await readDoc(SETUP_TBD);
+    expect(flat(section(setup, 2, 'Unanswered'))).toMatch(
+      /Ask about PR delivery as its own question/,
+    );
+    const record = tableRows(section(setup, 2, 'Record'));
+    const commandFor = (answerText: string) => record.find((row) => row[0] === answerText)?.[1];
+    expect(commandFor('PR delivery: yes')).toContain('`tbd policy grant pr-delivery`');
+    expect(commandFor('PR delivery: yes')).toContain(`\`${POLICIES['pr-delivery'].grantValue}\``);
+    expect(commandFor('PR delivery: no')).toContain('`tbd policy revoke pr-delivery`');
+    expect(commandFor('PR delivery: no')).toContain(`\`${POLICIES['pr-delivery'].revokeValue}\``);
+    expect(flat(section(setup, 2, 'Record'))).toContain('except `pr-delivery` and `linear`');
   });
 });
 

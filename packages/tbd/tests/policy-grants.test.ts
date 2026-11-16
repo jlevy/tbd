@@ -28,6 +28,7 @@ import {
   RECOMMENDED_GRANTS,
   checkPolicyValue,
   diffPolicyStatuses,
+  inertPolicyCombinations,
   isValidPolicyName,
   locateIntegrationBlock,
   parsePolicyBlock,
@@ -67,6 +68,7 @@ or working-tree copy is a proposal, and \`tbd policy show\` reports the effectiv
 - \`github-stacked-prs\`: granted
 - \`subagents\`: granted
 - \`pr-review-requirements\`: standard
+- \`pr-delivery\`: ask
 - \`linear\`: not-granted
 
 Recorded 2026-09-16.
@@ -80,6 +82,7 @@ const GUIDELINE_GRANTS = [
   { name: 'github-stacked-prs', value: 'granted' },
   { name: 'subagents', value: 'granted' },
   { name: 'pr-review-requirements', value: 'standard' },
+  { name: 'pr-delivery', value: 'ask' },
   { name: 'linear', value: 'not-granted' },
 ];
 
@@ -119,7 +122,7 @@ afterEach(async () => {
 });
 
 describe('policy schema', () => {
-  it('lists the seven policies in the order of the guideline table', () => {
+  it('lists the eight policies in the order of the guideline table', () => {
     expect(POLICY_NAMES).toEqual([
       'github-workflows',
       'github-editing',
@@ -127,6 +130,7 @@ describe('policy schema', () => {
       'github-stacked-prs',
       'subagents',
       'pr-review-requirements',
+      'pr-delivery',
       'linear',
     ]);
   });
@@ -152,6 +156,16 @@ describe('policy schema', () => {
       recommended: 'standard',
       unansweredValue: 'standard',
     });
+    // Opt-in like linear: no recommendation, so `grant` records the opt-in value and
+    // "all recommended" leaves it unanswered. Asking is the fail-closed value.
+    expect(POLICIES['pr-delivery']).toMatchObject({
+      values: ['ask', 'autonomous'],
+      grammar: null,
+      grantValue: 'autonomous',
+      revokeValue: 'ask',
+      recommended: null,
+      unansweredValue: 'ask',
+    });
     expect(POLICIES.linear).toMatchObject({
       grantValue: 'epics',
       revokeValue: 'not-granted',
@@ -172,8 +186,11 @@ describe('policy schema', () => {
     }
   });
 
-  it('defines the recommended set as the six non-Linear policies', () => {
-    expect(RECOMMENDED_GRANTS).toEqual(GUIDELINE_GRANTS.filter((g) => g.name !== 'linear'));
+  it('defines the recommended set as the six policies other than pr-delivery and linear', () => {
+    expect(RECOMMENDED_GRANTS).toEqual(
+      GUIDELINE_GRANTS.filter((g) => g.name !== 'linear' && g.name !== 'pr-delivery'),
+    );
+    expect(RECOMMENDED_GRANTS).toHaveLength(6);
   });
 
   it('accepts policy names matching [a-z][a-z0-9-]* only', () => {
@@ -186,6 +203,46 @@ describe('policy schema', () => {
   });
 });
 
+describe('inertPolicyCombinations', () => {
+  const statuses = (grants: { name: string; value: string }[]) =>
+    resolvePolicyStatuses({ status: 'ok', grants, recorded: null, text: '' });
+
+  it('reports pr-delivery: autonomous without github-editing: granted', () => {
+    for (const editing of [[], [{ name: 'github-editing', value: 'not-granted' }]]) {
+      expect(
+        inertPolicyCombinations(
+          statuses([...editing, { name: 'pr-delivery', value: 'autonomous' }]),
+        ),
+      ).toEqual([
+        'pr-delivery: autonomous needs github-editing: granted (now not-granted); agents ask before the first push until it is',
+      ]);
+    }
+    // An unknown github-editing value is treated as its unanswered value, not granted.
+    expect(
+      inertPolicyCombinations(
+        statuses([
+          { name: 'github-editing', value: 'yes' },
+          { name: 'pr-delivery', value: 'autonomous' },
+        ]),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('reports nothing when the grant can act, or asks anyway', () => {
+    expect(
+      inertPolicyCombinations(
+        statuses([
+          { name: 'github-editing', value: 'granted' },
+          { name: 'pr-delivery', value: 'autonomous' },
+        ]),
+      ),
+    ).toEqual([]);
+    expect(inertPolicyCombinations(statuses([{ name: 'pr-delivery', value: 'ask' }]))).toEqual([]);
+    expect(inertPolicyCombinations(statuses([]))).toEqual([]);
+    expect(inertPolicyCombinations(resolvePolicyStatuses({ status: 'missing' }))).toEqual([]);
+  });
+});
+
 describe('checkPolicyValue', () => {
   it('accepts only the fixed values of a fixed-value policy', () => {
     expect(checkPolicyValue('subagents', 'granted')).toEqual({ ok: true, canonical: 'granted' });
@@ -194,6 +251,16 @@ describe('checkPolicyValue', () => {
     expect(checkPolicyValue('subagents', 'per-request').ok).toBe(false);
     expect(checkPolicyValue('github-merge', 'autonomous').ok).toBe(true);
     expect(checkPolicyValue('github-merge', 'granted').ok).toBe(false);
+    expect(checkPolicyValue('pr-delivery', 'ask')).toEqual({ ok: true, canonical: 'ask' });
+    expect(checkPolicyValue('pr-delivery', ' autonomous ')).toEqual({
+      ok: true,
+      canonical: 'autonomous',
+    });
+    // Not the binary vocabulary, and no stacking variants: stack or standalone is the
+    // same rule under autonomous, not a value.
+    for (const value of ['granted', 'not-granted', 'Autonomous', 'stack-or-standalone', '']) {
+      expect(checkPolicyValue('pr-delivery', value).ok, value).toBe(false);
+    }
   });
 
   it('accepts the valid pr-review-requirements examples from the guideline', () => {

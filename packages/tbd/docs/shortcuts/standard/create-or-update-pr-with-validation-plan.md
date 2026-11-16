@@ -7,6 +7,11 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 We track work as beads using tbd.
 Run `tbd prime` for more on using tbd and current status.
 
+With `pr-delivery: autonomous` and `github-editing` granted, a request for a change is
+also the request for its PR: run every step below without asking first.
+Otherwise run this shortcut when the user asks for a PR or agrees to one.
+`tbd guidelines agent-policy-grants` defines the policy.
+
 Instructions:
 
 Create a to-do list with the following items then perform all of them:
@@ -63,6 +68,9 @@ Create a to-do list with the following items then perform all of them:
      official `gh-stack` skill to initialize and submit a local stack, or link existing
      PRs with `gh stack link`. If `github-stacked-prs` is not granted, offer to record
      the standing grant as well.
+   - Under `pr-delivery: autonomous`, work that builds on an unmerged PR goes on a stack
+     above it when `github-stacked-prs` is granted: run `tbd shortcut stacked-prs` and
+     add the layer, or start a stack on that PR, without asking.
    - If no one asked for a stack and `github-stacked-prs` is not granted, do not build
      one: propose PRs that each target `$TRUNK`, or one folded PR, and never a `--base`
      chain, which is a stack under another name.

@@ -1,5 +1,5 @@
 /**
- * Agent policy grants: the schema of the seven policies and their custom-value
+ * Agent policy grants: the schema of the eight policies and their custom-value
  * grammar, the policy block inside the AGENTS.md tbd block (parser, renderer,
  * insertion), and effective grants read from the default branch.
  *
@@ -31,7 +31,7 @@ import { tbdUpgradeAdvice } from './install-advice.js';
 // Schema
 // =============================================================================
 
-/** The seven policies, in the order of the guideline's table. */
+/** The eight policies, in the order of the guideline's table. */
 export const POLICY_NAMES = [
   'github-workflows',
   'github-editing',
@@ -39,6 +39,7 @@ export const POLICY_NAMES = [
   'github-stacked-prs',
   'subagents',
   'pr-review-requirements',
+  'pr-delivery',
   'linear',
 ] as const;
 
@@ -135,6 +136,21 @@ export const POLICIES: Readonly<Record<PolicyName, PolicyDefinition>> = {
     grantValue: 'standard',
     revokeValue: null,
     summary: 'reviews required before a PR is merged',
+  },
+  // Opt-in, like linear: outside the recommended set and asked separately. It decides
+  // whether requested work is delivered as a PR without a confirmation step, not
+  // whether an agent may open PRs at all (github-editing) or build a new stack
+  // (github-stacked-prs), so `autonomous` acts only with github-editing granted.
+  // Asking is the fail-closed value, so an unanswered or revoked policy asks.
+  'pr-delivery': {
+    name: 'pr-delivery',
+    values: ['ask', 'autonomous'],
+    grammar: null,
+    recommended: null,
+    unansweredValue: 'ask',
+    grantValue: 'autonomous',
+    revokeValue: 'ask',
+    summary: 'delivering requested work as a PR without asking first',
   },
   linear: {
     name: 'linear',
@@ -1180,7 +1196,7 @@ function withPolicyBlockLf(agentsMd: string, block: string): string {
 /** What one policy is for agents, from one reading of a block. */
 export interface PolicyStatus {
   name: string;
-  /** One of the seven policies this tbd defines. */
+  /** One of the eight policies this tbd defines. */
   known: boolean;
   /** Listed in the block, whatever its value. */
   answered: boolean;
@@ -1201,7 +1217,26 @@ export interface PolicyStatus {
 }
 
 /**
- * Derive each policy's status from a parsed block: the seven known policies in
+ * Recorded values that cannot take effect as written, given the other grants, as
+ * one line each. `pr-delivery: autonomous` delivers work through the branch and PR
+ * actions `github-editing` covers, so without that grant agents still ask before
+ * the first push: the stricter grant wins, and the opt-in is inert until both are
+ * granted.
+ */
+export function inertPolicyCombinations(statuses: readonly PolicyStatus[]): string[] {
+  const effective = (name: PolicyName) =>
+    statuses.find((status) => status.name === name)?.effective ?? POLICIES[name].unansweredValue;
+  const lines: string[] = [];
+  if (effective('pr-delivery') === 'autonomous' && effective('github-editing') !== 'granted') {
+    lines.push(
+      `pr-delivery: autonomous needs github-editing: granted (now ${effective('github-editing')}); agents ask before the first push until it is`,
+    );
+  }
+  return lines;
+}
+
+/**
+ * Derive each policy's status from a parsed block: the eight known policies in
  * table order, then any unknown names in the block. A missing, malformed, or
  * unknown-version block leaves every policy unanswered.
  */

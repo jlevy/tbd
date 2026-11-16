@@ -214,8 +214,8 @@ $ tbd prime | sed -n '/=== AGENT POLICY GRANTS ===/,/setup-tbd/p'
 Effective grants from AGENTS.md on main ...
   github-editing: granted, github-merge: confirm-session,
   pr-review-requirements: standard + security
-Unanswered (treated as not-granted): github-workflows, github-stacked-prs, subagents,
-  linear
+Unanswered (treated as not-granted; pr-delivery as ask): github-workflows,
+  github-stacked-prs, subagents, pr-delivery, linear
 Ask the user when a task needs one, or run `tbd shortcut setup-tbd` to ask about all.
 ? 0
 ```
@@ -228,8 +228,8 @@ $ tbd prime --brief | sed -n '/=== AGENT POLICY GRANTS ===/,/setup-tbd/p'
 Effective grants from AGENTS.md on main ...
   github-editing: granted, github-merge: confirm-session,
   pr-review-requirements: standard + security
-Unanswered (treated as not-granted): github-workflows, github-stacked-prs, subagents,
-  linear
+Unanswered (treated as not-granted; pr-delivery as ask): github-workflows,
+  github-stacked-prs, subagents, pr-delivery, linear
 Ask the user when a task needs one, or run `tbd shortcut setup-tbd` to ask about all.
 ? 0
 ```
