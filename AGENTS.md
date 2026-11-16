@@ -54,6 +54,11 @@ actions rather than telling them to run commands.
   `github-stacked-prs` is granted; otherwise propose separate PRs.
   A PR that is already stacked keeps its stack handling either way.
   Chained branch bases are not a formal stack.
+- When `pr-delivery` is `autonomous`, a request for a change is also the request for its
+  pull request: deliver it without asking, as a layer on a GitHub-native stack when it
+  builds on an unmerged PR and otherwise as a standalone PR. Merging stays under
+  `github-merge`; with any other value, ask before opening a PR the user did not
+  request.
 - Track all work as beads: `tbd create`, `tbd ready`, `tbd start`, `tbd close`, and
   `tbd sync`.
 - Before editing a bead, pull and re-read it, run `tbd start <id>`, then run `tbd sync`

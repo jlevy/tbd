@@ -480,7 +480,9 @@ const showPolicyCommand = new Command('show')
   });
 
 const grantPolicyCommand = new Command('grant')
-  .description("Record a policy's recommended value (linear: epics)")
+  .description(
+    "Record a policy's grant value (its recommendation; linear: epics, pr-delivery: autonomous)",
+  )
   .argument('<policy>', `Policy name: ${POLICY_NAMES.join(', ')}`)
   .action(async (policy: string, _options, command) => {
     const handler = new PolicyRecordHandler(command);

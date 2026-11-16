@@ -109,7 +109,7 @@ describe('golden output tests', { timeout: subprocessTestTimeout() }, () => {
       );
 
       // What's Next routes the agent to setup-tbd, counts unanswered policies
-      // (all seven on a fresh setup), and uses "what you can say" framing.
+      // (all eight on a fresh setup), and uses "what you can say" framing.
       expect(result.stdout).toContain(
         [
           'Setup complete!',
@@ -117,7 +117,7 @@ describe('golden output tests', { timeout: subprocessTestTimeout() }, () => {
           "WHAT'S NEXT",
           '',
           '  Agent: run `tbd shortcut setup-tbd` to finish setting up tbd with the user.',
-          '  7 policies are unanswered; setup-tbd asks the user about them.',
+          '  8 policies are unanswered; setup-tbd asks the user about them.',
           '',
           '  Try saying things like:',
           '    "Set up tbd"                    → Reviews setup and asks about policy grants',

@@ -113,6 +113,7 @@ import {
   checkPolicyValue,
   diffPolicyStatuses,
   displayPolicyValue,
+  inertPolicyCombinations,
   isKnownPolicy,
   parsePolicyBlock,
   readEffectiveGrants,
@@ -423,8 +424,10 @@ function describeUnknownValue(status: PolicyStatus): string {
 /**
  * Validate the policy block in AGENTS.md, as `tbd guidelines agent-policy-grants`
  * requires: a malformed or unknown-version block, unknown values for known
- * policies, and a working tree block that differs from the block committed on the
- * default branch (the one agents act on).
+ * policies, a grant that cannot take effect without another one
+ * (`pr-delivery: autonomous` without `github-editing: granted`), and a working
+ * tree block that differs from the block committed on the default branch (the
+ * one agents act on).
  *
  * A check group: no finding when neither the working tree nor the default branch
  * holds a block, so doctor output for projects without grants does not grow; one
@@ -510,6 +513,20 @@ export function policyGrantFindings(
       path,
       details: unknownValues.map(describeUnknownValue),
       suggestion: `Record a valid value: tbd policy set <policy> <value> (see: ${POLICY_GUIDELINE_HINT})`,
+    });
+  }
+  const inert = inertPolicyCombinations(workingTree.policies);
+  if (inert.length > 0) {
+    findings.push({
+      name,
+      status: 'warn',
+      message:
+        inert.length === 1
+          ? '1 grant cannot take effect as recorded'
+          : `${inert.length} grants cannot take effect as recorded`,
+      path,
+      details: inert,
+      suggestion: `Grant the policy it depends on, or revoke the grant (see: ${POLICY_GUIDELINE_HINT})`,
     });
   }
 

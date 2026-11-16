@@ -159,7 +159,7 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
         'Agent: run `tbd shortcut setup-tbd` to finish setting up tbd with the user.',
       );
       expect(result.stdout).toContain(
-        '7 policies are unanswered; setup-tbd asks the user about them.',
+        '8 policies are unanswered; setup-tbd asks the user about them.',
       );
 
       const setupShortcut = runTbd(['shortcut', 'setup-tbd']);
@@ -508,7 +508,7 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
           "WHAT'S NEXT",
           '',
           '  Agent: run `tbd shortcut setup-tbd` to review this upgrade with the user.',
-          '  7 policies are unanswered; setup-tbd asks the user about them.',
+          '  8 policies are unanswered; setup-tbd asks the user about them.',
         ].join('\n'),
       );
 

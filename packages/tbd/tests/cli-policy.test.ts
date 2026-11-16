@@ -394,6 +394,15 @@ describe('tbd policy grant, revoke, and set', () => {
       } else if (name === 'linear') {
         await record(['set', name, 'epics+specs'], 'epics + specs');
         await record(['set', name, 'custom'], 'custom');
+      } else if (name === 'pr-delivery') {
+        await record(['set', name, 'ask'], 'ask');
+        await record(['set', name, 'autonomous'], 'autonomous');
+        // The binary vocabulary is not this policy's: refused, and nothing is written.
+        const before = await readFile(join(dir, 'AGENTS.md'), 'utf-8');
+        const refused = runTbd(dir, ['policy', 'set', name, 'granted']);
+        expect(refused.status).not.toBe(0);
+        expect(refused.stderr).toContain('Unknown value for pr-delivery: "granted"');
+        expect(await readFile(join(dir, 'AGENTS.md'), 'utf-8')).toBe(before);
       }
 
       const report = showJson(dir);

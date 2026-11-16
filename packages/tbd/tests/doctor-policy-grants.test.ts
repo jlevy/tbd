@@ -1,6 +1,7 @@
 /**
  * `tbd doctor` checks of the policy block in AGENTS.md: a malformed or
- * unknown-version block, unknown values for known policies, a working tree block
+ * unknown-version block, unknown values for known policies, a grant that cannot
+ * act without another (`pr-delivery: autonomous` without `github-editing`), a working tree block
  * that differs from the default branch's committed block, unrecognized policy
  * names (an informational note), and the AGENTS.md freshness check for a tbd
  * block that holds grants. Doctor reports and never changes the block.
@@ -111,9 +112,34 @@ describe('policyGrantFindings', () => {
       {
         name: 'Policy grants',
         status: 'ok',
-        message: '2 of 7 policies answered, matching origin/main',
+        message: '2 of 8 policies answered, matching origin/main',
         path: 'AGENTS.md',
       },
+    ]);
+  });
+
+  it('warns when pr-delivery: autonomous is recorded without github-editing: granted', () => {
+    const inert = agentsMd(['- `pr-delivery`: autonomous']);
+    expect(policyGrantFindings(effectiveFrom(inert), workingTreeFrom(inert))).toEqual([
+      {
+        name: 'Policy grants',
+        status: 'warn',
+        message: '1 grant cannot take effect as recorded',
+        path: 'AGENTS.md',
+        details: [
+          'pr-delivery: autonomous needs github-editing: granted (now not-granted); agents ask before the first push until it is',
+        ],
+        suggestion:
+          'Grant the policy it depends on, or revoke the grant (see: tbd guidelines agent-policy-grants)',
+      },
+    ]);
+
+    const active = agentsMd(['- `github-editing`: granted', '- `pr-delivery`: autonomous']);
+    expect(policyGrantFindings(effectiveFrom(active), workingTreeFrom(active))).toEqual([
+      expect.objectContaining({
+        status: 'ok',
+        message: '2 of 8 policies answered, matching origin/main',
+      }),
     ]);
   });
 
@@ -315,7 +341,7 @@ describe('policyGrantFindings', () => {
       {
         name: 'Policy grants',
         status: 'ok',
-        message: '1 of 7 policies answered, matching origin/main',
+        message: '1 of 8 policies answered, matching origin/main',
         path: 'AGENTS.md',
       },
       {
@@ -458,7 +484,7 @@ describe('tbd doctor policy grants', { timeout: subprocessTestTimeout(180_000) }
       {
         name: 'Policy grants',
         status: 'ok',
-        message: '1 of 7 policies answered, matching main',
+        message: '1 of 8 policies answered, matching main',
         path: 'AGENTS.md',
       },
     ]);

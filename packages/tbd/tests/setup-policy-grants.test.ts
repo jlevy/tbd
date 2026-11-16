@@ -679,7 +679,7 @@ describe('planRecommendedGrants', () => {
 
 describe('tbd setup --policies', () => {
   it(
-    'records exactly the recommended set on a fresh setup and leaves linear unanswered',
+    'records exactly the recommended set on a fresh setup and leaves pr-delivery and linear unanswered',
     async () => {
       const dir = await gitRepo();
       const result = runTbd(dir, [
@@ -696,17 +696,19 @@ describe('tbd setup --policies', () => {
       const unanswered = resolvePolicyStatuses(parse)
         .filter((status) => !status.answered)
         .map((status) => status.name);
-      expect(unanswered).toEqual(['linear']);
+      expect(unanswered).toEqual(['pr-delivery', 'linear']);
 
       expect(result.stdout).toContain('Policy grants (--policies=recommended):');
       for (const grant of RECOMMENDED_GRANTS) {
         expect(result.stdout).toContain(`  ✓ Recorded ${grant.name}: ${grant.value}\n`);
       }
       expect(result.stdout).toContain(
-        '  linear is not in the recommended set and stays unanswered; ask the user separately.',
+        '  pr-delivery and linear are not in the recommended set and stay unanswered; ask the user about each separately.',
       );
       expect(result.stdout).toContain('`tbd shortcut setup-github-cli`');
-      expect(result.stdout).toContain('1 policy is unanswered; setup-tbd asks the user about it.');
+      expect(result.stdout).toContain(
+        '2 policies are unanswered; setup-tbd asks the user about them.',
+      );
     },
     CLI_TEST_TIMEOUT_MS,
   );
@@ -747,6 +749,7 @@ describe('tbd setup --policies', () => {
       const agentsPath = join(dir, 'AGENTS.md');
       for (const args of [
         ['policy', 'set', 'github-merge', 'autonomous'],
+        ['policy', 'revoke', 'pr-delivery'],
         ['policy', 'set', 'linear', 'epics'],
       ]) {
         const recorded = runTbd(dir, args);
@@ -761,12 +764,14 @@ describe('tbd setup --policies', () => {
       );
       expect(result.stdout).not.toContain('Recorded github-merge');
       expect(result.stdout).not.toContain('stays unanswered');
+      expect(result.stdout).not.toContain('stay unanswered');
 
       const recorded = await readFile(agentsPath, 'utf-8');
       const statuses = resolvePolicyStatuses(parsePolicyBlock(recorded));
       expect(statuses.every((status) => status.answered)).toBe(true);
       expect(statuses.find((status) => status.name === 'github-merge')?.value).toBe('autonomous');
       expect(statuses.find((status) => status.name === 'linear')?.value).toBe('epics');
+      expect(statuses.find((status) => status.name === 'pr-delivery')?.value).toBe('ask');
 
       // With every recommended policy answered, a second run leaves AGENTS.md alone.
       const again = runTbd(dir, [

@@ -1,6 +1,6 @@
 ---
 title: Setup tbd
-description: Set up tbd in a new project, and review the setup after every tbd upgrade. Install or upgrade the CLI, run setup, ask the user once about each unanswered agent policy grant (offering all recommended, with Linear asked separately), record the answers in AGENTS.md, set up the gh authentication, stack tooling, and Linear sync the grants need, then verify and report
+description: Set up tbd in a new project, and review the setup after every tbd upgrade. Install or upgrade the CLI, run setup, ask the user once about each unanswered agent policy grant (offering all recommended, with PR delivery and Linear asked separately), record the answers in AGENTS.md, set up the gh authentication, stack tooling, and Linear sync the grants need, then verify and report
 category: session
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
@@ -110,6 +110,12 @@ Accept any of these answers:
 - **Individual answers**, such as “all but merging” or “two review rounds”.
 - **“Not now”**, for any policy: it stays unanswered, and the next run asks again.
 
+Ask about PR delivery as its own question, even when the user accepts all recommended
+policies: `pr-delivery` is opt-in and outside the recommended set.
+Ask whether, when the user asks for work to be done, agents should deliver it as a PR
+without asking first: as a layer on a stack when it builds on an unmerged PR, and
+otherwise standalone, by tbd’s PR rules, with merging still under `github-merge`.
+
 Ask about Linear as its own question, even when the user accepts all recommended
 policies: Linear is not on by default and is outside the recommended set.
 Ask whether the user uses Linear and wants tbd to sync beads with it; if so, the default
@@ -118,9 +124,9 @@ If `tbd integration status --offline` shows Linear already enabled in `.tbd/conf
 it keeps syncing whatever the grant says; ask the user to record the value that matches
 the configured selection.
 
-A compact template, in the guideline’s order; keep only the unanswered policies, the
-Linear question only if `linear` is unanswered, and the last line only if some policies
-are answered:
+A compact template, in the guideline’s order; keep only the unanswered policies, the PR
+delivery question only if `pr-delivery` is unanswered, the Linear question only if
+`linear` is unanswered, and the last line only if some policies are answered:
 
 ```text
 tbd is set up. A few policy questions for this project. The answers are recorded in
@@ -135,6 +141,10 @@ AGENTS.md and apply to every agent working on this repository.
 
 Reply “yes, all recommended automations and review policies”, answer by number, or
 say “not now” to any of them and I will ask again next time.
+
+Separately, opt-in: when you ask for work to be done, should agents open its PR without
+asking first, stacked when it builds on an unmerged PR and otherwise standalone?
+Merging still follows github-merge.
 
 Separately: do you use Linear and want tbd to sync beads with it? If yes, the default
 syncs open epic beads only, in both directions.
@@ -152,16 +162,19 @@ Record only what the user explicitly answered:
 | A policy’s recommended value | `tbd policy grant <policy>` |
 | A policy’s revoke value, the value an unanswered policy takes | `tbd policy revoke <policy>` |
 | Any other valid value | `tbd policy set <policy> <value>`, for example `tbd policy set pr-review-requirements "standard + 2 rounds"` |
+| PR delivery: yes | `tbd policy grant pr-delivery`, which records `autonomous` |
+| PR delivery: no | `tbd policy revoke pr-delivery`, which records `ask` |
 | Linear: yes | `tbd policy set linear epics`, or the selection the user chose |
 | Linear: no | `tbd policy revoke linear` |
 | Not now | Nothing |
 
 `--policies=recommended` records the recommended value for every unanswered policy
-except `linear` and leaves existing working-tree entries unchanged, including pending
-proposals. Reconcile pending values with the user’s answers before
-`--policies=recommended`: use `tbd policy grant <policy>` or
-`tbd policy set <policy> <value>` for each accepted answer that differs from the pending
-value. For example, if the default branch leaves merging unanswered and the working tree
+except `pr-delivery` and `linear`, and leaves existing working-tree entries unchanged,
+including pending proposals.
+Reconcile pending values with the user’s answers before `--policies=recommended`: use
+`tbd policy grant <policy>` or `tbd policy set <policy> <value>` for each accepted
+answer that differs from the pending value.
+For example, if the default branch leaves merging unanswered and the working tree
 proposes `github-merge: autonomous`, accepting all recommended requires
 `tbd policy grant github-merge` to record `confirm-session` before the bulk command.
 Do not commit unconfirmed proposals with the accepted answers; leave them out of that
@@ -199,6 +212,9 @@ setup shortcut.
   follow `tbd shortcut setup-github-cli`. Authentication comes from the user
   (`gh auth login`, or `GH_TOKEN` set before the session); never ask for a token in
   chat.
+- **`pr-delivery: autonomous`:** check that `github-editing` is granted too; without it
+  agents still ask before the first push, and `tbd doctor` reports the combination.
+  Ask the user whether to grant `github-editing` rather than recording it yourself.
 - **`github-stacked-prs: granted`:** install the stack tooling as step 3 of Fresh
   Machine Setup in `tbd shortcut setup-github-cli` describes (the agent’s
   `ensure-gh-cli.sh` with `--with-stack`). Skip it without the grant.

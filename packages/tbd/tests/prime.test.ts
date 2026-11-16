@@ -63,7 +63,8 @@ describe('formatPolicyGrantsLines', () => {
       'Effective grants from AGENTS.md on main (details: `tbd policy show`):',
       '  github-workflows: granted, github-editing: granted, github-merge: confirm-session,',
       '  pr-review-requirements: standard + security',
-      'Unanswered (treated as not-granted): github-stacked-prs, subagents, linear',
+      'Unanswered (treated as not-granted; pr-delivery as ask): github-stacked-prs, subagents,',
+      '  pr-delivery, linear',
       'Ask the user when a task needs one, or run `tbd shortcut setup-tbd` to ask about all.',
       // The hook hands an agent its standing permissions, so it carries the rule about
       // whose words can change them in the same section.
@@ -84,9 +85,9 @@ describe('formatPolicyGrantsLines', () => {
   it('names every policy unanswered when the tbd block has no policy block', () => {
     expect(formatPolicyGrantsLines(reading({ status: 'missing' }))).toEqual([
       'No grants recorded in AGENTS.md on main (details: `tbd policy show`).',
-      'Unanswered (treated as not-granted; github-merge as confirm-every; pr-review-requirements as standard):',
+      'Unanswered (treated as not-granted; github-merge as confirm-every; pr-review-requirements as standard; pr-delivery as ask):',
       '  github-workflows, github-editing, github-merge, github-stacked-prs, subagents,',
-      '  pr-review-requirements, linear',
+      '  pr-review-requirements, pr-delivery, linear',
       'Ask the user when a task needs one, or run `tbd shortcut setup-tbd` to ask about all.',
     ]);
   });
@@ -100,11 +101,13 @@ describe('formatPolicyGrantsLines', () => {
         { name: 'github-stacked-prs', value: 'granted' },
         { name: 'subagents', value: 'granted' },
         { name: 'pr-review-requirements', value: 'standard' },
+        { name: 'pr-delivery', value: 'autonomous' },
         { name: 'linear', value: 'epics' },
       ]),
     );
     const lines = formatPolicyGrantsLines(reading(parse))!;
     expect(lines.join('\n')).not.toContain('Unanswered');
+    expect(lines.join('\n')).toContain('pr-delivery: autonomous');
     expect(lines.join('\n')).not.toContain('setup-tbd');
     expect(lines.join('\n')).toContain('github-editing: not-granted');
   });
@@ -119,7 +122,7 @@ describe('formatPolicyGrantsLines', () => {
     expect(text).toContain('github-merge: sometimes (unknown value; treated as confirm-every)');
     expect(text).toContain('future-policy: yes (unknown policy)');
     expect(text).toContain(
-      'Unanswered (treated as not-granted; pr-review-requirements as standard)',
+      'Unanswered (treated as not-granted; pr-review-requirements as standard; pr-delivery as ask)',
     );
   });
 
@@ -305,7 +308,7 @@ describe('prime command', { timeout: subprocessTestTimeout() }, () => {
         );
         expect(result.stdout).toContain('github-editing: granted, subagents: granted');
         expect(result.stdout).toContain(
-          'Unanswered (treated as not-granted; github-merge as confirm-every; pr-review-requirements as standard):',
+          'Unanswered (treated as not-granted; github-merge as confirm-every; pr-review-requirements as standard; pr-delivery as ask):',
         );
       }
     });

@@ -182,12 +182,16 @@ pnpm --filter get-tbd exec vitest run \
   `review-and-merge-prs`, and the skill’s GitHub Authorization section link to it; and
   `stacked-prs`, both `create-or-update-pr` shortcuts, `setup-github-cli`, and the
   generated tbd block state the `github-stacked-prs` condition.
+  The generated tbd block, both `create-or-update-pr` shortcuts, `stacked-prs`,
+  `delegate-to-subagents`, and every skill tier state the `pr-delivery: autonomous`
+  condition, and the guideline’s PR Delivery section states what it does not cover:
+  merging, review requirements, and repository settings, secrets, and workflows.
   `tests/policy-grants-docs.test.ts` compares the guideline’s tables, custom-value
   examples, recommended set, and example block with the schema and renderer, and checks
-  those links, that condition, and the setup questions in `setup-tbd`.
-  `setup-flows.test.ts` and `golden-output.test.ts` pin the route from `tbd setup`
-  output to `setup-tbd`. The README, CLI manual (`tbd-docs.md`), and design doc
-  (`tbd-design.md` §6.4.8–6.4.9) summarize the contract and link to the guideline.
+  those links, both conditions, the PR Delivery limits, and the setup questions in
+  `setup-tbd`. `setup-flows.test.ts` and `golden-output.test.ts` pin the route from
+  `tbd setup` output to `setup-tbd`. The README, CLI manual (`tbd-docs.md`), and design
+  doc (`tbd-design.md` §6.4.8–6.4.9) summarize the contract and link to the guideline.
   The design and CLI manual state that merge and review requirements are settable
   grants: the four `github-merge` values, and that no value weakens
   `pr-review-requirements`.

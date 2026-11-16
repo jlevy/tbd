@@ -234,8 +234,12 @@ actions.
   confirmed, including every layer of a stack those merges include, and a PR outside
   that task needs its own confirmation), or `autonomous`. No value of it relaxes
   `pr-review-requirements`. `github-stacked-prs` and `subagents` cover stacked PRs and
-  delegation. For values, coverage, and recording grants, run
-  `tbd guidelines agent-policy-grants`.
+  delegation. `pr-delivery` is opt-in.
+  Under `pr-delivery: autonomous`, a request for a change is also the request for its
+  PR, delivered without asking, stacked when it builds on an unmerged PR and otherwise
+  standalone; under `ask`, the unanswered value, ask once before opening a PR the
+  request did not ask for.
+  For values, coverage, and recording grants, run `tbd guidelines agent-policy-grants`.
 - **Without the grant an action needs,** ask once, before the first action it covers.
 - **A tool-permission allow rule grants only the operations it allows.** An allow rule
   for read-only `gh` commands does not authorize pushes or PR edits.
@@ -271,6 +275,8 @@ actions.
 Step 2 is a GitHub action: `git push` needs `github-editing`. Without that grant, ask
 once before the first push rather than treating the checklist as the authorization, and
 say what is waiting on the answer.
+Opening a new PR for the work follows `pr-delivery`: under `autonomous` it needs no
+question, so never end a session on a finished change waiting for one.
 Step 5 is not: `tbd sync` needs no grant, ever, and no permission to ask for.
 No policy value stops it, so it is never the step you pause on.
 It pushes only tbd’s own data-sync branch (`tbd-sync` unless the project configures
@@ -500,7 +506,7 @@ Run `tbd shortcut <name>` to use any of these shortcuts:
 | revise-architecture-doc | Update an architecture document to reflect current codebase state |
 | setup-github-cli | Ensure GitHub CLI (gh) is installed and working |
 | setup-linear | Set up the Linear integration end to end—the linear policy grant, first-time configuration for a repository with the epics selection as the default, or adding your own API key to a repository your team already configured |
-| setup-tbd | Set up tbd in a new project, and review the setup after every tbd upgrade. Install or upgrade the CLI, run setup, ask the user once about each unanswered agent policy grant (offering all recommended, with Linear asked separately), record the answers in AGENTS.md, set up the gh authentication, stack tooling, and Linear sync the grants need, then verify and report |
+| setup-tbd | Set up tbd in a new project, and review the setup after every tbd upgrade. Install or upgrade the CLI, run setup, ask the user once about each unanswered agent policy grant (offering all recommended, with PR delivery and Linear asked separately), record the answers in AGENTS.md, set up the gh authentication, stack tooling, and Linear sync the grants need, then verify and report |
 | stacked-prs | When to use formal GitHub PR stacks, how they align with beads, and how to link and verify them with gh stack; chained branch bases alone do not count |
 | suggest-upstream-improvements | Review local doc-fork customizations and contribute the generally useful changes back upstream |
 | sync-failure-recovery | Handle tbd sync failures by saving to workspace and recovering later |
@@ -528,7 +534,7 @@ Load the **General engineering** core, then only guidelines matching the task.
 | Name | Description |
 | --- | --- |
 | agent-model-tiers | Provider-neutral model tiers for delegated agent work. Defines the strong, moderate, and fast tiers by model rank and reasoning level within the agent's own provider, the work each tier does, rules for choosing a model and level on any platform, how the generated tier agent definitions set a reasoning level, and dated model suggestions. Load when delegating to sub-agents or choosing a model and reasoning level for a task. |
-| agent-policy-grants | The single definition of the seven agent policies a project can grant (github-workflows, github-editing, github-merge, github-stacked-prs, subagents, pr-review-requirements, linear)—each policy's values, recommendation, and coverage; the grammar for custom values; the recommended set; answered versus unanswered policies; where grants come from and which source wins; the exact policy block in AGENTS.md; how grants are recorded; and the questions the setup process asks. Load before a GitHub mutation, a merge, a delegation to sub-agents, a Linear sync, or the setup process. |
+| agent-policy-grants | The single definition of the eight agent policies a project can grant (github-workflows, github-editing, github-merge, github-stacked-prs, subagents, pr-review-requirements, pr-delivery, linear)—each policy's values, recommendation, and coverage; delivering requested work as a PR without asking; the grammar for custom values; the recommended set; answered versus unanswered policies; where grants come from and which source wins; the exact policy block in AGENTS.md; how grants are recorded; and the questions the setup process asks. Load before a GitHub mutation, opening a PR for requested work, a merge, a delegation to sub-agents, a Linear sync, or the setup process. |
 | agent-run-operations-rules | Launching, monitoring, and diagnosing long agent and batch runs—pinned launch checkouts, one scheduler per host budget, host-first diagnosis of slowness, validating a metric before reporting it, reading the prompt before blaming a model, same-configuration baselines, delegated-agent hygiene, and partial failure shown at its real scale. Load when running or reporting on multi-agent or batch workloads. |
 | backward-compatibility-rules | Guidelines for maintaining backward compatibility only for real consumers and data from released versions |
 | ci-and-gates-rules | How to wire a quality gate that actually holds—one entry point in two modes, thin workflows backed by tested project-native programs, negative probes, platform and feature coverage, packaged-artifact evidence, and least-privilege job authority |
