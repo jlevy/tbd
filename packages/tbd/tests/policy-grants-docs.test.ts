@@ -492,6 +492,7 @@ describe('the pr-delivery policy delivers requested work as PRs and nothing more
     `${SHORTCUTS}/create-or-update-pr-with-validation-plan.md`,
     `${SHORTCUTS}/stacked-prs.md`,
     `${SHORTCUTS}/delegate-to-subagents.md`,
+    SETUP_TBD,
     'shortcuts/system/skill-baseline.md',
     'shortcuts/system/skill-brief.md',
     'shortcuts/system/skill-minimal.md',

@@ -35,10 +35,12 @@ async function markdownFiles(dir: string): Promise<string[]> {
 
 describe('bundled doc frontmatter', () => {
   it('parses for every guideline, reference, shortcut, and template', async () => {
-    const files = (await Promise.all(KIND_DIRS.map((kind) => markdownFiles(join(DOCS_DIR, kind)))))
-      .flat()
-      .sort();
-    expect(files.length).toBeGreaterThan(100);
+    const perKind = await Promise.all(KIND_DIRS.map((kind) => markdownFiles(join(DOCS_DIR, kind))));
+    // A kind directory that yields no docs must fail rather than pass with nothing checked.
+    KIND_DIRS.forEach((kind, index) => {
+      expect(perKind[index]!.length, kind).toBeGreaterThan(0);
+    });
+    const files = perKind.flat().sort();
     const problems: string[] = [];
     for (const file of files) {
       const name = relative(DOCS_DIR, file);
