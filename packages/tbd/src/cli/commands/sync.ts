@@ -16,8 +16,8 @@ import {
 import { listIssues, writeIssue, type InvalidIssueFile } from '../../file/storage.js';
 import { saveConflictToAttic } from '../../file/attic-entry.js';
 import {
+  describeGitFailure,
   git,
-  GitError,
   gitCommit,
   gitUntrimmed,
   observeRemoteTip,
@@ -33,7 +33,6 @@ import {
   trackingRefspec,
 } from '../../file/git.js';
 import { DATA_SYNC_DIR } from '../../lib/paths.js';
-import { stripControlCharacters } from '../../lib/format-utils.js';
 import {
   printDocSyncDryRun,
   printDocSyncResult,
@@ -97,18 +96,6 @@ export async function findInvalidBeads(dataSyncDir: string): Promise<InvalidIssu
   return invalid;
 }
 
-/** The first line git printed for a failure, safe to quote in one terminal line. */
-function describeGitFailure(error: unknown): string {
-  const text =
-    error instanceof GitError && error.stderr.trim() !== ''
-      ? error.stderr
-      : error instanceof Error
-        ? error.message
-        : String(error);
-  const firstLine = text.trim().split('\n')[0] ?? '';
-  return stripControlCharacters(firstLine).trim();
-}
-
 interface SyncOptions {
   push?: boolean;
   pull?: boolean;
@@ -123,7 +110,7 @@ interface SyncOptions {
 }
 
 interface SyncStatus {
-  /** True only when the remote was read and nothing differs from it. */
+  /** True only when the remote's tip was counted against and nothing differs from it. */
   synced: boolean;
   localChanges: string[];
   remoteChanges: string[];
@@ -132,8 +119,10 @@ interface SyncStatus {
   ahead: number;
   behind: number;
   /**
-   * Whether the remote branch was read. When false, `ahead` and `behind` compare with
-   * the last fetched remote-tracking ref, if there is one.
+   * Whether the remote answered with its branch tip, or that it has no such branch.
+   * When false, `ahead` and `behind` compare with the last fetched remote-tracking ref,
+   * if there is one; they do too, with `synced: false`, when the tip's commits could not
+   * be fetched.
    */
   remoteChecked: boolean;
   /** The data-sync worktree's health; local changes are listed only when `valid`. */
@@ -699,7 +688,13 @@ class SyncHandler extends BaseCommand {
       if (status.behind > 0) {
         console.log(`  ${colors.dim(`↓ ${status.behind}`)} commit(s) behind (to pull)`);
       }
-      if (!status.remoteChecked && status.ahead === 0 && status.behind === 0) {
+      // Not in sync, yet nothing counted: the remote's tip was not available to count.
+      if (
+        status.ahead === 0 &&
+        status.behind === 0 &&
+        status.localChanges.length === 0 &&
+        status.remoteChanges.length === 0
+      ) {
         console.log(`  No commits to push or pull against the last fetched copy`);
       }
 
@@ -768,6 +763,8 @@ class SyncHandler extends BaseCommand {
     // "in sync" for a remote nobody checked is staleness that looks like success.
     const observed = await observeRemoteTip(this.tbdRoot, remote, syncBranch);
     const remoteChecked = observed.status !== 'check-failed';
+    // Whether the counts below are against the remote's actual tip.
+    const remoteCounted = observed.status === 'present' || observed.status === 'absent';
     let remoteTip: string | null = observed.status === 'present' ? observed.tip : null;
     if (observed.status === 'check-failed') {
       const reason = describeGitFailure(observed.error);
@@ -776,6 +773,18 @@ class SyncHandler extends BaseCommand {
           'with the last fetched copy, if any.',
         { remoteChecked: false, reason },
       );
+    } else if (observed.status === 'unfetched') {
+      // The remote answered, so it is not "unreadable": it has commits this clone could
+      // not store to count (a read-only object store, for one).
+      const reason = describeGitFailure(observed.error);
+      this.output.notice(
+        `${remote}/${syncBranch} is at ${observed.tip.slice(0, 7)}, but its commits could ` +
+          `not be fetched to count them (${reason}); ahead and behind compare with the ` +
+          'last fetched copy, if any.',
+        { remoteChecked: true, remoteTip: observed.tip, fetched: false, reason },
+      );
+    }
+    if (!remoteCounted) {
       remoteTip = await this.resolveCommit(`refs/remotes/${remote}/${syncBranch}`);
     }
     const localTip = await this.resolveCommit(`refs/heads/${syncBranch}`);
@@ -802,7 +811,7 @@ class SyncHandler extends BaseCommand {
 
     return {
       synced:
-        remoteChecked &&
+        remoteCounted &&
         localChanges.length === 0 &&
         remoteChanges.length === 0 &&
         ahead === 0 &&

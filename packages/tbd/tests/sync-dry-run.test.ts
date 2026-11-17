@@ -11,7 +11,17 @@
  */
 
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  realpath,
+  rm,
+  utimes,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -537,6 +547,148 @@ describe.skipIf(process.platform === 'win32')('tbd sync --status beside a concur
       expect(sync.status, sync.stderr).toBe(0);
       expect(syncStatus.status, syncStatus.stderr).toBe(0);
       expect(git(fixture.dir, 'merge-base', '--is-ancestor', remoteTip(), localTip())).toBe('');
+    },
+    TIMEOUT_MS,
+  );
+});
+
+/** Everything in `state()` except the object store, which a status may add to. */
+async function stateOutsideObjects(fixture: Fixture) {
+  const current = await state(fixture);
+  const objects = join('.git', 'objects');
+  const repository = Object.fromEntries(
+    Object.entries(current.repository).filter(([path]) => !path.startsWith(objects)),
+  );
+  return { ...current, repository };
+}
+
+/**
+ * Two loose objects under `objects/17`, which with `gc.auto=1` is git's threshold for
+ * `git gc --auto`. A fetch that runs its auto-maintenance then packs every loose ref
+ * into `packed-refs` before it exits (`gc.autoDetach=false` keeps it in the foreground).
+ */
+function armAutoGc(dir: string): void {
+  const format = git(dir, 'rev-parse', '--show-object-format');
+  let written = 0;
+  for (let i = 0; written < 2; i++) {
+    const content = `gc trigger ${i}\n`;
+    const id = createHash(format)
+      .update(`blob ${Buffer.byteLength(content)}\0${content}`)
+      .digest('hex');
+    if (id.startsWith('17')) {
+      execFileSync('git', ['hash-object', '-w', '--stdin'], { cwd: dir, input: content });
+      written++;
+    }
+  }
+  git(dir, 'config', 'gc.auto', '1');
+  git(dir, 'config', 'gc.autoDetach', 'false');
+}
+
+interface StatusJson {
+  synced: boolean;
+  ahead: number;
+  behind: number;
+  remoteChecked: boolean;
+}
+
+// Unlike the race test above, these need no uploadpack wrapper, so they run everywhere.
+describe('tbd sync --status reads the remote as an observer', () => {
+  it(
+    'fetches a commit it lacks without writing outside the object store',
+    async () => {
+      const fixture = await initRepo();
+      const other = cloneRemote(fixture, 'other');
+      runTbd(other, ['create', 'From the other clone']);
+      runTbd(other, ['sync', '--issues']);
+      // A tracked file whose stat no longer matches the index: a refreshing
+      // `git status` would rewrite the worktree's index to record it.
+      const tracked = join(fixture.sharedWorktreePath, '.tbd', 'data-sync', 'mappings', 'ids.yml');
+      await utimes(tracked, new Date('2001-01-01'), new Date('2001-01-01'));
+      armAutoGc(fixture.dir);
+      const before = await stateOutsideObjects(fixture);
+
+      const status = runTbd(fixture.dir, ['sync', '--issues', '--status', '--json']);
+      expect(JSON.parse(status.stdout)).toMatchObject({
+        synced: false,
+        behind: 1,
+        remoteChecked: true,
+      });
+      // No ref, `FETCH_HEAD`, `packed-refs`, reflog, or index changed.
+      expect(await stateOutsideObjects(fixture)).toEqual(before);
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
+    'compares with the exact remote branch, and with an absent one',
+    async () => {
+      const fixture = await initRepo();
+      // `ls-remote` matches a path suffix and may print this decoy first.
+      git(fixture.dir, 'push', '-q', 'origin', 'main:refs/heads/a/refs/heads/tbd-sync');
+      const json = () =>
+        JSON.parse(
+          runTbd(fixture.dir, ['sync', '--issues', '--status', '--json']).stdout,
+        ) as StatusJson;
+      expect(json()).toMatchObject({ synced: true, ahead: 0, behind: 0, remoteChecked: true });
+
+      // The remote answers without the branch: every local commit is still to push.
+      // First with only the decoy left (`ls-remote` exits 0), then with nothing (exit 2).
+      git(fixture.origin, 'update-ref', '-d', 'refs/heads/tbd-sync');
+      const localCommits = Number(git(fixture.dir, 'rev-list', '--count', 'refs/heads/tbd-sync'));
+      const absent = { synced: false, ahead: localCommits, behind: 0, remoteChecked: true };
+      expect(json()).toMatchObject(absent);
+      git(fixture.origin, 'update-ref', '-d', 'refs/heads/a/refs/heads/tbd-sync');
+      expect(json()).toMatchObject(absent);
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
+    'is not in sync with a remote it could not read, even with nothing pending',
+    async () => {
+      const fixture = await initRepo();
+      git(fixture.dir, 'remote', 'set-url', 'origin', join(fixture.origin, 'missing.git'));
+
+      const json = runTbd(fixture.dir, ['sync', '--issues', '--status', '--json']);
+      expect(JSON.parse(json.stdout)).toMatchObject({
+        synced: false,
+        ahead: 0,
+        behind: 0,
+        remoteChecked: false,
+      });
+      const text = runTbd(fixture.dir, ['sync', '--issues', '--status']);
+      expect(text.stdout).toContain('No commits to push or pull against the last fetched copy');
+      expect(text.stdout).not.toContain('Repository is in sync');
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
+    'says the remote tip is known when its commits cannot be fetched',
+    async () => {
+      const fixture = await initRepo();
+      const other = cloneRemote(fixture, 'other');
+      runTbd(other, ['create', 'From the other clone']);
+      runTbd(other, ['sync', '--issues']);
+      // A setting only `git fetch` reads: `ls-remote` answers, the commit fetch fails.
+      git(fixture.dir, 'config', 'fetch.output', 'not-a-format');
+
+      const json = runTbd(fixture.dir, ['sync', '--issues', '--status', '--json']);
+      expect(JSON.parse(json.stdout)).toMatchObject({ synced: false, remoteChecked: true });
+      const notice = json.stderr
+        .split('\n')
+        .filter((line) => line.startsWith('{'))
+        .map((line) => JSON.parse(line) as Record<string, unknown>)
+        .find((entry) => entry.fetched === false);
+      expect(notice).toMatchObject({
+        remoteChecked: true,
+        remoteTip: git(fixture.origin, 'rev-parse', 'refs/heads/tbd-sync'),
+        reason: expect.stringMatching(/^fatal: .*not-a-format/) as string,
+      });
+      const text = runTbd(fixture.dir, ['sync', '--issues', '--status']);
+      expect(text.stdout).toContain('but its commits could not be fetched to count them');
+      expect(text.stdout).not.toContain('Could not read');
+      expect(text.stdout).not.toContain('Repository is in sync');
     },
     TIMEOUT_MS,
   );

@@ -12,6 +12,7 @@
 import { execFile } from 'node:child_process';
 
 import { gitSafeEnv } from '../lib/git-env.js';
+import { stripControlCharacters } from '../lib/format-utils.js';
 import { mkdir, mkdtemp } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { basename, dirname, join, normalize } from 'node:path';
@@ -1512,19 +1513,60 @@ export async function probeRemoteBranch(
   }
 }
 
-/** The tip commit in `git ls-remote` output for one branch. */
+/**
+ * The tip in `git ls-remote` output whose ref is exactly `refs/heads/<branch>`, or null.
+ * `ls-remote` matches its pattern as a path suffix, so a branch such as
+ * `a/refs/heads/<branch>` also matches, and git may print it first.
+ */
+export function findRemoteTip(output: string, branch: string): string | null {
+  const ref = `refs/heads/${branch}`;
+  for (const line of output.split('\n')) {
+    const [tip, name] = line.trim().split(/\s+/);
+    if (name === ref && tip && /^[0-9a-f]{40,64}$/.test(tip)) {
+      return tip;
+    }
+  }
+  return null;
+}
+
+/** The tip commit in `git ls-remote` output for one branch; throws when it is absent. */
 export function parseRemoteTip(output: string, remote: string, branch: string): string {
-  const [tip] = output.trim().split(/\s+/);
-  if (!tip || !/^[0-9a-f]{40,64}$/.test(tip)) {
+  const tip = findRemoteTip(output, branch);
+  if (!tip) {
     throw new Error(`Remote sync branch not found: ${remote}/${branch}`);
   }
   return tip;
 }
 
+/**
+ * The most informative line git printed for a failure, safe to quote in one terminal
+ * line: the first `fatal:` or `error:` line, else the last non-empty line. git and ssh
+ * often print warnings or a banner before the cause.
+ */
+export function describeGitFailure(error: unknown): string {
+  const text =
+    error instanceof GitError && error.stderr.trim() !== ''
+      ? error.stderr
+      : error instanceof Error
+        ? error.message
+        : String(error);
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => stripControlCharacters(line).trim())
+    .filter((line) => line !== '');
+  const cause = lines.find((line) => /^(?:fatal|error):/iu.test(line));
+  return cause ?? lines.at(-1) ?? '';
+}
+
 /** What a ref-free read of a remote branch found. */
 export type RemoteTipObservation =
+  /** The tip is known and its commit is here. */
   | { status: 'present'; tip: string }
+  /** The remote answered and has no such branch. */
   | { status: 'absent' }
+  /** The remote answered with its tip, but that commit could not be fetched. */
+  | { status: 'unfetched'; tip: string; error: unknown }
+  /** The remote could not be read. */
   | { status: 'check-failed'; error: unknown };
 
 /**
@@ -1536,26 +1578,24 @@ export type RemoteTipObservation =
  *
  * The tip comes from `ls-remote`. When its commit is missing, a destination-less fetch
  * of that object id brings it; `--refmap=` keeps git from also updating the configured
- * remote-tracking ref, as `tbd watch` does.
+ * remote-tracking ref, as `tbd watch` does, and `--no-auto-maintenance` keeps it from
+ * starting `git gc --auto`, which packs refs and rewrites reflogs in the background.
  */
 export async function observeRemoteTip(
   repoDir: string,
   remote: string,
   branch: string,
 ): Promise<RemoteTipObservation> {
-  let tip: string;
+  let output: string;
   try {
-    const output = await git(
-      '-C',
-      repoDir,
-      'ls-remote',
-      '--exit-code',
-      remote,
-      `refs/heads/${branch}`,
-    );
-    tip = parseRemoteTip(output, remote, branch);
+    output = await git('-C', repoDir, 'ls-remote', '--exit-code', remote, `refs/heads/${branch}`);
   } catch (error) {
     return exitCodeOf(error) === 2 ? { status: 'absent' } : { status: 'check-failed', error };
+  }
+  // Exit 0 with only suffix matches (`a/refs/heads/<branch>`) is still an absent branch.
+  const tip = findRemoteTip(output, branch);
+  if (!tip) {
+    return { status: 'absent' };
   }
   try {
     await git('-C', repoDir, 'cat-file', '-e', `${tip}^{commit}`);
@@ -1570,13 +1610,14 @@ export async function observeRemoteTip(
       'fetch',
       '--no-write-fetch-head',
       '--no-tags',
+      '--no-auto-maintenance',
       '--refmap=',
       remote,
       tip,
     );
     return { status: 'present', tip };
   } catch (error) {
-    return { status: 'check-failed', error };
+    return { status: 'unfetched', tip, error };
   }
 }
 

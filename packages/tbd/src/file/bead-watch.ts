@@ -135,6 +135,9 @@ export function createGitWatchDependencies(
           'fetch',
           '--no-write-fetch-head',
           '--no-tags',
+          // A watcher's fetch must not start `git gc --auto`, which packs refs and
+          // rewrites reflogs in a process that outlives the poll.
+          '--no-auto-maintenance',
           // Git can still apply remote.<name>.fetch beside an explicit refspec;
           // clearing the refmap keeps configured remote-tracking refs untouched.
           '--refmap=',
