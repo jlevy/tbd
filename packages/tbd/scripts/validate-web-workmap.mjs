@@ -483,11 +483,12 @@ try {
     { cwd: repoDir, stdio: ['ignore', 'pipe', 'pipe'] },
   );
   const descriptor = await waitForDescriptor(server);
-  invariant(
-    descriptor.url === `http://127.0.0.1:${port}/?view=workmap&group=area%3A`,
-    `Unexpected descriptor URL ${descriptor.url}`,
-  );
   const origin = `http://127.0.0.1:${port}`;
+  invariant(
+    descriptor.url === origin &&
+      descriptor.pageUrl === `${origin}/?view=workmap&group=area%3A`,
+    `Unexpected descriptor URLs ${descriptor.url} and ${descriptor.pageUrl}`,
+  );
   const served = await (
     await fetch(`${origin}/api/board?order=updated:desc&order=priority:asc&pretty=1`)
   ).json();
@@ -522,7 +523,7 @@ try {
   const [devtoolsPort, browserPath] = (await readFile(activePortFile, 'utf8')).trim().split('\n');
   cdp = await Cdp.connect(`ws://127.0.0.1:${devtoolsPort}${browserPath}`);
 
-  const page = await Page.open(cdp, descriptor.url, undefined);
+  const page = await Page.open(cdp, descriptor.pageUrl, undefined);
   await page.evaluate(PROBE);
   const initial = await measure(
     page,

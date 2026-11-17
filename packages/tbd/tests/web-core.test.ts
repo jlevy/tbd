@@ -1133,6 +1133,15 @@ describe('board view choice in the page address', () => {
     });
   });
 
+  it('treats a blank grouping as no grouping, from the address and from storage', () => {
+    expect(
+      resolveBoardViewChoice('?view=workmap&group=%20', { view: null, group: 'area:' }),
+    ).toEqual({ view: 'workmap', group: 'area:' });
+    expect(resolveBoardViewChoice('?view=workmap&group=+%09', { view: null, group: '  ' })).toEqual(
+      { view: 'workmap', group: '' },
+    );
+  });
+
   it('writes each in-page choice into the address so a reload or a shared link restores it', () => {
     // Storage disagrees with every choice, as in a fresh profile or another viewer's.
     const otherViewer = { view: 'list', group: 'other:' };

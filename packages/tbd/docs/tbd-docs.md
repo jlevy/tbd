@@ -836,7 +836,7 @@ tbd web                         # Serve on the first free port in 7777-7786
 tbd web --open                  # Open the page after it is HTTP-ready
 tbd web ../another-repo --open  # View a repository from another directory
 tbd web --port 9000             # Bind exactly 127.0.0.1:9000
-tbd web --group-prefix area:    # Open the Workmap grouped by area:* labels
+tbd web --group-prefix area:    # Link the page to the Workmap grouped by area:
 tbd --json web                  # Print the machine-readable startup descriptor
 tbd --dry-run web               # Resolve the repo and port without binding
 ```
@@ -858,6 +858,12 @@ Options:
 - `--group-prefix <prefix>` - Group Workmap cards by the value of labels with this
   prefix, such as `area:` for `area:caching`. It implies `--view workmap` unless
   `--view` says otherwise.
+  A blank prefix is a usage error.
+
+The view options change only the page link: the startup output prints it as `Page:`,
+`--open` opens it, and the `--json` descriptor reports it as `pageUrl`. The descriptor’s
+`url` is always the server’s base URL (`http://127.0.0.1:<port>`), the root that API
+callers build on.
 
 The Workmap shows the same filtered and sorted rows as the list, as cards grouped by the
 value each bead’s labels state under a prefix your labels already use.

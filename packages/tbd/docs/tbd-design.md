@@ -4742,10 +4742,11 @@ The list’s 5,000-row page window bounds the mounted cards in the projection’
 order. Cards use the row disclosure button and the same delegated toggle and focus
 restoration; renders reuse keyed card nodes, rebuild a card only when what it shows
 changes, and move the fewest nodes.
-`--view` and `--group-prefix` fold the choice into the printed and opened URL. Each
-in-page view or grouping choice replaces the page address with the view and the grouping
-in effect, and an address wins over the stored preference at startup, so reloading or
-sharing the address reproduces the choice.
+`--view` and `--group-prefix` fold the choice into the printed and opened page link,
+which the `--json` descriptor reports as `pageUrl`; its `url` stays the server’s base.
+Each in-page view or grouping choice replaces the page address with the view and the
+grouping in effect, and an address wins over the stored preference at startup, so
+reloading or sharing the address reproduces the choice.
 These component and semantic rules are maintained in the co-located design-system
 inventory in `src/web/styles.css`. Status-panel field names use standard-size sans
 chrome and literal values use standard-size monospace; neither side shrinks merely

@@ -9,6 +9,7 @@ import {
   detectLabelPrefixes,
   formatDeltaValue,
   formatRelativeAge,
+  isBlankGroupPrefix,
   isDefaultBoardSort,
   keyedOrderKeepers,
   labelSearchValueForRender,
@@ -1739,7 +1740,7 @@ function renderWorkmap(view: ClientView, board: BoardResponse): void {
     focusBeadControl(workmapCards.get(focus.beadId)?.element, focus);
   }
 
-  const nothingToGroup = board.rows.length > 0 && prefix === '';
+  const nothingToGroup = board.rows.length > 0 && isBlankGroupPrefix(prefix);
   elements.workmapEmpty.hidden = board.rows.length > 0 && !nothingToGroup;
   elements.workmapEmpty.textContent = nothingToGroup
     ? 'No label prefixes to group by. The workmap groups beads by labels like area:caching — any prefix:value convention your project already uses.'

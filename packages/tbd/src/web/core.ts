@@ -414,7 +414,7 @@ export function projectWorkmap(
   prefix: string,
 ): WorkmapProjectionView {
   const projection: WorkmapProjectionView = { prefix, groups: [], conflicted: [], ungrouped: [] };
-  if (prefix.trim() === '') {
+  if (isBlankGroupPrefix(prefix)) {
     projection.ungrouped = [...rows];
     return projection;
   }
@@ -467,13 +467,22 @@ export interface StoredBoardViewChoice {
   group: string | null;
 }
 
+/**
+ * Whether a grouping prefix states nothing to group by. The one definition the
+ * projection, the page window, the page, and the address all apply, so a blank value
+ * from any source means "no grouping chosen" everywhere.
+ */
+export function isBlankGroupPrefix(prefix: string): boolean {
+  return prefix.trim() === '';
+}
+
 function knownBoardViewMode(value: string | null): BoardViewModeView | null {
   return BOARD_VIEW_MODES.find((mode) => mode === value) ?? null;
 }
 
 /**
  * Resolve the board view a page load starts in. An explicit address wins over the stored
- * preference, so an opened or shared link shows what it names; an absent, empty, or
+ * preference, so an opened or shared link shows what it names; an absent, blank, or
  * unknown value falls through to storage, then to the list with no chosen grouping.
  */
 export function resolveBoardViewChoice(
@@ -482,7 +491,7 @@ export function resolveBoardViewChoice(
 ): BoardViewChoiceView {
   const query = new URLSearchParams(search);
   const group = [query.get(WORKMAP_GROUP_PARAM), stored.group].find(
-    (value): value is string => value !== null && value !== '',
+    (value): value is string => value !== null && !isBlankGroupPrefix(value),
   );
   return {
     view:
@@ -499,7 +508,7 @@ export function resolveBoardViewChoice(
 export function boardViewSearch(search: string, choice: BoardViewChoiceView): string {
   const query = new URLSearchParams(search);
   query.set(BOARD_VIEW_PARAM, choice.view);
-  if (choice.group === '') {
+  if (isBlankGroupPrefix(choice.group)) {
     query.delete(WORKMAP_GROUP_PARAM);
   } else {
     query.set(WORKMAP_GROUP_PARAM, choice.group);
@@ -546,7 +555,7 @@ export function paginateWorkmap(
   requestedPageIndex: number,
 ): WorkmapPageView {
   const buckets: WorkmapSectionView[] = [];
-  if (projection.prefix.trim() !== '') {
+  if (!isBlankGroupPrefix(projection.prefix)) {
     for (const group of projection.groups) {
       buckets.push({
         key: `group:${group.value}`,

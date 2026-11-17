@@ -69,6 +69,24 @@ $ node run-built-cli.mjs --dry-run --json web --port 17899 | jq -c "{url,port,sy
 ? 0
 ```
 
+## View options change only the page link
+
+`url` stays the server’s base URL, which API callers build on; `pageUrl` opens the
+requested view.
+
+```console
+$ node run-built-cli.mjs --dry-run --json web --port 17899 --group-prefix area: | jq -c "{url,pageUrl}"
+{"url":"http://127.0.0.1:17899","pageUrl":"http://127.0.0.1:17899/?view=workmap&group=area%3A"}
+? 0
+```
+
+```console
+$ node run-built-cli.mjs --dry-run web --port 17899 --view workmap | grep -E "URL:|Page:"
+[..] URL:        http://127.0.0.1:17899
+[..] Page:       http://127.0.0.1:17899/?view=workmap
+? 0
+```
+
 ## Human-readable Ownership Boundary
 
 ```console
@@ -89,5 +107,11 @@ error: unknown option '--interval'
 ```console
 $ node run-built-cli.mjs web --port nope 2>&1
 Error: --port must be an integer between 1 and 65535
+? 2
+```
+
+```console
+$ node run-built-cli.mjs web --group-prefix " " 2>&1
+Error: --group-prefix must name a label prefix, such as area:
 ? 2
 ```
