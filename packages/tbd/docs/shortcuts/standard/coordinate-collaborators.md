@@ -61,6 +61,11 @@ tbd start <id> --as <distinct-name> --json
 tbd sync                             # Publish this claim to the other clones
 ```
 
+`tbd sync --pull` only fast-forwards.
+In a clone that has the sync remote, it fails with `Failed to pull` when unsynced local
+bead writes overlap incoming ones, for example after a `tbd create` in each clone; run
+`tbd sync` instead, which commits, merges, and pushes.
+
 Check the output of each step:
 
 1. **Before claiming,** read `status` and `delegate` from `tbd show <id> --json`. Stop
