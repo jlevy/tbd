@@ -288,7 +288,11 @@ describe('tbd sync --dry-run --json prints one result document', () => {
       }
 
       const docs = runTbd(fixture.dir, ['docs', 'sync', '--dry-run', '--json']);
-      expect(JSON.parse(docs.stdout)).toMatchObject({ dryRun: true, configChanged: true });
+      // The same shape as the `docs` part of `tbd sync --dry-run --json`.
+      expect(JSON.parse(docs.stdout)).toMatchObject({
+        dryRun: true,
+        docs: { added: expect.any(Number) as number, configChanged: true },
+      });
       expect(await state(fixture)).toEqual(before);
     },
     TIMEOUT_MS,

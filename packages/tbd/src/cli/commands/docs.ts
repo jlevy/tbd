@@ -613,8 +613,9 @@ class DocsSyncHandler extends BaseCommand {
         const result = await syncDocsWithDefaults(tbdRoot, { dryRun: true });
         const preview = printDocSyncDryRun(this.output, result);
         if (this.output.isJson) {
-          // One stdout document, also when nothing would change.
-          this.output.dryRun(preview.action, preview.counts);
+          // One stdout document, also when nothing would change, shaped like the
+          // `docs` part of `tbd sync --dry-run --json`.
+          this.output.dryRun(preview.action, { docs: preview.counts });
         }
         return;
       }
