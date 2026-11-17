@@ -437,6 +437,10 @@ describe('the pr-delivery policy delivers requested work as PRs and nothing more
     /`pr-delivery(?:: |` is `)autonomous`|`pr-delivery`: under `autonomous`/u;
   /** The guideline's precondition: `autonomous` acts only with `github-editing: granted`. */
   const PRECONDITION = /`github-editing(?:: granted`|` (?:is )?granted)/u;
+  /** A delivery shape that builds a stack. */
+  const STACKED = /\bstack(?:ed)?\b/u;
+  /** The `github-stacked-prs` condition, as the stacked-PR documents state it. */
+  const STACKED_CONDITION = /`github-stacked-prs` (?:is (?:not )?granted|grant(?:ed)?\b)/u;
 
   /** Every sentence of `doc` that states the autonomous condition, each of which must carry the precondition. */
   function autonomousStatements(doc: string): string[] {
@@ -503,6 +507,24 @@ describe('the pr-delivery policy delivers requested work as PRs and nothing more
     expect(statements.length, rel).toBeGreaterThan(0);
     for (const statement of statements) {
       expect(statement, rel).toMatch(PRECONDITION);
+    }
+  });
+
+  // A sentence that gives the stacked delivery shape inline also names the grant that
+  // permits a stack, as the guideline's `github-stacked-prs` rules require. stacked-prs
+  // states the shape in the sentence after its autonomous one, skill-brief and
+  // skill-minimal defer it to "those rules", and delegate-to-subagents describes a brief.
+  it.each([
+    'the generated tbd block',
+    `${SHORTCUTS}/create-or-update-pr-simple.md`,
+    `${SHORTCUTS}/create-or-update-pr-with-validation-plan.md`,
+    'shortcuts/system/skill-baseline.md',
+  ])('%s conditions a stacked delivery on github-stacked-prs', async (rel) => {
+    const doc = rel === 'the generated tbd block' ? getCodexTbdSection() : await readDoc(rel);
+    const stacked = autonomousStatements(doc).filter((statement) => STACKED.test(statement));
+    expect(stacked.length, rel).toBeGreaterThan(0);
+    for (const statement of stacked) {
+      expect(statement, rel).toMatch(STACKED_CONDITION);
     }
   });
 

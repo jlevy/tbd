@@ -183,11 +183,14 @@ pnpm --filter get-tbd exec vitest run \
   `stacked-prs`, both `create-or-update-pr` shortcuts, `setup-github-cli`, and the
   generated tbd block state the `github-stacked-prs` condition.
   The generated tbd block, both `create-or-update-pr` shortcuts, `stacked-prs`,
-  `delegate-to-subagents`, and every skill tier state the `pr-delivery: autonomous`
-  condition, each time in a sentence that also requires `github-editing` granted; the
-  README, CLI manual, and design doc name `github-editing` wherever they summarize
-  `autonomous`; and the guideline’s PR Delivery section states what it does not cover:
-  merging, review requirements, and repository settings, secrets, and workflows.
+  `delegate-to-subagents`, `setup-tbd`, and every skill tier state the
+  `pr-delivery: autonomous` condition, each time in a sentence that also requires
+  `github-editing` granted; where that sentence gives the stacked delivery shape, as in
+  the generated tbd block, both `create-or-update-pr` shortcuts, and `skill-baseline`,
+  it also names the `github-stacked-prs` condition; the README, CLI manual, and design
+  doc name `github-editing` wherever they summarize `autonomous`; and the guideline’s PR
+  Delivery section states what it does not cover: merging, review requirements, and
+  repository settings, secrets, and workflows.
   `tests/policy-grants-docs.test.ts` compares the guideline’s tables, custom-value
   examples, recommended set, and example block with the schema and renderer, and checks
   those links, both conditions and the `github-editing` precondition, the PR Delivery

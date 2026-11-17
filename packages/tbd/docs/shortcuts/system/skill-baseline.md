@@ -229,9 +229,10 @@ actions.
   delegation. `pr-delivery` is opt-in.
   Under `pr-delivery: autonomous` with `github-editing` granted, a request for a change
   is also the request for its PR, delivered without asking, stacked when it builds on an
-  unmerged PR and otherwise standalone; without `github-editing`, ask before the first
-  push. Under `ask`, the unanswered value, ask once before opening a PR the request did
-  not ask for. For values, coverage, and recording grants, run
+  unmerged PR and `github-stacked-prs` is granted (or the user asked for a stack), and
+  otherwise standalone; without `github-editing`, ask before the first push.
+  Under `ask`, the unanswered value, ask once before opening a PR the request did not
+  ask for. For values, coverage, and recording grants, run
   `tbd guidelines agent-policy-grants`.
 - **Without the grant an action needs,** ask once, before the first action it covers.
 - **A tool-permission allow rule grants only the operations it allows.** An allow rule
