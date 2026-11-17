@@ -21,8 +21,10 @@ import {
   POLICY_BLOCK_PROSE,
   POLICY_END_MARKER,
   POLICY_NAMES,
+  inertPolicyCombinations,
   parsePolicyBlock,
   renderPolicyBlock,
+  resolvePolicyStatuses,
   withPolicyBlock,
 } from '../src/lib/policy-grants.js';
 import { CURRENT_FORMAT } from '../src/lib/tbd-format.js';
@@ -654,6 +656,44 @@ describe('tbd policy grant, revoke, and set', () => {
         answered: true,
         value: 'none',
       });
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+});
+
+describe('policy writes report grants that cannot take effect', () => {
+  it(
+    'warns as tbd doctor does whenever the written block leaves pr-delivery inert',
+    async () => {
+      const dir = await createRepo();
+      const agentsPath = join(dir, 'AGENTS.md');
+      const record = (...args: string[]) => {
+        const result = runTbd(dir, args);
+        expect(result.status, `${args.join(' ')}: ${result.stderr}`).toBe(0);
+        return result;
+      };
+
+      const dry = record('--dry-run', 'policy', 'grant', 'pr-delivery');
+      expect(dry.stdout).toContain('[DRY-RUN] Would record pr-delivery: autonomous');
+      const granted = record('policy', 'grant', 'pr-delivery');
+      expect(granted.stdout).toContain('Recorded pr-delivery: autonomous');
+      // The one wording source is the library doctor reports from.
+      const [inert, ...rest] = inertPolicyCombinations(
+        resolvePolicyStatuses(parsePolicyBlock(await readFile(agentsPath, 'utf-8'))),
+      );
+      expect(inert).toContain('pr-delivery: autonomous needs github-editing: granted');
+      expect(rest).toEqual([]);
+      expect(dry.stderr).toContain(inert);
+      expect(granted.stderr).toContain(inert);
+      expect(record('policy', 'set', 'pr-delivery', 'autonomous').stderr).toContain(inert);
+
+      // Granting github-editing makes the opt-in effective; revoking it makes it inert again.
+      expect(record('policy', 'grant', 'github-editing').stderr).not.toContain('needs');
+      expect(record('policy', 'revoke', 'github-editing').stderr).toContain(inert);
+      expect(record('--json', 'policy', 'grant', 'subagents').stderr).toContain(
+        JSON.stringify({ warning: inert }),
+      );
+      expect(record('policy', 'revoke', 'pr-delivery').stderr).not.toContain('needs');
     },
     CLI_TEST_TIMEOUT_MS,
   );

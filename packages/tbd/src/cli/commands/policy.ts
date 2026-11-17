@@ -35,11 +35,13 @@ import {
   describeGrantStamp,
   displayPolicyValue,
   diffPolicyStatuses,
+  inertPolicyCombinations,
   isKnownPolicy,
   parsePolicyBlock,
   readEffectiveGrants,
   readWorkingTreeGrants,
   renderPolicyBlock,
+  resolvePolicyStatuses,
   upsertGrant,
   withPolicyBlock,
 } from '../../lib/policy-grants.js';
@@ -271,6 +273,8 @@ class PolicyRecordHandler extends BaseCommand {
     const agentsPath = join(tbdRoot, AGENTS_MD_REL);
 
     const recorded = todayDate();
+    // Grants the written block records but cannot take effect, in doctor's wording.
+    let inert: string[] = [];
     // Serialize the entire read/compute/write, including setup's recommended grants.
     // Atomic publication alone cannot prevent a concurrent revocation being lost.
     const update = async () => {
@@ -316,6 +320,7 @@ class PolicyRecordHandler extends BaseCommand {
         }
         throw error;
       }
+      inert = inertPolicyCombinations(resolvePolicyStatuses(parsePolicyBlock(updated)));
 
       if (this.checkDryRun(`Would record ${policyName}: ${value} in ${AGENTS_MD_REL}`)) {
         return;
@@ -333,6 +338,7 @@ class PolicyRecordHandler extends BaseCommand {
     }
 
     if (this.ctx.dryRun) {
+      this.warnInert(inert);
       return;
     }
 
@@ -345,6 +351,14 @@ class PolicyRecordHandler extends BaseCommand {
         console.log(`  ${effectHint} \`tbd policy show\` reports effective grants.`);
       },
     );
+    this.warnInert(inert);
+  }
+
+  /** The warning `tbd doctor` gives for each recorded grant that cannot take effect. */
+  private warnInert(inert: readonly string[]): void {
+    for (const line of inert) {
+      this.output.warn(line);
+    }
   }
 }
 

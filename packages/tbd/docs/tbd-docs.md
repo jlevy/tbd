@@ -1111,7 +1111,8 @@ asks once before opening a PR the request did not ask for, and `autonomous` (wha
 `grant` records) delivers requested work as a PR without asking, as a layer on a
 GitHub-native stack when it builds on an unmerged PR and otherwise standalone.
 It needs `github-editing: granted`, authorizes no merge, and changes no review
-requirement.
+requirement. When a write leaves `autonomous` without that grant, `grant`, `revoke`, and
+`set` print the warning `tbd doctor` reports.
 
 ```bash
 tbd policy                                  # Same as `tbd policy show`
