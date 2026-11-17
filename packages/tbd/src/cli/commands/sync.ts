@@ -574,48 +574,6 @@ class SyncHandler extends BaseCommand {
     });
   }
 
-  /**
-   * Show doc sync result after sync.
-   */
-  private showDocSyncResult(result: SyncDocsResult): void {
-    const hasChanges =
-      result.added.length > 0 ||
-      result.updated.length > 0 ||
-      result.removed.length > 0 ||
-      result.pruned.length > 0;
-
-    if (!hasChanges) {
-      this.output.success('Docs up to date');
-      return;
-    }
-
-    // Build summary string
-    const parts: string[] = [];
-    if (result.added.length > 0) {
-      parts.push(`+${result.added.length}`);
-    }
-    if (result.updated.length > 0) {
-      parts.push(`~${result.updated.length}`);
-    }
-    if (result.removed.length > 0) {
-      parts.push(`-${result.removed.length}`);
-    }
-
-    if (parts.length > 0) {
-      this.output.success(`Synced docs: ${parts.join(' ')} doc(s)`);
-    }
-
-    // Report pruned entries
-    if (result.pruned.length > 0) {
-      this.output.info(`Removed ${result.pruned.length} stale config entry/entries`);
-    }
-
-    // Report errors
-    for (const err of result.errors) {
-      this.output.warn(`Doc sync error: ${err.path}: ${err.error}`);
-    }
-  }
-
   private async showIssueStatus(syncBranch: string, remote: string): Promise<void> {
     const status = await this.getSyncStatus(syncBranch, remote);
 

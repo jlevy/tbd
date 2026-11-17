@@ -24,6 +24,7 @@ import {
   integrationFormatNumber,
   parseManagedIntegrationFormat,
 } from '../cli/lib/managed-artifact.js';
+import { stripControlCharacters } from './format-utils.js';
 import { AGENTS_MD_REL, AGENT_INTEGRATION_FORMAT } from './integration-paths.js';
 import { tbdUpgradeAdvice } from './install-advice.js';
 
@@ -1368,7 +1369,7 @@ const POLICY_VALUE_DISPLAY_MAX = 60;
  * untrusted part and not on the explanation around it.
  */
 export function displayPolicyValue(value: string, maxLength = POLICY_VALUE_DISPLAY_MAX): string {
-  const stripped = value.replace(/[\p{Cc}\p{Cf}]/gu, '');
+  const stripped = stripControlCharacters(value);
   if (stripped.length <= maxLength) {
     return stripped;
   }

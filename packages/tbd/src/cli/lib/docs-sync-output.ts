@@ -10,6 +10,68 @@ import type { SyncDocsResult } from '../../file/doc-sync.js';
 import { FORK_DIR } from '../../lib/paths.js';
 import { readForkManifest } from '../../file/fork-manifest.js';
 import { computeForkDriftSummary } from '../../file/doc-fork.js';
+import { stripControlCharacters } from '../../lib/format-utils.js';
+
+/** The counts a docs-cache sync reports, and carries in `--json` output. */
+export interface DocSyncCounts {
+  added: number;
+  updated: number;
+  removed: number;
+  pruned: number;
+  configChanged: boolean;
+}
+
+/** What a docs-cache sync would change, for a dry run. */
+export interface DocSyncPreview {
+  /** The dry-run line, such as `Would sync docs: +1 ~1 doc(s)`, or `Docs up to date`. */
+  action: string;
+  /** Whether a real sync would write anything. */
+  pending: boolean;
+  counts: DocSyncCounts;
+}
+
+export function docSyncCounts(result: SyncDocsResult): DocSyncCounts {
+  return {
+    added: result.added.length,
+    updated: result.updated.length,
+    removed: result.removed.length,
+    pruned: result.pruned.length,
+    configChanged: result.configChanged,
+  };
+}
+
+/**
+ * The `+N ~N -N` doc counts, or `''` when no doc changes. One helper for the dry run
+ * and the real sync, so the preview reports the counts the real run prints.
+ */
+function docChangeSummary(result: SyncDocsResult): string {
+  const counts = [
+    ['+', result.added.length],
+    ['~', result.updated.length],
+    ['-', result.removed.length],
+  ] as const;
+  return counts
+    .filter(([, count]) => count > 0)
+    .map(([sign, count]) => `${sign}${count}`)
+    .join(' ');
+}
+
+/**
+ * Doc paths and error text come from `.tbd/config.yml` and the doc sources, which a
+ * dry run may be reading in a repository the user does not yet trust: print them on
+ * one line with control and format characters removed.
+ */
+function displayDocSyncText(text: string): string {
+  return stripControlCharacters(text.replace(/[\r\n\t]+/gu, ' '));
+}
+
+function printDocSyncErrors(output: OutputManager, result: SyncDocsResult): void {
+  for (const err of result.errors) {
+    output.warn(
+      `Doc sync error: ${displayDocSyncText(err.path)}: ${displayDocSyncText(err.error)}`,
+    );
+  }
+}
 
 /** Print the result of a docs-cache sync (writes applied). */
 export function printDocSyncResult(output: OutputManager, result: SyncDocsResult): void {
@@ -24,28 +86,16 @@ export function printDocSyncResult(output: OutputManager, result: SyncDocsResult
     return;
   }
 
-  const parts: string[] = [];
-  if (result.added.length > 0) {
-    parts.push(`+${result.added.length}`);
-  }
-  if (result.updated.length > 0) {
-    parts.push(`~${result.updated.length}`);
-  }
-  if (result.removed.length > 0) {
-    parts.push(`-${result.removed.length}`);
-  }
-
-  if (parts.length > 0) {
-    output.success(`Synced docs: ${parts.join(' ')} doc(s)`);
+  const summary = docChangeSummary(result);
+  if (summary) {
+    output.success(`Synced docs: ${summary} doc(s)`);
   }
 
   if (result.pruned.length > 0) {
     output.info(`Removed ${result.pruned.length} stale config entry/entries`);
   }
 
-  for (const err of result.errors) {
-    output.warn(`Doc sync error: ${err.path}: ${err.error}`);
-  }
+  printDocSyncErrors(output, result);
 }
 
 /** Print what a docs-cache sync would change (dry-run / status view). */
@@ -84,20 +134,12 @@ export function printDocSyncStatus(output: OutputManager, result: SyncDocsResult
   }
 }
 
-/**
- * Print what a docs-cache sync would write, as dry-run output: the same counts
- * `printDocSyncResult` reports after a real sync.
- */
-export function printDocSyncDryRun(output: OutputManager, result: SyncDocsResult): void {
-  const counts = [
-    ['+', result.added.length],
-    ['~', result.updated.length],
-    ['-', result.removed.length],
-  ] as const;
-  const docs = counts.filter(([, count]) => count > 0).map(([sign, count]) => `${sign}${count}`);
+/** What a docs-cache sync would write, as `printDocSyncResult` would then report it. */
+export function previewDocSync(result: SyncDocsResult): DocSyncPreview {
   const changes: string[] = [];
-  if (docs.length > 0) {
-    changes.push(`${docs.join(' ')} doc(s)`);
+  const summary = docChangeSummary(result);
+  if (summary) {
+    changes.push(`${summary} doc(s)`);
   }
   if (result.pruned.length > 0) {
     changes.push(`remove ${result.pruned.length} stale config entry/entries`);
@@ -105,21 +147,22 @@ export function printDocSyncDryRun(output: OutputManager, result: SyncDocsResult
   if (result.configChanged) {
     changes.push('update docs_cache in .tbd/config.yml');
   }
+  return {
+    action: changes.length > 0 ? `Would sync docs: ${changes.join('; ')}` : 'Docs up to date',
+    pending: changes.length > 0,
+    counts: docSyncCounts(result),
+  };
+}
 
-  if (changes.length === 0) {
-    output.success('Docs up to date');
+/** Print what a docs-cache sync would write, as dry-run output. */
+export function printDocSyncDryRun(output: OutputManager, result: SyncDocsResult): void {
+  const preview = previewDocSync(result);
+  if (preview.pending) {
+    output.dryRun(preview.action, preview.counts);
   } else {
-    output.dryRun(`Would sync docs: ${changes.join('; ')}`, {
-      added: result.added.length,
-      updated: result.updated.length,
-      removed: result.removed.length,
-      pruned: result.pruned.length,
-      configChanged: result.configChanged,
-    });
+    output.success(preview.action);
   }
-  for (const err of result.errors) {
-    output.warn(`Doc sync error: ${err.path}: ${err.error}`);
-  }
+  printDocSyncErrors(output, result);
 }
 
 /**

@@ -6,7 +6,11 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { printDocSyncDryRun, printDocSyncStatus } from '../src/cli/lib/docs-sync-output.js';
+import {
+  printDocSyncDryRun,
+  printDocSyncResult,
+  printDocSyncStatus,
+} from '../src/cli/lib/docs-sync-output.js';
 import { OutputManager } from '../src/cli/lib/output.js';
 import type { CommandContext } from '../src/cli/lib/context.js';
 import type { SyncDocsResult } from '../src/file/doc-sync.js';
@@ -100,5 +104,70 @@ describe('printDocSyncDryRun (tbd-y42m)', () => {
         configChanged: false,
       },
     ]);
+  });
+});
+
+describe('doc sync printers', () => {
+  let logged: string[];
+  let errors: string[];
+  let logSpy: ReturnType<typeof vi.spyOn>;
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    logged = [];
+    errors = [];
+    logSpy = vi.spyOn(console, 'log').mockImplementation((...parts: unknown[]) => {
+      logged.push(parts.join(' '));
+    });
+    errorSpy = vi.spyOn(console, 'error').mockImplementation((...parts: unknown[]) => {
+      errors.push(parts.join(' '));
+    });
+  });
+
+  afterEach(() => {
+    logSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+
+  it('report the same doc counts in the dry run and the real sync', () => {
+    const changed = {
+      ...staleResult,
+      removed: ['guidelines/old.md'],
+    } as unknown as SyncDocsResult;
+    printDocSyncDryRun(new OutputManager(contextWith(false)), changed);
+    printDocSyncResult(new OutputManager(contextWith(false)), changed);
+    expect(logged).toEqual([
+      '[DRY-RUN] Would sync docs: +1 ~1 -1 doc(s)',
+      '✓ Synced docs: +1 ~1 -1 doc(s)',
+    ]);
+  });
+
+  // A doc path is a key in `.tbd/config.yml`, and the error can quote its source: a
+  // dry run in an untrusted repository must not let either drive the terminal.
+  const hostile = {
+    ...staleResult,
+    errors: [
+      {
+        path: 'guidelines/x\u001b[2J\u001b]0;PWNED\u0007\u202e.md',
+        error: 'cannot read \u001b[31mrepo\u001b[0m\nsecond line\u009b',
+      },
+    ],
+  } as unknown as SyncDocsResult;
+  const controls = /[\p{Cc}\p{Cf}]/u;
+
+  it.each([
+    { name: 'dry run', print: printDocSyncDryRun },
+    { name: 'real sync', print: printDocSyncResult },
+  ])('the $name strips control and format characters from paths and errors', ({ print }) => {
+    print(new OutputManager(contextWith(false)), hostile);
+    print(new OutputManager(contextWith(true)), hostile);
+    const warnings = errors.filter((line) => line.includes('Doc sync error'));
+    expect(warnings).toHaveLength(2);
+    const [text, json] = warnings as [string, string];
+    expect(text).not.toMatch(controls);
+    expect(text).toContain('guidelines/x[2J]0;PWNED.md: cannot read [31mrepo[0m second line');
+    const warning = (JSON.parse(json) as { warning: string }).warning;
+    expect(warning).not.toMatch(controls);
+    expect(warning).toContain('guidelines/x[2J]0;PWNED.md');
   });
 });
