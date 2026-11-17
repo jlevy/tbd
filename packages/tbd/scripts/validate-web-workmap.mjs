@@ -348,7 +348,8 @@ class Page {
 /**
  * Page-side probe, reset before each action: `created` counts mounted cards that did not
  * exist before it, `detached` counts card nodes removed or moved, and `inserted` counts
- * distinct element nodes inserted (new or moved) under the workmap until it settles.
+ * distinct element nodes inserted (new or moved) under the workmap. A step settles once
+ * nothing on the page has changed for the quiet window.
  */
 const PROBE = `window.__workmapProbe = {
   mark() {
@@ -380,6 +381,13 @@ const PROBE = `window.__workmapProbe = {
       this.lastMutation = performance.now();
     });
     this.observer.observe(document.getElementById('workmapgroups'), { childList: true, subtree: true, characterData: true });
+    // Settle on the whole page: a render that reuses every card still rewrites the
+    // status panel and log, and must count toward the step that caused it.
+    this.activity?.disconnect();
+    this.activity = new MutationObserver(() => {
+      this.lastMutation = performance.now();
+    });
+    this.activity.observe(document.body, { childList: true, subtree: true, characterData: true });
   },
   quiet(ms) {
     return performance.now() - this.lastMutation >= ms;
@@ -411,19 +419,23 @@ async function check(name, run) {
   }
 }
 
-/** Mark, run `action`, wait until `settled` holds and the DOM is quiet, then measure. */
-async function measure(page, label, action, settled, timeoutMs = 60_000) {
+/**
+ * Mark, run `action`, wait until `settled` holds and the page has been quiet for
+ * `quietMs`, then measure. Startup uses a longer window because the first live state and
+ * the board refetch it triggers can land well after the first paint.
+ */
+async function measure(page, label, action, settled, { timeoutMs = 60_000, quietMs = 400 } = {}) {
   await page.evaluate('window.__workmapProbe.mark()');
   const before = await page.taskMs();
   const started = Date.now();
   await action();
-  await page.waitFor(`(${settled}) && window.__workmapProbe.quiet(400)`, timeoutMs);
+  await page.waitFor(`(${settled}) && window.__workmapProbe.quiet(${quietMs})`, timeoutMs);
   const report = await page.evaluate('window.__workmapProbe.report()');
   const entry = {
     label,
     ...report,
     taskMs: Math.round((await page.taskMs()) - before),
-    wallMs: Date.now() - started - 400,
+    wallMs: Date.now() - started - quietMs,
   };
   measurements.push(entry);
   return entry;
@@ -517,9 +529,10 @@ try {
     'initial workmap paint (link from tbd web --view workmap --group-prefix area:)',
     async () => {},
     `document.querySelectorAll(${JSON.stringify(CARD)}).length > 0`,
+    { quietMs: 1_500 },
   );
 
-  // Calibration: the probe's own polling and the live heartbeat also count as task time.
+  // Calibration: the probe's own polling also counts as task time.
   await measure(page, 'idle: no action (probe polling only)', async () => {}, 'true');
 
   await check('mounts at most one board page of cards at the served-row cap', async () => {
@@ -611,7 +624,7 @@ try {
       'keyboard: Enter expands the focused card (body loads)',
       () => page.press('Enter'),
       `document.querySelector(${JSON.stringify(`${cardSelector} .workmap-card-body .btext`)}) !== null`,
-      10_000,
+      { timeoutMs: 10_000 },
     );
     const afterOpen = await page.evaluate(
       `({ same: document.activeElement === window.__focusedControl, expanded: document.activeElement?.getAttribute('aria-expanded') ?? null })`,
@@ -625,7 +638,7 @@ try {
       'keyboard: Space collapses the focused card',
       () => page.press('Space'),
       `document.querySelector(${JSON.stringify(`${cardSelector} .workmap-card-body`)}) === null`,
-      10_000,
+      { timeoutMs: 10_000 },
     );
     const afterClose = await page.evaluate(
       `({ same: document.activeElement === window.__focusedControl, expanded: document.activeElement?.getAttribute('aria-expanded') ?? null })`,
