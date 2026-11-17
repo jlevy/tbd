@@ -14,11 +14,16 @@ The next agent has access to tbd and will orient themselves.
 updates are pushed to the remote.
 The next agent needs the latest issue state.
 
+If the outgoing and incoming agents may work at the same time rather than in sequence,
+also follow the handoff steps in `tbd shortcut coordinate-collaborators`.
+
 ## What to Include
 
 - **Task**: One line on what we’re doing
 - **Spec**: Path to active spec + relevant sections
 - **Beads**: tbd issue ID(s), status, dependencies, synced?
+- **Collaborators** (only when the agents may overlap): your resolved acting name, the
+  incoming agent’s, and whether each bead was reassigned to it
 - **Branch**: Current branch, base branch (if not main), pushed to remote?
 - **PR**: Filed/not filed, URL, CI status, up to date with branch?
 - **Git**: Uncommitted changes, files modified
@@ -56,6 +61,13 @@ to use getFormContent() instead of readFile().
 References: packages/llm-pricing/ - see scripts/generate-llms-data.ts and src/_generated/
 
 Setup: Run `pnpm install` after pulling (new dependencies added).
+```
+
+When the agents may overlap, add the collaborators line:
+
+```
+Collaborators: agent-one hands ar-hzhw to agent-two (reassigned with
+tbd update --delegate, synced)
 ```
 
 <!-- This document follows common-doc-guidelines.md.
