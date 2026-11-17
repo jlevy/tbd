@@ -123,7 +123,6 @@ import {
   type WorkingTreeGrants,
 } from '../../lib/policy-grants.js';
 import { hasCurrentPolicyBlockProse } from '../../lib/policy-block-prose.js';
-import { customizedHookNote } from '../lib/hook-commands.js';
 import { TBD_INSTALL_COMMAND, tbdUpgradeAdvice } from '../../lib/install-advice.js';
 import {
   listLockSidecars,
@@ -2324,13 +2323,12 @@ class DoctorHandler extends BaseCommand {
   }
 
   private async checkCodexHooks(): Promise<DiagnosticResult> {
-    const inspection = await inspectCodexHooksSurface(this.cwd);
-    const finding = managedArtifactFinding('Codex hooks', CODEX_HOOKS_REL, 'codex', inspection);
-    // Equivalent spellings of tbd's commands are the project's wiring, not drift.
-    if (inspection.state === 'current' && inspection.customized > 0) {
-      finding.message = `current (${customizedHookNote(inspection.customized)})`;
-    }
-    return finding;
+    return managedArtifactFinding(
+      'Codex hooks',
+      CODEX_HOOKS_REL,
+      'codex',
+      await inspectCodexHooksSurface(this.cwd),
+    );
   }
 
   /**

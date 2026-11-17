@@ -10,14 +10,14 @@
  *
  * - **Anchored** spellings resolve the script from a root the agent fixes to the
  *   project for every hook, wherever the session's working directory is. Claude Code's
- *   `$CLAUDE_PROJECT_DIR` is such an anchor. Setup keeps an anchored spelling as the
- *   project's own wiring, and doctor treats it as current.
+ *   `$CLAUDE_PROJECT_DIR` is such an anchor; Codex has none. Setup keeps an anchored
+ *   spelling as the project's own wiring.
  * - **Unanchored** spellings resolve the script against the working directory (`bash
  *   .codex/...`, `bash ./.codex/...`) or the working directory's Git checkout
  *   (`$(git rev-parse --show-toplevel)`). When a hook runs inside a nested checkout,
  *   such as a third-party clone under `attic/`, they run that checkout's script, or fail
  *   when it has none. Setup replaces them with the generated command, and doctor reports
- *   them as stale.
+ *   a Codex hooks file that holds one as stale.
  *
  * Only these exact spellings count. A command that adds anything else (another
  * command, a redirection, different arguments) stays the user's own command.
@@ -31,13 +31,6 @@ export const GIT_TOPLEVEL_ROOT = '$(git rev-parse --show-toplevel)';
  * directory for every hook, whatever directory the session has changed to.
  */
 export const CLAUDE_HOOK_ANCHORS = ['$CLAUDE_PROJECT_DIR', '${CLAUDE_PROJECT_DIR}'];
-
-/**
- * Anchors for Codex hooks: none. Codex runs a hook in the session's working directory
- * and exports no project-root variable, so the only cwd-independent Codex command is
- * tbd's generated boundary wrapper, which setup recognizes exactly.
- */
-export const CODEX_HOOK_ANCHORS: readonly string[] = [];
 
 /** The recognized spellings of one generated command, by how they find the script. */
 export interface ScriptInvocationSpellings {
@@ -68,7 +61,18 @@ export function scriptInvocationSpellings(
   };
 }
 
-/** The setup and doctor note for customized spellings a hooks file keeps. */
+/**
+ * The unanchored spellings of `bash <scriptRel> <args>`. Codex exports no project-root
+ * variable, so these are the only equivalent spellings a Codex command has.
+ */
+export function unanchoredScriptInvocations(
+  scriptRel: string,
+  args: readonly string[],
+): ReadonlySet<string> {
+  return scriptInvocationSpellings(scriptRel, args, []).unanchored;
+}
+
+/** The setup note for customized spellings a hooks file keeps. */
 export function customizedHookNote(count: number): string {
   return `${count} customized hook command${count === 1 ? '' : 's'} kept`;
 }

@@ -74,9 +74,9 @@ import {
 import { GIT_PUSH_DETECTOR_JS } from '../lib/git-push-detector.js';
 import {
   CLAUDE_HOOK_ANCHORS,
-  CODEX_HOOK_ANCHORS,
   customizedHookNote,
   scriptInvocationSpellings,
+  unanchoredScriptInvocations,
   type ScriptInvocationSpellings,
 } from '../lib/hook-commands.js';
 import { initWorktree, isInGitRepo, findGitRoot, checkWorktreeHealth } from '../../file/git.js';
@@ -997,8 +997,13 @@ const LEGACY_CODEX_COMMANDS = [
 ];
 
 /**
- * Commands tbd owns outright, in any event: setup removes them and writes the current
- * generated entries. Ownership is an exact command, never merely a path under .codex/.
+ * Commands that are tbd's in any event and under any matcher: setup removes them and
+ * writes the current generated entries. They are the generated and legacy commands,
+ * plus every spelling that runs a generated command's script with the same arguments
+ * from the working directory or its Git checkout (see hook-commands.ts), for example
+ * `bash "$(git rev-parse --show-toplevel)/.codex/tbd-session.sh"`. Codex exports no
+ * project-root variable to anchor a spelling, so setup keeps none of them as the
+ * project's own wiring. Ownership is an exact command, never merely a path under .codex/.
  */
 const OWNED_CODEX_COMMANDS: ReadonlySet<string> = new Set([
   CODEX_SESSION_COMMAND,
@@ -1006,31 +1011,10 @@ const OWNED_CODEX_COMMANDS: ReadonlySet<string> = new Set([
   CODEX_GH_CLI_COMMAND,
   CODEX_CLOSING_COMMAND,
   ...LEGACY_CODEX_COMMANDS,
-]);
-
-/**
- * Each generated Codex command with every spelling that runs the same script with the
- * same arguments (see hook-commands.ts), for example
- * `bash "$(git rev-parse --show-toplevel)/.codex/tbd-session.sh"`. Codex has no anchor,
- * so every such spelling is unanchored and setup replaces it.
- */
-const CODEX_TBD_COMMAND_SPELLINGS: ReadonlyMap<string, ScriptInvocationSpellings> = new Map([
-  [
-    CODEX_SESSION_COMMAND,
-    scriptInvocationSpellings(CODEX_SESSION_SCRIPT_REL, [], CODEX_HOOK_ANCHORS),
-  ],
-  [
-    CODEX_PRECOMPACT_COMMAND,
-    scriptInvocationSpellings(CODEX_SESSION_SCRIPT_REL, ['--brief'], CODEX_HOOK_ANCHORS),
-  ],
-  [
-    CODEX_GH_CLI_COMMAND,
-    scriptInvocationSpellings(CODEX_GH_CLI_SCRIPT_REL, [], CODEX_HOOK_ANCHORS),
-  ],
-  [
-    CODEX_CLOSING_COMMAND,
-    scriptInvocationSpellings(CODEX_CLOSING_REMINDER_REL, [], CODEX_HOOK_ANCHORS),
-  ],
+  ...unanchoredScriptInvocations(CODEX_SESSION_SCRIPT_REL, []),
+  ...unanchoredScriptInvocations(CODEX_SESSION_SCRIPT_REL, ['--brief']),
+  ...unanchoredScriptInvocations(CODEX_GH_CLI_SCRIPT_REL, []),
+  ...unanchoredScriptInvocations(CODEX_CLOSING_REMINDER_REL, []),
 ]);
 
 /**
@@ -1125,104 +1109,24 @@ async function readCodexHooksForSetup(cwd: string): Promise<CodexHooksFile | und
   return parsed as CodexHooksFile;
 }
 
-/**
- * Who a Codex handler belongs to. `tbd`: setup replaces it (an owned command, an
- * unanchored spelling, or an anchored spelling that would not fire as its generated
- * command does, or whose slot an earlier handler already fills). `customized`: the first
- * anchored spelling of a generated command, in that command's event and under its
- * matcher; it fills the slot and is kept as written. `user`: anything else, kept.
- */
-type CodexHookRole = 'tbd' | 'customized' | 'user';
-
-interface CodexHookClassification {
-  roles: Map<Record<string, unknown>, CodexHookRole>;
-  /** Generated slots (`event` + generated command) that customized handlers fill. */
-  filled: Set<string>;
+/** A Codex handler is tbd's when it is a command handler running an owned command. */
+function isTbdCodexHook(hook: Record<string, unknown>): boolean {
+  return (
+    hook.type === 'command' &&
+    typeof hook.command === 'string' &&
+    OWNED_CODEX_COMMANDS.has(hook.command)
+  );
 }
 
-function codexSlotKey(event: string, command: unknown): string {
-  return `${event}\n${String(command)}`;
-}
-
-function classifyCodexHooks(
-  hooks: Record<string, CodexHookEntry[]>,
-  generated: Record<string, CodexHookEntry[]>,
-): CodexHookClassification {
-  const roles = new Map<Record<string, unknown>, CodexHookRole>();
-  const filled = new Set<string>();
-  for (const [event, entries] of Object.entries(hooks)) {
-    // Each generated command in this event, with the matcher its entry carries.
-    const slots = new Map(
-      (generated[event] ?? []).flatMap((entry) =>
-        entry.hooks.map((hook) => [hook.command, entry.matcher ?? ''] as const),
-      ),
-    );
-    for (const entry of entries) {
-      for (const hook of entry.hooks) {
-        const command = hook.command;
-        if (hook.type !== 'command' || typeof command !== 'string') {
-          roles.set(hook, 'user');
-          continue;
-        }
-        if (OWNED_CODEX_COMMANDS.has(command)) {
-          roles.set(hook, 'tbd');
-          continue;
-        }
-        const match = [...CODEX_TBD_COMMAND_SPELLINGS].find(
-          ([, spellings]) => spellings.anchored.has(command) || spellings.unanchored.has(command),
-        );
-        if (match === undefined) {
-          roles.set(hook, 'user');
-          continue;
-        }
-        const [generatedCommand, spellings] = match;
-        const slot = codexSlotKey(event, generatedCommand);
-        if (
-          spellings.anchored.has(command) &&
-          slots.get(generatedCommand) === (entry.matcher ?? '') &&
-          !filled.has(slot)
-        ) {
-          filled.add(slot);
-          roles.set(hook, 'customized');
-        } else {
-          roles.set(hook, 'tbd');
-        }
-      }
-    }
-  }
-  return { roles, filled };
-}
-
-/** Select individual handlers by role while retaining the surrounding entry's metadata. */
-function selectCodexHooks(
-  entries: CodexHookEntry[],
-  roles: CodexHookClassification['roles'],
-  tbd: boolean,
-): CodexHookEntry[] {
+/** Select individual handlers while retaining the surrounding entry's metadata. */
+function selectCodexHooks(entries: CodexHookEntry[], owned: boolean): CodexHookEntry[] {
   return entries.flatMap((entry) => {
-    const hooks = entry.hooks.filter((hook) => (roles.get(hook) === 'tbd') === tbd);
+    const hooks = entry.hooks.filter((hook) => isTbdCodexHook(hook) === owned);
     if (hooks.length === 0) {
-      return !tbd && entry.hooks.length === 0 ? [entry] : [];
+      return !owned && entry.hooks.length === 0 ? [entry] : [];
     }
     return [{ ...entry, hooks }];
   });
-}
-
-/** The generated entries whose slots no customized handler fills. */
-function unfilledCodexHooks(
-  generated: Record<string, CodexHookEntry[]>,
-  filled: ReadonlySet<string>,
-): Record<string, CodexHookEntry[]> {
-  const unfilled: Record<string, CodexHookEntry[]> = {};
-  for (const [event, entries] of Object.entries(generated)) {
-    const remaining = entries.filter(
-      (entry) => !entry.hooks.every((hook) => filled.has(codexSlotKey(event, hook.command))),
-    );
-    if (remaining.length > 0) {
-      unfilled[event] = remaining;
-    }
-  }
-  return unfilled;
 }
 
 async function useGhCliForProject(cwd: string): Promise<boolean> {
@@ -1238,35 +1142,26 @@ async function useGhCliForProject(cwd: string): Promise<boolean> {
   }
 }
 
-/** The Codex hooks inspection, with the customized spellings the file keeps. */
-export interface CodexHooksInspection extends ManagedArtifactInspection {
-  /** Equivalent spellings of generated commands kept in place of them. */
-  customized: number;
-}
-
 /** Inspect the tbd-owned part of Codex hooks while preserving unrelated hooks. */
-export async function inspectCodexHooksSurface(cwd: string): Promise<CodexHooksInspection> {
+export async function inspectCodexHooksSurface(cwd: string): Promise<ManagedArtifactInspection> {
   const parsed = await readCodexHooksForSetup(cwd);
   if (parsed === undefined) {
-    return { state: 'missing', customized: 0 };
+    return { state: 'missing' };
   }
-  const useGhCli = await useGhCliForProject(cwd);
-  const generated = getCodexHooksConfig(useGhCli).hooks;
-  const hooks = parsed.hooks ?? {};
-  const { roles, filled } = classifyCodexHooks(hooks, generated);
-  const customized = filled.size;
   const actualOwned: Record<string, CodexHookEntry[]> = {};
-  for (const [event, entries] of Object.entries(hooks)) {
-    const owned = selectCodexHooks(entries, roles, true);
+  for (const [event, entries] of Object.entries(parsed.hooks ?? {})) {
+    const owned = selectCodexHooks(entries, true);
     if (owned.length > 0) {
       actualOwned[event] = owned;
     }
   }
-  if (Object.keys(actualOwned).length === 0 && customized === 0) {
-    return { state: 'user-owned', customized };
+  if (Object.keys(actualOwned).length === 0) {
+    return { state: 'user-owned' };
   }
-  if (!isDeepStrictEqual(actualOwned, unfilledCodexHooks(generated, filled))) {
-    return { state: 'stale', customized };
+
+  const useGhCli = await useGhCliForProject(cwd);
+  if (!isDeepStrictEqual(actualOwned, getCodexHooksConfig(useGhCli).hooks)) {
+    return { state: 'stale' };
   }
 
   const expectedScripts = new Map<string, string>([
@@ -1279,16 +1174,16 @@ export async function inspectCodexHooksSurface(cwd: string): Promise<CodexHooksI
   for (const [path, expected] of expectedScripts) {
     try {
       if ((await readFile(path, 'utf-8')) !== expected) {
-        return { state: 'stale', customized };
+        return { state: 'stale' };
       }
     } catch {
-      return { state: 'missing', customized };
+      return { state: 'missing' };
     }
   }
   if (!useGhCli && (await pathExists(join(cwd, CODEX_GH_CLI_SCRIPT_REL)))) {
-    return { state: 'stale', customized };
+    return { state: 'stale' };
   }
-  return { state: 'current', customized };
+  return { state: 'current' };
 }
 
 // =============================================================================
@@ -2153,15 +2048,12 @@ class SetupCodexHandler extends BaseCommand {
       await rm(join(cwd, CODEX_GH_CLI_SCRIPT_REL), { force: true });
     }
 
-    // Remove only tbd's handlers, including those in mixed user entries. A customized
-    // equivalent spelling stays as written and fills its generated slot.
-    const tbdHooks = getCodexHooksConfig(useGhCli).hooks;
-    const { roles, filled } = classifyCodexHooks(existing.hooks ?? {}, tbdHooks);
+    // Remove only tbd's handlers, including those in mixed user entries.
     const merged: Record<string, CodexHookEntry[]> = {};
     for (const [event, entries] of Object.entries(existing.hooks ?? {})) {
-      merged[event] = selectCodexHooks(entries, roles, false);
+      merged[event] = selectCodexHooks(entries, false);
     }
-    for (const [event, entries] of Object.entries(unfilledCodexHooks(tbdHooks, filled))) {
+    for (const [event, entries] of Object.entries(getCodexHooksConfig(useGhCli).hooks)) {
       merged[event] = [...(merged[event] ?? []), ...entries];
     }
 
@@ -3700,9 +3592,6 @@ class SetupAutoHandler extends BaseCommand {
 
     try {
       const inspection = await inspectCodexHooksSurface(cwd);
-      if (inspection.customized > 0) {
-        result.note = customizedHookNote(inspection.customized);
-      }
       if (inspection.state === 'current') {
         result.alreadyInstalled = true;
         return result;
