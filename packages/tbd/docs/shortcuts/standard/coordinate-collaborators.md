@@ -115,22 +115,27 @@ When collaborating across clones:
 
 ## Publish Checkpoints
 
-The collaborator who owns bead updates publishes progress after each commit and before a
-handoff or session end.
-Record the commit or PR, pending CI or review, and the next owner before syncing.
-Do not close the bead while acceptance, CI, review, or handoff acknowledgment is still
-pending.
+After each commit, and before a handoff or session end, the collaborator who owns bead
+updates records the commit or PR, what is pending (CI or review), and the next owner in
+the bead’s notes, then runs `tbd sync`. `tbd update <id> --notes <text>` and
+`--notes-file <path>` replace the notes rather than appending, so read them with
+`tbd show <id>` first and write back the whole text.
+Close beads at the step the session closing checklist (`tbd closing`) gives, as in any
+session; the notes keep pending CI or review visible after the bead closes.
 
-At handoff, the recipient refreshes shared state, verifies the bead and referenced Git
-state, claims or accepts the explicit reassignment, and acknowledges the handoff before
-editing. The outgoing collaborator keeps the pending state visible until that
-acknowledgment.
+At a handoff between overlapping collaborators, the outgoing collaborator records its
+checkpoint, reassigns the bead with `tbd update <id> --delegate <resolved-name>` for the
+incoming collaborator, and syncs.
+The incoming collaborator runs `tbd sync --pull`, re-reads the bead, its notes, and the
+branch or PR they reference, and runs the claim steps above, expecting `already yours`.
+It acknowledges the handoff by adding a line to the notes saying it took the bead over,
+then syncs before editing.
 
 ## Take Over Deliberately
 
 Do not infer abandonment from elapsed time.
 The coordinator confirms that the prior collaborator stopped, re-reads the bead, records
-the reason in the bead or handoff, and changes `delegate` explicitly:
+the reason in its notes (read first, as above), and changes `delegate` explicitly:
 
 ```bash
 tbd whoami --as <incoming-name> --json  # Resolve and verify a unique recipient name
@@ -138,11 +143,12 @@ tbd update <id> --delegate <resolved-name>
 tbd sync                              # Publish the reassignment
 ```
 
-A takeover is an override, so `tbd update --delegate` does not apply the `start` claim
-guard and stores the delegate verbatim, without actor-name normalization.
-Use the exact resolved `name` after resolving the visible conflict.
-The incoming collaborator then runs the claim steps above; on a bead still in progress,
-`already yours` is the expected result.
+`tbd update --delegate` is an override: it skips the `start` claim guard and stores the
+name verbatim, without the normalization `start` applies.
+Pass the resolved `name`. After `tbd update <id> --delegate 'Agent Two'`,
+`tbd start <id> --as 'Agent Two'` resolves to `agent-two` and reports
+`already claimed by Agent Two`. The incoming collaborator then runs the claim steps
+above; on a bead still in progress, `already yours` is the expected result.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
