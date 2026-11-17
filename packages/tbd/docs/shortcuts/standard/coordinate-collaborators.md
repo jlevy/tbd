@@ -22,10 +22,13 @@ abandoned.
   only one succeeds.
 - **Separate clones** see each other’s claims only after both sync: the claiming clone
   runs `tbd sync`, then the other runs `tbd sync` or `tbd sync --pull`.
-- **A clone with no remote** (`git remote` prints nothing) has no other clone to
-  exchange with. There `tbd sync --pull` reports `Failed to pull` and changes nothing,
-  and `tbd sync` commits the bead data locally, then reports `Push failed`; both exit 1.
-  Expect those failures in such a clone.
+- **A clone without the sync remote** has no other clone to exchange with.
+  The sync remote is the one `sync.remote` in `.tbd/config.yml` names (`origin` by
+  default; `tbd config get sync.remote` prints it), and what counts is whether
+  `git remote` lists that name, not whether it lists any remote.
+  There `tbd sync --pull` reports `Failed to pull` and changes nothing, and `tbd sync`
+  commits the bead data locally, then reports `Push failed`; both exit 1. Expect those
+  failures in such a clone.
 
 The sync steps in this shortcut are the skill’s ordinary `tbd sync`. Run them by
 default.
