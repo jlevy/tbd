@@ -127,6 +127,7 @@ pnpm --filter get-tbd exec vitest run \
 pnpm --filter get-tbd exec tryscript run tests/cli-web.tryscript.md
 pnpm --filter get-tbd qa:web-package
 pnpm --filter get-tbd qa:upgrade-package
+pnpm --filter get-tbd qa:web-workmap   # needs Chrome; set CHROME_PATH if not found
 ```
 
 The spawned-process acceptance test creates real writer and viewer clones, proves the
@@ -141,7 +142,13 @@ initialized repository and verifies that its self-contained page and APIs work w
 changing the source checkout.
 In a release job, `TBD_VERSION_OVERRIDE` also makes the proof require the packed CLI to
 report the exact package/tag version.
-Design and implementation details are in
+The Workmap browser proof builds a disposable repository at the 10,000-row served cap,
+serves it with the built CLI, and drives headless Chrome over the DevTools protocol.
+It checks keyboard expansion and focus, view and grouping round trips through the page
+address, the page-window bound, and that a toggle or a one-bead live update rebuilds at
+most that card, and it prints the measured work for each step.
+It is a separate tier because it needs a local Chrome; run it after changing the
+Workmap. Design and implementation details are in
 [plan-2026-08-10-tbd-web-live-bead-view.md](project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md).
 
 ### Review and policy contracts across docs

@@ -62,6 +62,7 @@
     "qa:watch-release:built": "tsx scripts/validate-watch-release.ts",
     "qa:upgrade-package": "node scripts/validate-upgrade-package.mjs",
     "qa:web-package": "node scripts/validate-web-package.mjs",
+    "qa:web-workmap": "node scripts/validate-web-workmap.mjs",
     "qa:linear-live": "pnpm build && tsx scripts/validate-linear-integration-live.ts",
     "bench": "tsx scripts/benchmark.ts",
     "generate:readme": "tsx scripts/generate-readme-tables.ts",
