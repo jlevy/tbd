@@ -5606,7 +5606,11 @@ The Claude SessionStart and PreCompact commands are still relative to the workin
 directory (`bash .claude/scripts/tbd-session.sh`). Codex exports no project directory,
 so every Codex command is a `bash -c` wrapper that walks up from the working directory
 to the nearest `.git`, Codex’s project root, and runs that root’s own script (see C
-below).
+below). tbd’s generated Codex hooks need a POSIX shell with `bash` on PATH. On native
+Windows, Codex starts a hook command with `%COMSPEC% /C`, and `cmd.exe` does not treat
+`'` as a quote, so it would parse the wrapper’s `&&`, `||`, and `>&2` itself.
+That case is not verified and not supported; a Windows-only command (Codex’s
+`commandWindows`) is a tracked follow-up.
 
 On Claude Code, a project may spell a command differently when it runs the same script
 with the same arguments from the same anchor, for example
