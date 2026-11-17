@@ -85,6 +85,44 @@ export function printDocSyncStatus(output: OutputManager, result: SyncDocsResult
 }
 
 /**
+ * Print what a docs-cache sync would write, as dry-run output: the same counts
+ * `printDocSyncResult` reports after a real sync.
+ */
+export function printDocSyncDryRun(output: OutputManager, result: SyncDocsResult): void {
+  const counts = [
+    ['+', result.added.length],
+    ['~', result.updated.length],
+    ['-', result.removed.length],
+  ] as const;
+  const docs = counts.filter(([, count]) => count > 0).map(([sign, count]) => `${sign}${count}`);
+  const changes: string[] = [];
+  if (docs.length > 0) {
+    changes.push(`${docs.join(' ')} doc(s)`);
+  }
+  if (result.pruned.length > 0) {
+    changes.push(`remove ${result.pruned.length} stale config entry/entries`);
+  }
+  if (result.configChanged) {
+    changes.push('update docs_cache in .tbd/config.yml');
+  }
+
+  if (changes.length === 0) {
+    output.success('Docs up to date');
+  } else {
+    output.dryRun(`Would sync docs: ${changes.join('; ')}`, {
+      added: result.added.length,
+      updated: result.updated.length,
+      removed: result.removed.length,
+      pruned: result.pruned.length,
+      configChanged: result.configChanged,
+    });
+  }
+  for (const err of result.errors) {
+    output.warn(`Doc sync error: ${err.path}: ${err.error}`);
+  }
+}
+
+/**
  * One-line awareness notice for forked docs: a cache refresh is exactly when
  * forks become stale, so drift is surfaced here, but never acted on (only the
  * explicit `tbd docs update` mutates tracked files). Best-effort: never fails

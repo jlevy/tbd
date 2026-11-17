@@ -275,6 +275,19 @@ export async function prepareDataSyncContext(tbdRoot: string): Promise<TbdDataCo
 }
 
 /**
+ * The config and readiness of the shared data-sync state, from the lock-free probe
+ * alone. For dry runs: preparing the context takes the writer lock, which advances
+ * the data-sync epoch, and can materialize the worktree or migrate the config.
+ * `ready: false` means a real run would prepare that state first.
+ */
+export async function previewDataSyncContext(
+  tbdRoot: string,
+): Promise<{ config: Config; ready: boolean }> {
+  const probe = await probeDataSyncReadiness(tbdRoot);
+  return { config: probe.config, ready: probe.ready };
+}
+
+/**
  * Prepare shared data-sync context, optionally holding the repo-scoped lock.
  *
  * - `{ lock: true }` (writers): always acquire the lock, then prepare under it.

@@ -29,8 +29,8 @@ import {
 } from '../lib/errors.js';
 import { renderMarkdown, paginateOutput } from '../lib/output.js';
 import {
+  printDocSyncDryRun,
   printDocSyncResult,
-  printDocSyncStatus,
   printForkDriftNotice,
 } from '../lib/docs-sync-output.js';
 import { syncDocsWithDefaults } from '../../file/doc-sync.js';
@@ -611,7 +611,7 @@ class DocsSyncHandler extends BaseCommand {
       const tbdRoot = await requireInit();
       if (this.ctx.dryRun) {
         const result = await syncDocsWithDefaults(tbdRoot, { dryRun: true });
-        printDocSyncStatus(this.output, result);
+        printDocSyncDryRun(this.output, result);
         return;
       }
       const spinner = this.output.spinner('Syncing docs...');

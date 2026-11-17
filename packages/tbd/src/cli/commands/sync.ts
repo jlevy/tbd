@@ -30,6 +30,7 @@ import {
 } from '../../file/git.js';
 import { DATA_SYNC_DIR } from '../../lib/paths.js';
 import {
+  printDocSyncDryRun,
   printDocSyncResult,
   printDocSyncStatus,
   printForkDriftNotice,
@@ -63,7 +64,7 @@ import {
   importFromWorkspace,
   deleteWorkspace,
 } from '../../file/workspace.js';
-import { withDataSyncContext } from '../lib/data-context.js';
+import { previewDataSyncContext, withDataSyncContext } from '../lib/data-context.js';
 import { runEnabledIntegrationPushes, runEnabledIntegrations } from '../lib/integration-runner.js';
 import { integrationsInert } from '../../integrations/core/registry.js';
 import { resolveSyncFoldMode, syncFoldPosture } from '../../integrations/core/provider-settings.js';
@@ -222,46 +223,49 @@ class SyncHandler extends BaseCommand {
     if (syncIssues) {
       attempted.push('issues');
       try {
-        await withDataSyncContext(
-          tbdRoot,
-          { lock: true },
-          async ({ dataSyncDir, config, sharedPaths, repairedWorktreeStatus }) => {
-            this.dataSyncDir = dataSyncDir;
-            this.worktreePath = sharedPaths.sharedWorktreePath;
-            this.syncBranch = config.sync.branch;
-            this.config = config;
+        // A dry run previews from the lock-free probe instead: preparing the context
+        // takes the writer lock, which advances the data-sync epoch, and can
+        // materialize the worktree or migrate the config.
+        if (this.ctx.dryRun && !options.status) {
+          await this.previewIssueSync();
+        } else {
+          await withDataSyncContext(
+            tbdRoot,
+            { lock: true },
+            async ({ dataSyncDir, config, sharedPaths, repairedWorktreeStatus }) => {
+              this.dataSyncDir = dataSyncDir;
+              this.worktreePath = sharedPaths.sharedWorktreePath;
+              this.syncBranch = config.sync.branch;
+              this.config = config;
 
-            const syncBranch = config.sync.branch;
-            const remote = config.sync.remote;
+              const syncBranch = config.sync.branch;
+              const remote = config.sync.remote;
 
-            if (options.status) {
-              await this.showIssueStatus(syncBranch, remote);
-              return;
-            }
+              if (options.status) {
+                await this.showIssueStatus(syncBranch, remote);
+                return;
+              }
 
-            if (this.checkDryRun('Would sync repository', { syncBranch, remote })) {
-              return;
-            }
+              if (repairedWorktreeStatus) {
+                this.output.success('Worktree repaired successfully');
+              }
 
-            if (repairedWorktreeStatus) {
-              this.output.success('Worktree repaired successfully');
-            }
-
-            if (options.pull) {
-              await this.pullChanges(syncBranch, remote);
-            } else if (options.push) {
-              await this.runIntegrationPushInPosition();
-              await this.pushChanges(syncBranch, remote);
-            } else {
-              // Full sync: pull then push
-              await this.fullSync(syncBranch, remote, {
-                force: options.force,
-                autoSave: options.autoSave,
-                outbox: options.outbox,
-              });
-            }
-          },
-        );
+              if (options.pull) {
+                await this.pullChanges(syncBranch, remote);
+              } else if (options.push) {
+                await this.runIntegrationPushInPosition();
+                await this.pushChanges(syncBranch, remote);
+              } else {
+                // Full sync: pull then push
+                await this.fullSync(syncBranch, remote, {
+                  force: options.force,
+                  autoSave: options.autoSave,
+                  outbox: options.outbox,
+                });
+              }
+            },
+          );
+        }
         if (this.conflictsNotArchived > 0) {
           const plural = this.conflictsNotArchived === 1 ? '' : 's';
           throw new SyncError(
@@ -540,6 +544,11 @@ class SyncHandler extends BaseCommand {
       printDocSyncStatus(this.output, result);
       return result;
     }
+    if (this.ctx.dryRun) {
+      const result = await syncDocsWithDefaults(this.tbdRoot, { dryRun: true });
+      printDocSyncDryRun(this.output, result);
+      return result;
+    }
 
     const spinner = this.output.spinner('Syncing docs...');
     const result = await syncDocsWithDefaults(this.tbdRoot);
@@ -549,6 +558,20 @@ class SyncHandler extends BaseCommand {
     printDocSyncResult(this.output, result);
     await printForkDriftNotice(this.output, this.tbdRoot);
     return result;
+  }
+
+  /** Report what the issue surface would do, without touching shared state. */
+  private async previewIssueSync(): Promise<void> {
+    const { config, ready } = await previewDataSyncContext(this.tbdRoot);
+    if (!ready) {
+      this.output.dryRun(
+        'Would prepare the shared data-sync state (worktree, layout, or config format) first',
+      );
+    }
+    this.output.dryRun('Would sync repository', {
+      syncBranch: config.sync.branch,
+      remote: config.sync.remote,
+    });
   }
 
   /**
