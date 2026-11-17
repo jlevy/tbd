@@ -116,6 +116,12 @@ When collaborating across clones:
   `delegate` with `tbd show <id> --json`. If it no longer names you, stop editing and
   ask the coordinator.
   Do not claim the bead back.
+- If a sync reports a resolved conflict while you hold a claim, run
+  `tbd attic list <id>`. A `delegate` entry means another collaborator also claimed the
+  bead and may not know which claim was kept; `tbd attic show <id> <timestamp>` prints
+  the claim that lost under `Lost value`, with the timestamp from
+  `tbd attic list <id> --json`. Tell the coordinator, or that collaborator, before you
+  continue, even when `delegate` still names you.
 
 ## Publish Checkpoints
 
