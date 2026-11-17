@@ -242,6 +242,11 @@ function isLockProtocolPath(error: unknown, lockPath: string): boolean {
  * exist yet, its nearest existing ancestor. Only the permission errors that
  * `withSharedDataSyncLock` translates are reported here; anything else is left for the
  * real run to report.
+ *
+ * `access` answers from permission bits and inode flags, so this sees a write that
+ * file permissions deny. It does not see a sandbox that denies the write by policy
+ * (Landlock, for one, still answers writable) or a read-only mount (`EROFS`, which the
+ * lock does not translate either); only the real run reports those.
  */
 export async function assertSharedDataSyncLockWritable(tbdRoot: string): Promise<void> {
   const paths = await resolveSharedTbdPaths(tbdRoot);

@@ -30,7 +30,9 @@
   says when a real run would first prepare the data-sync state, and changes no files.
   It stops with the real run’s error where the real run would stop before doing any
   work: a data-sync worktree that only `tbd doctor --fix` can repair, or shared lock
-  state this process cannot write.
+  state whose file permissions deny this process the write.
+  A sandbox that denies the write by policy, or a read-only mount, is still reported
+  only by the real run.
   Under `--json` it prints one document, as before, which keeps the `action`,
   `syncBranch`, and `remote` keys and adds `prepareDataSyncState`, the `docs` counts,
   and whether an external tracker would run.
