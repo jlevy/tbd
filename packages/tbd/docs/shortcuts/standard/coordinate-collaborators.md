@@ -36,8 +36,11 @@ For a flag-based identity, run `tbd whoami --as <name> --json`; for an environme
 identity, run `TBD_AGENT=<name> tbd whoami --json`. Compare the returned `name` values:
 `Agent Two` and `agent-two` both resolve to `agent-two`, so those raw names do not
 distinguish collaborators.
-A friendly fallback can identify the harness and host rather than one session; do not
-rely on it to distinguish two agents on the same host.
+Without `--as` or `TBD_AGENT`, every session of one harness on one host resolves to the
+same `<harness>@<host>` name.
+That includes the session identity `tbd whoami --ensure-id` persists: it adds an `id`
+and reports `source: session`, but `tbd start` records only the `name`, so neither field
+makes two such sessions distinct.
 Use the exact resolved `name` in `update --delegate` and the handoff record.
 
 When a coordinator delegates work, let the coordinator own bead updates and `tbd sync`
@@ -54,25 +57,37 @@ tbd start <id> --as <distinct-name> --json
 tbd sync                             # Publish this claim to the other clones
 ```
 
-Read the JSON result instead of relying on the process exit code:
+Check the output of each step:
 
-- Proceed when `claimed` contains the requested canonical bead ID, or when `skipped`
-  contains that ID with “already yours” and a fresh `tbd show <id>` verifies that
-  `delegate` equals this collaborator’s unique resolved acting name.
-  For “already yours”, also verify that this is the same collaborator continuing its
-  work or an explicit reassignment acknowledged by the incoming collaborator.
-  A reused fallback name can hide duplicate agents.
-- Every other skip stops work.
-  “Already claimed by NAME” means another visible collaborator owns the bead; ask the
-  coordinator to reassign scope or make an explicit takeover decision.
-- A command error, including failure to acquire or write the shared lock, is different
-  from a structured `skipped` result.
-  Do not proceed from it.
-  Inspect the bead before retrying, especially after a bulk claim where earlier IDs may
-  have changed.
+1. **Before claiming,** read `status` and `delegate` from `tbd show <id> --json`. Stop
+   if the bead is closed or `delegate` names another collaborator, whatever the status.
+   `tbd start` reports a foreign claim only on an `in_progress` bead; on an open bead it
+   replaces a `delegate` set by `tbd update --delegate` or `tbd create --delegate`.
+2. **Read the claim result.** `claimed` and `skipped[].id` hold the bead’s display ID
+   (`displayId` in `tbd show --json`) whatever ID form you passed.
+   - Proceed when `claimed` contains it and the result’s `delegate` equals your resolved
+     name. Another `delegate` means the claim ran under another identity, for example
+     without the intended `--as`.
+   - The reason `already yours` means the bead already records your name.
+     Proceed only when you are the same collaborator continuing its work, or the
+     incoming collaborator of a reassignment (Take Over Deliberately).
+     A reused name can hide a duplicate agent.
+   - Every other skip stops work.
+     `already claimed by <name>` means another collaborator holds the bead in progress;
+     ask the coordinator to reassign scope or decide a takeover.
+     `closed — reopen it first` means the bead is closed.
+3. **After `tbd sync`,** confirm that `tbd show <id> --json` still reports `delegate`
+   equal to your resolved name (the `name` that `tbd whoami --json` prints with your
+   `--as` or `TBD_AGENT`).
+
+A command error, including failure to acquire or write the shared lock, is different
+from a structured `skipped` result.
+Do not proceed from it.
+Inspect the bead before retrying, especially after a bulk claim where earlier IDs may
+have changed.
 
 For compatibility with scripts that treated `start` as an idempotent command, a
-structured skip exits successfully.
+structured skip exits 0, so the exit code does not show a conflict.
 Callers that need conflict detection must inspect `claimed` and `skipped`.
 
 ## Publish Checkpoints
@@ -104,8 +119,8 @@ tbd sync                              # Publish the reassignment
 A takeover is an override, so `tbd update --delegate` does not apply the `start` claim
 guard and stores the delegate verbatim, without actor-name normalization.
 Use the exact resolved `name` after resolving the visible conflict.
-The incoming collaborator then re-reads the bead and verifies the “already yours”
-acceptance rule above.
+The incoming collaborator then runs the claim steps above; on a bead still in progress,
+`already yours` is the expected result.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
