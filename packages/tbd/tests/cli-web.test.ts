@@ -39,12 +39,25 @@ describe('web view URL options', () => {
         ...stored,
         view: options.view === 'list' ? 'workmap' : 'list',
       });
-    expect(opened({ view: 'workmap' })).toEqual({ view: 'workmap', group: 'stored:' });
-    expect(opened({ view: 'list' })).toEqual({ view: 'list', group: 'stored:' });
-    expect(opened({ groupPrefix: 'area:' })).toEqual({ view: 'workmap', group: 'area:' });
+    expect(opened({ view: 'workmap' })).toEqual({
+      view: 'workmap',
+      group: 'stored:',
+      groupFromStorage: true,
+    });
+    expect(opened({ view: 'list' })).toEqual({
+      view: 'list',
+      group: 'stored:',
+      groupFromStorage: true,
+    });
+    expect(opened({ groupPrefix: 'area:' })).toEqual({
+      view: 'workmap',
+      group: 'area:',
+      groupFromStorage: false,
+    });
     expect(opened({ view: 'list', groupPrefix: 'team:' })).toEqual({
       view: 'list',
       group: 'team:',
+      groupFromStorage: false,
     });
   });
 });

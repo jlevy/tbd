@@ -1208,22 +1208,23 @@ describe('board view choice in the page address', () => {
   it('lets an explicit address win over storage, falling through absent or unknown values', () => {
     expect(
       resolveBoardViewChoice('?view=workmap&group=team%3A', { view: 'list', group: 'area:' }),
-    ).toEqual({ view: 'workmap', group: 'team:' });
+    ).toEqual({ view: 'workmap', group: 'team:', groupFromStorage: false });
     expect(
       resolveBoardViewChoice('?view=kanban&group=', { view: 'workmap', group: 'area:' }),
-    ).toEqual({ view: 'workmap', group: 'area:' });
+    ).toEqual({ view: 'workmap', group: 'area:', groupFromStorage: true });
     expect(resolveBoardViewChoice('', { view: 'bogus', group: null })).toEqual({
       view: 'list',
       group: '',
+      groupFromStorage: false,
     });
   });
 
   it('treats a blank grouping as no grouping, from the address and from storage', () => {
     expect(
       resolveBoardViewChoice('?view=workmap&group=%20', { view: null, group: 'area:' }),
-    ).toEqual({ view: 'workmap', group: 'area:' });
+    ).toEqual({ view: 'workmap', group: 'area:', groupFromStorage: true });
     expect(resolveBoardViewChoice('?view=workmap&group=+%09', { view: null, group: '  ' })).toEqual(
-      { view: 'workmap', group: '' },
+      { view: 'workmap', group: '', groupFromStorage: false },
     );
   });
 
@@ -1242,7 +1243,12 @@ describe('board view choice in the page address', () => {
         const restored = resolveBoardViewChoice(search, otherViewer);
         expect({ start, choice: restored }).toEqual({
           start,
-          choice: { view: choice.view, group: choice.group === '' ? 'other:' : choice.group },
+          choice: {
+            view: choice.view,
+            group: choice.group === '' ? 'other:' : choice.group,
+            // Only a grouping the address omits comes from storage.
+            groupFromStorage: choice.group === '',
+          },
         });
         expect(new URLSearchParams(search).get('debug')).toBe(start.includes('debug') ? '1' : null);
       }

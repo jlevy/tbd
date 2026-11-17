@@ -562,6 +562,16 @@ export interface BoardViewChoiceView {
   group: string;
 }
 
+/** A page load's starting choice, and where its grouping came from. */
+export interface ResolvedBoardViewChoice extends BoardViewChoiceView {
+  /**
+   * True when the grouping came from stored preferences rather than the address. Storage
+   * is per origin, which every repository served on the same port shares, so the page
+   * keeps such a grouping only if the served rows state it.
+   */
+  groupFromStorage: boolean;
+}
+
 /** Raw stored preferences; either may be missing or hold a stale, invalid value. */
 export interface StoredBoardViewChoice {
   view: string | null;
@@ -589,16 +599,20 @@ function knownBoardViewMode(value: string | null): BoardViewModeView | null {
 export function resolveBoardViewChoice(
   search: string,
   stored: StoredBoardViewChoice,
-): BoardViewChoiceView {
+): ResolvedBoardViewChoice {
   const query = new URLSearchParams(search);
-  const group = [query.get(WORKMAP_GROUP_PARAM), stored.group].find(
-    (value): value is string => value !== null && !isBlankGroupPrefix(value),
-  );
-  return {
-    view:
-      knownBoardViewMode(query.get(BOARD_VIEW_PARAM)) ?? knownBoardViewMode(stored.view) ?? 'list',
-    group: group ?? '',
-  };
+  const usable = (value: string | null): value is string =>
+    value !== null && !isBlankGroupPrefix(value);
+  const addressGroup = query.get(WORKMAP_GROUP_PARAM);
+  const view =
+    knownBoardViewMode(query.get(BOARD_VIEW_PARAM)) ?? knownBoardViewMode(stored.view) ?? 'list';
+  if (usable(addressGroup)) {
+    return { view, group: addressGroup, groupFromStorage: false };
+  }
+  if (usable(stored.group)) {
+    return { view, group: stored.group, groupFromStorage: true };
+  }
+  return { view, group: '', groupFromStorage: false };
 }
 
 /**

@@ -150,6 +150,8 @@ let boardViewMode: BoardViewModeView = initialViewChoice.view;
  * `pinDefaultWorkmapGrouping`).
  */
 let workmapGroupPrefix: string = initialViewChoice.group;
+/** Whether `workmapGroupPrefix` is a remembered grouping not yet checked against the rows. */
+let workmapGroupUnverified = initialViewChoice.groupFromStorage;
 let scrollBoardToTopAfterRender = false;
 let labelMenuOpen = false;
 let pendingLabelFocus: string | null = null;
@@ -1484,9 +1486,21 @@ function workmapPrefixes(rows: readonly BoardRowView[]): ValueFacetView<string>[
  * a filter or a live update that shifts prefix counts cannot regroup the board, and the
  * address names the grouping on screen. The pin is not stored; storage keeps explicit
  * choices only.
+ *
+ * A grouping remembered in storage is checked once, here: storage is shared by every
+ * repository served on this origin, so a remembered prefix that no served row states
+ * was never chosen for this board, and the default replaces it (storage is left alone).
+ * A grouping the address names is kept as named.
  */
 function pinDefaultWorkmapGrouping(rows: readonly BoardRowView[]): void {
-  const detected = workmapPrefixes(rows)[0]?.value;
+  const prefixes = workmapPrefixes(rows);
+  if (workmapGroupUnverified) {
+    workmapGroupUnverified = false;
+    if (!prefixes.some((prefix) => prefix.value === workmapGroupPrefix)) {
+      workmapGroupPrefix = '';
+    }
+  }
+  const detected = prefixes[0]?.value;
   if (workmapGroupPrefix !== '' || detected === undefined) {
     return;
   }
@@ -2172,6 +2186,7 @@ elements.viewChooser.addEventListener('keydown', (event) => {
 });
 elements.workmapGroup.addEventListener('change', () => {
   workmapGroupPrefix = elements.workmapGroup.value;
+  workmapGroupUnverified = false;
   restartBoardWindow();
   persistString(WORKMAP_PREFIX_STORAGE_KEY, workmapGroupPrefix);
   writeBoardViewAddress();

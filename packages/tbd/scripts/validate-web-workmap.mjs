@@ -1078,6 +1078,37 @@ try {
     await cdp.send('Target.disposeBrowserContext', { browserContextId });
   });
 
+  await check('a remembered grouping no served bead states falls back to the default', async () => {
+    const { browserContextId } = await cdp.send('Target.createBrowserContext');
+    const viewer = await Page.open(cdp, `${origin}/?view=list`, browserContextId);
+    const opened = async (stored) => {
+      // As another repository served on this origin leaves it.
+      await viewer.evaluate(
+        `localStorage.setItem('tbd.web.boardView', 'workmap'); localStorage.setItem('tbd.web.workmapPrefix', ${JSON.stringify(stored)})`,
+      );
+      await viewer.navigate(`${origin}/`);
+      await viewer.waitFor(`document.querySelectorAll(${JSON.stringify(CARD)}).length > 0`);
+      return viewer.evaluate(`({
+        select: document.getElementById('workmapgroup').value,
+        address: new URLSearchParams(location.search).get('group'),
+        stored: localStorage.getItem('tbd.web.workmapPrefix'),
+        sections: document.querySelectorAll('.workmap-group').length,
+      })`);
+    };
+    const foreign = await opened('component:');
+    const own = await opened('team:');
+    invariant(
+      foreign.select === 'area:' &&
+        foreign.address === 'area:' &&
+        foreign.stored === 'component:' &&
+        foreign.sections > 1 &&
+        own.select === 'team:' &&
+        own.stored === 'team:',
+      `Stored component: showed ${JSON.stringify(foreign)}; stored team: showed ${JSON.stringify(own)}`,
+    );
+    await cdp.send('Target.disposeBrowserContext', { browserContextId });
+  });
+
   const { browserContextId: faceContext } = await cdp.send('Target.createBrowserContext');
   const faces = await Page.open(cdp, `${origin}/?view=workmap&group=area%3A`, faceContext);
   await faces.waitFor(`document.querySelectorAll(${JSON.stringify(CARD)}).length > 0`);

@@ -883,6 +883,8 @@ first shows, and keeps it while filters or live updates change which prefix is m
 common. Choosing a view or grouping in the page, or that first default, rewrites its
 address (for example `?view=workmap&group=area%3A`), so reloading or sharing the address
 reproduces what the page shows; an address wins over the choice the browser remembers.
+The browser remembers one grouping for every repository served on the same port, so a
+remembered grouping that none of the shown beads uses gives way to the default.
 
 The command stays in the foreground; press Ctrl+C to stop it.
 An initialized repository with zero beads is valid and renders the ordinary empty board.
