@@ -4,6 +4,12 @@
 
 ### Upgrade
 
+- The generated agent integration format moves from `f100` to `f101`; the repository
+  format remains `f08`, and no repository migrates.
+  tbd 0.11.0 and older refuse to rewrite the regenerated surfaces until upgraded, so
+  they cannot restore their older hook launchers.
+  Upgrade every clone that runs `tbd setup` in a shared repository before committing the
+  regenerated files.
 - Setup rewrites tbd’s Codex hook commands so that each one finds the project’s Git
   checkout root from any working directory.
   Codex skips a changed hook until it is trusted again.

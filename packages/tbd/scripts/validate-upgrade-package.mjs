@@ -38,7 +38,25 @@ const CANDIDATE_FORMAT = 'f08';
  * generated skill and tier agent files, separate from the repository format since the
  * release after 0.9.0. Kept beside the scenarios for the same reason as CANDIDATE_FORMAT.
  */
-const CANDIDATE_INTEGRATION_FORMAT = 'f100';
+const CANDIDATE_INTEGRATION_FORMAT = 'f101';
+
+/**
+ * The newest release whose integration format is below CANDIDATE_INTEGRATION_FORMAT
+ * (0.10.0 and 0.11.0 stamp f100). It refuses to rewrite a surface this candidate stamped,
+ * which is what keeps it from restoring its older hook launchers, so its `setup --auto`
+ * must stop on a repository this candidate set up. Update it with
+ * CANDIDATE_INTEGRATION_FORMAT.
+ */
+const LAST_RELEASE_BELOW_CANDIDATE_INTEGRATION_FORMAT = '0.11.0';
+
+/** Hook files this candidate generates and an older integration format would rewrite. */
+const HARDENED_HOOK_FILES = [
+  '.claude/hooks/tbd-closing-reminder.sh',
+  '.claude/scripts/tbd-session.sh',
+  '.codex/hooks.json',
+  '.codex/tbd-closing-reminder.sh',
+  '.codex/tbd-session.sh',
+];
 
 /**
  * The newest release whose integration format was the repository format (f08). It refuses
@@ -1252,12 +1270,14 @@ function readPath(value, path) {
  * before the release bump, the candidate contains the current branch changes while npm
  * still serves the prior published build.
  *
- * A release at or before LAST_PRE_SPLIT_RELEASE cannot finish `setup --auto` here: the
- * candidate stamped the generated surfaces with CANDIDATE_INTEGRATION_FORMAT and recorded
- * policy grants in AGENTS.md, and that release would delete the grants if it rewrote the
- * block. Its setup still rewrites config before it reaches the surfaces, so the probes
- * cover that write path; what changes is that it must then stop with the upgrade message
- * and leave every stamped surface, grants included, byte for byte.
+ * A release at or before LAST_RELEASE_BELOW_CANDIDATE_INTEGRATION_FORMAT cannot finish
+ * `setup --auto` here: the candidate stamped the generated surfaces with
+ * CANDIDATE_INTEGRATION_FORMAT and recorded policy grants in AGENTS.md, and that release
+ * would rewrite what the newer format protects (the grants, for a pre-split release; the
+ * hardened hook launchers, for an f100 release). Its setup still rewrites config before
+ * it reaches the surfaces, so the probes cover that write path; what changes is that it
+ * must then stop with the upgrade message and leave every stamped surface, grants
+ * included, and every hook file byte for byte.
  */
 /** Read and verify the generated surfaces shared by the two upgrade scenarios. */
 async function readStampedSurfaces(repository, label) {
@@ -1386,6 +1406,11 @@ async function validateOldClientConfigRoundTrip({
   };
   await writeFile(configPath, stringifyYaml(config, { lineWidth: 0 }));
 
+  const hooksBefore = new Map();
+  for (const file of HARDENED_HOOK_FILES) {
+    hooksBefore.set(file, await readFile(join(repository, file), 'utf8'));
+  }
+
   // Both write paths, because they validate and rewrite by different routes.
   const set = await invokeCli(baseline, repository, home, [
     'config',
@@ -1399,7 +1424,7 @@ async function validateOldClientConfigRoundTrip({
   );
   const baselineSetup = await invokeCli(baseline, repository, home, ['setup', '--auto']);
   const baselineSetupOutput = `${baselineSetup.stdout}\n${baselineSetup.stderr}`;
-  if (releasedAtOrBefore(baselineVersion, LAST_PRE_SPLIT_RELEASE)) {
+  if (releasedAtOrBefore(baselineVersion, LAST_RELEASE_BELOW_CANDIDATE_INTEGRATION_FORMAT)) {
     invariant(
       baselineSetup.code !== 0 &&
         baselineSetupOutput.includes(
@@ -1413,6 +1438,12 @@ async function validateOldClientConfigRoundTrip({
         (await readFile(join(repository, surface), 'utf8')) === content,
         `${label}: baseline ${baselineVersion} rewrote ${surface}, which carries ` +
           `${CANDIDATE_INTEGRATION_FORMAT}`,
+      );
+    }
+    for (const [file, content] of hooksBefore) {
+      invariant(
+        (await readFile(join(repository, file), 'utf8')) === content,
+        `${label}: baseline ${baselineVersion} rewrote the hook file ${file}`,
       );
     }
   } else {
@@ -1796,9 +1827,10 @@ try {
     expectedBaselineFormat: 'f08',
     // A same-format upgrade should not churn the managed launcher, and `false` asserts
     // that the script is byte-stable across a compatible patch. It is `true` while the
-    // baseline predates the hardened launcher (root from the script's location, cool-off
-    // fallback), which this candidate rewrites on purpose. Return it to `false` once the
-    // same-format baseline is a release that already ships that launcher.
+    // baseline predates the hardened launcher (root from the script's location, a pinned
+    // fallback without install scripts), which this candidate rewrites on purpose. Return
+    // it to `false` once the same-format baseline is a release that already ships that
+    // launcher.
     expectManagedScriptChange: true,
     // The contract that distinguishes a same-format upgrade from a format bump: the
     // older client must still read a repository this candidate has written. That is

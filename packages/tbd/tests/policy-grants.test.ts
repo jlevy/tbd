@@ -1065,7 +1065,7 @@ describe('withPolicyBlock', () => {
   });
 
   it('refuses a tbd block stamped by a newer tbd', () => {
-    const newerLine = `${INTEGRATION_BEGIN_MARKER} format=f101 surface=agents-md -->`;
+    const newerLine = `${INTEGRATION_BEGIN_MARKER} format=f102 surface=agents-md -->`;
     expect(() => withPolicyBlock(agentsMdWith('', newerLine), GUIDELINE_BLOCK)).toThrow(
       /newer tbd/,
     );

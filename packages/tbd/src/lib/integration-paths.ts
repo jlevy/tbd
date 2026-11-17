@@ -16,7 +16,7 @@ import { join } from 'node:path';
 
 /**
  * Format stamped into generated agent integration surfaces: the AGENTS.md
- * managed block's begin marker (`<!-- BEGIN TBD INTEGRATION format=f100
+ * managed block's begin marker (`<!-- BEGIN TBD INTEGRATION format=f101
  * surface=agents-md -->`) and the DO NOT EDIT marker of every generated
  * SKILL.md. It is a compatibility gate for those surfaces only.
  *
@@ -45,12 +45,16 @@ import { join } from 'node:path';
  * - f01..f08: aliased the repository format (tbd through 0.9.0).
  * - f100: split from the repository format; the AGENTS.md block may carry a
  *   policy grants block that older releases must not delete.
+ * - f101: hardened hook launchers (root from the script's own location, the
+ *   shell-aware push detector, the Git-root Codex wrappers). An f100 release
+ *   would rewrite them to its older bodies and add its own Codex commands
+ *   beside the new wrappers, so it must stop at the stamped surfaces instead.
  *
  * Bump this constant, not CURRENT_FORMAT, when a generated surface changes so
  * that an older release rewriting it would lose data or break the surface. See
  * docs/tbd-format-versioning.md, "Generated Integration Format".
  */
-export const AGENT_INTEGRATION_FORMAT = 'f100';
+export const AGENT_INTEGRATION_FORMAT = 'f101';
 
 // =============================================================================
 // Claude Code Integration Paths (project-local)

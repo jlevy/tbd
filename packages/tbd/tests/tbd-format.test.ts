@@ -460,8 +460,8 @@ describe('tbd-format', () => {
       return integrationFormatNumber(found);
     }
 
-    it('starts the integration series at f100 while the repository format stays f08', () => {
-      expect(AGENT_INTEGRATION_FORMAT).toBe('f100');
+    it('is at f101 in the integration series while the repository format stays f08', () => {
+      expect(AGENT_INTEGRATION_FORMAT).toBe('f101');
       expect(CURRENT_FORMAT).toBe('f08');
     });
 

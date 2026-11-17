@@ -383,6 +383,24 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       expect(agents).toContain('Keep me.');
     });
 
+    it('upgrades an f100 AGENTS.md block in place and keeps its grants', async () => {
+      initGitRepo();
+      // tbd 0.10.0 and 0.11.0 stamped f100. That is below the integration format, so this
+      // release restamps the block and carries the recorded grants over unchanged.
+      expect(runTbd(['setup', '--auto', '--prefix=test', '--policies=recommended']).status).toBe(0);
+      const current = await readFile(join(tempDir, 'AGENTS.md'), 'utf-8');
+      const grants = current.slice(current.indexOf('<!-- BEGIN TBD POLICY GRANTS'));
+      expect(grants).toContain('<!-- END TBD POLICY GRANTS -->');
+      await writeFile(
+        join(tempDir, 'AGENTS.md'),
+        current.replace(`format=${AGENT_INTEGRATION_FORMAT} `, 'format=f100 '),
+      );
+
+      const result = runTbd(['setup', '--auto']);
+      expect(result.status, result.stderr).toBe(0);
+      expect(await readFile(join(tempDir, 'AGENTS.md'), 'utf-8')).toBe(current);
+    });
+
     it('refuses to overwrite an AGENTS.md written by a newer tbd', async () => {
       initGitRepo();
       await writeFile(

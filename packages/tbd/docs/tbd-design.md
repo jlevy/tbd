@@ -5839,7 +5839,7 @@ Setup and doctor inspect each generated file the same way, as `current`, `stale`
 whether a file is safe to replace.
 
 **Integration format.** The `AGENTS.md` block’s begin marker
-(`<!-- BEGIN TBD INTEGRATION format=f100 surface=agents-md -->`) and the `DO NOT EDIT`
+(`<!-- BEGIN TBD INTEGRATION format=f101 surface=agents-md -->`) and the `DO NOT EDIT`
 marker of every generated skill and tier agent definition carry a `format=` stamp.
 Its value, `AGENT_INTEGRATION_FORMAT` in `src/lib/integration-paths.ts`, is a
 compatibility gate for generated surfaces only, separate from the repository format
@@ -5850,6 +5850,13 @@ Through tbd 0.9.0 the constant aliased the repository format (f01 through f08). 
 first release after 0.9.0 splits the two and stamps f100, because the policy block must
 never be rewritten by a release that would drop it: tbd 0.9.0 and older refuse an f100
 surface instead of deleting grants, and no repository migrates.
+f101 marks the hardened hook launchers (§6.4.2): an f100 release (0.10.0 or 0.11.0)
+would rewrite them to its older bodies and add its own Codex commands beside the new
+wrappers, so it stops at the stamped surfaces instead.
+Because `setup --auto` installs the stamped portable skill first, and the Claude surface
+checks its stamped skill before it writes hooks, that stop comes before any hook file is
+written. An older release run with `--surfaces=codex` alone can still rewrite the Codex
+hook files, which carry no stamp.
 Integration formats are three digits (f100, f101, and so on) and repository formats two,
 so neither series can be read as the other.
 Generated hook scripts are not stamped; they probe `tbd_format` at runtime.
@@ -5936,7 +5943,7 @@ No value weakens `pr-review-requirements`.
 projects:
 
 ```markdown
-<!-- BEGIN TBD INTEGRATION format=f100 surface=agents-md -->
+<!-- BEGIN TBD INTEGRATION format=f101 surface=agents-md -->
 ## tbd
 …
 <!-- BEGIN TBD POLICY GRANTS v=1 -->

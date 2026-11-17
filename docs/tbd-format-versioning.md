@@ -85,7 +85,7 @@ Land the bump, publish, then let repositories stamp.
 
 Generated agent surfaces carry a marker that is independent of the two `tbd_format`
 markers: the `format=` field of the `AGENTS.md` managed block’s begin marker
-(`<!-- BEGIN TBD INTEGRATION format=f100 surface=agents-md -->`) and of the
+(`<!-- BEGIN TBD INTEGRATION format=f101 surface=agents-md -->`) and of the
 `DO NOT EDIT` marker in every generated `SKILL.md`. Its value is
 `AGENT_INTEGRATION_FORMAT` in
 [packages/tbd/src/lib/integration-paths.ts](../packages/tbd/src/lib/integration-paths.ts).

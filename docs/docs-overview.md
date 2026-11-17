@@ -66,8 +66,8 @@ Project-specific specifications, architecture, and research docs:
   - [On-disk format versioning](tbd-format-versioning.md) defines the current f08
     compatibility and migration contract, plus the explicit-activation rules that must
     be implemented before a candidate f09 repository can create native comments.
-    It also defines the generated integration format (f100) stamped into agent surfaces,
-    which is versioned separately from the repository format.
+    It also defines the generated integration format (f100 and up) stamped into agent
+    surfaces, which is versioned separately from the repository format.
 
 - @docs/project/research/—Research notes and technical investigations
 

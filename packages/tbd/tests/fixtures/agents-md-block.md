@@ -1,4 +1,4 @@
-<!-- BEGIN TBD INTEGRATION format=f100 surface=agents-md -->
+<!-- BEGIN TBD INTEGRATION format=f101 surface=agents-md -->
 ## tbd
 
 This repository uses **tbd** for git-native issue tracking (beads), spec-driven

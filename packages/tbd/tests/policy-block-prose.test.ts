@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { getCodexTbdSection } from '../src/cli/commands/setup.js';
+import { AGENT_INTEGRATION_FORMAT } from '../src/lib/integration-paths.js';
 import {
   hasCurrentPolicyBlockProse,
   refreshPolicyBlockProse,
@@ -62,14 +63,16 @@ describe('policy block prose', () => {
     );
     expect(hasCurrentPolicyBlockProse(rewrapped)).toBe(true);
     expect(refreshPolicyBlockProse(rewrapped)).toBe(rewrapped);
-    const oldStamp = CURRENT_CONTENT.replace('format=f100', 'format=f08').replace(
-      POLICY_BLOCK_PROSE,
-      INITIAL_PROSE,
-    );
+    const oldStamp = CURRENT_CONTENT.replace(
+      `format=${AGENT_INTEGRATION_FORMAT}`,
+      'format=f08',
+    ).replace(POLICY_BLOCK_PROSE, INITIAL_PROSE);
     expect(refreshPolicyBlockProse(oldStamp)).toBe(CURRENT_CONTENT);
-    expect(refreshPolicyBlockProse(CURRENT_CONTENT.replace('format=f100', 'format=f08'))).toBe(
-      CURRENT_CONTENT,
-    );
+    expect(
+      refreshPolicyBlockProse(
+        CURRENT_CONTENT.replace(`format=${AGENT_INTEGRATION_FORMAT}`, 'format=f08'),
+      ),
+    ).toBe(CURRENT_CONTENT);
   });
 
   it('adds missing guidance while preserving handwritten notes, grants, and date', () => {
@@ -97,7 +100,7 @@ describe('policy block prose', () => {
       '- `subagents`: granted',
       '- `subagents`: granted\n- `subagents`: not-granted',
     ),
-    CURRENT_CONTENT.replace('format=f100', 'format=f999'),
+    CURRENT_CONTENT.replace(`format=${AGENT_INTEGRATION_FORMAT}`, 'format=f999'),
   ])('refuses unreadable or newer blocks', (content) => {
     expect(() => refreshPolicyBlockProse(content)).toThrow(PolicyBlockError);
   });
