@@ -46,14 +46,32 @@ Read the JSON result instead of relying on the process exit code:
 - `skipped` with “already claimed by NAME” means another visible collaborator owns the
   bead. Do not start duplicate work; ask the coordinator to reassign scope or make an
   explicit takeover decision.
-- `skipped` with “already yours” is an idempotent repeat.
+- `skipped` with “already yours” is an idempotent repeat only when the acting name is
+  unique to the current collaborator or this is a known continuation.
+  A reused fallback name can hide a duplicate agent.
   Re-read the bead before continuing.
-- A command error, including failure to acquire or write the shared lock, means no claim
-  was accepted. It is different from a structured `skipped` result.
+- A command error, including failure to acquire or write the shared lock, is different
+  from a structured `skipped` result.
+  Do not proceed from it.
+  Inspect the bead before retrying, especially after a bulk claim where earlier IDs may
+  have changed.
 
 For compatibility with scripts that treated `start` as an idempotent command, a
 structured skip exits successfully.
 Callers that need conflict detection must inspect `claimed` and `skipped`.
+
+## Publish Checkpoints When Replicas Share State
+
+When separate clones exchange bead state, the collaborator who owns tracker updates
+publishes progress after each commit and before a handoff or session end.
+Record the commit or PR, pending CI or review, and the next owner before syncing.
+Do not close the bead while acceptance, CI, review, or handoff acknowledgment is still
+pending.
+
+At handoff, the recipient refreshes shared state, verifies the bead and referenced Git
+state, claims or accepts the explicit reassignment, and acknowledges the handoff before
+editing. The outgoing collaborator keeps the pending state visible until that
+acknowledgment.
 
 ## Take Over Deliberately
 
