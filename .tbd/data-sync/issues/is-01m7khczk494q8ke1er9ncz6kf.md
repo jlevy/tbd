@@ -5,10 +5,14 @@ title: "PR #332 D5: Decide Codex on native Windows for the bash -c hook wrappers
 kind: task
 status: open
 priority: 2
-version: 1
+version: 2
 labels: []
 dependencies: []
 created_at: 2026-11-17T01:19:33.476Z
-updated_at: 2026-11-17T01:19:33.476Z
+updated_at: 2026-11-17T02:24:44.290Z
 ---
 Review D (Medium, not reproduced), owner decision. Codex starts hook commands on Windows with %COMSPEC% /C, which does not treat ' as a quote, so the wrapper's &&, ||, >&2 are parsed by cmd.exe. Options: add a commandWindows override per generated handler, or state in tbd-design.md 6.4.2 that tbd's Codex hooks need a POSIX shell. Verify on Windows. Review: https://github.com/jlevy/tbd/pull/332#pullrequestreview-5930928560
+
+## Notes
+
+D5 (owner decision: scope native Windows out) on side branch claude/harden-hook-launchers-owner-decisions (local in scratchpad/tbd-332-side, on 09285a72; not yet pushed: the push was denied by the permission system) as b595bd95. Follow-up: tbd-8rs0. Owning session closes this bead.
