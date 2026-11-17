@@ -1,6 +1,9 @@
+import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { createServer, request } from 'node:http';
 import type { RequestListener, Server } from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -8,7 +11,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { BoardState } from '../src/cli/web/board.js';
 import type { BoardStateDependencies, RepoStatus, WebState } from '../src/cli/web/board.js';
-import { loadWebPage, startWebServer } from '../src/cli/web/server.js';
+import {
+  browserLaunchCommand,
+  cmdCommandArgs,
+  loadWebPage,
+  startWebServer,
+} from '../src/cli/web/server.js';
 import type {
   WebServerDependencies,
   WebServerHandle,
@@ -269,4 +277,105 @@ describe('startWebServer', () => {
     handles.push(handle);
     expect(await get(handle.port)).toBe(page);
   });
+});
+
+describe('browser launch command', () => {
+  // Each URL carries characters cmd.exe treats as syntax: & and | separate commands,
+  // ^ escapes, ( ) group, % and ! expand variables, and quotes and spaces split arguments.
+  const urls = [
+    'http://127.0.0.1:7777/?view=workmap&group=area%3A',
+    'http://127.0.0.1:7777/?group=a^b&x=(1)|2',
+    'http://127.0.0.1:7777/?group=%PATH%!PATH!',
+    'http://127.0.0.1:7777/?group=say "hi" & bye',
+  ];
+
+  /**
+   * The text cmd.exe would hand to `start`, by its caret rule: `^` makes the next
+   * character literal and is removed. Returns null when a metacharacter is left bare.
+   */
+  function cmdLiteral(escaped: string): string | null {
+    let literal = '';
+    for (let index = 0; index < escaped.length; index += 1) {
+      const character = escaped[index]!;
+      if (character === '^') {
+        index += 1;
+        literal += escaped[index] ?? '';
+      } else if ('&|<>()%!"'.includes(character)) {
+        return null;
+      } else {
+        literal += character;
+      }
+    }
+    return literal;
+  }
+
+  it('hands the URL to the platform opener as one untouched argument off Windows', () => {
+    for (const url of urls) {
+      expect(browserLaunchCommand(url, 'darwin')).toEqual({
+        file: 'open',
+        args: [url],
+        windowsVerbatimArguments: false,
+      });
+      expect(browserLaunchCommand(url, 'linux')).toEqual({
+        file: 'xdg-open',
+        args: [url],
+        windowsVerbatimArguments: false,
+      });
+    }
+  });
+
+  it('caret-escapes every cmd.exe metacharacter on Windows, so start gets one literal URL', () => {
+    expect(browserLaunchCommand(urls[0]!, 'win32')).toEqual({
+      file: 'cmd.exe',
+      args: [
+        '/d',
+        '/v:off',
+        '/s',
+        '/c',
+        '"start "" http://127.0.0.1:7777/?view=workmap^&group=area^%3A"',
+      ],
+      windowsVerbatimArguments: true,
+    });
+    expect(browserLaunchCommand(urls[3]!, 'win32').args.at(-1)).toBe(
+      '"start "" http://127.0.0.1:7777/?group=say^%20^%22hi^%22^%20^&^%20bye"',
+    );
+    for (const url of urls) {
+      const command = browserLaunchCommand(url, 'win32').args.at(-1)!;
+      expect(command.startsWith('"start "" ') && command.endsWith('"')).toBe(true);
+      const argument = command.slice('"start "" '.length, -1);
+      // No bare metacharacter, no space or quote to split start's argument, and the
+      // literal start receives is the URL itself.
+      expect({ url, literal: cmdLiteral(argument) }).toEqual({ url, literal: new URL(url).href });
+      expect(argument).not.toMatch(/[\s"]/u);
+    }
+  });
+
+  it.runIf(process.platform === 'win32')(
+    'passes each URL through the real cmd.exe parser literally',
+    async () => {
+      const dir = await mkdtemp(join(tmpdir(), 'tbd-web-open-'));
+      try {
+        // A planted script named like the text after an unescaped `&`.
+        await writeFile(join(dir, 'group.cmd'), '@echo ran> "%~dp0marker.txt"\r\n');
+        const run = (args: string[], cwd: string) =>
+          spawnSync('cmd.exe', args, { cwd, encoding: 'utf8', windowsVerbatimArguments: true });
+        for (const url of urls) {
+          // `echo` in place of `start ""` prints exactly what start would receive.
+          const echoed = run(cmdCommandArgs('echo', url), dir);
+          expect({ url, out: echoed.stdout.trimEnd() }).toEqual({ url, out: new URL(url).href });
+        }
+        expect(existsSync(join(dir, 'marker.txt'))).toBe(false);
+        // Control, run where nothing is planted: the same URL unescaped is cut at `&`,
+        // which is the defect being fixed.
+        const bare = run(
+          ['/d', '/v:off', '/s', '/c', `"echo ${new URL(urls[0]!).href}"`],
+          tmpdir(),
+        );
+        expect(bare.stdout.trimEnd()).toBe('http://127.0.0.1:7777/?view=workmap');
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    },
+    30_000,
+  );
 });

@@ -357,13 +357,67 @@ export async function startWebServer(
   return { port, url, close, closed };
 }
 
+/** The process that opens a URL in the default browser on one platform. */
+export interface BrowserLaunchCommand {
+  file: string;
+  args: string[];
+  /** Windows only: pass `args` exactly as built, without Node's argument quoting. */
+  windowsVerbatimArguments: boolean;
+}
+
+/** Every character cmd.exe gives a meaning: separators, redirection, grouping, expansion. */
+const CMD_METACHARACTERS = /[\^&|<>()%!"]/gu;
+
+/**
+ * The cmd.exe arguments that run `<command> <url>` with the URL read as literal text.
+ *
+ * The URL is first normalized, which percent-encodes any space or quote, so `start`
+ * receives it as one argument. Every remaining metacharacter is then caret-escaped and the
+ * command line is passed verbatim, because Node quotes only arguments that contain a space
+ * or a quote and would otherwise hand a bare `&` to cmd as a command separator. `/d` skips
+ * AutoRun commands and `/v:off` turns off `!` expansion. `/s /c "..."` is the form Node
+ * itself builds for `shell: true`. An escaped `%` stays literal unless the environment
+ * defines a variable whose name ends in `^`.
+ *
+ * Exported with `command` as a parameter so tests can run the same escaping through the
+ * real cmd.exe with `echo`, which prints what `start` would receive.
+ */
+export function cmdCommandArgs(command: string, url: string): string[] {
+  const literal = new URL(url).href.replace(CMD_METACHARACTERS, '^$&');
+  return ['/d', '/v:off', '/s', '/c', `"${command} ${literal}"`];
+}
+
+/**
+ * The browser launch for `platform`. Elsewhere the URL is one argument to a launcher that
+ * no shell parses. Windows has no such launcher, so `start` runs inside cmd.exe with the
+ * URL escaped by `cmdCommandArgs`.
+ *
+ * Exported so the Windows branch is assertable from any host.
+ */
+export function browserLaunchCommand(url: string, platform: NodeJS.Platform): BrowserLaunchCommand {
+  switch (platform) {
+    case 'darwin':
+      return { file: 'open', args: [url], windowsVerbatimArguments: false };
+    case 'win32':
+      return {
+        file: 'cmd.exe',
+        args: cmdCommandArgs('start ""', url),
+        windowsVerbatimArguments: true,
+      };
+    default:
+      return { file: 'xdg-open', args: [url], windowsVerbatimArguments: false };
+  }
+}
+
 /** Launch the platform browser without making it part of server correctness. */
 export function openWebBrowser(url: string): Promise<void> {
-  const command =
-    process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'cmd.exe' : 'xdg-open';
-  const args = process.platform === 'win32' ? ['/d', '/s', '/c', 'start', '', url] : [url];
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { detached: true, stdio: 'ignore' });
+    const { file, args, windowsVerbatimArguments } = browserLaunchCommand(url, process.platform);
+    const child = spawn(file, args, {
+      detached: true,
+      stdio: 'ignore',
+      windowsVerbatimArguments,
+    });
     child.once('error', reject);
     child.once('spawn', () => {
       child.unref();
