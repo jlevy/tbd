@@ -4738,6 +4738,9 @@ that groups rows by the value each bead’s labels state under a caller-chosen p
 tbd assigns no meaning to any prefix and offers only the prefixes the rows state.
 Two distinct values place a bead in a `conflicting` group showing its literal labels,
 and no value places it in `ungrouped`; neither is resolved by a tie-break.
+Cards inside each bucket follow the column sort stack; with Pretty on, the served order
+is a tree walk that a card cannot show, so the projection re-sorts each bucket with the
+server’s flat-order comparison, which a differential test holds equal.
 A group is headed by its literal label in the label-tag style, so values that differ
 only in case, or that are named `conflicting` or `ungrouped`, stay distinct from each
 other and from the two small-cap buckets.

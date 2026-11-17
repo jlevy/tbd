@@ -867,6 +867,8 @@ callers build on.
 
 The Workmap shows the same filtered and sorted rows as the list, as cards grouped by the
 value each bead’s labels state under a prefix your labels already use.
+Cards in each group follow the column sort, also with Pretty on, where the list instead
+keeps each child under its parent.
 tbd assigns no meaning to any prefix; the page offers only the prefixes your labels
 contain. Each group is headed by its literal label, such as `area:caching`. A bead with
 two values under the prefix appears in the `conflicting` bucket with its literal labels,

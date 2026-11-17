@@ -1447,6 +1447,8 @@ interface WorkmapPrefixCache {
 interface WorkmapProjectionCache {
   rows: readonly BoardRowView[];
   prefix: string;
+  /** The serialized sort stack the cards follow, or '' for the served order. */
+  order: string;
   projection: WorkmapProjectionView;
 }
 
@@ -1492,13 +1494,23 @@ function pinDefaultWorkmapGrouping(rows: readonly BoardRowView[]): void {
   writeBoardViewAddress();
 }
 
-function workmapProjection(rows: readonly BoardRowView[], prefix: string): WorkmapProjectionView {
+/**
+ * The projection of one board response, recomputed only when the rows, the grouping, or
+ * the order change. With Pretty on, cards follow the sort stack (see `projectWorkmap`).
+ */
+function workmapProjection(
+  rows: readonly BoardRowView[],
+  prefix: string,
+  controls: BoardControls,
+): WorkmapProjectionView {
+  const sorts = controls.pretty ? controls.sorts : null;
+  const order = sorts === null ? '' : JSON.stringify(sorts);
   const cached = workmapProjectionCache;
-  if (cached?.rows === rows && cached.prefix === prefix) {
+  if (cached?.rows === rows && cached.prefix === prefix && cached.order === order) {
     return cached.projection;
   }
-  const projection = projectWorkmap(rows, prefix);
-  workmapProjectionCache = { rows, prefix, projection };
+  const projection = projectWorkmap(rows, prefix, sorts);
+  workmapProjectionCache = { rows, prefix, order, projection };
   return projection;
 }
 
@@ -1755,7 +1767,10 @@ function renderWorkmap(view: ClientView, board: BoardResponse): void {
   const focus = captureBeadFocus(WORKMAP_CARD_SELECTOR);
   pinDefaultWorkmapGrouping(board.rows);
   const prefix = renderWorkmapGroupChoices(board.rows);
-  const page = paginateWorkmap(workmapProjection(board.rows, prefix), boardPageIndex);
+  const page = paginateWorkmap(
+    workmapProjection(board.rows, prefix, view.controls),
+    boardPageIndex,
+  );
   boardPageIndex = page.pageIndex;
   renderPageControls(page, 'Cards');
 

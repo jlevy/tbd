@@ -399,19 +399,91 @@ export function detectLabelPrefixes(rows: readonly BoardRowView[]): ValueFacetVi
     .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
 }
 
+/** Text order as the server compares it (`compareText` in `cli/web/board.ts`). */
+function compareBoardText(left: string, right: string): number {
+  const normalizedLeft = left.normalize('NFKC').toLocaleLowerCase('en-US');
+  const normalizedRight = right.normalize('NFKC').toLocaleLowerCase('en-US');
+  if (normalizedLeft !== normalizedRight) {
+    return normalizedLeft < normalizedRight ? -1 : 1;
+  }
+  const exactLeft = left.normalize('NFKC');
+  const exactRight = right.normalize('NFKC');
+  return exactLeft < exactRight ? -1 : exactLeft > exactRight ? 1 : 0;
+}
+
+function compareBoardTimestamps(left: string, right: string): number {
+  const leftTime = Date.parse(left);
+  const rightTime = Date.parse(right);
+  if (Number.isFinite(leftTime) && Number.isFinite(rightTime)) {
+    return leftTime - rightTime;
+  }
+  return compareBoardText(left, right);
+}
+
+function boardSortText(
+  row: BoardRowView,
+  key: Exclude<BoardSortKeyView, 'priority' | 'updated'>,
+): string {
+  switch (key) {
+    case 'id':
+      return row.id;
+    case 'status':
+      return row.status;
+    case 'kind':
+      return row.kind;
+    case 'title':
+      return row.title;
+    case 'labels':
+      return [...row.labels].sort(compareBoardText).join('\u0000');
+    default: {
+      const exhaustive: never = key;
+      throw new Error(`Unhandled board sort key: ${String(exhaustive)}`);
+    }
+  }
+}
+
+/**
+ * Compare two rows by a sort stack exactly as the server orders a flat board
+ * (`compareIssuesByColumns` in `cli/web/board.ts`), ending with the display ID. A
+ * differential test in `web-board.test.ts` holds the two to the same order.
+ */
+export function compareBoardRows(
+  left: BoardRowView,
+  right: BoardRowView,
+  sorts: readonly BoardSortView[],
+): number {
+  for (const sort of sorts) {
+    const compared =
+      sort.key === 'priority'
+        ? left.priority - right.priority
+        : sort.key === 'updated'
+          ? compareBoardTimestamps(left.updated_at, right.updated_at)
+          : compareBoardText(boardSortText(left, sort.key), boardSortText(right, sort.key));
+    if (compared !== 0) {
+      return sort.direction === 'asc' ? compared : -compared;
+    }
+  }
+  return compareBoardText(left.id, right.id);
+}
+
 /**
  * Group board rows by the value their labels state under `prefix`.
  *
  * Exactly one distinct value places the row in that value's group. Two or more is a
- * conflict — reported as such rather than resolved by any tie-break, because the label
+ * conflict, reported as such rather than resolved by any tie-break, because the label
  * convention this projects (one value per bead under a grouping prefix) is the user's,
  * and only they can say which label is wrong. No value leaves the row ungrouped and
- * visible. Rows keep the board's served order inside every bucket, so the active sort
- * controls order the cards too.
+ * visible.
+ *
+ * With `sorts`, the cards in every bucket follow that stack. The page passes it when
+ * Pretty is on, because the served order is then a tree walk in which a child follows
+ * its parent, and a card shows no tree. With `null` the served order stands: with
+ * Pretty off it already is the sorted order.
  */
 export function projectWorkmap(
   rows: readonly BoardRowView[],
   prefix: string,
+  sorts: readonly BoardSortView[] | null,
 ): WorkmapProjectionView {
   const projection: WorkmapProjectionView = { prefix, groups: [], conflicted: [], ungrouped: [] };
   if (isBlankGroupPrefix(prefix)) {
@@ -444,6 +516,15 @@ export function projectWorkmap(
   projection.groups = [...byValue.entries()]
     .map(([value, groupRows]) => ({ value, rows: groupRows }))
     .sort((a, b) => b.rows.length - a.rows.length || a.value.localeCompare(b.value));
+  if (sorts !== null && sorts.length > 0) {
+    const bySorts = (left: BoardRowView, right: BoardRowView) =>
+      compareBoardRows(left, right, sorts);
+    for (const group of projection.groups) {
+      group.rows.sort(bySorts);
+    }
+    projection.conflicted.sort((left, right) => bySorts(left.row, right.row));
+    projection.ungrouped.sort(bySorts);
+  }
   return projection;
 }
 

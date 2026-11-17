@@ -939,6 +939,7 @@ describe('workmap projection', () => {
         row('web-4', []),
       ],
       'area:',
+      null,
     );
     expect(projection.prefix).toBe('area:');
     expect(
@@ -955,7 +956,11 @@ describe('workmap projection', () => {
   });
 
   it('reports two distinct values as a conflict instead of picking one', () => {
-    const projection = projectWorkmap([row('web-9', ['area:caching', 'area:tracker'])], 'area:');
+    const projection = projectWorkmap(
+      [row('web-9', ['area:caching', 'area:tracker'])],
+      'area:',
+      null,
+    );
     expect(projection.groups).toEqual([]);
     expect(projection.conflicted).toEqual([
       { row: row('web-9', ['area:caching', 'area:tracker']), values: ['caching', 'tracker'] },
@@ -966,14 +971,45 @@ describe('workmap projection', () => {
     const projection = projectWorkmap(
       [row('web-5', ['area:caching', 'area:caching']), row('web-6', ['area:'])],
       'area:',
+      null,
     );
     expect(projection.groups.map((group) => group.value)).toEqual(['caching']);
     expect(projection.conflicted).toEqual([]);
     expect(projection.ungrouped.map((ungrouped) => ungrouped.id)).toEqual(['web-6']);
   });
 
+  it('orders cards inside each bucket by the sort stack when one is given', () => {
+    // With Pretty, the served order is a tree walk: a child follows its parent even when
+    // the parent sits in another group. Default stack, Updated descending.
+    const served = [
+      { ...row('epic', ['area:web']), updated_at: '2026-03-01T00:00:00Z' },
+      { ...row('child', ['area:cli']), updated_at: '2026-01-01T00:00:00Z' },
+      { ...row('feb', ['area:cli']), updated_at: '2026-02-01T00:00:00Z' },
+      { ...row('jan15', ['area:cli']), updated_at: '2026-01-15T00:00:00Z' },
+      { ...row('both', ['area:cli', 'area:web']), updated_at: '2026-01-01T00:00:00Z' },
+      { ...row('none', []), updated_at: '2026-01-02T00:00:00Z' },
+      { ...row('none2', []), updated_at: '2026-02-02T00:00:00Z' },
+    ];
+    const ids = (projection: ReturnType<typeof projectWorkmap>) => ({
+      groups: projection.groups.map((group) => [group.value, group.rows.map((r) => r.id)]),
+      ungrouped: projection.ungrouped.map((r) => r.id),
+    });
+    expect(ids(projectWorkmap(served, 'area:', DEFAULT_BOARD_SORTS))).toEqual({
+      groups: [
+        ['cli', ['feb', 'jan15', 'child']],
+        ['web', ['epic']],
+      ],
+      ungrouped: ['none2', 'none'],
+    });
+    // Without a stack the served order stands, as with Pretty off.
+    expect(ids(projectWorkmap(served, 'area:', null)).groups[0]).toEqual([
+      'cli',
+      ['child', 'feb', 'jan15'],
+    ]);
+  });
+
   it('projects an empty prefix as fully ungrouped rather than grouping on accident', () => {
-    const projection = projectWorkmap([row('web-7', ['area:caching'])], '  ');
+    const projection = projectWorkmap([row('web-7', ['area:caching'])], '  ', null);
     expect(projection.groups).toEqual([]);
     expect(projection.ungrouped.map((ungrouped) => ungrouped.id)).toEqual(['web-7']);
   });
@@ -1006,6 +1042,7 @@ describe('workmap page window', () => {
         row('none', []),
       ],
       'area:',
+      null,
     );
     const pages = [0, 1].map((pageIndex) => paginateWorkmap(projection, pageIndex));
     const shape = pages.map((page) =>
@@ -1044,6 +1081,7 @@ describe('workmap page window', () => {
     const projection = projectWorkmap(
       [...rows('big', 5_950, ['area:big']), ...rows('small', 4_050, ['area:small'])],
       'area:',
+      null,
     );
     const [first, second] = [0, 1].map((pageIndex) => paginateWorkmap(projection, pageIndex));
     const counts = (truncated: boolean) =>
@@ -1063,12 +1101,14 @@ describe('workmap page window', () => {
   });
 
   it('clamps a stale page like the list, and has nothing to mount without a prefix', () => {
-    const projection = projectWorkmap([row('one', ['area:x'])], 'area:');
+    const projection = projectWorkmap([row('one', ['area:x'])], 'area:', null);
     expect(paginateWorkmap(projection, 7).pageIndex).toBe(0);
     expect(paginateWorkmap(projection, 7).sections.map((section) => section.key)).toEqual([
       'group:x',
     ]);
-    expect(paginateWorkmap(projectWorkmap([row('one', ['area:x'])], ''), 0).sections).toEqual([]);
+    expect(paginateWorkmap(projectWorkmap([row('one', ['area:x'])], '', null), 0).sections).toEqual(
+      [],
+    );
   });
 
   it('signs exactly what a card face shows, so refreshed but unchanged rows are reused', () => {

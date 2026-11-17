@@ -372,9 +372,7 @@ describe('workmap interaction', () => {
 
   it('mounts one page window of keyed cards and writes view choices to the address', async () => {
     const client = await readFile(clientPath, 'utf8');
-    expect(client).toContain(
-      'paginateWorkmap(workmapProjection(board.rows, prefix), boardPageIndex)',
-    );
+    expect(client).toContain('workmapProjection(board.rows, prefix, view.controls)');
     expect(client).toContain("renderPageControls(page, 'Cards')");
     expect(client).toContain(
       'reconcileChildren(mountedSection.element, mountedSection.name, cardElements)',

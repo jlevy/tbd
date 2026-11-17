@@ -12,6 +12,8 @@ import type { BoardStateDependencies, RepoStatus, WebState } from '../src/cli/we
 import type { TbdDataContext } from '../src/cli/lib/data-context.js';
 import type { IdMapping } from '../src/file/id-mapping.js';
 import type { Issue } from '../src/lib/types.js';
+import { compareBoardRows } from '../src/web/core.js';
+import type { BoardSortView } from '../src/web/core.js';
 import { createTestIssue, testId, TEST_ULIDS } from './test-helpers.js';
 
 function mappingFor(entries: Record<string, string>): IdMapping {
@@ -896,5 +898,83 @@ describe('BoardState', () => {
     expect(response.rows).toHaveLength(branchCount);
     expect(response.truncated).toBe(0);
     expect(response.rows.every((row) => row.prefix === '')).toBe(true);
+  });
+});
+
+describe('client row order', () => {
+  it('sorts rows exactly as the server orders a flat board, for every sort key', async () => {
+    // Ten beads where a Pretty tree walk differs from the flat sort: children under
+    // parents they outrank or trail, case-only title differences, and label sets.
+    const ulids = Object.values(TEST_ULIDS).slice(0, 10);
+    const shortIds = ['tree', 'kid', 'leaf', 'solo', 'b', 'a', 'z', 'x', 'm', 'n'];
+    const treeMapping = mappingFor(Object.fromEntries(shortIds.map((id, i) => [id, ulids[i]!])));
+    const at = (day: number) => `2026-01-${String(day).padStart(2, '0')}T00:00:00Z`;
+    const issue = (index: number, fields: Partial<Issue>): Issue =>
+      createTestIssue({ id: testId(ulids[index]!), title: `Bead ${index}`, ...fields });
+    const issues = [
+      issue(0, { kind: 'epic', priority: 1, title: 'Tree root', updated_at: at(20) }),
+      issue(1, { parent_id: testId(ulids[0]!), title: 'tree kid', updated_at: at(1) }),
+      issue(2, { parent_id: testId(ulids[1]!), priority: 0, title: 'Leaf', updated_at: at(25) }),
+      issue(3, { status: 'blocked', priority: 3, labels: ['b', 'a'], updated_at: at(10) }),
+      issue(4, { status: 'deferred', kind: 'bug', labels: ['a'], updated_at: at(10) }),
+      issue(5, { status: 'in_progress', kind: 'chore', title: 'beta', updated_at: at(5) }),
+      issue(6, { kind: 'feature', priority: 4, title: 'Beta', labels: ['c'], updated_at: at(15) }),
+      issue(7, { parent_id: testId(ulids[6]!), priority: 0, title: 'alpha', updated_at: at(2) }),
+      issue(8, { priority: 2, title: 'Alpha', labels: ['a', 'c'], updated_at: at(15) }),
+      issue(9, { priority: 2, title: 'gamma', updated_at: 'not a timestamp' }),
+    ];
+    const dependencies: BoardStateDependencies = {
+      loadContext: () => Promise.resolve({ ...context, mapping: treeMapping }),
+      listIssues: () => Promise.resolve(issues),
+      readRepoStatus: () => Promise.resolve(repoStatus),
+      readLocalTip: () => Promise.resolve('a'.repeat(40)),
+      now: () => new Date('2026-08-11T12:00:00.000Z'),
+    };
+    const board = new BoardState('/repo', dependencies);
+    await board.reload();
+    const stacks: BoardSortView[][] = [
+      [
+        { key: 'updated', direction: 'desc' },
+        { key: 'priority', direction: 'asc' },
+      ],
+      [
+        { key: 'priority', direction: 'asc' },
+        { key: 'title', direction: 'desc' },
+      ],
+      [{ key: 'title', direction: 'asc' }],
+      [
+        { key: 'labels', direction: 'asc' },
+        { key: 'id', direction: 'desc' },
+      ],
+      [
+        { key: 'status', direction: 'asc' },
+        { key: 'kind', direction: 'desc' },
+      ],
+      [{ key: 'id', direction: 'asc' }],
+    ];
+    for (const sorts of stacks) {
+      const order = sorts.map((sort) => `order=${sort.key}:${sort.direction}`).join('&');
+      const tree = board.buildBoardResponse(
+        new URLSearchParams(`pretty=1&${order}`),
+        stateFor(board),
+      );
+      const flat = board.buildBoardResponse(new URLSearchParams(order), stateFor(board));
+      const sorted = [...tree.rows].sort((left, right) => compareBoardRows(left, right, sorts));
+      expect({ order, ids: sorted.map((row) => row.id) }).toEqual({
+        order,
+        ids: flat.rows.map((row) => row.id),
+      });
+    }
+    // The comparison is not vacuous: the default stack's tree walk is not the flat order.
+    const defaultOrder = 'order=updated:desc&order=priority:asc';
+    expect(
+      board
+        .buildBoardResponse(new URLSearchParams(`pretty=1&${defaultOrder}`), stateFor(board))
+        .rows.map((row) => row.id),
+    ).not.toEqual(
+      board
+        .buildBoardResponse(new URLSearchParams(defaultOrder), stateFor(board))
+        .rows.map((row) => row.id),
+    );
   });
 });
