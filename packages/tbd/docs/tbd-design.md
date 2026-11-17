@@ -5618,7 +5618,7 @@ in any environment (local dev, Claude Code Cloud, etc.).
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/tbd-closing-reminder.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/tbd-closing-reminder.sh"
           }
         ]
       }
@@ -5631,9 +5631,31 @@ in any environment (local dev, Claude Code Cloud, etc.).
 - **PreCompact**: Runs `tbd prime --brief` before context compaction
 - **PostToolUse**: Reminds about `tbd sync` after `git push`
 
-All hook commands use project-relative paths (e.g.,
-`bash .claude/scripts/tbd-session.sh`) so they work regardless of where tbd was
-installed globally.
+Hook commands name the project’s own scripts, never a globally installed tbd, so they
+work regardless of where tbd was installed.
+The Claude closing command anchors its script at `"$CLAUDE_PROJECT_DIR"`, which Claude
+Code sets to the project for every hook, so it runs the project’s script even after the
+session has changed into a subdirectory or a nested checkout.
+The Claude SessionStart and PreCompact commands are still relative to the working
+directory (`bash .claude/scripts/tbd-session.sh`). Codex exports no project directory,
+so every Codex command is a `bash -c` wrapper that walks up from the working directory
+to the nearest `.git`, Codex’s project root, and runs that root’s own script (see C
+below).
+
+A project may spell a command differently when it runs the same script with the same
+arguments from the same anchor, for example
+`bash "${CLAUDE_PROJECT_DIR}"/.claude/scripts/tbd-session.sh`, in a `command` handler
+under the generated matcher.
+Setup keeps such a command as written, adds no duplicate beside it, and reports it as a
+customized hook command.
+A spelling that finds the script from the working directory or its Git checkout
+(`bash ./.claude/...`, `bash "$(git rev-parse --show-toplevel)/.codex/..."`), or one
+under another matcher or handler type, is still tbd’s: setup replaces it with the
+generated command, and `tbd doctor` reports a Codex hooks file holding one as stale.
+In a nested checkout such as a third-party clone under `attic/`, those spellings would
+run the clone’s script.
+A command that adds anything else (another command, other arguments) is the project’s
+own and does not stand in for tbd’s.
 
 **B. Session Script** (installed to `.claude/scripts/tbd-session.sh`)
 
@@ -5643,6 +5665,51 @@ It contains no tbd release literal: it uses an installed CLI when that CLI can r
 repository’s `tbd_format`, otherwise it invokes the strictly validated exact
 `tbd_fallback_version` stored once in `.tbd/config.yml`. Compatible package upgrades
 therefore update the central pin without rewriting the script.
+
+The script finds the repository from its own install location (`.claude/scripts/` or
+`.codex/`), not by asking git or searching parent directories, so it works without git
+and fails closed when that repository has no `.tbd/config.yml` rather than adopting an
+enclosing directory’s configuration.
+The npx fallback runs under the 14-day supply-chain cool-off:
+`npx --yes --before=<now minus 14 days> --ignore-scripts --cache=<dedicated cache>`. npm
+then resolves the pin and every dependency only from versions published before the
+cutoff, so a pin newer than 14 days fails until it ages, and it runs no install scripts.
+The policy is passed as flags, which npm ranks above inherited `NPM_CONFIG_*` variables,
+and the cache (`${XDG_CACHE_HOME:-~/.cache}/tbd-fallback-npm`) is used only by these
+runs, because npx reuses a cached package by its spec without resolving it again.
+The cutoff is computed with node; without a working node the fallback stops.
+Failures of the local CLI and of npx propagate as the hook’s exit status, and without
+npx the script prints an install command carrying the same `--ignore-scripts` and
+`--before` flags.
+
+**C. Closing Reminder** (installed to `.claude/hooks/tbd-closing-reminder.sh`)
+
+The PostToolUse hook reads the hook’s JSON input and runs `tbd closing` only when the
+Bash command runs `git push`. It parses the command with an embedded node program that
+separates commands and words as a shell does, so it recognizes `git -C dir push`,
+`env VAR=1 git push`, or a push on a later line, and ignores `echo git push`. A literal
+script given to `eval` or to `sh -c` (also `bash`, `dash`, `ksh`, and `zsh`) is parsed
+the same way, without running anything, so `bash -c "cd repo && git push"` is a push; a
+script known only at run time, such as `eval "$cmd"`, is not.
+The parser does not follow heredocs, `$(...)`, `$'...'`, or comments.
+When a quote character inside one leaves the parser inside a quote at the end of the
+command, it also reports a push wherever `git push` starts a command in the text, so a
+push after a heredoc commit message still reminds.
+It needs no jq, and invalid hook JSON exits 1 with a message instead of skipping the
+reminder. It locates the repository and runs tbd the same way as the session script.
+When node fails without a message, the hook says so and exits 1. Each Codex hook command
+(SessionStart, PreCompact, the gh CLI script, and PostToolUse) walks up from the working
+directory, without git, to the nearest directory with `.git`. That is the project root
+Codex loads hooks from with its default `project_root_markers`, and setup installs
+`.codex/` there. The command runs that root’s own script under `.codex/`. A directory
+below the root that has no `.git` of its own, such as vendored code, cannot supply the
+script, even with its own `.codex/hooks.json`: a marker file grants no trust, so the
+root’s reviewed hooks never run unreviewed code from it.
+A nested Git checkout is a Codex project of its own, and inside it the command runs that
+checkout’s hooks. The command exits 0 when the root has no `.codex/hooks.json` or no
+directory has `.git` (a checkout whose Git directory lives elsewhere through `GIT_DIR`
+or `core.worktree` is in this case), and it fails visibly when a configured root lacks
+the script.
 
 **Setup command:**
 

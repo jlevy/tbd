@@ -67,8 +67,18 @@ import {
   getTierAgentRel,
   AGENTS_SKILL_DISPLAY,
   AGENT_INTEGRATION_FORMAT,
+  TBD_CLOSING_REMINDER_REL,
+  TBD_SESSION_SCRIPT_REL,
   type TierAgentPlatform,
 } from '../../lib/integration-paths.js';
+import { GIT_PUSH_DETECTOR_JS } from '../lib/git-push-detector.js';
+import {
+  CLAUDE_HOOK_ANCHORS,
+  customizedHookNote,
+  scriptInvocationSpellings,
+  unanchoredScriptInvocations,
+  type ScriptInvocationSpellings,
+} from '../lib/hook-commands.js';
 import { initWorktree, isInGitRepo, findGitRoot, checkWorktreeHealth } from '../../file/git.js';
 import { readForkManifest } from '../../file/fork-manifest.js';
 import { computeForkDriftSummary } from '../../file/doc-fork.js';
@@ -462,12 +472,24 @@ interface SetupClaudeOptions {
   remove?: boolean;
 }
 
+/** Days a get-tbd release (and each dependency) must age before the npx fallback uses it. */
+const TBD_FALLBACK_COOL_OFF_DAYS = 14;
+
 /**
  * Shell helpers shared by generated hooks. Compatibility is defined by the repository
  * format, not by the release that last ran setup: `tbd config get tbd_format` succeeds
- * only when the local CLI can safely read the config. The exact network fallback stays
- * deterministic, but its pin is read from config so patch releases do not rewrite every
- * generated script.
+ * only when the local CLI can safely read the config. The exact network fallback pin is
+ * read from config so patch releases do not rewrite every generated script, and it runs
+ * under the supply-chain cool-off: npm resolves get-tbd and every dependency only from
+ * versions published at least `TBD_FALLBACK_COOL_OFF_DAYS` ago (the pin included) and
+ * runs no install scripts.
+ *
+ * The policy is passed as npx flags because npm ranks command-line flags above
+ * environment variables, so an inherited `NPM_CONFIG_BEFORE` or
+ * `NPM_CONFIG_IGNORE_SCRIPTS` (in either case) cannot loosen it. npx keys its cache by
+ * the package spec alone and reuses a cached copy without re-resolving, so the fallback
+ * uses a dedicated cache that only these constrained runs fill. Without a working node
+ * the cutoff cannot be computed, and the fallback fails closed.
  */
 const TBD_REPOSITORY_RUNNER_FUNCTIONS = `tbd_configured_fallback_version() {
   local config_path=$1
@@ -489,11 +511,109 @@ const TBD_REPOSITORY_RUNNER_FUNCTIONS = `tbd_configured_fallback_version() {
 
 tbd_local_can_read_repository() {
   command -v tbd &> /dev/null && tbd config get tbd_format >/dev/null 2>&1
+}
+
+TBD_FALLBACK_COOL_OFF_DAYS=${TBD_FALLBACK_COOL_OFF_DAYS}
+
+tbd_fallback_cutoff() {
+  local cutoff
+  if ! command -v node &> /dev/null; then
+    echo "[tbd] node is required to compute the cool-off cutoff for the npx fallback." >&2
+    return 1
+  fi
+  if ! cutoff=$(node -e 'console.log(new Date(Date.now() - Number(process.argv[1]) * 86400000).toISOString())' "$TBD_FALLBACK_COOL_OFF_DAYS") ||
+    [[ ! $cutoff =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$ ]]; then
+    echo "[tbd] node failed to compute the cool-off cutoff for the npx fallback." >&2
+    return 1
+  fi
+  printf '%s\\n' "$cutoff"
+}
+
+# Run the configured fallback get-tbd@<pin> with "$@" under the cool-off, and return its
+# exit status. Read and validate the exact pin first, so a malformed or hand-edited config
+# value never becomes an executable package spec.
+tbd_run_configured_fallback() {
+  local configured_fallback_version cutoff status
+  if ! configured_fallback_version=$(tbd_configured_fallback_version ".tbd/config.yml"); then
+    echo "[tbd] .tbd/config.yml does not contain a valid exact tbd_fallback_version." >&2
+    echo "[tbd] Run a current 'tbd setup --auto' to repair the managed launcher." >&2
+    return 1
+  fi
+  if ! command -v npx &> /dev/null; then
+    if command -v tbd &> /dev/null; then
+      echo "[tbd] Local tbd cannot read this repository format, and npx is unavailable." >&2
+    else
+      echo "[tbd] tbd CLI not found and npx is unavailable." >&2
+    fi
+    if cutoff=$(tbd_fallback_cutoff 2> /dev/null); then
+      echo "[tbd] Install it with: npm install -g --ignore-scripts --before=$cutoff get-tbd@$configured_fallback_version" >&2
+    else
+      echo "[tbd] Install it with: npm install -g --ignore-scripts get-tbd@$configured_fallback_version" >&2
+      echo "[tbd] Use a get-tbd release published at least $TBD_FALLBACK_COOL_OFF_DAYS days ago." >&2
+    fi
+    return 1
+  fi
+  if command -v tbd &> /dev/null; then
+    echo "[tbd] Local tbd cannot read this repository format; using configured fallback get-tbd@$configured_fallback_version." >&2
+  else
+    echo "[tbd] tbd CLI not found; using configured fallback get-tbd@$configured_fallback_version." >&2
+  fi
+  if ! cutoff=$(tbd_fallback_cutoff); then
+    return 1
+  fi
+  npx --yes --before="$cutoff" --ignore-scripts --cache="\${XDG_CACHE_HOME:-$HOME/.cache}/tbd-fallback-npm" "get-tbd@$configured_fallback_version" "$@"
+  status=$?
+  if [ "$status" -ne 0 ]; then
+    echo "[tbd] The get-tbd@$configured_fallback_version fallback exited with status $status." >&2
+    echo "[tbd] If npm found no matching version, the pin was published after $cutoff and is still inside the $TBD_FALLBACK_COOL_OFF_DAYS-day cool-off." >&2
+  fi
+  return "$status"
 }`;
 
 /**
+ * Prepend common user-local bin directories to PATH. `TBD_HOOK_PATH_PREFIX` replaces
+ * the list, and an empty value leaves PATH unchanged (hermetic environments and tests).
+ */
+const TBD_HOOK_PATH_SETUP = `# Prefer common user-local bin directories. TBD_HOOK_PATH_PREFIX replaces this list; an
+# empty value leaves PATH unchanged.
+tbd_hook_path_prefix=\${TBD_HOOK_PATH_PREFIX-"$HOME/.local/bin:$HOME/bin:/usr/local/bin"}
+if [ -n "$tbd_hook_path_prefix" ]; then
+  export PATH="$tbd_hook_path_prefix:$PATH"
+fi`;
+
+/**
+ * Resolve `repo_root` from the generated script's own install location: the Claude
+ * directory `claudeDir` (`.claude/scripts` or `.claude/hooks`) or `.codex`. There is no
+ * ancestor search and no git call, so a hook installed in a directory without its own
+ * `.tbd` never adopts an enclosing directory's configuration or runs its files, and the
+ * hook works without git on PATH. A copy anywhere else refuses to guess.
+ */
+function hookRootResolution(kind: 'session' | 'closing', claudeDir: string): string {
+  return `# Resolve the repository from this script's fixed install location (${claudeDir}/ or
+# .codex/), never by searching ancestors or asking git.
+script_path=\${BASH_SOURCE[0]}
+script_parent=\${script_path%/*}
+if [ "$script_parent" = "$script_path" ]; then
+  script_parent=.
+fi
+if ! script_dir=$(CDPATH= cd -- "$script_parent" && pwd -P); then
+  echo "[tbd] Cannot resolve the ${kind} hook directory." >&2
+  exit 1
+fi
+case "$script_dir" in
+  */${claudeDir}) repo_root=\${script_dir%/${claudeDir}} ;;
+  */.codex) repo_root=\${script_dir%/.codex} ;;
+  *)
+    echo "[tbd] Unexpected ${kind} hook location: $script_dir" >&2
+    exit 1
+    ;;
+esac
+repo_root=\${repo_root:-/}`;
+}
+
+/**
  * Script to ensure tbd CLI is installed and run tbd prime.
- * Installed to project .claude/scripts/tbd-session.sh.
+ * Installed to project .claude/scripts/tbd-session.sh and .codex/tbd-session.sh.
  * Runs on SessionStart and PreCompact to ensure tbd is available and provide orientation.
  *
  * Usage:
@@ -505,58 +625,37 @@ const TBD_SESSION_SCRIPT = `#!/bin/bash
 # Installed by: tbd setup --auto. Runs on SessionStart and PreCompact.
 #
 # Local-first when the installed CLI can read this repository's tbd_format. Otherwise,
-# use the exact version recorded by setup in .tbd/config.yml. Keeping the pin in config
-# avoids rewriting this script for every compatible patch while retaining deterministic
-# zero-install behavior.
+# run the exact version recorded by setup in .tbd/config.yml, under a ${TBD_FALLBACK_COOL_OFF_DAYS}-day supply-chain
+# cool-off (see tbd_run_configured_fallback). Keeping the pin in config avoids rewriting
+# this script for every compatible patch.
 
-# Prefer common local bin locations.
-export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"
+${TBD_HOOK_PATH_SETUP}
 
-repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
-if [ -z "$repo_root" ] || [ ! -f "$repo_root/.tbd/config.yml" ]; then
-    echo "[tbd] Cannot locate repository .tbd/config.yml." >&2
-    exit 1
+${hookRootResolution('session', '.claude/scripts')}
+if [ ! -f "$repo_root/.tbd/config.yml" ]; then
+  echo "[tbd] Cannot locate repository .tbd/config.yml at $repo_root." >&2
+  exit 1
 fi
-cd "$repo_root" || exit 1
+if ! cd -- "$repo_root"; then
+  echo "[tbd] Cannot enter repository root: $repo_root" >&2
+  exit 1
+fi
 
 ${TBD_REPOSITORY_RUNNER_FUNCTIONS}
 
 if tbd_local_can_read_repository; then
-    # Mint this working directory's agent id once, before priming, so tbd start has an
-    # identity to claim under. Idempotent: SessionStart fires again on resume, clear, and
-    # compact, and re-running must not mint a second agent for the same session.
-    # Failure here is never fatal - identity resolution falls back to a derived name, and
-    # an agent that cannot name itself precisely should still get its briefing.
-    tbd whoami --ensure-id --quiet >/dev/null 2>&1 || true
-    tbd prime "$@"
-    exit $?
+  # Mint this working directory's agent id once, before priming, so tbd start has an
+  # identity to claim under. Idempotent: SessionStart fires again on resume, clear, and
+  # compact, and re-running must not mint a second agent for the same session.
+  # Failure here is never fatal - identity resolution falls back to a derived name, and
+  # an agent that cannot name itself precisely should still get its briefing.
+  tbd whoami --ensure-id --quiet >/dev/null 2>&1 || true
+  tbd prime "$@"
+  exit $?
 fi
 
-# Read and validate the exact fallback before invoking a package runner. This prevents a
-# malformed or hand-edited config value from becoming an executable package spec.
-if ! configured_fallback_version=$(tbd_configured_fallback_version ".tbd/config.yml"); then
-    echo "[tbd] .tbd/config.yml does not contain a valid exact tbd_fallback_version." >&2
-    echo "[tbd] Run a current 'tbd setup --auto' to repair the managed launcher." >&2
-    exit 1
-fi
-
-if command -v npx &> /dev/null; then
-    if command -v tbd &> /dev/null; then
-        echo "[tbd] Local tbd cannot read this repository format; using configured fallback get-tbd@$configured_fallback_version." >&2
-    else
-        echo "[tbd] tbd CLI not found; using configured fallback get-tbd@$configured_fallback_version." >&2
-    fi
-    npx --yes "get-tbd@$configured_fallback_version" prime "$@"
-    exit $?
-fi
-
-if command -v tbd &> /dev/null; then
-    echo "[tbd] Local tbd cannot read this repository format, and npx is unavailable." >&2
-else
-    echo "[tbd] tbd CLI not found and npx is unavailable." >&2
-fi
-echo "[tbd] Install it with: npm install -g get-tbd@$configured_fallback_version" >&2
-exit 1
+tbd_run_configured_fallback prime "$@"
+exit $?
 `;
 
 /**
@@ -566,10 +665,42 @@ exit 1
  */
 const CLAUDE_TBD_SESSION_COMMAND = 'bash .claude/scripts/tbd-session.sh';
 const CLAUDE_TBD_PRECOMPACT_COMMAND = `${CLAUDE_TBD_SESSION_COMMAND} --brief`;
-const CURRENT_CLAUDE_TBD_HOOK_COMMANDS = new Set([
-  CLAUDE_TBD_SESSION_COMMAND,
-  CLAUDE_TBD_PRECOMPACT_COMMAND,
+// Invoke via bash (like every other hook) so the hook still runs when a checkout drops
+// the script's executable bit.
+const CLAUDE_TBD_CLOSING_COMMAND =
+  'bash "$CLAUDE_PROJECT_DIR"/.claude/hooks/tbd-closing-reminder.sh';
+
+/**
+ * Each generated Claude command with every spelling that runs the same script with the
+ * same arguments (see hook-commands.ts). Setup keeps an anchored spelling
+ * (`$CLAUDE_PROJECT_DIR`) in place of the generated command and never adds a duplicate
+ * beside it; it replaces an unanchored one.
+ */
+const CLAUDE_TBD_COMMAND_SPELLINGS: ReadonlyMap<string, ScriptInvocationSpellings> = new Map([
+  [
+    CLAUDE_TBD_SESSION_COMMAND,
+    scriptInvocationSpellings(TBD_SESSION_SCRIPT_REL, [], CLAUDE_HOOK_ANCHORS),
+  ],
+  [
+    CLAUDE_TBD_PRECOMPACT_COMMAND,
+    scriptInvocationSpellings(TBD_SESSION_SCRIPT_REL, ['--brief'], CLAUDE_HOOK_ANCHORS),
+  ],
+  [
+    CLAUDE_TBD_CLOSING_COMMAND,
+    scriptInvocationSpellings(TBD_CLOSING_REMINDER_REL, [], CLAUDE_HOOK_ANCHORS),
+  ],
 ]);
+
+/**
+ * Whether `command` is a generated Claude command or a recognized spelling of one.
+ * Setup's Claude merge handles these handler by handler, so legacy cleanup leaves them.
+ */
+function isCurrentClaudeTbdHookCommand(command: string): boolean {
+  return [...CLAUDE_TBD_COMMAND_SPELLINGS].some(
+    ([generated, spellings]) =>
+      command === generated || spellings.anchored.has(command) || spellings.unanchored.has(command),
+  );
+}
 
 const CLAUDE_SESSION_HOOKS = {
   hooks: {
@@ -597,53 +728,126 @@ const CLAUDE_PROJECT_HOOKS = {
     PostToolUse: [
       {
         matcher: 'Bash',
-        hooks: [
-          {
-            type: 'command',
-            // Invoke via bash (like every other hook) so the hook still runs
-            // when a checkout drops the script's executable bit.
-            command: 'bash "$CLAUDE_PROJECT_DIR"/.claude/hooks/tbd-closing-reminder.sh',
-          },
-        ],
+        hooks: [{ type: 'command', command: CLAUDE_TBD_CLOSING_COMMAND }],
       },
     ],
   },
 };
 
+interface ClaudeHookEntry extends Record<string, unknown> {
+  matcher?: unknown;
+  hooks?: { type?: unknown; command?: string }[];
+}
+
 /**
- * Script to remind about close protocol after git push
+ * Merge one event's generated tbd entry into the project's existing entries.
+ *
+ * A handler that is an anchored spelling of the generated command (for example
+ * `bash "$CLAUDE_PROJECT_DIR"/.claude/scripts/tbd-session.sh`) is the project's own
+ * wiring of tbd's script when it would fire exactly as the generated one does: a
+ * `command` handler in an entry with the generated matcher. The first such handler is
+ * kept unchanged and stands in for the generated entry, so setup neither rewrites it
+ * nor adds a duplicate. Every other handler naming the script (`scriptMarker`) is
+ * tbd's, current, unanchored, under another matcher or type, or from an older release,
+ * and is replaced. Unrelated handlers, and the entries holding them, are kept.
+ * Returns the merged entries and the customized commands that were kept.
+ */
+function mergeClaudeTbdHookEvent(
+  existing: ClaudeHookEntry[] | undefined,
+  generated: readonly ClaudeHookEntry[],
+  scriptMarker: string,
+): { entries: ClaudeHookEntry[]; kept: string[] } {
+  const generatedEntry = generated[0];
+  const generatedCommand = generatedEntry?.hooks?.[0]?.command ?? '';
+  const anchored = CLAUDE_TBD_COMMAND_SPELLINGS.get(generatedCommand)?.anchored ?? new Set();
+  const kept: string[] = [];
+  const entries: ClaudeHookEntry[] = [];
+  for (const entry of existing ?? []) {
+    if (!Array.isArray(entry.hooks)) {
+      entries.push(entry);
+      continue;
+    }
+    const sameMatcher = (entry.matcher ?? '') === (generatedEntry?.matcher ?? '');
+    const hooks = entry.hooks.filter((hook) => {
+      const command = hook.command;
+      if (typeof command !== 'string' || !command.includes(scriptMarker)) {
+        return true;
+      }
+      if (
+        sameMatcher &&
+        hook.type === 'command' &&
+        command !== generatedCommand &&
+        anchored.has(command) &&
+        kept.length === 0
+      ) {
+        kept.push(command);
+        return true;
+      }
+      return false;
+    });
+    if (hooks.length === entry.hooks.length) {
+      entries.push(entry);
+    } else if (hooks.length > 0) {
+      entries.push({ ...entry, hooks });
+    }
+  }
+  return { entries: kept.length > 0 ? entries : [...entries, ...generated], kept };
+}
+
+/**
+ * Script to remind about close protocol after git push.
+ * Installed to project .claude/hooks/tbd-closing-reminder.sh and
+ * .codex/tbd-closing-reminder.sh. Runs after every Bash tool call (PostToolUse).
  */
 const TBD_CLOSE_PROTOCOL_SCRIPT = `#!/bin/bash
-# Remind about close protocol after git push
-# Installed by: tbd setup --auto
+# Remind about the close protocol after git push.
+# Installed by: tbd setup --auto. Runs after every Bash tool call and reads the hook's
+# JSON input on stdin.
+
+${hookRootResolution('closing', '.claude/hooks')}
+if [ ! -d "$repo_root/.tbd" ]; then
+  exit 0
+fi
+
+${TBD_HOOK_PATH_SETUP}
+
+# Print yes when the hook input's command runs git push, and no otherwise. The parser
+# separates commands and words as a shell does, so it finds \`git -C dir push\` or a push
+# on a later line and ignores \`echo git push\`. Input that is not valid hook JSON exits 1,
+# and so does a node that fails, each with a message.
+tbd_detect_git_push() {
+  if ! command -v node &> /dev/null; then
+    echo "[tbd] node is required to read the closing hook input." >&2
+    return 1
+  fi
+  if ! node -e '${GIT_PUSH_DETECTOR_JS}'; then
+    echo "[tbd] The closing hook could not read its input with node." >&2
+    return 1
+  fi
+}
+
+if ! is_git_push=$(tbd_detect_git_push); then
+  exit 1
+fi
+if [ "$is_git_push" != "yes" ]; then
+  exit 0
+fi
+if ! cd -- "$repo_root"; then
+  echo "[tbd] Cannot enter repository root: $repo_root" >&2
+  exit 1
+fi
 
 ${TBD_REPOSITORY_RUNNER_FUNCTIONS}
 
-input=$(cat)
-command=$(echo "$input" | jq -r '.tool_input.command // empty')
-
-# Check if this is a git push command and .tbd exists
-if [[ "$command" == git\\ push* ]] || [[ "$command" == *"&& git push"* ]] || [[ "$command" == *"; git push"* ]]; then
-  # The hook may start in a subdirectory; check .tbd at the repo root.
-  if ! repo_root=$(git rev-parse --show-toplevel 2>/dev/null); then
-    exit 0
-  fi
-  cd "$repo_root" || exit 0
-  if [ -d ".tbd" ]; then
-    # Same format-compatible local selection and config-pinned fallback as
-    # tbd-session.sh, so compatible patch releases do not rewrite this hook.
-    export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"
-    if tbd_local_can_read_repository; then
-      tbd closing
-    elif configured_fallback_version=$(tbd_configured_fallback_version ".tbd/config.yml"); then
-      if command -v npx &> /dev/null; then
-        npx --yes "get-tbd@$configured_fallback_version" closing
-      fi
-    fi
-  fi
+# Same local-first selection and cool-off fallback as tbd-session.sh. Failures propagate,
+# so a reminder that cannot run is visible instead of silently skipped.
+if tbd_local_can_read_repository; then
+  tbd closing
+  exit $?
 fi
 
-exit 0
+tbd_run_configured_fallback closing
+exit $?
 `;
 
 /**
@@ -735,6 +939,93 @@ const CODEX_CLOSING_REMINDER_REL = '.codex/tbd-closing-reminder.sh';
 const CODEX_GH_CLI_SCRIPT_REL = '.codex/ensure-gh-cli.sh';
 
 /**
+ * A Codex hook command that walks up from the physical working directory while the
+ * shell test `walk` holds for `$repo_root`, then runs that directory's own `scriptRel`.
+ * It exits 0 when that directory has no `.codex/hooks.json` and fails visibly when it
+ * has one but lacks the script. `label` names the hook in that failure.
+ */
+function codexWalkCommand(
+  walk: string,
+  label: string,
+  scriptRel: string,
+  args: readonly string[],
+): string {
+  const suffix = args.length > 0 ? ` ${args.join(' ')}` : '';
+  return `bash -c '${[
+    'repo_root=$(pwd -P)',
+    `while [ "$repo_root" != "/" ] && ${walk}; do repo_root=\${repo_root%/*}; [ -n "$repo_root" ] || repo_root=/; done`,
+    'if [ ! -f "$repo_root/.codex/hooks.json" ]; then exit 0; fi',
+    `if [ ! -f "$repo_root/${scriptRel}" ]; then echo "[tbd] Cannot locate the Codex ${label} hook." >&2; exit 1; fi`,
+    `exec bash "$repo_root/${scriptRel}"${suffix}`,
+  ].join('; ')}'`;
+}
+
+/**
+ * A generated Codex hook command. Codex runs a hook in the session's working directory,
+ * which need not be the project root, and exports no project-root variable, so the
+ * command finds the root itself, without git: it walks up to the nearest directory that
+ * has `.git`, which is the project root Codex loads hooks from (its default
+ * `project_root_markers`), and runs that root's own script. Setup installs `.codex/` at
+ * that root. A `.codex/` in a nested directory without its own `.git`, such as vendored
+ * code, is never run, even beside a `.codex/hooks.json`: a marker file grants no trust.
+ * A nested Git checkout is a Codex project of its own and runs its own hooks.
+ */
+function codexBoundaryCommand(label: string, scriptRel: string, args: readonly string[]): string {
+  return codexWalkCommand('[ ! -e "$repo_root/.git" ]', label, scriptRel, args);
+}
+
+const CODEX_SESSION_COMMAND = codexBoundaryCommand('session', CODEX_SESSION_SCRIPT_REL, []);
+const CODEX_PRECOMPACT_COMMAND = codexBoundaryCommand('session', CODEX_SESSION_SCRIPT_REL, [
+  '--brief',
+]);
+const CODEX_GH_CLI_COMMAND = codexBoundaryCommand('gh CLI', CODEX_GH_CLI_SCRIPT_REL, []);
+const CODEX_CLOSING_COMMAND = codexBoundaryCommand('closing', CODEX_CLOSING_REMINDER_REL, []);
+
+/**
+ * Earlier boundary walk, which also stopped at the first `.codex/hooks.json` and so let a
+ * nested directory without `.git` supply the script. Its closing command is the one
+ * fsqlite validated and runs.
+ */
+const EARLIER_CODEX_WALK = '[ ! -e "$repo_root/.git" ] && [ ! -f "$repo_root/.codex/hooks.json" ]';
+
+/**
+ * Commands earlier tbd releases or revisions generated: the working-directory-relative
+ * commands through 0.11.0 and the earlier boundary wrappers. Setup replaces them with
+ * the commands above.
+ */
+const LEGACY_CODEX_COMMANDS = [
+  `bash ${CODEX_SESSION_SCRIPT_REL}`,
+  `bash ${CODEX_SESSION_SCRIPT_REL} --brief`,
+  `bash ${CODEX_GH_CLI_SCRIPT_REL}`,
+  `bash ${CODEX_CLOSING_REMINDER_REL}`,
+  codexWalkCommand(EARLIER_CODEX_WALK, 'session', CODEX_SESSION_SCRIPT_REL, []),
+  codexWalkCommand(EARLIER_CODEX_WALK, 'session', CODEX_SESSION_SCRIPT_REL, ['--brief']),
+  codexWalkCommand(EARLIER_CODEX_WALK, 'gh CLI', CODEX_GH_CLI_SCRIPT_REL, []),
+  codexWalkCommand(EARLIER_CODEX_WALK, 'closing', CODEX_CLOSING_REMINDER_REL, []),
+];
+
+/**
+ * Commands that are tbd's in any event and under any matcher: setup removes them and
+ * writes the current generated entries. They are the generated and legacy commands,
+ * plus every spelling that runs a generated command's script with the same arguments
+ * from the working directory or its Git checkout (see hook-commands.ts), for example
+ * `bash "$(git rev-parse --show-toplevel)/.codex/tbd-session.sh"`. Codex exports no
+ * project-root variable to anchor a spelling, so setup keeps none of them as the
+ * project's own wiring. Ownership is an exact command, never merely a path under .codex/.
+ */
+const OWNED_CODEX_COMMANDS: ReadonlySet<string> = new Set([
+  CODEX_SESSION_COMMAND,
+  CODEX_PRECOMPACT_COMMAND,
+  CODEX_GH_CLI_COMMAND,
+  CODEX_CLOSING_COMMAND,
+  ...LEGACY_CODEX_COMMANDS,
+  ...unanchoredScriptInvocations(CODEX_SESSION_SCRIPT_REL, []),
+  ...unanchoredScriptInvocations(CODEX_SESSION_SCRIPT_REL, ['--brief']),
+  ...unanchoredScriptInvocations(CODEX_GH_CLI_SCRIPT_REL, []),
+  ...unanchoredScriptInvocations(CODEX_CLOSING_REMINDER_REL, []),
+]);
+
+/**
  * Build the Codex hooks.json content. Codex uses the same lifecycle event
  * schema as Claude Code (command handlers), so tbd's hooks map almost 1:1:
  * SessionStart and PreCompact run `tbd prime`, PostToolUse reminds about sync
@@ -750,28 +1041,22 @@ interface CodexHooksFile extends Record<string, unknown> {
 
 function getCodexHooksConfig(useGhCli: boolean): { hooks: Record<string, CodexHookEntry[]> } {
   const sessionStart: CodexHookEntry[] = [
-    { matcher: '', hooks: [{ type: 'command', command: `bash ${CODEX_SESSION_SCRIPT_REL}` }] },
+    { matcher: '', hooks: [{ type: 'command', command: CODEX_SESSION_COMMAND }] },
   ];
   if (useGhCli) {
     sessionStart.push({
       matcher: '',
-      hooks: [{ type: 'command', command: `bash ${CODEX_GH_CLI_SCRIPT_REL}`, timeout: 120 }],
+      hooks: [{ type: 'command', command: CODEX_GH_CLI_COMMAND, timeout: 120 }],
     });
   }
   return {
     hooks: {
       SessionStart: sessionStart,
       PreCompact: [
-        {
-          matcher: '',
-          hooks: [{ type: 'command', command: `bash ${CODEX_SESSION_SCRIPT_REL} --brief` }],
-        },
+        { matcher: '', hooks: [{ type: 'command', command: CODEX_PRECOMPACT_COMMAND }] },
       ],
       PostToolUse: [
-        {
-          matcher: 'Bash',
-          hooks: [{ type: 'command', command: `bash ${CODEX_CLOSING_REMINDER_REL}` }],
-        },
+        { matcher: 'Bash', hooks: [{ type: 'command', command: CODEX_CLOSING_COMMAND }] },
       ],
     },
   };
@@ -832,17 +1117,12 @@ async function readCodexHooksForSetup(cwd: string): Promise<CodexHooksFile | und
   return parsed as CodexHooksFile;
 }
 
-/** Ownership is an exact generated command, never merely a path under .codex/. */
+/** A Codex handler is tbd's when it is a command handler running an owned command. */
 function isTbdCodexHook(hook: Record<string, unknown>): boolean {
   return (
     hook.type === 'command' &&
     typeof hook.command === 'string' &&
-    [
-      `bash ${CODEX_SESSION_SCRIPT_REL}`,
-      `bash ${CODEX_SESSION_SCRIPT_REL} --brief`,
-      `bash ${CODEX_CLOSING_REMINDER_REL}`,
-      `bash ${CODEX_GH_CLI_SCRIPT_REL}`,
-    ].includes(hook.command)
+    OWNED_CODEX_COMMANDS.has(hook.command)
   );
 }
 
@@ -1242,6 +1522,8 @@ const LEGACY_TBD_HOOK_PATTERNS = [
 
 class SetupClaudeHandler extends BaseCommand {
   private projectDir: string | undefined;
+  /** Customized spellings of generated hook commands the last install kept. */
+  keptCustomizedCommands = 0;
 
   setProjectDir(dir: string): void {
     this.projectDir = dir;
@@ -1563,35 +1845,25 @@ class SetupClaudeHandler extends BaseCommand {
         // File doesn't exist, start fresh
       }
 
-      // Merge session hooks (SessionStart, PreCompact) - append without overwriting
+      // Merge session hooks (SessionStart, PreCompact) and the PostToolUse closing
+      // reminder. Generated entries replace tbd's earlier ones, so command fixes in the
+      // template propagate to already-configured repos on setup --auto; an equivalent
+      // spelling the project chose is kept instead (see mergeClaudeTbdHookEvent).
       const existingHooks = (settings.hooks as Record<string, unknown[]>) || {};
-      const newHooks = CLAUDE_SESSION_HOOKS.hooks as Record<string, unknown[]>;
       const mergedHooks: Record<string, unknown[]> = { ...existingHooks };
-
-      for (const [hookType, hookEntries] of Object.entries(newHooks)) {
-        if (mergedHooks[hookType]) {
-          // Filter out any existing tbd-session.sh hooks before adding new ones
-          const filtered = (mergedHooks[hookType] as { hooks?: { command?: string }[] }[]).filter(
-            (entry) => !entry.hooks?.some((h) => h.command?.includes('tbd-session.sh')),
+      const keptCommands: string[] = [];
+      for (const [generatedHooks, scriptMarker] of [
+        [CLAUDE_SESSION_HOOKS.hooks, 'tbd-session.sh'],
+        [CLAUDE_PROJECT_HOOKS.hooks, 'tbd-closing-reminder'],
+      ] as const) {
+        for (const [hookType, hookEntries] of Object.entries(generatedHooks)) {
+          const { entries, kept } = mergeClaudeTbdHookEvent(
+            mergedHooks[hookType] as ClaudeHookEntry[] | undefined,
+            hookEntries,
+            scriptMarker,
           );
-          mergedHooks[hookType] = [...filtered, ...hookEntries];
-        } else {
-          mergedHooks[hookType] = hookEntries;
-        }
-      }
-
-      // Merge PostToolUse hooks. Replace any existing tbd-closing-reminder
-      // entry (rather than skipping when present) so command fixes in the
-      // template propagate to already-configured repos on setup --auto.
-      const projectHooks = CLAUDE_PROJECT_HOOKS.hooks as Record<string, unknown[]>;
-      for (const [hookType, hookEntries] of Object.entries(projectHooks)) {
-        if (mergedHooks[hookType]) {
-          const filtered = (mergedHooks[hookType] as { hooks?: { command?: string }[] }[]).filter(
-            (entry) => !entry.hooks?.some((h) => h.command?.includes('tbd-closing-reminder')),
-          );
-          mergedHooks[hookType] = [...filtered, ...hookEntries];
-        } else {
-          mergedHooks[hookType] = hookEntries;
+          mergedHooks[hookType] = entries;
+          keptCommands.push(...kept);
         }
       }
 
@@ -1646,6 +1918,10 @@ class SetupClaudeHandler extends BaseCommand {
       // Write all hooks to project settings in a single write
       await writeFile(claudePaths.settings, JSON.stringify(settings, null, 2) + '\n');
       this.output.success('Installed hooks to .claude/settings.json');
+      this.keptCustomizedCommands = keptCommands.length;
+      for (const command of keptCommands) {
+        this.output.info(`  Kept the project's customized tbd hook command: ${command}`);
+      }
 
       // Install tbd-session.sh script
       await mkdir(claudePaths.scriptsDir, { recursive: true });
@@ -1780,13 +2056,12 @@ class SetupCodexHandler extends BaseCommand {
       await rm(join(cwd, CODEX_GH_CLI_SCRIPT_REL), { force: true });
     }
 
-    // Remove only generated handlers, including those in mixed user entries.
+    // Remove only tbd's handlers, including those in mixed user entries.
     const merged: Record<string, CodexHookEntry[]> = {};
     for (const [event, entries] of Object.entries(existing.hooks ?? {})) {
       merged[event] = selectCodexHooks(entries, false);
     }
-    const tbdHooks = getCodexHooksConfig(useGhCli).hooks;
-    for (const [event, entries] of Object.entries(tbdHooks)) {
+    for (const [event, entries] of Object.entries(getCodexHooksConfig(useGhCli).hooks)) {
       merged[event] = [...(merged[event] ?? []), ...entries];
     }
 
@@ -2658,7 +2933,8 @@ class SetupAutoHandler extends BaseCommand {
         if (!command) {
           return false;
         }
-        if (CURRENT_CLAUDE_TBD_HOOK_COMMANDS.has(command)) {
+        // A current command, or an equivalent spelling the project chose, is not legacy.
+        if (isCurrentClaudeTbdHookCommand(command)) {
           return false;
         }
         return LEGACY_TBD_HOOK_PATTERNS.some((pattern) => pattern.test(command));
@@ -3245,6 +3521,9 @@ class SetupAutoHandler extends BaseCommand {
       handler.setProjectDir(cwd);
       await handler.run({});
       result.installed = true;
+      if (handler.keptCustomizedCommands > 0) {
+        result.note = customizedHookNote(handler.keptCustomizedCommands);
+      }
     } catch (error) {
       // Only a hard stop aborts the run (see SetupHardStopError). Everything
       // else, including a refused target, is this surface's failure: the rest

@@ -29,6 +29,14 @@ import { subprocessTestTimeout } from './test-helpers.js';
 // Shell script hooks are Unix-only; skip entire suite on Windows
 const describeUnix = platform() === 'win32' ? describe.skip : describe;
 
+/** The generated fallback runs the configured pin under the cool-off flags. */
+const FALLBACK_NPX_INVOCATION =
+  'npx --yes --before="$cutoff" --ignore-scripts --cache="${XDG_CACHE_HOME:-$HOME/.cache}/tbd-fallback-npm" "get-tbd@$configured_fallback_version" "$@"';
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
 // Several fixtures run setup twice; budget for subprocess and file I/O under load.
 describeUnix('setup hooks (project-local)', { timeout: subprocessTestTimeout(60_000) }, () => {
   let tempDir: string;
@@ -130,13 +138,13 @@ describeUnix('setup hooks (project-local)', { timeout: subprocessTestTimeout(60_
       const content = await readFile(scriptPath, 'utf-8');
 
       // Verify key parts of the script: format-compatible local-first, then an exact
-      // npx fallback read from repository config. Release numbers must not be copied
-      // into every generated script on routine patch upgrades.
+      // npx fallback read from repository config, run under the cool-off. Release
+      // numbers must not be copied into every generated script on routine patch upgrades.
       expect(content).toContain('#!/bin/bash');
       expect(content).toContain('command -v tbd');
       expect(content).toContain('tbd config get tbd_format');
       expect(content).toContain('tbd_configured_fallback_version');
-      expect(content).toContain('npx --yes "get-tbd@$configured_fallback_version"');
+      expect(content).toContain(FALLBACK_NPX_INVOCATION);
       expect(content).toContain('tbd prime');
       expect(content).not.toMatch(/get-tbd@\d+\.\d+\.\d+/u);
       // Must not use an unpinned runner.
@@ -198,7 +206,10 @@ describeUnix('setup hooks (project-local)', { timeout: subprocessTestTimeout(60_
           // No mint here: the local CLI cannot read this repository at all, so the only
           // thing that runs is the pinned fallback.
           canRead: false,
-          expected: `npx --yes get-tbd@${configuredVersion} prime --brief`,
+          expected: new RegExp(
+            `^npx --yes --before=\\S+ --ignore-scripts --cache=${escapeRegExp(fakeHome)}/\\.cache/tbd-fallback-npm get-tbd@${escapeRegExp(configuredVersion!)} prime --brief$`,
+            'u',
+          ),
           fallback: true,
         },
       ];
@@ -214,11 +225,17 @@ describeUnix('setup hooks (project-local)', { timeout: subprocessTestTimeout(60_
             PATH: `${fakeBin}${delimiter}${process.env.PATH ?? ''}`,
             FAKE_TBD_CAN_READ: String(testCase.canRead),
             TBD_RUNNER_LOG: runnerLog,
+            XDG_CACHE_HOME: '',
           },
         });
 
         expect(result.status, `${testCase.name}: ${result.stderr}`).toBe(0);
-        expect((await readFile(runnerLog, 'utf-8')).trim()).toBe(testCase.expected);
+        const log = (await readFile(runnerLog, 'utf-8')).trim();
+        if (typeof testCase.expected === 'string') {
+          expect(log).toBe(testCase.expected);
+        } else {
+          expect(log).toMatch(testCase.expected);
+        }
         if (testCase.fallback) {
           expect(result.stderr).toContain('cannot read this repository format');
         } else {
@@ -645,7 +662,7 @@ echo "This is outdated"
       const refreshedContent = await readFile(scriptPath, 'utf-8');
       expect(refreshedContent).not.toContain('This is outdated');
       expect(refreshedContent).toContain('command -v tbd');
-      expect(refreshedContent).toContain('npx --yes "get-tbd@$configured_fallback_version"');
+      expect(refreshedContent).toContain(FALLBACK_NPX_INVOCATION);
       expect(refreshedContent).toContain('tbd prime');
     });
 
@@ -660,7 +677,7 @@ echo "This is outdated"
       const content = await readFile(scriptPath, 'utf-8');
 
       expect(content).toContain('tbd_configured_fallback_version');
-      expect(content).toContain('npx --yes "get-tbd@$configured_fallback_version"');
+      expect(content).toContain(FALLBACK_NPX_INVOCATION);
       expect(content).not.toMatch(/get-tbd@\d+\.\d+\.\d+/u);
     });
 

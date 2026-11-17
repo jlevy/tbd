@@ -511,8 +511,9 @@ async function validateScenario({
     `${name}: format compatibility probe is missing`,
   );
   invariant(
-    sessionScript.includes('npx --yes "get-tbd@$configured_fallback_version"'),
-    `${name}: session fallback does not read the exact configured version`,
+    sessionScript.includes('npx --yes --before="$cutoff" --ignore-scripts') &&
+      sessionScript.includes('"get-tbd@$configured_fallback_version" "$@"'),
+    `${name}: session fallback does not run the exact configured version under the cool-off`,
   );
   invariant(
     !/get-tbd@\d+\.\d+\.\d+/u.test(sessionScript),
@@ -1793,11 +1794,12 @@ try {
     candidate,
     candidateVersion,
     expectedBaselineFormat: 'f08',
-    // A same-format upgrade should not churn the managed launcher. Setting this false
-    // asserts the stronger thing: the script is byte-stable across a compatible patch.
-    // It was `true` while this slot held a format-bump baseline, where the rewrite is
-    // expected.
-    expectManagedScriptChange: false,
+    // A same-format upgrade should not churn the managed launcher, and `false` asserts
+    // that the script is byte-stable across a compatible patch. It is `true` while the
+    // baseline predates the hardened launcher (root from the script's location, cool-off
+    // fallback), which this candidate rewrites on purpose. Return it to `false` once the
+    // same-format baseline is a release that already ships that launcher.
+    expectManagedScriptChange: true,
     // The contract that distinguishes a same-format upgrade from a format bump: the
     // older client must still read a repository this candidate has written. That is
     // what makes an additive release additive, and it is only checkable once a
