@@ -411,13 +411,11 @@ describe('browser launch command', () => {
           expect({ url, out: echoed.stdout.trimEnd() }).toEqual({ url, out: new URL(url).href });
         }
         expect(existsSync(join(dir, 'marker.txt'))).toBe(false);
-        // Control, run where nothing is planted: the same URL unescaped is cut at `&`,
-        // which is the defect being fixed.
-        const bare = run(
-          ['/d', '/v:off', '/s', '/c', `"echo ${new URL(urls[0]!).href}"`],
-          tmpdir(),
-        );
+        // Positive control in the same directory: the same URL unescaped is cut at `&`,
+        // and cmd then runs the planted script, so the marker check above can fail.
+        const bare = run(['/d', '/v:off', '/s', '/c', `"echo ${new URL(urls[0]!).href}"`], dir);
         expect(bare.stdout.trimEnd()).toBe('http://127.0.0.1:7777/?view=workmap');
+        expect(existsSync(join(dir, 'marker.txt'))).toBe(true);
       } finally {
         await rm(dir, { recursive: true, force: true });
       }
