@@ -5,8 +5,36 @@
  * All ULIDs MUST be exactly 26 lowercase alphanumeric characters (a-z, 0-9).
  */
 
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+
 import type { Issue } from '../src/lib/types.js';
 import type { InternalIssueId } from '../src/lib/ids.js';
+
+/**
+ * Arm `git gc --auto` in `dir`: two loose objects under `objects/17`, which with
+ * `gc.auto=1` is git's threshold. A git command that runs its auto-maintenance, such as
+ * a fetch without `--no-auto-maintenance`, then packs every loose ref into `packed-refs`
+ * before it exits (`gc.autoDetach=false` keeps it in the foreground).
+ */
+export function armAutoGc(dir: string): void {
+  const git = (...args: string[]) =>
+    execFileSync('git', args, { cwd: dir, encoding: 'utf8' }).trim();
+  const format = git('rev-parse', '--show-object-format');
+  let written = 0;
+  for (let i = 0; written < 2; i++) {
+    const content = `gc trigger ${i}\n`;
+    const id = createHash(format)
+      .update(`blob ${Buffer.byteLength(content)}\0${content}`)
+      .digest('hex');
+    if (id.startsWith('17')) {
+      execFileSync('git', ['hash-object', '-w', '--stdin'], { cwd: dir, input: content });
+      written++;
+    }
+  }
+  git('config', 'gc.auto', '1');
+  git('config', 'gc.autoDetach', 'false');
+}
 
 /**
  * Completion budget for integration tests that exercise Git or Node subprocesses.

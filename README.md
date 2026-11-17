@@ -156,9 +156,10 @@ the repository’s default branch.
 `tbd policy show` explains the current settings.
 Without a grant, the agent asks when an action needs authorization.
 Unanswered merge policy means `confirm-every`; unanswered review requirements mean
-`standard`. `pr-delivery` is opt-in: with `autonomous`, work you ask for is delivered as
-a PR without a confirmation step, stacked when it builds on an unmerged PR and otherwise
-standalone; unanswered, the agent asks before opening a PR you did not request.
+`standard`. `pr-delivery` is opt-in: with `autonomous` and `github-editing` granted,
+work you ask for is delivered as a PR without a confirmation step, stacked when it
+builds on an unmerged PR and otherwise standalone; unanswered, the agent asks before
+opening a PR you did not request.
 
 Merge authorization and review requirements are separate: permission to merge does not
 waive review or validation.
@@ -442,7 +443,7 @@ Ask your agent to load a named document, or browse with `tbd shortcut --list`,
 | --- | --- | --- |
 | **General engineering** | [`general-eng-agent-principles`](packages/tbd/docs/guidelines/general-eng-agent-principles.md) | Core principles for AI agents acting as senior engineers |
 | **Cross-cutting engineering topics** | [`agent-model-tiers`](packages/tbd/docs/guidelines/agent-model-tiers.md) | Provider-neutral model tiers for delegated agent work |
-|  | [`agent-policy-grants`](packages/tbd/docs/guidelines/agent-policy-grants.md) | The single definition of the eight agent policies a project can grant (github-workflows, github-editing, github-merge, github-stacked-prs, subagents, pr-review-requirements, pr-delivery, linear) |
+|  | [`agent-policy-grants`](packages/tbd/docs/guidelines/agent-policy-grants.md) | The single definition of the eight agent policies a project can grant (github-workflows, github-editing, github-merge, github-stacked-prs, subagents, pr-review-requirements, linear, pr-delivery) |
 |  | [`agent-run-operations-rules`](packages/tbd/docs/guidelines/agent-run-operations-rules.md) | Launching, monitoring, and diagnosing long agent and batch runs |
 |  | [`backward-compatibility-rules`](packages/tbd/docs/guidelines/backward-compatibility-rules.md) | Guidelines for maintaining backward compatibility only for real consumers and data from released versions |
 |  | [`ci-and-gates-rules`](packages/tbd/docs/guidelines/ci-and-gates-rules.md) | How to wire a quality gate that actually holds |

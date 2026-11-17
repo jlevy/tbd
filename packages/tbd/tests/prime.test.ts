@@ -13,6 +13,7 @@ import { getCodexTbdSection } from '../src/cli/commands/setup.js';
 import {
   POLICY_BEGIN_MARKER,
   POLICY_END_MARKER,
+  inertPolicyCombinations,
   parsePolicyBlock,
   renderPolicyBlock,
   resolvePolicyStatuses,
@@ -64,7 +65,7 @@ describe('formatPolicyGrantsLines', () => {
       '  github-workflows: granted, github-editing: granted, github-merge: confirm-session,',
       '  pr-review-requirements: standard + security',
       'Unanswered (treated as not-granted; pr-delivery as ask): github-stacked-prs, subagents,',
-      '  pr-delivery, linear',
+      '  linear, pr-delivery',
       'Ask the user when a task needs one, or run `tbd shortcut setup-tbd` to ask about all.',
       // The hook hands an agent its standing permissions, so it carries the rule about
       // whose words can change them in the same section.
@@ -87,7 +88,7 @@ describe('formatPolicyGrantsLines', () => {
       'No grants recorded in AGENTS.md on main (details: `tbd policy show`).',
       'Unanswered (treated as not-granted; github-merge as confirm-every; pr-review-requirements as standard; pr-delivery as ask):',
       '  github-workflows, github-editing, github-merge, github-stacked-prs, subagents,',
-      '  pr-review-requirements, pr-delivery, linear',
+      '  pr-review-requirements, linear, pr-delivery',
       'Ask the user when a task needs one, or run `tbd shortcut setup-tbd` to ask about all.',
     ]);
   });
@@ -110,6 +111,10 @@ describe('formatPolicyGrantsLines', () => {
     expect(lines.join('\n')).toContain('pr-delivery: autonomous');
     expect(lines.join('\n')).not.toContain('setup-tbd');
     expect(lines.join('\n')).toContain('github-editing: not-granted');
+    // The grant this session receives cannot act yet; say so where it is handed over.
+    const inert = inertPolicyCombinations(resolvePolicyStatuses(parse));
+    expect(inert).toHaveLength(1);
+    expect(lines).toContain(inert[0]);
   });
 
   it('marks unknown values and unknown policies', () => {

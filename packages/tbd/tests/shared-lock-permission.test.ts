@@ -1,9 +1,9 @@
 /** Permission diagnostics across the complete shared-lock acquisition protocol. */
 
 import { execFile } from 'node:child_process';
-import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { promisify } from 'node:util';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -11,8 +11,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as fsPromises from 'node:fs/promises';
 
 const lockFault = vi.hoisted(() => ({
-  kind: 'none' as 'none' | 'prepare-mkdir' | 'prepare-open' | 'install-rename',
+  kind: 'none' as 'none' | 'prepare-mkdir' | 'prepare-open' | 'install-rename' | 'unwritable-dir',
   lockPath: '',
+  /** For `unwritable-dir`: the directory nothing can be created in, as for EACCES or EPERM. */
+  unwritableDir: '',
   code: 'EPERM' as 'EPERM' | 'EACCES',
 }));
 
@@ -28,11 +30,29 @@ vi.mock('node:fs/promises', async (importOriginal) => {
     return error;
   };
 
+  const insideUnwritableDir = (path: string): boolean =>
+    lockFault.kind === 'unwritable-dir' && path.startsWith(`${lockFault.unwritableDir}${sep}`);
+
   return {
     ...actual,
+    access: vi.fn(async (...args: Parameters<typeof actual.access>) => {
+      const path = String(args[0]);
+      const mode = args[1] ?? actual.constants.F_OK;
+      if (
+        lockFault.kind === 'unwritable-dir' &&
+        path === lockFault.unwritableDir &&
+        (mode & actual.constants.W_OK) !== 0
+      ) {
+        throw permissionError(path);
+      }
+      return actual.access(...args);
+    }),
     mkdir: vi.fn(async (...args: Parameters<typeof actual.mkdir>) => {
       const path = String(args[0]);
       if (lockFault.kind === 'prepare-mkdir' && path.startsWith(`${lockFault.lockPath}.owner-`)) {
+        throw permissionError(path);
+      }
+      if (insideUnwritableDir(path)) {
         throw permissionError(path);
       }
       return actual.mkdir(...args);
@@ -57,9 +77,11 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 });
 
 import {
+  assertSharedDataSyncLockWritable,
   SharedLockUnwritableError,
   withSharedDataSyncLock,
 } from '../src/file/common-dir-layout.js';
+import { previewDataSyncContext } from '../src/cli/lib/data-context.js';
 import { resolveSharedTbdPaths, type SharedTbdPaths } from '../src/lib/paths.js';
 
 const execFileAsync = promisify(execFile);
@@ -78,6 +100,7 @@ describe('shared lock permission diagnostics', () => {
   afterEach(async () => {
     lockFault.kind = 'none';
     lockFault.lockPath = '';
+    lockFault.unwritableDir = '';
     lockFault.code = 'EPERM';
     await rm(repository, { recursive: true, force: true });
   });
@@ -118,5 +141,49 @@ describe('shared lock permission diagnostics', () => {
     );
 
     await expect(stat(paths.sharedLockPath)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  // A dry run must report the failure the real run hits (#164's sandbox shape) without
+  // taking the lock, and with the real run's own message.
+  it.each([
+    { name: 'the locks directory', unwritable: 'locks', code: 'EPERM' },
+    {
+      name: 'the git common directory, before any tbd state exists',
+      unwritable: 'common',
+      code: 'EACCES',
+    },
+  ] as const)(
+    'a lock-free preview raises the same error when $name is unwritable',
+    async ({ unwritable, code }) => {
+      if (unwritable === 'locks') {
+        await mkdir(paths.sharedLocksDir, { recursive: true });
+      }
+      lockFault.kind = 'unwritable-dir';
+      lockFault.unwritableDir = unwritable === 'locks' ? paths.sharedLocksDir : paths.gitCommonDir;
+      lockFault.code = code;
+
+      const real = await withSharedDataSyncLock(repository, () => Promise.resolve()).catch(
+        (error: unknown) => error,
+      );
+      expect(real).toBeInstanceOf(SharedLockUnwritableError);
+      expect(real).toMatchObject({ code });
+
+      // Thunks, started one at a time: a promise created before the previous one settles
+      // can reject with no handler attached, which fails the run as an unhandled rejection.
+      for (const preview of [
+        () => assertSharedDataSyncLockWritable(repository),
+        () => previewDataSyncContext(repository),
+      ]) {
+        const caught = await preview().catch((error: unknown) => error);
+        expect(caught).toBeInstanceOf(SharedLockUnwritableError);
+        expect((caught as Error).message).toBe((real as Error).message);
+      }
+      await expect(stat(paths.sharedLockPath)).rejects.toMatchObject({ code: 'ENOENT' });
+    },
+  );
+
+  it('a lock-free preview passes where the lock can be taken, and creates nothing', async () => {
+    await expect(assertSharedDataSyncLockWritable(repository)).resolves.toBeUndefined();
+    await expect(stat(paths.sharedTbdDir)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 });

@@ -33,6 +33,7 @@ import {
 } from '../../file/git.js';
 import type { WorktreeHealth, WorktreeStatus } from '../../file/git.js';
 import {
+  assertSharedDataSyncLockWritable,
   ensureCommonDirLayout,
   isLayoutUpgradeable,
   readCommonDirLayout,
@@ -128,6 +129,31 @@ async function probeDataSyncReadiness(tbdRoot: string): Promise<DataSyncProbe> {
 }
 
 /**
+ * The repair a writer makes for this worktree state, the one rule writers, dry runs,
+ * and `tbd sync --status` share: none for a valid worktree, re-creation for a
+ * `missing` or `prunable` one, and {@link unrepairableWorktreeError} for any other
+ * invalid state, which only `tbd doctor --fix` repairs.
+ */
+function worktreeRepair(health: WorktreeHealth): 'missing' | 'prunable' | null {
+  if (health.valid) {
+    return null;
+  }
+  if (health.status === 'missing' || health.status === 'prunable') {
+    return health.status;
+  }
+  throw unrepairableWorktreeError(health);
+}
+
+/** The error a writer raises for a worktree it cannot repair; dry runs raise the same one. */
+function unrepairableWorktreeError(health: WorktreeHealth): Error {
+  return new Error(
+    `Shared data-sync worktree is ${health.status}: ${
+      health.error ?? 'unknown error'
+    }. Run 'tbd doctor --fix' to repair.`,
+  );
+}
+
+/**
  * Apply any pending first-use initialization, migration, or repair to the shared
  * data-sync layout. MUST be called while holding `withSharedDataSyncLock` so that
  * worktree repair, layout writes, and migrated-config writes are serialized.
@@ -137,32 +163,25 @@ async function ensureSharedDataSyncLayout(
   probe: DataSyncProbe,
 ): Promise<WorktreeStatus | undefined> {
   let repairedWorktreeStatus: WorktreeStatus | undefined;
-  if (!probe.health.valid) {
-    if (probe.health.status === 'missing' || probe.health.status === 'prunable') {
-      const repairResult = await repairWorktree(
-        tbdRoot,
-        probe.health.status,
-        probe.config.sync.remote,
-        probe.config.sync.branch,
-      );
-      if (repairResult.backedUp && !quietNoticesActive()) {
-        process.stderr.write(
-          `• Preserved the damaged tbd-sync worktree at ${repairResult.backedUp}. ` +
-            `Unsynced files were not restored automatically; review the backup to recover them.\n`,
-        );
-      }
-      if (!repairResult.success) {
-        throw new Error(`Failed to initialize shared data-sync worktree: ${repairResult.error}`);
-      }
-      notifyHistoricalDataRestored(repairResult.restoredDataFiles);
-      repairedWorktreeStatus = probe.health.status;
-    } else {
-      throw new Error(
-        `Shared data-sync worktree is ${probe.health.status}: ${
-          probe.health.error ?? 'unknown error'
-        }. Run 'tbd doctor --fix' to repair.`,
+  const repair = worktreeRepair(probe.health);
+  if (repair) {
+    const repairResult = await repairWorktree(
+      tbdRoot,
+      repair,
+      probe.config.sync.remote,
+      probe.config.sync.branch,
+    );
+    if (repairResult.backedUp && !quietNoticesActive()) {
+      process.stderr.write(
+        `• Preserved the damaged tbd-sync worktree at ${repairResult.backedUp}. ` +
+          `Unsynced files were not restored automatically; review the backup to recover them.\n`,
       );
     }
+    if (!repairResult.success) {
+      throw new Error(`Failed to initialize shared data-sync worktree: ${repairResult.error}`);
+    }
+    notifyHistoricalDataRestored(repairResult.restoredDataFiles);
+    repairedWorktreeStatus = repair;
   }
   if (probe.health.valid && !probe.dataSyncReady) {
     const initResult = await initWorktree(
@@ -272,6 +291,44 @@ export async function prepareDataSyncContext(tbdRoot: string): Promise<TbdDataCo
     ? undefined
     : await ensureSharedDataSyncLayout(tbdRoot, probe);
   return assembleDataContext(tbdRoot, probe, repairedWorktreeStatus);
+}
+
+/** The lock-free view of shared data-sync state that dry runs and `tbd sync --status` read. */
+export interface DataSyncInspection {
+  /** The project config, migrated in memory only. */
+  config: Config;
+  sharedPaths: SharedTbdPaths;
+  /** The shared worktree's health; its files can be read only when `valid`. */
+  health: WorktreeHealth;
+  /** `false`: a writer would prepare the state (worktree, layout, or config format) first. */
+  ready: boolean;
+}
+
+/**
+ * Inspect shared data-sync state from the lock-free probe alone. Takes no lock and
+ * writes nothing: preparing the context takes the writer lock, which advances the
+ * data-sync epoch, and can materialize the worktree or migrate the config. A worktree
+ * that a writer could not repair raises the error the writer raises.
+ */
+export async function inspectDataSyncState(tbdRoot: string): Promise<DataSyncInspection> {
+  const probe = await probeDataSyncReadiness(tbdRoot);
+  worktreeRepair(probe.health);
+  return {
+    config: probe.config,
+    sharedPaths: probe.sharedPaths,
+    health: probe.health,
+    ready: probe.ready,
+  };
+}
+
+/**
+ * For a dry run of a writer: {@link inspectDataSyncState}, after first raising the
+ * unwritable-lock error that `withDataSyncContext({ lock: true })` raises before it
+ * prepares anything. Detects that failure without taking the lock.
+ */
+export async function previewDataSyncContext(tbdRoot: string): Promise<DataSyncInspection> {
+  await assertSharedDataSyncLockWritable(tbdRoot);
+  return inspectDataSyncState(tbdRoot);
 }
 
 /**

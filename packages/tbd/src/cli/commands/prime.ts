@@ -27,6 +27,7 @@ import { loadDataContext } from '../lib/data-context.js';
 import {
   describeGrantStamp,
   displayPolicyValue,
+  inertPolicyCombinations,
   locateIntegrationBlock,
   readEffectiveGrants,
   type DefaultBranchRef,
@@ -263,6 +264,7 @@ export function formatPolicyGrantsLines(reading: PrimeGrantsReading): string[] |
       if (answered.length > 0) {
         lines.push(`Effective grants from ${where} ${details}:`);
         lines.push(...wrapList('  ', answered.map(describeAnsweredGrant), '  '));
+        lines.push(...inertPolicyCombinations(policies));
       } else {
         lines.push(`No grants recorded in ${where} ${details}.`);
       }

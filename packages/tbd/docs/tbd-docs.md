@@ -190,8 +190,8 @@ Options:
 - `--policies <set>` - Record agent policy grants in `AGENTS.md`; implies `--auto`. The
   only set is `recommended`: the recommended value of each unanswered policy, as
   `tbd guidelines agent-policy-grants` defines it.
-  Answered policies keep their recorded values, and `linear`, which is outside the
-  recommended set, stays unanswered
+  Answered policies keep their recorded values, and `linear` and `pr-delivery`, which
+  are outside the recommended set, stay unanswered
 
 `--surfaces` controls only generated agent integration files.
 Setup still initializes or migrates configuration, refreshes the docs cache, and cleans
@@ -667,6 +667,11 @@ Options:
 - `--push` - Push local issue changes only unless `--integrations` is also explicit
 - `--pull` - Pull remote issue changes only unless `--integrations` is also explicit
 - `--status` - Show docs and issue sync status without syncing.
+  It changes no tbd state: it takes no lock and prepares nothing, so a missing worktree
+  or a config that needs migrating stays as it is.
+  It reads the remote sync tip without writing a ref or `FETCH_HEAD`, and says when it
+  could not read the remote or could not fetch the tip’s commits, instead of reporting
+  the repository in sync.
   It never runs or checks external trackers; use `tbd integration status` for those
 - `--force` - Accepted for compatibility but currently has no effect; it does not
   overwrite conflicts (`tbd-s18s` tracks implementing or removing it)
@@ -680,6 +685,25 @@ Any `--push` or `--pull` selects issues and excludes trackers unless `--integrat
 also present. Direction flags cannot be combined with `--docs`.
 `tbd sync --integrations --status` currently selects no status surface, so use the
 standalone integration status command instead.
+
+`tbd sync --status --json` prints one document for the issue surface:
+- `synced` - True only when the remote’s tip was compared and nothing differs: no local
+  changes, and nothing to push or pull
+- `localChanges`, `remoteChanges` - Uncommitted changes in the sync worktree, and up to
+  ten commits waiting on the remote
+- `ahead`, `behind` - Commits to push and to pull
+- `remoteChecked` - Whether the remote answered with its sync branch tip, or that it has
+  no such branch
+- `remoteTip` - The tip that was read, or `null` when none was
+- `fetched` - Whether `ahead` and `behind` compare with that tip; with `fetched: false`
+  they compare with the last fetched remote-tracking ref, if there is one
+- `worktree` - The sync worktree’s health (`valid`, `missing`, `prunable`, or
+  `corrupted`); local changes are listed only when it is `valid`
+
+When the remote could not be read, or its tip’s commits could not be fetched, stderr
+also carries one JSON line with `remoteChecked`, `reason` (git’s message, on one line),
+and, for an unfetched tip, `remoteTip` and `fetched: false`.
+
 The global `--dry-run` also suppresses the folded tracker run; preview tracker work with
 `tbd --dry-run integration sync`.
 
@@ -1146,7 +1170,8 @@ asks once before opening a PR the request did not ask for, and `autonomous` (wha
 `grant` records) delivers requested work as a PR without asking, as a layer on a
 GitHub-native stack when it builds on an unmerged PR and otherwise standalone.
 It needs `github-editing: granted`, authorizes no merge, and changes no review
-requirement.
+requirement. When a write leaves `autonomous` without that grant, `grant`, `revoke`, and
+`set` print the warning `tbd doctor` reports.
 
 ```bash
 tbd policy                                  # Same as `tbd policy show`

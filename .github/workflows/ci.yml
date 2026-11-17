@@ -5,9 +5,9 @@ on:
   push:
     branches: [main]
 
+# Read-only by default; only the coverage job writes, to comment on the PR.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   test:
@@ -27,6 +27,9 @@ jobs:
             node: 24
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No later step needs git credentials; keep the job token off disk.
+          persist-credentials: false
 
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
@@ -58,8 +61,19 @@ jobs:
   coverage:
     name: Coverage & Lint
     runs-on: ubuntu-latest
+    # The Coverage Report step posts its summary as a PR comment. The grant stays on
+    # this job rather than a separate comment job: that split would add an artifact
+    # upload and download action pair to pass the coverage files between jobs
+    # (SUPPLY-CHAIN-SECURITY.md rule 7: prefer fewer dependencies). The scope is
+    # pull-requests only, with no contents write, and checkout does not persist it.
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No later step needs git credentials; keep the job token off disk.
+          persist-credentials: false
 
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
@@ -102,6 +116,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No later step needs git credentials; keep the job token off disk.
+          persist-credentials: false
 
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 

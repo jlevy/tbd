@@ -16,8 +16,11 @@ import {
 import { listIssues, writeIssue, type InvalidIssueFile } from '../../file/storage.js';
 import { saveConflictToAttic } from '../../file/attic-entry.js';
 import {
+  describeGitFailure,
   git,
   gitCommit,
+  gitUntrimmed,
+  observeRemoteTip,
   mergeBeadAcrossRefs,
   resolveBridgeConflicts,
   pushWithRetry,
@@ -26,13 +29,16 @@ import {
   ensureDataSyncMergeAttributes,
   type ConflictEntry,
   type PushResult,
+  type WorktreeStatus,
   trackingRefspec,
 } from '../../file/git.js';
 import { DATA_SYNC_DIR } from '../../lib/paths.js';
 import {
+  printDocSyncDryRun,
   printDocSyncResult,
   printDocSyncStatus,
   printForkDriftNotice,
+  type DocSyncCounts,
 } from '../lib/docs-sync-output.js';
 import { basename, join } from 'node:path';
 import { readFile } from 'node:fs/promises';
@@ -63,7 +69,11 @@ import {
   importFromWorkspace,
   deleteWorkspace,
 } from '../../file/workspace.js';
-import { withDataSyncContext } from '../lib/data-context.js';
+import {
+  inspectDataSyncState,
+  previewDataSyncContext,
+  withDataSyncContext,
+} from '../lib/data-context.js';
 import { runEnabledIntegrationPushes, runEnabledIntegrations } from '../lib/integration-runner.js';
 import { integrationsInert } from '../../integrations/core/registry.js';
 import { resolveSyncFoldMode, syncFoldPosture } from '../../integrations/core/provider-settings.js';
@@ -100,6 +110,7 @@ interface SyncOptions {
 }
 
 interface SyncStatus {
+  /** True only when the remote's tip was counted against and nothing differs from it. */
   synced: boolean;
   localChanges: string[];
   remoteChanges: string[];
@@ -107,6 +118,39 @@ interface SyncStatus {
   remote: string;
   ahead: number;
   behind: number;
+  /** Whether the remote answered with its branch tip, or that it has no such branch. */
+  remoteChecked: boolean;
+  /** The remote branch tip that was read, or null when none was (unreadable or absent). */
+  remoteTip: string | null;
+  /**
+   * Whether `ahead` and `behind` compare with the remote as it was read. False when the
+   * remote could not be read, or its tip was read but its commits could not be fetched:
+   * the counts then compare with the last fetched remote-tracking ref, if there is one.
+   */
+  fetched: boolean;
+  /** The data-sync worktree's health; local changes are listed only when `valid`. */
+  worktree: WorktreeStatus;
+}
+
+/**
+ * What `tbd sync --dry-run` found for each selected surface. Text mode prints each
+ * surface's `[DRY-RUN]` line as it runs; under `--json` the plan is printed once, at
+ * the end, as the single stdout result document.
+ */
+interface SyncDryRunPlan {
+  docs?: DocSyncCounts;
+  issues?: {
+    syncBranch: string;
+    remote: string;
+    /** A real run would first prepare the worktree, layout, or config format. */
+    prepareDataSyncState: boolean;
+  };
+  integrations?: {
+    /** Whether `tbd sync` would run an external tracker at all. */
+    runs: boolean;
+    /** Always false: a dry run does not open the locked context the tracker needs. */
+    evaluated: false;
+  };
 }
 
 class SyncHandler extends BaseCommand {
@@ -128,6 +172,10 @@ class SyncHandler extends BaseCommand {
   private conflictsNotArchived = 0;
   /** Captured so the issue surface can finish while the outer rollup still fails honestly. */
   private integrationFailure: unknown;
+  /** Filled by each surface on a dry run. */
+  private dryRunPlan: SyncDryRunPlan = {};
+  /** The docs surface's dry-run line, the document's `action` when only docs run. */
+  private docsDryRunAction = '';
 
   async run(options: SyncOptions): Promise<void> {
     const tbdRoot = await requireInit();
@@ -222,46 +270,46 @@ class SyncHandler extends BaseCommand {
     if (syncIssues) {
       attempted.push('issues');
       try {
-        await withDataSyncContext(
-          tbdRoot,
-          { lock: true },
-          async ({ dataSyncDir, config, sharedPaths, repairedWorktreeStatus }) => {
-            this.dataSyncDir = dataSyncDir;
-            this.worktreePath = sharedPaths.sharedWorktreePath;
-            this.syncBranch = config.sync.branch;
-            this.config = config;
+        // `--status` and a dry run read the lock-free probe instead: preparing the
+        // context takes the writer lock, which advances the data-sync epoch, and can
+        // materialize the worktree or migrate the config.
+        if (options.status) {
+          await this.showIssueStatus();
+        } else if (this.ctx.dryRun) {
+          await this.previewIssueSync();
+        } else {
+          await withDataSyncContext(
+            tbdRoot,
+            { lock: true },
+            async ({ dataSyncDir, config, sharedPaths, repairedWorktreeStatus }) => {
+              this.dataSyncDir = dataSyncDir;
+              this.worktreePath = sharedPaths.sharedWorktreePath;
+              this.syncBranch = config.sync.branch;
+              this.config = config;
 
-            const syncBranch = config.sync.branch;
-            const remote = config.sync.remote;
+              const syncBranch = config.sync.branch;
+              const remote = config.sync.remote;
 
-            if (options.status) {
-              await this.showIssueStatus(syncBranch, remote);
-              return;
-            }
+              if (repairedWorktreeStatus) {
+                this.output.success('Worktree repaired successfully');
+              }
 
-            if (this.checkDryRun('Would sync repository', { syncBranch, remote })) {
-              return;
-            }
-
-            if (repairedWorktreeStatus) {
-              this.output.success('Worktree repaired successfully');
-            }
-
-            if (options.pull) {
-              await this.pullChanges(syncBranch, remote);
-            } else if (options.push) {
-              await this.runIntegrationPushInPosition();
-              await this.pushChanges(syncBranch, remote);
-            } else {
-              // Full sync: pull then push
-              await this.fullSync(syncBranch, remote, {
-                force: options.force,
-                autoSave: options.autoSave,
-                outbox: options.outbox,
-              });
-            }
-          },
-        );
+              if (options.pull) {
+                await this.pullChanges(syncBranch, remote);
+              } else if (options.push) {
+                await this.runIntegrationPushInPosition();
+                await this.pushChanges(syncBranch, remote);
+              } else {
+                // Full sync: pull then push
+                await this.fullSync(syncBranch, remote, {
+                  force: options.force,
+                  autoSave: options.autoSave,
+                  outbox: options.outbox,
+                });
+              }
+            },
+          );
+        }
         if (this.conflictsNotArchived > 0) {
           const plural = this.conflictsNotArchived === 1 ? '' : 's';
           throw new SyncError(
@@ -300,6 +348,7 @@ class SyncHandler extends BaseCommand {
       const inert =
         !syncFoldPosture(resolveSyncFoldMode(preConfig.integrations)).runs ||
         integrationsInert(preConfig);
+      this.dryRunPlan.integrations = { runs: !inert, evaluated: false };
       if (!inert) {
         // `notice()` with structured data, not `info()` and not a bare `notice()`:
         // info is verbose-only, and `notice()` without a payload emits NOTHING under
@@ -367,6 +416,11 @@ class SyncHandler extends BaseCommand {
         }
         fail('integrations', error);
       }
+    }
+
+    // A failed preview is reported as the real run reports its failure, below.
+    if (this.ctx.dryRun && !options.status && failures.length === 0) {
+      this.printDryRunPlan();
     }
 
     // Roll up: every failure, named by surface, in one place — so an agent
@@ -540,6 +594,13 @@ class SyncHandler extends BaseCommand {
       printDocSyncStatus(this.output, result);
       return result;
     }
+    if (this.ctx.dryRun) {
+      const result = await syncDocsWithDefaults(this.tbdRoot, { dryRun: true });
+      const preview = printDocSyncDryRun(this.output, result);
+      this.dryRunPlan.docs = preview.counts;
+      this.docsDryRunAction = preview.action;
+      return result;
+    }
 
     const spinner = this.output.spinner('Syncing docs...');
     const result = await syncDocsWithDefaults(this.tbdRoot);
@@ -551,50 +612,67 @@ class SyncHandler extends BaseCommand {
     return result;
   }
 
-  /**
-   * Show doc sync result after sync.
-   */
-  private showDocSyncResult(result: SyncDocsResult): void {
-    const hasChanges =
-      result.added.length > 0 ||
-      result.updated.length > 0 ||
-      result.removed.length > 0 ||
-      result.pruned.length > 0;
-
-    if (!hasChanges) {
-      this.output.success('Docs up to date');
+  /** Report what the issue surface would do, without touching shared state. */
+  private async previewIssueSync(): Promise<void> {
+    const { config, ready } = await previewDataSyncContext(this.tbdRoot);
+    const syncBranch = config.sync.branch;
+    const remote = config.sync.remote;
+    this.dryRunPlan.issues = { syncBranch, remote, prepareDataSyncState: !ready };
+    if (this.output.isJson) {
       return;
     }
-
-    // Build summary string
-    const parts: string[] = [];
-    if (result.added.length > 0) {
-      parts.push(`+${result.added.length}`);
+    if (!ready) {
+      this.output.dryRun(
+        'Would prepare the shared data-sync state (worktree, layout, or config format) first',
+      );
     }
-    if (result.updated.length > 0) {
-      parts.push(`~${result.updated.length}`);
-    }
-    if (result.removed.length > 0) {
-      parts.push(`-${result.removed.length}`);
-    }
-
-    if (parts.length > 0) {
-      this.output.success(`Synced docs: ${parts.join(' ')} doc(s)`);
-    }
-
-    // Report pruned entries
-    if (result.pruned.length > 0) {
-      this.output.info(`Removed ${result.pruned.length} stale config entry/entries`);
-    }
-
-    // Report errors
-    for (const err of result.errors) {
-      this.output.warn(`Doc sync error: ${err.path}: ${err.error}`);
-    }
+    this.output.dryRun('Would sync repository', { syncBranch, remote });
   }
 
-  private async showIssueStatus(syncBranch: string, remote: string): Promise<void> {
-    const status = await this.getSyncStatus(syncBranch, remote);
+  /**
+   * Under `--json`, print the dry-run plan as the one stdout document, keeping the
+   * `action`, `syncBranch`, and `remote` keys earlier releases printed for the issue
+   * surface. Text mode printed each surface's line as it ran.
+   */
+  private printDryRunPlan(): void {
+    if (!this.output.isJson) {
+      return;
+    }
+    const { docs, issues, integrations } = this.dryRunPlan;
+    const action = issues
+      ? 'Would sync repository'
+      : docs
+        ? this.docsDryRunAction
+        : integrations?.runs
+          ? 'Would sync external trackers'
+          : 'Nothing to sync';
+    this.output.dryRun(action, { ...issues, docs, integrations });
+  }
+
+  /**
+   * Show the issue surface's sync status. An observer under tbd-design.md §3.7: it takes
+   * no lock, prepares nothing (a missing worktree stays missing, a config that needs
+   * migrating stays as it is), reads the worktree without optional locks, and fetches
+   * the remote tip without writing a ref or `FETCH_HEAD`, so it cannot race a
+   * concurrent sync or status.
+   */
+  private async showIssueStatus(): Promise<void> {
+    const { config, sharedPaths, health } = await inspectDataSyncState(this.tbdRoot);
+    const syncBranch = config.sync.branch;
+    const remote = config.sync.remote;
+    if (!health.valid) {
+      this.output.notice(
+        `The data-sync worktree is ${health.status}, so local changes are not shown; ` +
+          'the next tbd command that reads issues re-creates it.',
+        { worktree: health.status },
+      );
+    }
+    const status = await this.getSyncStatus(
+      syncBranch,
+      remote,
+      health.valid ? sharedPaths.sharedWorktreePath : null,
+      health.status,
+    );
 
     this.output.data(status, () => {
       const colors = this.output.getColors();
@@ -612,6 +690,15 @@ class SyncHandler extends BaseCommand {
       }
       if (status.behind > 0) {
         console.log(`  ${colors.dim(`↓ ${status.behind}`)} commit(s) behind (to pull)`);
+      }
+      // Not in sync, yet nothing counted: the remote's tip was not available to count.
+      if (
+        status.ahead === 0 &&
+        status.behind === 0 &&
+        status.localChanges.length === 0 &&
+        status.remoteChanges.length === 0
+      ) {
+        console.log(`  No commits to push or pull against the last fetched copy`);
       }
 
       if (status.localChanges.length > 0) {
@@ -632,18 +719,28 @@ class SyncHandler extends BaseCommand {
     });
   }
 
-  private async getSyncStatus(syncBranch: string, remote: string): Promise<SyncStatus> {
+  /** @param worktreePath The sync worktree, or null when it is not there to read. */
+  private async getSyncStatus(
+    syncBranch: string,
+    remote: string,
+    worktreePath: string | null,
+    worktree: WorktreeStatus,
+  ): Promise<SyncStatus> {
     const localChanges: string[] = [];
     const remoteChanges: string[] = [];
-    let ahead = 0;
-    let behind = 0;
 
     // Check for uncommitted changes in the worktree
     // FIX Bug 2: Previously ran git status on main branch where data-sync/ is gitignored.
     // Now check worktree status directly.
     // See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md
     try {
-      const status = await git('-C', this.worktreePath, 'status', '--porcelain');
+      // Untrimmed: the porcelain status columns are positional, and the first line
+      // starts with a space when its entry is unstaged. Without optional locks: a
+      // refreshing `git status` rewrites the index, and a writer's `git add` at that
+      // instant would fail on `index.lock`.
+      const status = worktreePath
+        ? await gitUntrimmed('--no-optional-locks', '-C', worktreePath, 'status', '--porcelain')
+        : '';
       if (status) {
         for (const line of status.split('\n')) {
           if (!line) {
@@ -664,61 +761,85 @@ class SyncHandler extends BaseCommand {
       this.output.debug('Git worktree not available');
     }
 
-    // Check for remote changes
-    try {
-      await git('fetch', remote, trackingRefspec(remote, syncBranch));
+    // Compare against the remote tip read without writing any ref. When the remote
+    // cannot be read, say so and compare with the last fetched copy instead: reporting
+    // "in sync" for a remote nobody checked is staleness that looks like success.
+    const observed = await observeRemoteTip(this.tbdRoot, remote, syncBranch);
+    const remoteChecked = observed.status !== 'check-failed';
+    // Whether the counts below are against the remote's actual tip.
+    const remoteCounted = observed.status === 'present' || observed.status === 'absent';
+    let remoteTip: string | null = observed.status === 'present' ? observed.tip : null;
+    if (observed.status === 'check-failed') {
+      const reason = describeGitFailure(observed.error);
+      this.output.notice(
+        `Could not read ${remote}/${syncBranch} (${reason}); ahead and behind compare ` +
+          'with the last fetched copy, if any.',
+        { remoteChecked: false, reason },
+      );
+    } else if (observed.status === 'unfetched') {
+      // The remote answered, so it is not "unreadable": it has commits this clone could
+      // not store to count (a read-only object store, for one).
+      const reason = describeGitFailure(observed.error);
+      this.output.notice(
+        `${remote}/${syncBranch} is at ${observed.tip.slice(0, 7)}, but its commits could ` +
+          `not be fetched to count them (${reason}); ahead and behind compare with the ` +
+          'last fetched copy, if any.',
+        { remoteChecked: true, remoteTip: observed.tip, fetched: false, reason },
+      );
+    }
+    if (!remoteCounted) {
+      remoteTip = await this.resolveCommit(`refs/remotes/${remote}/${syncBranch}`);
+    }
+    const localTip = await this.resolveCommit(`refs/heads/${syncBranch}`);
 
-      // Count commits ahead/behind
-      try {
-        const aheadOutput = await git(
-          'rev-list',
-          '--count',
-          `${remote}/${syncBranch}..${syncBranch}`,
-        );
-        ahead = parseInt(aheadOutput, 10) || 0;
-      } catch {
-        this.output.debug('Branch does not exist locally');
-      }
-
-      try {
-        const behindOutput = await git(
-          'rev-list',
-          '--count',
-          `${syncBranch}..${remote}/${syncBranch}`,
-        );
-        behind = parseInt(behindOutput, 10) || 0;
-      } catch {
-        this.output.debug('Remote branch does not exist');
-      }
-
-      // Get commit messages for remote changes
-      if (behind > 0) {
-        const logOutput = await git(
-          'log',
-          '--oneline',
-          `${syncBranch}..${remote}/${syncBranch}`,
-          '--max-count=10',
-        );
-        for (const line of logOutput.split('\n')) {
-          if (line) {
-            remoteChanges.push(line);
-          }
+    const count = async (range: string): Promise<number> =>
+      parseInt(await git('-C', this.tbdRoot, 'rev-list', '--count', range), 10) || 0;
+    const ahead = localTip ? await count(remoteTip ? `${remoteTip}..${localTip}` : localTip) : 0;
+    const behind = remoteTip ? await count(localTip ? `${localTip}..${remoteTip}` : remoteTip) : 0;
+    if (behind > 0 && remoteTip) {
+      const logOutput = await git(
+        '-C',
+        this.tbdRoot,
+        'log',
+        '--oneline',
+        '--max-count=10',
+        localTip ? `${localTip}..${remoteTip}` : remoteTip,
+      );
+      for (const line of logOutput.split('\n')) {
+        if (line) {
+          remoteChanges.push(line);
         }
       }
-    } catch {
-      this.output.debug('Remote not available or sync branch does not exist');
     }
 
     return {
       synced:
-        localChanges.length === 0 && remoteChanges.length === 0 && ahead === 0 && behind === 0,
+        remoteCounted &&
+        localChanges.length === 0 &&
+        remoteChanges.length === 0 &&
+        ahead === 0 &&
+        behind === 0,
       localChanges,
       remoteChanges,
       syncBranch,
       remote,
       ahead,
       behind,
+      remoteChecked,
+      remoteTip:
+        observed.status === 'present' || observed.status === 'unfetched' ? observed.tip : null,
+      fetched: remoteCounted,
+      worktree,
     };
+  }
+
+  /** The commit a ref points at, or null when it does not exist. */
+  private async resolveCommit(ref: string): Promise<string | null> {
+    try {
+      return await git('-C', this.tbdRoot, 'rev-parse', '--verify', '--quiet', `${ref}^{commit}`);
+    } catch {
+      return null;
+    }
   }
 
   private async pullChanges(syncBranch: string, remote: string): Promise<void> {

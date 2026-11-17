@@ -113,8 +113,9 @@ Chained branch bases alone are not a formal GitHub stack; link and verify the PR
 `tbd shortcut stacked-prs` before creating a PR.
 
 Before a GitHub mutation, a merge, or a delegation, check grants with `tbd policy show`
-(rules: `tbd guidelines agent-policy-grants`). With `pr-delivery: autonomous`, deliver
-requested work as a PR without asking first, stacked or standalone by those rules.
+(rules: `tbd guidelines agent-policy-grants`). With `pr-delivery: autonomous` and
+`github-editing` granted, deliver requested work as a PR without asking first, stacked
+or standalone by those rules; without `github-editing`, ask before the first push.
 
 ## Key Guidelines
 

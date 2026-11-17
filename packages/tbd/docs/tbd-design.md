@@ -2966,7 +2966,11 @@ branch or its configured remote-tracking ref, or writes `FETCH_HEAD`. `tbd watch
 create and delete repository-scoped private refs, including stale-ref cleanup; those
 refs are visible to Git-aware processes but carry no canonical bead state.
 This narrower guarantee makes several watchers safe beside ordinary `tbd sync` in one
-checkout.
+checkout. `tbd sync --status` is an observer in the same sense: it reads the hidden
+worktree’s status without optional locks, and reads the remote tip with `ls-remote`,
+fetching that one commit without a destination when it is missing
+(`git fetch --no-write-fetch-head --no-tags --no-auto-maintenance --refmap= <remote> <tip>`).
+It writes no ref and no `FETCH_HEAD`.
 
 **Reading committed snapshots.** Both commands read issues straight out of commit
 objects, never from a checkout:
@@ -3006,7 +3010,7 @@ objects.
 Only when that tip moves does it fetch, and the fetch is aimed at a private ref:
 
 ```bash
-git fetch --no-write-fetch-head --no-tags --refmap= \
+git fetch --no-write-fetch-head --no-tags --no-auto-maintenance --refmap= \
   <remote> +refs/heads/<sync-branch>:refs/tbd/watch/<pid>-<uuid>
 ```
 
@@ -3018,6 +3022,7 @@ Each flag protects one piece of shared state:
 | `--refmap=` | `refs/remotes/<remote>/<branch>`, which a configured remote refspec would otherwise advance beside the explicit one |
 | `--no-write-fetch-head` | `FETCH_HEAD`, which other tooling reads |
 | `--no-tags` | tag refs |
+| `--no-auto-maintenance` | `packed-refs`, the loose ref files, and the reflogs, which `git gc --auto` would rewrite in a process that outlives the fetch |
 
 Private refs live under `refs/tbd/watch/` and are named `<pid>-<uuid>`, so concurrent
 watchers in one checkout cannot collide.
@@ -5857,8 +5862,8 @@ project as a whole, so agents neither ask in every session nor act without conse
 These are **user-settable preferences**, recorded as grants in `AGENTS.md` and changed
 with `tbd policy` — not hardcoded yes/no behavior an agent invents or a switch inside
 the CLI. The eight policies are `github-workflows`, `github-editing`, `github-merge`,
-`github-stacked-prs`, `subagents`, `pr-review-requirements`, `pr-delivery`, and
-`linear`. `tbd guidelines agent-policy-grants` is their single definition (values,
+`github-stacked-prs`, `subagents`, `pr-review-requirements`, `linear`, and
+`pr-delivery`. `tbd guidelines agent-policy-grants` is their single definition (values,
 recommendations, the recommended set, grant sources and precedence, block syntax, and
 setup questions); `src/lib/policy-grants.ts` implements it, and
 `tests/policy-grants-docs.test.ts` keeps the two in agreement.

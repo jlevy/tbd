@@ -7,6 +7,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # SUPPLY-CHAIN-SECURITY.md rule 1: never upgrade to a version less than 14 days old.
+    cooldown:
+      default-days: 14
     groups:
       actions:
         patterns: ['*']

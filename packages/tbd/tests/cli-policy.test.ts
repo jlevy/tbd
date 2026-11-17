@@ -21,8 +21,10 @@ import {
   POLICY_BLOCK_PROSE,
   POLICY_END_MARKER,
   POLICY_NAMES,
+  inertPolicyCombinations,
   parsePolicyBlock,
   renderPolicyBlock,
+  resolvePolicyStatuses,
   withPolicyBlock,
 } from '../src/lib/policy-grants.js';
 import { CURRENT_FORMAT } from '../src/lib/tbd-format.js';
@@ -49,6 +51,7 @@ interface PolicyShowJson {
   source: { branch: string; ref: string; kind: string } | null;
   block: { status: string; problems?: string[]; version?: string; recorded?: string | null };
   policies: PolicyStatusJson[];
+  inert: string[];
   workingTree: {
     agentsMdExists: boolean;
     integrationBlock: boolean;
@@ -654,6 +657,74 @@ describe('tbd policy grant, revoke, and set', () => {
         answered: true,
         value: 'none',
       });
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+});
+
+describe('policy writes report grants that cannot take effect', () => {
+  it(
+    'warns as tbd doctor does whenever the written block leaves pr-delivery inert',
+    async () => {
+      const dir = await createRepo();
+      const agentsPath = join(dir, 'AGENTS.md');
+      const record = (...args: string[]) => {
+        const result = runTbd(dir, args);
+        expect(result.status, `${args.join(' ')}: ${result.stderr}`).toBe(0);
+        return result;
+      };
+
+      const dry = record('--dry-run', 'policy', 'grant', 'pr-delivery');
+      expect(dry.stdout).toContain('[DRY-RUN] Would record pr-delivery: autonomous');
+      const granted = record('policy', 'grant', 'pr-delivery');
+      expect(granted.stdout).toContain('Recorded pr-delivery: autonomous');
+      // The one wording source is the library doctor reports from.
+      const [inert, ...rest] = inertPolicyCombinations(
+        resolvePolicyStatuses(parsePolicyBlock(await readFile(agentsPath, 'utf-8'))),
+      );
+      expect(inert).toContain('pr-delivery: autonomous needs github-editing: granted');
+      expect(rest).toEqual([]);
+      expect(dry.stderr).toContain(inert);
+      expect(granted.stderr).toContain(inert);
+      expect(record('policy', 'set', 'pr-delivery', 'autonomous').stderr).toContain(inert);
+
+      // Granting github-editing makes the opt-in effective; revoking it makes it inert again.
+      expect(record('policy', 'grant', 'github-editing').stderr).not.toContain('needs');
+      expect(record('policy', 'revoke', 'github-editing').stderr).toContain(inert);
+      expect(record('--json', 'policy', 'grant', 'subagents').stderr).toContain(
+        JSON.stringify({ warning: inert }),
+      );
+      expect(record('policy', 'revoke', 'pr-delivery').stderr).not.toContain('needs');
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  // `tbd policy show` is the check agents are told to run before a GitHub mutation.
+  it(
+    'tbd policy show and the write documents carry the same warning',
+    async () => {
+      const dir = await createRepo();
+      const granted = runTbd(dir, ['--json', 'policy', 'grant', 'pr-delivery']);
+      expect(granted.status, granted.stderr).toBe(0);
+      const [inert, ...rest] = inertPolicyCombinations(
+        resolvePolicyStatuses(parsePolicyBlock(await readFile(join(dir, 'AGENTS.md'), 'utf-8'))),
+      );
+      expect(inert).toContain('pr-delivery: autonomous needs github-editing: granted');
+      expect(rest).toEqual([]);
+      expect((JSON.parse(granted.stdout) as { inert: string[] }).inert).toEqual([inert]);
+
+      // Recorded only in the working tree, it is not yet effective, so show has nothing to say.
+      expect(showJson(dir).inert).toEqual([]);
+      await git(dir, 'commit', '-q', '-am', 'grant pr-delivery');
+      expect(showJson(dir).inert).toEqual([inert]);
+      const text = runTbd(dir, ['policy', 'show']);
+      expect(text.status, text.stderr).toBe(0);
+      expect(text.stdout).toContain(inert);
+
+      expect(runTbd(dir, ['policy', 'grant', 'github-editing']).status).toBe(0);
+      await git(dir, 'commit', '-q', '-am', 'grant github-editing');
+      expect(showJson(dir).inert).toEqual([]);
+      expect(runTbd(dir, ['policy', 'show']).stdout).not.toContain('needs github-editing');
     },
     CLI_TEST_TIMEOUT_MS,
   );

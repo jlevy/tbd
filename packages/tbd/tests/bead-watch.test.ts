@@ -17,7 +17,13 @@ import {
 } from '../src/file/bead-watch.js';
 import type { IssueChangesReport } from '../src/lib/issue-changes.js';
 import { stringifyYaml } from '../src/utils/yaml-utils.js';
-import { createTestIssue, subprocessTestTimeout, testId, TEST_ULIDS } from './test-helpers.js';
+import {
+  armAutoGc,
+  createTestIssue,
+  subprocessTestTimeout,
+  testId,
+  TEST_ULIDS,
+} from './test-helpers.js';
 
 const execFileAsync = promisify(execFile);
 const cleanupPaths: string[] = [];
@@ -581,6 +587,10 @@ describe('watchForIssueChanges Git safety', { timeout: subprocessTestTimeout() }
     await writeFile(sentinelWorktree, 'worktree untouched');
     await writeFile(sentinelLock, 'lock untouched');
     const fetchHeadBefore = await maybeRead(fetchHeadPath);
+    // A fetch that ran git's auto-maintenance would now pack the loose refs.
+    armAutoGc(repoDir);
+    const packedRefsPath = join(gitDir, 'packed-refs');
+    expect(await maybeRead(packedRefsPath)).toBeNull();
     const localSyncBefore = await git(repoDir, 'rev-parse', 'refs/heads/tbd-sync');
     const remoteTrackingBefore = await git(
       repoDir,
@@ -612,6 +622,7 @@ describe('watchForIssueChanges Git safety', { timeout: subprocessTestTimeout() }
       await git(repoDir, 'rev-parse', '--verify', 'refs/remotes/origin/tbd-sync').catch(() => null),
     ).toBe(remoteTrackingBefore);
     expect(await maybeRead(fetchHeadPath)).toBe(fetchHeadBefore);
+    expect(await maybeRead(packedRefsPath)).toBeNull();
     expect(await readFile(sentinelWorktree, 'utf8')).toBe('worktree untouched');
     expect(await readFile(sentinelLock, 'utf8')).toBe('lock untouched');
     expect(await git(repoDir, 'for-each-ref', '--format=%(refname)', 'refs/tbd/watch/')).toBe('');

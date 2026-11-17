@@ -1,6 +1,6 @@
 ---
 title: "Agent CLI Ergonomics Round 2: Remaining Bash Fallbacks"
-description: Audit of every place agents still fall back to bash (loops, head/grep/jq pipes) instead of a native tbd call, and a plan to close the gaps: bulk show, variadic doc readers, variadic deps, and recoverable errors
+description: "Audit of every place agents still fall back to bash (loops, head/grep/jq pipes) instead of a native tbd call, and a plan to close the gaps: bulk show, variadic doc readers, variadic deps, and recoverable errors"
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Feature: Agent CLI Ergonomics Round 2 (Remaining Bash Fallbacks)

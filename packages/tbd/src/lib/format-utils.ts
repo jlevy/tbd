@@ -96,3 +96,17 @@ export function formatDuration(ms: number): string {
 export function formatDurationCompact(ms: number): string {
   return prettyMs(ms, { compact: true });
 }
+
+// =============================================================================
+// Untrusted Text
+// =============================================================================
+
+/**
+ * Remove control and format characters (C0 and C1 controls including ESC and BEL,
+ * DEL, and Unicode format characters such as the U+202E bidi override) from text read
+ * from a file, so printing it cannot clear the screen, retitle the terminal, or
+ * reorder the line around it.
+ */
+export function stripControlCharacters(text: string): string {
+  return text.replace(/[\p{Cc}\p{Cf}]/gu, '');
+}

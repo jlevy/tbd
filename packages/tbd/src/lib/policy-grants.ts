@@ -24,6 +24,7 @@ import {
   integrationFormatNumber,
   parseManagedIntegrationFormat,
 } from '../cli/lib/managed-artifact.js';
+import { stripControlCharacters } from './format-utils.js';
 import { AGENTS_MD_REL, AGENT_INTEGRATION_FORMAT } from './integration-paths.js';
 import { tbdUpgradeAdvice } from './install-advice.js';
 
@@ -31,7 +32,11 @@ import { tbdUpgradeAdvice } from './install-advice.js';
 // Schema
 // =============================================================================
 
-/** The eight policies, in the order of the guideline's table. */
+/**
+ * The eight policies, in the order of the guideline's table, which is the order tbd
+ * writes grant lines in. A policy added in a release goes last: an older tbd writes
+ * names it does not know after the ones it does, so both write the same order.
+ */
 export const POLICY_NAMES = [
   'github-workflows',
   'github-editing',
@@ -39,8 +44,8 @@ export const POLICY_NAMES = [
   'github-stacked-prs',
   'subagents',
   'pr-review-requirements',
-  'pr-delivery',
   'linear',
+  'pr-delivery',
 ] as const;
 
 export type PolicyName = (typeof POLICY_NAMES)[number];
@@ -137,6 +142,16 @@ export const POLICIES: Readonly<Record<PolicyName, PolicyDefinition>> = {
     revokeValue: null,
     summary: 'reviews required before a PR is merged',
   },
+  linear: {
+    name: 'linear',
+    values: ['not-granted', 'epics', 'custom'],
+    grammar: 'linear',
+    recommended: null,
+    unansweredValue: 'not-granted',
+    grantValue: 'epics',
+    revokeValue: 'not-granted',
+    summary: 'syncing beads with Linear over the named selection',
+  },
   // Opt-in, like linear: outside the recommended set and asked separately. It decides
   // whether requested work is delivered as a PR without a confirmation step, not
   // whether an agent may open PRs at all (github-editing) or build a new stack
@@ -151,16 +166,6 @@ export const POLICIES: Readonly<Record<PolicyName, PolicyDefinition>> = {
     grantValue: 'autonomous',
     revokeValue: 'ask',
     summary: 'delivering requested work as a PR without asking first',
-  },
-  linear: {
-    name: 'linear',
-    values: ['not-granted', 'epics', 'custom'],
-    grammar: 'linear',
-    recommended: null,
-    unansweredValue: 'not-granted',
-    grantValue: 'epics',
-    revokeValue: 'not-granted',
-    summary: 'syncing beads with Linear over the named selection',
   },
 };
 
@@ -1364,7 +1369,7 @@ const POLICY_VALUE_DISPLAY_MAX = 60;
  * untrusted part and not on the explanation around it.
  */
 export function displayPolicyValue(value: string, maxLength = POLICY_VALUE_DISPLAY_MAX): string {
-  const stripped = value.replace(/[\p{Cc}\p{Cf}]/gu, '');
+  const stripped = stripControlCharacters(value);
   if (stripped.length <= maxLength) {
     return stripped;
   }

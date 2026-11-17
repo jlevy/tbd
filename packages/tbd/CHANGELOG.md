@@ -12,10 +12,56 @@
   rules. `ask`, the value an unanswered or revoked policy takes, asks once before opening
   a PR the request did not ask for.
   The policy is outside the recommended set, and `setup-tbd` asks about it separately.
-  It needs `github-editing: granted`, and `tbd doctor` warns when it is recorded without
-  it. It authorizes no merge and changes no review requirement: those stay under
-  `github-merge` and `pr-review-requirements`. Run `tbd setup --auto` after upgrading to
-  refresh the `AGENTS.md` block, which now states the rule.
+  It acts only with `github-editing: granted`; without that grant agents still ask
+  before the first push, and `tbd doctor`, `tbd policy show`, `tbd prime`, and
+  `tbd policy grant`, `revoke`, and `set` warn about the combination.
+  It authorizes no merge and changes no review requirement: those stay under
+  `github-merge` and `pr-review-requirements`. Its grant line follows `linear`, so tbd
+  0.11.0 and this release write the policy block in the same order.
+  Run `tbd setup --auto` after upgrading to refresh the `AGENTS.md` block, which now
+  states the rule.
+
+### Fixes
+
+- **`tbd sync --dry-run` writes nothing**: a dry run refreshed the docs cache and
+  `.tbd/config.yml` while printing “Synced docs”, and its issue step took the sync lock,
+  which could re-create a missing tbd-sync worktree or migrate the config.
+  It now prints `[DRY-RUN] Would sync docs: …` and `[DRY-RUN] Would sync repository`,
+  says when a real run would first prepare the data-sync state, and changes no files.
+  It stops with the real run’s error where the real run would stop before doing any
+  work: a data-sync worktree that only `tbd doctor --fix` can repair, or shared lock
+  state whose file permissions deny this process the write.
+  A sandbox that denies the write by policy, or a read-only mount, is still reported
+  only by the real run.
+  Under `--json` it prints one document, as before, which keeps the `action`,
+  `syncBranch`, and `remote` keys and adds `prepareDataSyncState`, the `docs` counts,
+  and whether an external tracker would run.
+  `tbd docs sync --dry-run` reports pending doc changes the same way.
+- **`tbd sync --status` takes no lock and prepares nothing**: it took the sync lock, so
+  every call advanced the data-sync epoch, and it could re-create a missing worktree or
+  migrate the config. It now changes no tbd state and says when the worktree is missing.
+  It reads the remote tip without moving the remote-tracking ref or writing
+  `FETCH_HEAD`, as `tbd watch` does, so it cannot race a concurrent `tbd sync` or a
+  second status. When it cannot read the remote, or reads the tip but cannot fetch its
+  commits, it says so.
+  It also listed the first changed file without its first character (`tbd/data-sync/…`
+  for `.tbd/data-sync/…`).
+- **`tbd sync --status` reports in sync only after comparing the remote’s tip**: 0.11.0
+  also reported `synced: true` where nothing had been compared.
+  `synced` is now false with an unreadable remote or no sync remote, with a remote that
+  lacks the sync branch (every local commit counts as ahead), in a fresh clone before
+  the first data command creates the local branch (every remote commit counts as
+  behind), and when the tip was read but its commits could not be fetched.
+  The exit status is still 0, and every key 0.11.0 printed keeps its name and type.
+  `--json` adds `remoteChecked`, `remoteTip`, `fetched`, and `worktree`, and explains an
+  unread or unfetched remote in one JSON line on stderr.
+- **Doc sync output strips control characters**: doc paths and error text, which come
+  from `.tbd/config.yml` and the doc sources, are printed without control and format
+  characters, so they cannot clear the screen, retitle the terminal, or reorder the
+  line.
+- **`tbd docs list` shows the `docmap-format` reference’s title and description**: in
+  0.11.0 its frontmatter did not parse, so it was listed with neither.
+  A test now parses every bundled doc’s frontmatter.
 
 ### Guidelines and Content
 

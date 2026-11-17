@@ -679,7 +679,7 @@ describe('planRecommendedGrants', () => {
 
 describe('tbd setup --policies', () => {
   it(
-    'records exactly the recommended set on a fresh setup and leaves pr-delivery and linear unanswered',
+    'records exactly the recommended set on a fresh setup and leaves linear and pr-delivery unanswered',
     async () => {
       const dir = await gitRepo();
       const result = runTbd(dir, [
@@ -696,14 +696,14 @@ describe('tbd setup --policies', () => {
       const unanswered = resolvePolicyStatuses(parse)
         .filter((status) => !status.answered)
         .map((status) => status.name);
-      expect(unanswered).toEqual(['pr-delivery', 'linear']);
+      expect(unanswered).toEqual(['linear', 'pr-delivery']);
 
       expect(result.stdout).toContain('Policy grants (--policies=recommended):');
       for (const grant of RECOMMENDED_GRANTS) {
         expect(result.stdout).toContain(`  ✓ Recorded ${grant.name}: ${grant.value}\n`);
       }
       expect(result.stdout).toContain(
-        '  pr-delivery and linear are not in the recommended set and stay unanswered; ask the user about each separately.',
+        '  linear and pr-delivery are not in the recommended set and stay unanswered; ask the user about each separately.',
       );
       expect(result.stdout).toContain('`tbd shortcut setup-github-cli`');
       expect(result.stdout).toContain(
@@ -785,6 +785,32 @@ describe('tbd setup --policies', () => {
         '  Every recommended policy is already answered; nothing recorded.',
       );
       expect(await readFile(agentsPath, 'utf-8')).toBe(recorded);
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  it.each([
+    { answered: ['policy', 'revoke', 'pr-delivery'], unanswered: 'linear' },
+    { answered: ['policy', 'set', 'linear', 'epics'], unanswered: 'pr-delivery' },
+  ])(
+    'names the one opt-in policy left unanswered ($unanswered)',
+    async ({ answered, unanswered }) => {
+      const dir = await setUpRepo();
+      const recorded = runTbd(dir, answered);
+      expect(recorded.status, recorded.stderr).toBe(0);
+
+      const result = runTbd(dir, ['setup', '--policies=recommended', '--surfaces=agents-md']);
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toContain(
+        `  ${unanswered} is not in the recommended set and stays unanswered; ask the user separately.\n`,
+      );
+      expect(result.stdout).not.toContain('stay unanswered');
+      const statuses = resolvePolicyStatuses(
+        parsePolicyBlock(await readFile(join(dir, 'AGENTS.md'), 'utf-8')),
+      );
+      expect(statuses.filter((status) => !status.answered).map((status) => status.name)).toEqual([
+        unanswered,
+      ]);
     },
     CLI_TEST_TIMEOUT_MS,
   );

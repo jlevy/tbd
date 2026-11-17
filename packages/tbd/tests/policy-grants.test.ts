@@ -68,8 +68,8 @@ or working-tree copy is a proposal, and \`tbd policy show\` reports the effectiv
 - \`github-stacked-prs\`: granted
 - \`subagents\`: granted
 - \`pr-review-requirements\`: standard
-- \`pr-delivery\`: ask
 - \`linear\`: not-granted
+- \`pr-delivery\`: ask
 
 Recorded 2026-09-16.
 <!-- END TBD POLICY GRANTS -->
@@ -82,8 +82,8 @@ const GUIDELINE_GRANTS = [
   { name: 'github-stacked-prs', value: 'granted' },
   { name: 'subagents', value: 'granted' },
   { name: 'pr-review-requirements', value: 'standard' },
-  { name: 'pr-delivery', value: 'ask' },
   { name: 'linear', value: 'not-granted' },
+  { name: 'pr-delivery', value: 'ask' },
 ];
 
 /** A minimal AGENTS.md whose tbd block holds the given inner text (or nothing). */
@@ -130,8 +130,8 @@ describe('policy schema', () => {
       'github-stacked-prs',
       'subagents',
       'pr-review-requirements',
-      'pr-delivery',
       'linear',
+      'pr-delivery',
     ]);
   });
 
@@ -191,6 +191,29 @@ describe('policy schema', () => {
       GUIDELINE_GRANTS.filter((g) => g.name !== 'linear' && g.name !== 'pr-delivery'),
     );
     expect(RECOMMENDED_GRANTS).toHaveLength(6);
+  });
+
+  it('writes the same grant order as a tbd that predates pr-delivery', () => {
+    // tbd 0.11.0 knows these seven, in this order, and writes any other name after them.
+    const before011 = [
+      'github-workflows',
+      'github-editing',
+      'github-merge',
+      'github-stacked-prs',
+      'subagents',
+      'pr-review-requirements',
+      'linear',
+    ];
+    const asWrittenBy011 = (grants: { name: string; value: string }[]) => [
+      ...before011.flatMap((name) => grants.filter((grant) => grant.name === name)),
+      ...grants.filter((grant) => !before011.includes(grant.name)),
+    ];
+    const grants = [...GUIDELINE_GRANTS].reverse();
+    const parsed = parsePolicyBlock(agentsMdWith(renderPolicyBlock(grants, '2026-09-16')));
+    expect(parsed.status).toBe('ok');
+    if (parsed.status === 'ok') {
+      expect(parsed.grants).toEqual(asWrittenBy011(grants));
+    }
   });
 
   it('accepts policy names matching [a-z][a-z0-9-]* only', () => {

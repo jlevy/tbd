@@ -247,11 +247,13 @@ actions.
   that task needs its own confirmation), or `autonomous`. No value of it relaxes
   `pr-review-requirements`. `github-stacked-prs` and `subagents` cover stacked PRs and
   delegation. `pr-delivery` is opt-in.
-  Under `pr-delivery: autonomous`, a request for a change is also the request for its
-  PR, delivered without asking, stacked when it builds on an unmerged PR and otherwise
-  standalone; under `ask`, the unanswered value, ask once before opening a PR the
-  request did not ask for.
-  For values, coverage, and recording grants, run `tbd guidelines agent-policy-grants`.
+  Under `pr-delivery: autonomous` with `github-editing` granted, a request for a change
+  is also the request for its PR, delivered without asking, stacked when it builds on an
+  unmerged PR and `github-stacked-prs` is granted (or the user asked for a stack), and
+  otherwise standalone; without `github-editing`, ask before the first push.
+  Under `ask`, the unanswered value, ask once before opening a PR the request did not
+  ask for. For values, coverage, and recording grants, run
+  `tbd guidelines agent-policy-grants`.
 - **Without the grant an action needs,** ask once, before the first action it covers.
 - **A tool-permission allow rule grants only the operations it allows.** An allow rule
   for read-only `gh` commands does not authorize pushes or PR edits.
@@ -287,8 +289,9 @@ actions.
 Step 2 is a GitHub action: `git push` needs `github-editing`. Without that grant, ask
 once before the first push rather than treating the checklist as the authorization, and
 say what is waiting on the answer.
-Opening a new PR for the work follows `pr-delivery`: under `autonomous` it needs no
-question, so never end a session on a finished change waiting for one.
+Opening a new PR for the work follows `pr-delivery`: under `autonomous` with
+`github-editing` granted it needs no question, so never end a session on a finished
+change waiting for one.
 Step 5 is not: `tbd sync` needs no grant, ever, and no permission to ask for.
 No policy value stops it, so it is never the step you pause on.
 It pushes only tbd’s own data-sync branch (`tbd-sync` unless the project configures
