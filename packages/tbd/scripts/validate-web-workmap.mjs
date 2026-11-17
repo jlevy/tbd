@@ -190,9 +190,13 @@ class Cdp {
     this.socket = socket;
     this.nextId = 1;
     this.pending = new Map();
+    this.listeners = new Set();
     socket.addEventListener('message', (event) => {
       const message = JSON.parse(String(event.data));
       if (message.id === undefined) {
+        for (const listener of [...this.listeners]) {
+          listener(message);
+        }
         return;
       }
       const waiter = this.pending.get(message.id);
@@ -214,6 +218,27 @@ class Cdp {
       });
     });
     return new Cdp(socket);
+  }
+
+  /**
+   * Resolve with the next `method` event from `sessionId` that satisfies `accept`.
+   * Subscribe before sending the command that causes the event, so it cannot be missed.
+   */
+  nextEvent(method, sessionId, timeoutMs, accept = () => true) {
+    return new Promise((resolve, reject) => {
+      const listener = (message) => {
+        if (message.method === method && message.sessionId === sessionId && accept(message.params)) {
+          this.listeners.delete(listener);
+          clearTimeout(timer);
+          resolve(message.params);
+        }
+      };
+      const timer = setTimeout(() => {
+        this.listeners.delete(listener);
+        reject(new Error(`Timed out waiting for ${method}`));
+      }, timeoutMs);
+      this.listeners.add(listener);
+    });
   }
 
   send(method, params = {}, sessionId = undefined) {
@@ -274,15 +299,28 @@ class Page {
     return result.result.value;
   }
 
-  async navigate(url) {
-    await this.send('Page.navigate', { url });
-    await this.waitFor('document.readyState === "complete"', 30_000);
+  /**
+   * Run `start`, then wait for the load event of the document it creates, and prove the
+   * page now answers from a new document: nothing is evaluated in, or satisfied by, the
+   * document being replaced while it is still answering.
+   */
+  async replaceDocument(start) {
+    await this.evaluate('window.__qaReplacedDocument = true');
+    const loaded = this.cdp.nextEvent('Page.loadEventFired', this.sessionId, 30_000);
+    await start();
+    await loaded;
+    invariant(
+      (await this.evaluate('window.__qaReplacedDocument === undefined')) === true,
+      'The load event arrived but the previous document is still answering',
+    );
   }
 
-  async reload() {
-    await this.send('Page.reload', { ignoreCache: true });
-    await delay(200);
-    await this.waitFor('document.readyState === "complete"', 30_000);
+  navigate(url) {
+    return this.replaceDocument(() => this.send('Page.navigate', { url }));
+  }
+
+  reload() {
+    return this.replaceDocument(() => this.send('Page.reload', { ignoreCache: true }));
   }
 
   async waitFor(expression, timeoutMs = 30_000) {
