@@ -43,13 +43,18 @@
   It reads the remote tip without moving the remote-tracking ref or writing
   `FETCH_HEAD`, as `tbd watch` does, so it cannot race a concurrent `tbd sync` or a
   second status. When it cannot read the remote, or reads the tip but cannot fetch its
-  commits, it says so, and `--json` adds `remoteChecked` and `worktree`. `synced` is now
-  true only when the remote’s tip was compared: it is false with an unreadable remote,
-  with a remote that lacks the sync branch (every local commit counts as ahead), and in
-  a fresh clone before the first data command creates the local branch (every remote
-  commit counts as behind), where 0.11.0 reported `synced: true`. It also listed the
-  first changed file without its first character (`tbd/data-sync/…` for
-  `.tbd/data-sync/…`).
+  commits, it says so.
+  It also listed the first changed file without its first character (`tbd/data-sync/…`
+  for `.tbd/data-sync/…`).
+- **`tbd sync --status` reports in sync only after comparing the remote’s tip**: 0.11.0
+  also reported `synced: true` where nothing had been compared.
+  `synced` is now false with an unreadable remote or no sync remote, with a remote that
+  lacks the sync branch (every local commit counts as ahead), in a fresh clone before
+  the first data command creates the local branch (every remote commit counts as
+  behind), and when the tip was read but its commits could not be fetched.
+  The exit status is still 0, and every key 0.11.0 printed keeps its name and type.
+  `--json` adds `remoteChecked`, `remoteTip`, `fetched`, and `worktree`, and explains an
+  unread or unfetched remote in one JSON line on stderr.
 - **Doc sync output strips control characters**: doc paths and error text, which come
   from `.tbd/config.yml` and the doc sources, are printed without control and format
   characters, so they cannot clear the screen, retitle the terminal, or reorder the
