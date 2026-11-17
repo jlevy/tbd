@@ -656,11 +656,25 @@ export function keyedOrderKeepers(currentIndices: readonly number[]): Set<number
   return keep;
 }
 
-/** A section's visible count: the bucket total, or the shown share of a split bucket. */
-export function workmapSectionCount(section: WorkmapSectionView): string {
-  return section.cards.length === section.total
-    ? String(section.total)
-    : `${section.cards.length} of ${section.total}`;
+/**
+ * A section's visible count: the bucket total, or the shown share of a split bucket.
+ * When the server served only part of the match (`truncated`), every total counts
+ * served rows only and the unserved rows may belong to any bucket, so it is marked as a
+ * lower bound (`5000 of 5950+`).
+ */
+export function workmapSectionCount(section: WorkmapSectionView, truncated: boolean): string {
+  const total = `${section.total}${truncated ? '+' : ''}`;
+  return section.cards.length === section.total ? total : `${section.cards.length} of ${total}`;
+}
+
+/**
+ * The sentence both views show when the board response stops at the server's row cap;
+ * empty when every matching row was served.
+ */
+export function servedRowLimitNotice(board: Pick<BoardResponse, 'rows' | 'truncated'>): string {
+  return board.truncated === 0
+    ? ''
+    : `Server returned the first ${board.rows.length} of ${board.truncated} rows; narrow the query to reach the remainder.`;
 }
 
 const DEFAULT_SORT_DIRECTIONS: Readonly<Record<BoardSortKeyView, BoardSortDirectionView>> = {

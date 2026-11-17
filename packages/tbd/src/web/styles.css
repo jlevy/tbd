@@ -180,9 +180,11 @@
        Cards reuse the status, priority, mono id, section-heading, and row-disclosure
        roles; only layout is new. One delegated click handler owns card expansion, and
        each card's native disclosure button carries keyboard activation. The list's
-       page window bounds mounted cards. Renders reuse keyed card nodes, rebuild a card
-       only when its face changes, move the fewest nodes, and restore focus by bead ID
-       and control role.
+       page window bounds mounted cards, and the list's served-row notice appears
+       under the groups when the server caps the response; counts then read as lower
+       bounds (950+). Renders reuse keyed card nodes, rebuild a card only when its
+       face changes, move the fewest nodes, and restore focus by bead ID and control
+       role.
 
      Typography and expansion (--weight-medium, --weight-strong)
        The complete type scale is 15px page title, 14px body/content, and one
@@ -989,6 +991,15 @@ label.check {
 .workmap-card-body {
   margin-top: 8px;
   cursor: auto;
+}
+/* The list's served-row notice, in the list pager row's panel and muted text. */
+.workmap-notice {
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--muted);
+  text-align: center;
 }
 .copyable {
   display: inline-flex;

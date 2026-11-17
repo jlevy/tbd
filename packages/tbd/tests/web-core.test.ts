@@ -26,6 +26,7 @@ import {
   preserveLabelSearchEditingKey,
   promoteBoardSort,
   resolveBoardViewChoice,
+  servedRowLimitNotice,
   workmapCardSignature,
   workmapSectionCount,
 } from '../src/web/core.js';
@@ -1010,7 +1011,7 @@ describe('workmap page window', () => {
     const shape = pages.map((page) =>
       page.sections.map((section) => ({
         key: section.key,
-        count: workmapSectionCount(section),
+        count: workmapSectionCount(section, false),
         first: section.cards[0]?.row.id,
       })),
     );
@@ -1035,6 +1036,30 @@ describe('workmap page window', () => {
     expect(mounted).toHaveLength(BOARD_PAGE_SIZE + 4);
     expect(new Set(mounted).size).toBe(mounted.length);
     expect(pages[1]!.sections[1]!.cards[0]!.conflictLabels).toEqual(['area:big', 'area:small']);
+  });
+
+  it('marks every count as a lower bound when the server served only part of the match', () => {
+    // As in a 10,050-bead board capped at 10,000 rows: 5,950 served `big` rows, 5,000 of
+    // them on page 1, while the 50 unserved rows may carry `area:big` too.
+    const projection = projectWorkmap(
+      [...rows('big', 5_950, ['area:big']), ...rows('small', 4_050, ['area:small'])],
+      'area:',
+    );
+    const [first, second] = [0, 1].map((pageIndex) => paginateWorkmap(projection, pageIndex));
+    const counts = (truncated: boolean) =>
+      [first!, second!].map((page) =>
+        page.sections.map((section) => workmapSectionCount(section, truncated)),
+      );
+    expect(counts(true)).toEqual([['5000 of 5950+'], ['950 of 5950+', '4050+']]);
+    expect(counts(false)).toEqual([['5000 of 5950'], ['950 of 5950', '4050']]);
+  });
+
+  it('states the served-row cap in one sentence for both views, and nothing below it', () => {
+    const served = Array.from({ length: 3 }, (_, index) => row(`web-${index}`, []));
+    expect(servedRowLimitNotice({ rows: served, truncated: 0 })).toBe('');
+    expect(servedRowLimitNotice({ rows: served, truncated: 7 })).toBe(
+      'Server returned the first 3 of 7 rows; narrow the query to reach the remainder.',
+    );
   });
 
   it('clamps a stale page like the list, and has nothing to mount without a prefix', () => {

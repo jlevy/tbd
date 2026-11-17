@@ -36,6 +36,9 @@ const tbdBin = join(packageDir, 'dist', 'bin.mjs');
 const MAX_SERVED_ROWS = 10_000;
 /** The browser's bounded paint window (BOARD_PAGE_SIZE in src/web/core.ts). */
 const PAGE_SIZE = 5_000;
+/** Beads past the served cap, so the board is truncated and must say so. */
+const UNSERVED_ROWS = 50;
+const TOTAL_BEADS = MAX_SERVED_ROWS + UNSERVED_ROWS;
 const AREAS = [
   'caching',
   'tracker',
@@ -515,7 +518,7 @@ try {
   });
   await tbd(repoDir, ['init', '--prefix=qa']);
   const beadsFile = join(temporaryDir, 'beads.jsonl');
-  await writeFile(beadsFile, generatedBeads(MAX_SERVED_ROWS));
+  await writeFile(beadsFile, generatedBeads(TOTAL_BEADS));
   await tbd(repoDir, ['import', beadsFile]);
 
   const port = await availablePort();
@@ -545,8 +548,8 @@ try {
     await fetch(`${origin}/api/board?order=updated:desc&order=priority:asc&pretty=1`)
   ).json();
   invariant(
-    served.rows.length === MAX_SERVED_ROWS && served.truncated === 0,
-    `Expected ${MAX_SERVED_ROWS} served rows, got ${served.rows.length} (truncated ${served.truncated})`,
+    served.rows.length === MAX_SERVED_ROWS && served.truncated === TOTAL_BEADS,
+    `Expected ${MAX_SERVED_ROWS} of ${TOTAL_BEADS} rows served, got ${served.rows.length} (truncated ${served.truncated})`,
   );
 
   const profileDir = join(temporaryDir, 'chrome-profile');
@@ -618,6 +621,22 @@ try {
     );
     await page.click('#pageprev');
     await page.waitFor(`document.getElementById('pagepill').textContent === 'page 1 of 2'`);
+  });
+
+  await check('states the served-row cap and marks every count as a lower bound', async () => {
+    const shown = await page.evaluate(`({
+      notice: document.getElementById('workmapnotice')?.hidden === false
+        ? document.getElementById('workmapnotice').textContent
+        : null,
+      counts: [...document.querySelectorAll('.workmap-group-name .num')].map((count) => count.textContent),
+    })`);
+    const expected = `Server returned the first ${MAX_SERVED_ROWS} of ${TOTAL_BEADS} rows; narrow the query to reach the remainder.`;
+    invariant(
+      shown.notice === expected &&
+        shown.counts.length > 0 &&
+        shown.counts.every((count) => count.endsWith('+')),
+      `Truncated board showed ${JSON.stringify(shown)}`,
+    );
   });
 
   await page.evaluate(PROBE);

@@ -872,10 +872,13 @@ contain. A bead with two values under the prefix appears in `conflicting` with i
 literal labels, and a bead with none appears in `ungrouped`. Each card’s disclosure
 button expands it by pointer or keyboard.
 Like the list, the Workmap mounts at most 5,000 cards per page.
-Until you choose a grouping, the Workmap uses the prefix most common among the beads it
-first shows, and keeps it while filters or live updates change which prefix is most
-common. Choosing a view or grouping in the page, or that first default, rewrites its
-address (for example `?view=workmap&group=area%3A`), so reloading or sharing the address
+When a query matches more beads than the server returns (10,000), the Workmap shows the
+list’s notice under its groups, and each group count, which then covers only the
+returned beads, is marked as a lower bound (`950+`). Until you choose a grouping, the
+Workmap uses the prefix most common among the beads it first shows, and keeps it while
+filters or live updates change which prefix is most common.
+Choosing a view or grouping in the page, or that first default, rewrites its address
+(for example `?view=workmap&group=area%3A`), so reloading or sharing the address
 reproduces what the page shows; an address wins over the choice the browser remembers.
 
 The command stays in the foreground; press Ctrl+C to stop it.
