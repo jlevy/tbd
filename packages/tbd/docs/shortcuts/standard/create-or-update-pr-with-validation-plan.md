@@ -68,9 +68,10 @@ Create a to-do list with the following items then perform all of them:
      official `gh-stack` skill to initialize and submit a local stack, or link existing
      PRs with `gh stack link`. If `github-stacked-prs` is not granted, offer to record
      the standing grant as well.
-   - Under `pr-delivery: autonomous`, work that builds on an unmerged PR goes on a stack
-     above it when `github-stacked-prs` is granted: run `tbd shortcut stacked-prs` and
-     add the layer, or start a stack on that PR, without asking.
+   - Under `pr-delivery: autonomous` with `github-editing` granted, work that builds on
+     an unmerged PR goes on a stack above it when `github-stacked-prs` is granted: run
+     `tbd shortcut stacked-prs` and add the layer, or start a stack on that PR, without
+     asking.
    - If no one asked for a stack and `github-stacked-prs` is not granted, do not build
      one: propose PRs that each target `$TRUNK`, or one folded PR, and never a `--base`
      chain, which is a stack under another name.

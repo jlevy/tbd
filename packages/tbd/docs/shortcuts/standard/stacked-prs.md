@@ -146,10 +146,10 @@ and accept the answer:
 as one PR, or anything urgent enough that serialized review would hurt.
 Once the user declines, drop it and do not raise it again that session.
 
-**Under `pr-delivery: autonomous`, decide instead of offering.** The user has asked for
-requested work to arrive as PRs with no confirmation step (see
-`tbd guidelines agent-policy-grants`). With `github-stacked-prs` granted, put work that
-builds on an unmerged PR on a stack above it, and stack a change that plainly
+**Under `pr-delivery: autonomous` with `github-editing` granted, decide instead of
+offering.** The user has asked for requested work to arrive as PRs with no confirmation
+step (see `tbd guidelines agent-policy-grants`). With `github-stacked-prs` granted, put
+work that builds on an unmerged PR on a stack above it, and stack a change that plainly
 decomposes, without asking first; say in the report how the work was split.
 A single-concern change, a small fix, or work the user framed as one PR stays one PR.
 

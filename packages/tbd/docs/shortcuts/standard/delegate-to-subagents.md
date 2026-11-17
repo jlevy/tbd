@@ -241,10 +241,11 @@ Each brief states:
   A sub-agent cannot hold a session confirmation, which happens in the conversation with
   the user, and the merge gate and the merge stay with the coordinator (steps 5 and 6 of
   `tbd shortcut review-and-merge-prs`), so a merge is not delegated.
-  Under `pr-delivery: autonomous`, a writer’s brief says that its deliverable is a PR
-  and that it pushes, opens the PR, links the stack, and updates the layers above
-  without asking; the grant is the user’s standing authorization, which the sub-agent
-  can confirm with `tbd policy show`, and it covers no merge.
+  Under `pr-delivery: autonomous` with `github-editing` granted, a writer’s brief says
+  that its deliverable is a PR and that it pushes, opens the PR, links the stack, and
+  updates the layers above without asking; the grant is the user’s standing
+  authorization, which the sub-agent can confirm with `tbd policy show`, and it covers
+  no merge.
 - **Report:** the fields the coordinator needs, such as URLs, SHAs, review letters, bead
   IDs, dispositions, CI run IDs, and changed files, condensed to a page or two.
   Ask for evidence rather than assertions: the commands it ran and their results, not

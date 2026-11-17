@@ -156,9 +156,10 @@ the repository’s default branch.
 `tbd policy show` explains the current settings.
 Without a grant, the agent asks when an action needs authorization.
 Unanswered merge policy means `confirm-every`; unanswered review requirements mean
-`standard`. `pr-delivery` is opt-in: with `autonomous`, work you ask for is delivered as
-a PR without a confirmation step, stacked when it builds on an unmerged PR and otherwise
-standalone; unanswered, the agent asks before opening a PR you did not request.
+`standard`. `pr-delivery` is opt-in: with `autonomous` and `github-editing` granted,
+work you ask for is delivered as a PR without a confirmation step, stacked when it
+builds on an unmerged PR and otherwise standalone; unanswered, the agent asks before
+opening a PR you did not request.
 
 Merge authorization and review requirements are separate: permission to merge does not
 waive review or validation.

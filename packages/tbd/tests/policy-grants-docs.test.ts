@@ -9,9 +9,9 @@
  * They also check that the generated tbd block and the shortcuts that act on
  * grants link to the guideline, that the stacked-PR docs state the
  * `github-stacked-prs` condition, that the PR docs state the `pr-delivery`
- * condition and its limits, that setup-tbd follows the guideline's setup
- * questions, and that the documents added for review and delegation resolve by
- * name with valid frontmatter and the doc footer.
+ * condition with its `github-editing` precondition and its limits, that setup-tbd
+ * follows the guideline's setup questions, and that the documents added for review
+ * and delegation resolve by name with valid frontmatter and the doc footer.
  *
  * The routing of `tbd setup` output to setup-tbd is covered in setup-flows.test.ts
  * and golden-output.test.ts.
@@ -109,6 +109,21 @@ function policyRows(markdown: string): Map<string, string[]> {
     }
   }
   return rows;
+}
+
+/**
+ * The sentences of each paragraph and list item, with line wrapping collapsed, so a
+ * phrase check can require two facts in one sentence rather than anywhere in the doc.
+ */
+function sentences(markdown: string): string[] {
+  return markdown
+    .split(/\n\s*\n|\n(?=[ \t]*(?:[-*+]|\d+\.) )/u)
+    .flatMap((block) =>
+      flat(block)
+        .trim()
+        .split(/(?<=[.!?](?:\*\*)?) /u),
+    )
+    .filter((sentence) => sentence !== '');
 }
 
 /** The contents of each inline code span, in order. */
@@ -396,6 +411,16 @@ describe('stacked-PR documents state the github-stacked-prs condition', () => {
 describe('the pr-delivery policy delivers requested work as PRs and nothing more', () => {
   /** Delivery without asking is conditioned on the value, not merely mentioned. */
   const CONDITION = /`pr-delivery(?:: |` is `)autonomous`/;
+  /** A statement of the autonomous condition, including "follows `pr-delivery`: under `autonomous`". */
+  const STATES_AUTONOMOUS =
+    /`pr-delivery(?:: |` is `)autonomous`|`pr-delivery`: under `autonomous`/u;
+  /** The guideline's precondition: `autonomous` acts only with `github-editing: granted`. */
+  const PRECONDITION = /`github-editing(?:: granted`|` (?:is )?granted)/u;
+
+  /** Every sentence of `doc` that states the autonomous condition, each of which must carry the precondition. */
+  function autonomousStatements(doc: string): string[] {
+    return sentences(doc).filter((sentence) => STATES_AUTONOMOUS.test(sentence));
+  }
 
   it('the guideline defines both values, the standing authorization, and the limits', async () => {
     const delivery = flat(section(await readDoc(GUIDELINE), 2, 'PR Delivery'));
@@ -434,9 +459,14 @@ describe('the pr-delivery policy delivers requested work as PRs and nothing more
     expect(block).toMatch(CONDITION);
     expect(block).toContain('without asking');
     expect(block).toContain('Merging stays under `github-merge`');
+    // Without the editing grant the stricter grant wins, as the guideline says.
+    expect(block).toContain('Without `github-editing`, ask before the first push');
   });
 
+  // An agent may read any one of these alone (AGENTS.md is always on), so every
+  // sentence that grants delivery without asking also names the grant it acts through.
   it.each([
+    'the generated tbd block',
     `${SHORTCUTS}/create-or-update-pr-simple.md`,
     `${SHORTCUTS}/create-or-update-pr-with-validation-plan.md`,
     `${SHORTCUTS}/stacked-prs.md`,
@@ -444,9 +474,53 @@ describe('the pr-delivery policy delivers requested work as PRs and nothing more
     'shortcuts/system/skill-baseline.md',
     'shortcuts/system/skill-brief.md',
     'shortcuts/system/skill-minimal.md',
-  ])('%s states the condition', async (rel) => {
-    expect(flat(await readDoc(rel))).toMatch(CONDITION);
+  ])('%s states the condition with its github-editing precondition', async (rel) => {
+    const doc = rel === 'the generated tbd block' ? getCodexTbdSection() : await readDoc(rel);
+    expect(flat(doc)).toMatch(CONDITION);
+    const statements = autonomousStatements(doc);
+    expect(statements.length, rel).toBeGreaterThan(0);
+    for (const statement of statements) {
+      expect(statement, rel).toMatch(PRECONDITION);
+    }
   });
+
+  it('checks each statement of the condition, not the doc as a whole', () => {
+    const doc = [
+      '- With `pr-delivery: autonomous` and `github-editing` granted, deliver it.',
+      '- Under `pr-delivery: autonomous`, stack it.',
+      '',
+      'Opening a PR follows `pr-delivery`: under `autonomous` it needs no question.',
+    ].join('\n');
+    expect(autonomousStatements(doc).map((statement) => PRECONDITION.test(statement))).toEqual([
+      true,
+      false,
+      false,
+    ]);
+  });
+
+  it.each(['README.md', 'tbd-docs.md', 'tbd-design.md'])(
+    '%s names github-editing wherever it summarizes the autonomous value',
+    async (rel) => {
+      const doc =
+        rel === 'README.md'
+          ? await readFile(join(PACKAGE_DIR, '..', '..', rel), 'utf-8')
+          : await readDoc(rel);
+      const paragraphs = doc
+        .replace(/\r\n?/gu, '\n')
+        .split(/\n\s*\n/u)
+        .map(flat)
+        // A summary of what `pr-delivery: autonomous` does: delivery with no question first.
+        .filter(
+          (paragraph) =>
+            paragraph.includes('`pr-delivery`') &&
+            /`autonomous`.*without (?:asking|a confirmation step)/u.test(paragraph),
+        );
+      expect(paragraphs.length, rel).toBeGreaterThan(0);
+      for (const paragraph of paragraphs) {
+        expect(paragraph, rel).toContain('`github-editing');
+      }
+    },
+  );
 
   it('the delegation brief keeps the merge with the coordinator', async () => {
     const brief = flat(section(await readDoc(`${SHORTCUTS}/delegate-to-subagents.md`), 2, 'Brief'));
