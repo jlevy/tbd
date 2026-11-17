@@ -363,9 +363,9 @@ export interface WorkmapProjectionView {
   prefix: string;
   /** Groups ordered by size (largest first), then value. */
   groups: WorkmapGroupView[];
-  /** Rows stating two or more distinct values — a data error surfaced, never picked from. */
+  /** Rows stating two or more distinct values: a data error surfaced, never picked from. */
   conflicted: { row: BoardRowView; values: string[] }[];
-  /** Rows stating no value under the prefix — a visible gap, never a guess. */
+  /** Rows stating no value under the prefix: a visible gap, never a guess. */
   ungrouped: BoardRowView[];
 }
 
@@ -373,7 +373,7 @@ export interface WorkmapProjectionView {
  * Label prefixes present on a board, counted by bead.
  *
  * A prefix is everything up to and including a label's first `:` (so `cat:caching`
- * offers `cat:`). tbd assigns no meaning to any particular prefix — which prefixes
+ * offers `cat:`). tbd assigns no meaning to any particular prefix. Which prefixes
  * exist, and what they mean, is entirely the user's own labeling convention; this
  * only reports what the data states so a viewer can offer the choices.
  */

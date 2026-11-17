@@ -140,7 +140,7 @@ const initialViewChoice = resolveBoardViewChoice(window.location.search, {
 });
 /**
  * Which rendering of the same board response is active. The workmap is a projection of
- * the identical rows, filters, and sorts — switching views changes no request.
+ * the identical rows, filters, and sorts, so switching views changes no request.
  */
 let boardViewMode: BoardViewModeView = initialViewChoice.view;
 /**
@@ -1755,7 +1755,7 @@ function reconcileChildren(
 /**
  * The workmap: the same served rows as the list, grouped by the value each bead's
  * labels state under the chosen prefix. Grouping is a projection of the user's own
- * labeling convention — tbd assigns no meaning to any prefix, and a bead stating no
+ * labeling convention: tbd assigns no meaning to any prefix, and a bead stating no
  * value (or two) is shown as exactly that rather than filed somewhere plausible.
  *
  * Rendering is keyed and bounded like the list: one page window of cards is mounted, a
