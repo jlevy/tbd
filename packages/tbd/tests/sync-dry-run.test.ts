@@ -10,7 +10,7 @@
  * show the preview reported work that was actually pending.
  */
 
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -330,15 +330,7 @@ describe('tbd sync --status is read-only (tbd-incg)', () => {
         configPath,
         config.replace(`tbd_format: ${CURRENT_FORMAT}`, 'tbd_format: f07'),
       );
-      // Status fetches the sync branch to count what is behind: git records that fetch
-      // in FETCH_HEAD, the one write expected here. The remote has not moved, so the
-      // remote-tracking ref stays where it is.
-      const withoutFetchHead = async () => {
-        const current = await state(fixture);
-        const { [join('.git', 'FETCH_HEAD')]: _fetchHead, ...repository } = current.repository;
-        return { ...current, repository };
-      };
-      const before = await withoutFetchHead();
+      const before = await state(fixture);
 
       for (const args of [
         ['sync', '--status'],
@@ -347,7 +339,7 @@ describe('tbd sync --status is read-only (tbd-incg)', () => {
         ['sync', '--issues', '--status', '--json'],
       ]) {
         const status = runTbd(fixture.dir, args);
-        expect(await withoutFetchHead(), args.join(' ')).toEqual(before);
+        expect(await state(fixture), args.join(' ')).toEqual(before);
         if (!args.includes('--json')) {
           expect(status.stdout, args.join(' ')).toContain('The data-sync worktree is missing');
         }
@@ -392,6 +384,159 @@ describe('tbd sync --status is read-only (tbd-incg)', () => {
         expect(status.status, args.join(' ')).toBe(1);
         expect(errorLine(status.stderr), args.join(' ')).toBe(errorLine(writer.stderr));
       }
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
+    'says it could not read the remote instead of reporting in sync',
+    async () => {
+      const fixture = await initRepo();
+      // One local commit the remote has not seen, then a remote nobody can read.
+      git(fixture.sharedWorktreePath, 'commit', '-q', '--allow-empty', '-m', 'local only');
+      git(fixture.dir, 'remote', 'set-url', 'origin', join(fixture.origin, 'missing.git'));
+
+      const json = runTbd(fixture.dir, ['sync', '--issues', '--status', '--json']);
+      expect(JSON.parse(json.stdout)).toMatchObject({
+        synced: false,
+        remoteChecked: false,
+        ahead: 1,
+        behind: 0,
+      });
+      expect(json.stderr).toContain('"remoteChecked":false');
+      const text = runTbd(fixture.dir, ['sync', '--issues', '--status']);
+      expect(text.stdout).toContain('Could not read origin/tbd-sync');
+      expect(text.stdout).not.toContain('Repository is in sync');
+    },
+    TIMEOUT_MS,
+  );
+});
+
+/** A second clone of the fixture's remote, with tbd ready to create and sync. */
+function cloneRemote(fixture: Fixture, name: string): string {
+  // `tbd init` left .tbd uncommitted; publish it on main so a clone is a tbd checkout.
+  if (git(fixture.dir, 'status', '--porcelain', '--', '.tbd') !== '') {
+    git(fixture.dir, 'add', '.tbd');
+    git(fixture.dir, 'commit', '-q', '-m', 'tbd');
+    git(fixture.dir, 'push', '-q', 'origin', 'main');
+  }
+  const clone = join(fixture.dir, '..', name);
+  git(join(fixture.dir, '..'), 'clone', '-q', '-b', 'main', fixture.origin, clone);
+  git(clone, 'config', 'user.email', 'other@example.com');
+  git(clone, 'config', 'user.name', 'Other User');
+  git(clone, 'config', 'commit.gpgsign', 'false');
+  return clone;
+}
+
+/** Run the built CLI without waiting, so two can overlap. */
+function startTbd(
+  cwd: string,
+  args: string[],
+): Promise<{ status: number | null; stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [tbdBin, ...args], {
+      cwd,
+      env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' },
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+    child.on('error', reject);
+    child.on('close', (status) => {
+      resolve({ status, stdout, stderr });
+    });
+  });
+}
+
+/**
+ * Forward `git upload-pack`'s output a chunk at a time with a delay, standing in for a
+ * network round trip, so two fetches started together overlap for most of their length.
+ */
+const SLOW_UPLOAD_PACK = `
+import { spawn } from 'node:child_process';
+import { Transform } from 'node:stream';
+const [delay, ...args] = process.argv.slice(2);
+const child = spawn('git', ['upload-pack', ...args], { stdio: ['inherit', 'pipe', 'inherit'] });
+const slow = new Transform({
+  transform(chunk, _encoding, done) {
+    setTimeout(() => done(null, chunk), Number(delay));
+  },
+});
+child.stdout.pipe(slow).pipe(process.stdout);
+child.on('exit', (code) => {
+  process.exitCode = code ?? 1;
+});
+`;
+
+// Status reads the remote without a lock, so it must not write the ref every sync
+// fetches into: `git fetch` checks a ref's old value when it writes, and the slower of
+// two overlapping fetches of one ref fails with `cannot lock ref`. The uploadpack
+// wrapper is run through git's POSIX shell, which Windows runners do not provide.
+describe.skipIf(process.platform === 'win32')('tbd sync --status beside a concurrent fetch', () => {
+  it(
+    'counts what is behind without moving a ref, and races neither status nor sync',
+    async () => {
+      const fixture = await initRepo();
+      const other = cloneRemote(fixture, 'other');
+      const remoteTip = () => git(fixture.origin, 'rev-parse', 'refs/heads/tbd-sync');
+      const localTip = () => git(fixture.dir, 'rev-parse', 'refs/heads/tbd-sync');
+      const publishFromOther = (title: string) => {
+        runTbd(other, ['create', title]);
+        runTbd(other, ['sync', '--issues']);
+      };
+      const wrapper = join(fixture.dir, '..', 'slow-upload-pack.mjs');
+      await writeFile(wrapper, SLOW_UPLOAD_PACK);
+      git(
+        fixture.dir,
+        'config',
+        'remote.origin.uploadpack',
+        `'${process.execPath}' '${wrapper}' 300`,
+      );
+      const status = ['sync', '--issues', '--status', '--json'];
+      const parse = (result: { stdout: string; stderr: string }) =>
+        JSON.parse(result.stdout) as { synced: boolean; behind: number; remoteChecked: boolean };
+
+      // Two statuses at once both see the commit waiting, and neither writes a ref.
+      publishFromOther('First from the other clone');
+      const refs = git(fixture.dir, 'for-each-ref');
+      const results = await Promise.all([
+        startTbd(fixture.dir, status),
+        startTbd(fixture.dir, status),
+      ]);
+      for (const result of results) {
+        expect(result.status, result.stderr).toBe(0);
+        expect(parse(result), result.stderr).toMatchObject({
+          synced: false,
+          behind: 1,
+          remoteChecked: true,
+        });
+      }
+      expect(git(fixture.dir, 'for-each-ref')).toBe(refs);
+
+      // A pull beside a status completes and lands on the remote tip.
+      const [pull, pullStatus] = await Promise.all([
+        startTbd(fixture.dir, ['sync', '--pull']),
+        startTbd(fixture.dir, status),
+      ]);
+      expect(pull.status, pull.stderr).toBe(0);
+      expect(pull.stderr).not.toContain('cannot lock ref');
+      expect(pullStatus.status, pullStatus.stderr).toBe(0);
+      expect(localTip()).toBe(remoteTip());
+
+      // So does a full issue sync beside a status, after the remote moves again.
+      publishFromOther('Second from the other clone');
+      const [sync, syncStatus] = await Promise.all([
+        startTbd(fixture.dir, ['sync', '--issues']),
+        startTbd(fixture.dir, status),
+      ]);
+      expect(sync.status, sync.stderr).toBe(0);
+      expect(syncStatus.status, syncStatus.stderr).toBe(0);
+      expect(git(fixture.dir, 'merge-base', '--is-ancestor', remoteTip(), localTip())).toBe('');
     },
     TIMEOUT_MS,
   );

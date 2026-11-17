@@ -1512,6 +1512,74 @@ export async function probeRemoteBranch(
   }
 }
 
+/** The tip commit in `git ls-remote` output for one branch. */
+export function parseRemoteTip(output: string, remote: string, branch: string): string {
+  const [tip] = output.trim().split(/\s+/);
+  if (!tip || !/^[0-9a-f]{40,64}$/.test(tip)) {
+    throw new Error(`Remote sync branch not found: ${remote}/${branch}`);
+  }
+  return tip;
+}
+
+/** What a ref-free read of a remote branch found. */
+export type RemoteTipObservation =
+  | { status: 'present'; tip: string }
+  | { status: 'absent' }
+  | { status: 'check-failed'; error: unknown };
+
+/**
+ * Read a remote branch's tip and make its commit available locally, writing no ref and
+ * no `FETCH_HEAD`: the observation rule of tbd-design.md §3.7, for readers that take no
+ * lock. A fetch into the remote-tracking ref races every writer's fetch of that ref,
+ * because `git fetch` checks the ref's old value when it writes and the slower of two
+ * overlapping fetches fails with `cannot lock ref`.
+ *
+ * The tip comes from `ls-remote`. When its commit is missing, a destination-less fetch
+ * of that object id brings it; `--refmap=` keeps git from also updating the configured
+ * remote-tracking ref, as `tbd watch` does.
+ */
+export async function observeRemoteTip(
+  repoDir: string,
+  remote: string,
+  branch: string,
+): Promise<RemoteTipObservation> {
+  let tip: string;
+  try {
+    const output = await git(
+      '-C',
+      repoDir,
+      'ls-remote',
+      '--exit-code',
+      remote,
+      `refs/heads/${branch}`,
+    );
+    tip = parseRemoteTip(output, remote, branch);
+  } catch (error) {
+    return exitCodeOf(error) === 2 ? { status: 'absent' } : { status: 'check-failed', error };
+  }
+  try {
+    await git('-C', repoDir, 'cat-file', '-e', `${tip}^{commit}`);
+    return { status: 'present', tip };
+  } catch {
+    // Not here yet: fetch just that commit.
+  }
+  try {
+    await git(
+      '-C',
+      repoDir,
+      'fetch',
+      '--no-write-fetch-head',
+      '--no-tags',
+      '--refmap=',
+      remote,
+      tip,
+    );
+    return { status: 'present', tip };
+  } catch (error) {
+    return { status: 'check-failed', error };
+  }
+}
+
 /**
  * Check if a remote branch exists (fail-closed boolean wrapper).
  *

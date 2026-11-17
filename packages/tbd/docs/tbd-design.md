@@ -2966,7 +2966,10 @@ branch or its configured remote-tracking ref, or writes `FETCH_HEAD`. `tbd watch
 create and delete repository-scoped private refs, including stale-ref cleanup; those
 refs are visible to Git-aware processes but carry no canonical bead state.
 This narrower guarantee makes several watchers safe beside ordinary `tbd sync` in one
-checkout.
+checkout. `tbd sync --status` is an observer in the same sense: it reads the hidden
+worktree’s status without optional locks, and reads the remote tip with `ls-remote`,
+fetching that one commit without a destination when it is missing.
+It writes no ref and no `FETCH_HEAD`.
 
 **Reading committed snapshots.** Both commands read issues straight out of commit
 objects, never from a checkout:

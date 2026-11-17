@@ -154,7 +154,9 @@ $ tbd sync --status --json
   "syncBranch": "tbd-sync",
   "remote": "origin",
   "ahead": 0,
-  "behind": 0
+  "behind": 0,
+  "remoteChecked": true,
+  "worktree": "valid"
 }
 ? 0
 ```

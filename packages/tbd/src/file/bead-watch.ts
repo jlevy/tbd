@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { IssueChangeSelection, IssueChangesReport } from '../lib/issue-changes.js';
 import { createChangesReportFromRefs, validateBeadSelectionAtRef } from './sync-branch-changes.js';
-import { git, gitNoPromptWithTimeout } from './git.js';
+import { git, gitNoPromptWithTimeout, parseRemoteTip } from './git.js';
 
 export interface IssueWatchOptions {
   repoDir: string;
@@ -50,14 +50,6 @@ export interface IssueWatchDependencies {
 
 function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
-function parseRemoteTip(output: string, remote: string, branch: string): string {
-  const [tip] = output.trim().split(/\s+/);
-  if (!tip || !/^[0-9a-f]{40,64}$/.test(tip)) {
-    throw new Error(`Remote sync branch not found: ${remote}/${branch}`);
-  }
-  return tip;
 }
 
 function isProcessAlive(pid: number): boolean {

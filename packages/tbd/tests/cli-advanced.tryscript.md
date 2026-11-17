@@ -392,6 +392,7 @@ $ tbd sync --status
 
 ```console
 $ tbd sync --status --issues --json
+{"remoteChecked":false,"reason":[..]}
 {
 ...
 }

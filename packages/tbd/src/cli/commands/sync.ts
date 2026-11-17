@@ -17,8 +17,10 @@ import { listIssues, writeIssue, type InvalidIssueFile } from '../../file/storag
 import { saveConflictToAttic } from '../../file/attic-entry.js';
 import {
   git,
+  GitError,
   gitCommit,
   gitUntrimmed,
+  observeRemoteTip,
   mergeBeadAcrossRefs,
   resolveBridgeConflicts,
   pushWithRetry,
@@ -27,9 +29,11 @@ import {
   ensureDataSyncMergeAttributes,
   type ConflictEntry,
   type PushResult,
+  type WorktreeStatus,
   trackingRefspec,
 } from '../../file/git.js';
 import { DATA_SYNC_DIR } from '../../lib/paths.js';
+import { stripControlCharacters } from '../../lib/format-utils.js';
 import {
   printDocSyncDryRun,
   printDocSyncResult,
@@ -93,6 +97,18 @@ export async function findInvalidBeads(dataSyncDir: string): Promise<InvalidIssu
   return invalid;
 }
 
+/** The first line git printed for a failure, safe to quote in one terminal line. */
+function describeGitFailure(error: unknown): string {
+  const text =
+    error instanceof GitError && error.stderr.trim() !== ''
+      ? error.stderr
+      : error instanceof Error
+        ? error.message
+        : String(error);
+  const firstLine = text.trim().split('\n')[0] ?? '';
+  return stripControlCharacters(firstLine).trim();
+}
+
 interface SyncOptions {
   push?: boolean;
   pull?: boolean;
@@ -107,6 +123,7 @@ interface SyncOptions {
 }
 
 interface SyncStatus {
+  /** True only when the remote was read and nothing differs from it. */
   synced: boolean;
   localChanges: string[];
   remoteChanges: string[];
@@ -114,6 +131,13 @@ interface SyncStatus {
   remote: string;
   ahead: number;
   behind: number;
+  /**
+   * Whether the remote branch was read. When false, `ahead` and `behind` compare with
+   * the last fetched remote-tracking ref, if there is one.
+   */
+  remoteChecked: boolean;
+  /** The data-sync worktree's health; local changes are listed only when `valid`. */
+  worktree: WorktreeStatus;
 }
 
 /**
@@ -634,10 +658,11 @@ class SyncHandler extends BaseCommand {
   }
 
   /**
-   * Show the issue surface's sync status. Read-only: it takes no lock and prepares
-   * nothing, so a missing worktree stays missing and a config that needs migrating
-   * stays as it is. It fetches the sync branch's remote-tracking ref, which is how it
-   * learns what is waiting to be pulled.
+   * Show the issue surface's sync status. An observer under tbd-design.md §3.7: it takes
+   * no lock, prepares nothing (a missing worktree stays missing, a config that needs
+   * migrating stays as it is), reads the worktree without optional locks, and fetches
+   * the remote tip without writing a ref or `FETCH_HEAD`, so it cannot race a
+   * concurrent sync or status.
    */
   private async showIssueStatus(): Promise<void> {
     const { config, sharedPaths, health } = await inspectDataSyncState(this.tbdRoot);
@@ -654,6 +679,7 @@ class SyncHandler extends BaseCommand {
       syncBranch,
       remote,
       health.valid ? sharedPaths.sharedWorktreePath : null,
+      health.status,
     );
 
     this.output.data(status, () => {
@@ -672,6 +698,9 @@ class SyncHandler extends BaseCommand {
       }
       if (status.behind > 0) {
         console.log(`  ${colors.dim(`↓ ${status.behind}`)} commit(s) behind (to pull)`);
+      }
+      if (!status.remoteChecked && status.ahead === 0 && status.behind === 0) {
+        console.log(`  No commits to push or pull against the last fetched copy`);
       }
 
       if (status.localChanges.length > 0) {
@@ -697,11 +726,10 @@ class SyncHandler extends BaseCommand {
     syncBranch: string,
     remote: string,
     worktreePath: string | null,
+    worktree: WorktreeStatus,
   ): Promise<SyncStatus> {
     const localChanges: string[] = [];
     const remoteChanges: string[] = [];
-    let ahead = 0;
-    let behind = 0;
 
     // Check for uncommitted changes in the worktree
     // FIX Bug 2: Previously ran git status on main branch where data-sync/ is gitignored.
@@ -709,9 +737,11 @@ class SyncHandler extends BaseCommand {
     // See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md
     try {
       // Untrimmed: the porcelain status columns are positional, and the first line
-      // starts with a space when its entry is unstaged.
+      // starts with a space when its entry is unstaged. Without optional locks: a
+      // refreshing `git status` rewrites the index, and a writer's `git add` at that
+      // instant would fail on `index.lock`.
       const status = worktreePath
-        ? await gitUntrimmed('-C', worktreePath, 'status', '--porcelain')
+        ? await gitUntrimmed('--no-optional-locks', '-C', worktreePath, 'status', '--porcelain')
         : '';
       if (status) {
         for (const line of status.split('\n')) {
@@ -733,61 +763,68 @@ class SyncHandler extends BaseCommand {
       this.output.debug('Git worktree not available');
     }
 
-    // Check for remote changes
-    try {
-      await git('fetch', remote, trackingRefspec(remote, syncBranch));
+    // Compare against the remote tip read without writing any ref. When the remote
+    // cannot be read, say so and compare with the last fetched copy instead: reporting
+    // "in sync" for a remote nobody checked is staleness that looks like success.
+    const observed = await observeRemoteTip(this.tbdRoot, remote, syncBranch);
+    const remoteChecked = observed.status !== 'check-failed';
+    let remoteTip: string | null = observed.status === 'present' ? observed.tip : null;
+    if (observed.status === 'check-failed') {
+      const reason = describeGitFailure(observed.error);
+      this.output.notice(
+        `Could not read ${remote}/${syncBranch} (${reason}); ahead and behind compare ` +
+          'with the last fetched copy, if any.',
+        { remoteChecked: false, reason },
+      );
+      remoteTip = await this.resolveCommit(`refs/remotes/${remote}/${syncBranch}`);
+    }
+    const localTip = await this.resolveCommit(`refs/heads/${syncBranch}`);
 
-      // Count commits ahead/behind
-      try {
-        const aheadOutput = await git(
-          'rev-list',
-          '--count',
-          `${remote}/${syncBranch}..${syncBranch}`,
-        );
-        ahead = parseInt(aheadOutput, 10) || 0;
-      } catch {
-        this.output.debug('Branch does not exist locally');
-      }
-
-      try {
-        const behindOutput = await git(
-          'rev-list',
-          '--count',
-          `${syncBranch}..${remote}/${syncBranch}`,
-        );
-        behind = parseInt(behindOutput, 10) || 0;
-      } catch {
-        this.output.debug('Remote branch does not exist');
-      }
-
-      // Get commit messages for remote changes
-      if (behind > 0) {
-        const logOutput = await git(
-          'log',
-          '--oneline',
-          `${syncBranch}..${remote}/${syncBranch}`,
-          '--max-count=10',
-        );
-        for (const line of logOutput.split('\n')) {
-          if (line) {
-            remoteChanges.push(line);
-          }
+    const count = async (range: string): Promise<number> =>
+      parseInt(await git('-C', this.tbdRoot, 'rev-list', '--count', range), 10) || 0;
+    const ahead = localTip ? await count(remoteTip ? `${remoteTip}..${localTip}` : localTip) : 0;
+    const behind = remoteTip ? await count(localTip ? `${localTip}..${remoteTip}` : remoteTip) : 0;
+    if (behind > 0 && remoteTip) {
+      const logOutput = await git(
+        '-C',
+        this.tbdRoot,
+        'log',
+        '--oneline',
+        '--max-count=10',
+        localTip ? `${localTip}..${remoteTip}` : remoteTip,
+      );
+      for (const line of logOutput.split('\n')) {
+        if (line) {
+          remoteChanges.push(line);
         }
       }
-    } catch {
-      this.output.debug('Remote not available or sync branch does not exist');
     }
 
     return {
       synced:
-        localChanges.length === 0 && remoteChanges.length === 0 && ahead === 0 && behind === 0,
+        remoteChecked &&
+        localChanges.length === 0 &&
+        remoteChanges.length === 0 &&
+        ahead === 0 &&
+        behind === 0,
       localChanges,
       remoteChanges,
       syncBranch,
       remote,
       ahead,
       behind,
+      remoteChecked,
+      worktree,
     };
+  }
+
+  /** The commit a ref points at, or null when it does not exist. */
+  private async resolveCommit(ref: string): Promise<string | null> {
+    try {
+      return await git('-C', this.tbdRoot, 'rev-parse', '--verify', '--quiet', `${ref}^{commit}`);
+    } catch {
+      return null;
+    }
   }
 
   private async pullChanges(syncBranch: string, remote: string): Promise<void> {

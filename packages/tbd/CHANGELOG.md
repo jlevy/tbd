@@ -37,8 +37,11 @@
   `tbd docs sync --dry-run` reports pending doc changes the same way.
 - **`tbd sync --status` takes no lock and prepares nothing**: it took the sync lock, so
   every call advanced the data-sync epoch, and it could re-create a missing worktree or
-  migrate the config. It now changes no tbd state and says when the worktree is missing;
-  it still fetches the sync branch to count what is waiting to be pulled.
+  migrate the config. It now changes no tbd state and says when the worktree is missing.
+  It reads the remote tip without writing a ref or `FETCH_HEAD`, as `tbd watch` does, so
+  it cannot race a concurrent `tbd sync` or a second status.
+  When it cannot read the remote it says so, and `--json` reports
+  `remoteChecked: false`, where it used to report the repository in sync.
   It also listed the first changed file without its first character (`tbd/data-sync/…`
   for `.tbd/data-sync/…`).
 - **Doc sync output strips control characters**: doc paths and error text, which come

@@ -165,27 +165,33 @@ $ git -C $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-
 
 ## Sync Status Command
 
-# Test: Sync status shows in-sync state
+# Test: Sync status without a remote says it could not read one
 
 ```console
 $ tbd sync --status
 ✓ Docs up to date
-✓ Repository is in sync
+• Could not read origin/tbd-sync ([..]); ahead and behind compare with the last fetched copy, if any.
+Sync status: tbd-sync ↔ origin/tbd-sync
+
+  ↑ 3 commit(s) ahead (to push)
 ? 0
 ```
 
-# Test: Sync status as JSON
+# Test: Sync status as JSON reports the unread remote
 
 ```console
 $ tbd sync --status --json
+{"remoteChecked":false,"reason":[..]}
 {
-  "synced": true,
+  "synced": false,
   "localChanges": [],
   "remoteChanges": [],
   "syncBranch": "tbd-sync",
   "remote": "origin",
-  "ahead": 0,
-  "behind": 0
+  "ahead": 3,
+  "behind": 0,
+  "remoteChecked": false,
+  "worktree": "valid"
 }
 ? 0
 ```
@@ -202,16 +208,19 @@ $ tbd create "Status test issue" --type=task
 
 ```console
 $ tbd sync --status --json
+{"remoteChecked":false,"reason":[..]}
 {
-  "synced": [..],
+  "synced": false,
   "localChanges": [
 ...
   ],
   "remoteChanges": [],
   "syncBranch": "tbd-sync",
   "remote": "origin",
-  "ahead": 0,
-  "behind": 0
+  "ahead": 3,
+  "behind": 0,
+  "remoteChecked": false,
+  "worktree": "valid"
 }
 ? 0
 ```
