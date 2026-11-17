@@ -13,8 +13,8 @@
   a PR the request did not ask for.
   The policy is outside the recommended set, and `setup-tbd` asks about it separately.
   It acts only with `github-editing: granted`; without that grant agents still ask
-  before the first push, and `tbd doctor` and `tbd policy grant`, `revoke`, and `set`
-  warn about the combination.
+  before the first push, and `tbd doctor`, `tbd policy show`, `tbd prime`, and
+  `tbd policy grant`, `revoke`, and `set` warn about the combination.
   It authorizes no merge and changes no review requirement: those stay under
   `github-merge` and `pr-review-requirements`. Its grant line follows `linear`, so tbd
   0.11.0 and this release write the policy block in the same order.
@@ -28,7 +28,26 @@
   which could re-create a missing tbd-sync worktree or migrate the config.
   It now prints `[DRY-RUN] Would sync docs: …` and `[DRY-RUN] Would sync repository`,
   says when a real run would first prepare the data-sync state, and changes no files.
+  It stops with the real run’s error where the real run would stop before doing any
+  work: a data-sync worktree that only `tbd doctor --fix` can repair, or shared lock
+  state this process cannot write.
+  Under `--json` it prints one document, as before, which keeps the `action`,
+  `syncBranch`, and `remote` keys and adds `prepareDataSyncState`, the `docs` counts,
+  and whether an external tracker would run.
   `tbd docs sync --dry-run` reports pending doc changes the same way.
+- **`tbd sync --status` takes no lock and prepares nothing**: it took the sync lock, so
+  every call advanced the data-sync epoch, and it could re-create a missing worktree or
+  migrate the config. It now changes no tbd state and says when the worktree is missing;
+  it still fetches the sync branch to count what is waiting to be pulled.
+  It also listed the first changed file without its first character (`tbd/data-sync/…`
+  for `.tbd/data-sync/…`).
+- **Doc sync output strips control characters**: doc paths and error text, which come
+  from `.tbd/config.yml` and the doc sources, are printed without control and format
+  characters, so they cannot clear the screen, retitle the terminal, or reorder the
+  line.
+- **`tbd docs list` shows the `docmap-format` reference’s title and description**: in
+  0.11.0 its frontmatter did not parse, so it was listed with neither.
+  A test now parses every bundled doc’s frontmatter.
 
 ## 0.11.0
 
