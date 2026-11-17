@@ -1683,14 +1683,19 @@ function workmapSectionCopy(section: WorkmapSectionView, prefix: string): Workma
   }
 }
 
+/**
+ * `limitNotice` is the served-row notice, empty when every matching row was served;
+ * otherwise each count is a lower bound and its tooltip says why.
+ */
 function mountWorkmapSection(
   section: WorkmapSectionView,
   prefix: string,
-  truncated: boolean,
+  limitNotice: string,
 ): MountedWorkmapSection {
   const copy = workmapSectionCopy(section, prefix);
-  const count = workmapSectionCount(section, truncated);
-  const signature = JSON.stringify([copy.heading, copy.hint, count]);
+  const count = workmapSectionCount(section, limitNotice !== '');
+  const countHint = limitNotice === '' ? null : `A lower bound. ${limitNotice}`;
+  const signature = JSON.stringify([copy.heading, copy.hint, count, countHint]);
   let mounted = workmapSections.get(section.key);
   if (mounted === undefined) {
     const element = document.createElement('section');
@@ -1714,6 +1719,11 @@ function mountWorkmapSection(
     mounted.label.textContent = copy.heading;
     mounted.count.textContent = count;
     mounted.name.dataset.tooltip = copy.hint;
+    if (countHint === null) {
+      delete mounted.count.dataset.tooltip;
+    } else {
+      mounted.count.dataset.tooltip = countHint;
+    }
   }
   return mounted;
 }
@@ -1774,11 +1784,15 @@ function renderWorkmap(view: ClientView, board: BoardResponse): void {
   boardPageIndex = page.pageIndex;
   renderPageControls(page, 'Cards');
 
+  const notice = servedRowLimitNotice(board);
+  elements.workmapNotice.hidden = notice === '';
+  elements.workmapNotice.textContent = notice;
+
   const liveSections = new Set<string>();
   const liveCards = new Set<string>();
   const sectionElements: HTMLElement[] = [];
   for (const section of page.sections) {
-    const mountedSection = mountWorkmapSection(section, prefix, board.truncated > 0);
+    const mountedSection = mountWorkmapSection(section, prefix, notice);
     liveSections.add(section.key);
     sectionElements.push(mountedSection.element);
     const cardElements = section.cards.map((card) => {
@@ -1801,10 +1815,6 @@ function renderWorkmap(view: ClientView, board: BoardResponse): void {
   if (focus !== null) {
     focusBeadControl(workmapCards.get(focus.beadId)?.element, focus);
   }
-
-  const notice = servedRowLimitNotice(board);
-  elements.workmapNotice.hidden = notice === '';
-  elements.workmapNotice.textContent = notice;
 
   const nothingToGroup = board.rows.length > 0 && isBlankGroupPrefix(prefix);
   elements.workmapEmpty.hidden = board.rows.length > 0 && !nothingToGroup;

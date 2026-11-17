@@ -660,17 +660,28 @@ try {
   });
 
   await check('states the served-row cap and marks every count as a lower bound', async () => {
-    const shown = await page.evaluate(`({
-      notice: document.getElementById('workmapnotice')?.hidden === false
-        ? document.getElementById('workmapnotice').textContent
-        : null,
-      counts: [...document.querySelectorAll('.workmap-group-name .num')].map((count) => count.textContent),
-    })`);
+    const shown = await page.evaluate(`(() => {
+      const notice = document.getElementById('workmapnotice');
+      const groups = document.getElementById('workmapgroups');
+      const counts = [...document.querySelectorAll('.workmap-group-name .num')];
+      return {
+        notice: notice?.hidden === false ? notice.textContent : null,
+        // Above the groups, so it is read before the counts it explains.
+        aboveGroups: notice !== null &&
+          (notice.compareDocumentPosition(groups) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+        // Rendered text, after CSS text-transform.
+        counts: counts.map((count) => count.innerText),
+        tooltips: [...new Set(counts.map((count) => count.dataset.tooltip ?? null))],
+      };
+    })()`);
     const expected = `Server returned the first ${MAX_SERVED_ROWS} of ${TOTAL_BEADS} rows; narrow the query to reach the remainder.`;
     invariant(
       shown.notice === expected &&
+        shown.aboveGroups &&
         shown.counts.length > 0 &&
-        shown.counts.every((count) => count.endsWith('+')),
+        shown.counts.every((count) => /^\d+(?: of \d+)?\+$/u.test(count)) &&
+        shown.counts.some((count) => count.includes(' of ')) &&
+        JSON.stringify(shown.tooltips) === JSON.stringify([`A lower bound. ${expected}`]),
       `Truncated board showed ${JSON.stringify(shown)}`,
     );
   });

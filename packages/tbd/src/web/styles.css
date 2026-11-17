@@ -182,8 +182,8 @@
        as a tag, and only the two synthetic buckets use the small-cap heading. One delegated click handler owns card expansion, and
        each card's native disclosure button carries keyboard activation. The list's
        page window bounds mounted cards, and the list's served-row notice appears
-       under the groups when the server caps the response; counts then read as lower
-       bounds (950+). Renders reuse keyed card nodes, rebuild a card only when its
+       above the groups when the server caps the response; counts then read as lower
+       bounds (950+) and say why in their tooltip. Renders reuse keyed card nodes, rebuild a card only when its
        face changes, move the fewest nodes, and restore focus by bead ID and control
        role. The grouping select is a .select-control; the view chooser is a radio
        group with one tab stop on the checked view and arrow-key selection.
@@ -972,6 +972,8 @@ label.check {
 .workmap-group-name .num {
   margin-left: auto;
   font-variant-numeric: tabular-nums;
+  /* A count, not a name: "5000 of 5950+" keeps its lowercase "of". */
+  text-transform: none;
 }
 /* A group's heading is a user label: literal case and spacing, wrapping if long. */
 .workmap-group-name > .tag.workmap-group-label {
@@ -1018,9 +1020,10 @@ label.check {
   margin-top: 8px;
   cursor: auto;
 }
-/* The list's served-row notice, in the list pager row's panel and muted text. */
+/* The list's served-row notice, in the list pager row's panel and muted text, above the
+   groups so it is read before the lower-bound counts it explains. */
 .workmap-notice {
-  margin: 12px 0 0;
+  margin: 0 0 12px;
   padding: 8px 12px;
   border-radius: var(--radius);
   background: var(--panel);
