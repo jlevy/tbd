@@ -168,11 +168,13 @@ describe('shared lock permission diagnostics', () => {
       expect(real).toBeInstanceOf(SharedLockUnwritableError);
       expect(real).toMatchObject({ code });
 
+      // Thunks, started one at a time: a promise created before the previous one settles
+      // can reject with no handler attached, which fails the run as an unhandled rejection.
       for (const preview of [
-        assertSharedDataSyncLockWritable(repository),
-        previewDataSyncContext(repository),
+        () => assertSharedDataSyncLockWritable(repository),
+        () => previewDataSyncContext(repository),
       ]) {
-        const caught = await preview.catch((error: unknown) => error);
+        const caught = await preview().catch((error: unknown) => error);
         expect(caught).toBeInstanceOf(SharedLockUnwritableError);
         expect((caught as Error).message).toBe((real as Error).message);
       }
