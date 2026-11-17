@@ -2,16 +2,21 @@
 /* global clearTimeout, console, fetch, process, setTimeout, URL, WebSocket */
 
 /**
- * Drive the built `tbd web` Workmap in headless Chrome at the server's maximum served
- * row count and prove, through the real live path, that:
+ * Drive the built `tbd web` Workmap in headless Chrome on a board 50 beads past the
+ * server's maximum served row count and prove, through the real live path, that:
  *
  * - every card is reachable and operable by keyboard alone, and focus survives the
  *   rerenders that follow expansion, body loads, and live bead updates;
- * - in-page view and grouping choices are written to the page URL, so reloading the
- *   address or opening it in a fresh profile reproduces what the viewer chose;
+ * - in-page view and grouping choices, and the default grouping, are written to the page
+ *   URL, so reloading the address or opening it in a fresh profile reproduces what the
+ *   viewer saw, also after a filter changes which prefix is most common;
  * - rendering work is bounded: at most one board page of cards is mounted, a toggle or a
  *   one-bead live update re-creates at most the card it changed, and a live update
- *   reuses every other card.
+ *   reuses every other card;
+ * - the page states the served-row cap, names each card's status in text, heads groups
+ *   with their literal labels, wraps long text inside cards, shows a Workmap link's view
+ *   while the board loads, resets expansions on a view change, and keeps the view
+ *   chooser a single tab stop with arrow-key selection.
  *
  * Chrome is required, so this is an explicit QA tier rather than part of `pnpm test`.
  * Set CHROME_PATH to choose a browser binary. The script never touches the source
@@ -135,7 +140,10 @@ const FACE_PROBES = [
   { title: 'Face probe no value', labels: [] },
   // Unbroken text wider than any card.
   { title: `Face probe ${'x'.repeat(160)}`, labels: ['area:long'] },
-  { title: 'Face probe long conflict', labels: [`area:${'y'.repeat(48)}`, `area:${'z'.repeat(48)}`] },
+  {
+    title: 'Face probe long conflict',
+    labels: [`area:${'y'.repeat(48)}`, `area:${'z'.repeat(48)}`],
+  },
 ];
 const PROBES = [...PREFIX_PROBES, ...FACE_PROBES];
 
@@ -259,7 +267,11 @@ class Cdp {
   nextEvent(method, sessionId, timeoutMs, accept = () => true) {
     return new Promise((resolve, reject) => {
       const listener = (message) => {
-        if (message.method === method && message.sessionId === sessionId && accept(message.params)) {
+        if (
+          message.method === method &&
+          message.sessionId === sessionId &&
+          accept(message.params)
+        ) {
           this.listeners.delete(listener);
           clearTimeout(timer);
           resolve(message.params);
@@ -563,8 +575,7 @@ try {
   const descriptor = await waitForDescriptor(server);
   const origin = `http://127.0.0.1:${port}`;
   invariant(
-    descriptor.url === origin &&
-      descriptor.pageUrl === `${origin}/?view=workmap&group=area%3A`,
+    descriptor.url === origin && descriptor.pageUrl === `${origin}/?view=workmap&group=area%3A`,
     `Unexpected descriptor URLs ${descriptor.url} and ${descriptor.pageUrl}`,
   );
   const served = await (
@@ -1000,7 +1011,9 @@ try {
           select.parentElement.querySelector(':scope > .chevron') !== null,
       };
     })()`;
-    await viewer.evaluate(`document.querySelector('#viewchooser [data-view-choice="list"]').focus()`);
+    await viewer.evaluate(
+      `document.querySelector('#viewchooser [data-view-choice="list"]').focus()`,
+    );
     const start = await viewer.evaluate(chooser);
     await viewer.press('ArrowRight');
     await viewer.waitFor(`!document.getElementById('workmapwrap').hidden`, 10_000);
@@ -1059,31 +1072,35 @@ try {
     );
   });
 
-  await check('group headings keep label case and differ from the two synthetic buckets', async () => {
-    // Rendered text, after CSS text-transform, without the count.
-    const headings = await faces.evaluate(`[...document.querySelectorAll('.workmap-group-name')]
+  await check(
+    'group headings keep label case and differ from the two synthetic buckets',
+    async () => {
+      // Rendered text, after CSS text-transform, without the count.
+      const headings = await faces.evaluate(`[...document.querySelectorAll('.workmap-group-name')]
       .map((name) => {
         const text = name.innerText;
         return text.slice(0, text.lastIndexOf(name.querySelector('.num').innerText)).trim();
       })`);
-    const expected = [
-      'area:API',
-      'area:api',
-      'area:conflicting',
-      'area:glyph',
-      'area:long',
-      'area:ungrouped',
-      'CONFLICTING',
-      'UNGROUPED',
-    ];
-    invariant(
-      JSON.stringify([...headings].sort()) === JSON.stringify([...expected].sort()),
-      `Headings: ${JSON.stringify(headings)}`,
-    );
-  });
+      const expected = [
+        'area:API',
+        'area:api',
+        'area:conflicting',
+        'area:glyph',
+        'area:long',
+        'area:ungrouped',
+        'CONFLICTING',
+        'UNGROUPED',
+      ];
+      invariant(
+        JSON.stringify([...headings].sort()) === JSON.stringify([...expected].sort()),
+        `Headings: ${JSON.stringify(headings)}`,
+      );
+    },
+  );
 
   await check('long unbroken titles and labels wrap inside their card', async () => {
-    const overflowing = await faces.evaluate(`[...document.querySelectorAll(${JSON.stringify(CARD)})]
+    const overflowing =
+      await faces.evaluate(`[...document.querySelectorAll(${JSON.stringify(CARD)})]
       .filter((card) => {
         const box = card.getBoundingClientRect();
         const outside = [...card.querySelectorAll('*')].some(
