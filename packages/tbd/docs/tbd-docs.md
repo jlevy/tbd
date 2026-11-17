@@ -884,7 +884,8 @@ common. Choosing a view or grouping in the page, or that first default, rewrites
 address (for example `?view=workmap&group=area%3A`), so reloading or sharing the address
 reproduces what the page shows; an address wins over the choice the browser remembers.
 The browser remembers one grouping for every repository served on the same port, so a
-remembered grouping that none of the shown beads uses gives way to the default.
+remembered grouping that none of the shown beads uses gives way to the default, and the
+address names a remembered grouping only once the shown beads confirm it.
 
 The command stays in the foreground; press Ctrl+C to stop it.
 An initialized repository with zero beads is valid and renders the ordinary empty board.

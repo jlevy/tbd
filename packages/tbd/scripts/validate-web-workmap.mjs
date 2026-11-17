@@ -1145,6 +1145,47 @@ try {
     await cdp.send('Target.disposeBrowserContext', { browserContextId });
   });
 
+  await check(
+    'a remembered grouping never reaches the address before the rows confirm it',
+    async () => {
+      const { browserContextId } = await cdp.send('Target.createBrowserContext');
+      const viewer = await Page.open(cdp, `${origin}/?view=list`, browserContextId);
+      const rows = '#rows tr[data-bead-id]';
+      try {
+        // As another repository served on this origin leaves it.
+        await viewer.evaluate(`localStorage.setItem('tbd.web.workmapPrefix', 'component:')`);
+        await viewer.navigate(`${origin}/`);
+        await viewer.waitFor(`document.querySelectorAll(${JSON.stringify(rows)}).length > 0`);
+        // Show only a bead with no labels, so the rows state no prefix at all.
+        await viewer.evaluate(`(() => {
+        const search = document.getElementById('q');
+        search.value = 'Face probe no value';
+        search.dispatchEvent(new Event('input', { bubbles: true }));
+      })()`);
+        await viewer.waitFor(`document.querySelectorAll(${JSON.stringify(rows)}).length === 1`);
+        await viewer.click('#viewchooser [data-view-choice="workmap"]');
+        await viewer.waitFor(
+          `!document.getElementById('workmapwrap').hidden && !document.getElementById('workmapempty').hidden`,
+        );
+        const unconfirmed = await viewer.evaluate(
+          `new URLSearchParams(location.search).get('group')`,
+        );
+        await viewer.reload();
+        await viewer.waitFor(`document.querySelectorAll(${JSON.stringify(CARD)}).length > 0`);
+        const reloaded = await viewer.evaluate(`({
+        select: document.getElementById('workmapgroup').value,
+        address: new URLSearchParams(location.search).get('group'),
+      })`);
+        invariant(
+          unconfirmed === null && reloaded.select === 'area:' && reloaded.address === 'area:',
+          `Address after choosing workmap: group=${unconfirmed}; after reload: ${JSON.stringify(reloaded)}`,
+        );
+      } finally {
+        await cdp.send('Target.disposeBrowserContext', { browserContextId });
+      }
+    },
+  );
+
   await check('a board stating over 200,000 label prefixes still renders the Workmap', async () => {
     // 1,000 beads with 201 prefixes each, plus area: (201,001 grouping choices).
     const floodDir = await createRepository('prefix-flood', prefixFloodBeads(1_000, 201));

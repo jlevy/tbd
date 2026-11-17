@@ -379,8 +379,9 @@ describe('workmap interaction', () => {
     );
     expect(client).toContain('workmapCardSignature(card)');
     expect(client).toContain('window.history.replaceState(');
-    // The two explicit choices, and pinning the default grouping when it is first shown.
-    expect(client.match(/writeBoardViewAddress\(\);/gu)).toHaveLength(3);
+    // The two explicit choices, pinning the default grouping when it is first shown, and
+    // naming a remembered grouping once the rows confirm or replace it.
+    expect(client.match(/writeBoardViewAddress\(\);/gu)).toHaveLength(4);
   });
 });
 

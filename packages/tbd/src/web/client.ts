@@ -1494,13 +1494,17 @@ function workmapPrefixes(rows: readonly BoardRowView[]): ValueFacetView<string>[
  */
 function pinDefaultWorkmapGrouping(rows: readonly BoardRowView[]): void {
   const prefixes = workmapPrefixes(rows);
+  const detected = prefixes[0]?.value;
   if (workmapGroupUnverified) {
     workmapGroupUnverified = false;
     if (!prefixes.some((prefix) => prefix.value === workmapGroupPrefix)) {
-      workmapGroupPrefix = '';
+      workmapGroupPrefix = detected ?? '';
     }
+    // The address left the remembered grouping out until now; name what is in effect,
+    // or nothing when the rows state no prefix.
+    writeBoardViewAddress();
+    return;
   }
-  const detected = prefixes[0]?.value;
   if (workmapGroupPrefix !== '' || detected === undefined) {
     return;
   }
@@ -1848,7 +1852,9 @@ function renderWorkmap(view: ClientView, board: BoardResponse): void {
 function writeBoardViewAddress(): void {
   const search = boardViewSearch(window.location.search, {
     view: boardViewMode,
-    group: workmapGroupPrefix,
+    // A remembered grouping is not named until the rows confirm it, so an address never
+    // carries another repository's grouping (see `pinDefaultWorkmapGrouping`).
+    group: workmapGroupUnverified ? '' : workmapGroupPrefix,
   });
   if (search === window.location.search) {
     return;
