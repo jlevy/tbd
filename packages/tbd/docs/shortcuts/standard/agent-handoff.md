@@ -10,9 +10,12 @@ The next agent has access to tbd and will orient themselves.
 
 ## Before Handoff
 
-**IMPORTANT**: Always run `tbd sync` before generating the handoff to ensure all issue
-updates are pushed to the remote.
-The next agent needs the latest issue state.
+Re-read the beads and record their current state before generating the handoff.
+Run `tbd sync` when the recipient uses a separate clone exchanging bead state or project
+policy requires publication.
+Explicit project requirements remain authoritative.
+Linked worktrees in one clone already share accepted updates; local-only or offline
+handoffs need no remote exchange unless project policy requires it.
 
 If the outgoing and incoming agents may overlap instead of transferring work in
 sequence, also follow `tbd shortcut coordinate-collaborators`. A visible claim remains
@@ -22,7 +25,9 @@ owned by its current delegate until the coordinator explicitly reassigns it.
 
 - **Task**: One line on what we’re doing
 - **Spec**: Path to active spec + relevant sections
-- **Beads**: tbd issue ID(s), status, dependencies, synced?
+- **Beads**: tbd issue ID(s), status, dependencies, outgoing and incoming resolved
+  acting names, acknowledged reassignment if any, and remote publication status when
+  applicable
 - **Branch**: Current branch, base branch (if not main), pushed to remote?
 - **PR**: Filed/not filed, URL, CI status, up to date with branch?
 - **Git**: Uncommitted changes, files modified

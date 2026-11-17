@@ -6,6 +6,13 @@
 
 # SESSION CLOSE PROTOCOL
 
+The commit, push, and CI steps apply when the project workflow publishes code or a PR.
+Update the beads for every session.
+Run remote bead sync when separate clones exchange state or project policy requires
+publication; explicit project requirements remain authoritative.
+Local collaborators in one clone see accepted changes immediately, and local-only or
+offline work needs no remote exchange unless policy requires it.
+
 **CRITICAL**: Before saying “done” or “complete”, you MUST run this checklist:
 
 ```
@@ -13,7 +20,7 @@
 [ ] 2. Push to remote: git push
 [ ] 3. Start CI watch (BLOCKS until done): gh pr checks <PR> --watch 2>&1
 [ ] 4. While CI runs: tbd close <id1> <id2> ... --reason "..." — one bulk call per group sharing a reason (never a per-ID loop)
-[ ] 5. While CI runs: tbd sync
+[ ] 5. While CI runs: tbd sync when replicas exchange state or policy requires it
 [ ] 6. Return to step 3 and CONFIRM CI passed
 [ ] 7. If CI failed: fix, re-push, restart from step 3
 ```
@@ -30,9 +37,11 @@ all checks passed.
 
 Every session must end with tbd in a clean state:
 - Close/update **every issue** you worked on
-- Run `tbd sync` and confirm it completed
+- When replicas exchange state or project policy requires publication, run `tbd sync`
+  and confirm it completed
 
-**Work is not done until pushed, CI passes, and tbd is synced.**
+**Publishing work is not done until pushed, CI passes, and every project-required sync
+completes.**
 
 ## Core Rules
 
@@ -50,7 +59,8 @@ Every session must end with tbd in a clean state:
   `autonomous`) and review requirements (`pr-review-requirements`) are settable grants,
   not hardcoded; no `github-merge` value weakens `pr-review-requirements`. See
   `tbd guidelines agent-policy-grants`
-- Git workflow: update or close issues and run `tbd sync` at session end
+- Git workflow: update or close issues at session end; run `tbd sync` when replicas
+  exchange state or project policy requires publication
 - If not given specific directions, check `tbd ready` for available work
 
 ## Essential Commands
@@ -89,13 +99,17 @@ Use `tbd start`, not a raw status update, to claim work.
 It records the acting agent in `delegate`. On an already in-progress bead, it reports a
 different visible delegate instead of overwriting that claim.
 It does not require readiness or coordinate with a stale clone.
-Before editing, run `tbd sync --pull`, re-read the bead, use `tbd start <id>`, and run
-`tbd sync` so other replicas can see the accepted claim.
+Before editing, re-read the bead and use `tbd start <id>`. When separate clones exchange
+bead state or project policy requires publication, run `tbd sync --pull` before that
+read and `tbd sync` after an accepted claim.
+Linked worktrees in one clone see the claim immediately through the shared data store;
+local-only or offline work needs no remote exchange unless project policy requires it.
 `assignee` remains the person accountable for the work.
 The acting name resolves from `start --as`, then `TBD_AGENT`, then the machine-local
 session identity, and finally a derived `<harness>@<host>` fallback.
-Use `tbd whoami` to inspect it; setup hooks call `tbd whoami --ensure-id` idempotently
-to persist a local ID and friendly name.
+Use `tbd whoami --as <name> --json` to inspect an override, or `tbd whoami --json` for
+the default identity; setup hooks call `tbd whoami --ensure-id` idempotently to persist
+a local ID and friendly name.
 When several independently running collaborators may overlap, follow
 `tbd shortcut coordinate-collaborators` and inspect the structured claim result.
 
@@ -108,7 +122,8 @@ When several independently running collaborators may overlap, follow
 
 ### Sync and Collaboration
 
-- `tbd sync` - Sync with git remote (run at session end)
+- `tbd sync` - Sync with git remote (when replicas exchange state or project policy
+  requires it)
 - `tbd sync --status` - Check docs and issue Git status without syncing
 - `tbd web --open` - Live, read-only browser view for the user (share the URL and keep
   the process running; make bead changes via normal tbd commands)
@@ -125,6 +140,9 @@ It also reconciles any enabled external tracker (e.g. Linear); to connect one, u
 - `tbd doctor` - Check for issues (sync problems, missing hooks)
 
 ## Common Workflows
+
+The remote steps below apply when replicas exchange state or project policy requires
+publication. In one local clone, read and claim directly.
 
 **Starting work:**
 
