@@ -156,6 +156,8 @@ $ tbd sync --status --json
   "ahead": 0,
   "behind": 0,
   "remoteChecked": true,
+  "remoteTip": "[..]",
+  "fetched": true,
   "worktree": "valid"
 }
 ? 0

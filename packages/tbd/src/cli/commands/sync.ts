@@ -118,13 +118,16 @@ interface SyncStatus {
   remote: string;
   ahead: number;
   behind: number;
-  /**
-   * Whether the remote answered with its branch tip, or that it has no such branch.
-   * When false, `ahead` and `behind` compare with the last fetched remote-tracking ref,
-   * if there is one; they do too, with `synced: false`, when the tip's commits could not
-   * be fetched.
-   */
+  /** Whether the remote answered with its branch tip, or that it has no such branch. */
   remoteChecked: boolean;
+  /** The remote branch tip that was read, or null when none was (unreadable or absent). */
+  remoteTip: string | null;
+  /**
+   * Whether `ahead` and `behind` compare with the remote as it was read. False when the
+   * remote could not be read, or its tip was read but its commits could not be fetched:
+   * the counts then compare with the last fetched remote-tracking ref, if there is one.
+   */
+  fetched: boolean;
   /** The data-sync worktree's health; local changes are listed only when `valid`. */
   worktree: WorktreeStatus;
 }
@@ -823,6 +826,9 @@ class SyncHandler extends BaseCommand {
       ahead,
       behind,
       remoteChecked,
+      remoteTip:
+        observed.status === 'present' || observed.status === 'unfetched' ? observed.tip : null,
+      fetched: remoteCounted,
       worktree,
     };
   }

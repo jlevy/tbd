@@ -191,6 +191,8 @@ $ tbd sync --status --json
   "ahead": 3,
   "behind": 0,
   "remoteChecked": false,
+  "remoteTip": null,
+  "fetched": false,
   "worktree": "valid"
 }
 ? 0
@@ -220,6 +222,8 @@ $ tbd sync --status --json
   "ahead": 3,
   "behind": 0,
   "remoteChecked": false,
+  "remoteTip": null,
+  "fetched": false,
   "worktree": "valid"
 }
 ? 0
