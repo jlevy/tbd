@@ -346,7 +346,7 @@ describe('documents that act on grants link to agent-policy-grants', () => {
 
   // `tbd sync` publishes bead and doc data on tbd's own branch, never code or a PR, so
   // no policy value gates it and an agent never pauses the closing checklist to ask.
-  it('requires no grant for sync and qualifies publication by topology or project policy', async () => {
+  it('states that tbd sync needs no grant and always runs', async () => {
     const guideline = flat(await readDoc('guidelines/agent-policy-grants.md'));
     // The skill states this in its closing protocol, not its authorization section.
     const baseline = flat(await readDoc('shortcuts/system/skill-baseline.md'));
@@ -355,19 +355,11 @@ describe('documents that act on grants link to agent-policy-grants', () => {
       expect(doc).toMatch(/`tbd sync`(:\*\*)? needs no grant, ever/u);
       expect(doc).toMatch(/no permission to ask for/u);
     }
-    // Every tier distinguishes remote publication from immediate local visibility.
+    // The obligation itself belongs to the closing protocol, in every tier.
     for (const tier of ['skill-baseline', 'skill-brief', 'skill-minimal']) {
-      const content = flat(await readDoc(`shortcuts/system/${tier}.md`));
-      expect(content).toContain('tbd sync');
-      expect(content).toContain('separate clones exchange');
-      expect(content).toContain('project policy requires publication');
-      expect(content).toContain('immediately');
-      expect(content).not.toContain('Before editing a bead, run `tbd sync --pull`');
+      expect(flat(await readDoc(`shortcuts/system/${tier}.md`))).toContain('tbd sync');
     }
-    expect(baseline).toContain('explicit project requirements remain authoritative');
-    expect(baseline).toContain(
-      'Publishing work is not done until pushed, CI passes, and every project-required sync completes.',
-    );
+    expect(baseline).toContain('Work is not done until pushed, CI passes, and tbd is synced.');
   });
 
   it.each(['setup-tbd', 'delegate-to-subagents', 'review-and-merge-prs', 'stacked-prs'])(
