@@ -90,6 +90,26 @@ For compatibility with scripts that treated `start` as an idempotent command, a
 structured skip exits 0, so the exit code does not show a conflict.
 Callers that need conflict detection must inspect `claimed` and `skipped`.
 
+## When Separate Clones Both Claim
+
+`tbd start` sees only the clone it runs in, so two clones that have not exchanged a
+claim can both get `claimed` for one bead.
+When their syncs meet, `delegate` is resolved by last write wins: the claim with the
+later `updated_at` is kept, whichever clone syncs first, and the other is archived in
+the attic. Only the clone that syncs second is told, by
+`(1 conflict resolved, archived in the attic)` in its sync summary, and its claim may be
+the one kept. The other clone’s next sync brings in the result without reporting a
+conflict, even when it replaces that clone’s `delegate`.
+
+When collaborating across clones:
+
+- Run `tbd sync --pull` immediately before the claim and `tbd sync` immediately after
+  it, as the claim block does, so the window for a second claim stays short.
+- After every later `tbd sync` or `tbd sync --pull` while you work on the bead, re-read
+  `delegate` with `tbd show <id> --json`. If it no longer names you, stop editing and
+  ask the coordinator.
+  Do not claim the bead back.
+
 ## Publish Checkpoints
 
 The collaborator who owns bead updates publishes progress after each commit and before a
