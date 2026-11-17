@@ -46,7 +46,8 @@ tbd_detect_git_push() {
   if ! node -e 'const fs = require("node:fs");
 const SINGLE_QUOTE = String.fromCharCode(39);
 const SEPARATORS = new Set(["\n", ";", "&", "(", ")", "{", "|", "}"]);
-const DECORATORS = new Set(["command", "env", "eval", "exec", "nohup", "sudo", "time"]);
+const DECORATORS = new Set(["command", "env", "exec", "nohup", "sudo", "time"]);
+const SHELLS = new Set(["bash", "dash", "ksh", "sh", "zsh"]);
 const KEYWORDS = new Set(["!", "coproc", "do", "elif", "else", "if", "then", "until", "while"]);
 const DECORATOR_VALUE_OPTIONS = new Set([
   "-C", "-D", "-R", "-S", "-T", "-a", "-g", "-h", "-p", "-u", "--argv0", "--chdir",
@@ -58,6 +59,9 @@ const GIT_VALUE_OPTIONS = new Set([
   "--super-prefix", "--work-tree",
 ]);
 const GIT_TERMINAL_OPTIONS = new Set(["-h", "-v", "--help", "--list-cmds", "--version"]);
+const SHELL_VALUE_OPTIONS = new Set(["+O", "+o", "-O", "-o", "--init-file", "--rcfile"]);
+const MAX_NESTING = 4;
+const TEXT_PUSH = /(?:^|[\n;&|(){}])\s*git\s+push(?:\s|$)/u;
 
 function tokenize(command) {
   const tokens = [];
@@ -91,26 +95,51 @@ function tokenize(command) {
   }
   if (escaped) word += "\\";
   flush();
-  return tokens;
+  return { tokens, unterminated: quote !== "" };
 }
 
 function isTerminalGitOption(token) {
   return GIT_TERMINAL_OPTIONS.has(token) || /^--(help|list-cmds|version)=/u.test(token);
 }
 
-function containsGitPush(command) {
+function evalScript(words) {
+  return (words[0] === "--" ? words.slice(1) : words).join(" ");
+}
+
+function shellScript(words) {
+  let sawC = false;
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    if (word === "--") return sawC && i + 1 < words.length ? words[i + 1] : "";
+    if (SHELL_VALUE_OPTIONS.has(word)) i++;
+    else if (/^-[A-Za-z]*c[A-Za-z]*$/u.test(word)) sawC = true;
+    else if (!/^[-+]/u.test(word)) return sawC ? word : "";
+  }
+  return "";
+}
+
+function containsGitPush(command, depth) {
+  const { tokens, unterminated } = tokenize(command);
+  if (unterminated && TEXT_PUSH.test(command)) return true;
+  const nestedPush = (script) =>
+    depth < MAX_NESTING ? containsGitPush(script, depth + 1) : TEXT_PUSH.test(script);
   let atCommandStart = true;
   let scanningGit = false;
   let sawDecorator = false;
   let skipDecoratorValue = false;
   let skipGitValue = false;
-  for (const token of tokenize(command)) {
+  let script = null;
+  for (const token of [...tokens, null]) {
     if (token === null) {
+      if (script !== null && nestedPush(script.of(script.words))) return true;
       atCommandStart = true;
       scanningGit = false;
       sawDecorator = false;
       skipDecoratorValue = false;
       skipGitValue = false;
+      script = null;
+    } else if (script !== null) {
+      script.words.push(token);
     } else if (scanningGit) {
       if (skipGitValue) skipGitValue = false;
       else if (token === "push") return true;
@@ -120,12 +149,15 @@ function containsGitPush(command) {
     } else if (atCommandStart) {
       if (skipDecoratorValue) skipDecoratorValue = false;
       else if (/^[A-Za-z_][A-Za-z0-9_]*=/u.test(token) || KEYWORDS.has(token)) continue;
+      else if (token === "eval") script = { of: evalScript, words: [] };
       else if (DECORATORS.has(token)) sawDecorator = true;
       else if (sawDecorator && DECORATOR_VALUE_OPTIONS.has(token)) skipDecoratorValue = true;
       else if (sawDecorator && token.startsWith("-")) continue;
       else if (token === "git" || token.endsWith("/git")) {
         scanningGit = true;
         atCommandStart = false;
+      } else if (SHELLS.has(token.slice(token.lastIndexOf("/") + 1))) {
+        script = { of: shellScript, words: [] };
       } else atCommandStart = false;
     }
   }
@@ -140,7 +172,7 @@ try {
   process.exit(1);
 }
 const command = input?.tool_input?.command;
-process.stdout.write(typeof command === "string" && containsGitPush(command) ? "yes" : "no");
+process.stdout.write(typeof command === "string" && containsGitPush(command, 0) ? "yes" : "no");
 '; then
     echo "[tbd] The closing hook could not read its input with node." >&2
     return 1
