@@ -40,7 +40,8 @@ with publish tokens or production access should go higher.
 Scope: applies to `dependencies`, `devDependencies` (historically *more* dangerous—build
 tooling runs with full privileges), `peer`/`optionalDependencies`, new installs, and
 upgrades. Pins resolved before adopting the policy are grandfathered until their next
-planned upgrade.
+planned upgrade. First-party packages that the project records are exempt; see
+First-Party Packages below.
 
 ### Per-ecosystem control
 
@@ -158,6 +159,60 @@ global `~/.npmrc` / env / CI config; carry the same commit/PR record as any exce
 (reason, exact `pkg@version`, the verification output); and **confirm afterwards** that
 the version was not subsequently yanked.
 Never relax the global cool-off to get one fresh package—that re-exposes every install.
+
+## First-Party Packages
+
+A package is **first-party** when the project’s own maintainers publish it.
+Identify the maintainers per registry, since each registry has its own accounts: for
+example, a GitHub user or organization, an npm user, and a PyPI user.
+A name on one registry says nothing about another, where the same name can belong to
+someone else.
+
+An exemption is a standing decision about who publishes a package, not a one-off
+decision about one version.
+It gives up the cool-off’s protection against a compromised release of the project’s own
+packages, so it fits only when the maintainers trust their own release process.
+In that case the recommended rule exempts each first-party package **and its
+dependencies, direct and transitive**. Exempting the package alone still blocks a fresh
+first-party release whose dependency ranges resolve only to versions inside the window.
+For a narrower scope, exempt the first-party packages alone and let their dependencies
+wait out the cool-off.
+Direct third-party dependencies keep the cool-off.
+
+The list is explicit.
+The project’s `SUPPLY-CHAIN-SECURITY.md` records the maintainer identities per registry
+and names each first-party package with its registry, and each tool’s configuration
+lists only packages recorded there.
+**Agents never add a first-party entry**, to the record or to a tool’s configuration,
+without the maintainer’s decision.
+
+Each tool expresses the exemption differently:
+
+- **pnpm:** `minimumReleaseAgeExclude` in `pnpm-workspace.yaml` matches by package name,
+  so an entry exempts that package and not its dependencies.
+  List each first-party package by exact name.
+  Under the transitive rule, list a dependency that is inside the window as
+  `name@x.y.z`, so that only that version is exempt, with a comment that names its
+  first-party parent. pnpm also accepts globs and `!` negations; do not use them, because
+  a pattern exempts names that no one reviewed.
+  ```yaml
+  # pnpm-workspace.yaml
+  minimumReleaseAge: 20160
+  minimumReleaseAgeExclude: # first-party; see SUPPLY-CHAIN-SECURITY.md
+    - my-cli
+    - some-dep@1.4.2 # dependency of my-cli
+  ```
+- **uv:** pass `--exclude-newer-package <pkg>=false`, or set
+  `exclude-newer-package = { <pkg> = false }` under `[tool.uv]` in `pyproject.toml` or
+  at the top level of `uv.toml`. A date in place of `false` gives the package its own
+  cutoff. `uvx` reads only the user’s `~/.config/uv/uv.toml` or a file passed with
+  `--config-file`, so pass the flag to `uvx` itself.
+  This was verified with uv 0.11.32.
+- **npm and npx:** there is no per-package exemption, and `--before` applies to the
+  whole install. To run a first-party CLI through npx with no cool-off, omit `--before`
+  and keep the exact version and `--ignore-scripts`:
+  `npx --yes --ignore-scripts <cli>@X.Y.Z`. That run exempts the CLI’s dependencies too,
+  so it fits only the transitive rule.
 
 ## Node / TypeScript Enforcement (npm, pnpm, Bun)
 

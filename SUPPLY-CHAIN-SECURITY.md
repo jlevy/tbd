@@ -17,6 +17,9 @@
 
 1. **Where the package manager supports it, never install or upgrade to a package
    version less than 14 days old** without a documented exception.
+   Packages that the project’s own maintainers publish are exempt when this file lists
+   them as first-party; see
+   [First-Party Packages](https://github.com/jlevy/tbd/blob/main/packages/tbd/docs/guidelines/supply-chain-hardening.md#first-party-packages).
    Most fast-yanked malicious versions in the 2025-2026 wave (qix, Shai-Hulud 1.0/2.0,
    Axios, TanStack, Ultralytics, LiteLLM, node-ipc, @antv Mini Shai-Hulud) lived for
    minutes to hours, but the slowest-detected ones run longer (the `ctx` PyPI takeover
