@@ -90,6 +90,7 @@ docs_cache:
     shortcuts/standard/code-cleanup-tests.md: internal:shortcuts/standard/code-cleanup-tests.md
     shortcuts/standard/code-review-and-commit.md: internal:shortcuts/standard/code-review-and-commit.md
     shortcuts/standard/coding-spike.md: internal:shortcuts/standard/coding-spike.md
+    shortcuts/standard/coordinate-collaborators.md: internal:shortcuts/standard/coordinate-collaborators.md
     shortcuts/standard/create-or-update-pr-simple.md: internal:shortcuts/standard/create-or-update-pr-simple.md
     shortcuts/standard/create-or-update-pr-with-validation-plan.md: internal:shortcuts/standard/create-or-update-pr-with-validation-plan.md
     shortcuts/standard/delegate-to-subagents.md: internal:shortcuts/standard/delegate-to-subagents.md
