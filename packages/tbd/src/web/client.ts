@@ -140,9 +140,10 @@ const initialViewChoice = resolveBoardViewChoice(window.location.search, {
  */
 let boardViewMode: BoardViewModeView = initialViewChoice.view;
 /**
- * The grouping label prefix, e.g. `area:` — entirely the user's own labeling
- * convention. Empty means "not chosen yet"; the first detected prefix then serves as
- * the default without being persisted as a choice.
+ * The grouping label prefix in effect, e.g. `area:`, which is entirely the user's own
+ * labeling convention. Empty until the viewer chooses one or the Workmap first shows a
+ * grouping, which pins the most common prefix the rows state at that moment (see
+ * `pinDefaultWorkmapGrouping`).
  */
 let workmapGroupPrefix: string = initialViewChoice.group;
 let scrollBoardToTopAfterRender = false;
@@ -1452,9 +1453,20 @@ function workmapPrefixes(rows: readonly BoardRowView[]): ValueFacetView<string>[
   return prefixes;
 }
 
-/** The grouping in effect: the chosen prefix, else the most common one the rows state. */
-function effectiveWorkmapPrefix(rows: readonly BoardRowView[]): string {
-  return workmapGroupPrefix !== '' ? workmapGroupPrefix : (workmapPrefixes(rows)[0]?.value ?? '');
+/**
+ * Pin the default grouping the first time the Workmap shows one: the most common prefix
+ * the rows state now. From then on the grouping changes only by the viewer's choice, so
+ * a filter or a live update that shifts prefix counts cannot regroup the board, and the
+ * address names the grouping on screen. The pin is not stored; storage keeps explicit
+ * choices only.
+ */
+function pinDefaultWorkmapGrouping(rows: readonly BoardRowView[]): void {
+  const detected = workmapPrefixes(rows)[0]?.value;
+  if (workmapGroupPrefix !== '' || detected === undefined) {
+    return;
+  }
+  workmapGroupPrefix = detected;
+  writeBoardViewAddress();
 }
 
 function workmapProjection(rows: readonly BoardRowView[], prefix: string): WorkmapProjectionView {
@@ -1473,7 +1485,7 @@ function workmapProjection(rows: readonly BoardRowView[], prefix: string): Workm
  */
 function renderWorkmapGroupChoices(rows: readonly BoardRowView[]): string {
   const prefixes = workmapPrefixes(rows);
-  const effective = effectiveWorkmapPrefix(rows);
+  const effective = workmapGroupPrefix;
   const choices: [value: string, label: string][] = prefixes.map((prefix) => [
     prefix.value,
     `${prefix.value} (${prefix.count})`,
@@ -1707,6 +1719,7 @@ function reconcileChildren(
  */
 function renderWorkmap(view: ClientView, board: BoardResponse): void {
   const focus = captureBeadFocus(WORKMAP_CARD_SELECTOR);
+  pinDefaultWorkmapGrouping(board.rows);
   const prefix = renderWorkmapGroupChoices(board.rows);
   const page = paginateWorkmap(workmapProjection(board.rows, prefix), boardPageIndex);
   boardPageIndex = page.pageIndex;
@@ -1749,14 +1762,13 @@ function renderWorkmap(view: ClientView, board: BoardResponse): void {
 
 /**
  * State the current view and the grouping in effect in the page address, so reloading,
- * copying, or sharing it reproduces this choice (an address wins over storage at
+ * copying, or sharing it reproduces what the page shows (an address wins over storage at
  * startup). Replacing the entry keeps view switches out of the Back history.
  */
 function writeBoardViewAddress(): void {
-  const rows = store.getView().board?.rows ?? [];
   const search = boardViewSearch(window.location.search, {
     view: boardViewMode,
-    group: effectiveWorkmapPrefix(rows),
+    group: workmapGroupPrefix,
   });
   if (search === window.location.search) {
     return;

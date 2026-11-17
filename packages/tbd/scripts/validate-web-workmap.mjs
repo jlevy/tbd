@@ -112,10 +112,34 @@ async function tbd(repoDir, args) {
   return stdout;
 }
 
-/** A labeling convention with every bucket kind: groups, conflicts, and no value. */
+/**
+ * Beads that a check finds by searching their shared title word. Among the prefix
+ * probes `team:` is the most common prefix, while `area:` is across the whole board.
+ */
+const PREFIX_PROBES = [['team:red'], ['team:red'], ['team:blue'], ['area:web']].map(
+  (labels, index) => ({ title: `Prefix probe ${index}`, labels }),
+);
+const PROBES = [...PREFIX_PROBES];
+
+/**
+ * A labeling convention with every bucket kind: groups, conflicts, and no value; then
+ * the probes, updated last so they are always among the served rows.
+ */
 function generatedBeads(count) {
   const lines = [];
-  for (let index = 0; index < count; index += 1) {
+  const bead = (index, fields) =>
+    JSON.stringify({
+      id: `bd-${index}`,
+      title: `Workmap QA bead ${index} with a title long enough to wrap in a narrow card`,
+      status: ['open', 'in_progress', 'blocked', 'deferred'][index % 4],
+      priority: index % 5,
+      issue_type: ['bug', 'task', 'feature', 'chore'][index % 4],
+      description: `Body for QA bead ${index}`,
+      created_at: new Date(Date.UTC(2026, 0, 1) + index * 60_000).toISOString(),
+      updated_at: new Date(Date.UTC(2026, 0, 1) + index * 60_000).toISOString(),
+      ...fields,
+    });
+  for (let index = 0; index < count - PROBES.length; index += 1) {
     const labels = [`area:${AREAS[index % AREAS.length]}`];
     if (index % 7 === 0) {
       labels.push(`team:t${index % 5}`);
@@ -126,20 +150,10 @@ function generatedBeads(count) {
     if (index % 13 === 0) {
       labels.length = 0;
     }
-    const at = new Date(Date.UTC(2026, 0, 1) + index * 60_000).toISOString();
-    lines.push(
-      JSON.stringify({
-        id: `bd-${index}`,
-        title: `Workmap QA bead ${index} with a title long enough to wrap in a narrow card`,
-        status: ['open', 'in_progress', 'blocked', 'deferred'][index % 4],
-        priority: index % 5,
-        issue_type: ['bug', 'task', 'feature', 'chore'][index % 4],
-        labels,
-        description: `Body for QA bead ${index}`,
-        created_at: at,
-        updated_at: at,
-      }),
-    );
+    lines.push(bead(index, { labels }));
+  }
+  for (const probe of PROBES) {
+    lines.push(bead(lines.length, probe));
   }
   return `${lines.join('\n')}\n`;
 }
@@ -804,6 +818,49 @@ try {
       await cdp.send('Target.disposeBrowserContext', { browserContextId });
     }
   });
+  await check(
+    'a filter that changes the most common prefix keeps the grouping the address names',
+    async () => {
+      const { browserContextId } = await cdp.send('Target.createBrowserContext');
+      const viewer = await Page.open(cdp, `${origin}/?view=workmap`, browserContextId);
+      await viewer.waitFor(`document.querySelectorAll(${JSON.stringify(CARD)}).length > 0`);
+      const grouping = `({
+        address: new URLSearchParams(location.search).get('group'),
+        select: document.getElementById('workmapgroup').value,
+        headings: [...document.querySelectorAll('.workmap-group-name')].map((name) => name.textContent),
+      })`;
+      const unfiltered = await viewer.evaluate(grouping);
+      invariant(
+        unfiltered.address === 'area:' && unfiltered.select === 'area:',
+        `Default grouping: ${JSON.stringify(unfiltered)}`,
+      );
+      const showProbes = async () => {
+        await viewer.evaluate(`(() => {
+          const search = document.getElementById('q');
+          search.value = 'Prefix probe';
+          search.dispatchEvent(new Event('input', { bubbles: true }));
+        })()`);
+        await viewer.waitFor(
+          `document.querySelectorAll(${JSON.stringify(CARD)}).length === ${PREFIX_PROBES.length}`,
+        );
+      };
+      await showProbes();
+      const filtered = await viewer.evaluate(grouping);
+      invariant(
+        filtered.address === filtered.select && filtered.select === 'area:',
+        `Filtered to beads where team: is most common: ${JSON.stringify(filtered)}`,
+      );
+      await viewer.reload();
+      await viewer.waitFor(`document.querySelectorAll(${JSON.stringify(CARD)}).length > 0`);
+      await showProbes();
+      const reloaded = await viewer.evaluate(grouping);
+      invariant(
+        JSON.stringify(reloaded) === JSON.stringify(filtered),
+        `Before reload ${JSON.stringify(filtered)}, after ${JSON.stringify(reloaded)}`,
+      );
+      await cdp.send('Target.disposeBrowserContext', { browserContextId });
+    },
+  );
 } finally {
   if (cdp !== null) {
     // Closing through the protocol also stops Chrome's helper processes, which could

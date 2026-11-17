@@ -4747,6 +4747,9 @@ which the `--json` descriptor reports as `pageUrl`; its `url` stays the serverâ€
 Each in-page view or grouping choice replaces the page address with the view and the
 grouping in effect, and an address wins over the stored preference at startup, so
 reloading or sharing the address reproduces the choice.
+With no grouping chosen, the first Workmap render pins the most common prefix in the
+rows it shows (in memory, not storage) and writes it to the address; the grouping then
+changes only by choice, so neither a filter nor a live update regroups the board.
 These component and semantic rules are maintained in the co-located design-system
 inventory in `src/web/styles.css`. Status-panel field names use standard-size sans
 chrome and literal values use standard-size monospace; neither side shrinks merely

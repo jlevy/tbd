@@ -380,7 +380,8 @@ describe('workmap interaction', () => {
     );
     expect(client).toContain('workmapCardSignature(card)');
     expect(client).toContain('window.history.replaceState(');
-    expect(client.match(/writeBoardViewAddress\(\);/gu)).toHaveLength(2);
+    // The two explicit choices, and pinning the default grouping when it is first shown.
+    expect(client.match(/writeBoardViewAddress\(\);/gu)).toHaveLength(3);
   });
 });
 
