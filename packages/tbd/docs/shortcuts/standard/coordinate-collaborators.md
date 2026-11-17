@@ -1,6 +1,6 @@
 ---
 title: Coordinate Collaborators
-description: Opt-in claim protocol for several agents or people working from one clone or several replicas
+description: Opt-in claim protocol for several agents or people working in one clone or in separate clones
 category: session
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
@@ -11,9 +11,23 @@ protocol. The project can use beads without adopting it.
 
 The protocol prevents the common duplicate-work case when collaborators can exchange
 bead state before editing.
-It is advisory. Linked worktrees in one clone share bead data and its lock; separate
-clones can still race until they sync.
-It does not create a distributed lease or decide that an old claim is abandoned.
+It is advisory: it does not create a distributed lease or decide that an old claim is
+abandoned.
+
+## Who Sees a Claim
+
+- **Linked worktrees of one clone** (the entries `git worktree list` prints) share bead
+  data and its lock. A claim made in one is visible in the others at once, and
+  `tbd start` holds the lock while it claims, so of two concurrent claims on one bead
+  only one succeeds.
+- **Separate clones** see each other’s claims only after both sync: the claiming clone
+  runs `tbd sync`, then the other runs `tbd sync` or `tbd sync --pull`.
+- **A clone with no remote** (`git remote` prints nothing) has no other clone to
+  exchange with. `tbd sync` there still commits the bead data locally, then reports
+  `Push failed` and exits 1.
+
+The sync steps in this shortcut are the skill’s ordinary `tbd sync`. Run them by
+default.
 
 ## Assign Ownership
 
@@ -33,17 +47,11 @@ All worktrees attached to one clone see the same bead data.
 
 ## Claim Before Editing
 
-Use the remote steps when separate clones exchange bead state or project policy requires
-remote publication. Explicit project requirements remain authoritative.
-Local collaborators in one clone see accepted claims immediately through the shared data
-store and need no network sync for that visibility.
-Local-only or offline work can omit remote exchange unless project policy requires it.
-
 ```bash
-tbd sync --pull
-tbd show <id>
+tbd sync --pull                      # Receive the other clones' claims
+tbd show <id> --json
 tbd start <id> --as <distinct-name> --json
-tbd sync
+tbd sync                             # Publish this claim to the other clones
 ```
 
 Read the JSON result instead of relying on the process exit code:
@@ -67,10 +75,9 @@ For compatibility with scripts that treated `start` as an idempotent command, a
 structured skip exits successfully.
 Callers that need conflict detection must inspect `claimed` and `skipped`.
 
-## Publish Checkpoints When Replicas Share State
+## Publish Checkpoints
 
-When separate clones exchange bead state or project policy requires publication, the
-collaborator who owns tracker updates publishes progress after each commit and before a
+The collaborator who owns bead updates publishes progress after each commit and before a
 handoff or session end.
 Record the commit or PR, pending CI or review, and the next owner before syncing.
 Do not close the bead while acceptance, CI, review, or handoff acknowledgment is still
@@ -91,7 +98,7 @@ explicitly:
 ```bash
 tbd whoami --as <incoming-name> --json  # Resolve and verify a unique recipient name
 tbd update <id> --delegate <resolved-name>
-tbd sync                              # When replicas exchange state or policy requires it
+tbd sync                              # Publish the reassignment
 ```
 
 A takeover is an override, so `tbd update --delegate` does not apply the `start` claim

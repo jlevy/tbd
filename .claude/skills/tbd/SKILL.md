@@ -481,7 +481,7 @@ Run `tbd shortcut <name>` to use any of these shortcuts:
 | code-cleanup-tests | Review and remove tests that do not add meaningful coverage |
 | code-review-and-commit | Run pre-commit checks, review changes, and commit code |
 | coding-spike | Prototype to validate a spec through hands-on implementation |
-| coordinate-collaborators | Opt-in claim protocol for several agents or people working from one clone or several replicas |
+| coordinate-collaborators | Opt-in claim protocol for several agents or people working in one clone or in separate clones |
 | create-or-update-pr-simple | Create or update a pull request with a concise summary |
 | create-or-update-pr-with-validation-plan | Create or update a pull request with a detailed test/validation plan |
 | delegate-to-subagents | Delegate parts of any task to sub-agents on any platform. When to delegate and when not to, sizing, counts, and cost; check the subagents grant, split the work by role and order, assign model tiers and spawn fresh named sub-agents (Claude Code, Codex, other platforms), write self-contained briefs, wait and continue, verify every claim, handle failures, and clean up; or do every step in one session when sub-agents are not used. |
