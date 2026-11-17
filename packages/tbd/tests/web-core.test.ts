@@ -27,6 +27,7 @@ import {
   promoteBoardSort,
   resolveBoardViewChoice,
   servedRowLimitNotice,
+  sortBoardRows,
   workmapCardSignature,
   workmapSectionCount,
 } from '../src/web/core.js';
@@ -1006,6 +1007,25 @@ describe('workmap projection', () => {
       'cli',
       ['child', 'feb', 'jan15'],
     ]);
+  });
+
+  it("computes each row's label sort key once per sort, not once per comparison", () => {
+    let reads = 0;
+    const counted = Array.from({ length: 200 }, (_, index) => {
+      const labels = [`area:a${index % 7}`, `team:t${(index * 31) % 11}`];
+      const counting = { ...row(`r-${index}`, []) };
+      Object.defineProperty(counting, 'labels', {
+        get: () => {
+          reads += 1;
+          return labels;
+        },
+      });
+      return counting;
+    });
+    const sorted = sortBoardRows(counted, [{ key: 'labels', direction: 'asc' }]);
+    expect(reads).toBe(counted.length);
+    const keys = sorted.map((sortedRow) => [...sortedRow.labels].sort().join(' '));
+    expect(keys).toEqual([...keys].sort((left, right) => left.localeCompare(right)));
   });
 
   it('projects an empty prefix as fully ungrouped rather than grouping on accident', () => {

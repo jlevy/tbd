@@ -12,7 +12,7 @@ import type { BoardStateDependencies, RepoStatus, WebState } from '../src/cli/we
 import type { TbdDataContext } from '../src/cli/lib/data-context.js';
 import type { IdMapping } from '../src/file/id-mapping.js';
 import type { Issue } from '../src/lib/types.js';
-import { compareBoardRows } from '../src/web/core.js';
+import { sortBoardRows } from '../src/web/core.js';
 import type { BoardSortView } from '../src/web/core.js';
 import { createTestIssue, testId, TEST_ULIDS } from './test-helpers.js';
 
@@ -959,7 +959,7 @@ describe('client row order', () => {
         stateFor(board),
       );
       const flat = board.buildBoardResponse(new URLSearchParams(order), stateFor(board));
-      const sorted = [...tree.rows].sort((left, right) => compareBoardRows(left, right, sorts));
+      const sorted = sortBoardRows(tree.rows, sorts);
       expect({ order, ids: sorted.map((row) => row.id) }).toEqual({
         order,
         ids: flat.rows.map((row) => row.id),

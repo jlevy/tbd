@@ -411,59 +411,85 @@ function compareBoardText(left: string, right: string): number {
   return exactLeft < exactRight ? -1 : exactLeft > exactRight ? 1 : 0;
 }
 
-function compareBoardTimestamps(left: string, right: string): number {
-  const leftTime = Date.parse(left);
-  const rightTime = Date.parse(right);
-  if (Number.isFinite(leftTime) && Number.isFinite(rightTime)) {
-    return leftTime - rightTime;
-  }
-  return compareBoardText(left, right);
+/** A row with its costly sort keys, computed once per sort rather than per comparison. */
+interface DecoratedBoardRow {
+  row: BoardRowView;
+  /** The sorted labels joined by NUL, the server's labels key; empty unless sorted on. */
+  labels: string;
+  /** `updated_at` parsed to milliseconds; NaN when it does not parse or is not sorted on. */
+  updatedMs: number;
 }
 
-function boardSortText(
-  row: BoardRowView,
-  key: Exclude<BoardSortKeyView, 'priority' | 'updated'>,
-): string {
-  switch (key) {
-    case 'id':
-      return row.id;
-    case 'status':
-      return row.status;
-    case 'kind':
-      return row.kind;
-    case 'title':
-      return row.title;
-    case 'labels':
-      return [...row.labels].sort(compareBoardText).join('\u0000');
-    default: {
-      const exhaustive: never = key;
-      throw new Error(`Unhandled board sort key: ${String(exhaustive)}`);
-    }
-  }
-}
-
-/**
- * Compare two rows by a sort stack exactly as the server orders a flat board
- * (`compareIssuesByColumns` in `cli/web/board.ts`), ending with the display ID. A
- * differential test in `web-board.test.ts` holds the two to the same order.
- */
-export function compareBoardRows(
-  left: BoardRowView,
-  right: BoardRowView,
+function compareDecoratedRows(
+  left: DecoratedBoardRow,
+  right: DecoratedBoardRow,
   sorts: readonly BoardSortView[],
 ): number {
   for (const sort of sorts) {
-    const compared =
-      sort.key === 'priority'
-        ? left.priority - right.priority
-        : sort.key === 'updated'
-          ? compareBoardTimestamps(left.updated_at, right.updated_at)
-          : compareBoardText(boardSortText(left, sort.key), boardSortText(right, sort.key));
+    let compared: number;
+    switch (sort.key) {
+      case 'priority':
+        compared = left.row.priority - right.row.priority;
+        break;
+      case 'updated':
+        // As the server: numeric when both parse, else text order of the raw values.
+        compared =
+          Number.isFinite(left.updatedMs) && Number.isFinite(right.updatedMs)
+            ? left.updatedMs - right.updatedMs
+            : compareBoardText(left.row.updated_at, right.row.updated_at);
+        break;
+      case 'labels':
+        compared = compareBoardText(left.labels, right.labels);
+        break;
+      case 'id':
+        compared = compareBoardText(left.row.id, right.row.id);
+        break;
+      case 'status':
+        compared = compareBoardText(left.row.status, right.row.status);
+        break;
+      case 'kind':
+        compared = compareBoardText(left.row.kind, right.row.kind);
+        break;
+      case 'title':
+        compared = compareBoardText(left.row.title, right.row.title);
+        break;
+      default: {
+        const exhaustive: never = sort.key;
+        throw new Error(`Unhandled board sort key: ${String(exhaustive)}`);
+      }
+    }
     if (compared !== 0) {
       return sort.direction === 'asc' ? compared : -compared;
     }
   }
-  return compareBoardText(left.id, right.id);
+  return compareBoardText(left.row.id, right.row.id);
+}
+
+/**
+ * Order rows by a sort stack exactly as the server orders a flat board
+ * (`compareIssuesByColumns` in `cli/web/board.ts`), ending with the display ID. A
+ * differential test in `web-board.test.ts` holds the two to the same order.
+ *
+ * The keys that cost work, the sorted label set and the parsed timestamp, are computed
+ * once per row before sorting (decorate, sort, undecorate) rather than in every
+ * comparison, which a sort makes about n log n times.
+ */
+export function sortBoardRows(
+  rows: readonly BoardRowView[],
+  sorts: readonly BoardSortView[],
+): BoardRowView[] {
+  const byLabels = sorts.some((sort) => sort.key === 'labels');
+  const byUpdated = sorts.some((sort) => sort.key === 'updated');
+  return rows
+    .map(
+      (row): DecoratedBoardRow => ({
+        row,
+        labels: byLabels ? [...row.labels].sort(compareBoardText).join('\u0000') : '',
+        updatedMs: byUpdated ? Date.parse(row.updated_at) : Number.NaN,
+      }),
+    )
+    .sort((left, right) => compareDecoratedRows(left, right, sorts))
+    .map((decorated) => decorated.row);
 }
 
 /**
@@ -475,10 +501,11 @@ export function compareBoardRows(
  * and only they can say which label is wrong. No value leaves the row ungrouped and
  * visible.
  *
- * With `sorts`, the cards in every bucket follow that stack. The page passes it when
- * Pretty is on, because the served order is then a tree walk in which a child follows
- * its parent, and a card shows no tree. With `null` the served order stands: with
- * Pretty off it already is the sorted order.
+ * With `sorts`, the cards in every bucket follow that stack: the rows are sorted once
+ * with `sortBoardRows` before they are bucketed. The page passes it when Pretty is on,
+ * because the served order is then a tree walk in which a child follows its parent, and
+ * a card shows no tree. With `null` the served order stands: with Pretty off it already
+ * is the sorted order.
  */
 export function projectWorkmap(
   rows: readonly BoardRowView[],
@@ -486,12 +513,14 @@ export function projectWorkmap(
   sorts: readonly BoardSortView[] | null,
 ): WorkmapProjectionView {
   const projection: WorkmapProjectionView = { prefix, groups: [], conflicted: [], ungrouped: [] };
+  // Bucketing keeps the input order, so one sort up front orders every bucket.
+  const ordered = sorts !== null && sorts.length > 0 ? sortBoardRows(rows, sorts) : rows;
   if (isBlankGroupPrefix(prefix)) {
-    projection.ungrouped = [...rows];
+    projection.ungrouped = [...ordered];
     return projection;
   }
   const byValue = new Map<string, BoardRowView[]>();
-  for (const row of rows) {
+  for (const row of ordered) {
     const values = [
       ...new Set(
         row.labels
@@ -516,15 +545,6 @@ export function projectWorkmap(
   projection.groups = [...byValue.entries()]
     .map(([value, groupRows]) => ({ value, rows: groupRows }))
     .sort((a, b) => b.rows.length - a.rows.length || a.value.localeCompare(b.value));
-  if (sorts !== null && sorts.length > 0) {
-    const bySorts = (left: BoardRowView, right: BoardRowView) =>
-      compareBoardRows(left, right, sorts);
-    for (const group of projection.groups) {
-      group.rows.sort(bySorts);
-    }
-    projection.conflicted.sort((left, right) => bySorts(left.row, right.row));
-    projection.ungrouped.sort(bySorts);
-  }
   return projection;
 }
 
