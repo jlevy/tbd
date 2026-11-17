@@ -22,6 +22,14 @@ const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
 
 const GIT_ROOT = '$(git rev-parse --show-toplevel)';
 
+/** The Codex closing command fsqlite has committed, from an earlier revision of the wrapper. */
+const FSQLITE_CODEX_CLOSING_COMMAND =
+  `bash -c 'repo_root=$(pwd -P); while [ "$repo_root" != "/" ] && [ ! -e "$repo_root/.git" ] && ` +
+  `[ ! -f "$repo_root/.codex/hooks.json" ]; do repo_root=\${repo_root%/*}; [ -n "$repo_root" ] || ` +
+  `repo_root=/; done; if [ ! -f "$repo_root/.codex/hooks.json" ]; then exit 0; fi; if [ ! -f ` +
+  `"$repo_root/.codex/tbd-closing-reminder.sh" ]; then echo "[tbd] Cannot locate the Codex closing ` +
+  `hook." >&2; exit 1; fi; exec bash "$repo_root/.codex/tbd-closing-reminder.sh"'`;
+
 /** fsqlite's validated Claude wiring: every script resolved through CLAUDE_PROJECT_DIR. */
 const CUSTOMIZED_CLAUDE_SETTINGS = {
   hooks: {
@@ -415,5 +423,29 @@ describe('setup keeps equivalent hook wiring', { timeout: subprocessTestTimeout(
 
     expect(runTbd(['setup', '--auto', '--surfaces=codex']).status).toBe(0);
     expect(await readJson('.codex/hooks.json')).toEqual(generated);
+  });
+
+  it('upgrades the earlier boundary wrappers that also stopped at .codex/hooks.json', async () => {
+    runTbd(['setup', '--auto', '--prefix=test', '--surfaces=codex']);
+    const generated = await readJson('.codex/hooks.json');
+    // The earlier walk, whose closing command fsqlite runs byte for byte.
+    const earlier = structuredClone(generated);
+    for (const entries of Object.values(earlier.hooks)) {
+      for (const hook of entries.flatMap((entry) => entry.hooks)) {
+        const walk = '[ ! -e "$repo_root/.git" ];';
+        expect(hook.command).toContain(walk);
+        hook.command = hook.command!.replace(
+          walk,
+          '[ ! -e "$repo_root/.git" ] && [ ! -f "$repo_root/.codex/hooks.json" ];',
+        );
+      }
+    }
+    expect(commands(earlier, 'PostToolUse')).toEqual([FSQLITE_CODEX_CLOSING_COMMAND]);
+    await writeJson('.codex/hooks.json', earlier);
+    expect(codexCheck()?.status).toBe('warn');
+
+    expect(runTbd(['setup', '--auto', '--surfaces=codex']).status).toBe(0);
+    expect(await readJson('.codex/hooks.json')).toEqual(generated);
+    expect(codexCheck()?.status).toBe('ok');
   });
 });

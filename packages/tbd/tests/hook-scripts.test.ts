@@ -628,9 +628,89 @@ describeUnix('generated hook scripts', { timeout: subprocessTestTimeout(60_000) 
       expect(existsSync(strayMarker)).toBe(false);
     });
 
+    /** Every Codex hook script in `dir`, each recording `<label> <script> <args>` when run. */
+    async function plantCodexScripts(dir: string, label: string, record: string): Promise<void> {
+      await mkdir(join(dir, '.codex'), { recursive: true });
+      await writeFile(join(dir, '.codex', 'hooks.json'), '{}\n');
+      for (const script of ['tbd-session.sh', 'ensure-gh-cli.sh', 'tbd-closing-reminder.sh']) {
+        await writeExecutable(
+          join(dir, '.codex', script),
+          `#!/bin/bash\necho "${label} ${script} $*" >> ${JSON.stringify(record)}\n`,
+        );
+      }
+    }
+
+    /** Run every generated Codex command from `cwd` and return what each one executed. */
+    async function runEveryCodexCommand(cwd: string, record: string): Promise<string[]> {
+      const [sessionStart, ghCli] = codexSessionCommands.sessionStart;
+      const ran: string[] = [];
+      for (const command of [
+        sessionStart!,
+        ghCli!,
+        codexSessionCommands.preCompact,
+        codexClosingCommand,
+      ]) {
+        await writeFile(record, '');
+        const result = runCommand(command, bins.bashOnly, {
+          cwd,
+          input: hookInput('git push'),
+          env: { PWD: cwd },
+        });
+        expect(result.status, `${command}: ${result.stderr}`).toBe(0);
+        ran.push((await readFile(record, 'utf-8')).trim());
+      }
+      return ran;
+    }
+
+    it('runs the Git project root hooks, never those of a nested non-Git directory', async () => {
+      const project = join(root, 'codex-nested-marker');
+      const record = join(root, 'codex-nested-marker.log');
+      await mkdir(join(project, '.git'), { recursive: true });
+      await plantCodexScripts(project, 'project', record);
+      // An unreviewed tree inside the project (vendored code, a package, a fixture)
+      // carrying a `.codex/hooks.json` marker and scripts of its own, but no `.git`.
+      const nested = join(project, 'vendor', 'lib');
+      await plantCodexScripts(nested, 'nested', record);
+      await mkdir(join(nested, 'src', 'x'), { recursive: true });
+
+      const expected = [
+        'project tbd-session.sh',
+        'project ensure-gh-cli.sh',
+        'project tbd-session.sh --brief',
+        'project tbd-closing-reminder.sh',
+      ];
+      expect(await runEveryCodexCommand(nested, record)).toEqual(expected);
+      expect(await runEveryCodexCommand(join(nested, 'src', 'x'), record)).toEqual(expected);
+    });
+
+    it("runs a nested Git project's own hooks inside it", async () => {
+      const project = join(root, 'codex-nested-project');
+      const record = join(root, 'codex-nested-project.log');
+      await mkdir(join(project, '.git'), { recursive: true });
+      await plantCodexScripts(project, 'outer', record);
+      const nested = join(project, 'attic', 'lib');
+      await mkdir(join(nested, '.git'), { recursive: true });
+      await plantCodexScripts(nested, 'nested', record);
+
+      expect(await runEveryCodexCommand(nested, record)).toEqual([
+        'nested tbd-session.sh',
+        'nested ensure-gh-cli.sh',
+        'nested tbd-session.sh --brief',
+        'nested tbd-closing-reminder.sh',
+      ]);
+    });
+
+    it('exits quietly outside a Git project, even beside a .codex/hooks.json', async () => {
+      const project = join(root, 'codex-without-git');
+      const record = join(root, 'codex-without-git.log');
+      await plantCodexScripts(project, 'unowned', record);
+      expect(await runEveryCodexCommand(project, record)).toEqual(['', '', '', '']);
+    });
+
     it('fails visibly when the Codex project lacks its closing hook', async () => {
       const project = join(root, 'codex-missing-hook');
       const strayMarker = join(root, 'codex-missing-hook-stray-ran');
+      await mkdir(join(project, '.git'), { recursive: true });
       await mkdir(join(project, '.codex'), { recursive: true });
       await writeFile(join(project, '.codex', 'hooks.json'), '{}\n');
       await markerHook(join(project, 'sub'), strayMarker);
@@ -674,6 +754,7 @@ describeUnix('generated hook scripts', { timeout: subprocessTestTimeout(60_000) 
 
     it('fails visibly when the Codex project lacks its session hook', async () => {
       const project = join(root, 'codex-missing-session');
+      await mkdir(join(project, '.git'), { recursive: true });
       await mkdir(join(project, '.codex'), { recursive: true });
       await writeFile(join(project, '.codex', 'hooks.json'), '{}\n');
       const result = runCommand(codexSessionCommands.sessionStart[0]!, bins.bashOnly, {

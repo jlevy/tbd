@@ -5604,8 +5604,8 @@ session has changed into a subdirectory or a nested checkout.
 The Claude SessionStart and PreCompact commands are still relative to the working
 directory (`bash .claude/scripts/tbd-session.sh`). Codex exports no project directory,
 so every Codex command is a `bash -c` wrapper that walks up from the working directory
-to the first `.git` or `.codex/hooks.json` boundary and runs that boundary’s own script
-(see C below).
+to the nearest `.git`, Codex’s project root, and runs that root’s own script (see C
+below).
 
 A project may spell a command differently when it runs the same script with the same
 arguments from the same anchor, for example
@@ -5657,10 +5657,17 @@ no jq, and invalid hook JSON exits 1 with a message instead of skipping the remi
 It locates the repository and runs tbd the same way as the session script.
 When node fails without a message, the hook says so and exits 1. Each Codex hook command
 (SessionStart, PreCompact, the gh CLI script, and PostToolUse) walks up from the working
-directory only to the first directory with `.git` or `.codex/hooks.json` and runs that
-directory’s own script under `.codex/`, so a stray copy in a nested directory never
-runs. It exits 0 outside a Codex-configured project and fails visibly when a configured
-project lacks the script.
+directory, without git, to the nearest directory with `.git`. That is the project root
+Codex loads hooks from with its default `project_root_markers`, and setup installs
+`.codex/` there. The command runs that root’s own script under `.codex/`. A directory
+below the root that has no `.git` of its own, such as vendored code, cannot supply the
+script, even with its own `.codex/hooks.json`: a marker file grants no trust, so the
+root’s reviewed hooks never run unreviewed code from it.
+A nested Git checkout is a Codex project of its own, and inside it the command runs that
+checkout’s hooks. The command exits 0 when the root has no `.codex/hooks.json` or no
+directory has `.git` (a checkout whose Git directory lives elsewhere through `GIT_DIR`
+or `core.worktree` is in this case), and it fails visibly when a configured root lacks
+the script.
 
 **Setup command:**
 

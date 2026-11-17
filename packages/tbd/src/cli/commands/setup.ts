@@ -931,23 +931,39 @@ const CODEX_CLOSING_REMINDER_REL = '.codex/tbd-closing-reminder.sh';
 const CODEX_GH_CLI_SCRIPT_REL = '.codex/ensure-gh-cli.sh';
 
 /**
- * A generated Codex hook command. Codex runs a hook in the session's working directory,
- * which need not be the project root, so the command locates the project itself: it
- * walks up from the physical working directory and stops at the first directory that
- * has `.git` or `.codex/hooks.json`, the project boundary. It runs only that boundary's
- * own `scriptRel`, exits 0 outside a Codex-configured project, and fails visibly when a
- * configured project lacks the script. A stray `.codex/` in a nested directory below
- * the boundary is never run. `label` names the hook in that failure.
+ * A Codex hook command that walks up from the physical working directory while the
+ * shell test `walk` holds for `$repo_root`, then runs that directory's own `scriptRel`.
+ * It exits 0 when that directory has no `.codex/hooks.json` and fails visibly when it
+ * has one but lacks the script. `label` names the hook in that failure.
  */
-function codexBoundaryCommand(label: string, scriptRel: string, args: readonly string[]): string {
+function codexWalkCommand(
+  walk: string,
+  label: string,
+  scriptRel: string,
+  args: readonly string[],
+): string {
   const suffix = args.length > 0 ? ` ${args.join(' ')}` : '';
   return `bash -c '${[
     'repo_root=$(pwd -P)',
-    'while [ "$repo_root" != "/" ] && [ ! -e "$repo_root/.git" ] && [ ! -f "$repo_root/.codex/hooks.json" ]; do repo_root=${repo_root%/*}; [ -n "$repo_root" ] || repo_root=/; done',
+    `while [ "$repo_root" != "/" ] && ${walk}; do repo_root=\${repo_root%/*}; [ -n "$repo_root" ] || repo_root=/; done`,
     'if [ ! -f "$repo_root/.codex/hooks.json" ]; then exit 0; fi',
     `if [ ! -f "$repo_root/${scriptRel}" ]; then echo "[tbd] Cannot locate the Codex ${label} hook." >&2; exit 1; fi`,
     `exec bash "$repo_root/${scriptRel}"${suffix}`,
   ].join('; ')}'`;
+}
+
+/**
+ * A generated Codex hook command. Codex runs a hook in the session's working directory,
+ * which need not be the project root, and exports no project-root variable, so the
+ * command finds the root itself, without git: it walks up to the nearest directory that
+ * has `.git`, which is the project root Codex loads hooks from (its default
+ * `project_root_markers`), and runs that root's own script. Setup installs `.codex/` at
+ * that root. A `.codex/` in a nested directory without its own `.git`, such as vendored
+ * code, is never run, even beside a `.codex/hooks.json`: a marker file grants no trust.
+ * A nested Git checkout is a Codex project of its own and runs its own hooks.
+ */
+function codexBoundaryCommand(label: string, scriptRel: string, args: readonly string[]): string {
+  return codexWalkCommand('[ ! -e "$repo_root/.git" ]', label, scriptRel, args);
 }
 
 const CODEX_SESSION_COMMAND = codexBoundaryCommand('session', CODEX_SESSION_SCRIPT_REL, []);
@@ -955,18 +971,29 @@ const CODEX_PRECOMPACT_COMMAND = codexBoundaryCommand('session', CODEX_SESSION_S
   '--brief',
 ]);
 const CODEX_GH_CLI_COMMAND = codexBoundaryCommand('gh CLI', CODEX_GH_CLI_SCRIPT_REL, []);
-/** The PostToolUse command, byte-identical to the wrapper fsqlite validated downstream. */
 const CODEX_CLOSING_COMMAND = codexBoundaryCommand('closing', CODEX_CLOSING_REMINDER_REL, []);
 
 /**
- * The working-directory-relative commands tbd generated through 0.10.0. Setup replaces
- * them with the boundary-limited commands above.
+ * Earlier boundary walk, which also stopped at the first `.codex/hooks.json` and so let a
+ * nested directory without `.git` supply the script. Its closing command is the one
+ * fsqlite validated and runs.
+ */
+const EARLIER_CODEX_WALK = '[ ! -e "$repo_root/.git" ] && [ ! -f "$repo_root/.codex/hooks.json" ]';
+
+/**
+ * Commands earlier tbd releases or revisions generated: the working-directory-relative
+ * commands through 0.11.0 and the earlier boundary wrappers. Setup replaces them with
+ * the commands above.
  */
 const LEGACY_CODEX_COMMANDS = [
   `bash ${CODEX_SESSION_SCRIPT_REL}`,
   `bash ${CODEX_SESSION_SCRIPT_REL} --brief`,
   `bash ${CODEX_GH_CLI_SCRIPT_REL}`,
   `bash ${CODEX_CLOSING_REMINDER_REL}`,
+  codexWalkCommand(EARLIER_CODEX_WALK, 'session', CODEX_SESSION_SCRIPT_REL, []),
+  codexWalkCommand(EARLIER_CODEX_WALK, 'session', CODEX_SESSION_SCRIPT_REL, ['--brief']),
+  codexWalkCommand(EARLIER_CODEX_WALK, 'gh CLI', CODEX_GH_CLI_SCRIPT_REL, []),
+  codexWalkCommand(EARLIER_CODEX_WALK, 'closing', CODEX_CLOSING_REMINDER_REL, []),
 ];
 
 /**
