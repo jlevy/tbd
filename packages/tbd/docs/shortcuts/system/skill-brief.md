@@ -39,13 +39,14 @@ tbd web --open         # Open the live, read-only bead viewer
 Before editing a bead, run `tbd sync --pull`, re-read it, use `tbd start <id>`, and run
 `tbd sync` so other replicas can see the claim.
 The guard is local and advisory; a stale clone can still race it.
-When several collaborators may claim beads in parallel, follow
-`tbd shortcut coordinate-collaborators`. `start` preserves the accountable `assignee`
-and writes the acting name to `delegate`. That name resolves from `--as`, then
-`TBD_AGENT`, then the machine-local session identity, and finally `<harness>@<host>`;
-inspect it with `tbd whoami`. Top-level `sync --pull` updates issue Git only.
+`start` preserves the accountable `assignee` and writes the acting name to `delegate`.
+That name resolves from `--as`, then `TBD_AGENT`, then the machine-local session
+identity, and finally `<harness>@<host>`; inspect it with `tbd whoami`. Top-level
+`sync --pull` updates issue Git only.
 Plain `tbd sync` also runs trackers according to `integrations.on_tbd_sync`; use
 `tbd integration status` for tracker health.
+When several collaborators may claim beads in parallel, follow
+`tbd shortcut coordinate-collaborators`.
 
 ## Quick Actions
 
