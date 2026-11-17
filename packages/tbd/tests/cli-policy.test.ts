@@ -51,6 +51,7 @@ interface PolicyShowJson {
   source: { branch: string; ref: string; kind: string } | null;
   block: { status: string; problems?: string[]; version?: string; recorded?: string | null };
   policies: PolicyStatusJson[];
+  inert: string[];
   workingTree: {
     agentsMdExists: boolean;
     integrationBlock: boolean;
@@ -694,6 +695,36 @@ describe('policy writes report grants that cannot take effect', () => {
         JSON.stringify({ warning: inert }),
       );
       expect(record('policy', 'revoke', 'pr-delivery').stderr).not.toContain('needs');
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
+  // `tbd policy show` is the check agents are told to run before a GitHub mutation.
+  it(
+    'tbd policy show and the write documents carry the same warning',
+    async () => {
+      const dir = await createRepo();
+      const granted = runTbd(dir, ['--json', 'policy', 'grant', 'pr-delivery']);
+      expect(granted.status, granted.stderr).toBe(0);
+      const [inert, ...rest] = inertPolicyCombinations(
+        resolvePolicyStatuses(parsePolicyBlock(await readFile(join(dir, 'AGENTS.md'), 'utf-8'))),
+      );
+      expect(inert).toContain('pr-delivery: autonomous needs github-editing: granted');
+      expect(rest).toEqual([]);
+      expect((JSON.parse(granted.stdout) as { inert: string[] }).inert).toEqual([inert]);
+
+      // Recorded only in the working tree, it is not yet effective, so show has nothing to say.
+      expect(showJson(dir).inert).toEqual([]);
+      await git(dir, 'commit', '-q', '-am', 'grant pr-delivery');
+      expect(showJson(dir).inert).toEqual([inert]);
+      const text = runTbd(dir, ['policy', 'show']);
+      expect(text.status, text.stderr).toBe(0);
+      expect(text.stdout).toContain(inert);
+
+      expect(runTbd(dir, ['policy', 'grant', 'github-editing']).status).toBe(0);
+      await git(dir, 'commit', '-q', '-am', 'grant github-editing');
+      expect(showJson(dir).inert).toEqual([]);
+      expect(runTbd(dir, ['policy', 'show']).stdout).not.toContain('needs github-editing');
     },
     CLI_TEST_TIMEOUT_MS,
   );

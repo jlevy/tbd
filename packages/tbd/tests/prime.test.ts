@@ -13,6 +13,7 @@ import { getCodexTbdSection } from '../src/cli/commands/setup.js';
 import {
   POLICY_BEGIN_MARKER,
   POLICY_END_MARKER,
+  inertPolicyCombinations,
   parsePolicyBlock,
   renderPolicyBlock,
   resolvePolicyStatuses,
@@ -110,6 +111,10 @@ describe('formatPolicyGrantsLines', () => {
     expect(lines.join('\n')).toContain('pr-delivery: autonomous');
     expect(lines.join('\n')).not.toContain('setup-tbd');
     expect(lines.join('\n')).toContain('github-editing: not-granted');
+    // The grant this session receives cannot act yet; say so where it is handed over.
+    const inert = inertPolicyCombinations(resolvePolicyStatuses(parse));
+    expect(inert).toHaveLength(1);
+    expect(lines).toContain(inert[0]);
   });
 
   it('marks unknown values and unknown policies', () => {

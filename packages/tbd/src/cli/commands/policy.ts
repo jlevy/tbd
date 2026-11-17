@@ -66,6 +66,8 @@ interface PolicyShowReport {
   source: DefaultBranchRef | null;
   block: PolicyBlockSummary;
   policies: PolicyStatus[];
+  /** Effective grants that cannot take effect as recorded, as `tbd doctor` words them. */
+  inert: string[];
   workingTree: {
     agentsMdExists: boolean;
     integrationBlock: boolean;
@@ -143,6 +145,7 @@ class PolicyShowHandler extends BaseCommand {
       source: effective.source,
       block: summarizeParse(effective.parse),
       policies: effective.policies,
+      inert: inertPolicyCombinations(effective.policies),
       workingTree: {
         agentsMdExists: workingTree.agentsMdExists,
         integrationBlock: workingTree.integrationBlock,
@@ -210,6 +213,9 @@ class PolicyShowHandler extends BaseCommand {
           `  ${status.name.padEnd(width)}${(status.effective ?? '').padEnd(14)}${colors.dim(hint)}`,
         );
       }
+    }
+    for (const line of report.inert) {
+      lines.push(colors.warn(line));
     }
     lines.push('');
 
@@ -345,7 +351,7 @@ class PolicyRecordHandler extends BaseCommand {
     const source = (await readEffectiveGrants(tbdRoot)).source;
     const effectHint = await describeHowToTakeEffect(tbdRoot, source);
     this.output.data(
-      { policy: policyName, value, file: AGENTS_MD_REL, recorded, defaultBranch: source },
+      { policy: policyName, value, file: AGENTS_MD_REL, recorded, defaultBranch: source, inert },
       () => {
         this.output.success(`Recorded ${policyName}: ${value} in ${AGENTS_MD_REL}`);
         console.log(`  ${effectHint} \`tbd policy show\` reports effective grants.`);
