@@ -10,7 +10,7 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtemp, readFile, readdir, realpath, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,12 +32,17 @@ function git(cwd: string, ...args: string[]): string {
   return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
 }
 
-function runTbd(cwd: string, args: string[]) {
-  const result = spawnSync(process.execPath, [tbdBin, ...args], {
+/** Run the built CLI, whatever its exit status. */
+function spawnTbd(cwd: string, args: string[]) {
+  return spawnSync(process.execPath, [tbdBin, ...args], {
     cwd,
     encoding: 'utf8',
     env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' },
   });
+}
+
+function runTbd(cwd: string, args: string[]) {
+  const result = spawnTbd(cwd, args);
   expect(result.status, `${args.join(' ')}: ${result.stderr}`).toBe(0);
   return result;
 }
@@ -146,6 +151,34 @@ describe('tbd sync --dry-run writes nothing', () => {
       expect(again.stdout).not.toContain('Would prepare');
       expect(again.stdout).toContain('[DRY-RUN] Would sync repository');
       expect(await state(dir)).toEqual(prepared);
+    },
+    TIMEOUT_MS,
+  );
+
+  // A dry run that announces a sync the real run refuses has failed at its one job.
+  it.each([
+    { name: 'sync --issues', flags: ['--issues'] },
+    { name: 'a full sync', flags: [] },
+  ])(
+    "previews $name over a worktree it cannot repair with the real run's error",
+    async ({ flags }) => {
+      const dir = await initRepo();
+      const shared = await resolveSharedTbdPaths(dir);
+      git(dir, 'worktree', 'remove', '--force', shared.sharedWorktreePath);
+      // A directory git does not know is `corrupted`, which only `tbd doctor --fix` repairs.
+      await mkdir(join(shared.sharedWorktreePath, 'stray'), { recursive: true });
+      const before = await state(dir);
+
+      const dry = spawnTbd(dir, ['sync', ...flags, '--dry-run']);
+      expect(await state(dir)).toEqual(before);
+      const real = spawnTbd(dir, ['sync', ...flags]);
+      const errorLine = (stderr: string) =>
+        stderr.split('\n').find((line) => line.includes('Shared data-sync worktree is corrupted'));
+      expect(dry.status).toBe(1);
+      expect(real.status).toBe(1);
+      expect(errorLine(real.stderr)).toContain("Run 'tbd doctor --fix' to repair.");
+      expect(errorLine(dry.stderr)).toBe(errorLine(real.stderr));
+      expect(dry.stdout).not.toContain('Would sync repository');
     },
     TIMEOUT_MS,
   );

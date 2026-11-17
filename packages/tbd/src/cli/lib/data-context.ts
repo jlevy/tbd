@@ -33,6 +33,7 @@ import {
 } from '../../file/git.js';
 import type { WorktreeHealth, WorktreeStatus } from '../../file/git.js';
 import {
+  assertSharedDataSyncLockWritable,
   ensureCommonDirLayout,
   isLayoutUpgradeable,
   readCommonDirLayout,
@@ -128,6 +129,24 @@ async function probeDataSyncReadiness(tbdRoot: string): Promise<DataSyncProbe> {
 }
 
 /**
+ * Whether a writer can prepare this worktree state itself. As in
+ * `ensureSharedDataSyncLayout`: a `missing` or `prunable` worktree is re-created, and
+ * any other invalid state stops with {@link unrepairableWorktreeError}.
+ */
+function isRepairableWorktree(health: WorktreeHealth): boolean {
+  return health.valid || health.status === 'missing' || health.status === 'prunable';
+}
+
+/** The error a writer raises for a worktree it cannot repair; dry runs raise the same one. */
+function unrepairableWorktreeError(health: WorktreeHealth): Error {
+  return new Error(
+    `Shared data-sync worktree is ${health.status}: ${
+      health.error ?? 'unknown error'
+    }. Run 'tbd doctor --fix' to repair.`,
+  );
+}
+
+/**
  * Apply any pending first-use initialization, migration, or repair to the shared
  * data-sync layout. MUST be called while holding `withSharedDataSyncLock` so that
  * worktree repair, layout writes, and migrated-config writes are serialized.
@@ -157,11 +176,7 @@ async function ensureSharedDataSyncLayout(
       notifyHistoricalDataRestored(repairResult.restoredDataFiles);
       repairedWorktreeStatus = probe.health.status;
     } else {
-      throw new Error(
-        `Shared data-sync worktree is ${probe.health.status}: ${
-          probe.health.error ?? 'unknown error'
-        }. Run 'tbd doctor --fix' to repair.`,
-      );
+      throw unrepairableWorktreeError(probe.health);
     }
   }
   if (probe.health.valid && !probe.dataSyncReady) {
@@ -274,17 +289,44 @@ export async function prepareDataSyncContext(tbdRoot: string): Promise<TbdDataCo
   return assembleDataContext(tbdRoot, probe, repairedWorktreeStatus);
 }
 
+/** The lock-free view of shared data-sync state that dry runs and `tbd sync --status` read. */
+export interface DataSyncInspection {
+  /** The project config, migrated in memory only. */
+  config: Config;
+  sharedPaths: SharedTbdPaths;
+  /** The shared worktree's health; its files can be read only when `valid`. */
+  health: WorktreeHealth;
+  /** `false`: a writer would prepare the state (worktree, layout, or config format) first. */
+  ready: boolean;
+}
+
 /**
- * The config and readiness of the shared data-sync state, from the lock-free probe
- * alone. For dry runs: preparing the context takes the writer lock, which advances
- * the data-sync epoch, and can materialize the worktree or migrate the config.
- * `ready: false` means a real run would prepare that state first.
+ * Inspect shared data-sync state from the lock-free probe alone. Takes no lock and
+ * writes nothing: preparing the context takes the writer lock, which advances the
+ * data-sync epoch, and can materialize the worktree or migrate the config. A worktree
+ * that a writer could not repair raises the error the writer raises.
  */
-export async function previewDataSyncContext(
-  tbdRoot: string,
-): Promise<{ config: Config; ready: boolean }> {
+export async function inspectDataSyncState(tbdRoot: string): Promise<DataSyncInspection> {
   const probe = await probeDataSyncReadiness(tbdRoot);
-  return { config: probe.config, ready: probe.ready };
+  if (!isRepairableWorktree(probe.health)) {
+    throw unrepairableWorktreeError(probe.health);
+  }
+  return {
+    config: probe.config,
+    sharedPaths: probe.sharedPaths,
+    health: probe.health,
+    ready: probe.ready,
+  };
+}
+
+/**
+ * For a dry run of a writer: {@link inspectDataSyncState}, after first raising the
+ * unwritable-lock error that `withDataSyncContext({ lock: true })` raises before it
+ * prepares anything. Detects that failure without taking the lock.
+ */
+export async function previewDataSyncContext(tbdRoot: string): Promise<DataSyncInspection> {
+  await assertSharedDataSyncLockWritable(tbdRoot);
+  return inspectDataSyncState(tbdRoot);
 }
 
 /**

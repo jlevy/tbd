@@ -2,7 +2,7 @@
  * Git common-dir layout metadata for shared issue sync machinery.
  */
 
-import { readFile, mkdir } from 'node:fs/promises';
+import { access, constants, readFile, mkdir } from 'node:fs/promises';
 import { dirname, join, sep } from 'node:path';
 import { writeFile } from 'atomically';
 import { parse as parseYaml } from 'yaml';
@@ -230,6 +230,38 @@ function isLockProtocolPath(error: unknown, lockPath: string): boolean {
         path.startsWith(`${ownerPath}${sep}`) ||
         path.startsWith(preparedOwnerPrefix)),
   );
+}
+
+/**
+ * Raise the `SharedLockUnwritableError` that `withSharedDataSyncLock` raises for an
+ * unwritable lock path, without creating or taking the lock. For dry runs, which must
+ * report the failure a real run would hit and stay lock-free.
+ *
+ * The real run creates the locks directory, recursively, and then the lock inside it,
+ * so the directory that must be writable is the locks directory or, when it does not
+ * exist yet, its nearest existing ancestor. Only the permission errors that
+ * `withSharedDataSyncLock` translates are reported here; anything else is left for the
+ * real run to report.
+ */
+export async function assertSharedDataSyncLockWritable(tbdRoot: string): Promise<void> {
+  const paths = await resolveSharedTbdPaths(tbdRoot);
+  let dir = paths.sharedLocksDir;
+  for (;;) {
+    try {
+      await access(dir, constants.W_OK);
+      return;
+    } catch (error) {
+      const code = lockPermissionCode(error);
+      if (code) {
+        throw new SharedLockUnwritableError(code, paths, tbdRoot);
+      }
+      const parent = dirname(dir);
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT' || parent === dir) {
+        return;
+      }
+      dir = parent;
+    }
+  }
 }
 
 /**
