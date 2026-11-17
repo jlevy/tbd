@@ -12,10 +12,23 @@
   rules. `ask`, the value an unanswered or revoked policy takes, asks once before opening
   a PR the request did not ask for.
   The policy is outside the recommended set, and `setup-tbd` asks about it separately.
-  It needs `github-editing: granted`, and `tbd doctor` warns when it is recorded without
-  it. It authorizes no merge and changes no review requirement: those stay under
-  `github-merge` and `pr-review-requirements`. Run `tbd setup --auto` after upgrading to
-  refresh the `AGENTS.md` block, which now states the rule.
+  It acts only with `github-editing: granted`; without that grant agents still ask
+  before the first push, and `tbd doctor` and `tbd policy grant`, `revoke`, and `set`
+  warn about the combination.
+  It authorizes no merge and changes no review requirement: those stay under
+  `github-merge` and `pr-review-requirements`. Its grant line follows `linear`, so tbd
+  0.11.0 and this release write the policy block in the same order.
+  Run `tbd setup --auto` after upgrading to refresh the `AGENTS.md` block, which now
+  states the rule.
+
+### Fixes
+
+- **`tbd sync --dry-run` writes nothing**: a dry run refreshed the docs cache and
+  `.tbd/config.yml` while printing “Synced docs”, and its issue step took the sync lock,
+  which could re-create a missing tbd-sync worktree or migrate the config.
+  It now prints `[DRY-RUN] Would sync docs: …` and `[DRY-RUN] Would sync repository`,
+  says when a real run would first prepare the data-sync state, and changes no files.
+  `tbd docs sync --dry-run` reports pending doc changes the same way.
 
 ## 0.11.0
 
