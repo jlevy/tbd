@@ -286,12 +286,14 @@
         <!-- The workmap groups by a label prefix the data itself uses (area:x, team:y —
            whatever convention the project chose). tbd assigns no meaning to any
            prefix; the select offers only what the labels state. -->
-        <select
-          id="workmapgroup"
-          aria-label="Group cards by label prefix"
-          data-tooltip="Group cards by a label prefix your labels already use"
-          hidden
-        ></select>
+        <span class="select-control workmap-group-control" id="workmapgroupcontrol" hidden>
+          <select
+            id="workmapgroup"
+            aria-label="Group cards by label prefix"
+            data-tooltip="Group cards by a label prefix your labels already use"
+          ></select>
+          <span class="chevron chevron-down" aria-hidden="true"></span>
+        </span>
         <div class="chooser" id="viewchooser" role="radiogroup" aria-label="Board view">
           <button
             type="button"
@@ -299,6 +301,7 @@
             role="radio"
             data-view-choice="list"
             aria-checked="true"
+            tabindex="0"
           >
             list
           </button>
@@ -308,6 +311,7 @@
             role="radio"
             data-view-choice="workmap"
             aria-checked="false"
+            tabindex="-1"
           >
             workmap
           </button>

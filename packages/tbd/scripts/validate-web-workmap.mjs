@@ -382,6 +382,8 @@ class Page {
       Enter: { key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' },
       Space: { key: ' ', code: 'Space', windowsVirtualKeyCode: 32, text: ' ' },
       Tab: { key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 },
+      ArrowLeft: { key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37 },
+      ArrowRight: { key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 },
     };
     const key = keys[name];
     invariant(key !== undefined, `Unknown key ${name}`);
@@ -978,6 +980,45 @@ try {
     invariant(
       cardsOpen === 0 && rowsOpen === 0,
       `After switching views: ${cardsOpen} cards and ${rowsOpen} rows still expanded`,
+    );
+    await cdp.send('Target.disposeBrowserContext', { browserContextId });
+  });
+
+  await check('the view chooser is one tab stop and arrow keys choose the view', async () => {
+    const { browserContextId } = await cdp.send('Target.createBrowserContext');
+    const viewer = await Page.open(cdp, `${origin}/?view=list`, browserContextId);
+    await viewer.waitFor(`document.querySelectorAll('#rows tr[data-bead-id]').length > 0`);
+    const chooser = `(() => {
+      const buttons = [...document.querySelectorAll('#viewchooser [data-view-choice]')];
+      const select = document.getElementById('workmapgroup');
+      return {
+        tabStops: buttons.filter((button) => button.tabIndex >= 0).map((button) => button.dataset.viewChoice),
+        checked: buttons.find((button) => button.getAttribute('aria-checked') === 'true')?.dataset.viewChoice ?? null,
+        focused: document.activeElement?.dataset.viewChoice ?? null,
+        view: new URLSearchParams(location.search).get('view'),
+        selectControl: select.parentElement.classList.contains('select-control') &&
+          select.parentElement.querySelector(':scope > .chevron') !== null,
+      };
+    })()`;
+    await viewer.evaluate(`document.querySelector('#viewchooser [data-view-choice="list"]').focus()`);
+    const start = await viewer.evaluate(chooser);
+    await viewer.press('ArrowRight');
+    await viewer.waitFor(`!document.getElementById('workmapwrap').hidden`, 10_000);
+    const right = await viewer.evaluate(chooser);
+    await viewer.press('ArrowLeft');
+    await viewer.waitFor(`!document.getElementById('tablewrap').hidden`, 10_000);
+    const left = await viewer.evaluate(chooser);
+    const expected = (view) => ({
+      tabStops: [view],
+      checked: view,
+      focused: view,
+      view,
+      selectControl: true,
+    });
+    invariant(
+      JSON.stringify([start, right, left]) ===
+        JSON.stringify([expected('list'), expected('workmap'), expected('list')]),
+      `Chooser states: ${JSON.stringify([start, right, left])}`,
     );
     await cdp.send('Target.disposeBrowserContext', { browserContextId });
   });

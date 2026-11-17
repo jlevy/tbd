@@ -99,7 +99,9 @@ const elements = {
   workmapWrap: byId('workmapwrap', HTMLDivElement),
   workmapGroups: byId('workmapgroups', HTMLDivElement),
   workmapEmpty: byId('workmapempty', HTMLDivElement),
+  workmapGroupControl: byId('workmapgroupcontrol', HTMLSpanElement),
   workmapGroup: byId('workmapgroup', HTMLSelectElement),
+  viewChooser: byId('viewchooser', HTMLDivElement),
   workmapNotice: byId('workmapnotice', HTMLParagraphElement),
 };
 
@@ -1383,12 +1385,15 @@ function renderHeader(view: ClientView, board: BoardResponse, watch: Observation
 /** Sync the view chooser, the group select, and which board surface is visible. */
 function renderViewChooser(): void {
   for (const button of viewChoiceButtons) {
-    button.setAttribute('aria-checked', String(button.dataset.viewChoice === boardViewMode));
+    const checked = button.dataset.viewChoice === boardViewMode;
+    button.setAttribute('aria-checked', String(checked));
+    // A radio group is one tab stop, on the checked choice; arrow keys move within it.
+    button.tabIndex = checked ? 0 : -1;
   }
   const workmap = boardViewMode === 'workmap';
   elements.tableWrap.hidden = workmap;
   elements.workmapWrap.hidden = !workmap;
-  elements.workmapGroup.hidden = !workmap;
+  elements.workmapGroupControl.hidden = !workmap;
   // Only the visible surface keeps mounted beads, so hidden DOM never doubles the bound.
   if (workmap) {
     // List-only chrome; renderBoard is not running to manage it.
@@ -1827,7 +1832,7 @@ function render(): void {
     // Show the view the address names from the first paint, with the loading message
     // in that view; the grouping select has no options until the first board.
     renderViewChooser();
-    elements.workmapGroup.hidden = true;
+    elements.workmapGroupControl.hidden = true;
     const loading = boardViewMode === 'workmap' ? elements.workmapEmpty : elements.empty;
     loading.hidden = false;
     loading.textContent = view.boardError ?? 'Loading beads…';
@@ -2119,6 +2124,25 @@ for (const button of viewChoiceButtons) {
     scheduleRender();
   });
 }
+elements.viewChooser.addEventListener('keydown', (event) => {
+  const steps: Readonly<Record<string, number>> = {
+    ArrowRight: 1,
+    ArrowDown: 1,
+    ArrowLeft: -1,
+    ArrowUp: -1,
+  };
+  const step = steps[event.key];
+  const current = viewChoiceButtons.findIndex((button) => button === document.activeElement);
+  if (step === undefined || current < 0) {
+    return;
+  }
+  event.preventDefault();
+  // As in a native radio group, the arrow moves focus and selects, wrapping at the ends.
+  const next =
+    viewChoiceButtons[(current + step + viewChoiceButtons.length) % viewChoiceButtons.length];
+  next?.focus();
+  next?.click();
+});
 elements.workmapGroup.addEventListener('change', () => {
   workmapGroupPrefix = elements.workmapGroup.value;
   restartBoardWindow();

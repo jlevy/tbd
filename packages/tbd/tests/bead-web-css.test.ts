@@ -288,8 +288,9 @@ describe('chevron icon system', () => {
     expect(disclosureRule, 'expected a stable disclosure line box').not.toBeNull();
     expect(disclosureRule).toContain('place-items: center');
 
-    expect(page.match(/class="select-control"/gu)).toHaveLength(3);
-    expect(page.match(/class="chevron chevron-down"/gu)).toHaveLength(4);
+    // Status, type, priority, and the Workmap grouping select.
+    expect(page.match(/class="select-control(?: [^"]*)?"/gu)).toHaveLength(4);
+    expect(page.match(/class="chevron chevron-down"/gu)).toHaveLength(5);
     expect(client).toContain("disclosure.setAttribute('aria-expanded', String(open))");
     expect(client).toContain("chevron.className = `chevron chevron-${open ? 'down' : 'right'}`");
     expect(client).not.toMatch(/[▸▾]/u);
