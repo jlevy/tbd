@@ -369,28 +369,63 @@ export interface BrowserLaunchCommand {
 const CMD_METACHARACTERS = /[\^&|<>()%!"]/gu;
 
 /**
+ * Why `href` cannot pass through cmd.exe literally, or null when it can. A caret makes
+ * cmd's later phases read a character literally, but variable expansion runs first:
+ * `%NAME:search=replace%` and `%NAME:~start,length%` expand even when each `%` is
+ * escaped, so no `:` may follow a `%`. Every `%` must start a two-digit escape, and no
+ * whitespace or quote may remain for `start` to split on.
+ */
+function cmdLiteralProblem(href: string, protocol: string): string | null {
+  if (protocol !== 'http:' && protocol !== 'https:') {
+    return `only http and https URLs are supported, not ${protocol}`;
+  }
+  if (/[\s"]/u.test(href)) {
+    return 'it holds whitespace or a quote';
+  }
+  if (/%(?![0-9A-Fa-f]{2})/u.test(href)) {
+    return 'a % does not start a two-digit escape';
+  }
+  const firstPercent = href.indexOf('%');
+  if (firstPercent >= 0 && href.includes(':', firstPercent)) {
+    return 'a : follows a %, which cmd reads as a variable substitution';
+  }
+  return null;
+}
+
+/**
  * The cmd.exe arguments that run `<command> <url>` with the URL read as literal text.
  *
- * The URL is first normalized, which percent-encodes any space or quote, so `start`
- * receives it as one argument. Every remaining metacharacter is then caret-escaped and the
- * command line is passed verbatim, because Node quotes only arguments that contain a space
- * or a quote and would otherwise hand a bare `&` to cmd as a command separator. `/d` skips
- * AutoRun commands and `/v:off` turns off `!` expansion. `/s /c "..."` is the form Node
- * itself builds for `shell: true`. An escaped `%` stays literal unless the environment
- * defines a variable whose name ends in `^`.
+ * Contract: `url` is an http or https URL whose normalized form has no whitespace or
+ * quote, in which every `%` starts a two-digit escape, and in which no `:` follows a `%`.
+ * Every link `tbd web` builds satisfies it (`webUrlWithView` percent-encodes the view
+ * options, including `%` and `:`). Any other URL throws, so a caller fails closed: the
+ * open command reports it as a browser that could not be opened.
+ *
+ * Within the contract, every cmd metacharacter is caret-escaped and the command line is
+ * passed verbatim, because Node quotes only arguments that contain a space or a quote and
+ * would otherwise hand a bare `&` to cmd as a command separator. `/d` skips AutoRun
+ * commands and `/v:off` turns off `!` expansion. `/s /c "..."` is the form Node itself
+ * builds for `shell: true`. One limit remains: cmd expands `%NAME%` when NAME is a
+ * defined variable, and every `%...%` span here names a variable ending in `^`, so the
+ * URL stays literal unless the environment defines such a variable.
  *
  * Exported with `command` as a parameter so tests can run the same escaping through the
  * real cmd.exe with `echo`, which prints what `start` would receive.
  */
 export function cmdCommandArgs(command: string, url: string): string[] {
-  const literal = new URL(url).href.replace(CMD_METACHARACTERS, '^$&');
+  const parsed = new URL(url);
+  const problem = cmdLiteralProblem(parsed.href, parsed.protocol);
+  if (problem !== null) {
+    throw new Error(`The URL cannot pass through cmd.exe literally: ${problem}`);
+  }
+  const literal = parsed.href.replace(CMD_METACHARACTERS, '^$&');
   return ['/d', '/v:off', '/s', '/c', `"${command} ${literal}"`];
 }
 
 /**
  * The browser launch for `platform`. Elsewhere the URL is one argument to a launcher that
  * no shell parses. Windows has no such launcher, so `start` runs inside cmd.exe with the
- * URL escaped by `cmdCommandArgs`.
+ * URL escaped by `cmdCommandArgs`, which throws for a URL outside its contract.
  *
  * Exported so the Windows branch is assertable from any host.
  */

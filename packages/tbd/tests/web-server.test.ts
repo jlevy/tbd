@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { BoardState } from '../src/cli/web/board.js';
 import type { BoardStateDependencies, RepoStatus, WebState } from '../src/cli/web/board.js';
+import { webUrlWithView } from '../src/cli/commands/web.js';
 import {
   browserLaunchCommand,
   cmdCommandArgs,
@@ -285,7 +286,8 @@ describe('browser launch command', () => {
   const urls = [
     'http://127.0.0.1:7777/?view=workmap&group=area%3A',
     'http://127.0.0.1:7777/?group=a^b&x=(1)|2',
-    'http://127.0.0.1:7777/?group=%PATH%!PATH!',
+    // `%25` decodes to `%`, so this reads as `%PATH%` once decoded; cmd must not expand it.
+    'http://127.0.0.1:7777/?group=%25PATH%25!PATH!',
     'http://127.0.0.1:7777/?group=say "hi" & bye',
   ];
 
@@ -347,6 +349,50 @@ describe('browser launch command', () => {
       // literal start receives is the URL itself.
       expect({ url, literal: cmdLiteral(argument) }).toEqual({ url, literal: new URL(url).href });
       expect(argument).not.toMatch(/[\s"]/u);
+    }
+  });
+
+  it('accepts every link tbd web builds, whatever the grouping prefix holds', () => {
+    const prefixes = [
+      ...Array.from({ length: 0x24f }, (_, index) => String.fromCodePoint(index + 1)),
+      '%PATH%',
+      '%PATH:a=b%',
+      '%CD:~0,2%',
+      '!PATH!',
+      '^&calc',
+      'say "hi" & bye',
+      'line\r\nbreak',
+      'emoji \u{1f600}',
+    ];
+    for (const groupPrefix of prefixes) {
+      for (const view of [undefined, 'list', 'workmap']) {
+        const link = webUrlWithView('http://127.0.0.1:7777', { view, groupPrefix });
+        const argument = browserLaunchCommand(link, 'win32')
+          .args.at(-1)!
+          .slice('"start "" '.length, -1);
+        expect({ groupPrefix, literal: cmdLiteral(argument) }).toEqual({
+          groupPrefix,
+          literal: new URL(link).href,
+        });
+      }
+    }
+  });
+
+  it('refuses a URL outside what the cmd.exe escaping is proven for, on Windows only', () => {
+    for (const url of [
+      // Not http(s): normalization would leave the space and the quote in place.
+      'foo:a b"c',
+      // A quote survives normalization in a host name, and start would parse it.
+      'http://a"b/',
+      // `%` not starting a two-digit escape: cmd reads `%PATH:a=b%` as a substitution.
+      'http://127.0.0.1:7777/?q=%PATH:a=b%',
+      'http://127.0.0.1:7777/?q=%G0',
+      // A `:` after a `%` lets cmd read `%41:x=y%` as a substitution on variable `41`.
+      'http://127.0.0.1:7777/?q=%41:x=y%41',
+    ]) {
+      expect(() => browserLaunchCommand(url, 'win32'), url).toThrow(/cannot pass/u);
+      expect(() => cmdCommandArgs('echo', url), url).toThrow(/cannot pass/u);
+      expect(browserLaunchCommand(url, 'linux').args).toEqual([url]);
     }
   });
 
