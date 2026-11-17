@@ -69,9 +69,13 @@ bead writes overlap incoming ones, for example after a `tbd create` in each clon
 Check the output of each step:
 
 1. **Before claiming,** read `status` and `delegate` from `tbd show <id> --json`. Stop
-   if the bead is closed or `delegate` names another collaborator, whatever the status.
-   `tbd start` reports a foreign claim only on an `in_progress` bead; on an open bead it
-   replaces a `delegate` set by `tbd update --delegate` or `tbd create --delegate`.
+   if the bead is closed, if `delegate` names another collaborator whatever the status,
+   or if the bead is `in_progress` with no `delegate`, which a raw
+   `tbd update --status in_progress` leaves; ask the coordinator before taking it.
+   `tbd start` reports a foreign claim only on an `in_progress` bead with a `delegate`.
+   It claims a bead in any other status except `closed` even when it has a `delegate`,
+   such as one set by `tbd update --delegate` or `tbd create --delegate`, and an
+   in-progress bead that has none.
 2. **Read the claim result.** `claimed` and `skipped[].id` hold the bead’s display ID
    (`displayId` in `tbd show --json`) whatever ID form you passed.
    - Proceed when `claimed` contains it and the result’s `delegate` equals your resolved
