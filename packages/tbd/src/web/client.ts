@@ -1546,17 +1546,20 @@ function renderWorkmapGroupChoices(rows: readonly BoardRowView[]): string {
   }
   const signature = JSON.stringify([choices, effective]);
   if (signature !== workmapGroupChoicesSignature) {
-    workmapGroupChoicesSignature = signature;
-    elements.workmapGroup.replaceChildren(
-      ...choices.map(([value, label]) => {
-        const option = document.createElement('option');
-        option.value = value;
-        option.textContent = label;
-        return option;
-      }),
-    );
+    // The data sets the option count, so build them in a fragment: spreading them into
+    // one call overflows the stack at about 124,500 arguments.
+    const options = document.createDocumentFragment();
+    for (const [value, label] of choices) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      options.append(option);
+    }
+    elements.workmapGroup.replaceChildren(options);
     elements.workmapGroup.value = effective;
     elements.workmapGroup.disabled = choices.length === 0;
+    // Recorded only once the options are in place, so a failed rebuild is retried.
+    workmapGroupChoicesSignature = signature;
   }
   return effective;
 }

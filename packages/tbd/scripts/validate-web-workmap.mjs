@@ -537,13 +537,9 @@ async function measure(page, label, action, settled, { timeoutMs = 60_000, quiet
 const CARD = '#workmapgroups .workmap-card';
 const FIRST_CARD = `${CARD}[data-bead-id]`;
 
-const temporaryDir = await mkdtemp(join(tmpdir(), 'tbd-web-workmap-'));
-let server = null;
-let chrome = null;
-let cdp = null;
-try {
-  await access(tbdBin);
-  const repoDir = join(temporaryDir, 'repository');
+/** A disposable git repository initialized for tbd, holding the given JSONL beads. */
+async function createRepository(name, beadsJsonl) {
+  const repoDir = join(temporaryDir, name);
   await execFileAsync('git', ['init', '--quiet', repoDir]);
   for (const [key, value] of [
     ['user.name', 'tbd workmap QA'],
@@ -555,12 +551,50 @@ try {
     cwd: repoDir,
   });
   await tbd(repoDir, ['init', '--prefix=qa']);
-  const beadsFile = join(temporaryDir, 'beads.jsonl');
-  await writeFile(beadsFile, generatedBeads(TOTAL_BEADS));
+  const beadsFile = join(temporaryDir, `${name}.jsonl`);
+  await writeFile(beadsFile, beadsJsonl);
   await tbd(repoDir, ['import', beadsFile]);
+  return repoDir;
+}
+
+/**
+ * Beads whose labels state `perBead` distinct prefixes each, besides a shared `area:`:
+ * more grouping choices than one function call can take as spread arguments.
+ */
+function prefixFloodBeads(count, perBead) {
+  const lines = [];
+  for (let index = 0; index < count; index += 1) {
+    const labels = [`area:a${index % 7}`];
+    for (let k = 0; k < perBead; k += 1) {
+      labels.push(`k${index}x${k}:v`);
+    }
+    const at = new Date(Date.UTC(2026, 0, 1) + index * 60_000).toISOString();
+    lines.push(
+      JSON.stringify({
+        id: `bd-${index}`,
+        title: `Prefix flood ${index}`,
+        status: 'open',
+        priority: 2,
+        issue_type: 'task',
+        labels,
+        created_at: at,
+        updated_at: at,
+      }),
+    );
+  }
+  return `${lines.join('\n')}\n`;
+}
+
+const temporaryDir = await mkdtemp(join(tmpdir(), 'tbd-web-workmap-'));
+const servers = [];
+let chrome = null;
+let cdp = null;
+try {
+  await access(tbdBin);
+  const repoDir = await createRepository('repository', generatedBeads(TOTAL_BEADS));
 
   const port = await availablePort();
-  server = spawn(
+  const server = spawn(
     process.execPath,
     [
       tbdBin,
@@ -575,6 +609,7 @@ try {
     ],
     { cwd: repoDir, stdio: ['ignore', 'pipe', 'pipe'] },
   );
+  servers.push(server);
   const descriptor = await waitForDescriptor(server);
   const origin = `http://127.0.0.1:${port}`;
   invariant(
@@ -1110,6 +1145,51 @@ try {
     await cdp.send('Target.disposeBrowserContext', { browserContextId });
   });
 
+  await check('a board stating over 200,000 label prefixes still renders the Workmap', async () => {
+    // 1,000 beads with 201 prefixes each, plus area: (201,001 grouping choices).
+    const floodDir = await createRepository('prefix-flood', prefixFloodBeads(1_000, 201));
+    const floodPort = await availablePort();
+    const flood = spawn(
+      process.execPath,
+      [tbdBin, '--json', 'web', '--port', String(floodPort), '--view', 'workmap'],
+      { cwd: floodDir, stdio: ['ignore', 'pipe', 'pipe'] },
+    );
+    servers.push(flood);
+    const floodDescriptor = await waitForDescriptor(flood);
+    const { browserContextId } = await cdp.send('Target.createBrowserContext');
+    const viewer = await Page.blank(cdp, browserContextId);
+    const errors = [];
+    const onError = (message) => {
+      if (message.method === 'Runtime.exceptionThrown' && message.sessionId === viewer.sessionId) {
+        errors.push(message.params.exceptionDetails.exception?.description ?? 'exception');
+      }
+    };
+    cdp.listeners.add(onError);
+    try {
+      await viewer.navigate(floodDescriptor.pageUrl);
+      await viewer
+        .waitFor(`document.querySelectorAll(${JSON.stringify(CARD)}).length > 0`, 60_000)
+        .catch((error) => {
+          throw new Error(`${error.message}; page exceptions: ${JSON.stringify(errors)}`);
+        });
+      const shown = await viewer.evaluate(`({
+        options: document.getElementById('workmapgroup').options.length,
+        group: document.getElementById('workmapgroup').value,
+        cards: document.querySelectorAll(${JSON.stringify(CARD)}).length,
+      })`);
+      invariant(
+        shown.options === 201_001 &&
+          shown.group === 'area:' &&
+          shown.cards === 1_000 &&
+          errors.length === 0,
+        `Prefix flood showed ${JSON.stringify(shown)}, errors ${JSON.stringify(errors)}`,
+      );
+    } finally {
+      cdp.listeners.delete(onError);
+      await cdp.send('Target.disposeBrowserContext', { browserContextId });
+    }
+  });
+
   const { browserContextId: faceContext } = await cdp.send('Target.createBrowserContext');
   const faces = await Page.open(cdp, `${origin}/?view=workmap&group=area%3A`, faceContext);
   await faces.waitFor(`document.querySelectorAll(${JSON.stringify(CARD)}).length > 0`);
@@ -1203,7 +1283,7 @@ try {
       await waitForExit(chrome);
     }
   }
-  if (server !== null) {
+  for (const server of servers) {
     server.kill('SIGINT');
     await waitForExit(server);
   }
