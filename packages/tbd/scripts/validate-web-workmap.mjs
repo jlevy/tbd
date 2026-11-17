@@ -17,7 +17,9 @@
  *   with their literal labels, wraps long text inside cards, shows a Workmap link's view
  *   while the board loads, resets expansions on a view change, keeps the view chooser a
  *   single tab stop with arrow-key selection (leaving modified arrows to the browser),
- *   and lets a remembered grouping that no served bead states give way to the default.
+ *   lets a remembered grouping that no served bead states give way to the default and
+ *   keeps it out of the address until the rows confirm it, and still renders a second
+ *   board whose labels state over 200,000 distinct prefixes.
  *
  * Chrome is required, so this is an explicit QA tier rather than part of `pnpm test`.
  * Set CHROME_PATH to choose a browser binary. The script never touches the source
