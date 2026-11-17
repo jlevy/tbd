@@ -116,12 +116,21 @@ const GIT_MAX_BUFFER = 50 * 1024 * 1024; // 50MB
  * Uses execFile for security - prevents shell injection attacks.
  */
 export async function git(...args: string[]): Promise<string> {
+  return (await gitUntrimmed(...args)).trim();
+}
+
+/**
+ * Like {@link git}, but returns stdout exactly as git printed it, for formats where
+ * leading whitespace is data: the first line of `git status --porcelain` starts with
+ * a space whenever the first entry is unstaged.
+ */
+export async function gitUntrimmed(...args: string[]): Promise<string> {
   try {
     const { stdout } = await execFileAsync('git', args, {
       maxBuffer: GIT_MAX_BUFFER,
       env: gitSafeEnv(),
     });
-    return stdout.trim();
+    return stdout;
   } catch (err) {
     throw GitError.from(err, args);
   }

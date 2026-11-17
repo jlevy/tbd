@@ -667,7 +667,11 @@ Options:
 - `--push` - Push local issue changes only unless `--integrations` is also explicit
 - `--pull` - Pull remote issue changes only unless `--integrations` is also explicit
 - `--status` - Show docs and issue sync status without syncing.
-  It never runs or checks external trackers; use `tbd integration status` for those
+  It changes no tbd state: it takes no lock and prepares nothing, so a missing worktree
+  or a config that needs migrating stays as it is.
+  It fetches the sync branch’s remote-tracking ref to count what is waiting to be
+  pulled. It never runs or checks external trackers; use `tbd integration status` for
+  those
 - `--force` - Accepted for compatibility but currently has no effect; it does not
   overwrite conflicts (`tbd-s18s` tracks implementing or removing it)
 - `--fix` - Attempt to repair an unhealthy issue worktree before syncing

@@ -18,6 +18,7 @@ import { saveConflictToAttic } from '../../file/attic-entry.js';
 import {
   git,
   gitCommit,
+  gitUntrimmed,
   mergeBeadAcrossRefs,
   resolveBridgeConflicts,
   pushWithRetry,
@@ -65,7 +66,11 @@ import {
   importFromWorkspace,
   deleteWorkspace,
 } from '../../file/workspace.js';
-import { previewDataSyncContext, withDataSyncContext } from '../lib/data-context.js';
+import {
+  inspectDataSyncState,
+  previewDataSyncContext,
+  withDataSyncContext,
+} from '../lib/data-context.js';
 import { runEnabledIntegrationPushes, runEnabledIntegrations } from '../lib/integration-runner.js';
 import { integrationsInert } from '../../integrations/core/registry.js';
 import { resolveSyncFoldMode, syncFoldPosture } from '../../integrations/core/provider-settings.js';
@@ -249,10 +254,12 @@ class SyncHandler extends BaseCommand {
     if (syncIssues) {
       attempted.push('issues');
       try {
-        // A dry run previews from the lock-free probe instead: preparing the context
-        // takes the writer lock, which advances the data-sync epoch, and can
+        // `--status` and a dry run read the lock-free probe instead: preparing the
+        // context takes the writer lock, which advances the data-sync epoch, and can
         // materialize the worktree or migrate the config.
-        if (this.ctx.dryRun && !options.status) {
+        if (options.status) {
+          await this.showIssueStatus();
+        } else if (this.ctx.dryRun) {
           await this.previewIssueSync();
         } else {
           await withDataSyncContext(
@@ -266,11 +273,6 @@ class SyncHandler extends BaseCommand {
 
               const syncBranch = config.sync.branch;
               const remote = config.sync.remote;
-
-              if (options.status) {
-                await this.showIssueStatus(syncBranch, remote);
-                return;
-              }
 
               if (repairedWorktreeStatus) {
                 this.output.success('Worktree repaired successfully');
@@ -631,8 +633,28 @@ class SyncHandler extends BaseCommand {
     this.output.dryRun(action, { ...issues, docs, integrations });
   }
 
-  private async showIssueStatus(syncBranch: string, remote: string): Promise<void> {
-    const status = await this.getSyncStatus(syncBranch, remote);
+  /**
+   * Show the issue surface's sync status. Read-only: it takes no lock and prepares
+   * nothing, so a missing worktree stays missing and a config that needs migrating
+   * stays as it is. It fetches the sync branch's remote-tracking ref, which is how it
+   * learns what is waiting to be pulled.
+   */
+  private async showIssueStatus(): Promise<void> {
+    const { config, sharedPaths, health } = await inspectDataSyncState(this.tbdRoot);
+    const syncBranch = config.sync.branch;
+    const remote = config.sync.remote;
+    if (!health.valid) {
+      this.output.notice(
+        `The data-sync worktree is ${health.status}, so local changes are not shown; ` +
+          'the next tbd command that reads issues re-creates it.',
+        { worktree: health.status },
+      );
+    }
+    const status = await this.getSyncStatus(
+      syncBranch,
+      remote,
+      health.valid ? sharedPaths.sharedWorktreePath : null,
+    );
 
     this.output.data(status, () => {
       const colors = this.output.getColors();
@@ -670,7 +692,12 @@ class SyncHandler extends BaseCommand {
     });
   }
 
-  private async getSyncStatus(syncBranch: string, remote: string): Promise<SyncStatus> {
+  /** @param worktreePath The sync worktree, or null when it is not there to read. */
+  private async getSyncStatus(
+    syncBranch: string,
+    remote: string,
+    worktreePath: string | null,
+  ): Promise<SyncStatus> {
     const localChanges: string[] = [];
     const remoteChanges: string[] = [];
     let ahead = 0;
@@ -681,7 +708,11 @@ class SyncHandler extends BaseCommand {
     // Now check worktree status directly.
     // See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md
     try {
-      const status = await git('-C', this.worktreePath, 'status', '--porcelain');
+      // Untrimmed: the porcelain status columns are positional, and the first line
+      // starts with a space when its entry is unstaged.
+      const status = worktreePath
+        ? await gitUntrimmed('-C', worktreePath, 'status', '--porcelain')
+        : '';
       if (status) {
         for (const line of status.split('\n')) {
           if (!line) {

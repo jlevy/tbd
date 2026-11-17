@@ -313,3 +313,60 @@ describe('tbd sync --dry-run --json prints one result document', () => {
     TIMEOUT_MS,
   );
 });
+
+describe('tbd sync --status is read-only (tbd-incg)', () => {
+  it(
+    'takes no lock, re-creates no worktree, and migrates no config, with or without --dry-run',
+    async () => {
+      const fixture = await initRepo();
+      removeWorktree(fixture);
+      const configPath = join(fixture.dir, '.tbd', 'config.yml');
+      const config = await readFile(configPath, 'utf8');
+      await writeFile(
+        configPath,
+        config.replace(`tbd_format: ${CURRENT_FORMAT}`, 'tbd_format: f07'),
+      );
+      // Status fetches the sync branch to count what is behind: git records that fetch
+      // in FETCH_HEAD, the one write expected here. The remote has not moved, so the
+      // remote-tracking ref stays where it is.
+      const withoutFetchHead = async () => {
+        const current = await state(fixture);
+        const { [join('.git', 'FETCH_HEAD')]: _fetchHead, ...repository } = current.repository;
+        return { ...current, repository };
+      };
+      const before = await withoutFetchHead();
+
+      for (const args of [
+        ['sync', '--status'],
+        ['sync', '--status', '--dry-run'],
+        ['sync', '--issues', '--status'],
+        ['sync', '--issues', '--status', '--json'],
+      ]) {
+        const status = runTbd(fixture.dir, args);
+        expect(await withoutFetchHead(), args.join(' ')).toEqual(before);
+        if (!args.includes('--json')) {
+          expect(status.stdout, args.join(' ')).toContain('The data-sync worktree is missing');
+        }
+      }
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
+    'lists the first changed path whole',
+    async () => {
+      const fixture = await initRepo();
+      // Leaves ` M .tbd/data-sync/mappings/ids.yml` as the first porcelain line, whose
+      // leading space a trimmed read loses, cutting the path's first character.
+      runTbd(fixture.dir, ['create', 'Another issue']);
+
+      const status = runTbd(fixture.dir, ['sync', '--issues', '--status', '--json']);
+      const { localChanges } = JSON.parse(status.stdout) as { localChanges: string[] };
+      expect(localChanges[0]).toBe('modified: .tbd/data-sync/mappings/ids.yml');
+      expect(localChanges.slice(1)).toEqual([
+        expect.stringMatching(/^new: \.tbd\/data-sync\/issues\/is-[0-9a-z]{26}\.md$/) as string,
+      ]);
+    },
+    TIMEOUT_MS,
+  );
+});
