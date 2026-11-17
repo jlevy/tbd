@@ -868,9 +868,10 @@ callers build on.
 The Workmap shows the same filtered and sorted rows as the list, as cards grouped by the
 value each bead’s labels state under a prefix your labels already use.
 tbd assigns no meaning to any prefix; the page offers only the prefixes your labels
-contain. A bead with two values under the prefix appears in `conflicting` with its
-literal labels, and a bead with none appears in `ungrouped`. Each card’s disclosure
-button expands it by pointer or keyboard.
+contain. Each group is headed by its literal label, such as `area:caching`. A bead with
+two values under the prefix appears in the `conflicting` bucket with its literal labels,
+and a bead with none appears in `ungrouped`. Each card’s disclosure button expands it by
+pointer or keyboard.
 Like the list, the Workmap mounts at most 5,000 cards per page.
 When a query matches more beads than the server returns (10,000), the Workmap shows the
 list’s notice under its groups, and each group count, which then covers only the

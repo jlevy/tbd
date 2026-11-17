@@ -126,6 +126,16 @@ const PREFIX_PROBES = [['team:red'], ['team:red'], ['team:blue'], ['area:web']].
 const FACE_PROBES = [
   { title: 'Face probe open', status: 'open', labels: ['area:glyph'] },
   { title: 'Face probe deferred', status: 'deferred', labels: ['area:glyph'] },
+  // Values that differ only in case, or that read like the two synthetic buckets.
+  { title: 'Face probe upper', labels: ['area:API'] },
+  { title: 'Face probe lower', labels: ['area:api'] },
+  { title: 'Face probe named conflicting', labels: ['area:conflicting'] },
+  { title: 'Face probe named ungrouped', labels: ['area:ungrouped'] },
+  { title: 'Face probe two values', labels: ['area:caching', 'area:sync'] },
+  { title: 'Face probe no value', labels: [] },
+  // Unbroken text wider than any card.
+  { title: `Face probe ${'x'.repeat(160)}`, labels: ['area:long'] },
+  { title: 'Face probe long conflict', labels: [`area:${'y'.repeat(48)}`, `area:${'z'.repeat(48)}`] },
 ];
 const PROBES = [...PREFIX_PROBES, ...FACE_PROBES];
 
@@ -885,19 +895,21 @@ try {
       await cdp.send('Target.disposeBrowserContext', { browserContextId });
     },
   );
+  const { browserContextId: faceContext } = await cdp.send('Target.createBrowserContext');
+  const faces = await Page.open(cdp, `${origin}/?view=workmap&group=area%3A`, faceContext);
+  await faces.waitFor(`document.querySelectorAll(${JSON.stringify(CARD)}).length > 0`);
+  await faces.evaluate(`(() => {
+    const search = document.getElementById('q');
+    search.value = 'Face probe';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`);
+  await faces.waitFor(
+    `document.querySelectorAll(${JSON.stringify(CARD)}).length === ${FACE_PROBES.length}`,
+  );
+
   await check('a card names its lifecycle status in text, not only by glyph color', async () => {
-    const { browserContextId } = await cdp.send('Target.createBrowserContext');
-    const viewer = await Page.open(cdp, `${origin}/?view=workmap&group=area%3A`, browserContextId);
-    await viewer.waitFor(`document.querySelectorAll(${JSON.stringify(CARD)}).length > 0`);
-    await viewer.evaluate(`(() => {
-      const search = document.getElementById('q');
-      search.value = 'Face probe';
-      search.dispatchEvent(new Event('input', { bubbles: true }));
-    })()`);
-    await viewer.waitFor(
-      `document.querySelectorAll(${JSON.stringify(CARD)}).length === ${FACE_PROBES.length}`,
-    );
-    const statuses = await viewer.evaluate(`[...document.querySelectorAll(${JSON.stringify(CARD)})]
+    const statuses = await faces.evaluate(`[...document.querySelectorAll(${JSON.stringify(CARD)})]
+      .filter((card) => card.closest('.workmap-group')?.textContent.includes('glyph'))
       .map((card) => {
         const status = card.querySelector('.issue-status');
         // What assistive technology reads: the text outside aria-hidden glyphs.
@@ -917,8 +929,46 @@ try {
         ]),
       `Card statuses: ${JSON.stringify(statuses)}`,
     );
-    await cdp.send('Target.disposeBrowserContext', { browserContextId });
   });
+
+  await check('group headings keep label case and differ from the two synthetic buckets', async () => {
+    // Rendered text, after CSS text-transform, without the count.
+    const headings = await faces.evaluate(`[...document.querySelectorAll('.workmap-group-name')]
+      .map((name) => {
+        const text = name.innerText;
+        return text.slice(0, text.lastIndexOf(name.querySelector('.num').innerText)).trim();
+      })`);
+    const expected = [
+      'area:API',
+      'area:api',
+      'area:conflicting',
+      'area:glyph',
+      'area:long',
+      'area:ungrouped',
+      'CONFLICTING',
+      'UNGROUPED',
+    ];
+    invariant(
+      JSON.stringify([...headings].sort()) === JSON.stringify([...expected].sort()),
+      `Headings: ${JSON.stringify(headings)}`,
+    );
+  });
+
+  await check('long unbroken titles and labels wrap inside their card', async () => {
+    const overflowing = await faces.evaluate(`[...document.querySelectorAll(${JSON.stringify(CARD)})]
+      .filter((card) => {
+        const box = card.getBoundingClientRect();
+        const outside = [...card.querySelectorAll('*')].some(
+          (element) => element.getBoundingClientRect().right > box.right + 0.5,
+        );
+        const id = card.querySelector('.workmap-card-id').getBoundingClientRect();
+        const priority = card.querySelector('.priority').getBoundingClientRect();
+        return card.scrollWidth > card.clientWidth || outside || id.height > priority.height + 1;
+      })
+      .map((card) => card.dataset.beadId)`);
+    invariant(overflowing.length === 0, `Cards overflowing or wrapping the id: ${overflowing}`);
+  });
+  await cdp.send('Target.disposeBrowserContext', { browserContextId: faceContext });
 } finally {
   if (cdp !== null) {
     // Closing through the protocol also stops Chrome's helper processes, which could

@@ -4738,6 +4738,9 @@ that groups rows by the value each bead’s labels state under a caller-chosen p
 tbd assigns no meaning to any prefix and offers only the prefixes the rows state.
 Two distinct values place a bead in a `conflicting` group showing its literal labels,
 and no value places it in `ungrouped`; neither is resolved by a tie-break.
+A group is headed by its literal label in the label-tag style, so values that differ
+only in case, or that are named `conflicting` or `ungrouped`, stay distinct from each
+other and from the two small-cap buckets.
 The list’s 5,000-row page window bounds the mounted cards in the projection’s reading
 order. Cards use the row disclosure button and the same delegated toggle and focus
 restoration; renders reuse keyed card nodes, rebuild a card only when what it shows
@@ -5038,7 +5041,7 @@ versus 186,380 elements and 2.81–5.50 seconds at 10,000. The former is a usabl
 last-resort page; the latter adds substantial layout and garbage-collection variance.
 The Workmap applies the same page window to its cards and reuses keyed card nodes.
 `qa:web-workmap` measures it in headless Chrome at the 10,000-row cap: a page mounts
-5,000 cards (45,036 elements), expanding or collapsing a card creates or moves no card
+5,000 cards (45,048 elements), expanding or collapsing a card creates or moves no card
 node, and a one-bead live update rebuilds only that card.
 At most 100 details remain expanded, the body cache retains 200 entries, and a mass
 deletion animates at most 100 ghost rows.

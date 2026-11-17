@@ -1413,7 +1413,7 @@ interface MountedWorkmapCard {
 interface MountedWorkmapSection {
   element: HTMLElement;
   name: HTMLHeadingElement;
-  label: Text;
+  label: HTMLSpanElement;
   count: HTMLSpanElement;
   signature: string;
 }
@@ -1637,7 +1637,11 @@ function mountWorkmapCard(view: ClientView, card: WorkmapCardView): MountedWorkm
 function workmapSectionCopy(section: WorkmapSectionView, prefix: string): WorkmapSectionCopy {
   switch (section.kind) {
     case 'group':
-      return { heading: section.value, hint: `beads labeled ${prefix}${section.value}` };
+      // The literal label, so case survives and a value named like a bucket stays distinct.
+      return {
+        heading: `${prefix}${section.value}`,
+        hint: `beads labeled ${prefix}${section.value}`,
+      };
     case 'conflicting':
       return {
         heading: 'conflicting',
@@ -1666,7 +1670,11 @@ function mountWorkmapSection(
     element.className = 'workmap-group';
     const name = document.createElement('h3');
     name.className = 'section-heading workmap-group-name';
-    const label = document.createTextNode('');
+    // A group names a user label, shown as the board's literal label tag; the two
+    // buckets are names the UI gives its own chunks, in the small-cap heading recipe.
+    // A key keeps its kind, so the class is fixed when the section is created.
+    const label = document.createElement('span');
+    label.className = section.kind === 'group' ? 'tag workmap-group-label' : 'workmap-group-label';
     const num = document.createElement('span');
     num.className = 'num';
     name.append(label, num);
@@ -1676,7 +1684,7 @@ function mountWorkmapSection(
   }
   if (mounted.signature !== signature) {
     mounted.signature = signature;
-    mounted.label.data = copy.heading;
+    mounted.label.textContent = copy.heading;
     mounted.count.textContent = count;
     mounted.name.dataset.tooltip = copy.hint;
   }
