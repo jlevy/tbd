@@ -20,8 +20,8 @@
   environments, inter-agent communication)
 - [Claude Code Sub-Agents](research-claude-code-sub-agents.md) — Internal sub-agent
   architecture, model configuration, compaction/handoff patterns
-- [API References for Bridge Integrations](api-references-bridge-integrations.md) —
-  Multi-agent protocols (MCP, ACP, A2A, ANP) and bridge APIs
+- [API References for Bridge Integrations](../current/api-references-bridge-integrations.md)
+  — Multi-agent protocols (MCP, ACP, A2A, ANP) and bridge APIs
 
 * * *
 
@@ -1290,3 +1290,7 @@ Two agent types: Managers (can spawn other agents including other Managers) and 
   not sufficient for fresh containers
 - [Google, Zed fight VS Code lock-in with ACP](https://www.theregister.com/2025/08/28/google_zed_acp/)
   — Industry analysis of ACP
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

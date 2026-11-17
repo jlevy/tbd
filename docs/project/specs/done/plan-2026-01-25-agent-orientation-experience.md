@@ -978,6 +978,10 @@ This is the most important phase - making `tbd` / `tbd prime` the complete orien
 
 - [plan-2026-01-20-streamlined-init-setup-design.md](plan-2026-01-20-streamlined-init-setup-design.md)
   \- Previous setup flow design
-- [.claude/skills/tbd/SKILL.md](../../../.claude/skills/tbd/SKILL.md) - Current skill
+- [.claude/skills/tbd/SKILL.md](../../../../.claude/skills/tbd/SKILL.md) - Current skill
   file
 - [tbd --help output](#) - Current help structure
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

@@ -337,3 +337,7 @@ bypassed or rubber-stamped.
 - Bug bead: tbd-1810
 - Original (incomplete) implementation bead: tbd-208
 - Retroactive test helpers: tbd-1837, tbd-1838
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

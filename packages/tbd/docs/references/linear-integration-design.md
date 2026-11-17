@@ -254,3 +254,7 @@ Each of these is a judgment about whose workspace it is:
 *This document is part of the tbd documentation.
 See also: the `setup-linear` shortcut for connecting a repository, and
 `docs/project/specs/` for the plans this design came from.*
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

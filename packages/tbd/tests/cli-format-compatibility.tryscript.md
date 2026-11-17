@@ -45,8 +45,30 @@ $ tbd list 2>&1
 Error: This repository requires a newer version of tbd.
 Config format 'f99' is from a newer tbd version.
 This tbd version supports up to format 'f08'.
-Upgrade tbd: npm install -g get-tbd@latest
+Upgrade tbd: npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" get-tbd
+If npm finds no matching version, or tbd still refuses, the release it needs is under 14 days old: wait, or ask the user for an exception (tbd guidelines supply-chain-hardening).
 ? 1
+```
+
+# Test: The upgrade advice names the release that last set the repository up
+
+With `tbd_fallback_version` recorded, the command installs that release or a newer one,
+so npm reports no matching version while it is under 14 days old instead of installing
+an older release that still refuses the repository.
+
+```console
+$ cp .tbd/config.yml config.saved && printf 'tbd_fallback_version: 0.11.0\n' >> .tbd/config.yml && tbd list 2>&1
+Error: This repository requires a newer version of tbd.
+Config format 'f99' is from a newer tbd version.
+This tbd version supports up to format 'f08'.
+Upgrade tbd to get-tbd 0.11.0 or newer: npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" 'get-tbd@>=0.11.0'
+If npm finds no matching version, or tbd still refuses, the release it needs is under 14 days old: wait, or ask the user for an exception (tbd guidelines supply-chain-hardening).
+? 1
+```
+
+```console
+$ mv config.saved .tbd/config.yml && tbd list 2>&1 | tail -1
+If npm finds no matching version, or tbd still refuses, the release it needs is under 14 days old: wait, or ask the user for an exception (tbd guidelines supply-chain-hardening).
 ```
 
 * * *

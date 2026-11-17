@@ -210,6 +210,37 @@ describe('classifySyncError', () => {
     });
   });
 
+  describe('status codes are read as status codes, not as stray digits', () => {
+    // A status pattern that matches bare digits anywhere reclassifies a failure
+    // based on characters that carry no meaning: a temp directory, a SHA, a byte
+    // count. This is not hypothetical — a missing-remote push failure under a
+    // directory named `tryscript-05895p` was classified `transient` because
+    // `5\d\d` matched the `589` inside it, while the same failure elsewhere was
+    // `unknown`. The classification decides whether tbd auto-saves to the outbox
+    // or tells the user to retry, so it must depend only on the error.
+    it('ignores status-code digits embedded in a path', () => {
+      const missingRemote =
+        'Command failed: git -C /tmp/tryscript-05895p push --no-verify origin ' +
+        'refs/heads/tbd-sync:refs/heads/tbd-sync\n' +
+        "fatal: 'origin' does not appear to be a git repository";
+      expect(classifySyncError(missingRemote)).toBe('unknown');
+    });
+
+    it('ignores status-code digits inside longer numbers and identifiers', () => {
+      expect(classifySyncError('wrote 4031 objects')).toBe('unknown');
+      expect(classifySyncError('object 5008f2a is missing')).toBe('unknown');
+      expect(classifySyncError('/tmp/build-401k/repo is not a git repository')).toBe('unknown');
+      expect(classifySyncError('/var/data/x-500-y is missing')).toBe('unknown');
+    });
+
+    it('still reads real status codes in the shapes git reports them', () => {
+      expect(classifySyncError('The requested URL returned error: 403')).toBe('permanent');
+      expect(classifySyncError('error: RPC failed; HTTP 500 curl 22')).toBe('transient');
+      expect(classifySyncError('The requested URL returned error: 503.')).toBe('transient');
+      expect(classifySyncError('status=401, push rejected')).toBe('permanent');
+    });
+  });
+
   describe('unknown errors', () => {
     it('classifies ambiguous errors as unknown', () => {
       expect(classifySyncError('Something went wrong')).toBe('unknown');

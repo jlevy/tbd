@@ -639,3 +639,7 @@ For tbd specifically:
 - [Vercel supported agents](https://www.mintlify.com/vercel-labs/skills/guides/supported-agents)
 - [gstack](https://github.com/garrytan/gstack)
 - [superpowers](https://github.com/obra/superpowers)
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

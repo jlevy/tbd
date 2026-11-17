@@ -709,3 +709,7 @@ conflicting assumptions and you’ll pay the integration cost repeatedly.
 If you want, I can also produce a “Doc Patch Checklist” formatted as a series of
 concrete markdown diffs (section-by-section) that editors can apply directly, but the
 items above should already be actionable for both doc editors and implementation agents.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

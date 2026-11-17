@@ -115,7 +115,8 @@ IMPORTANT:
   Agents unfamiliar with tbd should run `tbd prime` for full workflow context.
 
 Getting Started:
-  npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>
+  npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" get-tbd
+  tbd setup --auto --prefix=<name>
 
   This initializes tbd and configures your coding agents automatically.
   To refresh setup (idempotent, safe anytime): `tbd setup --auto`

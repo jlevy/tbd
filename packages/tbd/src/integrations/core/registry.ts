@@ -7,7 +7,7 @@
 
 import type { Config, PolicyDefinition, ProviderNameType } from '../../lib/types.js';
 import { resolvePolicy } from './policy.js';
-import { resolveProviderSettings } from './provider-settings.js';
+import { agentMapProblems, resolveProviderSettings } from './provider-settings.js';
 
 /** Every provider tbd knows about, in a stable display order. */
 export const PROVIDERS: readonly ProviderNameType[] = ['linear', 'github'] as const;
@@ -52,16 +52,24 @@ export function providerConfig(
     // Read through resolveProviderSettings, never the raw keys: a committed config may
     // still carry the pre-f08 flat spelling while this build writes the grouped one.
     const settings = resolveProviderSettings(linear);
+    // Every config problem that can be seen without a credential, reported here rather
+    // than at the adapter: the adapter is built after a credential resolves, so without
+    // one its errors never reach the user at all.
+    const problems = [
+      ...(linear.enabled && !settings.teamKey
+        ? ['integrations.linear.target.team_key is required when Linear is enabled.']
+        : []),
+      ...agentMapProblems(provider, settings.agentMap),
+    ];
     return {
       provider,
       enabled: linear.enabled,
       policy: resolvePolicy(linear),
       maxNesting: settings.maxNesting,
       target: settings.teamKey,
-      configError:
-        linear.enabled && !settings.teamKey
-          ? 'integrations.linear.target.team_key is required when Linear is enabled'
-          : undefined,
+      // Joined, not first-wins: a config with two mistakes should report both, and every
+      // message ends in a period so the result reads as sentences rather than a run-on.
+      configError: problems.length > 0 ? problems.join(' ') : undefined,
     };
   }
 

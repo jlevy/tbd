@@ -1169,3 +1169,7 @@ The following references to `.tbd/cache/` are now historical context only:
 
 The `generateShortcutDirectory()` function is retained and used for on-the-fly
 generation. Only the cache read/write functions were removed.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

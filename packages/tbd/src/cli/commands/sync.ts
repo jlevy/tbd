@@ -14,6 +14,7 @@ import {
   classifySyncError,
 } from '../lib/errors.js';
 import { listIssues, writeIssue, type InvalidIssueFile } from '../../file/storage.js';
+import { saveConflictToAttic } from '../../file/attic-entry.js';
 import {
   git,
   gitCommit,
@@ -22,6 +23,7 @@ import {
   pushWithRetry,
   ensureWorktreeAttachedToBranch,
   checkRemoteBranchHealth,
+  ensureDataSyncMergeAttributes,
   type ConflictEntry,
   type PushResult,
   trackingRefspec,
@@ -33,8 +35,7 @@ import {
   printForkDriftNotice,
 } from '../lib/docs-sync-output.js';
 import { basename, join } from 'node:path';
-import { access, readFile } from 'node:fs/promises';
-import { writeFile } from 'atomically';
+import { readFile } from 'node:fs/promises';
 import {
   type SyncSummary,
   type SyncTallies,
@@ -118,6 +119,13 @@ class SyncHandler extends BaseCommand {
   private syncIntegrations = false;
   /** Set once the in-position (inside fullSync) integration run has happened. */
   private integrationsRan = false;
+  /**
+   * Conflicts whose losing value could not be archived, across every merge in this run.
+   *
+   * Counted on the command rather than returned, because the two merges that can produce
+   * conflicts (the pull merge and each push-retry merge) report through the same summary.
+   */
+  private conflictsNotArchived = 0;
   /** Captured so the issue surface can finish while the outer rollup still fails honestly. */
   private integrationFailure: unknown;
 
@@ -125,8 +133,8 @@ class SyncHandler extends BaseCommand {
     const tbdRoot = await requireInit();
     this.tbdRoot = tbdRoot;
 
-    // --push/--pull scope direction for the network surfaces (issues and
-    // integrations). Docs have no remote, so they cannot be scoped that way.
+    // --push/--pull scope the issue Git surface and, only when explicitly selected,
+    // integrations. Docs have no remote, so they cannot be scoped that way.
     if ((options.push || options.pull) && options.docs) {
       throw new ValidationError(
         '--push/--pull only work with issue and integration sync, not --docs',
@@ -135,7 +143,7 @@ class SyncHandler extends BaseCommand {
 
     // Surface selection. With no selector, sync EVERYTHING — an agent closing
     // a session runs plain `tbd sync` and expects the whole repository to be
-    // current. Selectors narrow it; --push/--pull imply the network surfaces.
+    // current. Selectors narrow it; --push/--pull always imply the issue surface.
     const hasDirectionFlag = Boolean(options.push) || Boolean(options.pull);
     const hasSurfaceFlag =
       Boolean(options.issues) || Boolean(options.docs) || Boolean(options.integrations);
@@ -254,6 +262,13 @@ class SyncHandler extends BaseCommand {
             }
           },
         );
+        if (this.conflictsNotArchived > 0) {
+          const plural = this.conflictsNotArchived === 1 ? '' : 's';
+          throw new SyncError(
+            `${this.conflictsNotArchived} conflict value${plural} could not be archived; ` +
+              'the resolved issue sync completed, but its recovery data is incomplete',
+          );
+        }
       } catch (error) {
         fail('issues', error);
       }
@@ -271,6 +286,35 @@ class SyncHandler extends BaseCommand {
     // before reaching them. Running here still records everything on the sync
     // branch; those commits go out with the next successful push, so a git
     // problem delays tracker work rather than losing it.
+    // A dry run does not open the locked data-sync context this surface needs, so it
+    // cannot evaluate the tracker at all. Say so rather than returning quietly: the
+    // silence is indistinguishable from "the tracker is settled", and this is the
+    // command agents run to preview a sync. `tbd integration sync --dry-run` does
+    // reach the tracker and is the one to use for a real preview.
+    //
+    // Gated on the same config the real run below consults, because a repository with
+    // no tracker has nothing unevaluated to warn about — telling those users on every
+    // dry run to go run a tracker command is noise, and both neighbours check first.
+    if (syncIntegrations && !this.integrationsRan && !options.status && this.ctx.dryRun) {
+      const preConfig = await readConfig(tbdRoot);
+      const inert =
+        !syncFoldPosture(resolveSyncFoldMode(preConfig.integrations)).runs ||
+        integrationsInert(preConfig);
+      if (!inert) {
+        // `notice()` with structured data, not `info()` and not a bare `notice()`:
+        // info is verbose-only, and `notice()` without a payload emits NOTHING under
+        // --json (`cli/lib/output.ts`), which is the mode agents run — so a bare call
+        // would have left the defect exactly where it was. The payload is what carries
+        // the fact to stderr as JSONL while stdout stays one result document, which is
+        // why the surface-narrowing notice above passes one too.
+        this.output.notice(
+          'Dry run does not evaluate external trackers. ' +
+            'Use `tbd integration sync --dry-run` to preview the tracker surface.',
+          { skippedSurfaces: ['integrations'], reason: 'dry-run' },
+        );
+      }
+    }
+
     if (syncIntegrations && !this.integrationsRan && !options.status && !this.ctx.dryRun) {
       try {
         // Decide from config alone first. Opening a locked data-sync context
@@ -359,6 +403,7 @@ class SyncHandler extends BaseCommand {
       createdOutbound: string[];
       conflicts: unknown[];
       failures: unknown[];
+      warnings: unknown[];
     }[],
     dryRun = false,
   ): void {
@@ -368,13 +413,35 @@ class SyncHandler extends BaseCommand {
       ? { push: 'would push', pull: 'would pull', create: 'would create' }
       : { push: 'pushed', pull: 'pulled', create: 'created' };
     for (const report of reports) {
+      // `notice`, not `info`. `info` is verbose-only (see cli/lib/output.ts), so every
+      // tracker line this method produced was invisible on an ordinary `tbd sync` — the
+      // command reconciled the tracker, wrote to it, and said nothing about it at all
+      // (#265). The skip notice above already made exactly this choice, for exactly this
+      // reason; the report path had not.
       if (report.nothingToDo) {
+        // Still say so. A tracker that ran and had nothing to do is a different answer
+        // from a tracker that did not run, and silence cannot distinguish them.
+        const standing = report.warnings.length > 0 ? ` (warnings ${report.warnings.length})` : '';
+        this.output.notice(`Integrations (${report.provider}): nothing to do${standing}`, {
+          provider: report.provider,
+          nothingToDo: true,
+          warnings: report.warnings.length,
+        });
         continue;
       }
-      this.output.info(
+      this.output.notice(
         `Integrations (${report.provider}): ${verbs.push} ${report.pushed.length}, ` +
           `${verbs.pull} ${report.pulled.length}, ${verbs.create} ${report.createdOutbound.length}, ` +
           `conflicts ${report.conflicts.length}, failures ${report.failures.length}`,
+        {
+          provider: report.provider,
+          nothingToDo: false,
+          pushed: report.pushed.length,
+          pulled: report.pulled.length,
+          created: report.createdOutbound.length,
+          conflicts: report.conflicts.length,
+          failures: report.failures.length,
+        },
       );
     }
   }
@@ -385,10 +452,18 @@ class SyncHandler extends BaseCommand {
       ? { create: 'would create', update: 'would update' }
       : { create: 'created', update: 'updated' };
     for (const report of reports) {
-      this.output.info(
+      // Default-visible, same reason as reportIntegrationRun above.
+      this.output.notice(
         `Integrations (${report.provider}): ${verbs.create} ${report.created.length}, ` +
           `${verbs.update} ${report.updated.length}, skipped ${report.skipped.length}, ` +
           `failures ${report.failures.length}`,
+        {
+          provider: report.provider,
+          created: report.created.length,
+          updated: report.updated.length,
+          skipped: report.skipped.length,
+          failures: report.failures.length,
+        },
       );
     }
   }
@@ -796,8 +871,13 @@ class SyncHandler extends BaseCommand {
 
       if (result.success) {
         if (result.conflicts && result.conflicts.length > 0) {
+          // Same rule as the sync summary: only claim the attic when the attic has it.
+          const unarchived = this.conflictsNotArchived;
           this.output.success(
-            `Pushed to ${remote}/${syncBranch} (${result.conflicts.length} conflict(s) preserved in attic)`,
+            `Pushed to ${remote}/${syncBranch} (${result.conflicts.length} conflict(s)` +
+              (unarchived > 0
+                ? `, ${unarchived} NOT preserved in attic — see warnings)`
+                : ' preserved in attic)'),
           );
         } else {
           this.output.success(`Pushed ${ahead} commit(s) to ${remote}/${syncBranch}`);
@@ -827,12 +907,56 @@ class SyncHandler extends BaseCommand {
    *
    * @returns field-level conflict entries (the caller preserves them in attic).
    */
+  /**
+   * Write one attic entry per value the bead merge discarded.
+   *
+   * Same writer, same directory, same entry format as a workspace import
+   * (`file/attic-entry.ts`), so `tbd attic list`, `show` and `restore` work on a sync
+   * conflict exactly as they do on an import conflict, and a client on an older release
+   * reads these entries too — its `AtticEntrySchema` and attic commands are unchanged.
+   *
+   * Archiving is best effort per entry: a merge that has already been resolved must not
+   * fail because a recovery copy could not be written. But a failure is counted as well as
+   * warned about, because the per-entry lines are `info` — invisible without `--verbose` —
+   * and the summary line every run prints would otherwise go on saying the values are
+   * recoverable when they are not.
+   */
+  private async archiveConflicts(conflicts: ConflictEntry[]): Promise<void> {
+    if (conflicts.length === 0) {
+      return;
+    }
+    const atticDir = join(this.dataSyncDir, 'attic');
+    const archived: string[] = [];
+    for (const conflict of conflicts) {
+      try {
+        archived.push(await saveConflictToAttic(atticDir, conflict));
+      } catch (error) {
+        this.conflictsNotArchived += 1;
+        this.output.warn(
+          `Could not archive the ${conflict.field} value dropped from ${conflict.issue_id}: ` +
+            (error as Error).message,
+        );
+      }
+    }
+    if (archived.length > 0) {
+      // One line, not one per entry: a large merge archives dozens, and a --verbose log
+      // that scrolls the rest of the run off the screen is not more informative.
+      this.output.info(`Archived ${archived.length} conflict(s): ${archived.join(', ')}`);
+    }
+  }
+
   private async mergeRemoteIntoSyncBranch(
     syncBranch: string,
     remote: string,
   ): Promise<ConflictEntry[]> {
     const worktreePath = this.worktreePath;
     const conflicts: ConflictEntry[] = [];
+
+    // Git takes merge attributes from this worktree, not from the branch merged in, so a
+    // bead file two clones both changed reaches the structured merge below only if
+    // `issues/.gitattributes` is here first. Checked here as well as in fullSync because
+    // a rejected `tbd sync --push` merges through this function without passing there.
+    await this.ensureMergeAttributes(syncBranch, remote);
 
     // Track HEAD before merge for debug log
     let headBeforeMerge = '';
@@ -1022,6 +1146,16 @@ class SyncHandler extends BaseCommand {
         }
       }
 
+      // Archive every value the merge had to drop, BEFORE staging, so the entries ride
+      // the same commit as the resolution that produced them and reach every clone.
+      //
+      // Without this the losing value existed only in git history: the sync reported
+      // "conflict(s) preserved in attic" and nothing had been written there. The attic
+      // is append-only and never read back into live bead state — it exists so a merge
+      // that discarded the wrong side can be undone — so writing here cannot change
+      // what the merge decided.
+      await this.archiveConflicts(conflicts);
+
       // Stage resolved files and complete merge
       // Use --no-verify to bypass parent repo hooks (lefthook, husky, etc.)
       await git('-C', worktreePath, 'add', '-A');
@@ -1059,6 +1193,24 @@ class SyncHandler extends BaseCommand {
     // left any bead unparseable, fail loudly and name it. See issue #155.
     await this.assertNoCorruptBeads();
     return conflicts;
+  }
+
+  /**
+   * Put the merge attributes on the sync branch before a merge, taking the fetched remote's
+   * copy of a file it already publishes (see `ensureDataSyncMergeAttributes`).
+   *
+   * A failure is raised as a SyncError on purpose. Both callers run inside the full sync's
+   * `try`, whose `catch` reads any other error as a first-sync fetch failure and carries
+   * on, so a plain error here would skip the merge and still report the sync as done.
+   */
+  private async ensureMergeAttributes(syncBranch: string, remote: string): Promise<void> {
+    try {
+      await ensureDataSyncMergeAttributes(this.worktreePath, `${remote}/${syncBranch}`);
+    } catch (error) {
+      throw new SyncError(
+        `Could not add the tbd-sync merge attributes before merging: ${(error as Error).message}`,
+      );
+    }
   }
 
   private async doPushWithRetry(syncBranch: string, remote: string): Promise<PushResult> {
@@ -1107,8 +1259,6 @@ class SyncHandler extends BaseCommand {
     const spinner = this.output.spinner('Syncing with remote...');
     const summary: SyncSummary = emptySummary();
     const conflicts: ConflictEntry[] = [];
-    // Use tbdRoot for consistent path resolution
-    const worktreePath = this.worktreePath;
 
     try {
       // STEP 1: Commit local changes FIRST (before pulling)
@@ -1167,28 +1317,12 @@ class SyncHandler extends BaseCommand {
         this.output.debug('Remote sync branch does not exist yet');
       }
 
-      // Ensure .gitattributes exists in the worktree so ids.yml uses merge=union.
-      // This prevents conflicts when both sides add non-overlapping keys.
-      // Written before every merge so existing repos get it on their next sync.
-      {
-        const attrPath = join(this.dataSyncDir, 'mappings', '.gitattributes');
-        try {
-          await access(attrPath);
-        } catch {
-          await writeFile(attrPath, 'ids.yml merge=union\n');
-          await git('-C', worktreePath, 'add', attrPath);
-          try {
-            await gitCommit(
-              worktreePath,
-              '--no-verify',
-              '-m',
-              'chore: add merge=union for ids.yml',
-            );
-          } catch {
-            // May fail if nothing to commit (already staged elsewhere)
-          }
-        }
-      }
+      // Ensure the merge attributes (bead files merge=binary, ids.yml merge=union) are on
+      // this branch, so a repository initialized by an older tbd gets them on its next
+      // sync. The merge below checks again; this call is here so every full sync publishes
+      // them, even from a clone that never has to merge, because an older client applies
+      // them only once they reach its own branch.
+      await this.ensureMergeAttributes(syncBranch, remote);
 
       // STEP 3: If remote has changes, merge them in
       if (behindCommits > 0) {
@@ -1206,9 +1340,10 @@ class SyncHandler extends BaseCommand {
       this.output.debug(`Fetch failed (may be first sync): ${(error as Error).message}`);
     }
 
-    // Integration fold, on by default (`on_tbd_sync` defaults to `auto`;
-    // enabling a provider IS the opt-in). This is the one correct moment for
-    // it: AFTER pull/merge (so reconciliation sees other machines' bead
+    // Integration fold, on by default (`on_tbd_sync` defaults to `guarded`;
+    // enabling a provider is the opt-in to a bounded fold, while `auto`
+    // explicitly waives the bulk thresholds). This is the one correct moment
+    // for it: AFTER pull/merge (so reconciliation sees other machines' bead
     // changes instead of pushing stale state to the tracker) and BEFORE the
     // push (so the beads and bridge records it writes ride this very push).
     // A failure is contained until git sync finishes, then the outer surface
@@ -1303,6 +1438,9 @@ class SyncHandler extends BaseCommand {
     }
 
     summary.conflicts = conflicts.length;
+    if (this.conflictsNotArchived > 0) {
+      summary.conflictsNotArchived = this.conflictsNotArchived;
+    }
     spinner.stop();
 
     // Report push failure - classify error and take appropriate action

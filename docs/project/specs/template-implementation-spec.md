@@ -88,3 +88,7 @@ The implementation is broken into phases that may be committed and tested separa
 > List features or aspects that are NOT part of the work described in this doc.
 > List only likely next steps that are not being addressed here, to avoid accidentally
 > adding features or scope creep.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

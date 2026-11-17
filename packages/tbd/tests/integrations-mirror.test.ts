@@ -38,11 +38,15 @@ function issue(overrides: Partial<Issue> = {}): Issue {
 
 const displayId = (id: string): string => id.replace('is-', 'tbd-');
 
+/** One pinned instant for every plan, so readiness never depends on the wall clock. */
+const READY_AT = Date.parse('2026-08-10T00:00:00.000Z');
+
 describe('planMirror', () => {
   it('plans a create for a bead with no existing link', () => {
     const bead = issue({ id: 'is-a' });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -61,6 +65,7 @@ describe('planMirror', () => {
     const bead = issue({ id: 'is-a', assignee: 'josh' });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -78,6 +83,7 @@ describe('planMirror', () => {
     const bead = issue({ id: 'is-a', assignee: 'josh' });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -89,6 +95,35 @@ describe('planMirror', () => {
     expect(plan.creates[0]?.skippedFields).toBeUndefined();
   });
 
+  it('publishes a delegate for open work but never for a closed bead', () => {
+    // tbd-80vz. Closing a bead keeps its `delegate`, and a delegate write is what starts a
+    // Linear Agent Session, so a closed bead would otherwise hand finished work to an
+    // agent on every push.
+    const link = { linear: { id: 'ext', linked_at: '2026-08-10T00:00:00.000Z' } };
+    const open = issue({ id: 'is-open', delegate: 'cyrus', extensions: link });
+    const closed = issue({
+      id: 'is-closed',
+      status: 'closed',
+      delegate: 'cyrus',
+      extensions: link,
+    });
+    const plan = planMirror({
+      provider: 'linear',
+      readyAt: READY_AT,
+      allIssues: [open, closed],
+      selected: [open, closed],
+      displayId,
+      maxNesting: 2,
+      canPushDelegate: () => true,
+    });
+
+    const byId = new Map(plan.updates.map((action) => [action.bead.id, action]));
+    expect(byId.get('is-open')?.patch.delegate).toBe('cyrus');
+    expect(byId.get('is-closed')?.patch).not.toHaveProperty('delegate');
+    // Not publishing a finished bead's delegate is policy, not a failure to report.
+    expect(byId.get('is-closed')?.skippedFields).toBeUndefined();
+  });
+
   it('plans an update for an already-linked bead', () => {
     const bead = issue({
       id: 'is-a',
@@ -96,6 +131,7 @@ describe('planMirror', () => {
     });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -113,6 +149,7 @@ describe('planMirror', () => {
     });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -131,6 +168,7 @@ describe('planMirror', () => {
 
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [root, mid, deep],
       selected: [root, mid, deep],
       displayId,
@@ -155,6 +193,7 @@ describe('planMirror', () => {
 
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [root, mid, deep],
       selected: [root, mid, deep],
       displayId,
@@ -179,6 +218,7 @@ describe('planMirror', () => {
 
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [root, mid1, mid2, deep],
       selected: [root, mid1, mid2, deep],
       displayId,
@@ -197,6 +237,7 @@ describe('planMirror', () => {
 
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [unmirroredParent, child],
       // Only the child is selected, so it has no mirrored ancestor.
       selected: [child],
@@ -214,6 +255,7 @@ describe('planMirror', () => {
 
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [a, b],
       selected: [a, b],
       displayId,
@@ -238,6 +280,7 @@ describe('planMirror', () => {
 
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [epic, readyChild, blockedChild],
       selected: [epic],
       displayId,
@@ -248,6 +291,118 @@ describe('planMirror', () => {
     // Two children, one of them ready (the other is claimed).
     expect(block).toContain('Children: 2 (1 ready)');
   });
+
+  it('sends the slot the reconciler computes, so not-ready open work stays in Backlog', () => {
+    // tbd-evn3: without a slot the adapter maps `status: open` to Todo, which is not where
+    // the reconciler puts open work that is not ready.
+    const linked: Partial<Issue> = {
+      extensions: { linear: { id: 'ext', linked_at: '2026-08-10T00:00:00.000Z' } },
+    };
+    const ready = issue({ id: 'is-ready', ...linked });
+    const blocked = issue({ id: 'is-blocked', ...linked });
+    const blocker = issue({
+      id: 'is-blocker',
+      kind: 'task',
+      dependencies: [{ type: 'blocks', target: blocked.id }],
+    });
+    const deferred = issue({
+      id: 'is-deferred',
+      deferred_until: '2999-01-01T00:00:00.000Z',
+      ...linked,
+    });
+    const held = issue({ id: 'is-held', hold: 'paused', ...linked });
+    const canceled = issue({
+      id: 'is-canceled',
+      status: 'closed',
+      resolution: 'canceled',
+      ...linked,
+    });
+    // The rest of the positions, including the legacy five-value statuses: `blocked` is the
+    // one whose Linear column changes here (the named Blocked state, as a full sync writes).
+    const legacyBlocked = issue({ id: 'is-legacy-blocked', status: 'blocked', ...linked });
+    const legacyDeferred = issue({ id: 'is-legacy-deferred', status: 'deferred', ...linked });
+    const started = issue({ id: 'is-started', status: 'in_progress', ...linked });
+    const startedBlocked = issue({
+      id: 'is-started-blocked',
+      status: 'in_progress',
+      hold: 'blocked',
+      ...linked,
+    });
+    const startedPaused = issue({
+      id: 'is-started-paused',
+      status: 'in_progress',
+      hold: 'paused',
+      ...linked,
+    });
+    const completed = issue({
+      id: 'is-completed',
+      status: 'closed',
+      resolution: 'completed',
+      ...linked,
+    });
+    const duplicate = issue({
+      id: 'is-duplicate',
+      status: 'closed',
+      resolution: 'duplicate',
+      ...linked,
+    });
+    const selected = [
+      ready,
+      blocked,
+      deferred,
+      held,
+      canceled,
+      legacyBlocked,
+      legacyDeferred,
+      started,
+      startedBlocked,
+      startedPaused,
+      completed,
+      duplicate,
+    ];
+
+    const plan = planMirror({
+      provider: 'linear',
+      readyAt: READY_AT,
+      allIssues: [blocker, ...selected],
+      selected,
+      displayId,
+      maxNesting: 2,
+    });
+
+    const positions = Object.fromEntries(
+      plan.updates.map((action) => [
+        action.bead.id,
+        (({ slot, status, resolution, hold }) => ({ slot, status, resolution, hold }))(
+          action.patch,
+        ),
+      ]),
+    );
+    expect(positions).toEqual({
+      'is-ready': { slot: 'todo', status: 'open', resolution: null, hold: null },
+      'is-blocked': { slot: 'backlog', status: 'open', resolution: null, hold: null },
+      'is-deferred': { slot: 'backlog', status: 'open', resolution: null, hold: null },
+      'is-held': { slot: 'backlog', status: 'open', resolution: null, hold: 'paused' },
+      'is-canceled': { slot: 'canceled', status: 'closed', resolution: 'canceled', hold: null },
+      'is-legacy-blocked': { slot: 'blocked', status: 'blocked', resolution: null, hold: null },
+      'is-legacy-deferred': { slot: 'backlog', status: 'deferred', resolution: null, hold: null },
+      'is-started': { slot: 'in_progress', status: 'in_progress', resolution: null, hold: null },
+      'is-started-blocked': {
+        slot: 'blocked',
+        status: 'in_progress',
+        resolution: null,
+        hold: 'blocked',
+      },
+      'is-started-paused': {
+        slot: 'paused',
+        status: 'in_progress',
+        resolution: null,
+        hold: 'paused',
+      },
+      'is-completed': { slot: 'done', status: 'closed', resolution: 'completed', hold: null },
+      'is-duplicate': { slot: 'duplicate', status: 'closed', resolution: 'duplicate', hold: null },
+    });
+  });
 });
 
 describe('label mirroring', () => {
@@ -255,6 +410,7 @@ describe('label mirroring', () => {
     const bead = issue({ id: 'is-a', labels: ['backend', 'ci', 'docs'] });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -270,6 +426,7 @@ describe('label mirroring', () => {
     const bead = issue({ id: 'is-a', labels: ['backend', 'ci'] });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -369,6 +526,7 @@ describe('applyMirror', () => {
     const bead = issue({ id: 'is-a', title: 'Mirror me' });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -388,6 +546,7 @@ describe('applyMirror', () => {
     const child = issue({ id: 'is-child', title: 'Child', parent_id: parent.id });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [child, parent],
       selected: [child, parent],
       displayId,
@@ -407,6 +566,7 @@ describe('applyMirror', () => {
     const bead = issue({ id: 'is-a' });
     const first = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -423,6 +583,7 @@ describe('applyMirror', () => {
 
     const second = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [relinked],
       selected: [relinked],
       displayId,
@@ -432,6 +593,52 @@ describe('applyMirror', () => {
 
     expect(report.updated).toEqual(['tbd-a']);
     expect(server.attachments.length).toBe(attachmentsAfterFirst);
+  });
+
+  it('sends a delegate once, not on every push (tbd-80vz)', async () => {
+    const withAgent = new LinearAdapter({
+      client: new LinearClient({
+        apiKey: 'k',
+        endpoint: server.endpoint,
+        sleep: () => Promise.resolve(),
+      }),
+      teamKey: 'FIN',
+      agentMap: { cyrus: server.appUsers[0]!.id },
+    });
+    server.addIssue({ id: 'uuid-d', identifier: 'FIN-1', title: 'Delegated' });
+    const bead = issue({
+      id: 'is-d',
+      delegate: 'cyrus',
+      extensions: { linear: { id: 'uuid-d', linked_at: '2026-08-10T00:00:00.000Z' } },
+    });
+    const push = async () =>
+      applyMirror({
+        adapter: withAgent,
+        plan: planMirror({
+          provider: 'linear',
+          readyAt: READY_AT,
+          allIssues: [bead],
+          selected: [bead],
+          displayId,
+          maxNesting: 2,
+          canPushDelegate: (delegate) => withAgent.canPushDelegate(delegate),
+        }),
+        displayId,
+        onLinked,
+      });
+    const delegateWrites = () =>
+      server.requests.filter(
+        (request) =>
+          /mutation\s+IssueUpdate/u.test(request.query) &&
+          'delegateId' in (request.variables.input as Record<string, unknown>),
+      ).length;
+
+    await push();
+    expect(delegateWrites()).toBe(1);
+    await push();
+    await push();
+    expect(delegateWrites()).toBe(1);
+    expect(server.issues.get('uuid-d')?.delegate?.id).toBe(server.appUsers[0]!.id);
   });
 
   it('reports a failing bead and still mirrors the rest', async () => {
@@ -444,6 +651,7 @@ describe('applyMirror', () => {
 
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [good, bad],
       selected: [good, bad],
       displayId,
@@ -463,6 +671,7 @@ describe('applyMirror', () => {
 
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [root, mid, deep],
       selected: [root, mid, deep],
       displayId,
@@ -493,6 +702,7 @@ describe('applyMirror', () => {
     });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [root, mid1, mid2, deep],
       selected: [root, mid1, mid2, deep],
       displayId,
@@ -531,6 +741,7 @@ describe('applyMirror', () => {
 
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -559,6 +770,7 @@ describe('applyMirror', () => {
     const seen: { beadId: string; key?: string; url?: string }[] = [];
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,
@@ -580,10 +792,67 @@ describe('applyMirror', () => {
     expect(linked).toHaveLength(0);
   });
 
+  it('writes no state for not-ready open work on a team without a Backlog state', async () => {
+    // Such work's slot is `backlog`, which names no state on this team, so the update
+    // carries no stateId and the item stays in whatever column it is in. The other fields
+    // still go out, so the item is reported as updated and the excluded state is named.
+    server.states = server.states.filter((state) => state.type !== 'backlog');
+    const todo = server.states.find((state) => state.type === 'unstarted')!;
+    server.addIssue({
+      id: 'uuid-no-backlog',
+      identifier: 'FIN-2',
+      title: 'Blocked epic',
+      state: todo,
+      labels: { nodes: [{ id: 'label-bug', name: 'Bug' }] },
+    });
+    const blocked = issue({
+      id: 'is-blocked',
+      title: 'Blocked epic',
+      extensions: { linear: { id: 'uuid-no-backlog', linked_at: '2026-08-10T00:00:00.000Z' } },
+    });
+    const blocker = issue({
+      id: 'is-blocker',
+      kind: 'task',
+      dependencies: [{ type: 'blocks', target: blocked.id }],
+    });
+    const plan = planMirror({
+      provider: 'linear',
+      readyAt: READY_AT,
+      allIssues: [blocked, blocker],
+      selected: [blocked],
+      displayId,
+      maxNesting: 2,
+    });
+
+    const report = await applyMirror({ adapter, plan, displayId, onLinked });
+
+    const update = server.requests.find(
+      (request) =>
+        /mutation\s+IssueUpdate/u.test(request.query) &&
+        'title' in (request.variables.input as Record<string, unknown>),
+    );
+    const input = update?.variables.input as Record<string, unknown>;
+    expect(input).not.toHaveProperty('stateId');
+    expect(server.issues.get('uuid-no-backlog')?.state.name).toBe('Todo');
+    // Omitting labelIds leaves a human-applied label in place.
+    expect(server.issues.get('uuid-no-backlog')?.labels.nodes).toEqual([
+      { id: 'label-bug', name: 'Bug' },
+    ]);
+    expect(report.updated).toEqual(['tbd-blocked']);
+    expect(report.skippedFields).toEqual([
+      {
+        beadId: 'tbd-blocked',
+        field: 'status',
+        reason: 'Linear team FIN has no backlog workflow state.',
+      },
+    ]);
+  });
+
   it('writes the managed block into the description', async () => {
     const bead = issue({ id: 'is-a', title: 'Described' });
     const plan = planMirror({
       provider: 'linear',
+      readyAt: READY_AT,
       allIssues: [bead],
       selected: [bead],
       displayId,

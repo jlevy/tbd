@@ -198,5 +198,9 @@ Each command update is a separate sub-task:
 ## References
 
 - [CLI Output Design System Spec](plan-2026-01-17-cli-output-design-system.md)
-- [OutputManager](packages/tbd/src/cli/lib/output.ts)
-- [Golden Tests](packages/tbd/tests/golden-output.test.ts)
+- [OutputManager](../../../../packages/tbd/src/cli/lib/output.ts)
+- [Golden Tests](../../../../packages/tbd/tests/golden-output.test.ts)
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

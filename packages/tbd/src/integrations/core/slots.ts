@@ -134,6 +134,45 @@ export function computeSlot(inputs: SlotInputs): Slot {
   return 'backlog';
 }
 
+/**
+ * Where an outbound write files a bead: its slot, plus the status, resolution, and hold
+ * the slot was computed from.
+ *
+ * The slot is what tells Backlog from Todo; the other three ride alongside because a
+ * reader that predates slots ignores `slot` and files the item by them instead.
+ *
+ * Every outbound path takes its slot from here: a create, the push-only mirror, and the
+ * reconciler's local view of a linked pair. So they agree on the slot. They do not all
+ * send the same carriers: the pair path rebuilds status and hold from the slot
+ * (`decomposeSlot`), so a legacy `status: deferred` bead goes out as `open` there, without
+ * the deferred carrier label that a create or the mirror sends.
+ */
+export function outboundPosition(
+  bead: {
+    status: IssueStatusType;
+    hold?: IssueHoldType | null;
+    resolution?: IssueResolutionType | null;
+  },
+  ready: boolean,
+): {
+  status: IssueStatusType;
+  resolution: IssueResolutionType | null;
+  hold: IssueHoldType | null;
+  slot: Slot;
+} {
+  return {
+    status: bead.status,
+    resolution: bead.resolution ?? null,
+    hold: bead.hold ?? null,
+    slot: computeSlot({
+      status: bead.status,
+      hold: bead.hold,
+      resolution: bead.resolution,
+      ready,
+    }),
+  };
+}
+
 /** The bead fields a pulled slot implies. */
 export interface SlotDecomposition {
   status: IssueStatusType;
@@ -241,4 +280,24 @@ export function migrateBaseSlot(baseStatus: IssueStatusType): {
  */
 export function slotsAgree(a: Slot, b: Slot, baseIsCoarse: boolean): boolean {
   return baseIsCoarse ? bandOf(a) === bandOf(b) : a === b;
+}
+
+/**
+ * Agreement between the bead vocabulary and tracker-only refinements.
+ *
+ * A bead can represent that work is started or waiting in Backlog, but it cannot store
+ * the human judgment that the work is specifically In Review or Draft. Those two
+ * refinements therefore remain remote-owned. Readiness is different: tbd computes it,
+ * so Todo and Backlog must stay distinct or the board stops reflecting `tbd ready`.
+ */
+export function slotVocabulariesAgree(a: Slot, b: Slot): boolean {
+  if (a === b) {
+    return true;
+  }
+  return (
+    (a === 'in_progress' && b === 'in_review') ||
+    (a === 'in_review' && b === 'in_progress') ||
+    (a === 'backlog' && b === 'draft') ||
+    (a === 'draft' && b === 'backlog')
+  );
 }

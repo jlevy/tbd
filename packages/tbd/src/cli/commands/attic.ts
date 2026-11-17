@@ -266,7 +266,7 @@ class AtticRestoreHandler extends BaseCommand {
           }
 
           // Restore the field value
-          const field = entry.field as keyof typeof issue;
+          const field: keyof typeof issue = entry.field;
           if (field === 'description' || field === 'notes' || field === 'title') {
             const restored = decodeAtticTextValue(entry.lost_value);
             const current = issue[field];

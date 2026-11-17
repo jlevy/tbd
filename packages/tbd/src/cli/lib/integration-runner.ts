@@ -402,6 +402,7 @@ export async function runEnabledIntegrationPushes(
     const plan = planMirror({
       provider: entry.provider,
       allIssues,
+      readyAt: Date.now(),
       selected,
       displayId,
       mirrorLabels: resolveProviderSettings(config.integrations?.linear ?? {}).mirrorLabels,

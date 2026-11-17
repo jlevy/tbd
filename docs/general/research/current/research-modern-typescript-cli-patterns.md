@@ -6,13 +6,13 @@
 
 **Related**:
 
-- [Modern Python CLI Patterns](research-modern-python-cli-patterns.md) — Equivalent
-  patterns for Python CLIs (Typer, Rich, UV)
+- [Modern Python CLI Patterns](https://github.com/jlevy/tbd/blob/bed08a70408f51609440bdde71334e76b10de59a/docs/general/research/current/research-modern-python-cli-patterns.md)
+  — Equivalent patterns for Python CLIs (Typer, Rich, UV)
 
-- [CLI Tool Development Rules](../../agent-rules/typescript-cli-tool-rules.md) —
-  Actionable rules for CLI development
+- [CLI Tool Development Rules](../../../../packages/tbd/docs/guidelines/typescript-cli-tool-rules.md)
+  — Actionable rules for CLI development
 
-- [Modern TypeScript Monorepo Package](research-modern-typescript-monorepo-patterns.md)
+- [Modern TypeScript Monorepo Package](https://github.com/jlevy/tbd/blob/bed08a70408f51609440bdde71334e76b10de59a/docs/general/research/current/research-modern-typescript-monorepo-patterns.md)
   — Build tooling, package structure, CI/CD (pnpm)
 
 - [Modern Bun Monorepo Patterns](research-modern-bun-monorepo-patterns.md) — Bun
@@ -585,7 +585,7 @@ constant injected at build time via dynamic git-based versioning.
 
 For the complete versioning implementation (format, rationale, and `getGitVersion()`
 function), see
-[Dynamic Git-Based Versioning](research-modern-typescript-monorepo-patterns.md#dynamic-git-based-versioning)
+[Dynamic Git-Based Versioning](https://github.com/jlevy/tbd/blob/bed08a70408f51609440bdde71334e76b10de59a/docs/general/research/current/research-modern-typescript-monorepo-patterns.md#dynamic-git-based-versioning)
 in the monorepo patterns doc.
 
 **CLI integration**:
@@ -1141,7 +1141,7 @@ tools. The pattern eliminates per-command duplication and matches framework conv
 10. **Pair text and JSON formatters** for each data domain
 
 11. **Use build-time VERSION constant** from library (see
-    [monorepo patterns](research-modern-typescript-monorepo-patterns.md#dynamic-git-based-versioning))
+    [monorepo patterns](https://github.com/jlevy/tbd/blob/bed08a70408f51609440bdde71334e76b10de59a/docs/general/research/current/research-modern-typescript-monorepo-patterns.md#dynamic-git-based-versioning))
 
 12. **Define global options at program level** only
 
@@ -1181,11 +1181,15 @@ tools. The pattern eliminates per-command duplication and matches framework conv
 
 ### Related Documentation
 
-- [Modern Python CLI Patterns](research-modern-python-cli-patterns.md) — Equivalent
-  patterns for Python CLIs (Typer, Rich, UV)
+- [Modern Python CLI Patterns](https://github.com/jlevy/tbd/blob/bed08a70408f51609440bdde71334e76b10de59a/docs/general/research/current/research-modern-python-cli-patterns.md)
+  — Equivalent patterns for Python CLIs (Typer, Rich, UV)
 
-- [CLI Tool Development Rules](../../agent-rules/typescript-cli-tool-rules.md) —
-  Actionable rules for CLI development
+- [CLI Tool Development Rules](../../../../packages/tbd/docs/guidelines/typescript-cli-tool-rules.md)
+  — Actionable rules for CLI development
 
-- [Modern TypeScript Monorepo Package](research-modern-typescript-monorepo-patterns.md)
+- [Modern TypeScript Monorepo Package](https://github.com/jlevy/tbd/blob/bed08a70408f51609440bdde71334e76b10de59a/docs/general/research/current/research-modern-typescript-monorepo-patterns.md)
   — Build tooling, package exports, CI/CD
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

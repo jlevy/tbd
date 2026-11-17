@@ -588,3 +588,7 @@ with_spec: [count]
 - `packages/tbd/src/cli/commands/list.ts` - Current list implementation
 - `docs/tbd-design.md` - Overall design document
 - `docs/project/specs/active/` - Example spec documents
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

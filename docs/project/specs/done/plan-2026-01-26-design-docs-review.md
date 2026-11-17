@@ -112,3 +112,7 @@ Single PR with all documentation updates, reviewed before merge.
 
 Before completing this work, file a complete PR with a validation plan per the
 `tbd shortcut create-or-update-pr-with-validation-plan` shortcut.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

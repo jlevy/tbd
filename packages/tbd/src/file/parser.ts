@@ -32,43 +32,50 @@ export interface ParsedIssueFile {
   notes: string;
 }
 
+/** Parsed YAML-frontmatter Markdown without issue-specific body interpretation. */
+export interface ParsedFrontmatterDocument {
+  frontmatter: Record<string, unknown>;
+  body: string;
+}
+
 /**
- * Parse a Markdown file with YAML front matter.
- * Uses gray-matter for consistent frontmatter parsing.
- * Handles both LF and CRLF line endings.
+ * Parse the common frontmatter envelope while leaving its Markdown body intact.
  */
-export function parseMarkdownWithFrontmatter(content: string): ParsedIssueFile {
-  // Normalize CRLF to LF before parsing
+export function parseFrontmatterDocument(content: string): ParsedFrontmatterDocument {
   const normalizedContent = normalizeLineEndings(content);
 
-  // Check for valid frontmatter
   if (!hasMarkdownFrontmatter(normalizedContent)) {
     throw new Error('Invalid format: missing front matter opening delimiter');
   }
 
   const parsed = parseMarkdownMatter(normalizedContent);
 
-  // gray-matter returns empty object if no closing delimiter found
-  // but the raw matter string will be empty if parsing failed
+  // gray-matter returns an empty matter string for an unterminated header. An actually
+  // empty header is valid, so distinguish it by looking for a later delimiter.
   if (parsed.matter === '' && !normalizedContent.includes('---\n---')) {
-    // Check if there's actually a closing delimiter
     const lines = normalizedContent.split('\n');
-    let hasClosing = false;
-    for (let i = 1; i < lines.length; i++) {
-      if (lines[i]?.trim() === '---') {
-        hasClosing = true;
-        break;
-      }
-    }
+    const hasClosing = lines.slice(1).some((line) => line.trim() === '---');
     if (!hasClosing) {
       throw new Error('Invalid format: missing front matter closing delimiter');
     }
   }
 
-  const frontmatter = parsed.data as Record<string, unknown>;
+  return {
+    frontmatter: parsed.data as Record<string, unknown>,
+    body: parsed.content,
+  };
+}
+
+/**
+ * Parse a Markdown file with YAML front matter.
+ * Uses gray-matter for consistent frontmatter parsing.
+ * Handles both LF and CRLF line endings.
+ */
+export function parseMarkdownWithFrontmatter(content: string): ParsedIssueFile {
+  const { frontmatter, body: rawBody } = parseFrontmatterDocument(content);
 
   // Parse body - split into description and notes
-  const body = parsed.content.trim();
+  const body = rawBody.trim();
 
   // Find the notes section. The heading may open the body (an issue with notes
   // but no description serializes to a body that STARTS with `## Notes`), so

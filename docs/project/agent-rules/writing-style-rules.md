@@ -31,3 +31,7 @@ principles.
 6. **Be warm:**
    - Be friendly in tone.
    - Be gracious in acknowledging previous work, even if correcting it.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

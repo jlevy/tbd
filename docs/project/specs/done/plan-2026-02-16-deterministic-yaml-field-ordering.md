@@ -430,3 +430,7 @@ This way, only the serialization points that opt in to manual ordering get it.
 - `packages/tbd/src/lib/schemas.ts` - Zod schema definitions
 - `packages/tbd/src/file/parser.ts` - `serializeIssue()` current implementation
 - `packages/tbd/src/lib/settings.ts` - YAML stringify options
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

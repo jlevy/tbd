@@ -19,6 +19,7 @@ import {
 } from 'node:fs/promises';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { CURRENT_FORMAT } from '../src/lib/tbd-format.js';
+import { AGENT_INTEGRATION_FORMAT } from '../src/lib/integration-paths.js';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -235,7 +236,10 @@ describe('setup --auto --dry-run whole-state invariant', { timeout: 45_000 }, ()
     const mirrorPath = join(projectDir, '.claude', 'skills', 'tbd', 'SKILL.md');
     await writeFile(
       mirrorPath,
-      (await readFile(mirrorPath, 'utf-8')).replace(`format=${CURRENT_FORMAT}`, 'format=f99'),
+      (await readFile(mirrorPath, 'utf-8')).replace(
+        `format=${AGENT_INTEGRATION_FORMAT}`,
+        'format=f999',
+      ),
     );
     const before = await snapshotAllState();
 

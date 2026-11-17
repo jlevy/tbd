@@ -15,6 +15,7 @@ import { SHORTCUT_AGENT_HEADER } from '../lib/doc-prompts.js';
 import { requireInit, CLIError } from '../lib/errors.js';
 import { DocCache, SCORE_PREFIX_MATCH } from '../../file/doc-cache.js';
 import { addDoc } from '../../file/doc-add.js';
+import { generateDefaultDocCacheConfig } from '../../file/doc-sync.js';
 import { readConfig } from '../../file/config.js';
 import { CACHE_SHORTCUT_PATHS, FORK_SHORTCUTS_DIR } from '../../lib/paths.js';
 import { truncate } from '../../lib/truncate.js';
@@ -123,11 +124,17 @@ class ShortcutHandler extends BaseCommand {
       return;
     }
 
+    const bundledNames = await this.bundledShortcutNames();
     const found: { name: string; title?: string; score: number; content: string }[] = [];
+    const bundledMisses: string[] = [];
     const misses: string[] = [];
     const seen = new Set<string>();
     for (const query of queries) {
       const exact = cache.get(query);
+      if (!exact && bundledNames.has(this.normalizeShortcutName(query))) {
+        bundledMisses.push(query);
+        continue;
+      }
       const best = exact ?? cache.search(query, 1)[0];
       if (!best || best.score < SCORE_PREFIX_MATCH) {
         misses.push(query);
@@ -144,11 +151,12 @@ class ShortcutHandler extends BaseCommand {
         content: best.doc.content,
       });
     }
+    const bundledMiss = this.bundledShortcutCacheError(bundledMisses);
+    if (bundledMiss) {
+      throw bundledMiss;
+    }
     if (misses.length > 0) {
-      throw new CLIError(
-        `No shortcut found matching: ${misses.join(', ')}\n` +
-          'Run `tbd shortcut --list` to see available shortcuts.',
-      );
+      throw this.missingShortcutError(misses);
     }
 
     if (this.ctx.json) {
@@ -389,6 +397,14 @@ class ShortcutHandler extends BaseCommand {
       return;
     }
 
+    const bundledNames = await this.bundledShortcutNames();
+    const bundledMiss = bundledNames.has(this.normalizeShortcutName(query))
+      ? this.bundledShortcutCacheError([query])
+      : null;
+    if (bundledMiss) {
+      throw bundledMiss;
+    }
+
     // Fuzzy match
     const matches = cache.search(query, 5);
     if (matches.length === 0) {
@@ -422,6 +438,50 @@ class ShortcutHandler extends BaseCommand {
       console.log(SHORTCUT_AGENT_HEADER + '\n');
       console.log(best.doc.content);
     }
+  }
+
+  /** Build an actionable error for absent shortcuts, including stale managed caches. */
+  private missingShortcutError(queries: string[]): CLIError {
+    return new CLIError(
+      `No shortcut found matching: ${queries.join(', ')}\n` +
+        'Run `tbd shortcut --list` to see available shortcuts.',
+    );
+  }
+
+  /** Return exact shortcut names shipped by this CLI. */
+  private async bundledShortcutNames(): Promise<Set<string>> {
+    const bundledDocs = await generateDefaultDocCacheConfig();
+    return new Set(
+      Object.keys(bundledDocs)
+        .filter(
+          (path) => path.startsWith('shortcuts/system/') || path.startsWith('shortcuts/standard/'),
+        )
+        .map((path) => path.slice(path.lastIndexOf('/') + 1, -3)),
+    );
+  }
+
+  /** Normalize an exact lookup name for comparison with bundled shortcuts. */
+  private normalizeShortcutName(query: string): string {
+    return query.endsWith('.md') ? query.slice(0, -3) : query;
+  }
+
+  /** Diagnose a shortcut shipped by this CLI but absent from the repository cache. */
+  private bundledShortcutCacheError(queries: string[]): CLIError | null {
+    const bundledMisses = queries.map((query) => this.normalizeShortcutName(query));
+
+    if (bundledMisses.length > 0) {
+      const subject =
+        bundledMisses.length === 1
+          ? `the "${bundledMisses[0]}" shortcut`
+          : `these shortcuts: ${bundledMisses.map((name) => `"${name}"`).join(', ')}`;
+      return new CLIError(
+        `The installed tbd includes ${subject}, but this repository's managed docs and ` +
+          'generated agent guidance are stale.\n' +
+          'Run `tbd setup --auto` to refresh them, then retry.',
+      );
+    }
+
+    return null;
   }
 }
 

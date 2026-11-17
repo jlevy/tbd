@@ -14,7 +14,7 @@
 
 - [Biome Documentation](https://biomejs.dev/)
 
-- [Companion: Modern TypeScript pnpm Monorepo Patterns](./research-modern-typescript-monorepo-patterns.md)
+- [Companion: Modern TypeScript pnpm Monorepo Patterns](https://github.com/jlevy/tbd/blob/bed08a70408f51609440bdde71334e76b10de59a/docs/general/research/current/research-modern-typescript-monorepo-patterns.md)
 
 * * *
 
@@ -2094,3 +2094,7 @@ Key takeaways:
 The source-level exports pattern and TypeScript build scripts are directly applicable.
 The hybrid esbuild/Vite approach is more relevant for Electron/full-stack apps than for
 pure library packages where Bunup would be simpler.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

@@ -90,7 +90,7 @@ export function capEntries(entries: readonly CommentEntryType[]): CommentEntryTy
   );
 }
 
-/** Append a locally authored comment. Works offline; pushes on the next sync. */
+/** Append a local provider comment offline for a later integration-sync delivery attempt. */
 export function appendLocalComment(
   issue: Issue,
   provider: ProviderNameType,

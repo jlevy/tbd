@@ -9,3 +9,7 @@ scope discipline). These apply to all code you write or review here.
 IMPORTANT: Before adding or upgrading any dependency, follow the install rules in
 ./SUPPLY-CHAIN-SECURITY.md (14-day cool-off, no unthinking installs, audit after each
 install). Deeper background: `tbd guidelines supply-chain-hardening`.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

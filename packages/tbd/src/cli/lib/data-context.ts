@@ -145,6 +145,12 @@ async function ensureSharedDataSyncLayout(
         probe.config.sync.remote,
         probe.config.sync.branch,
       );
+      if (repairResult.backedUp && !quietNoticesActive()) {
+        process.stderr.write(
+          `• Preserved the damaged tbd-sync worktree at ${repairResult.backedUp}. ` +
+            `Unsynced files were not restored automatically; review the backup to recover them.\n`,
+        );
+      }
       if (!repairResult.success) {
         throw new Error(`Failed to initialize shared data-sync worktree: ${repairResult.error}`);
       }

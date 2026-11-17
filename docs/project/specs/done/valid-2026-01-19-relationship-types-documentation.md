@@ -115,3 +115,7 @@ The key insight is documented: tbd intentionally uses a different model where
 `parent_id` is organizational only (non-blocking), while Beads’ `parent-child` enables
 transitive blocking (if a parent is blocked, children inherit that blockage—but children
 are NOT blocked just because their parent is open).
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

@@ -589,6 +589,9 @@ describe('watchForIssueChanges Git safety', { timeout: subprocessTestTimeout() }
       'refs/remotes/origin/tbd-sync',
     ).catch(() => null);
 
+    // Isolation contract, not a latency probe. A 1s watch deadline leaves
+    // ~970ms for `git ls-remote` after prepare(); Windows CI under parallel
+    // load exceeds that. Use the same subprocess floor as other Git tests.
     const result = await watchForIssueChanges({
       repoDir,
       remote: 'origin',
@@ -597,7 +600,7 @@ describe('watchForIssueChanges Git safety', { timeout: subprocessTestTimeout() }
       selection: { kind: 'all' },
       since,
       intervalMs: 10_000,
-      timeoutMs: 1_000,
+      timeoutMs: subprocessTestTimeout(5_000),
     });
 
     expect(result.kind).toBe('changed');

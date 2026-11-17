@@ -316,3 +316,7 @@ These are pre-existing bugs discovered during the audit, tracked as separate bea
 - Related spec: `plan-2026-01-28-sync-worktree-recovery-and-hardening.md`
 - Related guideline: `tbd-sync-troubleshooting`
 - Bug report: User observed 2231-file sync commit with only version/timestamp changes
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

@@ -41,8 +41,10 @@ export class IncompatibleFormatError extends Error {
   constructor(
     public readonly foundFormat: string,
     public readonly supportedFormat: string,
+    /** The config's `tbd_fallback_version`: the release that last set the repository up. */
+    public readonly requiredVersion?: string,
   ) {
-    super(formatUpgradeMessage('Config', foundFormat, supportedFormat));
+    super(formatUpgradeMessage('Config', foundFormat, supportedFormat, requiredVersion));
     this.name = 'IncompatibleFormatError';
   }
 }
@@ -54,7 +56,12 @@ export class IncompatibleFormatError extends Error {
 function checkFormatCompatibility(data: RawConfig): void {
   const format = data.tbd_format;
   if (format && !isCompatibleFormat(format)) {
-    throw new IncompatibleFormatError(format, CURRENT_FORMAT);
+    const pinned = data.tbd_fallback_version;
+    throw new IncompatibleFormatError(
+      format,
+      CURRENT_FORMAT,
+      typeof pinned === 'string' ? pinned : undefined,
+    );
   }
 }
 

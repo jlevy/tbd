@@ -73,6 +73,17 @@ catches, remove it.
   - Content-hashing a reference to an external resource, such as a file in a GitHub
     repository, when an exact release or Git revision is the clearer, maintainable pin.
 
+  - A digest that is only ever recorded: with no comparison to give it meaning, it costs
+    a hash line at every writer, a `sha256` slot in every schema and a valid digest in
+    every fixture, and it invites a same-process comparison later.
+    Do not add a digest slot without naming the reader that will refuse on it.
+
+- **Identity before bytes**: When contents must be compared, compare identity (paths,
+  roles, counts) first, and bytes only across a boundary the process does not control.
+  A byte change under identical identity is usually a harness or log rewrite, not a
+  defect: a fan-in record rewritten on a retry makes a publication gate refuse a correct
+  run.
+
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
 -->

@@ -47,6 +47,20 @@ export const CONFIG_FILE = join(TBD_DIR, 'config.yml');
 /** The local state file (gitignored) */
 export const STATE_FILE = join(TBD_DIR, 'state.yml');
 
+/**
+ * Checkout-local lock directory (gitignored).
+ *
+ * Locks for data that lives in this checkout belong here, beside that data,
+ * rather than under `$GIT_COMMON_DIR/tbd`: the shared tree is one per repository
+ * (so it serializes sibling worktrees that share nothing), carries the data-sync
+ * epoch and its 35-minute timeout, and is outside the writable area in a common
+ * agent-sandbox layout where the checkout itself is writable.
+ */
+export const TBD_LOCKS_DIR = join(TBD_DIR, 'locks');
+
+/** Serializes the read/compute/write cycle for this checkout's AGENTS.md block. */
+export const AGENTS_MD_LOCK_DIR = join(TBD_LOCKS_DIR, 'agents-md.lock');
+
 /** The worktree directory name */
 export const WORKTREE_DIR_NAME = 'data-sync-worktree';
 
@@ -89,6 +103,9 @@ export const PRIMARY_CHECKOUT_DATA_SYNC_DIR = join(
 
 /** Issues directory */
 export const ISSUES_DIR = join(DATA_SYNC_DIR, 'issues');
+
+/** Hash-sharded immutable native comment records. */
+export const COMMENTS_DIR = join(DATA_SYNC_DIR, 'comments');
 
 /** Mappings directory */
 export const MAPPINGS_DIR = join(DATA_SYNC_DIR, 'mappings');

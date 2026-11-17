@@ -16,9 +16,9 @@ This spec adds a streamlined CLI workflow.
 
 ### Related Work
 
-- [plan-2026-01-26-configurable-doc-cache-sync.md](done/plan-2026-01-26-configurable-doc-cache-sync.md)
+- [plan-2026-01-26-configurable-doc-cache-sync.md](plan-2026-01-26-configurable-doc-cache-sync.md)
   \- Designed the configurable doc cache and auto-sync system
-- [plan-2026-01-22-doc-cache-abstraction.md](done/plan-2026-01-22-doc-cache-abstraction.md)
+- [plan-2026-01-22-doc-cache-abstraction.md](plan-2026-01-22-doc-cache-abstraction.md)
   \- Implemented DocCache with path-ordered lookups
 
 ## Summary of Task
@@ -111,3 +111,7 @@ Fetched content is sanity-checked before writing:
 - [x] Lint, typecheck, and format pass
 - [x] Build succeeds
 - [x] Merged with upstream main cleanly
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

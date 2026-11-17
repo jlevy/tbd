@@ -12,6 +12,7 @@ import type { LabelMirrorModeType } from './provider-settings.js';
 import type { Issue, LinkedEntryType, ProviderNameType } from '../../lib/types.js';
 import { readyIssueIds } from '../../lib/issue-selection.js';
 import { readLink } from './link-store.js';
+import { outboundPosition } from './slots.js';
 import { TBD_LABEL_PREFIX } from './origin-labels.js';
 import { renderManagedBlock, type MirrorLinks } from './managed-block.js';
 import type {
@@ -42,6 +43,12 @@ export interface MirrorContext {
   provider: ProviderNameType;
   /** Every bead, needed for child counts and readiness. */
   allIssues: readonly Issue[];
+  /**
+   * The instant readiness is evaluated at, since a `deferred_until` in the future
+   * makes a bead not-ready. Required so one mirror run cannot straddle two clock
+   * reads, and so tests can pin it.
+   */
+  readyAt: number;
   /** The beads to mirror. */
   selected: readonly Issue[];
   /** Renders an internal id the way a user sees it. */
@@ -195,12 +202,15 @@ export function attachmentsFor(
 }
 
 /**
- * Compute what a mirror run would do. Pure.
+ * Compute what a mirror run would do.
+ *
+ * Pure given `context.readyAt`; without it the readiness cutoff is read from the
+ * clock once, here, rather than per bead.
  */
 export function planMirror(context: MirrorContext): MirrorPlan {
   const byId = new Map(context.allIssues.map((issue) => [issue.id, issue]));
   const selectedIds = new Set(context.selected.map((issue) => issue.id));
-  const readyIds = readyIssueIds(context.allIssues);
+  const readyIds = readyIssueIds(context.allIssues, context.readyAt);
 
   const childrenOf = new Map<string, Issue[]>();
   for (const issue of context.allIssues) {
@@ -229,6 +239,7 @@ export function planMirror(context: MirrorContext): MirrorPlan {
       continue;
     }
     const linkedBeyondMaxNesting = depth > context.maxNesting;
+    const publishesDelegate = issue.status !== 'closed';
 
     const children = childrenOf.get(issue.id) ?? [];
     const counts = {
@@ -253,9 +264,10 @@ export function planMirror(context: MirrorContext): MirrorPlan {
       : undefined;
     const patch: CanonicalPatch = {
       title: issue.title,
-      status: issue.status,
-      resolution: issue.resolution ?? null,
-      hold: issue.hold ?? null,
+      // The position the reconciler writes, slot included. A status alone cannot tell
+      // Backlog from Todo, so without the slot every push moved open work that is not
+      // ready into Todo, and a full sync afterwards left it there.
+      ...outboundPosition(issue, readyIds.has(issue.id)),
       priority: issue.priority,
       // Carried on every action, consumed only by the create path: the adapter's
       // update surface ignores these, and the provider does not accept them there
@@ -280,7 +292,10 @@ export function planMirror(context: MirrorContext): MirrorPlan {
       ...(context.canPushAssignee?.(issue.assignee ?? null)
         ? { assignee: issue.assignee ?? null }
         : {}),
-      ...(context.canPushDelegate?.(issue.delegate ?? null)
+      // Never for closed work. Closing keeps `delegate`, and a delegate write is what makes
+      // Linear start an Agent Session, so publishing it would hand finished work to an
+      // agent. The adapter also skips a delegate the item already has.
+      ...(publishesDelegate && context.canPushDelegate?.(issue.delegate ?? null)
         ? { delegate: issue.delegate ?? null }
         : {}),
     };
@@ -300,7 +315,12 @@ export function planMirror(context: MirrorContext): MirrorPlan {
       });
     }
 
-    if (issue.delegate && context.canPushDelegate && !context.canPushDelegate(issue.delegate)) {
+    if (
+      publishesDelegate &&
+      issue.delegate &&
+      context.canPushDelegate &&
+      !context.canPushDelegate(issue.delegate)
+    ) {
       skippedFields.push({
         field: 'delegate',
         reason:
@@ -381,6 +401,38 @@ export async function applyMirror(options: ApplyOptions): Promise<MirrorReport> 
   };
   const createdExternalIds = new Map<string, string>();
 
+  const writablePatch = async (action: MirrorAction): Promise<CanonicalPatch> => {
+    const slot = action.patch.slot;
+    if (slot === undefined || !adapter.resolveSlotWrite) {
+      return action.patch;
+    }
+    const resolution = await adapter.resolveSlotWrite(slot, {
+      status: action.patch.status ?? action.bead.status,
+      hold: action.patch.hold,
+    });
+    if (resolution.canPush) {
+      return action.patch;
+    }
+
+    report.skippedFields.push({
+      beadId: options.displayId(action.bead.id),
+      field: 'status',
+      reason: resolution.reason ?? `provider cannot write the ${slot} slot`,
+    });
+    // The slot and its carrier fields are one state write. Leaving `status` behind
+    // would let the adapter fall back to the band's default and silently write Todo
+    // when the requested Backlog column does not exist.
+    const {
+      hold: _hold,
+      resolution: _resolution,
+      slot: _slot,
+      stateId: _stateId,
+      status: _status,
+      ...rest
+    } = action.patch;
+    return rest;
+  };
+
   for (const action of plan.creates) {
     const displayId = options.displayId(action.bead.id);
     try {
@@ -390,7 +442,7 @@ export async function applyMirror(options: ApplyOptions): Promise<MirrorReport> 
       if (action.parentBeadId && !parentId) {
         throw new Error(`parent ${options.displayId(action.parentBeadId)} was not mirrored`);
       }
-      const ref = await adapter.createIssue({ ...action.patch, parentId });
+      const ref = await adapter.createIssue({ ...(await writablePatch(action)), parentId });
       createdExternalIds.set(action.bead.id, ref.id);
       await options.onLinked(action.bead, {
         provider: plan.provider,
@@ -422,7 +474,7 @@ export async function applyMirror(options: ApplyOptions): Promise<MirrorReport> 
         throw new Error(`parent ${options.displayId(action.parentBeadId)} was not mirrored`);
       }
       const applied = await adapter.applyChanges(action.externalId, {
-        ...action.patch,
+        ...(await writablePatch(action)),
         parentId,
       });
       await adapter.upsertAttachments(action.externalId, action.attachments);

@@ -24,10 +24,10 @@ script and its corresponding SessionStart hook entry in `.claude/settings.json`.
 
 ### Related Work
 
-- [plan-2026-01-20-streamlined-init-setup-design.md](done/plan-2026-01-20-streamlined-init-setup-design.md)
+- [plan-2026-01-20-streamlined-init-setup-design.md](plan-2026-01-20-streamlined-init-setup-design.md)
   \- Designed the unified `tbd setup` command
-- [github-cli-setup.md](../../../general/agent-setup/github-cli-setup.md) \- Existing
-  documentation for GitHub CLI setup and GH_TOKEN
+- [github-cli-setup.md](https://github.com/jlevy/tbd/blob/59df59a73bab41dd341081f4614402a45f2a0f19/docs/general/agent-setup/github-cli-setup.md)
+  \- Existing documentation for GitHub CLI setup and GH_TOKEN
 
 ## Summary of Task
 
@@ -527,3 +527,7 @@ These 7 tests cover the full matrix:
 | Config `false` preserved | Still absent | Still absent | Still `false` |
 | Other hooks coexist | Correct | Others preserved | N/A |
 | Content correctness | Matches bundled | N/A | N/A |
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

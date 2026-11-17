@@ -76,6 +76,12 @@ export interface IssueChangesReport {
 }
 
 export interface CreateIssueChangesReportOptions {
+  /**
+   * The instant readiness is evaluated at, shared by both snapshots. Required so this
+   * module stays pure: a `Date.now()` here would make a fixed pair of snapshots produce
+   * different reports, which tests cannot pin and callers cannot control.
+   */
+  readyAt: number;
   since: string;
   tip: string;
   before: IssueSnapshot;
@@ -442,8 +448,17 @@ export function createIssueChanges(options: CreateIssueChangesOptions): IssueCha
   const idsToCompare = explicitIds ?? candidateIds;
   const needsReadySets = options.selection.kind === 'filter' && options.selection.ready;
   const emptySet: ReadonlySet<string> = new Set();
-  const readyBefore = needsReadySets ? readyIssueIds(options.before.issues.values()) : emptySet;
-  const readyAfter = needsReadySets ? readyIssueIds(options.after.issues.values()) : emptySet;
+  // One instant for both snapshots: readiness depends on `deferred_until`, so two
+  // clock reads could report a deferral that merely elapsed between them as a ready
+  // transition that no edit caused. Supplied by the caller so this module stays pure
+  // and so the web board can reuse the instant it already stamps a response with.
+  const readyAt = options.readyAt;
+  const readyBefore = needsReadySets
+    ? readyIssueIds(options.before.issues.values(), readyAt)
+    : emptySet;
+  const readyAfter = needsReadySets
+    ? readyIssueIds(options.after.issues.values(), readyAt)
+    : emptySet;
   const changes: IssueChange[] = [];
 
   for (const internalId of Array.from(idsToCompare).sort((left, right) =>

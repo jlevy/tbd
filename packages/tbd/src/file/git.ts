@@ -12,7 +12,7 @@
 import { execFile } from 'node:child_process';
 
 import { gitSafeEnv } from '../lib/git-env.js';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, mkdtemp } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { basename, dirname, join, normalize } from 'node:path';
 
@@ -544,6 +544,28 @@ export interface ConflictEntry {
   local_version: number;
   remote_version: number;
   resolution: 'lww' | 'union' | 'manual';
+  /**
+   * When each side was last written, as the two issues reported it.
+   *
+   * The attic entry's whole purpose is to let someone decide whether the merge kept the
+   * right side, and "which one is newer" is most of that decision. Recording the time the
+   * entry was WRITTEN on both sides — which is what the archiver did before it had these
+   * — makes every entry say the two edits happened at the same instant, which is the one
+   * thing that is never true of a conflict resolved by recency.
+   */
+  local_updated_at: string;
+  remote_updated_at: string;
+  /**
+   * Which side of the merge supplied the value that was kept.
+   *
+   * Recorded per conflict rather than derived per issue, because the merge does not
+   * use one rule for the whole bead: ordinary fields and namespaces resolve on
+   * `updated_at`, an independent creation resolves on `created_at`, and the comment
+   * postcondition resolves on provider-link lineage. An archived entry that labels the
+   * wrong side as the winner points whoever is recovering data at the value they still
+   * have, so the side is carried from the branch that made the decision.
+   */
+  winner_source: 'local' | 'remote';
 }
 
 /**
@@ -569,7 +591,7 @@ const METADATA_ONLY_FIELDS: ReadonlySet<keyof Issue> = new Set(['version', 'upda
  * real changes during outbox saves and sync operations.
  */
 export function issuesSubstantivelyEqual(a: Issue, b: Issue): boolean {
-  for (const key of Object.keys(FIELD_STRATEGIES) as (keyof Issue)[]) {
+  for (const key of Object.keys(FIELD_STRATEGIES)) {
     if (METADATA_ONLY_FIELDS.has(key)) {
       continue;
     }
@@ -685,6 +707,32 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * Whether two comment-bearing namespaces identify the same provider issue.
+ *
+ * A non-empty `id` is the immutable provider-link identity. Legacy namespaces
+ * that both omit `id` may still merge with each other, but a known ID must never
+ * be treated as the same lineage as a missing, empty, malformed, or different ID.
+ */
+function commentsShareLinkLineage(
+  left: Record<string, unknown>,
+  right: Record<string, unknown>,
+): boolean {
+  const leftHasId = Object.hasOwn(left, 'id');
+  const rightHasId = Object.hasOwn(right, 'id');
+  if (!leftHasId && !rightHasId) {
+    return true;
+  }
+
+  return (
+    typeof left.id === 'string' &&
+    left.id.length > 0 &&
+    typeof right.id === 'string' &&
+    right.id.length > 0 &&
+    left.id === right.id
+  );
+}
+
+/**
  * Merge `extensions` one top-level namespace at a time.
  *
  * Namespaces are independent: two writers touching `github` and `linear` must
@@ -703,12 +751,27 @@ type NamespaceResolution = { present: true; value: unknown } | { present: false 
  * wrong silently resurrects an unlinked bead, so deletion is treated as an edit
  * like any other.
  */
+/**
+ * Report one namespace the merge could not keep whole.
+ *
+ * `winnerSource` is the side whose value survived, carried here because only the branch
+ * that made the decision knows it: a namespace deleted on one side survives from the
+ * other regardless of timestamps, and the comment postcondition picks by provider-link
+ * lineage rather than by `updated_at`.
+ */
+type NamespaceConflictReporter = (
+  namespace: string,
+  lost: unknown,
+  winner: unknown,
+  winnerSource: 'local' | 'remote',
+) => void;
+
 function resolveNamespace(
   namespace: string,
   base: Record<string, unknown>,
   local: Record<string, unknown>,
   remote: Record<string, unknown>,
-  onConflict: (namespace: string, lost: unknown, winner: unknown) => void,
+  onConflict: NamespaceConflictReporter,
   localWins: boolean,
 ): NamespaceResolution {
   const inBase = Object.hasOwn(base, namespace);
@@ -745,19 +808,26 @@ function resolveNamespace(
   // The discarded deletion is still reported so it is not silent.
   if (!inLocal || !inRemote) {
     const survivor = inLocal ? local[namespace] : remote[namespace];
-    onConflict(namespace, DELETED_NAMESPACE, survivor);
+    onConflict(namespace, DELETED_NAMESPACE, survivor, inLocal ? 'local' : 'remote');
     return { present: true, value: survivor };
   }
 
-  // Both sides are objects and at least one carries a `comments` array: the
-  // sequences are append-only, so they union by identity instead of one side
-  // losing. Two machines appending different comments is the NORMAL case for
-  // comment sync, not a conflict — only divergence beyond `comments` is.
+  // Both sides are objects and at least one carries a comment LOG — an array whose
+  // every entry has comment identity, `at`, and `body` (`commentLogsUnionable`). Comments
+  // from the same provider-link lineage are append-only and union by identity.
+  // A different or uncertain lineage falls through to namespace LWW below so a
+  // pending comment can never be transplanted to another provider issue.
+  //
+  // The shape test is what keeps this a provider-link rule rather than a rule about
+  // the key name. `extensions` is where third-party data lives, so an unknown
+  // namespace may hold its own `comments` of strings or of objects with no comment
+  // identity; unioning those drops entries and re-sorts, losing data the caller
+  // never touched. Anything that is not a comment log on BOTH sides takes the
+  // ordinary LWW path, which preserves the winner verbatim and archives the loser.
   const localNs = local[namespace];
   const remoteNs = remote[namespace];
   if (isPlainObject(localNs) && isPlainObject(remoteNs)) {
-    const hasComments = Array.isArray(localNs.comments) || Array.isArray(remoteNs.comments);
-    if (hasComments) {
+    if (commentLogsUnionable(localNs, remoteNs) && commentsShareLinkLineage(localNs, remoteNs)) {
       const winnerNs = localWins ? localNs : remoteNs;
       const loserNs = localWins ? remoteNs : localNs;
       const value = {
@@ -765,7 +835,12 @@ function resolveNamespace(
         comments: unionCommentArrays(localNs.comments, remoteNs.comments),
       };
       if (!deepEqual(omitComments(localNs), omitComments(remoteNs))) {
-        onConflict(namespace, omitComments(loserNs), omitComments(winnerNs));
+        onConflict(
+          namespace,
+          omitComments(loserNs),
+          omitComments(winnerNs),
+          localWins ? 'local' : 'remote',
+        );
       }
       return { present: true, value };
     }
@@ -773,7 +848,7 @@ function resolveNamespace(
 
   const winner = localWins ? local[namespace] : remote[namespace];
   const loser = localWins ? remote[namespace] : local[namespace];
-  onConflict(namespace, loser, winner);
+  onConflict(namespace, loser, winner, localWins ? 'local' : 'remote');
   return { present: true, value: winner };
 }
 
@@ -781,6 +856,88 @@ function resolveNamespace(
 function omitComments(value: Record<string, unknown>): Record<string, unknown> {
   const { comments: _comments, ...rest } = value;
   return rest;
+}
+
+/** Preserve append-only comments even when an approximate base makes one side look unchanged. */
+function preserveNamespaceComments(
+  namespace: string,
+  resolvedValue: unknown,
+  localValue: unknown,
+  remoteValue: unknown,
+  onConflict: NamespaceConflictReporter,
+): unknown {
+  // Literally the same gate as the namespace merge, via the same function: if these two
+  // sites disagree about one namespace, the merge archives a losing comment array as a
+  // conflict and this postcondition unions it back, so the attic records a loss that
+  // did not happen. A namespace that does not qualify is left exactly as the ordinary
+  // merge resolved it.
+  if (
+    !isPlainObject(resolvedValue) ||
+    !isPlainObject(localValue) ||
+    !isPlainObject(remoteValue) ||
+    !commentLogsUnionable(localValue, remoteValue)
+  ) {
+    return resolvedValue;
+  }
+
+  if (!commentsShareLinkLineage(localValue, remoteValue)) {
+    const resolvedMatchesLocal = commentsShareLinkLineage(resolvedValue, localValue);
+    const resolvedMatchesRemote = commentsShareLinkLineage(resolvedValue, remoteValue);
+
+    if (resolvedMatchesLocal && !resolvedMatchesRemote) {
+      onConflict(namespace, remoteValue, resolvedValue, 'local');
+    } else if (resolvedMatchesRemote && !resolvedMatchesLocal) {
+      onConflict(namespace, localValue, resolvedValue, 'remote');
+    } else {
+      // Neither side's lineage matches the result. Usually that means no side HAS a
+      // lineage: `commentsShareLinkLineage` requires a non-empty string `id`, so a
+      // namespace carrying `id: 42`, `id: ''` or `id: null` lands here even when all
+      // three sides are identical, and so does a future strategy that really does
+      // synthesize a third lineage. Report only a side the result did not keep —
+      // otherwise the entry names as lost the very value it kept, which sends whoever
+      // is recovering data after the copy they already have. Reaching the attic made
+      // this visible: before, these were phantom entries nobody ever saw.
+      if (!deepEqual(localValue, resolvedValue)) {
+        onConflict(namespace, localValue, resolvedValue, 'remote');
+      }
+      if (!deepEqual(remoteValue, resolvedValue) && !deepEqual(localValue, remoteValue)) {
+        onConflict(namespace, remoteValue, resolvedValue, 'local');
+      }
+    }
+    return resolvedValue;
+  }
+
+  const comments = unionCommentArrays(localValue.comments, remoteValue.comments);
+  return deepEqual(resolvedValue.comments, comments)
+    ? resolvedValue
+    : { ...resolvedValue, comments };
+}
+
+/** Enforce append-only comment union after the ordinary extensions merge. */
+function preserveExtensionComments(
+  resolvedValue: unknown,
+  localValue: unknown,
+  remoteValue: unknown,
+  onConflict: NamespaceConflictReporter,
+): unknown {
+  if (!isPlainObject(resolvedValue) || !isPlainObject(localValue) || !isPlainObject(remoteValue)) {
+    return resolvedValue;
+  }
+
+  let preserved = resolvedValue;
+  for (const namespace of new Set([...Object.keys(localValue), ...Object.keys(remoteValue)])) {
+    const namespaceValue = preserveNamespaceComments(
+      namespace,
+      preserved[namespace],
+      localValue[namespace],
+      remoteValue[namespace],
+      onConflict,
+    );
+    if (!deepEqual(namespaceValue, preserved[namespace])) {
+      preserved = { ...preserved, [namespace]: namespaceValue };
+    }
+  }
+  return preserved;
 }
 
 /**
@@ -794,7 +951,7 @@ function mergeNamespaces(
   baseVal: unknown,
   localVal: unknown,
   remoteVal: unknown,
-  onConflict: (namespace: string, lost: unknown, winner: unknown) => void,
+  onConflict: NamespaceConflictReporter,
   localWins: boolean,
 ): Record<string, unknown> {
   const base = isPlainObject(baseVal) ? baseVal : {};
@@ -827,6 +984,9 @@ function createConflictEntry(
   localVersion: number,
   remoteVersion: number,
   resolution: 'lww' | 'union' | 'manual',
+  winnerSource: 'local' | 'remote',
+  localUpdatedAt: string,
+  remoteUpdatedAt: string,
 ): ConflictEntry {
   const timestamp = nowFilenameTimestamp();
 
@@ -839,6 +999,9 @@ function createConflictEntry(
     local_version: localVersion,
     remote_version: remoteVersion,
     resolution,
+    winner_source: winnerSource,
+    local_updated_at: localUpdatedAt,
+    remote_updated_at: remoteUpdatedAt,
   };
 }
 
@@ -891,13 +1054,16 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
         if (!deepEqual(local, remote)) {
           conflicts.push(
             createConflictEntry(
-              remote.id,
+              local.id,
               'whole_issue',
               remote,
               local,
-              remote.version,
               local.version,
+              remote.version,
               'lww',
+              'local',
+              local.updated_at,
+              remote.updated_at,
             ),
           );
         }
@@ -914,6 +1080,9 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
               local.version,
               remote.version,
               'lww',
+              'remote',
+              local.updated_at,
+              remote.updated_at,
             ),
           );
         }
@@ -924,6 +1093,41 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
 
   // Field-by-field merge
   const merged = { ...base } as Issue;
+
+  // The ordinary namespace merge and the approximate-base postcondition both
+  // inspect comment lineage. Record the full losing namespace once even when
+  // both paths detect the same conflict.
+  const recordNamespaceConflict = (
+    field: string,
+    namespace: string,
+    lost: unknown,
+    winner: unknown,
+    winnerSource: 'local' | 'remote',
+  ): void => {
+    const fieldPath = `${field}.${namespace}`;
+    const duplicate = conflicts.some(
+      (conflict) =>
+        conflict.field === fieldPath &&
+        deepEqual(conflict.lost_value, lost) &&
+        deepEqual(conflict.winner_value, winner),
+    );
+    if (!duplicate) {
+      conflicts.push(
+        createConflictEntry(
+          local.id,
+          fieldPath,
+          lost,
+          winner,
+          local.version,
+          remote.version,
+          'lww',
+          winnerSource,
+          local.updated_at,
+          remote.updated_at,
+        ),
+      );
+    }
+  };
 
   // Unknown keys (f08+) merge by the same rules, with a default strategy. Building the
   // pair list this way — rather than iterating FIELD_STRATEGIES alone — is what stops a
@@ -936,7 +1140,7 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
   ];
 
   for (const [field, strategy] of strategyPairs) {
-    const key = field as keyof Issue;
+    const key: keyof Issue = field;
     const localVal = local[key];
     const remoteVal = remote[key];
     const baseVal = base[key];
@@ -986,6 +1190,9 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
               local.version,
               remote.version,
               'lww',
+              'local',
+              local.updated_at,
+              remote.updated_at,
             ),
           );
         } else {
@@ -999,6 +1206,9 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
               local.version,
               remote.version,
               'lww',
+              'remote',
+              local.updated_at,
+              remote.updated_at,
             ),
           );
         }
@@ -1054,18 +1264,8 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
           baseVal,
           localVal,
           remoteVal,
-          (namespace, lost, winner) => {
-            conflicts.push(
-              createConflictEntry(
-                local.id,
-                `${field}.${namespace}`,
-                lost,
-                winner,
-                local.version,
-                remote.version,
-                'lww',
-              ),
-            );
+          (namespace, lost, winner, winnerSource) => {
+            recordNamespaceConflict(field, namespace, lost, winner, winnerSource);
           },
           nsLocalTime >= nsRemoteTime,
         );
@@ -1073,6 +1273,15 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
       }
     }
   }
+
+  merged.extensions = preserveExtensionComments(
+    merged.extensions,
+    local.extensions,
+    remote.extensions,
+    (namespace, lost, winner, winnerSource) => {
+      recordNamespaceConflict('extensions', namespace, lost, winner, winnerSource);
+    },
+  ) as Issue['extensions'];
 
   // Check if the merge produced any substantive changes compared to the
   // highest-versioned input. If not, return that input as-is to avoid
@@ -1326,7 +1535,7 @@ export async function getRemoteUrl(remote: string): Promise<string | null> {
 // See: tbd-design.md §2.3 Hidden Worktree Model
 // =============================================================================
 
-import { access, rm, cp, readdir, readFile, realpath } from 'node:fs/promises';
+import { access, rm, cp, readdir, readFile, realpath, lstat } from 'node:fs/promises';
 import {
   WORKTREE_DIR_NAME,
   LEGACY_WORKTREE_DIR,
@@ -1340,7 +1549,7 @@ import {
 import { DATA_SYNC_SCHEMA_VERSION, LinkRecordSchema } from '../lib/schemas.js';
 import type { LinkRecord } from '../lib/types.js';
 import { parseYamlWithConflictDetection, stringifyYaml } from '../utils/yaml-utils.js';
-import { unionCommentArrays } from '../lib/comment-union.js';
+import { commentLogsUnionable, unionCommentArrays } from '../lib/comment-union.js';
 import {
   loadIdMapping,
   mergeIdMappings,
@@ -1793,12 +2002,113 @@ export async function pushFreshOrphan(
 const DATA_SYNC_RELATIVE_PATH = `${TBD_DIR}/${DATA_SYNC_DIR_NAME}`;
 const GIT_PATH_BATCH_SIZE = 128;
 
+/** The merge rules the sync branch carries, as worktree-relative attribute files. */
+const DATA_SYNC_MERGE_ATTRIBUTES = [
+  {
+    // Beads are merged field by field, by rules that know what each field MEANS —
+    // last-writer-wins for scalars, union for sets, lineage rules for provider
+    // namespaces. Git's line merge knows none of that, and when two clones edit one
+    // bead far enough apart in the file it silently combines the lines instead, which
+    // is not the same answer: observed, a relink to a new provider issue merged with
+    // another clone's queued comment produced a namespace holding the new issue's id
+    // and key, the OLD issue's url, and a comment written for the old issue — a record
+    // no writer would ever produce, reported as a clean sync with nothing archived.
+    //
+    // Whether that happened at all depended on how many unchanged lines separated the
+    // two edits. `merge=binary` removes the accident: git refuses to combine bead files
+    // and marks them conflicted, so every two-sided change goes to the structured merge
+    // (`mergeBeadAcrossRefs`), which reads both sides from their blobs and resolves them
+    // by the field rules. The file rides the sync branch, so once it reaches an older
+    // client's branch that client applies the same rule and reaches its own structured
+    // merge too.
+    relative: `${DATA_SYNC_RELATIVE_PATH}/issues/.gitattributes`,
+    contents: '*.md merge=binary\n',
+  },
+  {
+    relative: `${DATA_SYNC_RELATIVE_PATH}/mappings/.gitattributes`,
+    contents: 'ids.yml merge=union\n',
+  },
+];
+
 async function writeScaffoldFileIfMissing(path: string, contents: string): Promise<boolean> {
   if (await pathExists(path)) {
     return false;
   }
   await writeFile(path, contents);
   return true;
+}
+
+/**
+ * Write and commit any merge attribute file the sync worktree is missing.
+ *
+ * The scaffold writes these only when a worktree is created, and a repository initialized
+ * before an attribute existed never creates one again. Git reads attributes from the
+ * worktree doing the merge, not from the branch merged in, so such a repository keeps
+ * line-merging until something adds the file on its own branch. Sync calls this before it
+ * merges.
+ *
+ * Idempotent: a file already on disk is left alone, whatever it holds, and nothing is
+ * committed unless a write changed the branch.
+ *
+ * When `publishedRef` (the fetched remote sync branch) already carries a missing file, its
+ * committed copy is taken instead of the default. Both sides then add the same blob, which
+ * git merges cleanly; writing the default over a published file with other contents (a
+ * hand edit, or a later release's rules) would be an add/add conflict that stops the sync.
+ *
+ * MUST be called while holding `withSharedDataSyncLock`: it writes and commits in the
+ * shared worktree.
+ *
+ * @returns the worktree-relative paths written
+ */
+export async function ensureDataSyncMergeAttributes(
+  worktreePath: string,
+  publishedRef?: string,
+): Promise<string[]> {
+  const written: string[] = [];
+  for (const file of DATA_SYNC_MERGE_ATTRIBUTES) {
+    const path = join(worktreePath, file.relative);
+    if (await pathExists(path)) {
+      continue;
+    }
+    // A sync branch from an older client can lack the directory itself: git tracks no
+    // empty directories.
+    await mkdir(dirname(path), { recursive: true });
+    const publishedCopy =
+      publishedRef !== undefined &&
+      (await git('-C', worktreePath, 'cat-file', '-e', `${publishedRef}:${file.relative}`).then(
+        () => true,
+        () => false,
+      ))
+        ? publishedRef
+        : undefined;
+    if (publishedCopy !== undefined) {
+      // `checkout`, not a read and rewrite: it copies the blob byte for byte.
+      await git('-C', worktreePath, 'checkout', publishedCopy, '--', file.relative);
+    } else {
+      await writeFile(path, file.contents);
+    }
+    written.push(file.relative);
+  }
+  if (written.length === 0) {
+    return written;
+  }
+  // Forced for the scaffold's reason: a legacy snapshot may ignore `.tbd/data-sync`.
+  await git('-C', worktreePath, 'add', '--force', '--', ...written);
+  // A file deleted from disk but still committed is rewritten identically, and a commit
+  // with nothing in it fails.
+  const staged = await git('-C', worktreePath, 'diff', '--cached', '--name-only', '--', ...written);
+  if (staged.trim()) {
+    await gitCommit(
+      worktreePath,
+      '--no-verify',
+      '--only',
+      '-m',
+      'tbd sync: add merge attributes',
+      '--',
+      ...written,
+    );
+  }
+  return written;
 }
 
 /**
@@ -1908,10 +2218,7 @@ async function ensureDataSyncScaffold(baseDir: string): Promise<number> {
     },
     { relative: `${DATA_SYNC_RELATIVE_PATH}/issues/.gitkeep`, contents: '' },
     { relative: `${DATA_SYNC_RELATIVE_PATH}/mappings/.gitkeep`, contents: '' },
-    {
-      relative: `${DATA_SYNC_RELATIVE_PATH}/mappings/.gitattributes`,
-      contents: 'ids.yml merge=union\n',
-    },
+    ...DATA_SYNC_MERGE_ATTRIBUTES,
   ];
   for (const file of scaffoldFiles) {
     if (await writeScaffoldFileIfMissing(join(worktreePath, file.relative), file.contents)) {
@@ -2817,7 +3124,7 @@ export async function removeWorktree(
  * Repair an unhealthy worktree.
  *
  * Follows decision tree from spec Appendix E:
- * - PRUNABLE: git worktree prune, then recreate
+ * - PRUNABLE: back up any surviving directory, remove, prune, then recreate
  * - CORRUPTED: backup to .tbd/backups/, remove, then recreate
  * - MISSING: just create
  *
@@ -2847,28 +3154,52 @@ export async function repairWorktree(
   const { sharedWorktreePath: worktreePath, sharedBackupsDir } = await getSharedPaths(baseDir);
 
   try {
-    // Always prune stale worktree entries first for missing and prunable states
-    // This ensures git's worktree list is clean before creating a new worktree
-    if (status === 'missing' || status === 'prunable') {
-      await git('-C', baseDir, 'worktree', 'prune');
+    // Git also reports a surviving directory as prunable when only its .git
+    // file is missing. Its uncommitted data must survive reinitialization.
+    let prunableDirectoryExists = false;
+    if (status === 'prunable') {
+      try {
+        await lstat(worktreePath);
+        prunableDirectoryExists = true;
+      } catch (error) {
+        if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
+          throw error;
+        }
+      }
     }
 
-    // Handle corrupted status: backup before removal
-    if (status === 'corrupted') {
+    // Preserve recoverable data before either removal or pruning registration.
+    if (status === 'corrupted' || prunableDirectoryExists) {
       await mkdir(sharedBackupsDir, { recursive: true });
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      const backupPath = join(sharedBackupsDir, `corrupted-worktree-backup-${timestamp}`);
+      // Reserve a unique directory so repeated repairs cannot overwrite an earlier backup.
+      const backupPath = await mkdtemp(
+        join(sharedBackupsDir, `${status}-worktree-backup-${timestamp}-`),
+      );
 
-      // Copy corrupted worktree to backup before removal
+      // Copy the damaged worktree to backup before removal.
+      //
+      // The removal below is recursive and unrecoverable, and a damaged data-sync
+      // worktree can still hold bead writes that were never synced. So the backup is
+      // a precondition for removing anything, not a courtesy: if it did not happen,
+      // the only copy of that work is the damaged worktree itself. Leaving it in
+      // place is recoverable by hand; deleting it is not. Returning a `backedUp` path
+      // that was never written also tells the caller to look somewhere empty.
       try {
         await cp(worktreePath, backupPath, { recursive: true });
-      } catch {
-        // If copy fails, the directory might not exist or be accessible
-        // Continue with repair anyway
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        return {
+          success: false,
+          error:
+            `Refusing to repair the ${status} worktree: its backup to ${backupPath} failed ` +
+            `(${reason}). The worktree at ${worktreePath} was left untouched so its contents ` +
+            `can be recovered by hand; re-run the repair once the backup location is writable.`,
+        };
       }
 
-      // Remove the corrupted worktree
+      // Remove the damaged worktree
       await rm(worktreePath, { recursive: true, force: true });
       await git('-C', baseDir, 'worktree', 'prune');
 
@@ -2877,7 +3208,8 @@ export async function repairWorktree(
       return { ...result, backedUp: backupPath };
     }
 
-    // For missing or prunable (after prune), just initialize
+    // No directory remains to preserve. Clear stale registration before creating it.
+    await git('-C', baseDir, 'worktree', 'prune');
     const result = await initWorktree(baseDir, remote, syncBranch);
     return result;
   } catch (error) {

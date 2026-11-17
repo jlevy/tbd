@@ -4,6 +4,16 @@
 
 **Status**: Draft
 
+> **Status review, 2026-09-06:** Retained for its dated native-ID observations,
+> provenance analysis, and metadata/privacy questions.
+> The opening tbd audit predates shipped `whoami`, `start`, and actor/delegate support;
+> it is not the current feature inventory.
+> See
+> [September 6 coordination research](research-2026-09-06-bead-agent-coordination.md)
+> for current behavior and the linked plans for implementation status.
+> Harness claims remain dated observations, with resume/fork and Gemini corrections
+> noted below.
+
 **Related**:
 
 - [research-2026-08-14-agent-sync-protocol-and-hooks.md](./research-2026-08-14-agent-sync-protocol-and-hooks.md)
@@ -13,8 +23,8 @@
   — the phased plan; agent identity is a Phase 1 candidate
 - [plan-2026-01-19-transactional-mode-and-agent-registration.md](../../specs/active/plan-2026-01-19-transactional-mode-and-agent-registration.md)
   — an earlier, unimplemented design for `tbd agent register`
-- [research-agent-coordination-kernel.md](./research-agent-coordination-kernel.md) —
-  multi-agent coordination context
+- [research-agent-coordination-kernel.md](../archive/research-agent-coordination-kernel.md)
+  — multi-agent coordination context
 - [research-2026-08-09-linear-task-surfaces.md](./research-2026-08-09-linear-task-surfaces.md)
   — §6.4a surveys the Linear agent ecosystem
 
@@ -389,8 +399,8 @@ singular.
 
 - Sessions are persisted as *rollout files*: `~/.codex/sessions/rollout-*.jsonl`, with
   an internal `session_id` auto-generated at start.
-  Resuming appends to the existing file and **keeps the same session ID**, so a Codex
-  session ID survives resume where a Claude Code fork does not.
+  Resuming appends to the existing file and **keeps the same session ID**. This is a
+  resume operation; compare it with Claude resume, not with a fork.
 
 - `codex exec --json` emits newline-delimited events beginning with
   `{"type":"thread.started","thread_id":"0199a213-81c0-7800-8aa1-bbab2a035a53"}`. Note
@@ -473,6 +483,14 @@ Its identity surface is **telemetry only**: OpenTelemetry-based, attaching `sess
 `installation.id`, `active_approval_mode`, and `user.email` (when authenticated) as
 common attributes on all logs and metrics.
 
+> **Correction, 2026-09-06:** The telemetry-only conclusion above is superseded by the
+> [hook survey in the companion brief](research-2026-08-14-agent-sync-protocol-and-hooks.md#25-gemini-cli),
+> which documents Gemini lifecycle hooks and context injection.
+> The original telemetry findings remain historical evidence; they do not establish that
+> hooks or in-session identity access are absent.
+> Recheck the deployed version’s payload before building an adapter.
+> Unknown session identity remains a necessary fallback across harnesses.
+
 There is no supported way to read the session ID from inside a session.
 Upstream issue `google-gemini/gemini-cli#8944` asks for one; the documented workaround
 is to write telemetry to a local file and parse it back out:
@@ -551,20 +569,25 @@ the agent did not do.
 | Transcript path | `transcript_path` | `transcript_path` (nullable) | `transcript_path` (nullable) | — | SQLite |
 | Subagent identity | `agent_id`, `agent_type` | — | `subagent_id`, `subagent_type`, `parent_conversation_id` | — | `ParentSessionID` |
 | Hook env vars set | several | **none** | several (+ Claude alias) | n/a | n/a |
-| ID stable across resume | no (fork mints new) | **yes** | n/a | n/a | n/a |
+| ID stable across resume | yes; a fork mints a new ID | **yes** | n/a | n/a | n/a |
 | Agent can read own ID | no (issue #44607) | no (issue #8923) | no | no (issue #8944) | no (issue #12324) |
 | Context injection back | `additionalContext` | `additionalContext` | stdout response | — | system prompt transform |
+
+The Gemini entries retain the original survey snapshot; see the correction in §2.4.
+Resume and fork are separate operations: the documented Claude `--resume` continues the
+selected session, while `--fork-session` or `/branch` creates a new session ID. Hook
+re-firing after compaction does not by itself establish a new identity.
 
 **Strengths/Weaknesses Summary**:
 
 - **Claude Code**: richest total surface, but split across three tiers (status line >
   hooks > model). Session ID is unstable across forks.
-- **Codex CLI**: most reliable model reporting and the only stable-across-resume session
-  ID; zero hook environment variables, which forces stdin-only designs.
+- **Codex CLI**: the original survey found per-event model reporting and stable resume
+  IDs, with hook identity supplied through stdin.
+  These are dated harness observations.
 - **Cursor**: best per-event payload and the only multi-root workspace model;
   intermittent empty-ID defect.
-- **Gemini CLI**: telemetry-only, no practical in-session identity.
-  Sets the floor.
+- **Gemini CLI**: the original telemetry-only assessment is superseded; see §2.4.
 - **OpenCode**: internally rich, externally unexposed; the community has already built
   the workaround.
 
@@ -605,9 +628,9 @@ A map of `{kind: value}` will not.
 Code forks and `/branch` mint new IDs.
 Compaction fires `SessionStart` again.
 `/clear` starts a new conversation.
-Codex resume, by contrast, preserves the ID. Anything keyed on session ID must be
-idempotent under re-firing and tolerant of one agent-in-the-human-sense spanning several
-session IDs.
+Ordinary resume preserves the selected session ID in both documented CLI flows.
+Anything keyed on session ID must be idempotent under re-firing and tolerant of one
+agent-in-the-human-sense spanning several session IDs.
 
 **A7 — Working directory is the one binding every harness makes explicit.** `cwd` in
 Claude Code and Codex payloads; `workspace_roots` in Cursor; `CLAUDE_PROJECT_DIR` and
@@ -941,8 +964,8 @@ once.
    subagent get its own `agid-`, a child ID, or nothing?
    A single tbd session can spawn many, so the answer materially affects record volume.
 
-3. **How does an identity survive `--resume`?** Codex preserves its session ID, Claude
-   Code’s fork does not.
+3. **How does an identity survive `--resume`?** Both documented resume flows preserve
+   the selected native session ID; a Claude Code fork creates a different session.
    Should a resumed session keep its agent ID (identity follows the work) or mint a new
    one (identity follows the process)?
 
@@ -1252,3 +1275,7 @@ A one-in-a-million risk arrives at roughly 1.5 × 10^9 identifiers minted in the
 millisecond, which is not a regime any session-start path reaches.
 This is why §5.2 treats the character count as settled rather than as a parameter to
 tune: the question only exists for the short-random-string designs in §5.5.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

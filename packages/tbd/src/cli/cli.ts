@@ -51,6 +51,7 @@ import { shortcutCommand } from './commands/shortcut.js';
 import { guidelinesCommand } from './commands/guidelines.js';
 import { templateCommand } from './commands/template.js';
 import { setupCommand } from './commands/setup.js';
+import { policyCommand } from './commands/policy.js';
 import { saveCommand } from './commands/save.js';
 import { workspaceCommand } from './commands/workspace.js';
 import { CLIError } from './lib/errors.js';
@@ -98,6 +99,7 @@ function createProgram(): Command {
   program.addCommand(initCommand);
   program.addCommand(configCommand);
   program.addCommand(setupCommand);
+  program.addCommand(policyCommand);
 
   program.commandsGroup('Working With Issues:');
 
@@ -335,12 +337,13 @@ export async function runCli(): Promise<void> {
   } catch (error) {
     if (error instanceof CLIError) {
       outputError(error.message, error);
-      process.exit(error.exitCode);
+      process.exitCode = error.exitCode;
+      return;
     }
     // Unexpected error
     const message = error instanceof Error ? error.message : String(error);
     outputError(message, error instanceof Error ? error : undefined);
-    process.exit(EXIT_OPERATIONAL_ERROR);
+    process.exitCode = EXIT_OPERATIONAL_ERROR;
   }
 }
 

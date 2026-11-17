@@ -273,3 +273,7 @@ None — implementation is complete and tested.
 - `tbd-design.md` §4.4 Show, §2.8.2 Parent-Child Relationships
 - `settings.ts` — `PARENT_CONTEXT_MAX_LINES`
 - `show.ts` — `renderIssueLines()`, `printWithTruncation()`
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

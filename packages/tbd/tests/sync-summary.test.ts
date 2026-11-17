@@ -107,14 +107,31 @@ describe('formatSyncSummary', () => {
     const summary = emptySummary();
     summary.sent.new = 1;
     summary.conflicts = 2;
-    expect(formatSyncSummary(summary)).toBe('sent 1 new (2 conflicts resolved)');
+    expect(formatSyncSummary(summary)).toBe(
+      'sent 1 new (2 conflicts resolved, archived in the attic)',
+    );
   });
 
   it('formats single conflict correctly', () => {
     const summary = emptySummary();
     summary.received.updated = 1;
     summary.conflicts = 1;
-    expect(formatSyncSummary(summary)).toBe('received 1 updated (1 conflict resolved)');
+    expect(formatSyncSummary(summary)).toBe(
+      'received 1 updated (1 conflict resolved, archived in the attic)',
+    );
+  });
+
+  it('says so when a losing value could not be archived', () => {
+    // The summary is the only line most runs print, and the per-entry archive lines are
+    // verbose-only. Saying "archived in the attic" after the write failed tells the user
+    // their data is recoverable when it is not.
+    const summary = emptySummary();
+    summary.received.updated = 1;
+    summary.conflicts = 2;
+    summary.conflictsNotArchived = 1;
+    expect(formatSyncSummary(summary)).toBe(
+      'received 1 updated (2 conflicts resolved, 1 NOT archived — see warnings)',
+    );
   });
 });
 

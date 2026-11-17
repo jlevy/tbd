@@ -2767,8 +2767,8 @@ updates for the new format, schemas, and prefix-based paths.
 ## References
 
 - Current doc sync implementation:
-  [doc-sync.ts](../../packages/tbd/src/file/doc-sync.ts)
-- Config schema: [schemas.ts](../../packages/tbd/src/lib/schemas.ts)
+  [doc-sync.ts](../../../../packages/tbd/src/file/doc-sync.ts)
+- Config schema: [schemas.ts](../../../../packages/tbd/src/lib/schemas.ts)
 - Related spec: plan-2026-01-26-configurable-doc-cache-sync.md
 - Speculate repo: https://github.com/jlevy/speculate
 - rust-porting-playbook: https://github.com/jlevy/rust-porting-playbook
@@ -3008,3 +3008,7 @@ those capabilities well.
   [research-cli-as-agent-skill.md](../../research/current/research-cli-as-agent-skill.md)
 - tbd skills architecture research:
   [research-skills-vs-meta-skill-architecture.md](../../research/current/research-skills-vs-meta-skill-architecture.md)
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

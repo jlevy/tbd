@@ -13,20 +13,11 @@
 
 import { mkdir, readdir, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { writeFile } from 'atomically';
 
-import { sortKeys, stringifyYaml } from '../utils/yaml-utils.js';
-import { ATTIC_ENTRY_FIELD_ORDER } from '../lib/schemas.js';
-
+import { saveConflictToAttic } from './attic-entry.js';
 import { listIssues, writeIssue, readIssue } from './storage.js';
 import { parseIssue } from './parser.js';
-import {
-  mergeIssues,
-  issuesSubstantivelyEqual,
-  git,
-  type ConflictEntry,
-  trackingRefspec,
-} from './git.js';
+import { mergeIssues, issuesSubstantivelyEqual, git, trackingRefspec } from './git.js';
 import { loadIdMapping, saveIdMapping, addIdMapping, reconcileMappings } from './id-mapping.js';
 import {
   WORKSPACES_DIR,
@@ -35,9 +26,8 @@ import {
   DATA_SYNC_DIR,
 } from '../lib/paths.js';
 import { extractUlidFromInternalId } from '../lib/ids.js';
-import { now } from '../utils/time-utils.js';
 import { noopLogger } from '../lib/types.js';
-import type { AtticEntry, Issue, OperationLogger } from '../lib/types.js';
+import type { Issue, OperationLogger } from '../lib/types.js';
 
 /**
  * Options for saveToWorkspace.
@@ -189,50 +179,6 @@ async function readRemoteIssues(baseDir: string, remote: string, branch: string)
 }
 
 /**
- * Convert ConflictEntry to AtticEntry format and save to workspace attic.
- */
-async function saveConflictToAttic(
-  atticDir: string,
-  conflict: ConflictEntry,
-  winnerSource: 'local' | 'remote',
-): Promise<void> {
-  const timestamp = now();
-
-  // Convert lost_value to string - handle objects, primitives, and nullish
-  const lostValueStr =
-    conflict.lost_value == null
-      ? ''
-      : typeof conflict.lost_value === 'object'
-        ? JSON.stringify(conflict.lost_value)
-        : JSON.stringify(conflict.lost_value);
-
-  const entry: AtticEntry = {
-    entity_id: conflict.issue_id,
-    timestamp,
-    field: conflict.field,
-    lost_value: lostValueStr,
-    winner_source: winnerSource,
-    loser_source: winnerSource === 'local' ? 'remote' : 'local',
-    context: {
-      local_version: conflict.local_version,
-      remote_version: conflict.remote_version,
-      local_updated_at: timestamp,
-      remote_updated_at: timestamp,
-    },
-  };
-
-  // Create filename: {entity_id}_{timestamp}_{field}.yml
-  const safeTimestamp = timestamp.replace(/:/g, '-');
-  const filename = `${conflict.issue_id}_${safeTimestamp}_${conflict.field}.yml`;
-  const filepath = join(atticDir, filename);
-
-  // Sort keys using canonical field order, then serialize
-  const sorted = sortKeys(entry as unknown as Record<string, unknown>, ATTIC_ENTRY_FIELD_ORDER);
-  const content = stringifyYaml(sorted, { sortMapEntries: false });
-  await writeFile(filepath, content);
-}
-
-/**
  * Get the target/source directory for workspace operations.
  */
 function resolveWorkspaceDir(
@@ -340,12 +286,10 @@ export async function saveToWorkspace(
 
       // Use older version as base for field-by-field merge
       let result;
-      let winnerSource: 'local' | 'remote';
 
       if (sourceTime !== targetTime) {
         // Different timestamps - clear ordering, use older as base
         const older = sourceTime > targetTime ? targetIssue : sourceIssue;
-        winnerSource = sourceTime > targetTime ? 'local' : 'remote';
         result = mergeIssues(older, sourceIssue, targetIssue);
       } else {
         // Equal timestamps - concurrent edits
@@ -355,7 +299,6 @@ export async function saveToWorkspace(
           version: 0,
           updated_at: '1970-01-01T00:00:00.000Z',
         } as Issue;
-        winnerSource = 'local'; // Arbitrary since timestamps are equal
         result = mergeIssues(syntheticBase, sourceIssue, targetIssue);
       }
 
@@ -364,9 +307,10 @@ export async function saveToWorkspace(
       saved++;
       log.debug(`Merged issue ${sourceIssue.id} (${result.conflicts.length} field conflict(s))`);
 
-      // Save any conflicts to workspace attic
+      // Save any conflicts to workspace attic. The winning side comes from the
+      // conflict itself: the merge does not decide it once per bead.
       for (const conflict of result.conflicts) {
-        await saveConflictToAttic(atticDir, conflict, winnerSource);
+        await saveConflictToAttic(atticDir, conflict);
         conflicts++;
       }
     } else {
@@ -466,12 +410,10 @@ export async function importFromWorkspace(
 
       // Use older version as base for field-by-field merge
       let result;
-      let winnerSource: 'local' | 'remote';
 
       if (sourceTime !== targetTime) {
         // Different timestamps - clear ordering, use older as base
         const older = sourceTime > targetTime ? targetIssue : sourceIssue;
-        winnerSource = sourceTime > targetTime ? 'local' : 'remote';
         result = mergeIssues(older, sourceIssue, targetIssue);
       } else {
         // Equal timestamps - concurrent edits
@@ -481,7 +423,6 @@ export async function importFromWorkspace(
           version: 0,
           updated_at: '1970-01-01T00:00:00.000Z',
         } as Issue;
-        winnerSource = 'local'; // Arbitrary since timestamps are equal
         result = mergeIssues(syntheticBase, sourceIssue, targetIssue);
       }
 
@@ -490,9 +431,10 @@ export async function importFromWorkspace(
       imported++;
       log.debug(`Merged issue ${sourceIssue.id} (${result.conflicts.length} field conflict(s))`);
 
-      // Save any conflicts to worktree attic
+      // Save any conflicts to worktree attic. The winning side comes from the
+      // conflict itself: the merge does not decide it once per bead.
       for (const conflict of result.conflicts) {
-        await saveConflictToAttic(atticDir, conflict, winnerSource);
+        await saveConflictToAttic(atticDir, conflict);
         conflicts++;
       }
     } else {

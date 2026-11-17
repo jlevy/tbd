@@ -124,6 +124,16 @@ export function stripManagedBlock(description: string | null | undefined): strin
   return `${before}\n\n${after}`;
 }
 
+/** Return the tracker-visible managed region, or null when none can be read safely. */
+export function readManagedBlock(description: string | null | undefined): string | null {
+  const body = description ?? '';
+  const location = locateManagedBlock(body);
+  if (location.kind !== 'valid') {
+    return null;
+  }
+  return body.slice(location.begin, location.end + location.endMarkerLength);
+}
+
 /**
  * Replace the managed region of a description.
  *

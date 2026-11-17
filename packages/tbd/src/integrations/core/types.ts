@@ -288,6 +288,23 @@ export interface TrackerAdapter {
   /** Whether this canonical assignee has an explicit, safe provider mapping. */
   canPushAssignee(assignee: string | null): boolean;
 
+  /**
+   * Resolve a slot to the provider state an actual write would use.
+   *
+   * Optional for providers without board slots. A missing or ambiguous state is a
+   * field-level exclusion, not a successful write with the state silently omitted.
+   */
+  resolveSlotWrite?(
+    slot: string,
+    carriers: { status: IssueStatusType; hold?: IssueHoldType | null },
+    preferredStateId?: string,
+  ): Promise<{
+    canPush: boolean;
+    projectedSlot?: string;
+    stateId?: string;
+    reason?: string;
+  }>;
+
   /** Parse `FIN-123`, a provider URL, or `owner/repo#12` into a ref. */
   resolveRef(ref: string): Promise<ExternalRef>;
 
@@ -318,9 +335,10 @@ export interface TrackerAdapter {
   spliceDescription(id: string, block: string): Promise<{ updatedAt: string } | null>;
 
   /**
-   * Post a conflict report where a human will see it. `clientId` makes replay
-   * exactly-once: the provider honors client-generated comment ids and rejects
-   * duplicates (verified live), which the adapter converts to success.
+   * Post a conflict report where a human will see it. Reusing `clientId` makes
+   * replay of that operation idempotent: the provider honors client-generated
+   * comment ids and rejects duplicates (verified live), which the adapter converts
+   * to success.
    */
   postConflict(
     id: string,

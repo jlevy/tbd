@@ -8,15 +8,21 @@
  * - Bump when changes REQUIRE migration (deleting files, changing formats, moving files)
  * - Bump for config removals, renames, semantic changes, or additions inside a nested
  *   schema that does not preserve unknown keys when an older client could lose data.
- * - Bump when the shape of a format-stamped agent-integration surface changes
- *   incompatibly (e.g. the managed AGENTS.md block). The same format is stamped there
- *   via AGENT_INTEGRATION_FORMAT (integration-paths.ts).
+ * - Do NOT bump for a change to a generated agent-integration surface (the managed
+ *   AGENTS.md block, generated SKILL.md files). Those carry their own format,
+ *   AGENT_INTEGRATION_FORMAT in integration-paths.ts, split from this one after f08;
+ *   bump that constant instead. Bump both only when a change needs both.
  * - Do NOT bump merely because the implementation of a content-managed launcher script
  *   changes compatibly. Those scripts are refreshed by content comparison and select a
  *   CLI by probing this repository format at runtime.
  * - Do NOT bump for a purely additive top-level config block, or a key inside an
  *   explicitly passthrough schema, once the repository is on f07.
- * - Do NOT bump for additive changes that don't affect config.yml (new directories, etc.)
+ * - Do NOT bump for an additive path only when every supported older writer preserves
+ *   that path through staging, merge, recovery, and cleanup.
+ * - An additive durable collection that older writers can lose or mutate requires a
+ *   compatibility boundary. If activation must remain opt in, follow the explicit
+ *   activation workflow in docs/tbd-format-versioning.md rather than advancing every
+ *   repository through CURRENT_FORMAT automatically.
  *
  * HOW TO ADD A NEW FORMAT VERSION:
  * 1. Add entry to FORMAT_HISTORY with detailed description
@@ -35,7 +41,8 @@
  *    format version (e.g., f07 → f08)
  * 2. config.ts checks format compatibility via isCompatibleFormat()
  * 3. Older tbd versions will error with "format 'fXX' is from a newer tbd version"
- * 4. The error tells users to upgrade: npm install -g get-tbd@latest
+ * 4. The error tells users to upgrade with tbdUpgradeAdvice (install-advice.ts), naming
+ *    the release that last set the repository up when the config records it
  *
  * This ensures older versions fail fast rather than silently corrupting config.
  * A purely additive config key no longer needs a bump once every client in use is
@@ -43,6 +50,8 @@
  * new key to a pre-f07 client would be damaging.
  * See ConfigSchema in schemas.ts and checkFormatCompatibility() in config.ts.
  */
+
+import { tbdUpgradeAdvice } from './install-advice.js';
 
 // =============================================================================
 // Format Constants
@@ -815,18 +824,20 @@ export function isFormatCompatibleWithSupported(
 
 /**
  * Build the standard message shown when a repository has a format newer than
- * this tbd client supports.
+ * this tbd client supports. `requiredVersion` is the config's `tbd_fallback_version`,
+ * the release that last set the repository up, when it is known.
  */
 export function formatUpgradeMessage(
   subject: string,
   foundFormat: string,
   supportedFormat: string,
+  requiredVersion?: string,
 ): string {
   return (
     `This repository requires a newer version of tbd.\n` +
     `${subject} format '${foundFormat}' is from a newer tbd version.\n` +
     `This tbd version supports up to format '${supportedFormat}'.\n` +
-    `Upgrade tbd: npm install -g get-tbd@latest`
+    tbdUpgradeAdvice('Upgrade tbd', requiredVersion)
   );
 }
 

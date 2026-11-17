@@ -164,3 +164,7 @@ No code changes.
 - Guidelines source: packages/tbd/docs/guidelines/
 - Shortcuts source: packages/tbd/docs/shortcuts/
 - Templates source: packages/tbd/docs/templates/
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

@@ -60,6 +60,29 @@ tbd import --outbox
 tbd sync
 ```
 
+## Recovering a Value a Merge Discarded
+
+A sync that reports `N conflicts resolved, archived in the attic` kept one side of a
+field and discarded the other.
+The discarded value is in the attic, not only in git history, and it reached every clone
+along with the merge.
+
+```bash
+# What was discarded, newest first
+tbd attic list
+tbd attic list proj-a7k2            # just this issue
+
+# What the entry holds
+tbd attic show proj-a7k2 2026-01-15T10:30:00Z
+
+# Put a discarded title, description or notes back
+tbd attic restore proj-a7k2 2026-01-15T10:30:00Z
+```
+
+`restore` archives the value it replaces before overwriting, so it is itself undoable.
+For a structured field such as `extensions.<provider>` it will refuse; use
+`tbd attic show` and reapply by hand.
+
 ## More Information
 
 For detailed troubleshooting, workspace usage, and diagnostic commands, see:

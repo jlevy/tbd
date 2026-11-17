@@ -144,6 +144,58 @@ report the exact package/tag version.
 Design and implementation details are in
 [plan-2026-08-10-tbd-web-live-bead-view.md](project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md).
 
+### Review and policy contracts across docs
+
+Like the `tbd web` interaction contract, three agent workflow contracts are stated in
+several packaged docs and must read the same everywhere.
+Each has one defining document; the others route to it or summarize it.
+Tests in `packages/tbd/tests/` pin them, and they need no build, so run them after any
+edit to these docs:
+
+```bash
+pnpm --filter get-tbd exec vitest run \
+  tests/review-lifecycle-contract.test.ts tests/policy-grants-docs.test.ts
+```
+
+- **Review vocabulary.** The Request Vocabulary table in `pr-review-workflows` defines
+  the review requests, from “Review PR #N” to “Make sure PR #N is reviewed and merged”,
+  with the shortcut and mode each runs; the Modes table in `review-and-merge-prs`
+  matches it. Every skill tier (`skill-baseline`, `skill-brief`, `skill-minimal`) and the
+  README request table route each phrase, plus “Set up tbd” to `setup-tbd` and “You can
+  use sub-agents” to `delegate-to-subagents`; `welcome-user` routes “Set up tbd”.
+  `tests/review-lifecycle-contract.test.ts` checks the vocabulary and the skill tier
+  routes, and `tests/policy-grants-docs.test.ts` checks the setup and delegation routes.
+- **Review-state contract.** `pr-review-workflows` defines the versioned
+  `tbd:review v=1` and `tbd:dispositions v=1` markers and their field order, the five
+  review kinds, finding IDs, the four dispositions (fixed, rebutted, declined, or
+  deferred) with their evidence, and the one-round default; `review-and-merge-prs` holds
+  the one full merge gate.
+  `tests/review-lifecycle-contract.test.ts` checks every marker in the shipped docs,
+  that no doc states another disposition count or an incomplete set, the
+  cross-references between the lifecycle shortcuts, the round and merge-gate rules, and
+  the tiers in `agent-model-tiers`, whose dated suggestions are the only place those
+  docs name a model.
+- **Policy grants.** `agent-policy-grants` defines the policies, their values and
+  recommendations, the recommended set, the block syntax, and the setup questions.
+  The schema and block renderer in `packages/tbd/src/lib/policy-grants.ts` implement it;
+  the generated tbd block in `AGENTS.md`, `setup-tbd`, `delegate-to-subagents`,
+  `review-and-merge-prs`, and the skill’s GitHub Authorization section link to it; and
+  `stacked-prs`, both `create-or-update-pr` shortcuts, `setup-github-cli`, and the
+  generated tbd block state the `github-stacked-prs` condition.
+  The generated tbd block, both `create-or-update-pr` shortcuts, `stacked-prs`,
+  `delegate-to-subagents`, and every skill tier state the `pr-delivery: autonomous`
+  condition, and the guideline’s PR Delivery section states what it does not cover:
+  merging, review requirements, and repository settings, secrets, and workflows.
+  `tests/policy-grants-docs.test.ts` compares the guideline’s tables, custom-value
+  examples, recommended set, and example block with the schema and renderer, and checks
+  those links, both conditions, the PR Delivery limits, and the setup questions in
+  `setup-tbd`. `setup-flows.test.ts` and `golden-output.test.ts` pin the route from
+  `tbd setup` output to `setup-tbd`. The README, CLI manual (`tbd-docs.md`), and design
+  doc (`tbd-design.md` §6.4.8–6.4.9) summarize the contract and link to the guideline.
+  The design and CLI manual state that merge and review requirements are settable
+  grants: the four `github-merge` values, and that no value weakens
+  `pr-review-requirements`.
+
 ### Developing external tracker integrations
 
 Build first and exercise the published entry point; integration acceptance tests spawn
@@ -257,8 +309,8 @@ do not install or upgrade to any package version less than 14 days old.
   PR description with CVE ID, upstream link, and a `Reviewed-by:` line.
 
 The check requires registry access (`https://registry.npmjs.org`); skip it with
-`SKIP=package-age git push` only if you’re pushing infrastructure changes that do not
-touch dependencies.
+`LEFTHOOK_EXCLUDE=package-age git push` only if you’re pushing infrastructure changes
+that do not touch dependencies.
 
 ## Commit Conventions
 
@@ -376,6 +428,12 @@ Instead, write a clean, unit-tested script and invoke it by reference:
   (`pnpm exec tsx packages/tbd/scripts/extract-changelog.ts …`) and wire its output;
   keep any remaining shell to trivial plumbing (e.g. the `GITHUB_OUTPUT` heredoc).
 
+This repository uses TypeScript for CI-support programs because Node, `tsx`, and Vitest
+are already pinned project tools; it is not a general preference for Node over Python.
+See
+[`ci-and-gates-rules`](../packages/tbd/docs/guidelines/ci-and-gates-rules.md#keep-shell-at-the-invocation-boundary)
+for the language-neutral selection rule.
+
 If you find yourself reaching for `awk`/`sed` in a workflow, that is the signal to move
 it into a script.
 
@@ -403,7 +461,7 @@ tbd/
 
 ## Architecture
 
-See [tbd-design.md](tbd-design.md) for the full design document.
+See [tbd-design.md](../packages/tbd/docs/tbd-design.md) for the full design document.
 
 Key concepts:
 
@@ -427,8 +485,8 @@ tbd uses a **hidden git worktree** to store issue data on the `tbd-sync` branch 
 keeping the user’s working directory clean.
 The sync worktree is anchored under Git’s common directory so the main checkout and any
 linked worktrees created by tools like Codex all share the same local issue state.
-See [tbd-design.md §2.3](packages/tbd/docs/tbd-design.md#23-hidden-worktree-model) for
-the full specification.
+See [tbd-design.md §2.3](../packages/tbd/docs/tbd-design.md#23-hidden-worktree-model)
+for the full specification.
 
 ### Why Worktree?
 
@@ -573,6 +631,9 @@ Forkable-docs behavior (fork/unfork/update/diff/status) is covered by
 engine), `tests/bead-watch.test.ts` (the poll loop, deadlines, and private-ref
 handling), `tests/cli-changes.test.ts`, `tests/cli-watch.test.ts`, and
 `tests/watch-beads-shortcut.test.ts` (the shipped worker recipe, executed as Bash).
+`tbd watch --ready` observes Git transitions into readiness; complete worker loops also
+scan `tbd ready` at startup and periodically for an existing backlog and clock-only
+`deferred_until` expiry.
 
 Unit tests cannot prove Git isolation, so a real-topology smoke test does:
 

@@ -652,3 +652,7 @@ These are documented for future consideration but not blocking for V1:
 6. Merge PR to main branch
 7. CI runs on all platforms
 8. Set up npm publish (user action)
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

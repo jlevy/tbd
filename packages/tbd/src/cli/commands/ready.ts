@@ -54,7 +54,11 @@ class ReadyHandler extends BaseCommand {
 
     // Ready selection, ordering, and tiebreak all come from the shared query module,
     // so this command and any other surface answering "what is ready" cannot disagree.
-    let readyIssues = selectIssues(issues, { ...defaultIssueQuery(), ready: true, kind });
+    let readyIssues = selectIssues(
+      issues,
+      { ...defaultIssueQuery(), ready: true, kind },
+      Date.now(),
+    );
 
     // Apply limit
     readyIssues = applyLimit(readyIssues, options.limit);

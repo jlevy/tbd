@@ -8,14 +8,26 @@ probes against a real workspace)
 **Status:** Complete for API facts and landscape survey.
 Design options are mapped but deliberately not decided.
 
+> **Status review, 2026-09-06:** Retained for dated Linear API probes, human task
+> surfaces, and recurring-work analysis.
+> Live observations describe the August 9 workspace and key; quotas, schema counts, and
+> vendor behavior are not universal or newly verified facts.
+> The old watch/web and one-way-pilot sequencing is superseded by shipped functionality;
+> see
+> [September 6 coordination research](research-2026-09-06-bead-agent-coordination.md).
+> The proposed Git-held lease is not a cross-host fencing guarantee, and per-run retry
+> safety does not prevent independent clones duplicating an external effect.
+> Preserve conflict visibility, source permalinks, and human-attention requirements
+> without treating the old implementation recipes as current instructions.
+
 **Related:**
 
-- [How Coding Agents Listen On and Monitor Issues](research-2026-06-04-agent-issue-monitors.md)
+- [How Coding Agents Listen On and Monitor Issues](../archive/research-2026-06-04-agent-issue-monitors.md)
   — trigger and dispatch mechanics; the pattern taxonomy this doc reuses
 - [Claude Code Orchestration Interfaces and UIs](../archive/research-claude-code-orchestration-and-uis.md)
   — OpenAI Symphony, the reference Linear-polling orchestrator
-- [Agent Coordination Kernel](research-agent-coordination-kernel.md) — durable truth vs.
-  live coordination
+- [Agent Coordination Kernel](../archive/research-agent-coordination-kernel.md) —
+  durable truth vs. live coordination
 - [Keeping Agent Sessions Synchronized](research-2026-08-14-agent-sync-protocol-and-hooks.md)
   — turns §7b.4’s “agents announcing themselves in beads” into a concrete protocol, and
   audits what the shipped integration actually projects
@@ -853,7 +865,7 @@ forward in detail:
 ## 7. How people typically do this
 
 Three patterns dominate, and they map cleanly onto the taxonomy in
-[research-2026-06-04-agent-issue-monitors.md](research-2026-06-04-agent-issue-monitors.md).
+[research-2026-06-04-agent-issue-monitors.md](../archive/research-2026-06-04-agent-issue-monitors.md).
 
 **Pattern A: hosted daemon polls the tracker.** The reference implementation is
 [openai/symphony](https://github.com/openai/symphony): a long-running service that reads
@@ -908,6 +920,14 @@ git-native store and a SaaS tracker, and in the agent-orchestration ecosystem
 specifically the convention has settled on one system of record.**
 
 ### 7a.1a git-bug’s two distinct sync layers
+
+> **Interpretation update, 2026-09-06:** The comparison below preserves the August
+> investigation. Deterministic replay is a resolution policy; retaining operations does
+> not preserve every concurrent intention in the resulting state.
+> Lamport-clock validation checks ordering consistency, not author authentication or
+> general tamper resistance.
+> Read the later “no resolution policy” and “impossible” data-loss claims within those
+> limits, not as universal guarantees.
 
 git-bug’s “synchronization” is **two different mechanisms with different guarantees**,
 and conflating them is the main way to misread the precedent.
@@ -1166,6 +1186,13 @@ Putting Linear in the loop removes each property in turn:
 
 ### 7b.3 The resolution: opportunistic single-writer, and three-way merge instead of LWW
 
+> **Correction, 2026-09-06:** This is an earlier proposal, not the shipped authority
+> model. A local sync lock does not cover independent clones.
+> Even a remote Git CAS does not fence a stale worker’s later Linear write; external
+> authority and effect deduplication need their own contracts.
+> Client-generated IDs must be stable for the same logical effect across replicas, not
+> merely reused within one local journal.
+
 None of the above says “don’t.” It says the concurrency model must be **opportunistic
 single-writer**: any agent may *volunteer* to sync, but only one syncs at a time.
 
@@ -1206,8 +1233,9 @@ to its session or workspace, so `tbd watch` makes agent activity observable and 
 presence information syncs outward to Linear like any other field.
 
 This is sound, and it is the
-[Agent Coordination Kernel](research-agent-coordination-kernel.md) model with watch as
-the transport. The discipline that makes it work:
+[Agent Coordination Kernel](../archive/research-agent-coordination-kernel.md) model with
+watch as the transport.
+The discipline that makes it work:
 
 - **Claim before write, one writer per bead.** Presence works precisely because the
   agent that claims a bead is the only writer of its presence fields, so no merge
@@ -1722,3 +1750,7 @@ q '{"query":"mutation($id:String!){ issueDelete(id:$id){ success } }","variables
   plan
 - `plan-2026-07-20-linear-bead-sync-pilot.md` (on
   `origin/claude/linear-bead-sync-plan-tct4hn`)
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

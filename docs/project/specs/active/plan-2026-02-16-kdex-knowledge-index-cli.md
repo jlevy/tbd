@@ -58,7 +58,7 @@ docs_cache:
 ```
 
 The planned f04 format (see
-[external-docs-repos spec](plan-2026-02-02-external-docs-repos.md)) adds
+[external-docs-repos spec](../done/plan-2026-02-02-external-docs-repos.md)) adds
 prefix-namespaced `sources`:
 
 ```yaml
@@ -404,7 +404,11 @@ section, or tbd could read a standalone `kdex.yml` — the library supports both
 
 - [Research: Agent Knowledge-on-Demand](../../research/current/research-agent-knowledge-on-demand.md)
   — Full research brief with prior art, architecture analysis, and design rationale
-- [External Docs Repos Spec](plan-2026-02-02-external-docs-repos.md) — Current tbd spec
-  for prefix-namespaced multi-source docs (f04)
+- [External Docs Repos Spec](../done/plan-2026-02-02-external-docs-repos.md) — Current
+  tbd spec for prefix-namespaced multi-source docs (f04)
 - [CLI as Agent Skill Research](../../research/current/research-cli-as-agent-skill.md) —
   Patterns for CLIs that function as agent skills
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

@@ -1,6 +1,6 @@
 {
   "name": "get-tbd",
-  "version": "0.7.1",
+  "version": "0.11.0",
   "description": "Git-native issue tracking for AI agents and humans",
   "license": "MIT",
   "author": "Joshua Levy <joshua@cal.berkeley.edu> (https://github.com/jlevy)",
@@ -64,6 +64,7 @@
     "qa:web-package": "node scripts/validate-web-package.mjs",
     "qa:linear-live": "pnpm build && tsx scripts/validate-linear-integration-live.ts",
     "bench": "tsx scripts/benchmark.ts",
+    "generate:readme": "tsx scripts/generate-readme-tables.ts",
     "validate-import": "tsx scripts/validate-import.ts",
     "publint": "publint",
     "prepack": "pnpm build",
@@ -82,7 +83,7 @@
     "pretty-ms": "^9.0.0",
     "ulid": "^3.0.2",
     "yaml": "~2.8.3",
-    "zod": "^3.25.76"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/marked-terminal": "^6.1.1",

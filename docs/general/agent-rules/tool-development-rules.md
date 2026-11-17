@@ -321,3 +321,7 @@ describe('MyTool', () => {
 - Tool resolver: `convex/tools/toolResolver.ts`
 
 - Tool documentation example: `web/docs/gdelt_tool.md`
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

@@ -15,7 +15,7 @@ import type {
   ProviderMeta,
   TrackerAdapter,
 } from '../core/types.js';
-import type { ProviderNameType } from '../../lib/types.js';
+import type { IssueHoldType, IssueStatusType, ProviderNameType } from '../../lib/types.js';
 import type { LinearClient } from './client.js';
 import { LinearDuplicateIdError, MAX_PAGE_SIZE } from './client.js';
 import {
@@ -30,6 +30,8 @@ import {
   slotFromLinear,
   stateColorFor,
   resolveStateId,
+  resolveSlotToLinear,
+  slotToLinear,
   statusToLinear,
 } from './mapping.js';
 import {
@@ -57,6 +59,7 @@ import {
   TEAM_LABELS_QUERY,
   USERS_BY_EMAIL_QUERY,
 } from './queries.js';
+import { isSlot } from '../core/slots.js';
 import { spliceManagedBlock } from '../core/managed-block.js';
 import { isTbdOwnedLabel, labelColorFor } from '../core/origin-labels.js';
 import {
@@ -67,6 +70,7 @@ import {
   type RawLabelNode,
 } from './label-groups.js';
 import type { LabelCreateModeType } from '../core/provider-settings.js';
+import { agentMapProblems } from '../core/provider-settings.js';
 import { resolveActor, bindingFor } from '../core/actor-binding.js';
 import type { ProviderMember, ActorBinding } from '../core/actor-binding.js';
 import { CONFLICT_COMMENT_MARKER } from '../core/types.js';
@@ -210,14 +214,15 @@ export class LinearAdapter implements TrackerAdapter {
     this.project = options.project;
     this.stateMap = options.stateMap;
     const agents = Object.entries(options.agentMap ?? {});
+    // Config is checked well before this point (`agentMapProblems`), but nothing
+    // guarantees the map came from config, so refuse a bad one here too — through the
+    // same function, so there is only ever one wording for the mistake.
+    const configProblems = agentMapProblems('linear', options.agentMap);
+    if (configProblems[0]) {
+      throw new Error(configProblems[0]);
+    }
     const reverseAgents = new Map<string, string>();
     for (const [name, appUserId] of agents) {
-      if (!name.trim()) {
-        throw new Error('integrations.linear.agent_map contains an empty agent name.');
-      }
-      if (!UUID_RE.test(appUserId)) {
-        throw new Error(`integrations.linear.agent_map.${name} must be a Linear app user UUID.`);
-      }
       reverseAgents.set(appUserId.toLowerCase(), name);
     }
     this.agentMap = new Map(agents);
@@ -226,18 +231,18 @@ export class LinearAdapter implements TrackerAdapter {
     const reverse = new Map<string, string>();
     for (const [assignee, identity] of configuredUsers) {
       if (!assignee.trim()) {
-        throw new Error('integrations.linear.user_map contains an empty tbd assignee.');
+        throw new Error('integrations.linear.identity.user_map contains an empty tbd assignee.');
       }
       if (!UUID_RE.test(identity) && !EMAIL_RE.test(identity)) {
         throw new Error(
-          `integrations.linear.user_map.${assignee} must be a Linear user UUID or email.`,
+          `integrations.linear.identity.user_map.${assignee} must be a Linear user UUID or email.`,
         );
       }
       const normalized = identity.toLowerCase();
       const existing = reverse.get(normalized);
       if (existing) {
         throw new Error(
-          `integrations.linear.user_map maps both ${existing} and ${assignee} to the same Linear user.`,
+          `integrations.linear.identity.user_map maps both ${existing} and ${assignee} to the same Linear user.`,
         );
       }
       reverse.set(normalized, assignee);
@@ -348,6 +353,37 @@ export class LinearAdapter implements TrackerAdapter {
       return false;
     }
     return this.userMap.has(assignee) || this.resolvedActors.has(assignee);
+  }
+
+  async resolveSlotWrite(
+    slot: string,
+    carriers: { status: IssueStatusType; hold?: IssueHoldType | null },
+    preferredStateId?: string,
+  ): Promise<{
+    canPush: boolean;
+    projectedSlot?: string;
+    stateId?: string;
+    reason?: string;
+  }> {
+    if (!isSlot(slot)) {
+      return { canPush: false, reason: `Unknown tbd board slot: ${slot}` };
+    }
+    const meta = await this.ensureMeta();
+    const resolution = resolveSlotToLinear(meta.states ?? [], slot, carriers, {
+      configuredName: this.stateMap?.[slotToLinear(slot, carriers).stateType],
+      preferredStateId,
+    });
+    if (!resolution.state) {
+      return {
+        canPush: false,
+        reason: `Linear team ${this.teamKey} has ${resolution.reason}.`,
+      };
+    }
+    return {
+      canPush: true,
+      projectedSlot: resolution.projectedSlot,
+      stateId: resolution.state.id,
+    };
   }
 
   /**
@@ -513,13 +549,30 @@ export class LinearAdapter implements TrackerAdapter {
     // the whole list — and missing either one silently strips every human-applied label
     // from the issue.
     const assertsLabels = (patch.ensureLabels?.length ?? 0) > 0;
-    if ((patch.status !== undefined || assertsLabels) && patch.labels === undefined) {
-      const [current] = await this.fetchIssues([id]);
+    const writesState = patch.status !== undefined || patch.slot !== undefined;
+    const readsLabels = (writesState || assertsLabels) && patch.labels === undefined;
+    // A delegate write is what makes Linear start an Agent Session, and the push-only
+    // mirror resends every field on every run. So the item's current delegate is read too,
+    // and a delegate it already has is not written again. Compared as app-user ids, since
+    // two agent names may map to one app user.
+    const appUserId = (delegate: string | null | undefined) =>
+      delegate ? this.agentMap.get(delegate)?.toLowerCase() : undefined;
+    const delegateId = appUserId(patch.delegate);
+    const [current] = readsLabels || delegateId ? await this.fetchIssues([id]) : [];
+    if (readsLabels) {
       preservedLabels = current?.labels.filter(
         (label) => label !== BLOCKED_LABEL && label !== DEFERRED_LABEL,
       );
     }
-    const input = await this.toInput(patch, meta, preservedLabels);
+    const unchangedDelegate =
+      delegateId !== undefined &&
+      current !== undefined &&
+      appUserId(current.delegate) === delegateId;
+    const input = await this.toInput(
+      unchangedDelegate ? { ...patch, delegate: undefined } : patch,
+      meta,
+      preservedLabels,
+    );
     const data = await this.client.request<{
       issueUpdate: {
         success: boolean;
@@ -646,8 +699,8 @@ export class LinearAdapter implements TrackerAdapter {
   /**
    * Create a comment. The provider honors client-generated comment UUIDs and
    * rejects duplicates (verified live 2026-08-10: the duplicate arrives as an
-   * INPUT_ERROR on HTTP 200, unlike issueCreate's 400), so replay with a
-   * client id is exactly-once: the duplicate converts to success here.
+   * INPUT_ERROR on HTTP 200, unlike issueCreate's 400), so replay with the same
+   * client id is idempotent: the duplicate converts to success here.
    */
   async createComment(id: string, body: string, clientId?: string): Promise<{ commentId: string }> {
     let data: { commentCreate: { success: boolean; comment: { id: string } | null } };
@@ -911,7 +964,7 @@ export class LinearAdapter implements TrackerAdapter {
     }
     if (!assigneeSyncable) {
       mappingWarnings.push(
-        'Linear assignee is not present in user_map; assignee synchronization skipped.',
+        'Linear assignee is not present in identity.user_map; assignee synchronization skipped.',
       );
     }
     return {
@@ -1011,7 +1064,29 @@ export class LinearAdapter implements TrackerAdapter {
     }
 
     let statusLabels: string[] = [];
-    if (patch.status !== undefined) {
+    // A slot names the column directly; a status only names the band it falls in. Writing
+    // the band instead is what made a blocked bead push Todo forever. The hold and
+    // status ride along so carrier labels still round-trip when the named state is absent.
+    const slot = patch.slot !== undefined && isSlot(patch.slot) ? patch.slot : undefined;
+    if (slot !== undefined) {
+      const resolution = resolveSlotToLinear(
+        meta.states ?? [],
+        slot,
+        { hold: patch.hold, status: patch.status },
+        {
+          configuredName:
+            this.stateMap?.[
+              slotToLinear(slot, { hold: patch.hold, status: patch.status }).stateType
+            ],
+          preferredStateId: patch.stateId ?? undefined,
+        },
+      );
+      if (!resolution.state) {
+        throw new Error(`Linear team ${this.teamKey} has ${resolution.reason}.`);
+      }
+      input.stateId = resolution.state.id;
+      statusLabels = resolution.labels;
+    } else if (patch.status !== undefined) {
       const target = statusToLinear(patch.status, patch.resolution, patch.hold);
       // A named state is preferred when the team actually has one, because a real
       // column is visible to a person planning the week while a label is not. When it

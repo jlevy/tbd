@@ -32,9 +32,9 @@ tbd has working migration and integration features:
 **Reference Documentation:**
 
 - [beads.ts](packages/tbd/src/cli/commands/beads.ts) - New beads command
-- [setup.ts](packages/tbd/src/cli/commands/setup.ts) - Setup commands
-- [import.ts](packages/tbd/src/cli/commands/import.ts) - Import command
-- [tbd-design.md](docs/tbd-design.md) - Overall product design
+- [setup.ts](../../../../packages/tbd/src/cli/commands/setup.ts) - Setup commands
+- [import.ts](../../../../packages/tbd/src/cli/commands/import.ts) - Import command
+- [tbd-design.md](../../../../packages/tbd/docs/tbd-design.md) - Overall product design
 - [Beads uninstall gist](https://gist.github.com/banteg/1a539b88b3c8945cd71e4b958f319d8d)
   \- Reference for Beads file locations
 
@@ -213,4 +213,8 @@ tbd setup codex    # AGENTS.md section (optional)
 
 - [Beads uninstall script](https://gist.github.com/banteg/1a539b88b3c8945cd71e4b958f319d8d)
   \- Comprehensive list of Beads file locations
-- [tbd-design.md](docs/tbd-design.md) - Migration section
+- [tbd-design.md](../../../../packages/tbd/docs/tbd-design.md) - Migration section
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

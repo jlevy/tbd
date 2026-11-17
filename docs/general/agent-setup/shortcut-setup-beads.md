@@ -202,3 +202,7 @@ Use `0-4` or `P0-P4` format (NOT "high"/"medium"/"low"):
 - Do NOT use external issue trackers
 
 - Do NOT use `main` as the sync branch (use `beads-sync`)
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

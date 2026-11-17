@@ -106,7 +106,8 @@ auto-saving, since the issue is likely temporary.
   falling back to saving all issues
 
 **If you encounter this with an older version:**
-1. Update tbd: `npm install -g get-tbd@latest`
+1. Update tbd:
+   `npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" get-tbd`
 2. If you already have a large outbox, you can safely import it—the import will merge
    using field-level LWW and the trivial changes will be harmless
 3. Run `tbd sync` to clear the outbox
@@ -183,11 +184,21 @@ The `.tbd/.gitignore` file contains a `!workspaces/` negation pattern to prevent
 - Conflicting changes at field level
 
 **Solutions:**
-1. Check attic for conflict details:
-   `ls "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/attic/"`
-2. Review conflict files to understand what was lost
-3. Manually merge if needed
-4. Re-import with fresh workspace if appropriate
+1. List what was discarded: `tbd attic list` (add an issue ID to narrow it)
+2. Read an entry: `tbd attic show <id> <timestamp>`
+3. Put a discarded `title`, `description` or `notes` back:
+   `tbd attic restore <id> <timestamp>` — it archives the value it replaces first, so
+   the restore is itself undoable
+4. For a structured field such as `extensions.<provider>`, `restore` refuses; use
+   `tbd attic show` and reapply by hand
+5. Re-import with a fresh workspace if appropriate
+
+The same applies to a conflict from `tbd sync`, which archives through the same path: a
+sync reporting `N conflicts resolved, archived in the attic` has written one entry per
+discarded value, and the entries are on the sync branch, so they are readable from every
+clone rather than only the machine that merged.
+To see the files directly:
+`ls "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/attic/"`
 
 ### Workspace not committed
 

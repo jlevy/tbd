@@ -2,11 +2,12 @@
 name: tbd
 description: >-
   Git-native issue tracking, coding guidelines, and workflow shortcuts for AI
-  coding agents. Use when managing tasks, committing code, following engineering
-  best practices, planning features, setting up a Linear/external tracker integration
-  or personal Linear API key, or viewing beads in a live browser.
+  coding agents. Use when setting up tbd, managing tasks, committing code, reviewing
+  or merging PRs, delegating to sub-agents, following engineering best practices,
+  planning features, setting up a Linear/external tracker integration or personal
+  Linear API key, or viewing beads in a live browser.
 license: MIT
-compatibility: Requires Node.js 22.12.0 or newer and git. Install CLI first: npm install -g get-tbd@latest
+compatibility: Requires Node.js 22.12.0 or newer and git. Install the CLI first, as Prerequisites shows (the newest release at least 14 days old, without install scripts).
 metadata:
   author: jlevy
   repository: https://github.com/jlevy/tbd
@@ -28,22 +29,30 @@ local state. Never sync merely because the viewer started.
 
 ## Prerequisites
 
-Before using tbd commands, ensure the CLI is installed:
+Before using tbd commands, ensure the CLI is installed (for a new project and after
+every upgrade, follow `tbd shortcut setup-tbd`):
 
 ```bash
-npm install -g get-tbd@latest
-tbd setup --auto
+# The newest release published at least 14 days ago, without install scripts
+npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" get-tbd
+tbd setup --auto --prefix=<name>  # Fresh repository; ask the user for the prefix
+tbd setup --auto                  # Existing tbd repository; reads its config
+tbd setup --from-beads            # Uninitialized repo: import and archive .beads/
 ```
 
 If `tbd` is not available, install it first.
-All commands below require the CLI.
+All commands below require the CLI. Setup installs all six agent surfaces by default;
+`--surfaces=<comma-list>` narrows only generated agent files, not initialization,
+migrations, or docs refresh.
+Verify a Beads import because setup can continue after a warning.
+Bare `tbd setup` displays help.
 
 ## Capabilities
 
 1. **Issue Tracking (Beads)**: Create, track, and close git-native issues.
    Track tasks, bugs, and features across sessions.
-2. **Coding Guidelines**: 25+ engineering guidelines (TypeScript, Python, TDD, testing,
-   monorepos) loaded on demand.
+2. **Coding Guidelines**: 40+ engineering guidelines (TypeScript, Python, Rust, TDD,
+   testing, monorepos) loaded on demand.
 3. **Workflow Shortcuts**: Reusable instruction templates for code review, commits, PRs,
    planning, cleanup, and handoffs.
 4. **Spec-Driven Planning**: Plan features, break into trackable beads, implement
@@ -55,11 +64,22 @@ All commands below require the CLI.
 tbd ready              # Find work ready to start
 tbd show <id1> [<id2> …]  # Issue details (several in one call)
 tbd create "title"     # Create new issue
+tbd start <id>         # Claim under the acting-agent identity
 tbd close <id>         # Mark complete
 tbd sync               # Sync with remote
 tbd web --open         # Open the live, read-only bead viewer
 tbd status             # Project status
 ```
+
+Before editing a bead, run `tbd sync --pull`, re-read it, use `tbd start <id>`, and run
+`tbd sync` so other replicas can see the claim.
+The guard is local and advisory; a stale clone can still race it.
+`start` preserves the accountable `assignee` and writes the acting name to `delegate`.
+That name resolves from `--as`, then `TBD_AGENT`, then the machine-local session
+identity, and finally `<harness>@<host>`; inspect it with `tbd whoami`. Top-level
+`sync --pull` updates issue Git only.
+Plain `tbd sync` also runs trackers according to `integrations.on_tbd_sync`; use
+`tbd integration status` for tracker health.
 
 ## Key Shortcuts
 
@@ -67,14 +87,32 @@ tbd status             # Project status
 | --- | --- |
 | `tbd shortcut code-review-and-commit` | Pre-commit checks and commit |
 | `tbd shortcut create-or-update-pr-simple` | Create or update a PR |
+| `tbd shortcut stacked-prs` | Create or maintain stacked PRs |
 | `tbd shortcut new-plan-spec` | Plan a new feature |
 | `tbd shortcut setup-linear` | Set up Linear or add a personal Linear key |
 | `tbd shortcut review-code` | Comprehensive code review |
+| `tbd shortcut review-github-pr` | “Review PR #N” |
+| `tbd shortcut address-pr-review` | “Address the reviews on PR #N” |
+| `tbd shortcut review-and-merge-prs` | “Review and fix PR #N” / “Get PR #N merge-ready” / “Make sure PR #N is reviewed and merged” (fix, merge-ready, or merge mode) |
+| `tbd shortcut delegate-to-subagents` | “You can use sub-agents” (or any delegation) |
+| `tbd shortcut setup-tbd` | “Set up tbd” (also after upgrading tbd) |
 | `tbd shortcut implement-beads` | Implement from a spec |
 | `tbd shortcut merge-upstream` | Merge main into branch |
 | `tbd shortcut agent-handoff` | Hand off to another agent |
 
 Run `tbd shortcut --list` for all available shortcuts.
+
+For explicit stacked or dependent PR intent, run `tbd shortcut stacked-prs` first.
+Creating or submitting a new stack needs the `github-stacked-prs` grant, or a request
+for a stack in this conversation, which authorizes that one stack; without either,
+propose PRs that each target the trunk, or one folded PR, never a `--base` chain.
+Chained branch bases alone are not a formal GitHub stack; link and verify the PRs with
+`gh stack`. If the current branch is based on another feature branch, run
+`tbd shortcut stacked-prs` before creating a PR.
+
+Before a GitHub mutation, a merge, or a delegation, check grants with `tbd policy show`
+(rules: `tbd guidelines agent-policy-grants`). With `pr-delivery: autonomous`, deliver
+requested work as a PR without asking first, stacked or standalone by those rules.
 
 ## Key Guidelines
 
@@ -97,3 +135,7 @@ Before ending any session:
 3. Update issues: `tbd close <id>`
 4. Sync: `tbd sync`
 5. Confirm CI passed
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

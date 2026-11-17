@@ -5,19 +5,76 @@ in flight. Everything actionable lives in beads; this file is the map, not the b
 Historical detail moves to [TODO.archive.md](./TODO.archive.md).
 
 Beads are the source of truth.
-`tbd list --status open`, `tbd show <id>`. Last reviewed: 2026-08-16.
+`tbd list --status open`, `tbd show <id>`. The 0.7.0 snapshot further down dates to
+2026-08-16; it is historical, not the current shipping gate.
+Release and plan status was reconciled on 2026-09-16 against `main` at `a8167a2e`, the
+published package, active specs, and all beads.
 
-## Shipping next: get-tbd 0.7.0 (the f08 release)
+## Current Release: get-tbd 0.9.0
+
+**0.9.0 is published and verified.** PR #299 merged at `f005c19d`; the tag, GitHub
+release, and npm package were published on 2026-09-16. The installed CLI is 0.9.0, npm
+reports 0.9.0 as `latest`, and the repository remains on f08. PR #300 then refreshed the
+repository’s generated setup surfaces at `a8167a2e`.
+
+Release bead `tbd-lz1q` records the end-to-end evidence: full local, downstream, and
+live Linear validation; exact-SHA `main` CI; the release workflow; and a public
+exact-version install with npm and SLSA attestations.
+PR #298 closed the former release blockers `tbd-bdkj`, `tbd-s4kb`, and `tbd-od0z`: the
+stability branch landed, the mixed-version gate established 0.9.0 as the minimum
+integration-sync writer, and exact Linear slots now converge.
+
+The operational compatibility rule is release-critical even though the format did not
+change: **upgrade every clone that runs `tbd integration sync` to 0.9.0 before it syncs
+again.** Older 0.8.1 writers can still project legacy Todo/Canceled state; 0.9.0 repairs
+that state after the older writer stops, but the versions are not safe concurrent
+integration-sync writers.
+
+Development is now 0.9.1-dev.
+PR #301 merged the formal stacked-PR discovery and recovery hardening after the senior
+review, all four remediation items, and the Windows CI follow-up were closed.
+PR #302 merged the Rust CLI packaging and release guidance reconciliation after an
+independent Fable review found no actionable issues.
+Remaining stability-sprint, spec-lifecycle, one-sync-engine, coordination, and
+test-reliability beads are post-0.9.0 work, not retroactive release blockers.
+
+## Agent coordination rollout
+
+The
+[September research](./docs/project/research/current/research-2026-09-06-bead-agent-coordination.md)
+maps the existing plans to their owners and adds current watch, claim, comment,
+recovery, and Linear-delivery findings.
+The
+[phased coordination plan](./docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md),
+tracked by `tbd-khi1`, sequences five independently useful releases: stabilize existing
+contracts, add native comments with manual Git exchange, automate Git transport, project
+to Linear, and integrate portable workers.
+Git transport and Linear projection can proceed independently after native comments; the
+mixed human pilot has its own gate.
+Each phase has acceptance and recovery criteria.
+Implementation is underway: provider-comment recovery has landed in the stack, and the
+native record/storage plus inventory/transition foundations are implemented in PRs #282
+and #283. Those native modules remain internal and dormant in f08; Git-operation guards,
+recovery integration, format activation, commands, and comment-aware watch reporting are
+still open.
+Existing transaction, tracker, traceability, actor, state, and runtime scopes
+retain their owners.
+Three superseded research briefs and January’s abandoned outbox proposal are archived
+with successor links.
+Actor-core delivery is distinct from residual UX (`tbd-p0fe`); runtime refs require the
+explicit compatibility decision in `tbd-i0de`.
+
+## Historical release snapshot: get-tbd 0.7.0 (the f08 release)
 
 Plan:
-[plan-2026-08-15-f08-release-rollout.md](./docs/project/specs/active/plan-2026-08-15-f08-release-rollout.md).
+[plan-2026-08-15-f08-release-rollout.md](./docs/project/specs/done/plan-2026-08-15-f08-release-rollout.md).
 That document owns the mechanics; this is the status.
 
 **Ready.** Everything is merged and CI is green on `main`. Two independent checks pass:
 the packed upgrade proof across all four scenarios
 (`packages/tbd/scripts/validate-upgrade-package.mjs`), and the live integration QA end
 to end — see
-[valid-2026-08-16-linear-integration-live.md](./docs/project/specs/active/valid-2026-08-16-linear-integration-live.md).
+[valid-2026-08-16-linear-integration-live.md](./docs/project/specs/done/valid-2026-08-16-linear-integration-live.md).
 
 The Linear integration **did ship in 0.6.5**
 (`tbd integration status|sync|link|unlink| comment`), so 0.7.0 changes a live surface
@@ -51,10 +108,10 @@ These cannot be closed by writing code.
 - **`tbd-b7cy`** — whether to create the shared “filter out agent traffic” Linear view,
   and whether labels should be workspace-scoped rather than team-scoped.
   Both are decisions about someone’s workspace, not gaps in the code.
-- **`tbd-klgh`** — `identity.user_map` is empty, so assignee sync is skipped and every
-  sync ends with two warnings.
-  Either map the Linear users or decide assignee stays local-only and downgrade the
-  message.
+
+The former `tbd-klgh` user-map blocker is closed: actor-directory resolution supports
+assignment without a populated legacy map.
+Remaining actor UX is tracked in `tbd-p0fe`.
 
 ## Known loose ends
 
@@ -68,15 +125,28 @@ Real, tracked, and not blocking the release.
 | `tbd-iqgm` | Comment fetching is not delta-gated, so cost is `2+N` per sync rather than `2+changed` |
 | `tbd-fbr6` | `repoUrl` and `prUrls` are rendering code with no data behind them |
 | `tbd-1emr` | Sync’s duplicate-link failure names a UUID where doctor names the issue key |
-| `tbd-t9hi` | Research and active-plan docs describe the pre-f08 label scheme. The shipped shape is a bare `tbd` marker plus `repo:<name>`; in-code and reference docs are current |
 | `tbd-j3q1` | Flaky tryscript: `cli-edge-cases` “Non-existent short ID” collides with did-you-mean suggestions |
 
 ## Open epics
 
-Sixteen open. The ones with active work:
+Selected current epics (query beads for the complete set):
 
+- **`tbd-ct4z`** — September stability sprint: spec lifecycle, triage views, the bulk
+  contract, and tracker convergence.
+  The 0.9.0 release gates are closed; later phases remain active
+- **`tbd-bcss`** — Sync convergence, lock recovery, and gate integrity.
+  The release convergence fixes shipped; residual stability work remains
+- **`tbd-ewsw`** — GitHub CLI hardening and stacked-PR support.
+  Core support shipped in 0.9.0 and PR #301 merged the hardening; fresh-machine QA
+  remains
+- **`tbd-khi1`** — Incremental bead coordination and native comments
 - **`tbd-dzme`** — External sync and traceability (prime, claim, checkpoint, Linear
   visibility). Phases 1–2 shipped; phase 3 is the current front
+- **`tbd-f2kv`** — Actor axis and board projection.
+  Core behavior shipped; residual identity UX remains
+- **`tbd-pnhv`** — Rust guideline extraction, migration, and consistency.
+  PR #302 merged the Rust CLI packaging and release expansion; playbook-side migration
+  and simplification remain
 - **`tbd-owa5`** — Agent session refs: link live agent runs from beads, Linear, and
   `tbd web`. New, unstarted; phase 1 is offline and needs no runtime decision
 - **`tbd-gvju`** — External tracker integrations (Linear first, GitHub next)
@@ -92,18 +162,34 @@ Sixteen open. The ones with active work:
 
 ## Active plan specs
 
-Twenty under [docs/project/specs/active/](./docs/project/specs/active/). The ones
-governing current work:
+All plans under [docs/project/specs/active/](./docs/project/specs/active/) were checked
+against the complete bead set on 2026-09-16. The count is open or in-progress beads
+whose `spec_path` names the plan; it includes descendants and cross-cutting beads, not
+only direct epic children.
 
-- `plan-2026-08-15-f08-release-rollout.md` — the release above
-- `plan-2026-08-14-external-sync-and-traceability.md` — the four-phase Linear plan
-- `plan-2026-08-19-agent-session-refs-and-runtimes.md` — session refs and the runtime
-  adapters, from the 2026-08-19 runtime survey
-- `plan-2026-08-10-external-tracker-integrations.md` — the integration design it feeds
-- `plan-2026-06-13-agent-cli-ergonomics.md` — bulk ops and the output contract
+| Plan | Governing bead | Current state | Open |
+| --- | --- | --- | ---: |
+| [Transactional mode and agent registration](./docs/project/specs/active/plan-2026-01-19-transactional-mode-and-agent-registration.md) | `tbd-df33` | Unimplemented; design refresh required | 1 |
+| [tbd on skills.sh](./docs/project/specs/active/plan-2026-02-08-tbd-on-skills-sh.md) | `tbd-rmd0` | Distribution copy landed; publication proof remains | 1 |
+| [kdex knowledge index](./docs/project/specs/active/plan-2026-02-16-kdex-knowledge-index-cli.md) | `tbd-hch7`, `tbd-yk3p`, `tbd-5hv2` | Draft with three planned phases | 3 |
+| [Multi-agent skills and hooks](./docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md) | `tbd-g9x7` | In progress | 4 |
+| [Agent CLI ergonomics](./docs/project/specs/active/plan-2026-06-13-agent-cli-ergonomics.md) | `tbd-6h1r` | Phase 1 shipped; later work remains | 7 |
+| [External tracker integrations](./docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md) | `tbd-gvju` | Phases 1–2 shipped; follow-ons remain | 18 |
+| [External sync and traceability](./docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md) | `tbd-dzme` | Phase 2 complete; Phase 1 substantially complete | 29 |
+| [GitHub CLI session readiness](./docs/project/specs/active/plan-2026-08-14-github-cli-session-readiness.md) | `tbd-mslv` | Planned and unimplemented | 1 |
+| [Actor axis and identity](./docs/project/specs/active/plan-2026-08-18-actor-axis-and-identity.md) | `tbd-f2kv`, `tbd-p0fe` | Core delivered; residual UX remains | 2 |
+| [Tracker state model](./docs/project/specs/active/plan-2026-08-18-tracker-state-model-and-linear-mapping.md) | `tbd-vp4p` | Core delivered; duplicate projection remains | 1 |
+| [Agent session refs and runtimes](./docs/project/specs/active/plan-2026-08-19-agent-session-refs-and-runtimes.md) | `tbd-owa5` | Draft; compatibility gate and implementation remain | 12 |
+| [Rust quality floor and guideline mapping](./docs/project/specs/active/plan-2026-08-23-rust-quality-floor-and-guideline-mapping.md) | `tbd-pnhv` | In progress | 10 |
+| [Sync convergence and release stability](./docs/project/specs/active/plan-2026-08-28-sync-convergence-and-stability.md) | `tbd-bcss` | Release convergence shipped; residual stability work remains | 21 |
+| [Incremental bead coordination and native comments](./docs/project/specs/active/plan-2026-09-06-bead-coordination-and-native-comments.md) | `tbd-khi1` | Active; Phase 1 in progress | 32 |
+| [September stability sprint](./docs/project/specs/active/plan-2026-09-07-stability-sprint-spec-lifecycle-and-tracker-convergence.md) | `tbd-ct4z` | Active; Release 1 shipped, later phases remain | 40 |
 
-Specs archived out of `active/` stop being mirrored to Linear, which is the intended
-signal that they are done.
+Moving a spec out of `active/` can change an unlinked bead’s eligibility under a
+`specs: active` selector.
+Already-linked beads remain included for reconciliation; archival alone neither unlinks
+them nor signals completion.
+Completed work and superseded designs have distinct document statuses.
 
 ## Reference
 
@@ -112,3 +198,7 @@ signal that they are done.
   Every rule is paired with the Linear behavior that forces it
 - `tbd docs show setup-linear` — connecting a repository
 - [docs/publishing.md](./docs/publishing.md) — release mechanics
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

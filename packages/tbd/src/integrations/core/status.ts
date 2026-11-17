@@ -182,7 +182,7 @@ async function providerStatus(
       label: 'config',
       state: 'error',
       detail: entry.configError,
-      remedy: `Set the missing value in .tbd/config.yml under integrations.${entry.provider}.`,
+      remedy: `Correct the named key in .tbd/config.yml under integrations.${entry.provider}.`,
     });
   } else {
     findings.push({

@@ -1,0 +1,1011 @@
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import {
+  chmod,
+  lstat,
+  mkdtemp,
+  mkdir,
+  readFile,
+  readdir,
+  readlink,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { describe, expect, it } from 'vitest';
+
+const SCRIPT = join(import.meta.dirname, '..', 'docs', 'install', 'ensure-gh-cli.sh');
+const GH_STACK_VERSION = 'v0.1.0';
+const GH_STACK_SKILL_SHA = 'a1b4a3d4d0bcde9ec3a78ab99b2d63af121857a9';
+
+const GH_STACK_ASSET_DIGESTS = {
+  'darwin-amd64': '712266939bf40349dce6c8893037b88e0453334d30d06750b61ce1a6c8640bb9',
+  'darwin-arm64': '5ca98241a265d6de018095cdae5f3c40da5ca782450eec0ea91aa8e3eb183103',
+  'linux-amd64': '358552dd7dce0a46ce153fe196270cec482b84f080947890aad4061a8d44bc0b',
+  'linux-arm64': 'a79649e121845b7404109de21d65601c09c8c6d021d93738a3428d23986a8841',
+} as const;
+
+/** Resolves Bash before a test replaces PATH with Git Bash's POSIX spelling. */
+function resolveBash(): string {
+  if (process.platform !== 'win32') {
+    return 'bash';
+  }
+
+  const result = spawnSync('where.exe', ['bash'], { encoding: 'utf8' });
+  const executable = result.stdout?.split(/\r?\n/).find(Boolean);
+  if (result.status !== 0 || !executable) {
+    throw new Error(`could not resolve bash.exe: ${result.stderr}`);
+  }
+  return executable;
+}
+
+const BASH = resolveBash();
+
+/** Reads the shipped shell source with stable line endings for text inspection. */
+async function readScriptSource(): Promise<string> {
+  return (await readFile(SCRIPT, 'utf8')).replace(/\r\n?/g, '\n');
+}
+
+/** Converts a native fixture path to the path spelling understood by Git Bash. */
+function bashPath(path: string): string {
+  if (process.platform !== 'win32') {
+    return path;
+  }
+
+  const result = spawnSync(BASH, ['-c', 'cygpath -u "$1"', '_', path], {
+    encoding: 'utf8',
+  });
+  if (result.status !== 0) {
+    throw new Error(`could not convert ${path} to a Git Bash path: ${result.stderr}`);
+  }
+  return result.stdout.trim();
+}
+
+/** Prepends a fixture directory to Bash's own normalized PATH. */
+function bashPathWith(directory: string): string {
+  const result = spawnSync(BASH, ['-c', 'printf %s "$PATH"'], { encoding: 'utf8' });
+  if (result.status !== 0) {
+    throw new Error(`could not read the Git Bash PATH: ${result.stderr}`);
+  }
+  return `${bashPath(directory)}:${result.stdout}`;
+}
+
+/** Writes process-scoped Bash command fixtures that work across Git Bash and POSIX. */
+async function writeBashEnvironment(
+  directory: string,
+  commandFixtures: readonly string[] = [],
+): Promise<string> {
+  const file = join(directory, 'test-environment.sh');
+  await writeFile(
+    file,
+    [
+      'uname() {',
+      '    case "${1:-}" in',
+      '        -s) echo Linux ;;',
+      '        -m) echo x86_64 ;;',
+      '        *) echo Linux ;;',
+      '    esac',
+      '}',
+      ...commandFixtures,
+      '',
+    ].join('\n'),
+  );
+  return file;
+}
+
+interface SkillListFixture {
+  readonly agentHosts: readonly string[];
+  readonly pinned: boolean;
+  readonly scope: 'project' | 'user';
+  readonly skillName: string;
+  readonly sourceURL: string;
+  readonly version: string;
+}
+
+const OFFICIAL_SKILL_FIXTURE: SkillListFixture = {
+  agentHosts: ['codex'],
+  pinned: true,
+  scope: 'user',
+  skillName: 'gh-stack',
+  sourceURL: 'https://github.com/github/gh-stack',
+  version: GH_STACK_SKILL_SHA,
+};
+
+const SKILL_IDENTITY_COLLISIONS: [string, Partial<SkillListFixture>][] = [
+  ['same-name skill from a different source', { sourceURL: 'https://github.com/example/gh-stack' }],
+  [
+    'same-name skill at a different version',
+    { version: '1111111111111111111111111111111111111111' },
+  ],
+  ['same-name skill without a pin', { pinned: false }],
+  ['same-name skill in project scope', { scope: 'project' }],
+  ['same-name skill installed for another agent', { agentHosts: ['claude-code'] }],
+];
+
+/**
+ * Extract a single bash function from the shipped script.
+ *
+ * The script cannot be sourced directly: it runs an install on load. Pulling the
+ * function out keeps the assertions pointed at the real shipped text rather than a
+ * copy that can drift.
+ */
+async function extractFunction(name: string): Promise<string> {
+  const source = await readScriptSource();
+  const match = new RegExp(`^${name}\\(\\) \\{$.*?^\\}$`, 'ms').exec(source);
+  if (!match) {
+    throw new Error(`${name}() not found in ${SCRIPT}`);
+  }
+  return match[0];
+}
+
+/** Formats one mocked `gh skill list` record as the installer's Go template does. */
+function formatSkillListFixture(fixture: SkillListFixture): string {
+  return [
+    fixture.skillName,
+    fixture.sourceURL,
+    fixture.scope,
+    fixture.version,
+    String(fixture.pinned),
+    `${fixture.agentHosts.join(',')},`,
+  ].join('\t');
+}
+
+/** Builds a skill-list fixture from the valid official identity. */
+function skillListFixture(overrides: Partial<SkillListFixture> = {}): SkillListFixture {
+  return { ...OFFICIAL_SKILL_FIXTURE, ...overrides };
+}
+
+/** Runs the shipped skill identity check against mocked `gh skill list` output. */
+async function ghStackSkillPresent(fixtures: readonly SkillListFixture[]): Promise<boolean> {
+  const fn = await extractFunction('gh_stack_skill_present');
+  const result = spawnSync(
+    BASH,
+    [
+      '-c',
+      [
+        'set -o pipefail',
+        'gh() { printf "%s\\n" "$GH_SKILL_LIST_FIXTURE"; }',
+        fn,
+        'GH_STACK_REPO="github/gh-stack"',
+        `GH_STACK_SKILL_SHA="${GH_STACK_SKILL_SHA}"`,
+        'GH_SKILL_AGENT="codex"',
+        'gh_stack_skill_present',
+      ].join('\n'),
+    ],
+    {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        GH_SKILL_LIST_FIXTURE: fixtures.map(formatSkillListFixture).join('\n'),
+      },
+    },
+  );
+  if (result.status !== 0 && result.status !== 1) {
+    throw new Error(`unexpected exit ${result.status}: ${result.stderr}`);
+  }
+  return result.status === 0;
+}
+
+/** Runs the shipped extension-list identity check against mocked tabular output. */
+async function ghStackExtensionListMatches(lines: readonly string[]): Promise<boolean> {
+  const fn = await extractFunction('gh_stack_extension_list_matches');
+  const result = spawnSync(
+    BASH,
+    [
+      '-c',
+      [
+        'set -o pipefail',
+        'gh() { printf "%s\\n" "$GH_EXTENSION_LIST_FIXTURE"; }',
+        fn,
+        'GH_STACK_REPO="github/gh-stack"',
+        `GH_STACK_VERSION="${GH_STACK_VERSION}"`,
+        'gh_stack_extension_list_matches',
+      ].join('\n'),
+    ],
+    {
+      encoding: 'utf8',
+      env: { ...process.env, GH_EXTENSION_LIST_FIXTURE: lines.join('\n') },
+    },
+  );
+  if (result.status !== 0 && result.status !== 1) {
+    throw new Error(`unexpected exit ${result.status}: ${result.stderr}`);
+  }
+  return result.status === 0;
+}
+
+/** Runs the shipped platform normalizer without depending on the test host. */
+async function ghStackPlatformFor(os: string, arch: string): Promise<string | null> {
+  const fn = await extractFunction('gh_stack_platform_for');
+  const result = spawnSync(BASH, ['-c', `${fn}\ngh_stack_platform_for "$1" "$2"`, '_', os, arch], {
+    encoding: 'utf8',
+  });
+  if (result.status !== 0 && result.status !== 1) {
+    throw new Error(`unexpected exit ${result.status}: ${result.stderr}`);
+  }
+  return result.status === 0 ? result.stdout.trim() : null;
+}
+
+/** Runs the shipped checksum predicate against caller-controlled bytes. */
+async function ghStackChecksumMatches(contents: string, expected: string): Promise<boolean> {
+  const directory = await mkdtemp(join(tmpdir(), 'tbd-gh-stack-checksum-'));
+  const fixture = join(directory, 'asset');
+  try {
+    await writeFile(fixture, contents);
+    const fn = await extractFunction('sha256_matches');
+    const result = spawnSync(
+      BASH,
+      ['-c', `${fn}\nsha256_matches "$1" "$2"`, '_', bashPath(fixture), expected],
+      {
+        encoding: 'utf8',
+      },
+    );
+    if (result.status !== 0 && result.status !== 1) {
+      throw new Error(`unexpected exit ${result.status}: ${result.stderr}`);
+    }
+    return result.status === 0;
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+
+interface ManifestOverrides {
+  readonly owner?: string;
+  readonly path?: string;
+  readonly tag?: string;
+}
+
+/** Runs the shipped manifest identity check against a disposable gh data directory. */
+async function ghStackManifestMatches(overrides: ManifestOverrides = {}): Promise<boolean> {
+  const dataHome = await mkdtemp(join(tmpdir(), 'tbd-gh-stack-manifest-'));
+  const extensionDirectory = join(dataHome, 'gh', 'extensions', 'gh-stack');
+  const bashDataHome = bashPath(dataHome);
+  const bashExecutable = `${bashDataHome}/gh/extensions/gh-stack/gh-stack`;
+  try {
+    await mkdir(extensionDirectory, { recursive: true });
+    const manifest = [
+      `owner: ${overrides.owner ?? 'github'}`,
+      'name: gh-stack',
+      'host: github.com',
+      `tag: ${overrides.tag ?? GH_STACK_VERSION}`,
+      'ispinned: true',
+      `path: ${overrides.path ?? bashExecutable}`,
+      '',
+    ].join('\n');
+    await writeFile(join(extensionDirectory, 'manifest.yml'), manifest);
+    const dataHomeFn = await extractFunction('gh_stack_data_home');
+    const executableForDataHomeFn = await extractFunction(
+      'gh_stack_extension_executable_for_data_home',
+    );
+    const executableFn = await extractFunction('gh_stack_extension_executable');
+    const manifestFileFn = await extractFunction('gh_stack_manifest_file_matches');
+    const manifestFn = await extractFunction('gh_stack_manifest_matches');
+    const result = spawnSync(
+      BASH,
+      [
+        '-c',
+        [
+          dataHomeFn,
+          executableForDataHomeFn,
+          executableFn,
+          manifestFileFn,
+          manifestFn,
+          `GH_STACK_VERSION="${GH_STACK_VERSION}"`,
+          'gh_stack_manifest_matches',
+        ].join('\n'),
+      ],
+      { encoding: 'utf8', env: { ...process.env, XDG_DATA_HOME: bashDataHome } },
+    );
+    if (result.status !== 0 && result.status !== 1) {
+      throw new Error(`unexpected exit ${result.status}: ${result.stderr}`);
+    }
+    return result.status === 0;
+  } finally {
+    await rm(dataHome, { recursive: true, force: true });
+  }
+}
+
+describe('ensure-gh-cli.sh', () => {
+  describe('version_ge', () => {
+    /** Runs `version_ge have want` and reports whether it returned success. */
+    async function versionGe(have: string, want: string): Promise<boolean> {
+      const fn = await extractFunction('version_ge');
+      const result = spawnSync(BASH, ['-c', `${fn}\nversion_ge "$1" "$2"`, '_', have, want], {
+        encoding: 'utf8',
+      });
+      if (result.status !== 0 && result.status !== 1) {
+        throw new Error(`unexpected exit ${result.status}: ${result.stderr}`);
+      }
+      return result.status === 0;
+    }
+
+    // The floor decides whether an existing gh is replaced. A false "new enough" leaves
+    // a vulnerable gh in place; a false "too old" downgrades a good one.
+    it.each([
+      ['2.97.0', '2.97.0', true, 'equal meets the floor'],
+      ['2.98.0', '2.97.0', true, 'newer is kept, never downgraded'],
+      ['2.92.0', '2.97.0', false, 'the previous pin is below the floor'],
+      ['2.9.0', '2.97.0', false, 'numeric compare, not lexicographic (9 < 97)'],
+      ['2.100.0', '2.97.0', true, 'numeric compare, not lexicographic (100 > 97)'],
+      ['2.08.0', '2.97.0', false, 'leading zero is not parsed as octal'],
+      ['3.0.0', '2.97.0', true, 'major bump'],
+      ['1.99.9', '2.97.0', false, 'lower major loses despite higher minor'],
+      ['2.97', '2.97.0', true, 'missing patch is treated as .0'],
+      ['2.97.1', '2.97.0', true, 'higher patch'],
+      ['2.96.9', '2.97.0', false, 'just below the floor'],
+      ['2.97.0-rc1', '2.97.0', true, 'prerelease suffix is stripped before comparing'],
+    ])('%s >= %s is %s (%s)', async (have, want, expected) => {
+      expect(await versionGe(have, want)).toBe(expected);
+    });
+  });
+
+  it('pins the gh version, the floor, and a checksum for every supported platform', async () => {
+    const source = await readScriptSource();
+    const version = /^GH_VERSION="([^"]+)"$/m.exec(source)?.[1];
+    const floor = /^GH_MIN_VERSION="([^"]+)"$/m.exec(source)?.[1];
+    expect(version).toBeTruthy();
+    // A floor above the pinned build would reinstall on every run, forever.
+    expect(floor).toBe(version);
+    for (const platform of [
+      'linux_amd64.tar.gz',
+      'linux_arm64.tar.gz',
+      'macOS_amd64.zip',
+      'macOS_arm64.zip',
+    ]) {
+      expect(source).toMatch(
+        new RegExp(`${platform.replace(/\./g, '\\.')}\\)\\s*echo "[0-9a-f]{64}"`),
+      );
+    }
+  });
+
+  it('installs the gh-stack skill by name and verifies the result', async () => {
+    const source = await readScriptSource();
+    // `gh skill install <repo>` with no skill name installs nothing and still exits 0,
+    // so both the selector and a result check are load-bearing.
+    expect(source).toMatch(/gh skill install "\$GH_STACK_REPO" gh-stack/);
+    expect(source).toMatch(/gh_stack_skill_present/);
+    expect(source).toContain('gh skill list --agent "$GH_SKILL_AGENT"');
+    expect(source).toContain('--json skillName,sourceURL,scope,version,pinned,agentHosts');
+    expect(source).toMatch(/--agent "\$GH_SKILL_AGENT" --scope user --force/);
+    expect(source.match(/if gh_stack_skill_present; then/g)).toHaveLength(2);
+    // The skill is instructions loaded into later sessions, so it is pinned by SHA.
+    expect(source).toMatch(/^GH_STACK_SKILL_SHA="[0-9a-f]{40}"$/m);
+  });
+
+  it('pins an immutable digest for every supported gh-stack release asset', async () => {
+    const source = await readScriptSource();
+    expect(source).toContain(`GH_STACK_VERSION="${GH_STACK_VERSION}"`);
+    for (const [platform, digest] of Object.entries(GH_STACK_ASSET_DIGESTS)) {
+      expect(source).toMatch(new RegExp(`${platform.replace('-', '\\-')}\\)\\s+echo "${digest}"`));
+    }
+    expect(source).toContain(
+      'https://github.com/${GH_STACK_REPO}/releases/download/${GH_STACK_VERSION}/${asset}',
+    );
+  });
+
+  it.each([
+    ['Darwin', 'x86_64', 'darwin-amd64'],
+    ['Darwin', 'arm64', 'darwin-arm64'],
+    ['Linux', 'x86_64', 'linux-amd64'],
+    ['Linux', 'aarch64', 'linux-arm64'],
+    ['FreeBSD', 'amd64', null],
+    ['MINGW64_NT-10.0-26100', 'x86_64', null],
+    ['Linux', 'riscv64', null],
+  ])('maps %s/%s to the reviewed asset %s', async (os, arch, expected) => {
+    expect(await ghStackPlatformFor(os, arch)).toBe(expected);
+  });
+
+  it('rejects asset bytes that do not match the expected SHA-256 digest', async () => {
+    const official = 'reviewed gh-stack asset';
+    const digest = createHash('sha256').update(official).digest('hex');
+    expect(await ghStackChecksumMatches(official, digest)).toBe(true);
+    expect(await ghStackChecksumMatches(`${official} tampered`, digest)).toBe(false);
+  });
+
+  it('removes a colliding extension before a checksum failure and cleans staging', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'tbd-gh-stack-fail-closed-'));
+    const binDirectory = join(directory, 'bin');
+    const homeDirectory = join(directory, 'home');
+    const dataHome = join(directory, 'data');
+    const tempDirectory = join(directory, 'tmp');
+    const marker = join(directory, 'gh-stack-registered');
+    const extensionDirectory = join(dataHome, 'gh', 'extensions', 'gh-stack');
+    const executable = join(extensionDirectory, 'gh-stack');
+    const bashMarker = bashPath(marker);
+    const bashExtensionDirectory = bashPath(extensionDirectory);
+    try {
+      await Promise.all([
+        mkdir(binDirectory, { recursive: true }),
+        mkdir(homeDirectory, { recursive: true }),
+        mkdir(extensionDirectory, { recursive: true }),
+        mkdir(tempDirectory, { recursive: true }),
+      ]);
+      const bashEnvironment = await writeBashEnvironment(binDirectory, [
+        'curl() {',
+        '    local output=""',
+        '    while [ "$#" -gt 0 ]; do',
+        '        case "$1" in',
+        '            -o) output=$2; shift 2 ;;',
+        '            *) shift ;;',
+        '        esac',
+        '    done',
+        '    printf "tampered asset" > "$output"',
+        '}',
+      ]);
+      await Promise.all([
+        writeFile(marker, 'registered'),
+        writeFile(executable, 'unverified executable'),
+        writeFile(
+          join(binDirectory, 'gh'),
+          `#!/bin/bash
+set -eu
+if [ "\${1:-}" = "--version" ]; then
+    echo "gh version 2.98.0 (test)"
+    exit 0
+fi
+if [ "\${1:-}" = "auth" ] && [ "\${2:-}" = "status" ]; then
+    exit 0
+fi
+if [ "\${1:-}" = "extension" ] && [ "\${2:-}" = "list" ]; then
+    if [ -f "${bashMarker}" ]; then
+        printf 'gh stack\\texample/gh-stack\\tv9.9.9\\n'
+    fi
+    exit 0
+fi
+if [ "\${1:-}" = "extension" ] && [ "\${2:-}" = "remove" ]; then
+    rm -f "${bashMarker}"
+    rm -rf "${bashExtensionDirectory}"
+    exit 0
+fi
+echo "unexpected mocked gh invocation: $*" >&2
+exit 98
+`,
+        ),
+      ]);
+      await chmod(join(binDirectory, 'gh'), 0o755);
+
+      const result = spawnSync(BASH, [bashPath(SCRIPT), '--with-stack'], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          BASH_ENV: bashPath(bashEnvironment),
+          GH_TOKEN: '',
+          HOME: bashPath(homeDirectory),
+          PATH: bashPathWith(binDirectory),
+          TMPDIR: bashPath(tempDirectory),
+          XDG_DATA_HOME: bashPath(dataHome),
+        },
+      });
+      expect(result.status, `${result.error?.message ?? ''}\n${result.stderr}`).toBe(0);
+      expect(result.stdout).toContain('checksum mismatch');
+      expect(result.stdout).toContain("Do not run 'gh stack'");
+      expect(await readFile(marker, 'utf8').catch(() => null)).toBeNull();
+      expect(await readFile(executable, 'utf8').catch(() => null)).toBeNull();
+      expect(await readdir(tempDirectory)).toEqual([]);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('quarantines a competing canonical target when mv nests the staged directory', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'tbd-gh-stack-publish-race-'));
+    const binDirectory = join(directory, 'bin');
+    const homeDirectory = join(directory, 'home');
+    const dataHome = join(directory, 'data');
+    const tempDirectory = join(directory, 'tmp');
+    const installRootLog = join(directory, 'gh-stack-install-root');
+    const versionAttempt = join(directory, 'gh-stack-version-attempt');
+    const extensionDirectory = join(dataHome, 'gh', 'extensions', 'gh-stack');
+    const executable = join(extensionDirectory, 'gh-stack');
+    const expectedDigest = GH_STACK_ASSET_DIGESTS['linux-amd64'];
+    const bashDataHome = bashPath(dataHome);
+    const bashExtensionDirectory = bashPath(extensionDirectory);
+    const bashExecutable = bashPath(executable);
+    const bashInstallRootLog = bashPath(installRootLog);
+    const bashVersionAttempt = bashPath(versionAttempt);
+    try {
+      await Promise.all([
+        mkdir(binDirectory, { recursive: true }),
+        mkdir(homeDirectory, { recursive: true }),
+        mkdir(tempDirectory, { recursive: true }),
+      ]);
+      const bashEnvironment = await writeBashEnvironment(binDirectory, [
+        'curl() {',
+        '    local output=""',
+        '    while [ "$#" -gt 0 ]; do',
+        '        case "$1" in',
+        '            -o) output=$2; shift 2 ;;',
+        '            *) shift ;;',
+        '        esac',
+        '    done',
+        '    printf "reviewed asset fixture" > "$output"',
+        '}',
+        'sha256sum() {',
+        `    printf '${expectedDigest}  %s\\n' "$1"`,
+        '}',
+        'mv() {',
+        '    if [ "$#" = "2" ] \\',
+        "        && [[ \"$1\" == *'/.tbd-gh-stack.'*'/gh/extensions/gh-stack' ]] \\",
+        `        && [ "$2" = "${bashExtensionDirectory}" ]; then`,
+        `        mkdir -p "${bashExtensionDirectory}"`,
+        "        printf '%s\\n' \\",
+        "            'owner: github' \\",
+        "            'name: gh-stack' \\",
+        "            'host: github.com' \\",
+        `            'tag: ${GH_STACK_VERSION}' \\`,
+        "            'ispinned: true' \\",
+        `            'path: ${bashExecutable}' > "${bashExtensionDirectory}/manifest.yml"`,
+        '    fi',
+        '    command mv "$@"',
+        '}',
+      ]);
+      await Promise.all([
+        writeFile(
+          join(binDirectory, 'gh'),
+          `#!/bin/bash
+set -eu
+if [ "\${1:-}" = "--version" ]; then
+    echo "gh version 2.98.0 (test)"
+    exit 0
+fi
+if [ "\${1:-}" = "auth" ] && [ "\${2:-}" = "status" ]; then
+    exit 0
+fi
+if [ "\${1:-}" = "extension" ] && [ "\${2:-}" = "list" ]; then
+    if [ -f "\${XDG_DATA_HOME}/gh/extensions/gh-stack/manifest.yml" ]; then
+        printf 'gh stack\\tgithub/gh-stack\\t${GH_STACK_VERSION}\\n'
+    fi
+    exit 0
+fi
+if [ "\${1:-}" = "extension" ] && [ "\${2:-}" = "install" ]; then
+    if [ "\${XDG_DATA_HOME}" = "${bashDataHome}" ]; then
+        echo 'extension install used canonical XDG_DATA_HOME' >&2
+        exit 96
+    fi
+    staged_directory="\${XDG_DATA_HOME}/gh/extensions/gh-stack"
+    staged_executable="\${staged_directory}/gh-stack"
+    mkdir -p "\${staged_directory}"
+    printf '%s\\n' \\
+        'owner: github' \\
+        'name: gh-stack' \\
+        'host: github.com' \\
+        'tag: ${GH_STACK_VERSION}' \\
+        'ispinned: true' \\
+        "path: \${staged_executable}" > "\${staged_directory}/manifest.yml"
+    printf 'gh unchecked download' > "\${staged_executable}"
+    chmod 755 "\${staged_executable}"
+    printf '%s\\n' "\${XDG_DATA_HOME}" > "${bashInstallRootLog}"
+    exit 0
+fi
+if [ "\${1:-}" = "extension" ] && [ "\${2:-}" = "remove" ]; then
+    rm -rf "\${XDG_DATA_HOME}/gh/extensions/gh-stack"
+    exit 0
+fi
+if [ "\${1:-}" = "stack" ] && [ "\${2:-}" = "--version" ]; then
+    touch "${bashVersionAttempt}"
+    echo 'gh stack version ${GH_STACK_VERSION.slice(1)}'
+    exit 0
+fi
+echo "unexpected mocked gh invocation: $*" >&2
+exit 98
+`,
+        ),
+        writeFile(
+          join(binDirectory, 'mv'),
+          `#!/bin/bash
+set -eu
+if [ "$#" = "2" ] \
+    && [[ "$1" == *'/.tbd-gh-stack.'*'/gh/extensions/gh-stack' ]] \
+    && [ "$2" = "${bashExtensionDirectory}" ]; then
+    mkdir -p "${bashExtensionDirectory}"
+    printf '%s\\n' \\
+        'owner: github' \\
+        'name: gh-stack' \\
+        'host: github.com' \\
+        'tag: ${GH_STACK_VERSION}' \\
+        'ispinned: true' \\
+        'path: ${bashExecutable}' > "${bashExtensionDirectory}/manifest.yml"
+fi
+exec /bin/mv "$@"
+`,
+        ),
+      ]);
+      await Promise.all(['gh', 'mv'].map((name) => chmod(join(binDirectory, name), 0o755)));
+
+      const result = spawnSync(BASH, [bashPath(SCRIPT), '--with-stack'], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          BASH_ENV: bashPath(bashEnvironment),
+          GH_TOKEN: '',
+          HOME: bashPath(homeDirectory),
+          PATH: bashPathWith(binDirectory),
+          TMPDIR: bashPath(tempDirectory),
+          XDG_DATA_HOME: bashDataHome,
+        },
+      });
+      expect(
+        result.status,
+        `${result.error?.message ?? ''}\n${result.stdout}\n${result.stderr}`,
+      ).toBe(0);
+      expect(result.stdout).toContain('could not install a verified github/gh-stack extension');
+      const isolatedRoot = (await readFile(installRootLog, 'utf8')).trim();
+      expect(isolatedRoot).not.toBe(bashDataHome);
+      expect(isolatedRoot.startsWith(`${bashDataHome}/.tbd-gh-stack.`)).toBe(true);
+      expect(await readFile(versionAttempt, 'utf8').catch(() => null)).toBeNull();
+      expect(await readFile(executable, 'utf8').catch(() => null)).toBeNull();
+      expect(await readdir(tempDirectory)).toEqual([]);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('requires the exact gh-stack command, source, and version', async () => {
+    const official = `gh stack\tgithub/gh-stack\t${GH_STACK_VERSION}`;
+    expect(await ghStackExtensionListMatches([official])).toBe(true);
+    expect(
+      await ghStackExtensionListMatches([`gh stack\texample/gh-stack\t${GH_STACK_VERSION}`]),
+    ).toBe(false);
+    expect(await ghStackExtensionListMatches(['gh stack\tgithub/gh-stack\tv0.0.9'])).toBe(false);
+    expect(
+      await ghStackExtensionListMatches([official, 'gh stack\texample/gh-stack\tv0.1.0']),
+    ).toBe(false);
+  });
+
+  it('requires gh to execute the pinned manifest path', async () => {
+    expect(await ghStackManifestMatches()).toBe(true);
+    expect(await ghStackManifestMatches({ owner: 'example' })).toBe(false);
+    expect(await ghStackManifestMatches({ tag: 'v0.0.9' })).toBe(false);
+    expect(await ghStackManifestMatches({ path: '/tmp/redirected-gh-stack' })).toBe(false);
+  });
+
+  it('publishes only a fully verified isolated registration at the canonical path', async () => {
+    const source = await readScriptSource();
+    expect(source.match(/--connect-timeout 15 --max-time 120/g)).toHaveLength(2);
+    expect(source).toMatch(/sha256_matches "\$asset_path" "\$expected"/);
+    expect(source).toMatch(
+      /XDG_DATA_HOME="\$STACK_INSTALL_ROOT" \\\n+\s+gh extension install "\$GH_STACK_REPO" --pin "\$GH_STACK_VERSION" --force/,
+    );
+    expect(source).toContain(
+      'STACK_INSTALL_ROOT=$(mktemp -d "${canonical_data_home}/.tbd-gh-stack.XXXXXX")',
+    );
+    expect(source).toMatch(/cp "\$asset_path" "\$INSTALL_STAGING"/);
+    expect(source).toMatch(/mv -f "\$INSTALL_STAGING" "\$staged_executable"/);
+    expect(source).toMatch(/mv "\$staged_dir" "\$canonical_dir"/);
+    expect(source).toContain('[ ! -e "$staged_dir" ] && [ ! -L "$staged_dir" ] || return 1');
+    expect(source).toContain('[ -d "$canonical_dir" ] && [ ! -L "$canonical_dir" ] || return 1');
+    const assetVerified = source.indexOf('sha256_matches "$asset_path" "$expected"');
+    const isolatedInstall = source.indexOf('XDG_DATA_HOME="$STACK_INSTALL_ROOT"');
+    const stagedBytesVerified = source.indexOf('sha256_matches "$staged_executable" "$expected"');
+    const manifestRewritten = source.indexOf('rewrite_gh_stack_manifest_path \\');
+    const finalManifestVerified = source.indexOf(
+      'gh_stack_manifest_file_matches "$staged_manifest" "$canonical_executable"',
+    );
+    const sentinelCreated = source.indexOf(
+      'publish_sentinel=$(mktemp "${staged_dir}/.tbd-verified.XXXXXX")',
+    );
+    const canonicalPublished = source.indexOf('mv "$staged_dir" "$canonical_dir"');
+    const sentinelVerified = source.indexOf('grep -Fqx "$expected" "$canonical_sentinel"');
+    const sentinelRemoved = source.indexOf('rm -f "$canonical_sentinel"');
+    const publishedIdentityVerified = source.indexOf(
+      'gh_stack_extension_identity_matches || return 1',
+    );
+    const canonicalExecuted = source.indexOf('version_output=$(gh stack --version');
+    expect(assetVerified).toBeGreaterThan(-1);
+    expect(assetVerified).toBeLessThan(isolatedInstall);
+    expect(isolatedInstall).toBeLessThan(stagedBytesVerified);
+    expect(stagedBytesVerified).toBeLessThan(manifestRewritten);
+    expect(manifestRewritten).toBeLessThan(finalManifestVerified);
+    expect(finalManifestVerified).toBeLessThan(sentinelCreated);
+    expect(sentinelCreated).toBeLessThan(canonicalPublished);
+    expect(canonicalPublished).toBeLessThan(sentinelVerified);
+    expect(sentinelVerified).toBeLessThan(sentinelRemoved);
+    expect(sentinelRemoved).toBeLessThan(publishedIdentityVerified);
+    expect(canonicalPublished).toBeLessThan(publishedIdentityVerified);
+    expect(publishedIdentityVerified).toBeLessThan(canonicalExecuted);
+  });
+
+  it('accepts the pinned official skill for the owning agent and user scope', async () => {
+    expect(await ghStackSkillPresent([skillListFixture()])).toBe(true);
+  });
+
+  it.each(SKILL_IDENTITY_COLLISIONS)('rejects a %s', async (_description, overrides) => {
+    expect(await ghStackSkillPresent([skillListFixture(overrides)])).toBe(false);
+  });
+
+  it('rejects a project-scoped collision that shadows the valid user skill', async () => {
+    expect(
+      await ghStackSkillPresent([
+        skillListFixture(),
+        skillListFixture({ scope: 'project', version: 'project-shadow' }),
+      ]),
+    ).toBe(false);
+  });
+
+  it('never advises creating or deleting refs through the GitHub API', async () => {
+    // A session git broker that refuses tag pushes does so on purpose, and a v* tag can
+    // publish a release; the script must not point agents around it.
+    const source = await readScriptSource();
+    expect(source).not.toMatch(/gh api (-X \S+ )?repos\/\S*\/git\/refs/u);
+    expect(source).not.toContain('create tags on the direct channel');
+    expect(source).toContain('Report the refusal and ask the user to create the tag.');
+  });
+
+  describe('replacing an existing ~/.local/bin/gh', () => {
+    const LINUX_AMD64_SHA256 = 'a2c9b8497e1f85b1ad0dfcb78b5a622e098801b8e461e459e88e1ee12f018112';
+
+    /**
+     * Run the full install path offline: curl, the checksum tool, and tar are shell
+     * functions that produce the pinned archive's expected digest and a pinned gh.
+     */
+    async function runPinnedInstall(
+      oldGh: string | null,
+      prepare?: (paths: { home: string; localBin: string }) => Promise<void>,
+    ): Promise<{
+      result: ReturnType<typeof spawnSync>;
+      localBin: string;
+      directory: string;
+    }> {
+      const directory = await mkdtemp(join(tmpdir(), 'tbd-gh-backup-'));
+      const homeDirectory = join(directory, 'home');
+      const localBin = join(homeDirectory, '.local', 'bin');
+      const fixtureBin = join(directory, 'bin');
+      const tempDirectory = join(directory, 'tmp');
+      await Promise.all([
+        mkdir(localBin, { recursive: true }),
+        mkdir(fixtureBin, { recursive: true }),
+        mkdir(tempDirectory, { recursive: true }),
+      ]);
+      if (oldGh !== null) {
+        await writeFile(join(localBin, 'gh'), oldGh);
+        await chmod(join(localBin, 'gh'), 0o755);
+      }
+      await prepare?.({ home: homeDirectory, localBin });
+      const bashEnvironment = await writeBashEnvironment(fixtureBin, [
+        'curl() {',
+        '    local output=""',
+        '    while [ "$#" -gt 0 ]; do',
+        '        case "$1" in',
+        '            -o) output=$2; shift 2 ;;',
+        '            *) shift ;;',
+        '        esac',
+        '    done',
+        '    printf "pinned archive" > "$output"',
+        '}',
+        `sha256sum() { printf "%s  %s\\n" "${LINUX_AMD64_SHA256}" "$1"; }`,
+        'tar() {',
+        '    local dir=""',
+        '    while [ "$#" -gt 0 ]; do',
+        '        case "$1" in',
+        '            -C) dir=$2; shift 2 ;;',
+        '            *) shift ;;',
+        '        esac',
+        '    done',
+        '    mkdir -p "$dir/gh_2.97.0_linux_amd64/bin"',
+        `    printf '#!/bin/bash\\nif [ "\${1:-}" = "--version" ]; then echo "gh version 2.97.0 (pinned)"; exit 0; fi\\nexit 1\\n' > "$dir/gh_2.97.0_linux_amd64/bin/gh"`,
+        '}',
+      ]);
+      const result = spawnSync(BASH, [bashPath(SCRIPT)], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          BASH_ENV: bashPath(bashEnvironment),
+          GH_TOKEN: '',
+          HOME: bashPath(homeDirectory),
+          PATH: bashPathWith(fixtureBin),
+          TMPDIR: bashPath(tempDirectory),
+        },
+      });
+      return { result, localBin, directory };
+    }
+
+    it.each([
+      ['an old version', '#!/bin/bash\necho "gh version 2.10.0 (old wrapper)"\n'],
+      ['no usable version', '#!/bin/bash\n# a user wrapper that prints nothing\nexit 0\n'],
+    ])('moves one that reports %s to a timestamped backup', async (_label, oldGh) => {
+      const { result, localBin, directory } = await runPinnedInstall(oldGh);
+      try {
+        expect(result.status, `${String(result.stdout)}\n${String(result.stderr)}`).toBe(0);
+        expect(result.stdout).toContain(
+          'existing ~/.local/bin/gh moved aside to a timestamped backup',
+        );
+        const backups = (await readdir(localBin)).filter((name) => name.startsWith('gh.backup-'));
+        expect(backups).toHaveLength(1);
+        expect(backups[0]).toMatch(/^gh\.backup-\d{8}T\d{6}Z$/u);
+        expect(await readFile(join(localBin, backups[0]!), 'utf8')).toBe(oldGh);
+        expect(await readFile(join(localBin, 'gh'), 'utf8')).toContain('2.97.0 (pinned)');
+        expect(result.stdout).toContain('Backed up the existing');
+        expect(result.stdout).toContain('To restore it: mv -f');
+        // The install records what it put there, so a later pin bump needs no backup.
+        expect((await readFile(join(localBin, '.gh.tbd-installed'), 'utf8')).trim()).toBe(
+          LINUX_AMD64_SHA256,
+        );
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    });
+
+    it('replaces the gh it installed earlier without keeping a backup', async () => {
+      const { result, localBin, directory } = await runPinnedInstall(
+        '#!/bin/bash\necho "gh version 2.10.0 (installed by this script)"\n',
+        // The fixture's checksum tool reports the pinned digest for every file.
+        ({ localBin: bin }) => writeFile(join(bin, '.gh.tbd-installed'), `${LINUX_AMD64_SHA256}\n`),
+      );
+      try {
+        expect(result.status, `${String(result.stdout)}\n${String(result.stderr)}`).toBe(0);
+        expect(result.stdout).toContain('replacing the gh this script installed there');
+        expect(result.stdout).not.toContain('Backed up');
+        expect((await readdir(localBin)).filter((name) => name.startsWith('gh.backup-'))).toEqual(
+          [],
+        );
+        expect(await readFile(join(localBin, 'gh'), 'utf8')).toContain('2.97.0 (pinned)');
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    });
+
+    it('still backs up a gh whose digest differs from the recorded install', async () => {
+      const oldGh = '#!/bin/bash\necho "gh version 2.10.0 (user wrapper)"\n';
+      const { result, localBin, directory } = await runPinnedInstall(oldGh, ({ localBin: bin }) =>
+        writeFile(join(bin, '.gh.tbd-installed'), 'not-this-file\n'),
+      );
+      try {
+        expect(result.status, `${String(result.stdout)}\n${String(result.stderr)}`).toBe(0);
+        const backups = (await readdir(localBin)).filter((name) => name.startsWith('gh.backup-'));
+        expect(backups).toHaveLength(1);
+        expect(await readFile(join(localBin, backups[0]!), 'utf8')).toBe(oldGh);
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    });
+
+    it.skipIf(process.platform === 'win32')(
+      'says it backs up ~/.local/bin/gh even when PATH resolved an older gh elsewhere',
+      async () => {
+        const { result, localBin, directory } = await runPinnedInstall(
+          null,
+          async ({ home, localBin: bin }) => {
+            // A dangling ~/.local/bin/gh is skipped by PATH lookup; ~/bin/gh is found.
+            await symlink(join(home, 'missing-gh'), join(bin, 'gh'));
+            await mkdir(join(home, 'bin'));
+            await writeFile(
+              join(home, 'bin', 'gh'),
+              '#!/bin/bash\necho "gh version 2.10.0 (elsewhere)"\n',
+            );
+            await chmod(join(home, 'bin', 'gh'), 0o755);
+          },
+        );
+        try {
+          expect(result.status, `${String(result.stdout)}\n${String(result.stderr)}`).toBe(0);
+          expect(result.stdout).toContain('/bin/gh is v2.10.0');
+          expect(result.stdout).toContain(
+            'existing ~/.local/bin/gh moved aside to a timestamped backup',
+          );
+          expect(result.stdout).not.toContain('existing gh left in place');
+          const backups = (await readdir(localBin)).filter((name) => name.startsWith('gh.backup-'));
+          expect(backups).toHaveLength(1);
+          expect((await lstat(join(localBin, backups[0]!))).isSymbolicLink()).toBe(true);
+        } finally {
+          await rm(directory, { recursive: true, force: true });
+        }
+      },
+    );
+
+    /** Run the shipped backup function against a disposable HOME with a fixed clock. */
+    async function runBackup(
+      home: string,
+      commandFixtures: readonly string[] = [],
+    ): Promise<ReturnType<typeof spawnSync>> {
+      const record = /^GH_INSTALL_RECORD=.*$/mu.exec(await readScriptSource())?.[0];
+      expect(record).toBeDefined();
+      const fns = await Promise.all(
+        ['file_sha256', 'local_gh_is_tbd_install', 'backup_existing_local_gh'].map(extractFunction),
+      );
+      return spawnSync(
+        BASH,
+        [
+          '-c',
+          [
+            'set -euo pipefail',
+            'date() { echo 20260101T000000Z; }',
+            ...commandFixtures,
+            record!,
+            ...fns,
+            'backup_existing_local_gh',
+          ].join('\n'),
+        ],
+        { encoding: 'utf8', env: { ...process.env, HOME: bashPath(home) } },
+      );
+    }
+
+    it('picks a free backup name, and refuses rather than overwrite when none is free', async () => {
+      const home = await mkdtemp(join(tmpdir(), 'tbd-gh-backup-name-'));
+      const localBin = join(home, '.local', 'bin');
+      try {
+        await mkdir(localBin, { recursive: true });
+        expect((await runBackup(home)).status).toBe(0);
+        expect(await readdir(localBin)).toEqual([]);
+
+        await writeFile(join(localBin, 'gh'), 'current');
+        await writeFile(join(localBin, 'gh.backup-20260101T000000Z'), 'earlier');
+        expect((await runBackup(home)).status).toBe(0);
+        expect(await readFile(join(localBin, 'gh.backup-20260101T000000Z'), 'utf8')).toBe(
+          'earlier',
+        );
+        expect(await readFile(join(localBin, 'gh.backup-20260101T000000Z-1'), 'utf8')).toBe(
+          'current',
+        );
+
+        await writeFile(join(localBin, 'gh'), 'newest');
+        for (let suffix = 2; suffix <= 99; suffix++) {
+          await writeFile(join(localBin, `gh.backup-20260101T000000Z-${suffix}`), 'taken');
+        }
+        const refused = await runBackup(home);
+        expect(refused.status).toBe(1);
+        expect(refused.stdout).toContain('refusing to replace it');
+        expect(await readFile(join(localBin, 'gh'), 'utf8')).toBe('newest');
+      } finally {
+        await rm(home, { recursive: true, force: true });
+      }
+    });
+
+    it('preserves the user backup when installers overlap and a hard link fails', async () => {
+      const home = await mkdtemp(join(tmpdir(), 'tbd-gh-backup-race-'));
+      const localBin = join(home, '.local', 'bin');
+      try {
+        await mkdir(localBin, { recursive: true });
+        await writeFile(join(localBin, 'gh'), 'user wrapper');
+        const result = await runBackup(home, [
+          'ln() {',
+          // The second installer backs up and renames gh before the first falls back to copying.
+          '    (',
+          '        unset -f ln',
+          '        backup_existing_local_gh',
+          '        printf "pinned gh" > "$HOME/.local/bin/gh.replacement"',
+          '        mv -f "$HOME/.local/bin/gh.replacement" "$HOME/.local/bin/gh"',
+          '    )',
+          '    return 1',
+          '}',
+        ]);
+        expect(result.status, String(result.stderr)).toBe(0);
+        expect(await readFile(join(localBin, 'gh'), 'utf8')).toBe('pinned gh');
+        const backups = (await readdir(localBin)).filter((name) => name.startsWith('gh.backup-'));
+        const contents = await Promise.all(
+          backups.map((name) => readFile(join(localBin, name), 'utf8')),
+        );
+        expect(contents).toContain('user wrapper');
+      } finally {
+        await rm(home, { recursive: true, force: true });
+      }
+    });
+
+    it('keeps ~/.local/bin/gh in place, so the install replaces it in one rename', async () => {
+      const home = await mkdtemp(join(tmpdir(), 'tbd-gh-backup-link-'));
+      const localBin = join(home, '.local', 'bin');
+      const backup = join(localBin, 'gh.backup-20260101T000000Z');
+      try {
+        await mkdir(localBin, { recursive: true });
+        await writeFile(join(localBin, 'gh'), 'user wrapper');
+        const result = await runBackup(home);
+        expect(result.status, String(result.stderr)).toBe(0);
+        expect(await readFile(join(localBin, 'gh'), 'utf8')).toBe('user wrapper');
+        expect(await readFile(backup, 'utf8')).toBe('user wrapper');
+        if (process.platform !== 'win32') {
+          expect((await stat(backup)).ino).toBe((await stat(join(localBin, 'gh'))).ino);
+
+          await rm(backup);
+          await rm(join(localBin, 'gh'));
+          await symlink('/opt/user/gh', join(localBin, 'gh'));
+          expect((await runBackup(home)).status).toBe(0);
+          expect(await readlink(join(localBin, 'gh'))).toBe('/opt/user/gh');
+          expect(await readlink(backup)).toBe('/opt/user/gh');
+        }
+      } finally {
+        await rm(home, { recursive: true, force: true });
+      }
+    });
+  });
+});

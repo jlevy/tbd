@@ -292,3 +292,7 @@ once implementation is complete.
 ### Postmortem / Follow-ups
 
 > If this was an incident, link to the postmortem and list follow-up tasks.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

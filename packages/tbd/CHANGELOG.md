@@ -1,5 +1,552 @@
 # get-tbd
 
+## Unreleased
+
+### Features
+
+- **Opt-in PR delivery policy**: a new agent policy grant, `pr-delivery`, records
+  whether agents deliver the work you ask for as a pull request without asking first.
+  `tbd policy grant pr-delivery` records `autonomous`: a request for a change is also
+  the request for its PR, opened on a GitHub-native stack when the work builds on an
+  unmerged PR and otherwise standalone, following the `stacked-prs` and PR shortcut
+  rules. `ask`, the value an unanswered or revoked policy takes, asks once before opening
+  a PR the request did not ask for.
+  The policy is outside the recommended set, and `setup-tbd` asks about it separately.
+  It needs `github-editing: granted`, and `tbd doctor` warns when it is recorded without
+  it. It authorizes no merge and changes no review requirement: those stay under
+  `github-merge` and `pr-review-requirements`. Run `tbd setup --auto` after upgrading to
+  refresh the `AGENTS.md` block, which now states the rule.
+
+## 0.11.0
+
+This release secures Markdown frontmatter parsing, keeps the managed `AGENTS.md` block
+stable under formatters, and updates the desktop app guidelines.
+Existing projects can upgrade in place.
+The repository format remains `f08` and the generated agent integration format remains
+`f100`.
+
+### Upgrade
+
+Once the release meets your package cool-off policy, install it and run setup from each
+project’s root to refresh its managed agent files and bundled guidelines.
+
+```bash
+npm install -g --ignore-scripts \
+  --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" \
+  get-tbd@0.11.0
+tbd setup --auto
+```
+
+If your application imports schemas from `get-tbd`, use Zod 4 in code that composes
+those schemas or infers their types with `z.infer`. Read validation errors through
+`error.issues`. The exported `Timestamp` schema is now a union, so use `.refine()` for
+additional validation instead of string-only methods such as `.min()`. It accepts UTC
+timestamps with or without seconds.
+See the [Zod 4 migration guide](https://zod.dev/v4/changelog).
+
+## What’s Changed
+
+### Security
+
+- Markdown frontmatter is restricted to YAML even when the file starts with a byte-order
+  mark. Explicit JavaScript frontmatter is rejected before it can execute.
+- The runtime dependency on Zod is upgraded from 3.25.76 to 4.6.7, which fixes excessive
+  validation work on oversized arrays with length limits.
+  The runtime audit reported zero advisories and all dependency pins passed the 14-day
+  age check. [Zod advisory](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)
+
+### Fixes
+
+- Running setup after a Markdown formatter no longer rewrites an equivalent managed
+  `AGENTS.md` block or its policy grants.
+- The GitHub CLI installer preserves the executable it replaces, reserves distinct
+  backup paths for concurrent installs, and avoids backing up its own managed copy.
+- Upgrade messages name the version recorded by the project when available and provide
+  an install command that observes the package cool-off period.
+
+### Guidelines and Content
+
+- New guides cover native macOS WebKit shells and Python runtimes for desktop apps,
+  including local process startup and shutdown, packaging, and code signing.
+- The Electron, Tauri, and Electrobun guides cover framework-specific trust boundaries,
+  packaging, and distribution.
+- GitHub setup guidance covers safer CLI replacement and working within brokered Git
+  permissions.
+
+[Full commit history](https://github.com/jlevy/tbd/compare/v0.10.0...v0.11.0)
+
+## 0.10.0
+
+This release adds project policy grants, a consistent PR review lifecycle, and generated
+sub-agent definitions for Claude Code and Codex.
+It also improves dependency diagnosis and protects local work during setup and
+sync-worktree recovery.
+The repository format remains `f08`; generated agent integrations move to `f100`.
+
+> [!IMPORTANT]
+> Upgrade every clone that runs `tbd setup` in a shared repository before committing
+> regenerated agent files or recording policy grants.
+> tbd 0.9.0 and older refuse to rewrite `f100` agent surfaces, protecting grants that
+> those versions do not understand.
+> Their setup may update `.tbd/config.yml` before refusing; discard that setup-only
+> config change and rerun setup after upgrading.
+> Ordinary issue commands, sync, and existing session hooks remain compatible with the
+> `f08` repository.
+> 
+> Older clients read the first `format=f<N>` string anywhere in `AGENTS.md`. A stray
+> format string in prose above the integration block can bypass their refusal and allow
+> them to remove grants.
+> Check for such strings before an older client runs setup.
+> This release reads format stamps only on marker lines.
+> 
+> `tbd setup` and `tbd policy` require `AGENTS.md` to be a regular file.
+> If it links to `CLAUDE.md`, invert the link: keep `AGENTS.md` regular and link
+> `CLAUDE.md` to it.
+
+After installing, regenerate the agent surfaces, review and commit the diff, and ask the
+agent to “Set up tbd” to review the project’s policy choices:
+
+```bash
+npm install -g get-tbd@0.10.0
+tbd setup --auto
+```
+
+## What’s Changed
+
+### Features
+
+- **Project policy grants:** `tbd policy show`, `grant`, `revoke`, `set`, and `refresh`
+  manage seven policies in `AGENTS.md`: GitHub actions, editing, merging, stacks,
+  delegation, review requirements, and Linear.
+  Effective grants come from the trusted default branch; working-tree differences are
+  reported, and user instructions can authorize or narrow the current task.
+  Malformed blocks fail closed, concurrent writes preserve each other, and setup keeps
+  existing grants rather than replacing them.
+- **Separate merge authority and review requirements:** `github-merge` supports `never`,
+  `confirm-every`, `confirm-session`, and `autonomous`. Permission to merge never waives
+  review or validation.
+  `revoke` restores the policy’s ask-first default.
+- **Setup and policy discovery:** `tbd setup --auto --policies=recommended` fills
+  unanswered policies while preserving answered ones.
+  Setup points agents to the consolidated `setup-tbd` process; users can defer policy
+  decisions. `tbd prime` shows effective and unanswered grants, including in brief
+  output, and `tbd doctor` diagnoses malformed policy blocks, stale guidance, and
+  missing or stale generated tier definitions.
+- **Generated sub-agent definitions:** setup installs four tiers in each of
+  `.claude/agents/` and `.codex/agents/`. The six selectable setup surfaces include
+  `claude-agents` and `codex-agents`; removing a definition’s `DO NOT EDIT` marker keeps
+  it as a user override.
+  Claude tiers use Opus 5.5; Codex strong tiers use GPT-6 Astra, while moderate and fast
+  tiers use GPT-6.1 Sol.
+  The model-tier guideline explains reasoning settings, platform limitations, and
+  runtime fallback.
+- **Dependency-cycle diagnosis:** `tbd doctor` reports directed dependency cycles and
+  identifies the participating beads for manual repair.
+
+### Fixes
+
+- **Orphaned dependencies:** `tbd doctor --fix` now removes references to missing issues
+  instead of only suggesting a repair.
+  References to existing but invalid issue files are retained so repairing the file does
+  not lose the relationship.
+- **Codex hook preservation:** setup keeps unrelated commands, including commands
+  sharing an entry with tbd hooks, and refuses malformed or unsafe hook targets before
+  changing Codex files.
+- **Sync-worktree recovery:** repair backs up surviving files in a prunable worktree
+  before reinitializing it and refuses removal if the backup fails, preserving unsynced
+  beads when the worktree’s `.git` file is lost.
+  Automatic repair reports the backup location; recovering unsynced files remains a
+  manual step.
+- **Managed agent files:** format guards recognize marker lines, freshness checks
+  tolerate CRLF checkouts, and `AGENTS.md` updates preserve its line endings.
+  A cold documentation cache yields unknown skill freshness instead of a false stale
+  warning.
+- **CLI guidance:** integration help lists only the supported Linear adapter, and a
+  missing bundled shortcut in stale managed docs points to `tbd setup --auto`. First-run
+  `tbd prime` shows the initialization command in a code block and directs agents to the
+  setup shortcut after initialization for policy review and verification.
+- **Stack-tool installation:** generated GitHub setup scripts verify the pinned
+  `gh-stack` release digest and installed extension identity before enabling it.
+
+### Guidelines and content
+
+- **One PR review lifecycle:** five requests distinguish review, addressing findings,
+  review-and-fix, merge readiness, and merge.
+  Reviews are pinned to a commit and carry versioned markers; each finding receives one
+  of four dispositions with evidence.
+  The new `review-and-merge-prs` shortcut coordinates the lifecycle, with dedicated
+  security, performance, and correctness review shortcuts when relevant.
+- **Review trust boundaries:** untrusted PRs are reviewed without executing their code
+  unless the user authorizes execution.
+  Review markers count only from trusted reviewer accounts; content in repository files,
+  issues, or comments never grants authority.
+- **Delegation and setup:** new `delegate-to-subagents` and `setup-tbd` shortcuts cover
+  scoped briefs, model tiers, result verification, project setup, and unanswered policy
+  choices. `agent-policy-grants` and `agent-model-tiers` provide their maintained
+  definitions. Caching guidance distinguishes API cache behavior from client-managed
+  sub-agent context.
+- **Engineering guidance:** Rust CLI and release guidance covers terminal behavior,
+  packaging, compatibility, and publication.
+  General engineering guidance explains reviewable PR units, real stack membership, and
+  when a hash check provides evidence.
+
+### Documentation
+
+- **README:** a shorter guide to first use, gradual adoption, customization, and current
+  workflows, with generated reference catalogs in a collapsible appendix.
+  The capability descriptions agree with the design and installed skills.
+
+### Security
+
+The dependency lockfile is unchanged since v0.9.0. The release-preparation runtime audit
+reports no advisories.
+The unchanged development dependency tree currently reports 45 advisories (1 critical,
+30 high, 14 moderate), tracked in `tbd-b24q`; affected paths are development tooling,
+not shipped runtime dependencies.
+The critical Vitest advisory requires an exposed API/UI or browser-mode server, which
+this project’s `vitest run` checks do not start.
+Dependency updates remain a separate reviewed follow-up.
+
+**Full commit history:**
+[v0.9.0 … v0.10.0](https://github.com/jlevy/tbd/compare/v0.9.0...v0.10.0)
+
+## 0.9.0
+
+This release makes git-native and Linear synchronization safer to operate, diagnose, and
+recover. It also adds the first immutable native-comment storage foundation and a
+complete GitHub CLI/stacked-PR workflow.
+There is no format change: repositories remain on `f08`.
+
+> [!IMPORTANT]
+> Upgrade every clone that runs `tbd integration sync` to 0.9.0 before any of those
+> clones syncs again. Version 0.8.1 can still write legacy Todo/Canceled projections;
+> 0.9.0 repairs that state after the older writer stops, but the two versions are not
+> safe concurrent integration-sync writers.
+
+After installing, regenerate the agent surfaces in each repository and commit their
+diff:
+
+```bash
+npm install -g get-tbd@0.9.0
+tbd setup --auto
+```
+
+## What’s Changed
+
+### Features
+
+- **Linear convergence and diagnosis**: Exact workflow slots now round-trip instead of
+  collapsing to broad status bands.
+  Backlog, Paused, Duplicate, and `In Review` settle; unavailable workflow states are
+  reported as skipped fields rather than silently substituted.
+  `tbd integration sync --explain` shows each divergent field with its local, remote,
+  and base values and the rule that decided it.
+- **Recoverable git-native sync**: Values discarded by a merge are archived in the
+  attic, provider comments survive workspace recovery and remain scoped to their link
+  lineage, and required merge attributes are enforced before every sync merge.
+  Sync fails closed if those attributes cannot be written.
+- **Immutable comment substrate**: The package now includes bounded native-comment
+  records, transition validation, quarantine handling, and a scalable inventory for
+  future coordination features.
+- **GitHub CLI and stacked PRs**: Generated setup enforces GitHub CLI 2.97.0 or newer
+  and ships a `stacked-prs` workflow alongside updated PR creation, review, and recovery
+  shortcuts.
+
+### Fixes
+
+- **Mirror state stability**: Blocked and future-deferred work no longer alternates
+  between Todo and Backlog; `In Review` remains in place; Paused and duplicate state
+  converge; and push-only sync writes a delegate only when it actually changed.
+- **Data-loss boundaries**: Beads import no longer overwrites a native issue when short
+  IDs collide, worktree repair refuses deletion if its backup failed, third-party
+  `extensions.<namespace>.comments` data is no longer rewritten as a provider log, and
+  relinked comments cannot be delivered through another clone’s stale link.
+- **Honest sync output**: Ordinary syncs report the tracker result, `--dry-run` says
+  when the tracker was not evaluated, inbound-only work and skipped pushes use distinct
+  wording, settled mirrors can remain settled while reporting standing warnings, and
+  unresolved fields are visible in both preview and execution reports.
+- **Configuration and selection**: `deferred_until` is honored when computing readiness;
+  grouped `identity.agent_map` values survive setup and are validated by their full
+  config key; invalid mappings fail before a network call.
+
+### Guidelines and content
+
+- **Agent-run operations**: A new `agent-run-operations-rules` guideline covers
+  authorization boundaries, evidence, external side effects, recovery, and handoff for
+  agent-operated workflows.
+- **Task-aware routing**: Guideline selection now follows each document’s declared
+  category, and generated skills include the updated claim, setup, sync-recovery, and
+  GitHub collaboration procedures.
+
+### Security
+
+- **YAML parser hardening**: Resolution overrides update `js-yaml` to patched releases
+  for CVE-2026-84375. `pnpm audit --prod` reports no runtime advisories, and the package
+  age gate passes all 31 pinned dependencies.
+  The remaining 36 advisories are confined to build/test tooling and are tracked in
+  `tbd-0am0`.
+
+**Full commit history**:
+[https://github.com/jlevy/tbd/compare/v0.8.1 … v0.9.0](https://github.com/jlevy/tbd/compare/v0.8.1...v0.9.0)
+
+## 0.8.1
+
+A patch release about what an agent reads before it touches your code.
+Rust becomes a first-class guideline family, four language-neutral topics that were
+previously scattered across other documents get their own, and the set an agent is told
+to read for *any* engineering work drops from nine documents to one.
+No format change: repositories stay on `f08`, and there is no migration step.
+
+### Rust is a first-class guideline family
+
+Eight documents, reachable the same way as the TypeScript and Python families:
+
+- `rust-rules` — general coding rules for libraries, applications, services, and CLIs
+- `rust-project-setup` — structuring, validating, and maintaining packages and
+  workspaces
+- `rust-lint-format-rules` — the `[lints]` block, `clippy.toml`, rustfmt and toolchain
+  pinning, hooks and CI gates, and how to prove the floor is live
+- `rust-testing-rules` — unit, integration, property, snapshot, and cross-platform tests
+- `rust-cli-rules` — composable, testable, cross-platform command-line applications
+- `rust-filesystem-rules` — path and string types, write boundaries, and the `tempfile`
+  atomic-replacement sequence
+- `rust-code-review-rules` — which guideline owns each changed surface, plus the
+  `unsafe` and FFI checklist
+- `rust-release-rules` — crates.io publishing and workspace ordering, trusted
+  publishing, semver checks, and shipping a Rust binary as a Python wheel through
+  maturin
+
+```bash
+tbd guidelines rust-rules rust-lint-format-rules
+tbd shortcut review-code-rust
+```
+
+`rust-lint-format-rules` reports measured adoption cost for the lints above the floor,
+taken from a real 35k-line codebase, so a project can choose its lint set from evidence
+rather than taste. `check-rust-gate.mjs` ships beside the guidelines so a project can
+check that the floor it declares is the floor it actually runs.
+
+`rust` is now a doc category, so `tbd docs fork --category=rust` forks the family and
+the generated agent surfaces list it under its own heading.
+`tbd shortcut review-code` routes a Rust diff to the Rust documents.
+
+### Four cross-cutting topics that used to be implicit
+
+Each is language-neutral and pairs with the language-specific document where one exists:
+
+- `code-review-rules` — the Blocker/High/Medium/Low severity vocabulary, establishing a
+  baseline before hunting findings, reviewing the highest-risk boundaries first, and
+  what makes a finding actionable.
+  The `review-code` shortcuts are the procedure; this is the substance they apply.
+- `ci-and-gates-rules` — one entry point in two modes, thin workflow orchestration over
+  tested project-native programs, and the traps that keep a gate green while it checks
+  nothing: swallowed pipeline exit status, self-recorded evidence, single-platform
+  blindness, and scope holes.
+- `filesystem-rules` — atomic publication of finished files, atomic visibility versus
+  crash durability, cross-device moves, deterministic traversal, symlink and root
+  boundaries, and honest partial failure.
+- `release-engineering-rules` — one release identity, a pre-release gate that runs where
+  publishing happens, least-privilege publishing authority, build-once-and-promote, and
+  smoke-testing the packaged artifact rather than the build output.
+
+### The always-read core is one document, not nine
+
+The generated guideline directory sorted documents into groups, and the first group told
+agents to “read all of these for any engineering work.”
+That group had grown to nine documents and roughly 10,600 words — read in full before
+the agent had seen a line of your code, competing directly with attention for your
+actual repository.
+
+It is now one document, `general-eng-agent-principles`, at about 1,100 words.
+Everything else is routed by what the change touches, under a new **Cross-cutting
+engineering topics** group and the per-language groups, each of which now says to select
+from it rather than load it whole.
+
+Group membership is matched on exact names instead of substrings.
+The old rule matched any name containing `testing`, `tdd`, or `golden`, so the Rust
+family arriving in this release would have pulled `rust-testing-rules` into the group
+every agent reads for every task, in any language.
+A test now measures what the always-read core renders to and fails if it grows.
+
+### A push failure is classified by the error, not by stray digits
+
+`tbd sync` classifies a failed push as permanent, transient, or unknown, and acts on
+that: a permanent failure auto-saves your changes to the outbox and reports the push as
+blocked, while the other two suggest a retry.
+The HTTP status patterns it classified with (`403`, `401`, `5\d\d`) matched bare digits
+anywhere in the error text, including the repository path.
+
+So a push failure under a directory like `/tmp/build-05895p` read as an HTTP 5xx server
+error, because `5\d\d` matched the `589` in that name — and the identical failure in a
+differently-named directory classified as `unknown`. A path containing `403` was worse:
+it made an ordinary network failure look policy-blocked and triggered the outbox save.
+
+Status codes are now recognized only where git actually reports one — `HTTP 500`,
+`returned error: 403`, `status=401` — and not when the digits are embedded in a path,
+object id, or larger number.
+
+This surfaced during the release validation for this version: the same sync test
+classified its failure differently between runs, purely on the random temp directory
+name it happened to get.
+
+### Guidelines and content
+
+- `general-testing-rules` grew from a stub into a full document: keeping suites concise
+  and portable, not just testing the test, asserting transferred data rather than that a
+  mock was called, keeping the inner loop fast, raising a timeout only with a recorded
+  measurement, and never letting an absent test look like a passing one.
+- `typescript-rules` replaces its general file-operations section with an explicit rule
+  to atomically publish files completed in one operation.
+- `release-notes-guidelines` adds the rule that a defect introduced and corrected before
+  a release is not a shipped fix, with the cross-check for finding them.
+- `new-guideline`, `review-code`, `review-code-typescript`, and `review-code-python`
+  were updated for the new routing; `supply-chain-hardening`,
+  `golden-testing-guidelines`, `error-handling-rules`, `typescript-cli-tool-rules`,
+  `typescript-lint-format-rules`, `python-rules`, and `python-modern-guidelines`
+  received focused corrections.
+
+The bundled guideline count goes from 31 to 43.
+
+### Security
+
+Lockfile byte-identical since v0.8.0, so the installed dependency tree is unchanged.
+`pnpm audit --prod` reports no runtime advisories.
+The 32 open advisories are all dev-only, reached through `vitest`/`vite` and other build
+tooling that is not shipped to users; they are tracked in the repository rather than
+blocking this release.
+
+## 0.8.0
+
+tbd could say that work was open, started, or closed.
+It could not say *how* work ended, *who* is acting on it as distinct from who owns it,
+or that started work is on hold.
+This release adds those three axes, and teaches the Linear integration to project them
+onto a real board. No format change: repositories stay on `f08`, and there is no
+migration step.
+
+### Work can end three ways, not one
+
+`closed` collapsed “we did it”, “we dropped it”, and “this was already filed”.
+Closing now takes a resolution:
+
+```bash
+tbd close tbd-a1b2 --as canceled --reason "approach superseded"
+tbd close tbd-c3d4 --as duplicate --duplicate-of tbd-a1b2
+```
+
+`resolution` is `completed` (the default, so existing scripts are unchanged),
+`canceled`, or `duplicate`; `duplicate_of` is required with `duplicate` and refused
+without it. Both are validated against `status`, so a resolution cannot attach to open
+work.
+
+This matters most where it leaves your repository.
+A canceled bead previously filed in Linear as **Done** with a completion date stamped on
+it, which is wrong data rather than a wrong label.
+Now `canceled` maps to Linear’s Canceled with no completion date, and `duplicate`
+creates the provider-side duplicate relation from the scalar.
+
+### Who is accountable and who is acting are different fields
+
+`assignee` had to mean both, so in agent-driven repositories it usually meant nothing
+and went unused. `delegate` now sits beside it: the human stays accountable, the agent
+acts.
+
+```bash
+tbd update tbd-a1b2 --assignee alice --delegate claude-agent
+tbd start tbd-a1b2            # claims the acting axis, leaving assignee alone
+```
+
+`tbd start` sets `delegate` rather than overwriting `assignee`, and `--as <name>` claims
+under an explicit agent name.
+People resolve through the tracker’s own directory instead of a hand-maintained table,
+so a rename survives; `user_map` is still honored as an override.
+Publishing a delegate to Linear requires naming an installed Linear agent in
+`agent_map`, and an unmapped agent produces a reported skip rather than a silent one.
+
+### Paused work stops erasing that it started
+
+Parking work meant moving it to `deferred`, which discarded the fact that it had ever
+started. `hold` is now its own axis:
+
+```bash
+tbd pause tbd-a1b2 --until 2026-09-15 --reason "waiting on upstream"
+tbd resume tbd-a1b2
+```
+
+`hold` is `blocked` or `paused`, with `hold_until` for an expected lift date, and
+`started_at` is set on first entry to `in_progress` and never cleared—so a paused bead
+still knows it was started.
+`tbd ready` excludes anything on hold.
+Bulk `tbd update --hold` covers a subtree, which previously meant a per-bead loop.
+
+### A board tbd can project onto
+
+`state_map` maps lifecycle slots to Linear states **by name**, not by board position, so
+reordering a board no longer changes what tbd thinks a column means.
+It is optional: omit it and tbd maps states as it did before, creating nothing.
+
+`tbd integration setup` proposes the default map, and on confirmation creates the states
+a repository asked for—and only those—validated against the team’s real states before
+anything is mutated.
+It never renames, deletes, or touches a state outside the map.
+`tbd doctor` prints the resolved slot table offline, so the projection is inspectable
+without a sync.
+
+### Fixes
+
+- **A bead with no assignee no longer clears the assignee in Linear.** An absent
+  assignee pushed outbound as an explicit unassign, so populating `user_map`—the
+  documented prerequisite for assignee sync—was by itself enough to start erasing
+  whoever a human had assigned.
+  Observed as steady state rather than a race: one issue lost its assignee, regained it,
+  and lost it again on the next sync.
+  An absent assignee is now read as no opinion.
+  Affects every repository that adopted the integration after its beads existed.
+- **`.env` credentials resolve from the main worktree.** `.env` is gitignored, so it
+  does not propagate to linked worktrees; a fully configured repository reported
+  `LINEAR_API_KEY not found` from any worktree of it, and status read as “Linear is not
+  set up here”. Resolution now falls back to the main worktree’s `.env` through git,
+  guarded so it cannot read a sibling project under `git init --separate-git-dir`.
+- **A sync that skipped a field says so.** Pushes reported a clean summary over fields
+  they had dropped. Field-level skips are now named, and `--verbose` names each excluded
+  field, distinguishing “not eligible” from “eligible and unchanged”.
+- **`--due` and `--defer` accept the dates people actually type**, not only full ISO
+  8601 timestamps.
+- **`tbd doctor` warns when npm’s global bin directory is not on `PATH`**, and only when
+  that finding is actionable.
+
+### Guidelines and content
+
+- **New `agent-session-bootstrap` guideline** covering session startup for agents.
+- **The tbd skill now says where beads live.** It never stated that beads are stored on
+  the `tbd-sync` branch, and its one branch note pointed the other way, so an agent that
+  found no bead changes in its feature branch could report the work lost.
+  The skill now states that tbd owns that branch—`tbd sync` maintains it,
+  `tbd doctor --fix` repairs it—and that tbd commands, not raw git, are the interface to
+  it. ([#238](https://github.com/jlevy/tbd/issues/238))
+- **`ensure-gh-cli.sh` states the proxied-session consequences it has already proven.**
+  Where it detects that a session proxy intercepts GitHub while direct egress is open,
+  it now reports that tags can 403 through a ref-scoped credential broker while branches
+  succeed, that `git push --dry-run` passes for tags the broker later refuses, and that
+  a GitHub-host 403 with no `x-github-request-id` header is proxy-manufactured rather
+  than an egress denial.
+  The same facts are in the skill.
+  ([#255](https://github.com/jlevy/tbd/issues/255))
+- **`setup-linear` covers Linear’s GitHub app**, including that it is an
+  organization-level decision rather than a per-repository one.
+- **`update-specs-status` gained a dangling `spec_path` sweep** and no longer files
+  never-started specs as finished.
+
+### Security
+
+Lockfile is byte-identical to v0.7.1 and no manifest changed, so the resolved dependency
+tree is unchanged. `pnpm audit --prod` reports no advisories in the shipped tree;
+outstanding advisories are confined to dev tooling (vitest, vite, rollup, postcss and
+their transitives).
+
+**Full commit history**:
+[Compare v0.7.1 to v0.8.0](https://github.com/jlevy/tbd/compare/v0.7.1...v0.8.0)
+
 ## 0.7.1
 
 A patch release about one thing: the first time you point tbd at a tracker, it should be
@@ -1445,3 +1992,7 @@ tbd-managed repository must upgrade to v0.2.0; older clients fail closed.** See
 ### Patch Changes
 
 - Fix flaky performance test and clarify publishing documentation
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

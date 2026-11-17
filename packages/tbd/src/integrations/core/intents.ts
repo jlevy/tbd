@@ -11,8 +11,10 @@
  * Replay is safe because every operation is idempotent or replay-converts:
  * creates carry client UUIDs (a duplicate is recovered as success), updates
  * re-apply the same values, attachments upsert on url, and comments carry
- * client UUIDs the provider deduplicates (verified live). Cross-machine replay
- * needs no coordination for the same reason.
+ * client UUIDs the provider deduplicates (verified live). Replaying the same
+ * journal after it moves between machines needs no extra coordination. Two stale
+ * replicas can still assign different UUIDs to one logical comment; `tbd-6vg5`
+ * tracks that separate delivery-identity gap.
  */
 
 import { mkdir, readdir, readFile, rm } from 'node:fs/promises';
@@ -37,7 +39,7 @@ const CanonicalPatchSchema = z
     assignee: z.string().nullable().optional(),
     parentId: z.string().nullable().optional(),
   })
-  .passthrough();
+  .loose();
 
 const IntentOpSchema = z.discriminatedUnion('kind', [
   z.object({
@@ -78,7 +80,7 @@ const IntentOpSchema = z.discriminatedUnion('kind', [
     /** Durable local identity: replay must mark this entry as pushed. */
     bead_id: z.string().min(1),
     local_id: z.string().min(1),
-    /** Client UUID; the provider's dedup makes replay exactly-once. */
+    /** Client UUID; provider dedup makes replay of this operation idempotent. */
     comment_client_id: z.string().min(1),
     body: z.string(),
   }),
@@ -86,13 +88,15 @@ const IntentOpSchema = z.discriminatedUnion('kind', [
     kind: z.literal('post_conflict'),
     bead_id: z.string().min(1),
     external_id: z.string().min(1),
-    /** Client UUID; the provider's dedup makes crash replay exactly-once. */
+    /** Client UUID; provider dedup makes crash replay of this operation idempotent. */
     comment_client_id: z.string().min(1),
     report: z.object({
       beadId: z.string().min(1),
       field: z.string().min(1),
-      keptValue: z.unknown(),
-      discardedValue: z.unknown(),
+      // Optional because either side of a conflict can be absent, and YAML drops an
+      // undefined value, so the key is missing when the intent file is read back.
+      keptValue: z.unknown().optional(),
+      discardedValue: z.unknown().optional(),
       atticPath: z.string().min(1),
     }),
   }),

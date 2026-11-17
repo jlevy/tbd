@@ -85,13 +85,17 @@ function legacyListSort(issues: Issue[], sortField: string): Issue[] {
   );
 }
 
+/** One pinned instant for oracle and implementation alike, so the parity
+ * comparison cannot straddle two clock reads. */
+const NOW = Date.parse('2026-08-10T00:00:00.000Z');
+
 /**
  * Pre-extraction `tbd ready` pipeline. Note its tiebreak was the full internal id
  * rather than the extracted ULID; ids share the constant `is-` prefix, so the orders
  * are provably identical — this oracle keeps the original expression to prove it.
  */
 function legacyReady(issues: Issue[], kind: IssueKindType | null): Issue[] {
-  const readyIds = readyIssueIds(issues);
+  const readyIds = readyIssueIds(issues, NOW);
   let readyIssues = issues.filter((issue) => readyIds.has(issue.id));
   if (kind !== null) {
     readyIssues = readyIssues.filter((i) => i.kind === kind);
@@ -220,7 +224,7 @@ describe('selectIssues parity with the legacy list pipeline', () => {
     expect(all.length).toBeGreaterThan(30);
     for (const query of all) {
       const expected = ids(legacyListSort(legacyListFilter(corpus, query), query.sort));
-      const actual = ids(selectIssues(corpus, query));
+      const actual = ids(selectIssues(corpus, query, NOW));
       expect(actual, JSON.stringify(query)).toEqual(expected);
     }
   });
@@ -228,7 +232,7 @@ describe('selectIssues parity with the legacy list pipeline', () => {
   it('applies limit after sorting, like applyLimit did', () => {
     const query = { ...defaultIssueQuery(), limit: 7 };
     const expected = ids(legacyListSort(legacyListFilter(corpus, query), 'priority')).slice(0, 7);
-    expect(ids(selectIssues(corpus, query))).toEqual(expected);
+    expect(ids(selectIssues(corpus, query, NOW))).toEqual(expected);
   });
 });
 
@@ -236,7 +240,7 @@ describe('selectIssues parity with the legacy ready pipeline', () => {
   it('matches for every kind filter, including the internal-id-vs-ULID tiebreak', () => {
     for (const kind of [null, ...KINDS] as (IssueKindType | null)[]) {
       const expected = ids(legacyReady(corpus, kind));
-      const actual = ids(selectIssues(corpus, { ...defaultIssueQuery(), ready: true, kind }));
+      const actual = ids(selectIssues(corpus, { ...defaultIssueQuery(), ready: true, kind }, NOW));
       expect(actual, `kind=${String(kind)}`).toEqual(expected);
     }
   });

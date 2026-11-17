@@ -24,6 +24,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 
 import { ulid } from 'ulid';
 
@@ -36,7 +37,14 @@ import type {
   PolicyDefinition,
   ProviderNameType,
 } from '../../lib/types.js';
-import { computeSlot, decomposeSlot, isSlot, type Slot } from './slots.js';
+import {
+  bandOf,
+  decomposeSlot,
+  isSlot,
+  outboundPosition,
+  slotVocabulariesAgree,
+  type Slot,
+} from './slots.js';
 import { readyIssueIds } from '../../lib/issue-selection.js';
 import {
   descriptionHash,
@@ -54,10 +62,17 @@ import {
 } from './comment-store.js';
 import { duplicateExternalLinks, readLink, writeLink } from './link-store.js';
 import { assertExternalUnclaimed } from './link-guard.js';
-import { renderManagedBlock, spliceManagedBlock, type MirrorLinks } from './managed-block.js';
+import {
+  readManagedBlock,
+  renderManagedBlock,
+  spliceManagedBlock,
+  stripManagedBlock,
+  type MirrorLinks,
+} from './managed-block.js';
 import { attachmentsFor, beadAttachmentUrl, depthWithinSelection, prefixLabels } from './mirror.js';
 import {
   reconcile,
+  type BeadPatch,
   type FieldConflict,
   type FieldEquivalences,
   type LocalView,
@@ -175,9 +190,35 @@ export interface SyncRunReport {
   replayedOps: number;
   pushed: string[];
   pulled: string[];
+  /**
+   * Pairs with outbound work that THIS run will not perform because it is inbound-only.
+   *
+   * Separate from `pushed` on purpose. `pushed` is what the run does; a `--pull` run
+   * does not push, so reporting these as pushes made the dry run contradict the run it
+   * previewed and left three mutually inconsistent numbers for one state (#265). Kept
+   * rather than dropped because "there is outbound work pending" is worth knowing.
+   */
+  suppressedPushes: string[];
+  /**
+   * Why each dirty pair is dirty: one entry per field the run intends to move.
+   *
+   * The summary says "push 13"; this says which thirteen and which fields. Without it,
+   * a pair that reports work every run and never converges can only be diagnosed by
+   * reading `.tbd/data-sync/bridge/` by hand, which is what #265 had to do. Populated
+   * identically on both the dry-run and execute paths, so a preview explains the run.
+   */
+  divergences: {
+    beadId: string;
+    field: string;
+    direction: 'push' | 'pull';
+    rule: string;
+    localValue: unknown;
+    remoteValue: unknown;
+    baseValue: unknown;
+  }[];
   conflicts: { beadId: string; field: string; winner: string }[];
   overwrites: { beadId: string; field: string; direction: string }[];
-  skippedPushes: { beadId: string; field: string }[];
+  skippedPushes: { beadId: string; field: string; reason?: string }[];
   /** Safe provider-to-canonical mapping diagnostics, deduplicated per external item. */
   warnings: { externalId: string; externalKey?: string; message: string }[];
   commentsPulled: number;
@@ -200,7 +241,10 @@ export interface SyncRunReport {
 interface PlannedPair {
   bead: Issue;
   record: LinkRecord | undefined;
+  base: LinkRecord['base'];
+  local: LocalView;
   remote: ExternalIssue;
+  remoteView: RemoteView;
   result: ReturnType<typeof reconcile>;
   /** Parent relationships are tbd-owned and intentionally not three-way merged. */
   parentOverwrite: boolean;
@@ -213,16 +257,9 @@ function localViewOf(bead: Issue, ready?: ReadonlySet<string>): LocalView {
     status: bead.status,
     // Computed only when the caller supplied readiness. Without it the Todo/Backlog
     // split cannot be decided, and guessing would be worse than staying on statuses.
-    ...(ready
-      ? {
-          slot: computeSlot({
-            status: bead.status,
-            hold: bead.hold,
-            resolution: bead.resolution,
-            ready: ready.has(bead.id),
-          }),
-        }
-      : {}),
+    // The same helper the create path and the push-only mirror use, so the pair path
+    // cannot compute a different slot for the same bead.
+    ...(ready ? { slot: outboundPosition(bead, ready.has(bead.id)).slot } : {}),
     priority: bead.priority,
     labels: bead.labels ?? [],
     assignee: bead.assignee ?? null,
@@ -242,6 +279,53 @@ function remoteViewOf(remote: ExternalIssue): RemoteView {
     assignee: remote.assignee,
     updatedAt: remote.updatedAt,
   };
+}
+
+/** The fields a pull can change, shaped so two beads compare by value. */
+function pulledFieldsOf(issue: Issue) {
+  return {
+    title: issue.title,
+    description: issue.description ?? null,
+    status: issue.status,
+    priority: issue.priority,
+    labels: [...(issue.labels ?? [])].sort(),
+    assignee: issue.assignee ?? null,
+    resolution: issue.resolution ?? null,
+    duplicate_of: issue.duplicate_of ?? null,
+    hold: issue.hold ?? null,
+  };
+}
+
+/**
+ * Apply a pull to a stored bead, saying whether anything actually changed.
+ *
+ * A patch can be non-empty and still change nothing: a pulled slot decomposes to a
+ * status, hold and resolution the bead already holds, because Todo and Backlog both
+ * mean `open`. Rewriting the bead then bumps `version` and `updated_at` for no edit,
+ * and under `tie_break: newest` a bead stamped newer than the tracker on every sync
+ * wins every later conflict by default. So the write, and the `pulled` line that
+ * reports it, are gated on a real difference; the base still advances either way.
+ */
+function applyBeadPatch(stored: Issue, patch: BeadPatch): { issue: Issue; changed: boolean } {
+  if (Object.keys(patch).length === 0) {
+    return { issue: stored, changed: false };
+  }
+  const issue: Issue = {
+    ...stored,
+    ...(patch.title !== undefined ? { title: patch.title } : {}),
+    ...(patch.description !== undefined ? { description: patch.description } : {}),
+    ...(patch.status !== undefined ? { status: patch.status } : {}),
+    ...(patch.priority !== undefined ? { priority: patch.priority } : {}),
+    ...(patch.labels !== undefined ? { labels: patch.labels } : {}),
+    ...(patch.assignee !== undefined ? { assignee: patch.assignee } : {}),
+    ...(patch.resolution !== undefined ? { resolution: patch.resolution } : {}),
+    ...(patch.duplicate_of !== undefined ? { duplicate_of: patch.duplicate_of } : {}),
+    ...(patch.hold !== undefined ? { hold: patch.hold } : {}),
+  };
+  if (issue.resolution !== 'duplicate') {
+    issue.duplicate_of = null;
+  }
+  return { issue, changed: !isDeepStrictEqual(pulledFieldsOf(stored), pulledFieldsOf(issue)) };
 }
 
 function overlappedWatermark(watermark: string | undefined): string | undefined {
@@ -372,6 +456,8 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     replayedOps: 0,
     pushed: [],
     pulled: [],
+    suppressedPushes: [],
+    divergences: [],
     conflicts: [],
     overwrites: [],
     skippedPushes: [],
@@ -388,6 +474,90 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     failures: [],
     nothingToDo: false,
   };
+  /**
+   * Record why one pair is dirty, from the patches the matrix produced.
+   *
+   * One implementation for both the dry-run and execute paths on purpose: the whole
+   * point is that a preview and a run give the same account, and two copies of this
+   * would be two chances to drift (which is exactly how the direction reporting drifted
+   * in the first place).
+   */
+  const recordDivergence = (beadId: string, pair: PlannedPair, managedBlock?: string): void => {
+    const valuesFor = (field: string): [unknown, unknown, unknown] => {
+      if (field === 'description') {
+        return [
+          pair.local.description,
+          stripManagedBlock(pair.remoteView.description),
+          pair.base.description_hash,
+        ];
+      }
+      if (field === 'status') {
+        const comparesSlots = pair.local.slot !== undefined && pair.remoteView.slot !== undefined;
+        return comparesSlots
+          ? [pair.local.slot, pair.remoteView.slot, pair.base.slot ?? pair.base.status]
+          : [pair.local.status, pair.remoteView.status, pair.base.status];
+      }
+      const local = pair.local as unknown as Record<string, unknown>;
+      const remote = pair.remoteView as unknown as Record<string, unknown>;
+      const base = pair.base as unknown as Record<string, unknown>;
+      return [local[field], remote[field], base[field]];
+    };
+    const add = (field: string, direction: 'push' | 'pull'): void => {
+      const [localValue, remoteValue, baseValue] = valuesFor(field);
+      report.divergences.push({
+        beadId,
+        field,
+        direction,
+        rule: (policy.field_sync.fields as Record<string, string | undefined>)[field] ?? 'n/a',
+        localValue,
+        remoteValue,
+        baseValue,
+      });
+    };
+    const { externalPatch, beadPatch } = pair.result;
+    const fields = ['title', 'description', 'status', 'priority', 'labels', 'assignee'] as const;
+    for (const field of fields) {
+      const pushes =
+        field === 'status'
+          ? externalPatch.status !== undefined || externalPatch.slot !== undefined
+          : field === 'labels'
+            ? externalPatch.labels !== undefined || externalPatch.ensureLabels !== undefined
+            : externalPatch[field] !== undefined;
+      const pulls =
+        field === 'status'
+          ? beadPatch.status !== undefined || beadPatch.slot !== undefined
+          : beadPatch[field] !== undefined;
+      if (pushes) {
+        add(field, 'push');
+      }
+      if (pulls) {
+        add(field, 'pull');
+      }
+    }
+    if (pair.parentOverwrite) {
+      report.divergences.push({
+        beadId,
+        field: 'parent',
+        direction: 'push',
+        rule: 'local',
+        localValue: pair.result.externalPatch.parentId,
+        remoteValue: pair.remote.parent?.id ?? null,
+        baseValue: undefined,
+      });
+    }
+    if (managedBlock !== undefined) {
+      report.divergences.push({
+        beadId,
+        field: 'managed_block',
+        direction: 'push',
+        rule: 'local',
+        localValue: managedBlock,
+        remoteValue: readManagedBlock(pair.remote.description),
+        baseValue: null,
+      });
+    }
+  };
+
   const warningKeys = new Set<string>();
   const recordMappingWarnings = (issues: readonly ExternalIssue[]): void => {
     for (const issue of issues) {
@@ -552,7 +722,13 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
 
   // 2. Assemble the linked set and the remote view.
   const currentIssues = [...issuesById.values()];
-  const readyIds = readyIssueIds(currentIssues);
+  const readyIds = readyIssueIds(currentIssues, Date.now());
+  // What a create writes for where the work sits. The slot goes on the create as well
+  // as on later pushes, or a new pair starts life in the disagreement the pair path
+  // then has to converge out of: an open bead that is not ready belongs in Backlog,
+  // and `status: open` alone lands it in Todo. `status`, `resolution` and `hold` ride
+  // alongside because a journal replayed by a client that predates slots ignores `slot`.
+  const positionOf = (issue: Issue) => outboundPosition(issue, readyIds.has(issue.id));
   const childrenByParent = new Map<string, Issue[]>();
   for (const issue of currentIssues) {
     if (!issue.parent_id) {
@@ -707,7 +883,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     // one-way regime where the bead was the truth, so the base seeds from the
     // REMOTE snapshot: local divergence pushes, nothing pulls, and no phantom
     // conflicts fire on the first synchronization.
-    const base =
+    const base: LinkRecord['base'] =
       record?.base ??
       pendingCreateBase ??
       (() => {
@@ -721,25 +897,81 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
           description_hash: descriptionHash(remote.description),
         };
       })();
-    const result = reconcile(
-      base,
-      localViewOf(bead, readyIds),
-      remoteViewOf(remote),
-      policy.field_sync,
-      options.equivalences,
-      {
-        // The flow rule gates the push, not just the pull. `FieldSyncClauseSchema`
-        // promises nothing person-identifying moves without an explicit `user_map`
-        // AND an explicit `assignee: merge`, but that guard only ever covered the
-        // inbound direction — so the conservative default was not conservative in the
-        // direction that destroys data (OS-351). `merge` is now required before any
-        // outbound assignee write.
-        assignee:
-          policy.field_sync.fields.assignee === 'merge' &&
-          adapter.canPushAssignee(bead.assignee ?? null),
-        assigneePull: remote.assigneeSyncable !== false,
-      },
-    );
+    const local = localViewOf(bead, readyIds);
+    const remoteView = remoteViewOf(remote);
+    const preferredStateId =
+      record?.refinement_slot === local.slot
+        ? (record?.refinement_state_id ?? undefined)
+        : undefined;
+    const slotWrite =
+      local.slot && adapter.resolveSlotWrite
+        ? await adapter.resolveSlotWrite(
+            local.slot,
+            { status: local.status, hold: bead.hold },
+            preferredStateId,
+          )
+        : undefined;
+    const configuredStatusEquivalence = options.equivalences?.status;
+    const pairEquivalences: FieldEquivalences = {
+      ...options.equivalences,
+      ...(local.slot && remoteView.slot
+        ? {
+            status: (a: unknown, b: unknown): boolean => {
+              if (configuredStatusEquivalence?.(a, b)) {
+                return true;
+              }
+              if (typeof a !== 'string' || typeof b !== 'string' || !isSlot(a) || !isSlot(b)) {
+                return false;
+              }
+              const first = a;
+              const second = b;
+              if (slotVocabulariesAgree(first, second)) {
+                return true;
+              }
+              const projected = slotWrite?.projectedSlot;
+              return (
+                projected !== undefined &&
+                ((first === local.slot && second === projected) ||
+                  (second === local.slot && first === projected))
+              );
+            },
+          }
+        : {}),
+    };
+    const result = reconcile(base, local, remoteView, policy.field_sync, pairEquivalences, {
+      status: slotWrite?.canPush ?? true,
+      statusReason: slotWrite?.reason,
+      // The flow rule gates the push, not just the pull. `FieldSyncClauseSchema`
+      // promises nothing person-identifying moves without an explicit `user_map`
+      // AND an explicit `assignee: merge`, but that guard only ever covered the
+      // inbound direction — so the conservative default was not conservative in the
+      // direction that destroys data (OS-351). `merge` is now required before any
+      // outbound assignee write.
+      assignee:
+        policy.field_sync.fields.assignee === 'merge' &&
+        adapter.canPushAssignee(bead.assignee ?? null),
+      assigneePull: remote.assigneeSyncable !== false,
+    });
+    // 0.8.1 could record agreement on Duplicate while writing Linear's Canceled state.
+    // Repair that exact half-converged shape outward; pulling Canceled would leave the
+    // bead's required duplicate pointer attached to a non-duplicate resolution and fail
+    // schema validation forever.
+    const repairsLegacyDuplicate =
+      base.slot === 'duplicate' &&
+      local.slot === 'duplicate' &&
+      remoteView.slot === 'canceled' &&
+      bead.resolution === 'duplicate' &&
+      bead.duplicate_of != null;
+    if (repairsLegacyDuplicate) {
+      delete result.beadPatch.slot;
+      delete result.beadPatch.status;
+      delete result.beadPatch.hold;
+      delete result.beadPatch.resolution;
+      delete result.beadPatch.duplicate_of;
+      result.externalPatch.slot = 'duplicate';
+      result.merged.slot = 'duplicate';
+      result.merged.status = 'closed';
+    }
     // A pulled slot decomposes here rather than in the matrix, because the bead fields
     // it implies carry invariants the matrix knows nothing about — a resolution only on
     // closed work, a hold only off it. Doing it in one place keeps those rules with the
@@ -753,7 +985,12 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       // renders, so a decomposition that stopped at the patch would leave both
       // describing the position the bead just moved away from.
       result.merged.status = fields.status;
-      if (result.beadPatch.slot === 'duplicate') {
+      if (result.beadPatch.slot === 'duplicate' && bead.duplicate_of != null) {
+        // A locally known duplicate target is stronger than the provider's bare state.
+        // Keep the valid resolution-pointer pair together.
+        result.beadPatch.resolution = 'duplicate';
+        result.beadPatch.duplicate_of = bead.duplicate_of;
+      } else if (result.beadPatch.slot === 'duplicate') {
         // The tracker carries the duplicate's target as a relation tbd does not read,
         // and the write boundary rejects a duplicate without one. Canceled keeps the
         // honest half; saying so beats narrowing it silently.
@@ -763,6 +1000,9 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
           message:
             'Marked a duplicate in the tracker; recorded as canceled because the duplicate target is not mirrored locally.',
         });
+      } else if (bead.duplicate_of != null) {
+        // Moving away from Duplicate invalidates the pointer just as `tbd reopen` does.
+        result.beadPatch.duplicate_of = null;
       }
     }
 
@@ -774,14 +1014,20 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     // bead ends up canceled and open at once. Widening the matrix properly is the slot
     // work in a later phase; until then the rule is that the reason goes where the
     // position goes.
-    // An outbound slot is decomposed into the fields the adapter already knows how to
-    // write. The adapter's job is provider vocabulary, not lifecycle arithmetic, so the
-    // slot is turned back into status/hold/resolution here rather than teaching every
-    // adapter to read slots.
+    // An outbound slot stays on the patch — it is the position the adapter writes, since
+    // a status alone cannot tell Backlog from Todo — and is also decomposed into
+    // status/hold/resolution here, so a journal replayed by a client that reads only
+    // those still files the issue in the right band. The adapter's job is provider
+    // vocabulary, not lifecycle arithmetic, so the decomposition lives here.
     if (result.externalPatch.slot !== undefined) {
-      const fields = decomposeSlot(result.externalPatch.slot as Slot);
+      const slot = result.externalPatch.slot as Slot;
+      const fields = decomposeSlot(slot);
       result.externalPatch.status = fields.status;
-      result.externalPatch.hold = fields.hold;
+      // Held open work has no slot of its own — it sits in `backlog` — so the
+      // decomposition cannot recover the hold. The bead's own rides along, and the
+      // adapter writes it as the carrier label beside the Backlog state.
+      result.externalPatch.hold =
+        fields.hold ?? (bandOf(slot) === 'open' ? (bead.hold ?? null) : null);
       result.externalPatch.resolution = fields.resolution;
     } else if (result.externalPatch.status !== undefined) {
       result.externalPatch.resolution = bead.resolution ?? null;
@@ -858,7 +1104,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       result.externalPatch.parentId = expectedParentId;
       parentOverwrite = true;
     }
-    pairs.push({ bead, record, remote, result, parentOverwrite });
+    pairs.push({ bead, record, base, local, remote, remoteView, result, parentOverwrite });
   }
 
   // Comment planning. All linked pairs with a remote in hand participate;
@@ -964,10 +1210,15 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   const managedBlocks = new Map<string, string>();
   const malformedManagedBeads = new Set<string>();
   for (const pair of pairs) {
+    const statusPushSkipped = pair.result.skippedPushes.some(
+      (skipped) => skipped.field === 'status',
+    );
     const projectedBead: Issue = {
       ...pair.bead,
       title: pair.result.merged.title,
-      status: pair.result.merged.status,
+      // Do not let the managed prose claim a position the provider cannot enter. Other
+      // fields may still sync, but the status line reflects the state that remains.
+      status: statusPushSkipped ? pair.remote.status : pair.result.merged.status,
       priority: pair.result.merged.priority,
       labels: pair.result.merged.labels,
       assignee: pair.result.merged.assignee ?? undefined,
@@ -1010,7 +1261,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     (pair) => Object.keys(pair.result.externalPatch).length > 0 || managedBlocks.has(pair.bead.id),
   ).length;
   const beadUpdates = synchronizablePairs.filter(
-    (pair) => Object.keys(pair.result.beadPatch).length > 0,
+    (pair) => applyBeadPatch(pair.bead, pair.result.beadPatch).changed,
   ).length;
   const creates =
     outboundNew.length + (effectiveInboundMode === 'auto' ? importPlan.ordered.length : 0);
@@ -1024,9 +1275,11 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     for (const pair of synchronizablePairs) {
       const id = options.displayId(pair.bead.id);
       if (Object.keys(pair.result.externalPatch).length > 0 || managedBlocks.has(pair.bead.id)) {
-        report.pushed.push(id);
+        // Gated on direction, as the execute path is. Ungated, this branch reported a
+        // push that an inbound-only run would never perform.
+        (inboundOnly ? report.suppressedPushes : report.pushed).push(id);
       }
-      if (Object.keys(pair.result.beadPatch).length > 0) {
+      if (applyBeadPatch(pair.bead, pair.result.beadPatch).changed) {
         report.pulled.push(id);
       }
       for (const conflict of pair.result.conflicts) {
@@ -1039,6 +1292,19 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
           direction: overwrite.direction,
         });
       }
+      // A field the run cannot publish is the one thing that explains a pair which
+      // reports work forever without ever converging, and it was recorded only on the
+      // execute path — so a dry run, the command an operator actually reaches for to
+      // diagnose a stuck mirror, could not name the stuck field (#265). It also made
+      // the `skippedPushes.length === 0` term in this branch's own `nothingToDo` inert.
+      for (const skipped of pair.result.skippedPushes) {
+        report.skippedPushes.push({
+          beadId: id,
+          field: skipped.field,
+          ...(skipped.reason ? { reason: skipped.reason } : {}),
+        });
+      }
+      recordDivergence(id, pair, managedBlocks.get(pair.bead.id));
       if (pair.parentOverwrite) {
         report.overwrites.push({ beadId: id, field: 'parent', direction: 'push' });
       }
@@ -1072,13 +1338,9 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       report.createdOutbound.length === 0 &&
       report.importable.length === 0 &&
       report.failures.length === 0 &&
-      report.warnings.length === 0 &&
+      report.suppressedPushes.length === 0 &&
       report.skippedOutbound.length === 0 &&
-      // A field the run could not publish is something to do, not nothing. Omitting it
-      // here is the same defect as OS-351's `skipped 0`: the summary reads as success
-      // while a value never left the machine, and the detail lines that would have
-      // named it are behind this early return.
-      report.skippedPushes.length === 0 &&
+      report.orphaned.length === 0 &&
       report.commentsPulled + report.commentsPushed === 0;
     return report;
   }
@@ -1184,7 +1446,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       patch: {
         title: issue.title,
         ...(issue.description != null ? { description: issue.description } : {}),
-        status: issue.status,
+        ...positionOf(issue),
         priority: issue.priority,
         ...(adapter.canPushAssignee(issue.assignee ?? null)
           ? { assignee: issue.assignee ?? null }
@@ -1335,9 +1597,10 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         report.archived.push(displayId);
       }
 
-      // Conflict artifacts: a comment per conflicted field, exactly-once. An
-      // inbound-only run writes nothing outward, so it reports the conflict
-      // without posting; the next full sync posts it.
+      // Conflict artifacts: one comment per conflicted field in a journal. Replaying
+      // that journal reuses its client UUID. An inbound-only run writes nothing
+      // outward, so it reports the conflict without posting; the next full sync
+      // attempts delivery.
       for (const [index, conflict] of pair.result.conflicts.entries()) {
         if (inboundOnly) {
           report.conflicts.push({
@@ -1374,25 +1637,20 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         report.overwrites.push({ beadId: displayId, field: 'parent', direction: 'push' });
       }
       for (const skipped of pair.result.skippedPushes) {
-        report.skippedPushes.push({ beadId: displayId, field: skipped.field });
+        report.skippedPushes.push({
+          beadId: displayId,
+          field: skipped.field,
+          ...(skipped.reason ? { reason: skipped.reason } : {}),
+        });
       }
+      recordDivergence(displayId, pair, managedBlocks.get(pair.bead.id));
 
       // Bead-side changes ride the normal write path via the caller.
       let stored = await callbacks.readBead(pair.bead.id);
       let dirty = false;
-      const patch = pair.result.beadPatch;
-      if (Object.keys(patch).length > 0) {
-        stored = {
-          ...stored,
-          ...(patch.title !== undefined ? { title: patch.title } : {}),
-          ...(patch.description !== undefined ? { description: patch.description } : {}),
-          ...(patch.status !== undefined ? { status: patch.status } : {}),
-          ...(patch.priority !== undefined ? { priority: patch.priority } : {}),
-          ...(patch.labels !== undefined ? { labels: patch.labels } : {}),
-          ...(patch.assignee !== undefined ? { assignee: patch.assignee } : {}),
-          ...(patch.resolution !== undefined ? { resolution: patch.resolution } : {}),
-          ...(patch.hold !== undefined ? { hold: patch.hold } : {}),
-        };
+      const patched = applyBeadPatch(stored, pair.result.beadPatch);
+      if (patched.changed) {
+        stored = patched.issue;
         dirty = true;
         report.pulled.push(displayId);
       }
@@ -1431,6 +1689,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       // then claim — a suppressed outbound change must stay pending, so the
       // record keeps its previous base and the next full sync still pushes.
       if (inboundOnly && Object.keys(pair.result.externalPatch).length > 0) {
+        report.suppressedPushes.push(displayId);
         continue;
       }
       // Only when something actually changed: a settled pair reconciles to the
@@ -1528,7 +1787,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         {
           title: issue.title,
           ...(issue.description != null ? { description: issue.description } : {}),
-          status: issue.status,
+          ...positionOf(issue),
           priority: issue.priority,
           // The bead's real dates, not the moment this sync happened to run. Only the
           // create surface accepts them, which is also the only place they matter:
@@ -1675,6 +1934,14 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     await deleteIntentFile(dataSyncDir, provider, runId);
   }
 
+  // Warnings are deliberately NOT a term here. A mapping warning describes a standing
+  // condition tbd cannot resolve from this side — a Linear assignee absent from
+  // `user_map` is re-reported on every read of that issue, forever — so counting it as
+  // work meant a fully settled mirror could never report itself settled, and an
+  // operator could not tell a quiet mirror from a mirror with real pending work
+  // (#265). Warnings are still reported on every run; they just no longer claim there
+  // is something to do. Failures are different and stay counted: a failure is work that
+  // was attempted and did not land.
   report.nothingToDo =
     report.replayedOps === 0 &&
     report.pushed.length +
@@ -1687,8 +1954,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       report.importedInbound.length +
       report.importable.length +
       report.skippedOutbound.length +
-      report.skippedPushes.length +
-      report.warnings.length +
+      report.suppressedPushes.length +
       report.failures.length ===
       0;
   return report;

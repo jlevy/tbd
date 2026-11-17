@@ -7,8 +7,9 @@
  */
 
 import { Command } from 'commander';
-import { access, mkdir, readdir, readFile, rm, unlink } from 'node:fs/promises';
-import { join } from 'node:path';
+import { access, mkdir, readdir, readFile, rm, stat, unlink } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 import { BaseCommand } from '../lib/base-command.js';
@@ -16,12 +17,15 @@ import { requireInit } from '../lib/errors.js';
 import { EXIT_OPERATIONAL_ERROR } from '../lib/exit-codes.js';
 import { listIssues, type InvalidIssueFile } from '../../file/storage.js';
 import { droppedConfigKeys, IncompatibleFormatError, readConfig } from '../../file/config.js';
-import { prepareDataSyncContext } from '../lib/data-context.js';
+import { generateDefaultDocCacheConfig, mergeDocCacheConfig } from '../../file/doc-sync.js';
+import { prepareDataSyncContext, withDataSyncContext } from '../lib/data-context.js';
+import { applyDependencyWrites } from '../lib/bulk.js';
 import type { Config, Issue, IssueStatusType } from '../../lib/types.js';
 import {
   isCommonDirOutsideProject,
   resolveSharedTbdPaths,
   TBD_DIR,
+  TBD_DOCS_DIR,
   DATA_SYNC_DIR,
   FORK_DIR,
   CACHE_GUIDELINES_PATHS,
@@ -40,11 +44,16 @@ import {
   AGENTS_SKILL_REL,
   CODEX_HOOKS_REL,
   AGENT_INTEGRATION_FORMAT,
+  TIER_AGENTS_DISPLAY,
+  type TierAgentPlatform,
 } from '../../lib/integration-paths.js';
 import { validateIssueId, extractUlidFromInternalId, formatDisplayId } from '../../lib/ids.js';
+import { isDirOnPath, npmGlobalBinDir, readNpmGlobalPrefix } from '../../lib/npm-global-bin.js';
 import { isAgentId } from '../../lib/agent-identity.js';
 import { KNOWN_STATE_TYPES, CONVENTIONAL_STATE_NAMES } from '../../integrations/linear/mapping.js';
 import { findHierarchyProblems } from '../../lib/issue-hierarchy.js';
+import { findDependencyCycles } from '../../lib/issue-dependency-graph.js';
+import type { IdMapping } from '../../file/id-mapping.js';
 import { duplicateExternalLinks, readLink } from '../../integrations/core/link-store.js';
 import { integrationsInert } from '../../integrations/core/registry.js';
 import { integrationStatus } from '../../integrations/core/status.js';
@@ -79,7 +88,10 @@ import {
 } from '../../lib/tbd-format.js';
 import { type DiagnosticResult, renderDiagnostics } from '../lib/diagnostics.js';
 import { VERSION } from '../lib/version.js';
+import { now } from '../../utils/time-utils.js';
 import {
+  ManagedArtifactTargetError,
+  assertSafeManagedArtifactTarget,
   extractManagedBlock,
   inspectManagedArtifact,
   type ManagedArtifactInspection,
@@ -89,8 +101,30 @@ import {
   CODEX_BEGIN_MARKER,
   CODEX_END_MARKER,
   getCodexTbdSection,
+  getCodexTbdSectionPreservingGrants,
   inspectCodexHooksSurface,
+  inspectTierAgentSurface,
+  TIER_AGENT_SURFACE_ID,
+  type TierAgentFileState,
 } from './setup.js';
+import {
+  POLICY_BLOCK_VERSION,
+  POLICY_NAMES,
+  checkPolicyValue,
+  diffPolicyStatuses,
+  displayPolicyValue,
+  inertPolicyCombinations,
+  isKnownPolicy,
+  parsePolicyBlock,
+  readEffectiveGrants,
+  readWorkingTreeGrants,
+  type DefaultBranchRef,
+  type EffectiveGrants,
+  type PolicyStatus,
+  type WorkingTreeGrants,
+} from '../../lib/policy-grants.js';
+import { hasCurrentPolicyBlockProse } from '../../lib/policy-block-prose.js';
+import { TBD_INSTALL_COMMAND, tbdUpgradeAdvice } from '../../lib/install-advice.js';
 import {
   listLockSidecars,
   lockOwnerIsDefinitelyDead,
@@ -116,8 +150,111 @@ export function droppedIntegrationConfigFinding(
       '.tbd/config.yml is missing `integrations`, which is present in the committed ' +
       'version. A tbd older than f07 drops config it does not know when it rewrites the file.',
     suggestion:
-      'Restore: git checkout .tbd/config.yml (then upgrade tbd: npm install -g get-tbd@latest). ' +
+      `Restore: git checkout .tbd/config.yml (then upgrade tbd: ${TBD_INSTALL_COMMAND}). ` +
       'If you removed it deliberately, commit the change.',
+  };
+}
+
+/**
+ * Build the best-effort public-ID formatter for dependency diagnostics.
+ *
+ * Formatting must never hide or blur the finding it names. A bead missing from the
+ * mapping, or a mapping that could not be loaded (`null`, for example a conflicted
+ * ids.yml), falls back to the internal ID, which stays distinct per bead and which
+ * `tbd dep remove` accepts. Doctor reports the mapping problem in its own checks.
+ */
+export function dependencyIdFormatter(
+  mapping: IdMapping | null,
+  prefix: string,
+): (issueId: string) => string {
+  return (issueId) =>
+    mapping?.ulidToShort.has(extractUlidFromInternalId(issueId))
+      ? formatDisplayId(issueId, mapping, prefix)
+      : issueId;
+}
+
+/**
+ * Diagnose missing dependency targets and directed depends-on cycles.
+ *
+ * Orphans alone are a fixable warning. A cycle is an error because it makes the work
+ * plan self-contradictory and can leave every participating open bead blocked. Cycle
+ * repair remains manual because doctor cannot infer which dependency edge was
+ * unintended, but orphans reported alongside a cycle keep their repair guidance.
+ *
+ * A target whose file is present but could not be read or parsed is a third case: the
+ * issue is broken, not deleted, so its inbound edges are reported separately and are
+ * never offered for repair, because removing them would lose an edge that the file's
+ * own repair (`Issue validity`) is about to make whole again.
+ */
+export function dependencyFinding(
+  issues: readonly Issue[],
+  formatIssueId: (issueId: string) => string = (issueId) => issueId,
+  invalidIssueFiles: readonly InvalidIssueFile[] = [],
+): DiagnosticResult {
+  const issueIds = new Set(issues.map((issue) => issue.id));
+  const invalidIds = invalidIssueFileIds(invalidIssueFiles);
+  const orphans: string[] = [];
+  const blocked: string[] = [];
+
+  for (const issue of issues) {
+    for (const dependency of issue.dependencies) {
+      if (issueIds.has(dependency.target)) {
+        continue;
+      }
+      const edge = `${formatIssueId(issue.id)} -> ${formatIssueId(dependency.target)}`;
+      if (invalidIds.has(dependency.target)) {
+        blocked.push(`${edge} (target file present but invalid)`);
+      } else {
+        orphans.push(`${edge} (missing)`);
+      }
+    }
+  }
+
+  const blockedClause = blocked.length === 0 ? '' : `, ${blocked.length} into invalid file(s)`;
+  const cycles = findDependencyCycles(issues);
+  if (cycles.length === 0 && orphans.length === 0 && blocked.length === 0) {
+    return { name: 'Dependencies', status: 'ok' };
+  }
+  if (cycles.length === 0 && orphans.length === 0) {
+    return {
+      name: 'Dependencies',
+      status: 'warn',
+      message: `${blocked.length} reference(s) into invalid issue file(s)`,
+      details: blocked,
+      suggestion: 'Repair the files listed under Issue validity; these edges are kept until then.',
+    };
+  }
+  if (cycles.length === 0) {
+    return {
+      name: 'Dependencies',
+      status: 'warn',
+      message: `${orphans.length} orphaned reference(s)${blockedClause}`,
+      details: [...orphans, ...blocked],
+      fixable: true,
+      suggestion: 'Run: tbd doctor --fix',
+    };
+  }
+
+  const cycleDetails = cycles.map(
+    (cycle) => `depends-on cycle: ${cycle.map(formatIssueId).join(' -> ')}`,
+  );
+  const cycleSuggestion = 'Break each cycle with: tbd dep remove <issue> <depends-on>.';
+  if (orphans.length === 0) {
+    return {
+      name: 'Dependencies',
+      status: 'error',
+      message: `${cycles.length} directed cycle(s)${blockedClause}`,
+      details: [...cycleDetails, ...blocked],
+      suggestion: cycleSuggestion,
+    };
+  }
+  return {
+    name: 'Dependencies',
+    status: 'error',
+    message: `${cycles.length} directed cycle(s) and ${orphans.length} orphaned reference(s)${blockedClause}`,
+    details: [...cycleDetails, ...orphans, ...blocked],
+    fixable: true,
+    suggestion: `${cycleSuggestion} Run: tbd doctor --fix to repair the orphaned reference(s).`,
   };
 }
 
@@ -170,9 +307,372 @@ function managedArtifactFinding(
         status: 'error',
         message: `managed file uses newer integration format ${inspection.format} (supported: ${AGENT_INTEGRATION_FORMAT})`,
         path,
-        suggestion: 'Upgrade tbd to manage this file: npm install -g get-tbd@latest',
+        suggestion: tbdUpgradeAdvice('Upgrade tbd to manage this file'),
       };
   }
+}
+
+const TIER_AGENTS_CHECK: Record<TierAgentPlatform, string> = {
+  claude: 'Claude Code tier agents',
+  codex: 'Codex tier agents',
+};
+
+/**
+ * One finding for a platform's four generated tier definitions, or null when
+ * none of them exist: leaving the surface out of `--surfaces` is how it is
+ * turned off, so absence is not a finding. Otherwise the worst state wins: a
+ * file written by a newer tbd is an error, a stale or missing one a warning,
+ * and a user-owned file under a tbd name is the user's override, only counted.
+ */
+export function tierAgentsFinding(
+  platform: TierAgentPlatform,
+  files: readonly TierAgentFileState[],
+): DiagnosticResult | null {
+  const name = TIER_AGENTS_CHECK[platform];
+  const path = TIER_AGENTS_DISPLAY[platform];
+  const inState = (state: TierAgentFileState['inspection']['state']) =>
+    files.filter((file) => file.inspection.state === state);
+
+  const missing = inState('missing');
+  if (missing.length === files.length) {
+    return null;
+  }
+  const tooNew = inState('too-new');
+  if (tooNew.length > 0) {
+    return {
+      name,
+      status: 'error',
+      message: `managed file uses newer integration format ${tooNew[0]?.inspection.format} (supported: ${AGENT_INTEGRATION_FORMAT})`,
+      path,
+      details: tooNew.map((file) => file.rel),
+      suggestion: tbdUpgradeAdvice('Upgrade tbd to manage this file'),
+    };
+  }
+  const stale = inState('stale');
+  if (stale.length > 0 || missing.length > 0) {
+    return {
+      name,
+      status: 'warn',
+      message: stale.length > 0 ? 'stale managed file' : 'missing',
+      path,
+      details: [
+        ...stale.map((file) => `stale: ${file.rel}`),
+        ...missing.map((file) => `missing: ${file.rel}`),
+      ],
+      suggestion: `Run: tbd setup --auto --surfaces=${TIER_AGENT_SURFACE_ID[platform]}`,
+    };
+  }
+  const kept = inState('user-owned').length;
+  return {
+    name,
+    status: 'ok',
+    message:
+      kept > 0 ? `current (${kept} user-owned file${kept === 1 ? '' : 's'} kept)` : 'current',
+    path,
+  };
+}
+
+const POLICY_GRANTS_CHECK = 'Policy grants';
+const POLICY_GUIDELINE_HINT = 'tbd guidelines agent-policy-grants';
+const TBD_UPGRADE_SUGGESTION = tbdUpgradeAdvice('Upgrade tbd');
+
+/** How findings name the ref effective grants are read from (`origin/main`, `main`, `HEAD`). */
+function grantSourceLabel(source: DefaultBranchRef | null): string {
+  if (!source) {
+    return 'the default branch (nothing committed yet)';
+  }
+  switch (source.kind) {
+    case 'remote-tracking':
+      return source.ref.replace(/^refs\/remotes\//, '');
+    case 'local':
+      return source.branch;
+    case 'head':
+      return 'HEAD (no default branch found)';
+    case 'unresolved':
+      return 'an unresolved default branch';
+    default: {
+      const _exhaustive: never = source.kind;
+      throw new Error(`Unhandled source kind: ${String(_exhaustive)}`);
+    }
+  }
+}
+
+/** What makes a working tree block effective: committing, and merging unless grants are read from HEAD. */
+function effectiveOnce(source: DefaultBranchRef | null): string {
+  if (source?.kind === 'unresolved') {
+    return `the default branch is resolvable (${source.repair ?? "identify and fetch the remote's actual default branch, then run git remote set-head <remote> --auto"})`;
+  }
+  if (source?.kind === 'head') {
+    return 'committed';
+  }
+  return `committed and merged to ${source?.branch ?? 'the default branch'}`;
+}
+
+function describeUnknownValue(status: PolicyStatus): string {
+  const check =
+    isKnownPolicy(status.name) && status.value !== null
+      ? checkPolicyValue(status.name, status.value)
+      : null;
+  const reason = check && !check.ok ? `; ${check.reason}` : '';
+  // Bounded like every other echo of a recorded value: the block is attacker-controlled
+  // on an untrusted branch, and a value carrying an escape sequence would otherwise erase
+  // the warning line that says the value is invalid.
+  const value = displayPolicyValue(status.value ?? '');
+  return `${status.name}: ${value} (treated as ${status.effective ?? 'unanswered'}${reason})`;
+}
+
+/**
+ * Validate the policy block in AGENTS.md, as `tbd guidelines agent-policy-grants`
+ * requires: a malformed or unknown-version block, unknown values for known
+ * policies, a grant that cannot take effect without another one
+ * (`pr-delivery: autonomous` without `github-editing: granted`), and a working
+ * tree block that differs from the block committed on the default branch (the
+ * one agents act on).
+ *
+ * A check group: no finding when neither the working tree nor the default branch
+ * holds a block, so doctor output for projects without grants does not grow; one
+ * ok line when the block is valid and matches the default branch.
+ *
+ * Unrecognized policy names get an ok-level note rather than a warning: setup and
+ * `tbd policy` preserve them because a newer tbd may define them, so warning would
+ * mark a project unhealthy for running an older release. The note still names
+ * them so a misspelled policy is visible.
+ *
+ * Grants are consent for agents, so doctor only reports; nothing here or in
+ * `--fix` changes the block.
+ */
+export function policyGrantFindings(
+  effective: EffectiveGrants,
+  workingTree: WorkingTreeGrants,
+): DiagnosticResult[] {
+  const name = POLICY_GRANTS_CHECK;
+  const path = AGENTS_MD_REL;
+  const working = workingTree.parse;
+  switch (working.status) {
+    case 'malformed':
+      return [
+        {
+          name,
+          status: 'error',
+          message: 'malformed policy block (agents treat every policy as unanswered)',
+          path,
+          details: working.problems,
+          suggestion: `Fix it by hand (see: ${POLICY_GUIDELINE_HINT}) or delete the block and record the grants again with tbd policy`,
+        },
+      ];
+    case 'unknown-version':
+      return [
+        {
+          name,
+          status: 'error',
+          message: `policy block version v=${displayPolicyValue(working.version)} is not supported (this tbd reads v=${POLICY_BLOCK_VERSION})`,
+          path,
+          suggestion: TBD_UPGRADE_SUGGESTION,
+        },
+      ];
+    case 'ok':
+    case 'missing':
+      break;
+    default: {
+      const _exhaustive: never = working;
+      throw new Error(`Unhandled parse status: ${JSON.stringify(_exhaustive)}`);
+    }
+  }
+
+  const findings: DiagnosticResult[] = [];
+  const staleWorkingProse = working.status === 'ok' && !hasCurrentPolicyBlockProse(working.text);
+  if (staleWorkingProse) {
+    findings.push({
+      name,
+      status: 'warn',
+      message: 'policy block guidance is stale or missing',
+      path,
+      suggestion: 'Run: tbd policy refresh (preserves grants, notes, and the Recorded date)',
+    });
+  }
+  if (effective.source?.kind === 'unresolved') {
+    findings.push({
+      name,
+      status: 'warn',
+      message: 'default branch could not be resolved; every policy is treated as unanswered',
+      path,
+      suggestion:
+        effective.source.repair ??
+        "identify and fetch the remote's actual default branch, then run git remote set-head <remote> --auto",
+    });
+  }
+  const unknownValues = workingTree.policies.filter((status) => status.known && !status.valid);
+  if (unknownValues.length > 0) {
+    findings.push({
+      name,
+      status: 'warn',
+      message:
+        unknownValues.length === 1
+          ? 'unknown value for 1 policy'
+          : `unknown values for ${unknownValues.length} policies`,
+      path,
+      details: unknownValues.map(describeUnknownValue),
+      suggestion: `Record a valid value: tbd policy set <policy> <value> (see: ${POLICY_GUIDELINE_HINT})`,
+    });
+  }
+  const inert = inertPolicyCombinations(workingTree.policies);
+  if (inert.length > 0) {
+    findings.push({
+      name,
+      status: 'warn',
+      message:
+        inert.length === 1
+          ? '1 grant cannot take effect as recorded'
+          : `${inert.length} grants cannot take effect as recorded`,
+      path,
+      details: inert,
+      suggestion: `Grant the policy it depends on, or revoke the grant (see: ${POLICY_GUIDELINE_HINT})`,
+    });
+  }
+
+  const source = grantSourceLabel(effective.source);
+  const committed = effective.parse;
+  switch (committed.status) {
+    case 'malformed':
+      findings.push({
+        name,
+        status: 'warn',
+        message: `malformed policy block on ${source} (agents treat every policy as unanswered)`,
+        path,
+        details: committed.problems,
+        suggestion: `A fixed block takes effect once ${effectiveOnce(effective.source)} (see: ${POLICY_GUIDELINE_HINT})`,
+      });
+      break;
+    case 'unknown-version':
+      findings.push({
+        name,
+        status: 'warn',
+        message: `policy block version v=${displayPolicyValue(committed.version)} on ${source} is not supported (this tbd reads v=${POLICY_BLOCK_VERSION})`,
+        path,
+        suggestion: TBD_UPGRADE_SUGGESTION,
+      });
+      break;
+    case 'ok':
+    case 'missing': {
+      if (
+        committed.status === 'ok' &&
+        !staleWorkingProse &&
+        !hasCurrentPolicyBlockProse(committed.text)
+      ) {
+        findings.push({
+          name,
+          status: 'warn',
+          message: `policy block guidance on ${source} is stale or missing`,
+          path,
+          suggestion: `The refreshed guidance takes effect once ${effectiveOnce(effective.source)}; see: tbd policy refresh`,
+        });
+      }
+      if (committed.status === 'missing' && working.status === 'missing') {
+        return findings;
+      }
+      const differences = diffPolicyStatuses(effective.policies, workingTree.policies);
+      if (differences.length > 0) {
+        findings.push({
+          name,
+          status: 'warn',
+          message: `working tree block differs from ${source} in ${
+            differences.length === 1 ? '1 policy' : `${differences.length} policies`
+          }`,
+          path,
+          // A working-tree value is attacker-controlled text on a checked-out
+          // branch; bound it here, where this detail line is built, so it cannot
+          // clear the terminal above the warnings.
+          details: differences.map((difference) => {
+            const from =
+              difference.from === null ? 'unanswered' : displayPolicyValue(difference.from);
+            const to = difference.to === null ? 'unanswered' : displayPolicyValue(difference.to);
+            return `${difference.name}: ${from} -> ${to}`;
+          }),
+          suggestion: `These grants take effect once ${effectiveOnce(effective.source)}; see: tbd policy show`,
+        });
+      }
+      break;
+    }
+    default: {
+      const _exhaustive: never = committed;
+      throw new Error(`Unhandled parse status: ${JSON.stringify(_exhaustive)}`);
+    }
+  }
+
+  if (findings.length === 0) {
+    const answered = workingTree.policies.filter((status) => status.known && status.answered);
+    findings.push({
+      name,
+      status: 'ok',
+      message: `${answered.length} of ${POLICY_NAMES.length} policies answered, matching ${source}`,
+      path,
+    });
+  }
+
+  const unrecognized = workingTree.policies
+    .filter((status) => !status.known)
+    .map((status) => status.name);
+  if (unrecognized.length > 0) {
+    const [noun, pronoun] = unrecognized.length === 1 ? ['policy', 'it'] : ['policies', 'them'];
+    findings.push({
+      name,
+      status: 'ok',
+      message: `unrecognized ${noun} kept: ${unrecognized.join(', ')} (a newer tbd may define ${pronoun}; otherwise check the spelling)`,
+      path,
+    });
+  }
+  return findings;
+}
+
+/**
+ * Map npm's global prefix to an "npm global bin" diagnostic.
+ *
+ * tbd gives `npm install -g` (TBD_INSTALL_COMMAND) as its install and upgrade instruction in
+ * the skill, in doctor suggestions, and in the incompatible-format error. When npm's
+ * global bin directory is not on PATH that command still exits 0 and the `tbd` binary
+ * still does not resolve, which reads to an agent as "tbd is broken" rather than
+ * "PATH is wrong". Warn rather than error: nothing about the repository is unhealthy,
+ * and a tbd installed by other means keeps working.
+ *
+ * A null prefix means npm is unavailable, so there is no global install location to
+ * misconfigure. The session launcher handles a missing package runner separately.
+ */
+export function classifyNpmGlobalBin(
+  prefix: string | null,
+  pathValue: string | undefined,
+  platform: NodeJS.Platform,
+): DiagnosticResult {
+  if (prefix === null) {
+    return { name: 'npm global bin', status: 'ok', message: 'npm not available' };
+  }
+
+  const binDir = npmGlobalBinDir(prefix, platform);
+  if (isDirOnPath(binDir, pathValue, platform)) {
+    return { name: 'npm global bin', status: 'ok', path: binDir };
+  }
+
+  return {
+    name: 'npm global bin',
+    status: 'warn',
+    message: 'not on PATH',
+    path: binDir,
+    suggestion:
+      'Installing tbd with `npm install -g` will succeed but leave tbd unresolvable. ' +
+      `Add ${binDir} to PATH, or point npm at a directory already on it: ` +
+      'npm config set prefix <dir>',
+  };
+}
+
+/**
+ * Whether the npm global bin finding belongs in the report.
+ *
+ * It describes the surrounding environment rather than repository health, so it is
+ * listed only when there is something to act on. Named here rather than inlined at the
+ * call site so the rule is assertable directly, instead of only through a golden capture
+ * taken on a machine that happens to be healthy.
+ */
+export function shouldReportNpmGlobalBin(diagnostic: DiagnosticResult): boolean {
+  return diagnostic.status !== 'ok';
 }
 
 /**
@@ -341,10 +841,59 @@ interface DoctorOptions {
   maxHistory?: string;
 }
 
+/**
+ * Ids of issue files that exist but could not be read or parsed.
+ *
+ * A file doctor cannot parse is not a deleted issue: the id it declares is still
+ * taken by a file on disk, so edges pointing at it must survive until the file is
+ * repaired. Every issue is written to `<id>.md` (`getIssuePath`), so the file name
+ * carries the id even when the contents do not. The synthetic `issues/` entry, which
+ * reports a directory read failure, names no issue and is skipped here; callers that
+ * write fail loudly on it instead.
+ */
+function invalidIssueFileIds(invalidIssueFiles: readonly InvalidIssueFile[]): Set<string> {
+  const ids = new Set<string>();
+  for (const { file } of invalidIssueFiles) {
+    if (file.endsWith('.md')) {
+      ids.add(file.slice(0, -'.md'.length));
+    }
+  }
+  return ids;
+}
+
+/** The more serious of two diagnostic statuses. */
+function worseStatus(
+  first: DiagnosticResult['status'],
+  second: DiagnosticResult['status'],
+): DiagnosticResult['status'] {
+  const rank = { ok: 0, warn: 1, error: 2 };
+  return rank[first] >= rank[second] ? first : second;
+}
+
+/** What one `doctor --fix` pass over the dependency edges actually did. */
+interface OrphanRepairOutcome {
+  /** `source -> target` for every edge removed from a file that was rewritten. */
+  removed: string[];
+  /** Edges kept because no single `<id>.md` owns the issue holding them. */
+  unrepairable: string[];
+  /** Per-file write failures; earlier writes in the same pass still landed. */
+  failed: { id: string; message: string }[];
+  /** The store as it stands after the pass, for the checks that run later. */
+  issues: Issue[];
+  /**
+   * The invalid files of that same listing. It travels with `issues` because the two
+   * are only meaningful together: every other reload in `run()` replaces both, and a
+   * mixed pair would let `Issue validity` and the dependency finding describe two
+   * different moments of the store.
+   */
+  invalidIssueFiles: InvalidIssueFile[];
+}
+
 class DoctorHandler extends BaseCommand {
   private dataSyncDir = '';
   private cwd = '';
   private config: Config | null = null;
+  private skillDocCacheComplete: Promise<boolean> | undefined;
   private issues: Issue[] = [];
   private invalidIssueFiles: InvalidIssueFile[] = [];
 
@@ -394,6 +943,16 @@ class DoctorHandler extends BaseCommand {
     // Check 1: Git version
     healthChecks.push(await this.safeCheck('Git version', () => this.checkGitVersion()));
 
+    // npm's global bin directory is reachable, so the install and upgrade
+    // instruction tbd gives elsewhere can actually take effect. This is an
+    // advisory about the surrounding environment rather than repository health,
+    // so it is reported only when actionable: a healthy machine adds no line,
+    // which also keeps doctor's output stable across environments.
+    const npmGlobalBin = await this.safeCheck('npm global bin', () => this.checkNpmGlobalBin());
+    if (shouldReportNpmGlobalBin(npmGlobalBin)) {
+      healthChecks.push(npmGlobalBin);
+    }
+
     // Check 2: Config directory and file
     healthChecks.push(await this.safeCheck('Config file', () => this.checkConfig()));
     healthChecks.push(
@@ -403,9 +962,11 @@ class DoctorHandler extends BaseCommand {
     // Check 3: Issues directory
     healthChecks.push(await this.safeCheck('Issues directory', () => this.checkIssuesDirectory()));
 
-    // Check 4: Orphaned dependencies
+    // Check 4: Orphaned dependencies and directed cycles
     healthChecks.push(
-      await this.safeCheck('Dependencies', async () => this.checkOrphanedDependencies(this.issues)),
+      await this.safeCheck('Dependencies', () =>
+        this.checkDependencies(this.issues, this.invalidIssueFiles, options.fix),
+      ),
       await this.safeCheck('Actor axis', async () => this.checkAgentShapedAssignees(this.issues)),
       await this.safeCheck('State resolution', () => Promise.resolve(this.checkStateResolution())),
     );
@@ -548,11 +1109,33 @@ class DoctorHandler extends BaseCommand {
       await this.safeCheck('Claude Code skill', () => this.checkClaudeSkill()),
     );
 
+    // Integration 2b: Claude Code tier agent definitions. A check group: no
+    // line when the project has none (see tierAgentsFinding).
+    integrationChecks.push(...(await this.checkTierAgents('claude')));
+
     // Integration 3: Codex AGENTS.md (also used by Cursor since v1.6)
     integrationChecks.push(await this.safeCheck('AGENTS.md', () => this.checkCodexAgents()));
 
+    // Integration 3b: the policy block inside AGENTS.md. A check group: no line
+    // when no block is recorded, so doctor output for projects without grants
+    // does not grow. Unexpected throws degrade to one error finding.
+    try {
+      integrationChecks.push(...(await this.checkPolicyGrants()));
+    } catch (error) {
+      integrationChecks.push({
+        name: POLICY_GRANTS_CHECK,
+        status: 'error',
+        message: `check could not complete: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      });
+    }
+
     // Integration 4: Codex hooks
     integrationChecks.push(await this.safeCheck('Codex hooks', () => this.checkCodexHooks()));
+
+    // Integration 4b: Codex tier agent definitions, a check group like 2b.
+    integrationChecks.push(...(await this.checkTierAgents('codex')));
 
     // Combine for overall status
     const allChecks = [...healthChecks, ...integrationChecks];
@@ -743,6 +1326,10 @@ class DoctorHandler extends BaseCommand {
     }
   }
 
+  private async checkNpmGlobalBin(): Promise<DiagnosticResult> {
+    return classifyNpmGlobalBin(await readNpmGlobalPrefix(), process.env.PATH, process.platform);
+  }
+
   private async checkConfig(): Promise<DiagnosticResult> {
     const configPath = join(CONFIG_DIR, 'config.yml');
     try {
@@ -766,7 +1353,7 @@ class DoctorHandler extends BaseCommand {
           status: 'error',
           message: `requires newer tbd (found ${error.foundFormat}, supported ${error.supportedFormat})`,
           path: configPath,
-          suggestion: 'Upgrade: npm install -g get-tbd@latest',
+          suggestion: tbdUpgradeAdvice('Upgrade', error.requiredVersion),
         };
       }
       return {
@@ -853,7 +1440,8 @@ class DoctorHandler extends BaseCommand {
    * knowable offline is the *plan* — which types have a configured name, which will
    * fall back to Linear's conventional one, and which will be decided by the team
    * having exactly one state of that type. Whether each actually binds is a fact about
-   * the team and is reported by `tbd integration status`.
+   * the team and is verified by `tbd integration setup` when provisioning is enabled,
+   * or by the next integration sync.
    */
   private checkStateResolution(): DiagnosticResult {
     const linear = this.config?.integrations?.linear;
@@ -918,29 +1506,230 @@ class DoctorHandler extends BaseCommand {
     };
   }
 
-  private checkOrphanedDependencies(issues: Issue[]): DiagnosticResult {
-    const issueIds = new Set(issues.map((i) => i.id));
-    const orphans: string[] = [];
+  private async checkDependencies(
+    issues: Issue[],
+    invalidIssueFiles: readonly InvalidIssueFile[],
+    fix?: boolean,
+  ): Promise<DiagnosticResult> {
+    const { loadIdMapping } = await import('../../file/id-mapping.js');
+    // Public IDs are presentation only: an unloadable mapping, which the ID mapping
+    // checks report, must not turn a graph finding into "check could not complete".
+    const mapping = await loadIdMapping(this.dataSyncDir).catch(() => null);
+    const prefix = this.config?.display.id_prefix ?? 'tbd';
+    const formatIssueId = dependencyIdFormatter(mapping, prefix);
+    // Both arguments come from one listing: which targets exist and which files are
+    // unreadable are the same question asked of the same moment.
+    const describe = (
+      current: readonly Issue[],
+      currentInvalid: readonly InvalidIssueFile[],
+    ): DiagnosticResult => dependencyFinding(current, formatIssueId, currentInvalid);
 
-    for (const issue of issues) {
-      for (const dep of issue.dependencies) {
-        if (!issueIds.has(dep.target)) {
-          orphans.push(`${issue.id} -> ${dep.target} (missing)`);
-        }
+    const finding = describe(issues, invalidIssueFiles);
+    // Only the orphaned references are repairable: a cycle stays a manual decision,
+    // and an edge into a file that is present but invalid is kept by design.
+    if (fix !== true || finding.fixable !== true) {
+      return finding;
+    }
+    if (this.checkDryRun('Remove orphaned dependency references')) {
+      return finding;
+    }
+    return this.repairOrphanedDependencies(finding, describe, formatIssueId);
+  }
+
+  /**
+   * Remove dependency edges whose target issue no longer exists.
+   *
+   * The repair enters the store through the ordinary writer path
+   * (`withDataSyncContext` with the shared lock), not the bare lock:
+   * `prepareDataSyncContext` is the gate that refuses to write a store written by a
+   * newer format and that fails closed on a corrupted worktree, and doctor must not
+   * be the one command that rewrites issue files `tbd dep remove` would refuse to
+   * touch. When the gate refuses, the repair is reported as still pending instead of
+   * claimed: the worktree and config checks further down this same run repair those
+   * states, and the next `tbd doctor --fix` removes the edges for real.
+   *
+   * What the repair did is folded into a finding taken again over the repaired store,
+   * so anything the repair does not touch, a directed cycle above all, is still
+   * reported with its own severity and guidance.
+   */
+  private async repairOrphanedDependencies(
+    finding: DiagnosticResult,
+    describe: (
+      issues: readonly Issue[],
+      invalidIssueFiles: readonly InvalidIssueFile[],
+    ) => DiagnosticResult,
+    formatIssueId: (issueId: string) => string,
+  ): Promise<DiagnosticResult> {
+    let gateOpen = false;
+    let repair: OrphanRepairOutcome;
+    try {
+      repair = await withDataSyncContext(this.cwd, { lock: true }, async (context) => {
+        gateOpen = true;
+        this.dataSyncDir = context.dataSyncDir;
+        return this.removeOrphanedEdges(context.dataSyncDir, formatIssueId);
+      });
+    } catch (error) {
+      if (gateOpen) {
+        // A failure inside the repair itself: safeCheck reports it as an error.
+        throw error;
+      }
+      return {
+        ...finding,
+        message: `${finding.message ?? 'dependency problems'}; repair skipped, the shared store is not ready for writes`,
+        details: [
+          ...(finding.details ?? []),
+          error instanceof Error ? error.message : String(error),
+        ],
+        suggestion:
+          'Resolve the worktree and config findings in this report, then rerun: tbd doctor --fix',
+      };
+    }
+
+    // Hand the later checks the listing the repair actually decided from, both halves
+    // of it: `Issue validity` must report the files this pass saw, not the ones the
+    // pre-lock snapshot saw.
+    this.issues = repair.issues;
+    this.invalidIssueFiles = repair.invalidIssueFiles;
+    const failures = repair.failed.map(
+      (failure) => `${formatIssueId(failure.id)}: ${failure.message}`,
+    );
+    const removedCount = repair.removed.length;
+    let status: DiagnosticResult['status'] = 'ok';
+    let message = removedCount === 0 ? 'already fixed by another tbd command' : '';
+    let suggestion: string | undefined;
+    if (repair.failed.length > 0) {
+      // Each write is atomic and independent, so the writes that landed stay landed:
+      // name them and the ones that did not, rather than reporting a bare error.
+      status = 'error';
+      message = `removed ${removedCount} orphaned reference(s), ${repair.failed.length} issue file(s) could not be written`;
+      suggestion = 'Resolve the write failures above, then rerun: tbd doctor --fix';
+    } else if (repair.unrepairable.length > 0) {
+      status = 'warn';
+      message = `removed ${removedCount} orphaned reference(s), kept ${repair.unrepairable.length}`;
+      suggestion =
+        'Repair the files reported under Issue validity and Unique IDs, then rerun: tbd doctor --fix';
+    } else if (removedCount > 0) {
+      message = `removed ${removedCount} orphaned reference(s)`;
+    }
+
+    // Re-diagnose: an edge this repair could not remove, and every problem it never
+    // owned, must still carry its own severity and guidance.
+    const after = describe(repair.issues, repair.invalidIssueFiles);
+    const combined: DiagnosticResult = {
+      name: 'Dependencies',
+      status: worseStatus(after.status, status),
+      message: after.status === 'ok' ? message : `${after.message ?? ''}; ${message}`,
+      details: [...(after.details ?? []), ...repair.removed, ...repair.unrepairable, ...failures],
+    };
+    if (after.fixable === true) {
+      combined.fixable = true;
+    }
+    const combinedSuggestion = suggestion ?? after.suggestion;
+    if (combinedSuggestion !== undefined) {
+      combined.suggestion = combinedSuggestion;
+    }
+    if (combined.details?.length === 0) {
+      delete combined.details;
+    }
+    return combined;
+  }
+
+  /**
+   * Drop every dependency edge whose target is absent from the store, under the
+   * shared writer lock.
+   *
+   * Liveness is decided by the files the store holds, not by the files that parse: a
+   * target whose file is present but unreadable (conflict markers from a merge, a
+   * file from a newer format) keeps its inbound edges until that file is repaired.
+   * Only a file that lives in `<id>.md` is rewritten, because `writeIssue` addresses
+   * files by id: a duplicate or misnamed file would otherwise have doctor write one
+   * issue's file from another file's contents.
+   */
+  private async removeOrphanedEdges(
+    dataSyncDir: string,
+    formatIssueId: (issueId: string) => string,
+  ): Promise<OrphanRepairOutcome> {
+    // Re-read the complete graph inside the writer transaction. A create, delete, or
+    // another doctor repair may have changed either end of an edge since the
+    // diagnostic snapshot was loaded.
+    const invalidIssueFiles: InvalidIssueFile[] = [];
+    const current = await listIssues(dataSyncDir, {
+      warnOnInvalid: false,
+      onInvalidIssue: (invalidIssue) => invalidIssueFiles.push(invalidIssue),
+    });
+    const unreadableDir = invalidIssueFiles.find((invalid) => invalid.file === 'issues/');
+    if (unreadableDir) {
+      // listIssues answers an unreadable issues directory with an empty list, which
+      // would read here as "every edge is orphaned", then as "already fixed".
+      throw new Error(`cannot read the issues directory: ${unreadableDir.reason}`);
+    }
+
+    const parsedIds = new Set(current.map((issue) => issue.id));
+    const liveIds = new Set([...parsedIds, ...invalidIssueFileIds(invalidIssueFiles)]);
+    const fileCountById = new Map<string, number>();
+    for (const issue of current) {
+      fileCountById.set(issue.id, (fileCountById.get(issue.id) ?? 0) + 1);
+    }
+
+    const droppedEdges = (issue: Issue): string[] =>
+      issue.dependencies
+        .filter((dep) => !liveIds.has(dep.target))
+        .map((dep) => `${formatIssueId(issue.id)} -> ${formatIssueId(dep.target)}`);
+
+    // `validateFileName` keeps only the issues stored in their own `<id>.md`, and the
+    // id must be claimed by exactly one file. Sorted so the mutation order is a
+    // documented key rather than readdir order.
+    const writable = (
+      await listIssues(dataSyncDir, { warnOnInvalid: false, validateFileName: true })
+    ).sort((a, b) => a.id.localeCompare(b.id));
+    const candidates = writable
+      .filter((issue) => fileCountById.get(issue.id) === 1 && droppedEdges(issue).length > 0)
+      .map((issue) => ({ internalId: issue.id, issue: { ...issue } }));
+    const droppedByCandidate = new Map(
+      candidates.map((candidate) => [candidate.internalId, droppedEdges(candidate.issue)]),
+    );
+    const attempted = new Set(candidates.map((candidate) => candidate.internalId));
+
+    const unrepairable = new Set<string>();
+    for (const issue of current) {
+      if (attempted.has(issue.id)) {
+        continue;
+      }
+      for (const edge of droppedEdges(issue)) {
+        unrepairable.add(
+          `${edge} (kept: ${formatIssueId(issue.id)} is not stored in a single issue file)`,
+        );
       }
     }
 
-    if (orphans.length === 0) {
-      return { name: 'Dependencies', status: 'ok' };
-    }
+    const outcome = await applyDependencyWrites(
+      dataSyncDir,
+      candidates,
+      (internalId) => internalId,
+      (issue) => {
+        const retained = issue.dependencies.filter((dep) => liveIds.has(dep.target));
+        if (retained.length === issue.dependencies.length) {
+          return 'unchanged';
+        }
+        issue.dependencies = retained;
+        issue.version += 1;
+        issue.updated_at = now();
+        return 'changed';
+      },
+    );
 
+    const changed = new Set(outcome.changed);
+    const repairedById = new Map(
+      candidates
+        .filter((candidate) => changed.has(candidate.internalId))
+        .map((candidate) => [candidate.internalId, candidate.issue]),
+    );
     return {
-      name: 'Dependencies',
-      status: 'warn',
-      message: `${orphans.length} orphaned reference(s)`,
-      details: orphans,
-      fixable: true,
-      suggestion: 'Run: tbd doctor --fix',
+      removed: outcome.changed.flatMap((internalId) => droppedByCandidate.get(internalId) ?? []),
+      unrepairable: [...unrepairable],
+      failed: outcome.failed,
+      issues: current.map((issue) => repairedById.get(issue.id) ?? issue),
+      invalidIssueFiles,
     };
   }
 
@@ -1475,24 +2264,79 @@ class DoctorHandler extends BaseCommand {
 
   private async checkPortableSkill(): Promise<DiagnosticResult> {
     const { portable } = getAgentSkillPaths(this.cwd);
-    const inspection = await inspectManagedArtifact({
-      path: portable,
-      expectedContent: await buildSkillPayload(true, true),
-      ownershipMarker: '<!-- DO NOT EDIT: Generated by tbd setup',
-      supportedFormat: AGENT_INTEGRATION_FORMAT,
-    });
-    return managedArtifactFinding('Portable Agent Skill', AGENTS_SKILL_REL, 'portable', inspection);
+    return this.checkGeneratedSkill('Portable Agent Skill', portable, AGENTS_SKILL_REL, 'portable');
   }
 
   private async checkClaudeSkill(): Promise<DiagnosticResult> {
     const claudePaths = getClaudePaths(this.cwd);
+    return this.checkGeneratedSkill(
+      'Claude Code skill',
+      claudePaths.skill,
+      CLAUDE_SKILL_REL,
+      'claude',
+    );
+  }
+
+  private async checkGeneratedSkill(
+    name: string,
+    skillPath: string,
+    displayPath: string,
+    surface: 'portable' | 'claude',
+  ): Promise<DiagnosticResult> {
     const inspection = await inspectManagedArtifact({
-      path: claudePaths.skill,
+      path: skillPath,
       expectedContent: await buildSkillPayload(true, true),
       ownershipMarker: '<!-- DO NOT EDIT: Generated by tbd setup',
       supportedFormat: AGENT_INTEGRATION_FORMAT,
     });
-    return managedArtifactFinding('Claude Code skill', CLAUDE_SKILL_REL, 'claude', inspection);
+    // A clone/worktree may have committed skills but no ignored docs cache.
+    // Comparing its shortened directory would claim drift without the inputs
+    // needed to establish it. Keep diagnostics read-only, including config.
+    if (
+      (inspection.state === 'current' || inspection.state === 'stale') &&
+      !(await this.hasCompleteSkillDocCache())
+    ) {
+      return {
+        name,
+        status: 'warn',
+        message: 'freshness unknown: doc cache is incomplete',
+        path: displayPath,
+        suggestion: 'Run: tbd docs sync, then tbd doctor',
+      };
+    }
+    return managedArtifactFinding(name, displayPath, surface, inspection);
+  }
+
+  private hasCompleteSkillDocCache(): Promise<boolean> {
+    this.skillDocCacheComplete ??= this.inspectSkillDocCache();
+    return this.skillDocCacheComplete;
+  }
+
+  private async inspectSkillDocCache(): Promise<boolean> {
+    if (!this.config) {
+      return false;
+    }
+    const files = mergeDocCacheConfig(
+      this.config.docs_cache?.files,
+      await generateDefaultDocCacheConfig(),
+    );
+    const lookupPaths = [...CACHE_SHORTCUT_PATHS, ...CACHE_GUIDELINES_PATHS];
+    for (const destination of Object.keys(files)) {
+      const path = join(TBD_DOCS_DIR, destination);
+      if (!destination.endsWith('.md') || !lookupPaths.includes(dirname(path))) {
+        continue;
+      }
+      try {
+        const cachedPath = join(this.cwd, path);
+        if (!(await stat(cachedPath)).isFile()) {
+          return false;
+        }
+        await access(cachedPath, constants.R_OK);
+      } catch {
+        return false;
+      }
+    }
+    return true;
   }
 
   private async checkCodexHooks(): Promise<DiagnosticResult> {
@@ -1504,18 +2348,99 @@ class DoctorHandler extends BaseCommand {
     );
   }
 
+  /**
+   * Zero or one finding for a platform's tier agent definitions; an unexpected
+   * throw degrades to one error finding, as for the policy grants group.
+   */
+  private async checkTierAgents(platform: TierAgentPlatform): Promise<DiagnosticResult[]> {
+    try {
+      const finding = tierAgentsFinding(
+        platform,
+        // Doctor reports; it never updates, so the refusal must not say it would.
+        await inspectTierAgentSurface(this.cwd, platform, { operation: 'check' }),
+      );
+      return finding ? [finding] : [];
+    } catch (error) {
+      return [
+        {
+          name: TIER_AGENTS_CHECK[platform],
+          status: 'error',
+          message: `check could not complete: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        },
+      ];
+    }
+  }
+
   private async checkCodexAgents(): Promise<DiagnosticResult> {
     const agentsPath = getAgentsMdPath(this.cwd);
-    const expected = getCodexTbdSection();
+    // Setup refuses to write through a link, so a linked AGENTS.md is a standing
+    // failure of that surface. Reported here rather than left to look current,
+    // which is what a reader of `AGENTS.md - current` used to be told.
+    try {
+      await assertSafeManagedArtifactTarget(agentsPath, {
+        projectRoot: this.cwd,
+        allowMissing: true,
+        operation: 'check',
+      });
+    } catch (error) {
+      if (!(error instanceof ManagedArtifactTargetError)) {
+        throw error;
+      }
+      return {
+        name: 'AGENTS.md',
+        status: 'warn',
+        message: `not a regular file in the project: ${error.reason}`,
+        path: AGENTS_MD_REL,
+        suggestion:
+          'tbd setup cannot write through it. Replace it with a regular file (for ' +
+          'example keep CLAUDE.md as the link and make AGENTS.md the real file), ' +
+          'then run: tbd setup --auto --surfaces=agents-md',
+      };
+    }
+    let existing = '';
+    try {
+      existing = await readFile(agentsPath, 'utf-8');
+    } catch (error) {
+      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
+        throw error;
+      }
+    }
+    // Compare with the block setup would write, recorded grants included, so a
+    // project with grants is current. Setup refuses to rewrite a policy block it
+    // cannot read, so there is then no block to compare with; the Policy grants
+    // finding reports the block itself.
+    const policyBlock = parsePolicyBlock(existing).status;
+    const comparable = policyBlock === 'ok' || policyBlock === 'missing';
     const inspection = await inspectManagedArtifact({
       path: agentsPath,
-      expectedContent: expected,
+      expectedContent: comparable
+        ? getCodexTbdSectionPreservingGrants(existing)
+        : getCodexTbdSection(),
       ownershipMarker: CODEX_BEGIN_MARKER,
       supportedFormat: AGENT_INTEGRATION_FORMAT,
       selectManagedContent: (content) =>
         extractManagedBlock(content, CODEX_BEGIN_MARKER, CODEX_END_MARKER),
+      // A project's Markdown formatter may rewrap the block; that is not drift.
+      ignoreLineWrapping: true,
     });
+    if (!comparable && inspection.state === 'stale') {
+      return {
+        name: 'AGENTS.md',
+        status: 'warn',
+        message: 'freshness unknown: the policy block cannot be read',
+        path: AGENTS_MD_REL,
+        suggestion: `Fix the policy block (see the ${POLICY_GRANTS_CHECK} finding), then run: tbd setup --auto --surfaces=agents-md`,
+      };
+    }
     return managedArtifactFinding('AGENTS.md', AGENTS_MD_REL, 'agents-md', inspection);
+  }
+
+  private async checkPolicyGrants(): Promise<DiagnosticResult[]> {
+    const effective = await readEffectiveGrants(this.cwd);
+    const workingTree = await readWorkingTreeGrants(this.cwd);
+    return policyGrantFindings(effective, workingTree);
   }
 
   /**
@@ -1697,7 +2622,7 @@ class DoctorHandler extends BaseCommand {
         status: 'error',
         message: `requires newer tbd (found ${layout.tbd_format})`,
         path: layoutPath,
-        suggestion: 'Upgrade: npm install -g get-tbd@latest',
+        suggestion: tbdUpgradeAdvice('Upgrade', this.config.tbd_fallback_version),
       };
     }
     // A layout from an older but compatible format than the (in-memory,

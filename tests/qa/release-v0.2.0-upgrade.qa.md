@@ -127,7 +127,7 @@ needing a third victim repo.
 
 ## Related Documentation — Read for Context
 
-- [docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md](../../docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md)
+- [docs/project/specs/done/plan-2026-05-17-shared-common-dir-sync-worktree.md](../../docs/project/specs/done/plan-2026-05-17-shared-common-dir-sync-worktree.md)
   — the f04 design
 - [docs/tbd-format-versioning.md](../../docs/tbd-format-versioning.md) — old-client /
   new-client contract (project-local contributor guide; relocated out of shipped

@@ -4,22 +4,14 @@
  */
 
 import { runCli } from './cli.js';
-import { EXIT_SUCCESS } from './lib/exit-codes.js';
+import {
+  handleDiagnosticStreamError,
+  handlePrimaryStdoutError,
+} from './lib/process-stream-errors.js';
 
-// Handle EPIPE errors gracefully when output is piped to commands like `head`
-// or when a pager closes. Both stdout and stderr can receive EPIPE.
-// Exit code 0 is standard - this is intentional user action, not an error.
-process.stdout.on('error', (err: NodeJS.ErrnoException) => {
-  if (err.code === 'EPIPE') {
-    process.exit(EXIT_SUCCESS);
-  }
-  throw err;
-});
-process.stderr.on('error', (err: NodeJS.ErrnoException) => {
-  if (err.code === 'EPIPE') {
-    process.exit(EXIT_SUCCESS);
-  }
-  throw err;
-});
+// Only primary stdout has the Unix early-consumer success policy. Keep stderr
+// failures nonzero and preserve any failure outcome already selected by runCli().
+process.stdout.on('error', handlePrimaryStdoutError);
+process.stderr.on('error', handleDiagnosticStreamError);
 
 void runCli();

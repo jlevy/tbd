@@ -355,6 +355,7 @@ export async function createChangesReportFromRefs(
           readSnapshot(options.repoDir, tip, dependencies),
         ]);
   return createIssueChangesReport({
+    readyAt: Date.now(),
     since,
     tip,
     before,

@@ -1,6 +1,6 @@
 ---
 title: Setup Linear
-description: Set up the Linear integration end to end—first-time configuration for a repository, or adding your own API key to a repository your team already configured
+description: Set up the Linear integration end to end—the linear policy grant, first-time configuration for a repository with the epics selection as the default, or adding your own API key to a repository your team already configured
 category: session
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
@@ -24,6 +24,28 @@ places by different people:
 
 That split is the whole shape of this workflow.
 A user joining a team that already uses Linear needs only the second one.
+A third thing precedes both: the user’s consent, recorded as the `linear` policy grant.
+
+## The `linear` policy grant
+
+Linear sync is not on by default.
+The `linear` policy in the project’s policy block (`tbd guidelines agent-policy-grants`)
+records that the user wants it and names the selection:
+
+- `epics`: open epic beads only, in both directions.
+  This is the default when the user wants Linear; Step 2 gives its exact configuration.
+- `epics + specs`: open epics plus beads whose spec is active, the integration’s
+  `policy: default`.
+- `custom`: whatever selection `.tbd/config.yml` configures.
+
+Run `tbd policy show` first.
+If `linear` is unanswered or `not-granted`, ask whether the user uses Linear and wants
+tbd to sync beads with it, before you configure or run anything.
+Record the answer with `tbd policy set linear epics` (or the value the user chose) and
+commit the policy block with the rest of this change.
+A repository that already enables Linear in `.tbd/config.yml` (cases B, C, and D below)
+keeps syncing either way: the grant is consent for agents, not a switch inside tbd.
+There, ask the user to record the value that matches the committed selection.
 
 ## Step 0: Make sure tbd is initialized
 
@@ -57,9 +79,9 @@ Read the output and match it:
 | `- enabled: configured but disabled` | **D. Deliberately off** | Ask before changing it |
 
 Case B is the common one on a team: the `integrations` block is committed, so it arrived
-with the clone. **Do not re-run first-time setup in case B.** Changing `team_key` or
-`project` when teammates and other agents are already syncing points this repository at
-a different place than theirs.
+with the clone. **Do not re-run first-time setup in case B.** Changing
+`linear.target.team_key` or `linear.target.project` when teammates and other agents are
+already syncing points this repository at a different place than theirs.
 
 ## Step 2 (case A only): First-time setup for the repository
 
@@ -72,47 +94,102 @@ You cannot infer the team or project—**ask the user**:
 - **Project** (optional but recommended): scopes both new issue creation and automatic
   inbound discovery to one project, so tbd never wanders into unrelated team work.
 
-Then add to `.tbd/config.yml`:
+Then add to `.tbd/config.yml`. With the `linear: epics` grant, the default, the
+selection is open epic beads only:
 
 ```yaml
 integrations:
+  on_tbd_sync: guarded # default; refuse oversized folded runs
   linear:
     enabled: true
-    team_key: FIN # theirs, from the user
-    project: my-project # optional; omit if they did not name one
+    target:
+      team_key: FIN # theirs, from the user
+      project: my-project # optional; omit if they did not name one
+    policy:
+      outbound:
+        kinds: [epic] # selected by kind
+        specs: none # never by spec
+        statuses: [open, in_progress, blocked] # open work only
+```
+
+This is exactly the `epics` mapping in `tbd guidelines agent-policy-grants`. The
+`inbound` and `field_sync` clauses are left to the integration’s defaults, which give
+the two directions described under **What flows in each direction** below.
+Use this selection unless the user chose another grant value.
+
+With `linear: epics + specs`, or when the user asks to track spec-driven work as well,
+use the preset in place of the `policy:` mapping above:
+
+```yaml
     policy: default # open epics + anything with a live plan spec
 ```
 
-Leave `policy: default` unless the user asks for something else.
-It selects open epics plus anything whose `spec_path` points into `specs/active/`—the
-right starting point for “track our specs and major work”.
+It selects open epics plus anything whose `spec_path` points into `specs/active/`, the
+starting point for “track our specs and major work”.
 
-**Size that selection before the first sync, because it is easy to underestimate.**
-`spec_path` propagates from a parent bead to its descendants, so the spec clause selects
-every descendant of every epic carrying a live spec.
+**Size the `default` selection before the first sync, because it is easy to
+underestimate.** `spec_path` propagates from a parent bead to its descendants, so the
+spec clause selects every descendant of every epic carrying a live spec.
 In a spec-driven repository that can be a large share of open work rather than a small
 one. Two things to check with the user when the preview looks bigger than expected:
 
 - `tbd --dry-run integration sync --push` lists exactly which beads would be mirrored.
-- Beads nested deeper than `max_nesting` (default 2) *within the selected set* are
-  reported as skipped rather than created, so the number of Linear issues is normally
-  smaller than the number of selected beads.
+- Beads nested deeper than `linear.policy.outbound.max_nesting` (effective default 2)
+  *within the selected set* are reported as skipped rather than created, so the number
+  of Linear issues is normally smaller than the number of selected beads.
   Both numbers appear in the dry run.
 
+**What flows in each direction.** The selection decides only which beads get a Linear
+issue. For every linked pair, `tbd sync` reconciles with the integration’s default
+`field_sync`: title, description, status, priority, and comments merge in both
+directions, with the newer edit winning a conflict; labels and assignee stay bead-owned
+and flow to Linear only, so a label or assignee changed in Linear is overwritten on the
+next sync and reported.
+Inbound, the default `inbound.mode: report` lists unlinked Linear issues in the project
+as importable and never creates a bead from them, whatever their type.
+Import one only when the user asks; it becomes a bead of the `inbound.as_kind` kind
+(`task` by default), linked to the issue:
+
+```bash
+tbd integration sync --pull --external FIN-123   # Creates one bead, linked to FIN-123
+```
+
+Set `policy.inbound.mode: auto` only when the user wants every new issue in the project
+to become a bead.
+
 **Then run `tbd setup --auto` before committing.** Writing the block leaves the
-repository at whatever format it was on; setup stamps `tbd_format: f07`, which is what
-stops a teammate’s pre-0.6.0 tbd from silently stripping the block on its next config
-write. Commit the block and the stamp together, so no one ever clones the window between
+repository at whatever format it was on; setup migrates it to the current fresh-repo
+format (currently f08). The historical f07 minimum is the boundary that stops a
+teammate’s pre-0.6.0 tbd from silently stripping the integration block on its next
+config write; f08 adds the later issue-record preservation boundary.
+Commit the block and format stamp together, so no one ever clones the window between
 them. If setup reports a format migration, that diff is part of this change.
 
-Two optional keys worth mentioning only if the user raises the need:
+Optional groups worth mentioning only if the user raises the need:
 
-- `user_map: { alias: person@example.com }` — the **only** identities tbd may push as
-  assignees. Without it, assignees do not sync in either direction, and no email or raw
-  Linear user ever enters bead data.
-- `mirror_labels: true` — pushes bead labels as Linear labels.
-  Off by default on purpose: a repository can carry a hundred-plus labels, and creating
-  one Linear label each pollutes a shared team namespace.
+- `linear.identity.user_map: { alias: person@example.com }` — an explicit alias override
+  for assignee identity.
+  Outbound handles can otherwise resolve through a stable bridge binding or one exact
+  Linear directory match; ambiguous and missing matches are skipped.
+  Inbound provider identities still need this map before they can become bead aliases.
+  Emails and raw Linear user payloads never enter bead data.
+- `linear.identity.agent_map: { agent-name: app-user-uuid }` — delegates explicitly
+  allowed to appear as installed Linear agents.
+  Unmapped session delegates stay local and are reported as skipped; tbd writes an
+  existing app-user ID and does not register an agent.
+- `linear.identity.state_map: { started: In Progress }` — selects a workflow-state name
+  for an ambiguous Linear state type.
+  The supported map keys are `backlog`, `unstarted`, `started`, `completed`, `canceled`,
+  and `duplicate`. Interactive `tbd integration setup` asks once and persists a choice;
+  non-interactive and dry-run setup leave ambiguity unresolved.
+  `tbd doctor` reports only the offline resolution plan and never calls Linear or
+  persists choices. An entry is also explicit consent for applied setup to create that
+  missing team-wide state and reorder mapped states; without entries, setup never
+  changes the board’s workflow states.
+- `linear.labels.mirror: prefixed` — projects bead labels as `tbd:`-prefixed Linear
+  labels. Mirroring is off by default because a repository can carry a hundred-plus
+  labels. `linear.labels.create: all` additionally permits creating missing mirrored
+  labels; the safer default `tbd` creates only tbd-owned infrastructure labels.
 
 This block is committed.
 Commit it in the same change as any other setup, so the next teammate to clone gets it.
@@ -210,8 +287,8 @@ have detected and reported as a conflict.
 Plain `tbd sync` first pulls the current issue state from the team’s sync branch, runs
 the full tracker reconciliation in place, and then publishes the resulting bead state.
 
-If the shared config deliberately sets `integrations.sync_on_tbd_sync: false`, preserve
-that team choice. In that exceptional case, run `tbd sync` first to pull the latest bead
+If the shared config deliberately sets `integrations.on_tbd_sync: off`, preserve that
+team choice. In that exceptional case, run `tbd sync` first to pull the latest bead
 state, preview and run `tbd integration sync` explicitly, then run `tbd sync` again to
 publish the reconciled state.
 Do not silently remove the override.
@@ -239,12 +316,73 @@ If you hit it, re-read the dry run before adding `--yes`.
 After the first sync, plain `tbd sync` includes enabled trackers automatically, so a
 session-end `tbd sync` keeps Linear current with no extra command.
 
+## Step 6 (optional): Linear’s own GitHub app
+
+Everything above is complete without this step.
+tbd’s sync needs one credential, `LINEAR_API_KEY`, and never speaks to GitHub.
+
+Linear’s own GitHub app changes what a mirrored issue can do, not how tbd syncs.
+With it installed, a pull request whose title, branch, or body names a Linear issue
+(`Fixes FIN-123`) links itself to that issue, and the team’s pull request automation
+moves the issue as the pull request opens, is reviewed, and merges.
+Since tbd already maps a completed Linear state back onto the bead, a merge can travel
+all the way to a closed bead without anyone touching either tracker.
+
+**It sits on a different axis from tbd’s configuration:**
+
+| Aspect | tbd’s Linear sync | Linear’s GitHub app |
+| --- | --- | --- |
+| Scope | One repository | One **GitHub organization** |
+| Set up by | Whoever configures the repo | A GitHub org owner |
+| Credential | `LINEAR_API_KEY`, personal | None; an app installation |
+| Repeat per repo? | Yes | **No** |
+
+The scope row is the one people get wrong.
+The app is installed once per GitHub organization, granting either all repositories or a
+chosen subset, so a second tbd repository in the same organization needs no second
+install and no second decision.
+A repository administrator can install it for a single repository when org-wide access
+is not wanted.
+
+**You cannot complete this step for the user.** Installing a GitHub app is a browser
+flow that ends in an org owner approving the permissions.
+Linear does expose `integrationGithubConnect`, but its `code` and `installationId`
+arguments are outputs of that browser flow, so there is nothing to script ahead of it.
+Point the user at Linear’s [GitHub integration settings](https://linear.app/docs/github)
+and let them approve it.
+
+**Checking whether it is already installed is scriptable, and worth doing before you ask
+anyone for anything.** Either side answers:
+
+```bash
+# Linear's side: an entry with service "github" means a workspace is connected
+# (query { integrations { nodes { service createdAt } } } against api.linear.app/graphql)
+
+# GitHub's side, if the user's gh token can read the org:
+gh api /orgs/<org>/installations --jq '.installations[] | select(.app_slug|startswith("linear")) | {app_slug, repository_selection}'
+```
+
+A `repository_selection` of `all` means every repository in that organization is already
+covered, including any repository you are about to configure.
+
+**One warning that matters when tbd is mirroring.** The same settings page offers
+**GitHub Issues sync**, which creates Linear issues from GitHub issues.
+Leave it off for any team tbd mirrors into.
+tbd is already an issue writer for that team, and a second writer on one issue set
+produces duplicates and fights over state.
+Pull request linking and issue sync are separate features; this step is only the first.
+
 ## What to tell the user when you are done
 
 - Which case it was, and what you changed (config, `.env`, or nothing).
+- Which `linear` grant is recorded and which selection it names (for `epics`, open epic
+  beads only, in both directions).
 - That the config is committed and shared, but their key is personal and stays local.
 - That `tbd sync` now covers Linear too.
 - For case A: that `.tbd/config.yml` needs committing so teammates inherit it.
+- Whether Linear’s GitHub app is already installed for their organization, and if it is
+  not, that pull request linking is available whenever an org owner wants it.
+  Say plainly that it is optional and that sync works without it.
 
 ## Troubleshooting
 
@@ -252,14 +390,16 @@ session-end `tbd sync` keeps Linear current with no extra command.
 | --- | --- | --- |
 | `LINEAR_API_KEY not found` | No key in env or `.env` | Step 3 |
 | `.env: present and NOT gitignored` | Key is one `git add` from being committed | Add `.env` to `.gitignore` now; rotate the key if it was ever committed |
-| `reachable` fails with a valid-looking key | Key revoked, missing a required permission, or no access to that team | Re-issue under Settings > Account > Security & Access; confirm permissions and `team_key` |
-| Integration block vanished from `config.yml` | A pre-0.6.0 tbd rewrote config before the repository was stamped `f07` | `git checkout .tbd/config.yml`, upgrade that machine (`npm install -g get-tbd@latest`), then `tbd setup --auto` to stamp the format |
-| A teammate reports “This repository requires a newer version of tbd” | Working as intended: their tbd predates `f07` and would strip the block | Have them upgrade: `npm install -g get-tbd@latest` |
-| Sync says `nothing to do` but Linear looks stale | The policy does not select those beads | Check `policy.outbound` against what the user expects; `--dry-run integration sync --push` lists the selected set |
+| `reachable` fails with a valid-looking key | Key revoked, missing a required permission, or no access to that team | Re-issue under Settings > Account > Security & Access; confirm permissions and `linear.target.team_key` |
+| Integration block vanished from `config.yml` | A pre-0.6.0 tbd rewrote config before the repository was stamped `f07` | `git checkout .tbd/config.yml`, upgrade that machine (`npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" get-tbd`), then `tbd setup --auto` to stamp the format |
+| A teammate reports “This repository requires a newer version of tbd” | Working as intended: their tbd predates `f07` and would strip the block | Have them upgrade: `npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" get-tbd` |
+| Sync says `nothing to do` but Linear looks stale | The policy does not select those beads (under `epics`, only open epic beads are mirrored) | Check `policy.outbound` against what the user expects; `--dry-run integration sync --push` lists the selected set |
+| A Linear issue never shows up as a bead | `inbound.mode` is `report`, the default: sync lists it as importable and creates nothing | Import it on request with `tbd integration sync --pull --external <KEY>`; set `policy.inbound.mode: auto` only if the user wants every new issue imported |
 | A bead reports malformed managed-block markers | A human edited inside the `⟦tbd⟧` … `⟦/tbd⟧` region in Linear | Repair the region in Linear (one `⟦tbd⟧` and one `⟦/tbd⟧`, in that order) or delete it entirely; the next sync rewrites it |
-
 | A reopened bead stops syncing, warning that its item is archived | Under the default `policy.archive: manual` the tracker’s archive is yours to manage | Restore the issue in Linear, or set `policy.archive: on_close` to let tbd own the lifecycle |
 | Newly mirrored issues all show today’s dates | A tbd older than 0.7.0 stamped them at sync time instead of sending the bead’s own | Upgrade; dates are sent on create, so already-mirrored issues keep their original stamps |
+| A pull request merged but its Linear issue did not move | Step 6 is not done, or the pull request never named the issue, or it used a non-closing word like `part of` | Confirm the app is installed for the organization, then check the pull request body for a closing word and the issue identifier |
+| Duplicate Linear issues appear for the same work | GitHub Issues sync is enabled on a team tbd already mirrors into | Turn Issues sync off for that team; tbd is the issue writer there |
 
 Full reference: the External Tracker Integrations section of `tbd docs`.
 

@@ -154,3 +154,7 @@
 ### Appendix B: [Topic]
 
 [Additional data, code examples, or documentation]
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

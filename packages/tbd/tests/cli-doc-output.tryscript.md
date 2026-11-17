@@ -41,9 +41,9 @@ Note: Output includes size/token info like “(2.99 kB, ~847 tok)”
 
 ```console
 $ tbd --color=never guidelines --list | head -3
-backward-compatibility-rules [..]
-   Backward Compatibility[..] Guidelines for maintaining backward
-[..]
+agent-model-tiers (10 kB, ~2.8k tok)
+   Agent Model Tiers: Provider-neutral model tiers for delegated agent work.
+   Defines the strong, moderate, and fast tiers by model rank and reasoning
 ? 0
 ```
 
@@ -55,8 +55,8 @@ $ tbd guidelines --list --json | head -6
   "docmap": "docmap/0.1",
   "documents": [
     {
-      "name": "backward-compatibility-rules",
-[..]
+      "name": "agent-model-tiers",
+      "type": "guideline",
 ? 0
 ```
 

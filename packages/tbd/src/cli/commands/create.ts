@@ -21,7 +21,7 @@ import { IssueKind } from '../../lib/schemas.js';
 import { parsePriority } from '../../lib/priority.js';
 import { now } from '../../utils/time-utils.js';
 import { resolveSpecArg, getPathErrorMessage } from '../../lib/project-paths.js';
-import { validateIssueTitle } from '../lib/issue-input-validation.js';
+import { parseDateOption, validateIssueTitle } from '../lib/issue-input-validation.js';
 import { withDataSyncContext, notifyWorktreeRepaired } from '../lib/data-context.js';
 import { resolveBodyInput } from '../lib/body-input.js';
 import { applyDependencyWrites, type DependencyWriteOutcome } from '../lib/bulk.js';
@@ -188,8 +188,9 @@ class CreateHandler extends BaseCommand {
             description: description ?? undefined,
             assignee: options.assignee ?? undefined,
             delegate: options.delegate ?? undefined,
-            due_date: options.due ?? undefined,
-            deferred_until: options.defer ?? undefined,
+            due_date: options.due === undefined ? undefined : parseDateOption(options.due, '--due'),
+            deferred_until:
+              options.defer === undefined ? undefined : parseDateOption(options.defer, '--defer'),
             parent_id: parentId,
             spec_path: specPath,
           };

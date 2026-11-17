@@ -38,7 +38,7 @@ Phase 1 is additive for all existing behavior with one deliberate exception: the
 breaking CLI-surface change for scripts that still pass it (see the sync section).
 
 It is a product/runtime change to tbd’s own CLI. It is distinct from
-[plan-2026-06-03-tbd-agent-cli-guideline-improvements.md](plan-2026-06-03-tbd-agent-cli-guideline-improvements.md),
+[plan-2026-06-03-tbd-agent-cli-guideline-improvements.md](../done/plan-2026-06-03-tbd-agent-cli-guideline-improvements.md),
 which improves the *guideline* about writing agent skills; this spec changes how tbd’s
 issue commands actually behave.
 
@@ -406,7 +406,7 @@ context (`cli/lib/context.ts`), and the data context that owns the lock
   (`close.ts`, `update.ts`, `reopen.ts`, `import.ts`, `output.ts`, `context.ts`,
   `data-context.ts`).
 - Related (distinct) guideline plan:
-  [plan-2026-06-03-tbd-agent-cli-guideline-improvements.md](plan-2026-06-03-tbd-agent-cli-guideline-improvements.md)
+  [plan-2026-06-03-tbd-agent-cli-guideline-improvements.md](../done/plan-2026-06-03-tbd-agent-cli-guideline-improvements.md)
 - Agent-CLI guideline: `tbd guidelines cli-agent-skill-patterns`
   ([packages/tbd/docs/guidelines/cli-agent-skill-patterns.md](../../../../packages/tbd/docs/guidelines/cli-agent-skill-patterns.md))
 - Design doc (sync model): [tbd-design.md](../../../../packages/tbd/docs/tbd-design.md)

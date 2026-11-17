@@ -154,11 +154,19 @@ only 85 of which had any open bead.
 - Fix every link or bead `spec_path` affected by a move.
   Inbound references are usually more numerous than expected — a dozen per spec is
   ordinary, spread across other specs, `TODO.md`, research docs, and logbooks — and they
-  appear in several shapes (bare filename, repo-relative, and `../` relative).
-  Rewriting on the `specs/<folder>/<file>` fragment catches every path-bearing form at
-  once while leaving bare filenames alone, which a move does not break.
-  Use a multi-file rewrite tool with a dry run rather than editing by hand, and
-  afterwards grep for the old path to prove none survived.
+  appear in several shapes (bare-filename links, `./` sibling links, repo-relative
+  paths, and `../` relative paths).
+  Rewrite the `specs/<folder>/<file>` fragment for path-bearing references, plus
+  `../<folder>/<file>` links between lifecycle folders, which lack the `specs/` prefix.
+  Also rewrite every Markdown link whose target is a bare filename or `./` path pointing
+  at the moved file: it resolves relative to the linking file, so it breaks when the
+  target changes lifecycle folder.
+  A filename mentioned in prose, outside a link, does not break.
+  The moved file’s own bare or `./` links to specs that stayed behind break the same
+  way. Use a multi-file rewrite tool with a dry run rather than editing by hand.
+  Then grep for the old path, and run a relative-link check over every Markdown file in
+  the spec tree and every other file you changed; checking only the changed files misses
+  the links the rewrite skipped.
 
   **Repointing the beads is the half that gets skipped, and it is not cosmetic.** A bead
   whose `spec_path` still names the old location makes the spec look like it has no
@@ -201,7 +209,8 @@ only 85 of which had any open bead.
    - Every active spec has a matching open or in-progress parent bead.
    - No spec sits in `active/` with no beads at all; those are drafts, not active work.
    - No epic is left without a `spec_path` unless it genuinely has no governing spec.
-   - After any spec move, no reference to the old `specs/<folder>/<file>` path survives.
+   - After any spec move, no reference to the old `specs/<folder>/<file>` path survives,
+     and no relative link (bare, `./`, or `../`) still resolves to the old location.
    - No bead points at a `spec_path` whose filename now lives in a different lifecycle
      folder; those are the mechanically repairable orphans.
    - No done spec remains in `active/`; no future-only work remains in active launch
@@ -233,9 +242,12 @@ Two things to know before scripting the triage:
   links.
 - Because closed beads are absent from that dump, it cannot distinguish
   every-child-closed from no-children-ever-existed, which is the distinction step 2
-  turns on. To count closed beads per spec, read the committed bead files directly and
-  tally `spec_path` against `status`; they live under the data-sync worktree
-  `tbd doctor` reports.
+  turns on. `tbd list --all --parent <id> --count` counts all of an epic’s children,
+  closed ones included, and `tbd list --status closed --parent <id> --count` counts only
+  the closed ones; `--spec <path>` in place of `--parent <id>` gives the same two counts
+  for a spec. To triage many epics in one call, `tbd list --all --json` carries `status`,
+  `parentId`, and `spec_path` for every bead, closed ones included.
+  Prefer those commands over reading the data-sync worktree directly.
 - `parentId` holds the **display** id (`abc1-xyz9`), not `internalId`, while
   `child_order_hints` holds internal ids.
   Matching the wrong pair silently yields zero children for every epic, which reads as

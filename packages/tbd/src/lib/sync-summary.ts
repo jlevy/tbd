@@ -20,6 +20,14 @@ export interface SyncSummary {
   sent: SyncTallies;
   received: SyncTallies;
   conflicts: number;
+  /**
+   * Conflicts whose losing value could NOT be written to the attic.
+   *
+   * Archiving is best effort — a merge that has already been resolved must not fail
+   * because a recovery copy could not be written — but the summary is the only line most
+   * runs print, so it has to stop claiming the values are recoverable when they are not.
+   */
+  conflictsNotArchived?: number;
   /** True if push to remote failed */
   pushFailed?: boolean;
   /** Error message if push failed */
@@ -100,7 +108,16 @@ export function formatSyncSummary(summary: SyncSummary): string {
   let result = parts.join(', ');
 
   if (summary.conflicts > 0) {
-    result += ` (${summary.conflicts} conflict${summary.conflicts === 1 ? '' : 's'} resolved)`;
+    // Name the attic, not just the count. A resolved conflict means one side's value was
+    // discarded, and the only reason that is safe is that the value is recoverable — so
+    // the line that reports the loss has to say where it went, and say so only when it
+    // actually went there.
+    const plural = summary.conflicts === 1 ? '' : 's';
+    const failed = summary.conflictsNotArchived ?? 0;
+    result +=
+      failed > 0
+        ? ` (${summary.conflicts} conflict${plural} resolved, ${failed} NOT archived — see warnings)`
+        : ` (${summary.conflicts} conflict${plural} resolved, archived in the attic)`;
   }
 
   return result;

@@ -448,7 +448,13 @@ Combined size: ~5 KB minified (negligible impact on package size).
 
 ## References
 
-- [doc-cache.ts](../../packages/tbd/src/file/doc-cache.ts) - Document loading/caching
-- [doc-command-handler.ts](../../packages/tbd/src/cli/lib/doc-command-handler.ts) - List
-  formatting
-- [shortcut.ts](../../packages/tbd/src/cli/commands/shortcut.ts) - Shortcut command
+- [doc-cache.ts](../../../../packages/tbd/src/file/doc-cache.ts) - Document
+  loading/caching
+- [doc-command-handler.ts](../../../../packages/tbd/src/cli/lib/doc-command-handler.ts)
+  \- List formatting
+- [shortcut.ts](../../../../packages/tbd/src/cli/commands/shortcut.ts) - Shortcut
+  command
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

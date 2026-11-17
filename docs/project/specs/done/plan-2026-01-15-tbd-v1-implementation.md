@@ -3610,13 +3610,13 @@ The following gaps in the existing test suite allowed these bugs to slip through
 - Should show short public IDs (e.g., `bd-a7k2`) from ID mapping file
 - For beads imports, should preserve original IDs from `extensions.beads.original_id`
   (e.g., `tbd-401`)
-- Root cause in [list.ts:57](packages/tbd/src/cli/commands/list.ts#L57):
+- Root cause in [list.ts:57](../../../../packages/tbd/src/cli/commands/list.ts#L57):
   `id: \`bd-${i.id.slice(3)}\`` just strips “is-” prefix
 
 **tbd-1812: Extra newline in serialization**
 - Issue files have extra blank line between YAML frontmatter `---` and markdown body
 - Body should start immediately after closing `---`
-- See serialization code in [storage.ts](packages/tbd/src/file/storage.ts)
+- See serialization code in [storage.ts](../../../../packages/tbd/src/file/storage.ts)
 
 **tbd-1813: Status mapping incomplete** (CRITICAL)
 - The `mapStatus` function in import.ts doesn’t map beads ‘done’ status to tbd ‘closed’
@@ -3624,7 +3624,7 @@ The following gaps in the existing test suite allowed these bugs to slip through
   ‘tombstone’
 - Results: 127 ‘done’ issues imported as ‘open’ instead of ‘closed’
 - Fix: Add `done: 'closed'` to statusMap in
-  [import.ts:94](packages/tbd/src/cli/commands/import.ts#L94)
+  [import.ts:94](../../../../packages/tbd/src/cli/commands/import.ts#L94)
 
 * * *
 
@@ -3671,3 +3671,7 @@ maintainability.
 | 2026-01-16 | Claude | ✅ Completed tbd-1853: replaced custom atomicWriteFile with atomically library, fixed dynamic imports in git.ts |
 | 2026-01-16 | Claude | Added Phase 24: Installation and Agent Integration (tbd-1875→1881) - tbd prime, setup claude/cursor commands |
 | 2026-01-16 | Claude | Removed Aider from Phase 24 scope (Claude Code and Cursor only), fixed heading levels (### for consistency), added section separator between Phase 24 and validation status |
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

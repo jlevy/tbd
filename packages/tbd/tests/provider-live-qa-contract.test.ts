@@ -1,9 +1,43 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  cleanupOwnedFixtures,
   LIVE_COMPATIBILITY_SCENARIOS,
   LiveCompatibilityChecklist,
 } from '../scripts/provider-live-qa-contract.js';
+
+describe('cleanupOwnedFixtures', () => {
+  it('rediscovers and archives an issue created before a scenario failed', async () => {
+    const archive = vi.fn(() => Promise.resolve());
+
+    await cleanupOwnedFixtures({
+      known: [],
+      scope: 'Linear OS/tbd token run-123',
+      discoverOwned: () => Promise.resolve([{ id: 'remote-created', key: 'OS-123' }]),
+      isArchived: () => Promise.resolve(false),
+      archive,
+    });
+
+    expect(archive).toHaveBeenCalledOnce();
+    expect(archive).toHaveBeenCalledWith({ id: 'remote-created', key: 'OS-123' });
+  });
+
+  it('fails cleanup when discovery fails while still archiving registered fixtures', async () => {
+    const archive = vi.fn(() => Promise.resolve());
+
+    await expect(
+      cleanupOwnedFixtures({
+        known: [{ id: 'known', key: 'OS-1' }],
+        scope: 'Linear OS/tbd token run-123',
+        discoverOwned: () => Promise.reject(new Error('query unavailable')),
+        isArchived: () => Promise.resolve(false),
+        archive,
+      }),
+    ).rejects.toThrow('fixture discovery failed for Linear OS/tbd token run-123');
+
+    expect(archive).toHaveBeenCalledWith({ id: 'known', key: 'OS-1' });
+  });
+});
 
 describe('LiveCompatibilityChecklist', () => {
   it('enforces and reports the shared provider compatibility contract', async () => {

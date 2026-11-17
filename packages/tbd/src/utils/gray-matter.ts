@@ -21,17 +21,25 @@ const matterOptions = {
       parse: (input: string): object => parseYaml(input.replace(/\r\n?/g, '\n')) as object,
       stringify: (data: object): string => stringifyYaml(data),
     },
+    javascript: {
+      parse(): never {
+        throw new Error('Unsupported front-matter language "javascript"; tbd accepts YAML only');
+      },
+    },
   },
 };
 
 const ALLOWED_FRONTMATTER_LANGUAGES = new Set(['yaml', 'yml']);
 
 function assertYamlLanguage(content: string): void {
-  if (!matter.test(content, matterOptions)) {
+  // gray-matter strips one BOM before dispatching but its test and language helpers
+  // inspect the raw string. Validate the same opening line the parser will see.
+  const normalized = content.replace(/^\uFEFF/u, '');
+  if (!matter.test(normalized, matterOptions)) {
     return;
   }
 
-  const language = matter.language(content, matterOptions).name.toLowerCase();
+  const language = matter.language(normalized, matterOptions).name.toLowerCase();
   if (language !== '' && !ALLOWED_FRONTMATTER_LANGUAGES.has(language)) {
     throw new Error(`Unsupported front-matter language "${language}"; tbd accepts YAML only`);
   }
@@ -39,7 +47,7 @@ function assertYamlLanguage(content: string): void {
 
 /** Return whether content begins with a front-matter delimiter. */
 export function hasMarkdownFrontmatter(content: string): boolean {
-  return matter.test(content, matterOptions);
+  return matter.test(content.replace(/^\uFEFF/u, ''), matterOptions);
 }
 
 /** Parse Markdown front matter with tbd's YAML engine. */

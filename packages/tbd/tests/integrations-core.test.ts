@@ -321,6 +321,19 @@ describe('label-pollution guards', () => {
     expect(resolveProviderSettings(both).teamKey).toBe('NEW');
   });
 
+  it('resolves agent mappings from the f08 identity group with legacy fallback', () => {
+    const oldAgent = '11111111-1111-4111-8111-111111111111';
+    const newAgent = '22222222-2222-4222-8222-222222222222';
+    const grouped = LinearIntegrationSchema.parse({
+      agent_map: { legacy: oldAgent },
+      identity: { agent_map: { current: newAgent } },
+    });
+    const legacy = LinearIntegrationSchema.parse({ agent_map: { legacy: oldAgent } });
+
+    expect(resolveProviderSettings(grouped).agentMap).toEqual({ current: newAgent });
+    expect(resolveProviderSettings(legacy).agentMap).toEqual({ legacy: oldAgent });
+  });
+
   it('defaults an unconfigured integration to disabled', () => {
     expect(LinearIntegrationSchema.parse({}).enabled).toBe(false);
   });

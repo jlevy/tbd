@@ -19,7 +19,7 @@ import { extractUlidFromInternalId } from '../src/lib/ids.js';
 import type { Issue } from '../src/lib/types.js';
 import { DATA_SYNC_DIR, TBD_DIR } from '../src/lib/paths.js';
 import { detectDuplicateYamlKeys } from '../src/utils/yaml-utils.js';
-import { droppedIntegrationConfigFinding } from '../src/cli/commands/doctor.js';
+import { dependencyFinding, droppedIntegrationConfigFinding } from '../src/cli/commands/doctor.js';
 import { TEST_ULIDS, testId, createTestIssue } from './test-helpers.js';
 
 describe('dropped integration config diagnostic', () => {
@@ -75,19 +75,15 @@ describe('doctor command logic', () => {
     await writeIssue(issuesDir, issue1);
 
     const issues = await listIssues(issuesDir);
-    const issueIds = new Set(issues.map((i) => i.id));
-    const orphans: string[] = [];
 
-    for (const issue of issues) {
-      for (const dep of issue.dependencies) {
-        if (!issueIds.has(dep.target)) {
-          orphans.push(`${issue.id} -> ${dep.target}`);
-        }
-      }
-    }
-
-    expect(orphans.length).toBe(1);
-    expect(orphans[0]).toBe(`${issueId} -> ${orphanTargetId}`);
+    expect(dependencyFinding(issues)).toEqual({
+      name: 'Dependencies',
+      status: 'warn',
+      message: '1 orphaned reference(s)',
+      details: [`${issueId} -> ${orphanTargetId} (missing)`],
+      fixable: true,
+      suggestion: 'Run: tbd doctor --fix',
+    });
   });
 
   it('detects duplicate IDs', async () => {

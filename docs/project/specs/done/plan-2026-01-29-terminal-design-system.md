@@ -639,3 +639,7 @@ approach using component-based design and per-command beads.
 - `packages/tbd/src/cli/lib/issue-format.ts` - Issue formatting
 - `packages/tbd/src/cli/commands/status.ts` - Status command
 - `packages/tbd/src/cli/commands/doctor.ts` - Doctor command
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

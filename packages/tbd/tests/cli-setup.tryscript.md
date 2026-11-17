@@ -68,6 +68,7 @@ Setup & Configuration:
   config                             Manage configuration
   setup [options]                    Configure tbd integration with editors and
                                      tools
+  policy                             Show and record agent policy grants
 
 Working With Issues:
   create [options] [title]           Create a new issue
@@ -112,7 +113,7 @@ Sync and Status:
                                      when claiming work
   stats                              Show repository statistics
   integration                        Manage external tracker integrations
-                                     (Linear, GitHub)
+                                     (Linear)
 
 Maintenance:
   doctor [options]                   Diagnose and repair repository
@@ -133,7 +134,8 @@ IMPORTANT:
   Agents unfamiliar with tbd should run `tbd prime` for full workflow context.
 
 Getting Started:
-  npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>
+  npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" get-tbd
+  tbd setup --auto --prefix=<name>
 
   This initializes tbd and configures your coding agents automatically.
   To refresh setup (idempotent, safe anytime): `tbd setup --auto`
@@ -180,7 +182,8 @@ IMPORTANT:
   Agents unfamiliar with tbd should run `tbd prime` for full workflow context.
 
 Getting Started:
-  npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>
+  npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" get-tbd
+  tbd setup --auto --prefix=<name>
 
   This initializes tbd and configures your coding agents automatically.
   To refresh setup (idempotent, safe anytime): `tbd setup --auto`

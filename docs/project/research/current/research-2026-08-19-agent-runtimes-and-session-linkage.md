@@ -13,6 +13,19 @@ and the Anthropic Managed Agents reference bundled with the `claude-api` skill)
 **Status:** Complete for the landscape survey and the linkage contract.
 Runtime adoption is deliberately not decided; see [§11](#11-recommendations).
 
+> **Status review, 2026-09-06:** Retained for its dated runtime survey and distinct
+> session-linkage investigation.
+> See
+> [September 6 coordination research](research-2026-09-06-bead-agent-coordination.md)
+> for current tbd behavior and coordination boundaries.
+> A session reference provides provenance and visibility; it does not wake or resume
+> execution. One bead may link to several sessions.
+> Keep durable references separate from live status, with an observation time, staleness
+> policy, and reconciliation after missed events.
+> A missing session is not evidence of successful completion.
+> Vendor capabilities remain scoped to the survey date and the verification limits in
+> Appendix A.
+
 **Subsumes:**
 
 - `research-running-claude-code.md` (last updated March 2026) — execution environments
@@ -34,7 +47,7 @@ corrected, and what was deliberately dropped.
 - [Agent and Session Identity Across Coding Agents](research-2026-08-14-agent-and-session-identity.md)
   — *who* the agent is; this brief covers *where its run lives and how to point at it*.
   The two are complements and neither subsumes the other
-- [How Coding Agents Listen On and Monitor Issues](research-2026-06-04-agent-issue-monitors.md)
+- [How Coding Agents Listen On and Monitor Issues](../archive/research-2026-06-04-agent-issue-monitors.md)
   — trigger and dispatch mechanics
 - [API References for Bridge Integrations](api-references-bridge-integrations.md) —
   protocol reference (MCP, ACP, A2A, ANP);
@@ -83,8 +96,9 @@ between them.
 **Out of scope:** agent *identity* (covered by
 [the identity brief](research-2026-08-14-agent-and-session-identity.md)); prompt and
 context engineering; Claude Code’s internal sub-agent architecture (covered by
-`research-claude-code-sub-agents.md`); and the Linear mirror mechanism itself (covered
-by [the Linear briefs](research-2026-08-09-linear-task-surfaces.md)).
+[the sub-agent brief](research-2026-09-16-subagent-guidance-anthropic-openai.md)); and
+the Linear mirror mechanism itself (covered by
+[the Linear briefs](research-2026-08-09-linear-task-surfaces.md)).
 
 **Method note:** vendor documentation and repository sources were read directly rather
 than summarized from secondary coverage, and repository metadata (stars, licence, last
@@ -112,7 +126,7 @@ The other two are not:
 | --- | --- | --- |
 | `research-running-claude-code.md` | **Subsumed** | Part 6 (execution environments) and Part 10 (ecosystem update) are this brief’s subject and are stale |
 | `research-claude-code-orchestration-and-uis.md` | **Subsumed** | Control protocols and orchestration interfaces; status was still “In Progress” |
-| `research-claude-code-sub-agents.md` | Kept | Internal sub-agent architecture; different subject, still accurate |
+| `research-claude-code-sub-agents.md` | Kept; consolidated on 2026-09-16 into [the sub-agent brief](research-2026-09-16-subagent-guidance-anthropic-openai.md) | Internal sub-agent architecture; different subject, still accurate |
 | `api-references-bridge-integrations.md` | Kept | Protocol reference material; [§6.1](#61-acp-the-real-standard-and-what-it-does-not-cover) supplies an ACP update rather than replacing it |
 
 ### 1.2 What carried forward
@@ -400,7 +414,7 @@ minutes and `THREAD_STATUS_IDLE_INTERVAL_MS` is sixty seconds.
 The loop reconciles only threads whose status is **not** terminal, and terminal statuses
 are sticky — a `completed` or `failed` link is never transitioned again.
 Settled pairs therefore cost nothing, which is the same steady-size property the
-[Linear integration design](../../../packages/tbd/docs/references/linear-integration-design.md)
+[Linear integration design](../../../../packages/tbd/docs/references/linear-integration-design.md)
 insists on, applied to sessions.
 The spec’s open question about a staleness threshold now has at least one worked answer
 to argue with rather than a blank.

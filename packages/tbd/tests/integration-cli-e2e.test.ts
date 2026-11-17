@@ -22,7 +22,11 @@ vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 import { LinearMockServer } from './helpers/linear-mock-server.js';
 import { clearLink, readLink, writeLink } from '../src/integrations/core/link-store.js';
-import { bridgeIntentsDir } from '../src/integrations/core/bridge-state.js';
+import {
+  bridgeIntentsDir,
+  readLinkRecord,
+  writeLinkRecord,
+} from '../src/integrations/core/bridge-state.js';
 import { listIntentFiles, writeIntentFile } from '../src/integrations/core/intents.js';
 import { readIssue, writeIssue } from '../src/file/storage.js';
 
@@ -154,6 +158,13 @@ describe('tbd integration, end to end via the built binary', () => {
     expect(result.stderr).toContain('--limit is only valid with --push');
   });
 
+  it('rejects --explain with the outbound-only projection', async () => {
+    const result = await cli(['--dry-run', 'integration', 'sync', '--push', '--explain']);
+
+    expect(result.code).not.toBe(0);
+    expect(result.stderr).toContain('--explain is not valid with --push');
+  });
+
   it('mirrors exactly a named bead, then full sync settles to nothing-to-do', async () => {
     const first = await cli(['create', 'An epic to mirror', '-t', 'epic']);
     const second = await cli(['create', 'A second epic outside the staged push', '-t', 'epic']);
@@ -179,6 +190,113 @@ describe('tbd integration, end to end via the built binary', () => {
     const settle = await cli(['integration', 'sync']);
     expect(settle.code).toBe(0);
     expect(settle.stdout).toContain('nothing to do');
+  });
+
+  it('--explain names the diverging field for a pair the sync would touch', async () => {
+    // The answer to "why does this pair report work on every run?", which #265 could
+    // only get by reading .tbd/data-sync/bridge/ by hand.
+    expect((await cli(['create', 'Explain sentinel', '-t', 'epic'])).code).toBe(0);
+    const rows = JSON.parse((await cli(['list', '--json'])).stdout) as {
+      id: string;
+      title: string;
+    }[];
+    const sentinel = rows.find((row) => row.title === 'Explain sentinel')!;
+    expect((await cli(['integration', 'sync', '--push', '--bead', sentinel.id])).code).toBe(0);
+    expect((await cli(['integration', 'sync'])).code).toBe(0);
+
+    const remote = [...server.issues.values()].find((issue) => issue.title === 'Explain sentinel')!;
+    remote.title = 'Retitled on the tracker';
+    remote.updatedAt = new Date(Date.now() + 60_000).toISOString();
+
+    const explained = await cli(['--dry-run', 'integration', 'sync', '--explain']);
+
+    expect(explained.code).toBe(0);
+    expect(explained.stdout).toContain('title pull');
+    expect(explained.stdout).toContain('rule: merge');
+    expect(explained.stdout).toContain('local="Explain sentinel"');
+    expect(explained.stdout).toContain('remote="Retitled on the tracker"');
+    expect(explained.stdout).toContain('base="Explain sentinel"');
+  });
+
+  it('repairs a duplicate pair left half-converged by 0.8.1 without losing its pointer', async () => {
+    expect((await cli(['create', 'Duplicate target'])).code).toBe(0);
+    expect((await cli(['create', 'Duplicate subject', '-t', 'epic'])).code).toBe(0);
+    const rows = JSON.parse((await cli(['list', '--json'])).stdout) as {
+      id: string;
+      internalId: string;
+      title: string;
+    }[];
+    const target = rows.find((row) => row.title === 'Duplicate target')!;
+    const subject = rows.find((row) => row.title === 'Duplicate subject')!;
+    expect((await cli(['integration', 'sync', '--push', '--bead', subject.id])).code).toBe(0);
+    expect((await cli(['integration', 'sync'])).code).toBe(0);
+    expect(
+      (await cli(['close', subject.id, '--as', 'duplicate', '--duplicate-of', target.id])).code,
+    ).toBe(0);
+
+    const status = JSON.parse((await cli(['status', '--json'])).stdout) as {
+      worktree_path: string;
+    };
+    const dataSyncDir = join(status.worktree_path, '.tbd', 'data-sync');
+    const stored = await readIssue(dataSyncDir, subject.internalId);
+    const link = readLink(stored, 'linear')!;
+    const record = (await readLinkRecord(dataSyncDir, 'linear', subject.internalId))!;
+    const canceled = server.states.find((state) => state.name === 'Canceled')!;
+    server.issues.get(link.id)!.state = { ...canceled };
+    server.issues.get(link.id)!.updatedAt = new Date(Date.now() + 60_000).toISOString();
+    await writeLinkRecord(dataSyncDir, 'linear', {
+      ...record,
+      base: { ...record.base, status: 'closed', slot: 'duplicate' },
+    });
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const result = await cli(['integration', 'sync']);
+      expect(result.code).toBe(0);
+    }
+    const repaired = JSON.parse((await cli(['show', subject.id, '--json'])).stdout) as {
+      status: string;
+      resolution?: string | null;
+      duplicate_of?: string | null;
+    };
+    expect(repaired).toMatchObject({
+      status: 'closed',
+      resolution: 'duplicate',
+      duplicate_of: target.internalId,
+    });
+    expect(server.issues.get(link.id)?.state.name).toBe('Duplicate');
+
+    const todo = server.states.find((state) => state.name === 'Todo')!;
+    server.issues.get(link.id)!.state = { ...todo };
+    server.issues.get(link.id)!.updatedAt = new Date(Date.now() + 120_000).toISOString();
+    const reopened = await cli(['integration', 'sync']);
+    expect(reopened.code).toBe(0);
+    const afterReopen = JSON.parse((await cli(['show', subject.id, '--json'])).stdout) as {
+      status: string;
+      resolution?: string | null;
+      duplicate_of?: string | null;
+    };
+    expect(afterReopen.status).toBe('open');
+    expect(afterReopen.resolution).toBeNull();
+    expect(afterReopen.duplicate_of).toBeNull();
+  });
+
+  it('names the tracker surface on an ordinary tbd sync, without --verbose', async () => {
+    // The silent failure behind #265. `tbd sync` documents itself as covering docs,
+    // issues AND enabled trackers, but the tracker line went through `output.info`,
+    // which prints only under --verbose. So a sync that reconciled the tracker and
+    // wrote to it reported nothing about it, and an operator following the documented
+    // session-closing protocol believed the mirror was reconciled when it was not.
+    expect((await cli(['create', 'Tracker line sentinel', '-t', 'epic'])).code).toBe(0);
+
+    const first = await cli(['sync']);
+    expect(first.code).toBe(0);
+    expect(first.stdout).toContain('Integrations (linear)');
+
+    // And it keeps saying so once settled: "ran, nothing to do" and "did not run" are
+    // different answers, and silence cannot tell them apart.
+    const settled = await cli(['sync']);
+    expect(settled.code).toBe(0);
+    expect(settled.stdout).toContain('Integrations (linear): nothing to do');
   });
 
   it('keeps tbd sync --push away from the tracker entirely', async () => {

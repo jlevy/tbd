@@ -49,13 +49,15 @@ tbd is an AI-agent-optimized issue tracker and workflow assistant providing:
 
 tbd is not yet initialized. To set it up, run:
 
-  tbd setup --auto --prefix=<name>   # REQUIRES prefix for new projects
-  tbd setup --auto                   # If .tbd/ already exists (prefix already set)
+[..]
+tbd setup --auto --prefix=<name>
+[..]
 
 CRITICAL: Never guess a prefix. Always ask the user what prefix they want.
-Do NOT tell the user to run these commands; run them yourself on their behalf.
+Do NOT tell the user to run this command; run it yourself on their behalf.
 
-After setup, run 'tbd' again to get project status and workflow guidance.
+After setup, run `tbd shortcut setup-tbd` to review policy choices and finish setup.
+Run `tbd prime` again if you need project status or workflow guidance.
 ? 0
 ```
 
@@ -160,6 +162,80 @@ error: unknown option '--full'
 
 * * *
 
+## Prime with Agent Policy Grants
+
+Prime prints the grants committed on the default branch and names unanswered policies.
+Without a committed tbd block in AGENTS.md it says nothing about grants.
+
+# Test: Prime says nothing about grants without AGENTS.md
+
+```console
+$ tbd prime | grep -c "AGENT POLICY GRANTS"
+0
+? 1
+```
+
+# Test: Record grants in a working tree AGENTS.md
+
+```console
+$ printf '# Project\n\n<!-- BEGIN TBD INTEGRATION -->\n## tbd\n\n<!-- END TBD INTEGRATION -->\n' > AGENTS.md
+? 0
+```
+
+```console
+$ tbd policy grant github-editing && tbd policy set github-merge confirm-session && tbd policy set pr-review-requirements "standard + security"
+✓ Recorded github-editing: granted in AGENTS.md
+  Commit AGENTS.md on main for it to take effect. `tbd policy show` reports effective grants.
+✓ Recorded github-merge: confirm-session in AGENTS.md
+  Commit AGENTS.md on main for it to take effect. `tbd policy show` reports effective grants.
+✓ Recorded pr-review-requirements: standard + security in AGENTS.md
+  Commit AGENTS.md on main for it to take effect. `tbd policy show` reports effective grants.
+? 0
+```
+
+# Test: Uncommitted grants are not effective
+
+```console
+$ tbd prime | grep -c "AGENT POLICY GRANTS"
+0
+? 1
+```
+
+# Test: Prime shows committed grants and unanswered policies
+
+```console
+$ git add AGENTS.md && git commit -q -m "Record grants"
+? 0
+```
+
+```console
+$ tbd prime | sed -n '/=== AGENT POLICY GRANTS ===/,/setup-tbd/p'
+=== AGENT POLICY GRANTS ===
+Effective grants from AGENTS.md on main ...
+  github-editing: granted, github-merge: confirm-session,
+  pr-review-requirements: standard + security
+Unanswered (treated as not-granted; pr-delivery as ask): github-workflows,
+  github-stacked-prs, subagents, pr-delivery, linear
+Ask the user when a task needs one, or run `tbd shortcut setup-tbd` to ask about all.
+? 0
+```
+
+# Test: Prime --brief keeps the grants section
+
+```console
+$ tbd prime --brief | sed -n '/=== AGENT POLICY GRANTS ===/,/setup-tbd/p'
+=== AGENT POLICY GRANTS ===
+Effective grants from AGENTS.md on main ...
+  github-editing: granted, github-merge: confirm-session,
+  pr-review-requirements: standard + security
+Unanswered (treated as not-granted; pr-delivery as ask): github-workflows,
+  github-stacked-prs, subagents, pr-delivery, linear
+Ask the user when a task needs one, or run `tbd shortcut setup-tbd` to ask about all.
+? 0
+```
+
+* * *
+
 ## Prime with --export Flag
 
 # Test: Prime --export outputs default dashboard
@@ -230,7 +306,8 @@ IMPORTANT:
   Agents unfamiliar with tbd should run `tbd prime` for full workflow context.
 
 Getting Started:
-  npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>
+  npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" get-tbd
+  tbd setup --auto --prefix=<name>
 
   This initializes tbd and configures your coding agents automatically.
   To refresh setup (idempotent, safe anytime): `tbd setup --auto`

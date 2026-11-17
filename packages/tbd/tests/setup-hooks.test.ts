@@ -24,11 +24,13 @@ import {
 import { tmpdir, platform } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
+import { subprocessTestTimeout } from './test-helpers.js';
 
 // Shell script hooks are Unix-only; skip entire suite on Windows
 const describeUnix = platform() === 'win32' ? describe.skip : describe;
 
-describeUnix('setup hooks (project-local)', { timeout: 15000 }, () => {
+// Several fixtures run setup twice; budget for subprocess and file I/O under load.
+describeUnix('setup hooks (project-local)', { timeout: subprocessTestTimeout(60_000) }, () => {
   let tempDir: string;
   let fakeHome: string;
   let originalHome: string | undefined;

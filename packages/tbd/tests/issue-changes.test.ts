@@ -57,6 +57,9 @@ function report(
   selection: IssueChangeSelection = { kind: 'all' },
 ) {
   return createIssueChangesReport({
+    // Pinned: the report is pure, so a fixed pair of snapshots must produce a fixed
+    // result. Reading the clock here would reintroduce exactly that dependency.
+    readyAt: Date.parse('2026-08-10T00:00:00.000Z'),
     since: '1'.repeat(40),
     tip: '2'.repeat(40),
     before,

@@ -245,7 +245,6 @@ interface BoardSnapshot {
   byInternalId: Map<string, Issue>;
   byDisplayId: Map<string, Issue>;
   displayIdByInternalId: Map<string, string>;
-  readyIds: ReadonlySet<string>;
 }
 
 interface BoundedChanges {
@@ -611,8 +610,10 @@ export class BoardState {
     byInternalId: new Map(),
     byDisplayId: new Map(),
     displayIdByInternalId: new Map(),
-    readyIds: new Set(),
   };
+  /** Ready ids for the response being built; see `buildBoardResponse`. */
+  private responseReadyIds: ReadonlySet<string> = new Set();
+
   private snapshotState: BoardSnapshotState;
   private reloadTail: Promise<unknown> = Promise.resolve();
 
@@ -687,20 +688,28 @@ export class BoardState {
     const context = this.requireContext();
     const parsed = parseBoardQuery(params, context);
     const queryWithoutLimit = { ...parsed.query, limit: null };
+    // Readiness depends on `deferred_until`, so it is a function of the clock and cannot
+    // be cached on the snapshot. Evaluate it once here and reuse that instant for both
+    // the Ready filter and the per-row marker: two reads would let a deferral elapsing
+    // mid-response show a bead in the Ready view without its ready marker. This method
+    // is synchronous, so no other response can interleave with the field below.
+    const readyAt = this.dependencies.now().getTime();
+    this.responseReadyIds = readyIssueIds(this.snapshot.issues, readyAt);
     const filterFacetPool = (query: IssueQuery): Issue[] =>
-      filterIssues(this.snapshot.issues, query).filter((issue) =>
+      filterIssues(this.snapshot.issues, query, readyAt).filter((issue) =>
         matchesSearch(
           issue,
           this.snapshot.displayIdByInternalId.get(issue.id) ?? issue.id,
           parsed.search,
         ),
       );
-    const selected = selectIssues(this.snapshot.issues, queryWithoutLimit).filter((issue) =>
-      matchesSearch(
-        issue,
-        this.snapshot.displayIdByInternalId.get(issue.id) ?? issue.id,
-        parsed.search,
-      ),
+    const selected = selectIssues(this.snapshot.issues, queryWithoutLimit, readyAt).filter(
+      (issue) =>
+        matchesSearch(
+          issue,
+          this.snapshot.displayIdByInternalId.get(issue.id) ?? issue.id,
+          parsed.search,
+        ),
     );
     const labelFacetPool = filterFacetPool({ ...queryWithoutLimit, labels: [] });
     const statusFacetPool = filterFacetPool({
@@ -717,10 +726,14 @@ export class BoardState {
 
     let closedHidden = 0;
     if (!parsed.query.includeClosed && parsed.query.status !== 'closed') {
-      const includingClosed = selectIssues(this.snapshot.issues, {
-        ...queryWithoutLimit,
-        includeClosed: true,
-      }).filter((issue) =>
+      const includingClosed = selectIssues(
+        this.snapshot.issues,
+        {
+          ...queryWithoutLimit,
+          includeClosed: true,
+        },
+        readyAt,
+      ).filter((issue) =>
         matchesSearch(
           issue,
           this.snapshot.displayIdByInternalId.get(issue.id) ?? issue.id,
@@ -939,7 +952,6 @@ export class BoardState {
         issues.map((issue) => [displayIdByInternalId.get(issue.id) ?? issue.id, issue]),
       ),
       displayIdByInternalId,
-      readyIds: readyIssueIds(issues),
     };
 
     let dataVersion = this.snapshotState.dataVersion;
@@ -991,6 +1003,7 @@ export class BoardState {
         };
         const detailIds = movedInternalIds.slice(0, MAX_LOCAL_CHANGE_DETAILS);
         const rawChanges = createIssueChanges({
+          readyAt: this.dependencies.now().getTime(),
           before,
           after,
           prefix: context.prefix,
@@ -1106,7 +1119,7 @@ export class BoardState {
       labels: [...issue.labels],
       spec_path: issue.spec_path ?? null,
       assignee: issue.assignee ?? null,
-      ready: this.snapshot.readyIds.has(issue.id),
+      ready: this.responseReadyIds.has(issue.id),
       updated_at: issue.updated_at,
       prefix,
     };

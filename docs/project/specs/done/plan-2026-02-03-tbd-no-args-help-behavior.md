@@ -126,7 +126,12 @@ None - design is straightforward.
 
 ## References
 
-- [cli.ts](packages/tbd/src/cli/cli.ts) - Main CLI entry point
-- [output.ts](packages/tbd/src/cli/lib/output.ts) - Help epilog function
-- [SKILL.md](.claude/skills/tbd/SKILL.md) - Agent skill file
-- [tbd-prime.md](packages/tbd/docs/tbd-prime.md) - Prime command documentation
+- [cli.ts](../../../../packages/tbd/src/cli/cli.ts) - Main CLI entry point
+- [output.ts](../../../../packages/tbd/src/cli/lib/output.ts) - Help epilog function
+- [SKILL.md](../../../../.claude/skills/tbd/SKILL.md) - Agent skill file
+- [tbd-prime.md](../../../../packages/tbd/docs/tbd-prime.md) - Prime command
+  documentation
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

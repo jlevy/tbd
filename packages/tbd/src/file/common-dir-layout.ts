@@ -80,7 +80,12 @@ export function isLayoutUpgradeable(layout: CommonDirLayout, config: Config): bo
 export function validateCommonDirLayout(layout: CommonDirLayout, config: Config): void {
   if (!isCompatibleFormat(layout.tbd_format)) {
     throw new CommonDirLayoutError(
-      formatUpgradeMessage('Common-dir layout', layout.tbd_format, CURRENT_FORMAT),
+      formatUpgradeMessage(
+        'Common-dir layout',
+        layout.tbd_format,
+        CURRENT_FORMAT,
+        config.tbd_fallback_version,
+      ),
     );
   }
 

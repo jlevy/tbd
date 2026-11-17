@@ -6,7 +6,7 @@ category: general
 ---
 # Golden Testing Guidelines
 
-**Related**: `tbd guidelines general-tdd-guidelines`
+**Related**: `tbd guidelines general-tdd-guidelines general-testing-rules`
 
 ## TL;DR (What to Do)
 
@@ -30,6 +30,11 @@ category: general
 
 - For CLI tools, use **tryscript** for console-output-based golden tests—run
   `npx tryscript@latest docs` for syntax reference.
+
+- Keep CLI commands, fixtures, and expected output independent of the implementation
+  language when that preserves the same coverage.
+  A Python-to-Rust port should be able to run the same goldens without porting the
+  tests.
 
 ## When to Use Golden Tests
 

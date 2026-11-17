@@ -29,6 +29,7 @@ export const GUIDELINE_CATEGORIES = [
   'general',
   'typescript',
   'python',
+  'rust',
   'convex',
   'desktop',
 ] as const;
@@ -107,7 +108,7 @@ describe('parseCategoryOption', () => {
     // backward-compatibility-rules: the actionable error IS the compatibility
     // surface, so pin its content.
     expect(() => parseCategoryOption('electron')).toThrowError(
-      /Unknown category "electron"\. Valid categories: general, typescript, python, convex, desktop\./,
+      /Unknown category "electron"\. Valid categories: general, typescript, python, rust, convex, desktop\./,
     );
   });
 });

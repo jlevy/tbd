@@ -31,8 +31,13 @@ See [Proxied Remote Sessions](#proxied-remote-sessions) first.
 1. **gh exists but is broken**: `gh --version` or `gh auth status` fails with errors
    - Solution: Reinstall via ensure script (installs fresh copy to ~/.local/bin)
 
-2. **gh exists but wrong version**: Very old gh may lack required features
-   - Solution: Reinstall via ensure script
+2. **gh exists but is too old**: a distro-packaged `gh` is often several minor versions
+   behind, and versions before 2.97.0 carry known security issues (see
+   [Version Floor](#version-floor))
+   - Solution: Reinstall via ensure script.
+     It compares the installed version against the floor and installs the pinned build
+     to `~/.local/bin` when it falls short.
+     A newer `gh` is kept as is; the script never downgrades.
 
 3. **gh works but not authenticated**: `GH_TOKEN` not set or invalid
    - Solution: Set `GH_TOKEN` environment variable before starting session
@@ -45,31 +50,149 @@ See [Proxied Remote Sessions](#proxied-remote-sessions) first.
    session’s proxy, not by GitHub — the token is often perfectly valid.
    - Solution: See [Proxied Remote Sessions](#proxied-remote-sessions)
 
-## Installation
+## Fresh Machine Setup
 
-1. **Run the ensure script:**
+Run these in order on a machine that has never had tbd or `gh` on it.
+Every step is idempotent, so re-running the whole sequence is safe.
+
+1. **Install and verify gh** with the ensure script for the current agent:
+
+   Codex:
+   ```bash
+   bash .codex/ensure-gh-cli.sh
+   ```
+
+   Claude Code:
    ```bash
    bash .claude/scripts/ensure-gh-cli.sh
    ```
-   This script installs gh to `~/.local/bin` and checks authentication.
-   If a session proxy blocks the download, it retries with a scoped `NO_PROXY` bypass
-   automatically.
 
-2. **If the script doesn’t exist:** Run `tbd setup --auto` to reinstall tbd hooks, which
-   includes the gh CLI script.
+   The scripts use the same pinned installer and hardening rules, but each defaults the
+   agent-skill target to its own agent.
 
-3. **Manual installation (fallback):**
+   Installs the pinned `gh` to `~/.local/bin` when `gh` is missing or below the version
+   floor, verifying a pinned SHA-256 checksum before extracting.
+   If a session proxy blocks the download, it retries once with a scoped `NO_PROXY`
+   bypass.
+
+   If the script does not exist, run `tbd setup --auto` to reinstall tbd hooks, which
+   includes it.
+
+2. **Authenticate** (skip if `gh auth status` already passes):
    ```bash
-   # macOS
-   brew install gh
+   gh auth login
+   ```
+   Or set `GH_TOKEN` before starting the session, as described under
+   [Authentication](#authentication).
+   Either is fine; see [Two Ways to Authenticate](#two-ways-to-authenticate).
 
-   # Linux (Debian/Ubuntu)
-   curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-   echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-   sudo apt update && sudo apt install gh
+3. **Install stacked-PR tooling** only when `github-stacked-prs` is granted (see
+   `tbd guidelines agent-policy-grants`; `tbd policy show` reports it).
+   Without the grant, skip this step.
+   Otherwise run the same agent-specific script:
+
+   Codex:
+   ```bash
+   bash .codex/ensure-gh-cli.sh --with-stack
    ```
 
+   Claude Code:
+   ```bash
+   bash .claude/scripts/ensure-gh-cli.sh --with-stack
+   ```
+
+   Installs the `github/gh-stack` extension and its official agent skill, both pinned to
+   `v0.1.0`. This is deliberately not part of the SessionStart hook: it costs network
+   calls that sessions which never stack should not pay.
+   Failures here warn and continue, since stacked PRs are optional.
+   See `tbd shortcut stacked-prs` for when to use them.
+
+   The skill installs at **user scope**, matching the extension, which `gh` also
+   installs per machine rather than per repo.
+   The skill is pinned by commit SHA rather than tag, because a skill is instructions
+   loaded into later sessions rather than inert data.
+   GitHub does not verify skills, so review it before relying on it:
+   `gh skill preview github/gh-stack gh-stack@a1b4a3d4d0bcde9ec3a78ab99b2d63af121857a9`.
+   Note that `gh skill` currently has no uninstall command: to remove it, delete the
+   installed directory, whose location the agent-specific `gh skill list` command in the
+   checklist below reports.
+
+4. **Confirm PATH** if step 1 installed a new binary:
+   ```bash
+   command -v gh    # expect ~/.local/bin/gh, not /usr/bin/gh
+   ```
+   If an older `gh` still wins, put `~/.local/bin` earlier in `PATH`.
+
+### Verification Checklist
+
+Run these after setup.
+Each line states the expected result, so the outcome is pass or fail rather than a
+judgment call:
+
+| Command | Expected |
+| --- | --- |
+| `gh --version` | `2.97.0` or higher |
+| `gh auth status` | `Logged in to github.com` |
+| `gh repo view <owner>/<repo> --json defaultBranchRef -q .defaultBranchRef.name` | the trunk name, e.g. `main` |
+| `gh extension list` | `gh stack  github/gh-stack  v0.1.0` (only after step 3) |
+| `gh skill list --agent codex` | a `gh-stack` row in Codex (only after Codex step 3) |
+| `gh skill list --agent claude-code` | a `gh-stack` row in Claude Code (only after Claude Code step 3) |
+| `gh stack --help` | exits 0 (only after step 3) |
+
+### Version Floor
+
+The script pins `gh` **2.97.0** and refuses anything older.
+That release fixed four advisories, two of which land directly on paths agents use:
+
+- `gh auth status` printed part of the auth token in plaintext for `ghs_*`,
+  `github_pat_*`, and `ghu_*` token formats
+  ([GHSA-cg6r-mpgc-h9mm](https://github.com/cli/cli/security/advisories/GHSA-cg6r-mpgc-h9mm)).
+  This shortcut and every PR shortcut run `gh auth status`, and agents capture its
+  output.
+- `gh api`, `gh pr diff`, and others printed externally controlled content without
+  neutralizing terminal escape sequences
+  ([GHSA-3m3g-3wcr-px46](https://github.com/cli/cli/security/advisories/GHSA-3m3g-3wcr-px46)).
+  The review shortcuts pipe `gh pr diff` and `gh api` output straight into agent
+  context.
+
+The pin stays at least 14 days old per SUPPLY-CHAIN-SECURITY.md, so it lags the newest
+release on purpose. To bump it, pick a release at least 14 days old, copy its checksums
+from
+`https://github.com/cli/cli/releases/download/v<VERSION>/gh_<VERSION>_checksums.txt`,
+and update `GH_VERSION`, `GH_MIN_VERSION`, and `checksum_for()` together.
+
+### Manual Installation (fallback)
+
+```bash
+# macOS
+brew install gh
+
+# Linux (Debian/Ubuntu)
+curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+sudo apt update && sudo apt install gh
+```
+
+Check the resulting version against the floor above.
+Distro packages frequently ship something older.
+
 ## Authentication
+
+### Two Ways to Authenticate
+
+`gh` is authenticated if **either** holds, and the shortcuts work the same way under
+both:
+
+- **`GH_TOKEN` is set** in the environment.
+  Preferred for agent and CI sessions, where there is no interactive login.
+- **Stored credentials** from `gh auth login`, kept in the OS keyring.
+  Usual on a developer laptop.
+
+The ensure script reports which one is in play.
+It only warns when *neither* is present; a machine authenticated through the keyring
+with no `GH_TOKEN` is fully working and is reported as such.
+
+### Setting GH_TOKEN
 
 Set `GH_TOKEN` environment variable with a GitHub personal access token **before**
 starting the session.
@@ -138,10 +261,11 @@ its owner precisely so `gh` can use it here.
    - Ref deletions can silently no-op: the push reports “Everything up-to-date” while
      the remote ref persists.
      Always confirm deletions with `git ls-remote`.
-   - Remedy for all of these: do the ref operation on the direct channel instead, e.g.
-     `gh api repos/{owner}/{repo}/git/refs -f ref=refs/tags/NAME -f sha=SHA` to create a
-     tag and `gh api -X DELETE repos/{owner}/{repo}/git/refs/tags/NAME` to delete one
-     (both verified).
+   - These refusals are the broker’s policy, not faults to work around.
+     Never make the refused ref change another way, such as `gh api .../git/refs` on the
+     direct channel: a `v*` tag can trigger a release workflow, and tags and releases
+     are outside every policy grant (`tbd guidelines agent-policy-grants`). Report the
+     refusal, or the deletion that did not happen, and ask the user to make the change.
 
 2. **Proxied HTTPS to `api.github.com`.** The proxy may intercept GitHub and answer with
    its own 403s. Two intercept behaviors verified in Claude Code Cloud sessions:
@@ -186,9 +310,11 @@ NO_PROXY="api.github.com,github.com,release-assets.githubusercontent.com,objects
 ```
 
 This recipe was verified end to end in an egress-enabled Claude Code Cloud session:
-`gh auth status`, `gh pr list`, `gh release list`, tag creation and deletion via
-`gh api .../git/refs`, and the pinned-checksum binary download all succeed on the direct
-channel while the git broker or proxied channel refuses each of them.
+`gh auth status`, `gh pr list`, `gh release list`, and the pinned-checksum binary
+download all succeed on the direct channel while the git broker or proxied channel
+refuses each of them.
+The direct channel carries the GitHub work the session is already allowed to do; it is
+not a way around the git broker’s ref rules.
 (`release-assets.githubusercontent.com` is the current release-download host;
 `objects.githubusercontent.com` is its predecessor, kept for compatibility.)
 
@@ -214,6 +340,11 @@ report the limitation — do not attempt to tunnel around network policy.
 | --- | --- |
 | `gh: command not found` | Run ensure script or add ~/.local/bin to PATH |
 | `gh --version` fails | gh is broken, reinstall via ensure script |
+| `gh --version` is below 2.97.0 | Run the ensure script; it installs the pinned build to `~/.local/bin` |
+| Ensure script ran but `gh --version` is still old | An older gh precedes `~/.local/bin` in PATH; reorder PATH |
+| `gh: unknown command "stack"` | Extension not installed: if `github-stacked-prs` is granted, run the current agent’s ensure script with `--with-stack` (`.codex/ensure-gh-cli.sh` for Codex or `.claude/scripts/ensure-gh-cli.sh` for Claude Code); otherwise ask the user before installing it |
+| `gh stack view` hangs and never returns | Bare `view` opens a TUI; always pass `--json` |
+| `gh auth status` passes but the hook says GH_TOKEN is unset | Normal: authenticated via the OS keyring instead of a token |
 | `gh auth status` errors and `HTTPS_PROXY` is set | Proxied session: apply the NO_PROXY recipe above before trusting the error |
 | `gh auth status` shows errors (no proxy) | GH_TOKEN not set or invalid |
 | `Bad credentials` | Token expired or lacks permissions |
@@ -221,8 +352,8 @@ report the limitation — do not attempt to tunnel around network policy.
 | 403 with no `x-github-request-id` header | Proxy-manufactured response, not GitHub — see Proxied Remote Sessions |
 | 403 body: “GitHub access is not enabled for this session…” | Mediation-layer message, not the egress policy — run the egress test; if egress is open, use the NO_PROXY recipe |
 | Exports vanish between agent tool calls | Prefix every `gh` command with the `NO_PROXY`/`no_proxy` assignments |
-| Tag push 403s but branch push works | Session git broker blocks `refs/tags` — create the tag on the direct channel via `gh api .../git/refs` |
-| Ref delete reports “Everything up-to-date” but ref persists | Broker silently drops deletions — delete via `gh api -X DELETE .../git/refs/...` and confirm with `git ls-remote` |
+| Tag push 403s but branch push works | Session git broker blocks `refs/tags` on purpose. Do not create the tag another way; report it and ask the user |
+| Ref delete reports “Everything up-to-date” but ref persists | Broker silently drops deletions. Confirm with `git ls-remote`, report it, and ask the user; do not delete through `gh api` |
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
