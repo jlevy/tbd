@@ -43,10 +43,13 @@ and reports `source: session`, but `tbd start` records only the `name`, so neith
 makes two such sessions distinct.
 Use the exact resolved `name` in `update --delegate` and the handoff record.
 
-When a coordinator delegates work, let the coordinator own bead updates and `tbd sync`
-unless the brief explicitly assigns them elsewhere.
+The **coordinator** is the session that delegated the work, or, when no session did, the
+person accountable for the bead: its `assignee`, otherwise the user.
+A coordinator decides in each brief who updates beads and who runs `tbd sync` (the
+Boundaries item in step 4 of `tbd shortcut delegate-to-subagents`). A sub-agent syncs
+its own bead updates unless its brief reserves sync for the coordinator; reserve both
+for the coordinator when one writer on the bead data is wanted.
 Give writers disjoint files or separate worktrees.
-All worktrees attached to one clone see the same bead data.
 
 ## Claim Before Editing
 
@@ -126,9 +129,8 @@ acknowledgment.
 ## Take Over Deliberately
 
 Do not infer abandonment from elapsed time.
-The coordinator or accountable person confirms that the prior collaborator stopped,
-re-reads the bead, records the reason in the bead or handoff, and changes `delegate`
-explicitly:
+The coordinator confirms that the prior collaborator stopped, re-reads the bead, records
+the reason in the bead or handoff, and changes `delegate` explicitly:
 
 ```bash
 tbd whoami --as <incoming-name> --json  # Resolve and verify a unique recipient name
