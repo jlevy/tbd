@@ -369,4 +369,26 @@ describe('tbd sync --status is read-only (tbd-incg)', () => {
     },
     TIMEOUT_MS,
   );
+
+  it(
+    "raises the writer's error over a worktree it cannot repair",
+    async () => {
+      const fixture = await initRepo();
+      removeWorktree(fixture);
+      await mkdir(join(fixture.sharedWorktreePath, 'stray'), { recursive: true });
+      const errorLine = (stderr: string) =>
+        stderr.split('\n').find((line) => line.includes('Shared data-sync worktree is corrupted'));
+      const writer = spawnTbd(fixture.dir, ['sync', '--issues']);
+      expect(writer.status).toBe(1);
+      for (const args of [
+        ['sync', '--issues', '--status'],
+        ['sync', '--issues', '--status', '--dry-run'],
+      ]) {
+        const status = spawnTbd(fixture.dir, args);
+        expect(status.status, args.join(' ')).toBe(1);
+        expect(errorLine(status.stderr), args.join(' ')).toBe(errorLine(writer.stderr));
+      }
+    },
+    TIMEOUT_MS,
+  );
 });

@@ -129,12 +129,19 @@ async function probeDataSyncReadiness(tbdRoot: string): Promise<DataSyncProbe> {
 }
 
 /**
- * Whether a writer can prepare this worktree state itself. As in
- * `ensureSharedDataSyncLayout`: a `missing` or `prunable` worktree is re-created, and
- * any other invalid state stops with {@link unrepairableWorktreeError}.
+ * The repair a writer makes for this worktree state, the one rule writers, dry runs,
+ * and `tbd sync --status` share: none for a valid worktree, re-creation for a
+ * `missing` or `prunable` one, and {@link unrepairableWorktreeError} for any other
+ * invalid state, which only `tbd doctor --fix` repairs.
  */
-function isRepairableWorktree(health: WorktreeHealth): boolean {
-  return health.valid || health.status === 'missing' || health.status === 'prunable';
+function worktreeRepair(health: WorktreeHealth): 'missing' | 'prunable' | null {
+  if (health.valid) {
+    return null;
+  }
+  if (health.status === 'missing' || health.status === 'prunable') {
+    return health.status;
+  }
+  throw unrepairableWorktreeError(health);
 }
 
 /** The error a writer raises for a worktree it cannot repair; dry runs raise the same one. */
@@ -156,28 +163,25 @@ async function ensureSharedDataSyncLayout(
   probe: DataSyncProbe,
 ): Promise<WorktreeStatus | undefined> {
   let repairedWorktreeStatus: WorktreeStatus | undefined;
-  if (!probe.health.valid) {
-    if (probe.health.status === 'missing' || probe.health.status === 'prunable') {
-      const repairResult = await repairWorktree(
-        tbdRoot,
-        probe.health.status,
-        probe.config.sync.remote,
-        probe.config.sync.branch,
+  const repair = worktreeRepair(probe.health);
+  if (repair) {
+    const repairResult = await repairWorktree(
+      tbdRoot,
+      repair,
+      probe.config.sync.remote,
+      probe.config.sync.branch,
+    );
+    if (repairResult.backedUp && !quietNoticesActive()) {
+      process.stderr.write(
+        `• Preserved the damaged tbd-sync worktree at ${repairResult.backedUp}. ` +
+          `Unsynced files were not restored automatically; review the backup to recover them.\n`,
       );
-      if (repairResult.backedUp && !quietNoticesActive()) {
-        process.stderr.write(
-          `• Preserved the damaged tbd-sync worktree at ${repairResult.backedUp}. ` +
-            `Unsynced files were not restored automatically; review the backup to recover them.\n`,
-        );
-      }
-      if (!repairResult.success) {
-        throw new Error(`Failed to initialize shared data-sync worktree: ${repairResult.error}`);
-      }
-      notifyHistoricalDataRestored(repairResult.restoredDataFiles);
-      repairedWorktreeStatus = probe.health.status;
-    } else {
-      throw unrepairableWorktreeError(probe.health);
     }
+    if (!repairResult.success) {
+      throw new Error(`Failed to initialize shared data-sync worktree: ${repairResult.error}`);
+    }
+    notifyHistoricalDataRestored(repairResult.restoredDataFiles);
+    repairedWorktreeStatus = repair;
   }
   if (probe.health.valid && !probe.dataSyncReady) {
     const initResult = await initWorktree(
@@ -308,9 +312,7 @@ export interface DataSyncInspection {
  */
 export async function inspectDataSyncState(tbdRoot: string): Promise<DataSyncInspection> {
   const probe = await probeDataSyncReadiness(tbdRoot);
-  if (!isRepairableWorktree(probe.health)) {
-    throw unrepairableWorktreeError(probe.health);
-  }
+  worktreeRepair(probe.health);
   return {
     config: probe.config,
     sharedPaths: probe.sharedPaths,
