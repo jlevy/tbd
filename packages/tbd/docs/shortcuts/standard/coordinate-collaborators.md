@@ -153,6 +153,7 @@ The coordinator confirms that the prior collaborator stopped, re-reads the bead,
 the reason in its notes (read first, as above), and changes `delegate` explicitly:
 
 ```bash
+tbd sync --pull                       # Receive the prior collaborator's last checkpoint
 tbd whoami --as <incoming-name> --json  # Resolve and verify a unique recipient name
 tbd update <id> --delegate <resolved-name>
 tbd sync                              # Publish the reassignment
