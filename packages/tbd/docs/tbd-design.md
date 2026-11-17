@@ -5607,20 +5607,24 @@ so every Codex command is a `bash -c` wrapper that walks up from the working dir
 to the nearest `.git`, Codex’s project root, and runs that root’s own script (see C
 below).
 
-A project may spell a command differently when it runs the same script with the same
-arguments from the same anchor, for example
+On Claude Code, a project may spell a command differently when it runs the same script
+with the same arguments from the same anchor, for example
 `bash "${CLAUDE_PROJECT_DIR}"/.claude/scripts/tbd-session.sh`, in a `command` handler
 under the generated matcher.
 Setup keeps such a command as written, adds no duplicate beside it, and reports it as a
 customized hook command.
+Codex has no anchor, so the generated wrapper is the only Codex spelling setup keeps.
 A spelling that finds the script from the working directory or its Git checkout
 (`bash ./.claude/...`, `bash "$(git rev-parse --show-toplevel)/.codex/..."`), or one
 under another matcher or handler type, is still tbd’s: setup replaces it with the
 generated command, and `tbd doctor` reports a Codex hooks file holding one as stale.
 In a nested checkout such as a third-party clone under `attic/`, those spellings would
 run the clone’s script.
-A command that adds anything else (another command, other arguments) is the project’s
-own and does not stand in for tbd’s.
+A command that adds anything else (another command, a redirection, other arguments)
+never stands in for tbd’s. On Claude Code, setup replaces every handler whose command
+names tbd’s session or closing script, so it replaces such a command with the generated
+one too. On Codex, tbd owns only exact commands, so setup keeps such a command as the
+project’s own and adds the generated command beside it.
 
 **B. Session Script** (installed to `.claude/scripts/tbd-session.sh`)
 

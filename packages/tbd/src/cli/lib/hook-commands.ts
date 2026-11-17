@@ -20,7 +20,11 @@
  *   a Codex hooks file that holds one as stale.
  *
  * Only these exact spellings count. A command that adds anything else (another
- * command, a redirection, different arguments) stays the user's own command.
+ * command, a redirection, different arguments) never stands in for a generated one. On
+ * Claude Code, setup replaces every handler whose command names tbd's session or
+ * closing script, so it replaces such a command too. On Codex, tbd owns only exact
+ * commands, so such a command stays the user's own and setup adds the generated command
+ * beside it.
  */
 
 /** Project-root expression for the working directory's Git checkout: unanchored. */
