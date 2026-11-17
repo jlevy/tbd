@@ -789,6 +789,32 @@ describe('tbd setup --policies', () => {
     CLI_TEST_TIMEOUT_MS,
   );
 
+  it.each([
+    { answered: ['policy', 'revoke', 'pr-delivery'], unanswered: 'linear' },
+    { answered: ['policy', 'set', 'linear', 'epics'], unanswered: 'pr-delivery' },
+  ])(
+    'names the one opt-in policy left unanswered ($unanswered)',
+    async ({ answered, unanswered }) => {
+      const dir = await setUpRepo();
+      const recorded = runTbd(dir, answered);
+      expect(recorded.status, recorded.stderr).toBe(0);
+
+      const result = runTbd(dir, ['setup', '--policies=recommended', '--surfaces=agents-md']);
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toContain(
+        `  ${unanswered} is not in the recommended set and stays unanswered; ask the user separately.\n`,
+      );
+      expect(result.stdout).not.toContain('stay unanswered');
+      const statuses = resolvePolicyStatuses(
+        parsePolicyBlock(await readFile(join(dir, 'AGENTS.md'), 'utf-8')),
+      );
+      expect(statuses.filter((status) => !status.answered).map((status) => status.name)).toEqual([
+        unanswered,
+      ]);
+    },
+    CLI_TEST_TIMEOUT_MS,
+  );
+
   it(
     'reports the grants it would record under --dry-run and writes nothing',
     async () => {
