@@ -2148,7 +2148,9 @@ elements.viewChooser.addEventListener('keydown', (event) => {
   };
   const step = steps[event.key];
   const current = viewChoiceButtons.findIndex((button) => button === document.activeElement);
-  if (step === undefined || current < 0) {
+  // With Alt, Ctrl, or Meta the arrow belongs to the browser (Alt+Left and Meta+Left are
+  // Back); a native radio group moves only on plain and Shift arrows.
+  if (step === undefined || current < 0 || event.altKey || event.ctrlKey || event.metaKey) {
     return;
   }
   event.preventDefault();

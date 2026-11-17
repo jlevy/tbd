@@ -389,7 +389,8 @@ class Page {
     return (metrics.find((metric) => metric.name === 'TaskDuration')?.value ?? 0) * 1_000;
   }
 
-  async press(name) {
+  /** A real key press; `modifiers` is the DevTools bitmask (Alt 1, Ctrl 2, Meta 4, Shift 8). */
+  async press(name, modifiers = 0) {
     const keys = {
       Enter: { key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' },
       Space: { key: ' ', code: 'Space', windowsVirtualKeyCode: 32, text: ' ' },
@@ -404,6 +405,7 @@ class Page {
       code: key.code,
       windowsVirtualKeyCode: key.windowsVirtualKeyCode,
       nativeVirtualKeyCode: key.windowsVirtualKeyCode,
+      modifiers,
     };
     await this.send('Input.dispatchKeyEvent', {
       type: key.text === undefined ? 'rawKeyDown' : 'keyDown',
@@ -1032,6 +1034,35 @@ try {
       JSON.stringify([start, right, left]) ===
         JSON.stringify([expected('list'), expected('workmap'), expected('list')]),
       `Chooser states: ${JSON.stringify([start, right, left])}`,
+    );
+
+    // Alt, Ctrl, or Meta with an arrow belongs to the browser (Alt+Left and Meta+Left
+    // are Back), as in a native radio group; only plain and Shift arrows choose.
+    const modified = [];
+    for (const [name, modifiers] of [
+      ['Alt', 1],
+      ['Ctrl', 2],
+      ['Meta', 4],
+    ]) {
+      await viewer.press('ArrowRight', modifiers);
+      const after = await viewer.evaluate(chooser);
+      const prevented = await viewer.evaluate(`(() => {
+        const event = new KeyboardEvent('keydown', {
+          key: 'ArrowRight',
+          bubbles: true,
+          cancelable: true,
+          ${name.toLowerCase()}Key: true,
+        });
+        document.activeElement.dispatchEvent(event);
+        return event.defaultPrevented;
+      })()`);
+      modified.push({ name, view: after.view, focused: after.focused, prevented });
+    }
+    invariant(
+      modified.every(
+        (entry) => entry.view === 'list' && entry.focused === 'list' && !entry.prevented,
+      ),
+      `Modified arrows: ${JSON.stringify(modified)}`,
     );
     await cdp.send('Target.disposeBrowserContext', { browserContextId });
   });
