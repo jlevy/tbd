@@ -175,6 +175,15 @@
        Refresh failures keep the last successful rows visible and change the persistent
        observer pill to an error state until a successful board response clears it.
 
+     Workmap (.workmap-group, .workmap-card)
+       The same served rows as the list, grouped by a label prefix the data states.
+       Cards reuse the status, priority, mono id, section-heading, and row-disclosure
+       roles; only layout is new. One delegated click handler owns card expansion, and
+       each card's native disclosure button carries keyboard activation. The list's
+       page window bounds mounted cards. Renders reuse keyed card nodes, rebuild a card
+       only when its face changes, move the fewest nodes, and restore focus by bead ID
+       and control role.
+
      Typography and expansion (--weight-medium, --weight-strong)
        The complete type scale is 15px page title, 14px body/content, and one
        12px compact size for chrome and dense data—never ad-hoc intermediate
@@ -924,6 +933,7 @@ label.check {
 }
 #workmapwrap {
   padding: 12px 16px;
+  scroll-margin-top: 60px;
 }
 #workmapgroups {
   display: grid;
@@ -1262,6 +1272,12 @@ td.caret {
   color: var(--muted);
   background: transparent;
   transform: translateY(var(--row-disclosure-offset-y));
+}
+/* Workmap cards reuse the row disclosure, centered on the card's first line instead of
+   offset to a table baseline. */
+.workmap-card-head > .disclosure {
+  align-self: center;
+  transform: none;
 }
 tr.board-page-row > td {
   background: var(--panel);

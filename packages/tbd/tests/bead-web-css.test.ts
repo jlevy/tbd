@@ -353,6 +353,37 @@ describe('chevron icon system', () => {
   });
 });
 
+describe('workmap interaction', () => {
+  it('gives every card the shared native disclosure and the board toggle and focus paths', async () => {
+    const [css, client] = await Promise.all([readStyleBlock(), readFile(clientPath, 'utf8')]);
+    expect(client).toContain("disclosure.className = 'disclosure'");
+    expect(client).toContain("mounted.disclosure.setAttribute('aria-expanded', String(open))");
+    expect(client).toContain("elements.workmapGroups.addEventListener('click', (event) => {");
+    expect(client).toContain("target.closest('.disclosure') === null");
+    expect(client).not.toMatch(
+      /(?:card|disclosure|element)\.addEventListener\('(?:click|keydown)'/u,
+    );
+    expect(client).toContain('captureBeadFocus(WORKMAP_CARD_SELECTOR)');
+    expect(client).toContain('focusBeadControl(workmapCards.get(focus.beadId)?.element, focus)');
+    // Layout only: the card reuses the row disclosure primitive rather than a new control.
+    expect(blockAfter(css, '.workmap-card-head > .disclosure')).toContain('align-self: center');
+  });
+
+  it('mounts one page window of keyed cards and writes view choices to the address', async () => {
+    const client = await readFile(clientPath, 'utf8');
+    expect(client).toContain(
+      'paginateWorkmap(workmapProjection(board.rows, prefix), boardPageIndex)',
+    );
+    expect(client).toContain("renderPageControls(page, 'Cards')");
+    expect(client).toContain(
+      'reconcileChildren(mountedSection.element, mountedSection.name, cardElements)',
+    );
+    expect(client).toContain('workmapCardSignature(card)');
+    expect(client).toContain('window.history.replaceState(');
+    expect(client.match(/writeBoardViewAddress\(\);/gu)).toHaveLength(2);
+  });
+});
+
 describe('literal copy affordance', () => {
   it('reveals one accessible copy primitive for commands and literal values', async () => {
     const [css, client, page] = await Promise.all([

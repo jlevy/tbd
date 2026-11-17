@@ -13,6 +13,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { subprocessTestTimeout } from './test-helpers.js';
 import { webUrlWithView } from '../src/cli/commands/web.js';
+import { resolveBoardViewChoice } from '../src/web/core.js';
 
 describe('web view URL options', () => {
   it('passes through untouched with no view options', () => {
@@ -29,6 +30,22 @@ describe('web view URL options', () => {
     expect(webUrlWithView('http://127.0.0.1:7777', { view: 'list', groupPrefix: 'area:' })).toBe(
       'http://127.0.0.1:7777/?view=list&group=area%3A',
     );
+  });
+
+  it('opens on the view each link names, over a disagreeing stored preference', () => {
+    const stored = { view: 'list', group: 'stored:' };
+    const opened = (options: Parameters<typeof webUrlWithView>[1]) =>
+      resolveBoardViewChoice(new URL(webUrlWithView('http://127.0.0.1:7777', options)).search, {
+        ...stored,
+        view: options.view === 'list' ? 'workmap' : 'list',
+      });
+    expect(opened({ view: 'workmap' })).toEqual({ view: 'workmap', group: 'stored:' });
+    expect(opened({ view: 'list' })).toEqual({ view: 'list', group: 'stored:' });
+    expect(opened({ groupPrefix: 'area:' })).toEqual({ view: 'workmap', group: 'area:' });
+    expect(opened({ view: 'list', groupPrefix: 'team:' })).toEqual({
+      view: 'list',
+      group: 'team:',
+    });
   });
 });
 

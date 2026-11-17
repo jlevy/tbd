@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   BOARD_PAGE_SIZE,
+  boardViewSearch,
   buildQueryString,
   caveatsFor,
   createClientStore,
@@ -17,14 +18,20 @@ import {
   MAX_GHOST_ROWS,
   formatRelativeAge,
   isDefaultBoardSort,
+  keyedOrderKeepers,
   labelSearchValueForRender,
   paginateBoardRows,
+  paginateWorkmap,
   phaseLabel,
   preserveLabelSearchEditingKey,
   promoteBoardSort,
+  resolveBoardViewChoice,
+  workmapCardSignature,
+  workmapSectionCount,
 } from '../src/web/core.js';
 import type {
   BoardControls,
+  BoardViewChoiceView,
   BoardResponse,
   BoardRowView,
   ClientStorage,
@@ -980,5 +987,174 @@ describe('workmap projection', () => {
       { value: 'area:', count: 2 },
       { value: 'phase:', count: 1 },
     ]);
+  });
+});
+
+describe('workmap page window', () => {
+  const seed = board(state()).rows[0]!;
+  const row = (id: string, labels: string[]): BoardRowView => ({ ...seed, id, labels });
+  const rows = (prefix: string, count: number, labels: string[]): BoardRowView[] =>
+    Array.from({ length: count }, (_, index) => row(`${prefix}-${index}`, labels));
+
+  it('mounts at most one list page of cards, in reading order, keeping split totals honest', () => {
+    const projection = projectWorkmap(
+      [
+        ...rows('big', BOARD_PAGE_SIZE - 1, ['area:big']),
+        ...rows('small', 3, ['area:small']),
+        row('both', ['area:big', 'area:small']),
+        row('none', []),
+      ],
+      'area:',
+    );
+    const pages = [0, 1].map((pageIndex) => paginateWorkmap(projection, pageIndex));
+    const shape = pages.map((page) =>
+      page.sections.map((section) => ({
+        key: section.key,
+        count: workmapSectionCount(section),
+        first: section.cards[0]?.row.id,
+      })),
+    );
+    expect(shape).toEqual([
+      [
+        { key: 'group:big', count: String(BOARD_PAGE_SIZE - 1), first: 'big-0' },
+        { key: 'group:small', count: '1 of 3', first: 'small-0' },
+      ],
+      [
+        { key: 'group:small', count: '2 of 3', first: 'small-1' },
+        { key: 'conflicting', count: '1', first: 'both' },
+        { key: 'ungrouped', count: '1', first: 'none' },
+      ],
+    ]);
+    expect(pages.map((page) => [page.pageIndex, page.pageCount, page.start, page.end])).toEqual([
+      [0, 2, 0, BOARD_PAGE_SIZE],
+      [1, 2, BOARD_PAGE_SIZE, BOARD_PAGE_SIZE + 4],
+    ]);
+    const mounted = pages.flatMap((page) =>
+      page.sections.flatMap((section) => section.cards.map((card) => card.row.id)),
+    );
+    expect(mounted).toHaveLength(BOARD_PAGE_SIZE + 4);
+    expect(new Set(mounted).size).toBe(mounted.length);
+    expect(pages[1]!.sections[1]!.cards[0]!.conflictLabels).toEqual(['area:big', 'area:small']);
+  });
+
+  it('clamps a stale page like the list, and has nothing to mount without a prefix', () => {
+    const projection = projectWorkmap([row('one', ['area:x'])], 'area:');
+    expect(paginateWorkmap(projection, 7).pageIndex).toBe(0);
+    expect(paginateWorkmap(projection, 7).sections.map((section) => section.key)).toEqual([
+      'group:x',
+    ]);
+    expect(paginateWorkmap(projectWorkmap([row('one', ['area:x'])], ''), 0).sections).toEqual([]);
+  });
+
+  it('signs exactly what a card face shows, so refreshed but unchanged rows are reused', () => {
+    const card = { row: row('web-1', ['area:x']), conflictLabels: null };
+    const signature = workmapCardSignature(card);
+    // A refresh delivers new objects; fields the card face does not show must not matter.
+    expect(
+      workmapCardSignature({
+        row: { ...card.row, labels: ['area:x', 'extra'], updated_at: '2026-09-01T00:00:00Z' },
+        conflictLabels: null,
+      }),
+    ).toBe(signature);
+    for (const changed of [
+      { ...card, row: { ...card.row, title: 'Retitled' } },
+      { ...card, row: { ...card.row, status: 'blocked' as const } },
+      { ...card, row: { ...card.row, priority: 0 } },
+      { ...card, conflictLabels: ['area:x', 'area:y'] },
+    ]) {
+      expect(workmapCardSignature(changed)).not.toBe(signature);
+    }
+  });
+});
+
+describe('keyed workmap reorder plan', () => {
+  it('moves one traveling card once in either direction and never keeps a new node', () => {
+    expect([...keyedOrderKeepers([0, 1, 2, 3])].sort()).toEqual([0, 1, 2, 3]);
+    // The first card moved to the end, or the last to the front: one move either way.
+    expect([...keyedOrderKeepers([1, 2, 3, 0])].sort()).toEqual([0, 1, 2]);
+    expect([...keyedOrderKeepers([3, 0, 1, 2])].sort()).toEqual([1, 2, 3]);
+    // A replaced or newly mounted card (-1) is always inserted.
+    expect([...keyedOrderKeepers([-1, 0, -1, 1])].sort()).toEqual([1, 3]);
+    expect(keyedOrderKeepers([2, 1, 0]).size).toBe(1);
+    expect(keyedOrderKeepers([]).size).toBe(0);
+  });
+
+  it('keeps a longest in-order run for arbitrary reorders (fixed-seed oracle check)', () => {
+    let seed = 20_261_117;
+    const random = (limit: number): number => {
+      seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
+      return seed % limit;
+    };
+    for (let trial = 0; trial < 200; trial += 1) {
+      const size = random(12);
+      const order = Array.from({ length: size }, (_, index) => index);
+      for (let index = size - 1; index > 0; index -= 1) {
+        const swap = random(index + 1);
+        [order[index], order[swap]] = [order[swap]!, order[index]!];
+      }
+      const indices = order.map((value) => (random(5) === 0 ? -1 : value));
+      const keep = [...keyedOrderKeepers(indices)].sort((a, b) => a - b);
+      const kept = keep.map((position) => indices[position]!);
+      expect(
+        kept.every((value, index) => value >= 0 && (index === 0 || value > kept[index - 1]!)),
+        `seed trial ${trial}: ${JSON.stringify(indices)}`,
+      ).toBe(true);
+      // O(n^2) longest strictly increasing run over the mounted (non-negative) entries.
+      const best = indices.map(() => 0);
+      for (let end = 0; end < indices.length; end += 1) {
+        if (indices[end]! < 0) {
+          continue;
+        }
+        best[end] = 1;
+        for (let start = 0; start < end; start += 1) {
+          if (indices[start]! >= 0 && indices[start]! < indices[end]!) {
+            best[end] = Math.max(best[end]!, best[start]! + 1);
+          }
+        }
+      }
+      expect(keep.length, `seed trial ${trial}: ${JSON.stringify(indices)}`).toBe(
+        Math.max(0, ...best),
+      );
+    }
+  });
+});
+
+describe('board view choice in the page address', () => {
+  it('lets an explicit address win over storage, falling through absent or unknown values', () => {
+    expect(
+      resolveBoardViewChoice('?view=workmap&group=team%3A', { view: 'list', group: 'area:' }),
+    ).toEqual({ view: 'workmap', group: 'team:' });
+    expect(
+      resolveBoardViewChoice('?view=kanban&group=', { view: 'workmap', group: 'area:' }),
+    ).toEqual({ view: 'workmap', group: 'area:' });
+    expect(resolveBoardViewChoice('', { view: 'bogus', group: null })).toEqual({
+      view: 'list',
+      group: '',
+    });
+  });
+
+  it('writes each in-page choice into the address so a reload or a shared link restores it', () => {
+    // Storage disagrees with every choice, as in a fresh profile or another viewer's.
+    const otherViewer = { view: 'list', group: 'other:' };
+    const choices: BoardViewChoiceView[] = [
+      { view: 'list', group: '' },
+      { view: 'workmap', group: '' },
+      { view: 'workmap', group: 'area:' },
+      { view: 'list', group: 'team:' },
+    ];
+    for (const start of ['', '?view=workmap&group=area%3A', '?debug=1&view=list']) {
+      for (const choice of choices) {
+        const search = boardViewSearch(start, choice);
+        const restored = resolveBoardViewChoice(search, otherViewer);
+        expect({ start, choice: restored }).toEqual({
+          start,
+          choice: { view: choice.view, group: choice.group === '' ? 'other:' : choice.group },
+        });
+        expect(new URLSearchParams(search).get('debug')).toBe(start.includes('debug') ? '1' : null);
+      }
+    }
+    expect(boardViewSearch('?view=list&group=area%3A', { view: 'workmap', group: '' })).toBe(
+      '?view=workmap',
+    );
   });
 });

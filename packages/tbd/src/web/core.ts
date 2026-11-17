@@ -447,6 +447,213 @@ export function projectWorkmap(
   return projection;
 }
 
+/** The renderings of one board response the page offers; switching changes no request. */
+export type BoardViewModeView = 'list' | 'workmap';
+export const BOARD_VIEW_MODES: readonly BoardViewModeView[] = ['list', 'workmap'];
+/** Page-address parameters; `tbd web --view` and `--group-prefix` write the same ones. */
+export const BOARD_VIEW_PARAM = 'view';
+export const WORKMAP_GROUP_PARAM = 'group';
+
+/** A board view choice as the page address and the stored preferences carry it. */
+export interface BoardViewChoiceView {
+  view: BoardViewModeView;
+  /** The chosen workmap grouping prefix; empty when none was chosen. */
+  group: string;
+}
+
+/** Raw stored preferences; either may be missing or hold a stale, invalid value. */
+export interface StoredBoardViewChoice {
+  view: string | null;
+  group: string | null;
+}
+
+function knownBoardViewMode(value: string | null): BoardViewModeView | null {
+  return BOARD_VIEW_MODES.find((mode) => mode === value) ?? null;
+}
+
+/**
+ * Resolve the board view a page load starts in. An explicit address wins over the stored
+ * preference, so an opened or shared link shows what it names; an absent, empty, or
+ * unknown value falls through to storage, then to the list with no chosen grouping.
+ */
+export function resolveBoardViewChoice(
+  search: string,
+  stored: StoredBoardViewChoice,
+): BoardViewChoiceView {
+  const query = new URLSearchParams(search);
+  const group = [query.get(WORKMAP_GROUP_PARAM), stored.group].find(
+    (value): value is string => value !== null && value !== '',
+  );
+  return {
+    view:
+      knownBoardViewMode(query.get(BOARD_VIEW_PARAM)) ?? knownBoardViewMode(stored.view) ?? 'list',
+    group: group ?? '',
+  };
+}
+
+/**
+ * The page query string (`location.search` form) that states `choice`, keeping every
+ * unrelated parameter. The page writes it after each in-page view or grouping choice, so
+ * reloading, copying, or sharing the address reproduces that choice.
+ */
+export function boardViewSearch(search: string, choice: BoardViewChoiceView): string {
+  const query = new URLSearchParams(search);
+  query.set(BOARD_VIEW_PARAM, choice.view);
+  if (choice.group === '') {
+    query.delete(WORKMAP_GROUP_PARAM);
+  } else {
+    query.set(WORKMAP_GROUP_PARAM, choice.group);
+  }
+  return `?${query.toString()}`;
+}
+
+/** Which bucket of a workmap projection a section shows. */
+export type WorkmapSectionKindView = 'group' | 'conflicting' | 'ungrouped';
+
+/** One card of a workmap page. */
+export interface WorkmapCardView {
+  row: BoardRowView;
+  /** The literal labels a conflicting row states under the prefix; null otherwise. */
+  conflictLabels: string[] | null;
+}
+
+/** One bucket's cards within a workmap page window. */
+export interface WorkmapSectionView {
+  /** Stable identity across renders: `group:<value>`, `conflicting`, or `ungrouped`. */
+  key: string;
+  kind: WorkmapSectionKindView;
+  /** The group value; empty for the conflicting and ungrouped buckets. */
+  value: string;
+  /** Every row in the bucket, including rows that fall on other pages. */
+  total: number;
+  cards: WorkmapCardView[];
+}
+
+/** One bounded workmap paint window, in the list's page geometry. */
+export interface WorkmapPageView extends Omit<BoardPageView, 'rows'> {
+  sections: WorkmapSectionView[];
+}
+
+/**
+ * Select one bounded paint window of a workmap: the list's page window
+ * (`paginateBoardRows`) applied to the projection's reading order (groups, then
+ * conflicts, then ungrouped rows), so the workmap never mounts more cards than the list
+ * mounts rows and every served row stays reachable. A bucket split across pages keeps
+ * its full total. With no prefix there is nothing to group by, so the window is empty.
+ */
+export function paginateWorkmap(
+  projection: WorkmapProjectionView,
+  requestedPageIndex: number,
+): WorkmapPageView {
+  const buckets: WorkmapSectionView[] = [];
+  if (projection.prefix.trim() !== '') {
+    for (const group of projection.groups) {
+      buckets.push({
+        key: `group:${group.value}`,
+        kind: 'group',
+        value: group.value,
+        total: group.rows.length,
+        cards: group.rows.map((row) => ({ row, conflictLabels: null })),
+      });
+    }
+    if (projection.conflicted.length > 0) {
+      buckets.push({
+        key: 'conflicting',
+        kind: 'conflicting',
+        value: '',
+        total: projection.conflicted.length,
+        cards: projection.conflicted.map(({ row, values }) => ({
+          row,
+          conflictLabels: values.map((value) => projection.prefix + value),
+        })),
+      });
+    }
+    if (projection.ungrouped.length > 0) {
+      buckets.push({
+        key: 'ungrouped',
+        kind: 'ungrouped',
+        value: '',
+        total: projection.ungrouped.length,
+        cards: projection.ungrouped.map((row) => ({ row, conflictLabels: null })),
+      });
+    }
+  }
+  const page = paginateBoardRows(
+    buckets.flatMap((bucket) => bucket.cards.map((card) => card.row)),
+    requestedPageIndex,
+  );
+  const sections: WorkmapSectionView[] = [];
+  let offset = 0;
+  for (const bucket of buckets) {
+    const from = Math.max(page.start, offset);
+    const to = Math.min(page.end, offset + bucket.total);
+    if (from < to) {
+      sections.push({ ...bucket, cards: bucket.cards.slice(from - offset, to - offset) });
+    }
+    offset += bucket.total;
+  }
+  return {
+    sections,
+    pageIndex: page.pageIndex,
+    pageCount: page.pageCount,
+    start: page.start,
+    end: page.end,
+    total: page.total,
+  };
+}
+
+/**
+ * Everything a collapsed workmap card displays. A refreshed board delivers new row
+ * objects for unchanged beads; equal signatures let a render keep the mounted card.
+ */
+export function workmapCardSignature(card: WorkmapCardView): string {
+  const { row } = card;
+  return JSON.stringify([row.id, row.status, row.priority, row.title, card.conflictLabels]);
+}
+
+/**
+ * Plan a keyed reorder. `currentIndices[i]` is the current position of the node wanted at
+ * position `i`, or -1 for a node not mounted yet. The returned positions form the longest
+ * run already in order, so leaving them in place and moving only the rest reorders with
+ * the fewest moves: one card that travels costs one move in either direction.
+ */
+export function keyedOrderKeepers(currentIndices: readonly number[]): Set<number> {
+  // Patience sorting: tails[k] ends the best increasing run of length k + 1, and
+  // previous[] links each position to its predecessor in that run.
+  const tails: number[] = [];
+  const previous = new Array<number>(currentIndices.length).fill(-1);
+  for (let position = 0; position < currentIndices.length; position += 1) {
+    const value = currentIndices[position]!;
+    if (value < 0) {
+      continue;
+    }
+    let low = 0;
+    let high = tails.length;
+    while (low < high) {
+      const middle = (low + high) >> 1;
+      if (currentIndices[tails[middle]!]! < value) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    previous[position] = low > 0 ? tails[low - 1]! : -1;
+    tails[low] = position;
+  }
+  const keep = new Set<number>();
+  for (let position = tails.at(-1) ?? -1; position >= 0; position = previous[position]!) {
+    keep.add(position);
+  }
+  return keep;
+}
+
+/** A section's visible count: the bucket total, or the shown share of a split bucket. */
+export function workmapSectionCount(section: WorkmapSectionView): string {
+  return section.cards.length === section.total
+    ? String(section.total)
+    : `${section.cards.length} of ${section.total}`;
+}
+
 const DEFAULT_SORT_DIRECTIONS: Readonly<Record<BoardSortKeyView, BoardSortDirectionView>> = {
   id: 'asc',
   priority: 'asc',

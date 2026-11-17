@@ -1,5 +1,7 @@
 import { STATUS_ICONS } from '../lib/status-icons.js';
 import {
+  BOARD_VIEW_MODES,
+  boardViewSearch,
   caveatsFor,
   createClientStore,
   DEFAULT_BOARD_SORTS,
@@ -8,22 +10,30 @@ import {
   formatDeltaValue,
   formatRelativeAge,
   isDefaultBoardSort,
+  keyedOrderKeepers,
   labelSearchValueForRender,
   MAX_EXPANDED_ROWS,
   paginateBoardRows,
+  paginateWorkmap,
   phaseLabel,
   preserveLabelSearchEditingKey,
   projectWorkmap,
   promoteBoardSort,
+  resolveBoardViewChoice,
   resolvedBoardSorts,
+  workmapCardSignature,
+  workmapSectionCount,
 } from './core.js';
 import type {
   BeadBodyView,
   BoardControls,
+  BoardPageView,
   BoardResponse,
   BoardRowView,
   BoardSortKeyView,
   BoardSortView,
+  BoardViewModeView,
+  BodyCacheEntry,
   ClientStore,
   ClientView,
   IssueChangeView,
@@ -32,6 +42,10 @@ import type {
   IssueStatsView,
   LabelFacetView,
   ObservationStateView,
+  ValueFacetView,
+  WorkmapCardView,
+  WorkmapProjectionView,
+  WorkmapSectionView,
 } from './core.js';
 
 type ThemeMode = 'system' | 'light' | 'dark';
@@ -96,12 +110,6 @@ const PRIORITY_LABEL = ['Critical', 'High', 'Medium', 'Low', 'Lowest'] as const;
 const RELATIVE_TIME_REFRESH_MS = 30_000;
 let boardPageIndex = 0;
 
-/**
- * Which rendering of the same board response is active. The workmap is a projection of
- * the identical rows, filters, and sorts — switching views changes no request.
- */
-type BoardViewMode = 'list' | 'workmap';
-const BOARD_VIEW_MODES = ['list', 'workmap'] as const;
 const VIEW_MODE_STORAGE_KEY = 'tbd.web.boardView';
 const WORKMAP_PREFIX_STORAGE_KEY = 'tbd.web.workmapPrefix';
 
@@ -121,19 +129,21 @@ function persistString(key: string, value: string): void {
 }
 
 // A shared link wins over a stored preference; both fall back to the list view.
-const pageQuery = new URLSearchParams(window.location.search);
-let boardViewMode: BoardViewMode = choice(
-  pageQuery.get('view') ?? storedString(VIEW_MODE_STORAGE_KEY) ?? '',
-  BOARD_VIEW_MODES,
-  'list',
-);
+const initialViewChoice = resolveBoardViewChoice(window.location.search, {
+  view: storedString(VIEW_MODE_STORAGE_KEY),
+  group: storedString(WORKMAP_PREFIX_STORAGE_KEY),
+});
+/**
+ * Which rendering of the same board response is active. The workmap is a projection of
+ * the identical rows, filters, and sorts — switching views changes no request.
+ */
+let boardViewMode: BoardViewModeView = initialViewChoice.view;
 /**
  * The grouping label prefix, e.g. `area:` — entirely the user's own labeling
  * convention. Empty means "not chosen yet"; the first detected prefix then serves as
  * the default without being persisted as a choice.
  */
-let workmapGroupPrefix: string =
-  pageQuery.get('group') ?? storedString(WORKMAP_PREFIX_STORAGE_KEY) ?? '';
+let workmapGroupPrefix: string = initialViewChoice.group;
 let scrollBoardToTopAfterRender = false;
 let labelMenuOpen = false;
 let pendingLabelFocus: string | null = null;
@@ -917,13 +927,14 @@ interface BoardFocusIdentity {
   copyLabel: string | null;
 }
 
-function captureBoardFocus(): BoardFocusIdentity | null {
+/** Record the focused bead control by stable bead ID and control role. */
+function captureBeadFocus(itemSelector: string): BoardFocusIdentity | null {
   const active = document.activeElement;
   if (!(active instanceof HTMLButtonElement)) {
     return null;
   }
-  const row = active.closest<HTMLTableRowElement>('tr[data-bead-id]');
-  const beadId = row?.dataset.beadId;
+  const item = active.closest<HTMLElement>(itemSelector);
+  const beadId = item?.dataset.beadId;
   if (beadId === undefined) {
     return null;
   }
@@ -936,24 +947,36 @@ function captureBoardFocus(): BoardFocusIdentity | null {
   return null;
 }
 
+/** Return focus to the same control of the same bead when a rerender replaced or moved it. */
+function focusBeadControl(item: HTMLElement | undefined, identity: BoardFocusIdentity): void {
+  if (item === undefined) {
+    return;
+  }
+  const control =
+    identity.role === 'disclosure'
+      ? item.querySelector<HTMLButtonElement>('.disclosure')
+      : [...item.querySelectorAll<HTMLButtonElement>('.copy-button')].find(
+          (candidate) => candidate.dataset.copyLabel === identity.copyLabel,
+        );
+  if (control !== null && control !== undefined && control !== document.activeElement) {
+    control.focus();
+  }
+}
+
+function captureBoardFocus(): BoardFocusIdentity | null {
+  return captureBeadFocus('tr[data-bead-id]');
+}
+
 function restoreBoardFocus(identity: BoardFocusIdentity | null): void {
   if (identity === null) {
     return;
   }
-  const row = [...elements.rows.querySelectorAll<HTMLTableRowElement>('tr[data-bead-id]')].find(
-    (candidate) => candidate.dataset.beadId === identity.beadId,
+  focusBeadControl(
+    [...elements.rows.querySelectorAll<HTMLTableRowElement>('tr[data-bead-id]')].find(
+      (candidate) => candidate.dataset.beadId === identity.beadId,
+    ),
+    identity,
   );
-  if (row === undefined) {
-    return;
-  }
-  if (identity.role === 'disclosure') {
-    row.querySelector<HTMLButtonElement>('.disclosure')?.focus();
-    return;
-  }
-  const button = [...row.querySelectorAll<HTMLButtonElement>('.copy-button')].find(
-    (candidate) => candidate.dataset.copyLabel === identity.copyLabel,
-  );
-  button?.focus();
 }
 
 function renderRow(
@@ -1251,19 +1274,26 @@ function appendBoardPager(board: BoardResponse, pageIndex: number): void {
   elements.rows.append(row);
 }
 
-function renderBoard(view: ClientView, board: BoardResponse): void {
-  const boardFocus = captureBoardFocus();
-  const page = paginateBoardRows(board.rows, boardPageIndex);
-  const changedIds = new Set(view.watch?.movedIds ?? []);
-  boardPageIndex = page.pageIndex;
+/** Sync the header page controls with the bounded paint window of either view. */
+function renderPageControls(page: Omit<BoardPageView, 'rows'>, unit: 'Rows' | 'Cards'): void {
   elements.pageControls.hidden = page.pageCount <= 1;
   elements.pagePrevious.disabled = page.pageIndex === 0;
   elements.pageNext.disabled = page.pageIndex >= page.pageCount - 1;
   elements.pagePill.textContent = `page ${page.pageIndex + 1} of ${page.pageCount}`;
   setTooltip(
     elements.pagePill,
-    page.total === 0 ? 'No rows' : `Rows ${page.start + 1}–${page.end} of ${page.total}`,
+    page.total === 0
+      ? `No ${unit.toLowerCase()}`
+      : `${unit} ${page.start + 1}–${page.end} of ${page.total}`,
   );
+}
+
+function renderBoard(view: ClientView, board: BoardResponse): void {
+  const boardFocus = captureBoardFocus();
+  const page = paginateBoardRows(board.rows, boardPageIndex);
+  const changedIds = new Set(view.watch?.movedIds ?? []);
+  boardPageIndex = page.pageIndex;
+  renderPageControls(page, 'Rows');
   elements.rows.replaceChildren();
   for (const row of view.ghostRows) {
     elements.rows.append(renderGhost(row));
@@ -1339,54 +1369,159 @@ function renderViewChooser(): void {
   elements.tableWrap.hidden = workmap;
   elements.workmapWrap.hidden = !workmap;
   elements.workmapGroup.hidden = !workmap;
+  // Only the visible surface keeps mounted beads, so hidden DOM never doubles the bound.
   if (workmap) {
     // List-only chrome; renderBoard is not running to manage it.
-    elements.pageControls.hidden = true;
     elements.expandAll.hidden = true;
+    elements.rows.replaceChildren();
+  } else {
+    clearWorkmap();
   }
 }
 
-/** Rebuild the group-prefix select from the prefixes the data itself states. */
-function renderWorkmapGroupChoices(rows: readonly BoardRowView[]): string {
-  const prefixes = detectLabelPrefixes(rows);
-  const effective = workmapGroupPrefix !== '' ? workmapGroupPrefix : (prefixes[0]?.value ?? '');
-  elements.workmapGroup.replaceChildren();
-  const seen = new Set<string>();
-  for (const prefix of prefixes) {
-    const option = document.createElement('option');
-    option.value = prefix.value;
-    option.textContent = `${prefix.value} (${prefix.count})`;
-    seen.add(prefix.value);
-    elements.workmapGroup.append(option);
+const WORKMAP_CARD_SELECTOR = '.workmap-card[data-bead-id]';
+
+/** What an expanded card's detail shows; unchanged inputs keep the mounted detail. */
+interface WorkmapBodyInputs {
+  entry: BodyCacheEntry | undefined;
+  inFlight: boolean;
+  delta: IssueChangeView | null;
+}
+
+/** A mounted card, reused across renders while its face is unchanged. */
+interface MountedWorkmapCard {
+  element: HTMLElement;
+  disclosure: HTMLButtonElement;
+  chevron: HTMLSpanElement;
+  signature: string;
+  open: boolean;
+  body: HTMLElement | null;
+  bodyInputs: WorkmapBodyInputs | null;
+}
+
+/** A mounted group section, reused across renders under its bucket key. */
+interface MountedWorkmapSection {
+  element: HTMLElement;
+  name: HTMLHeadingElement;
+  label: Text;
+  count: HTMLSpanElement;
+  signature: string;
+}
+
+interface WorkmapSectionCopy {
+  heading: string;
+  hint: string;
+}
+
+/** Derived per board response; a refresh delivers a new rows array and invalidates it. */
+interface WorkmapPrefixCache {
+  rows: readonly BoardRowView[];
+  prefixes: ValueFacetView<string>[];
+}
+
+interface WorkmapProjectionCache {
+  rows: readonly BoardRowView[];
+  prefix: string;
+  projection: WorkmapProjectionView;
+}
+
+const workmapCards = new Map<string, MountedWorkmapCard>();
+const workmapSections = new Map<string, MountedWorkmapSection>();
+let workmapPrefixCache: WorkmapPrefixCache | null = null;
+let workmapProjectionCache: WorkmapProjectionCache | null = null;
+let workmapGroupChoicesSignature = '';
+
+function clearWorkmap(): void {
+  if (workmapCards.size === 0 && workmapSections.size === 0) {
+    return;
   }
-  if (effective !== '' && !seen.has(effective)) {
+  elements.workmapGroups.replaceChildren();
+  workmapCards.clear();
+  workmapSections.clear();
+}
+
+/** Prefixes the served rows state, recomputed only when a refresh delivers new rows. */
+function workmapPrefixes(rows: readonly BoardRowView[]): ValueFacetView<string>[] {
+  const cached = workmapPrefixCache;
+  if (cached?.rows === rows) {
+    return cached.prefixes;
+  }
+  const prefixes = detectLabelPrefixes(rows);
+  workmapPrefixCache = { rows, prefixes };
+  return prefixes;
+}
+
+/** The grouping in effect: the chosen prefix, else the most common one the rows state. */
+function effectiveWorkmapPrefix(rows: readonly BoardRowView[]): string {
+  return workmapGroupPrefix !== '' ? workmapGroupPrefix : (workmapPrefixes(rows)[0]?.value ?? '');
+}
+
+function workmapProjection(rows: readonly BoardRowView[], prefix: string): WorkmapProjectionView {
+  const cached = workmapProjectionCache;
+  if (cached?.rows === rows && cached.prefix === prefix) {
+    return cached.projection;
+  }
+  const projection = projectWorkmap(rows, prefix);
+  workmapProjectionCache = { rows, prefix, projection };
+  return projection;
+}
+
+/**
+ * Offer the prefixes the data itself states. Options are rebuilt only when they change,
+ * so a live update cannot disturb a select the viewer is operating.
+ */
+function renderWorkmapGroupChoices(rows: readonly BoardRowView[]): string {
+  const prefixes = workmapPrefixes(rows);
+  const effective = effectiveWorkmapPrefix(rows);
+  const choices: [value: string, label: string][] = prefixes.map((prefix) => [
+    prefix.value,
+    `${prefix.value} (${prefix.count})`,
+  ]);
+  if (effective !== '' && !prefixes.some((prefix) => prefix.value === effective)) {
     // The chosen prefix no longer appears in the data. Keep it selectable and honest
     // rather than silently jumping to a different grouping.
-    const option = document.createElement('option');
-    option.value = effective;
-    option.textContent = `${effective} (0)`;
-    elements.workmapGroup.append(option);
+    choices.push([effective, `${effective} (0)`]);
   }
-  elements.workmapGroup.value = effective;
-  elements.workmapGroup.disabled = elements.workmapGroup.options.length === 0;
+  const signature = JSON.stringify([choices, effective]);
+  if (signature !== workmapGroupChoicesSignature) {
+    workmapGroupChoicesSignature = signature;
+    elements.workmapGroup.replaceChildren(
+      ...choices.map(([value, label]) => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        return option;
+      }),
+    );
+    elements.workmapGroup.value = effective;
+    elements.workmapGroup.disabled = choices.length === 0;
+  }
   return effective;
 }
 
-function renderWorkmapCard(
-  view: ClientView,
-  row: BoardRowView,
-  note: string | null = null,
-): HTMLElement {
-  const card = document.createElement('article');
-  card.className = 'workmap-card';
-  card.dataset.beadId = row.id;
-  const open = view.expanded.has(row.id);
-  if (open) {
-    card.classList.add('open');
-  }
+function setWorkmapCardOpen(mounted: MountedWorkmapCard, id: string, open: boolean): void {
+  mounted.open = open;
+  mounted.element.classList.toggle('open', open);
+  mounted.disclosure.setAttribute('aria-expanded', String(open));
+  mounted.disclosure.setAttribute('aria-label', `${open ? 'Collapse' : 'Expand'} ${id}`);
+  mounted.chevron.className = `chevron chevron-${open ? 'down' : 'right'}`;
+}
+
+/** Build a collapsed card face. Its native disclosure button is the keyboard control. */
+function createWorkmapCard(card: WorkmapCardView, signature: string): MountedWorkmapCard {
+  const { row } = card;
+  const element = document.createElement('article');
+  element.className = 'workmap-card';
+  element.dataset.beadId = row.id;
 
   const head = document.createElement('div');
   head.className = 'workmap-card-head';
+  const disclosure = document.createElement('button');
+  disclosure.type = 'button';
+  disclosure.className = 'disclosure';
+  const chevron = document.createElement('span');
+  chevron.setAttribute('aria-hidden', 'true');
+  disclosure.append(chevron);
   const status = document.createElement('span');
   status.className = `issue-status status-${row.status}`;
   status.textContent = STATUS_ICONS[row.status];
@@ -1397,50 +1532,165 @@ function renderWorkmapCard(
   const priority = document.createElement('span');
   priority.className = `priority priority-${row.priority}`;
   priority.textContent = `P${row.priority}`;
-  head.append(status, id, priority);
-  if (note !== null) {
-    const noteSpan = document.createElement('span');
-    noteSpan.className = 'workmap-card-note';
-    noteSpan.textContent = note;
-    head.append(noteSpan);
+  head.append(disclosure, status, id, priority);
+  if (card.conflictLabels !== null) {
+    const note = document.createElement('span');
+    note.className = 'workmap-card-note';
+    note.textContent = card.conflictLabels.join(' ');
+    head.append(note);
   }
 
   const title = document.createElement('div');
   title.className = 'workmap-card-title';
   title.textContent = row.title;
 
-  card.append(head, title);
-  if (open) {
-    const body = document.createElement('div');
-    body.className = 'workmap-card-body';
-    body.append(renderBody(view, row.id));
-    card.append(body);
-  }
-  return card;
+  element.append(head, title);
+  const mounted: MountedWorkmapCard = {
+    element,
+    disclosure,
+    chevron,
+    signature,
+    open: false,
+    body: null,
+    bodyInputs: null,
+  };
+  setWorkmapCardOpen(mounted, row.id, false);
+  return mounted;
 }
 
-function appendWorkmapGroup(
-  parent: HTMLElement,
-  view: ClientView,
-  heading: string,
-  count: number,
-  hint: string | null,
-  cards: HTMLElement[],
-): void {
-  const group = document.createElement('section');
-  group.className = 'workmap-group';
-  const name = document.createElement('h3');
-  name.className = 'section-heading workmap-group-name';
-  name.textContent = heading;
-  const num = document.createElement('span');
-  num.className = 'num';
-  num.textContent = String(count);
-  name.append(num);
-  if (hint !== null) {
-    name.dataset.tooltip = hint;
+function workmapBodyInputs(view: ClientView, id: string): WorkmapBodyInputs {
+  const { watch } = view;
+  return {
+    entry: view.bodies.get(id),
+    inFlight: view.inFlightBodies.has(id),
+    delta: watch !== null && deltasValid(watch) ? findChange(watch.latestChanges, id) : null,
+  };
+}
+
+function sameBodyInputs(previous: WorkmapBodyInputs | null, next: WorkmapBodyInputs): boolean {
+  return (
+    previous !== null &&
+    previous.entry === next.entry &&
+    previous.inFlight === next.inFlight &&
+    previous.delta === next.delta
+  );
+}
+
+/**
+ * Reuse the bead's mounted card when its face is unchanged, patching only expansion and
+ * detail. A replaced card's old node is detached by the caller's reconciliation.
+ */
+function mountWorkmapCard(view: ClientView, card: WorkmapCardView): MountedWorkmapCard {
+  const id = card.row.id;
+  const signature = workmapCardSignature(card);
+  let mounted = workmapCards.get(id);
+  if (mounted?.signature !== signature) {
+    mounted = createWorkmapCard(card, signature);
+    workmapCards.set(id, mounted);
   }
-  group.append(name, ...cards);
-  parent.append(group);
+  const open = view.expanded.has(id);
+  if (mounted.open !== open) {
+    setWorkmapCardOpen(mounted, id, open);
+  }
+  if (open) {
+    const inputs = workmapBodyInputs(view, id);
+    if (mounted.body === null || !sameBodyInputs(mounted.bodyInputs, inputs)) {
+      const body = document.createElement('div');
+      body.className = 'workmap-card-body';
+      body.append(renderBody(view, id));
+      if (mounted.body === null) {
+        mounted.element.append(body);
+      } else {
+        mounted.body.replaceWith(body);
+      }
+      mounted.body = body;
+      mounted.bodyInputs = inputs;
+    }
+  } else if (mounted.body !== null) {
+    mounted.body.remove();
+    mounted.body = null;
+    mounted.bodyInputs = null;
+  }
+  return mounted;
+}
+
+function workmapSectionCopy(section: WorkmapSectionView, prefix: string): WorkmapSectionCopy {
+  switch (section.kind) {
+    case 'group':
+      return { heading: section.value, hint: `beads labeled ${prefix}${section.value}` };
+    case 'conflicting':
+      return {
+        heading: 'conflicting',
+        hint: `beads with two or more ${prefix} labels — fix the labels; the board will not pick one`,
+      };
+    case 'ungrouped':
+      return { heading: 'ungrouped', hint: `beads with no ${prefix} label` };
+    default: {
+      const exhaustive: never = section.kind;
+      throw new Error(`Unhandled workmap section kind: ${String(exhaustive)}`);
+    }
+  }
+}
+
+function mountWorkmapSection(section: WorkmapSectionView, prefix: string): MountedWorkmapSection {
+  const copy = workmapSectionCopy(section, prefix);
+  const count = workmapSectionCount(section);
+  const signature = JSON.stringify([copy.heading, copy.hint, count]);
+  let mounted = workmapSections.get(section.key);
+  if (mounted === undefined) {
+    const element = document.createElement('section');
+    element.className = 'workmap-group';
+    const name = document.createElement('h3');
+    name.className = 'section-heading workmap-group-name';
+    const label = document.createTextNode('');
+    const num = document.createElement('span');
+    num.className = 'num';
+    name.append(label, num);
+    element.append(name);
+    mounted = { element, name, label, count: num, signature: '' };
+    workmapSections.set(section.key, mounted);
+  }
+  if (mounted.signature !== signature) {
+    mounted.signature = signature;
+    mounted.label.data = copy.heading;
+    mounted.count.textContent = count;
+    mounted.name.dataset.tooltip = copy.hint;
+  }
+  return mounted;
+}
+
+/**
+ * Make `parent`'s children after `head` exactly `desired`, in order: detach whatever left,
+ * keep the longest run already in order, and move or insert only the rest.
+ */
+function reconcileChildren(
+  parent: HTMLElement,
+  head: ChildNode | null,
+  desired: readonly HTMLElement[],
+): void {
+  const current = new Map<ChildNode, number>();
+  for (
+    let node = head === null ? parent.firstChild : head.nextSibling;
+    node !== null;
+    node = node.nextSibling
+  ) {
+    current.set(node, current.size);
+  }
+  const wanted = new Set<ChildNode>(desired);
+  for (const node of current.keys()) {
+    if (!wanted.has(node)) {
+      node.remove();
+    }
+  }
+  const keep = keyedOrderKeepers(desired.map((node) => current.get(node) ?? -1));
+  let next: ChildNode | null = null;
+  for (let index = desired.length - 1; index >= 0; index -= 1) {
+    const node = desired[index]!;
+    if (!keep.has(index)) {
+      parent.insertBefore(node, next);
+    }
+    next = node;
+  }
 }
 
 /**
@@ -1448,50 +1698,77 @@ function appendWorkmapGroup(
  * labels state under the chosen prefix. Grouping is a projection of the user's own
  * labeling convention — tbd assigns no meaning to any prefix, and a bead stating no
  * value (or two) is shown as exactly that rather than filed somewhere plausible.
+ *
+ * Rendering is keyed and bounded like the list: one page window of cards is mounted, a
+ * card is rebuilt only when its face changes, an expanded card's detail only when its
+ * inputs change, and focus returns by bead ID and control role when a card is rebuilt
+ * or moved.
  */
 function renderWorkmap(view: ClientView, board: BoardResponse): void {
-  const effectivePrefix = renderWorkmapGroupChoices(board.rows);
-  const projection = projectWorkmap(board.rows, effectivePrefix);
-  elements.workmapGroups.replaceChildren();
+  const focus = captureBeadFocus(WORKMAP_CARD_SELECTOR);
+  const prefix = renderWorkmapGroupChoices(board.rows);
+  const page = paginateWorkmap(workmapProjection(board.rows, prefix), boardPageIndex);
+  boardPageIndex = page.pageIndex;
+  renderPageControls(page, 'Cards');
 
-  for (const group of projection.groups) {
-    appendWorkmapGroup(
-      elements.workmapGroups,
-      view,
-      group.value,
-      group.rows.length,
-      `beads labeled ${effectivePrefix}${group.value}`,
-      group.rows.map((row) => renderWorkmapCard(view, row)),
-    );
+  const liveSections = new Set<string>();
+  const liveCards = new Set<string>();
+  const sectionElements: HTMLElement[] = [];
+  for (const section of page.sections) {
+    const mountedSection = mountWorkmapSection(section, prefix);
+    liveSections.add(section.key);
+    sectionElements.push(mountedSection.element);
+    const cardElements = section.cards.map((card) => {
+      liveCards.add(card.row.id);
+      return mountWorkmapCard(view, card).element;
+    });
+    reconcileChildren(mountedSection.element, mountedSection.name, cardElements);
   }
-  if (projection.conflicted.length > 0) {
-    appendWorkmapGroup(
-      elements.workmapGroups,
-      view,
-      'conflicting',
-      projection.conflicted.length,
-      `beads with two or more ${effectivePrefix} labels — fix the labels; the board will not pick one`,
-      projection.conflicted.map(({ row, values }) =>
-        renderWorkmapCard(view, row, values.map((value) => effectivePrefix + value).join(' ')),
-      ),
-    );
+  reconcileChildren(elements.workmapGroups, null, sectionElements);
+  for (const key of workmapSections.keys()) {
+    if (!liveSections.has(key)) {
+      workmapSections.delete(key);
+    }
   }
-  if (projection.ungrouped.length > 0 && effectivePrefix !== '') {
-    appendWorkmapGroup(
-      elements.workmapGroups,
-      view,
-      'ungrouped',
-      projection.ungrouped.length,
-      `beads with no ${effectivePrefix} label`,
-      projection.ungrouped.map((row) => renderWorkmapCard(view, row)),
-    );
+  for (const id of workmapCards.keys()) {
+    if (!liveCards.has(id)) {
+      workmapCards.delete(id);
+    }
+  }
+  if (focus !== null) {
+    focusBeadControl(workmapCards.get(focus.beadId)?.element, focus);
   }
 
-  const nothingToGroup = board.rows.length > 0 && effectivePrefix === '';
+  const nothingToGroup = board.rows.length > 0 && prefix === '';
   elements.workmapEmpty.hidden = board.rows.length > 0 && !nothingToGroup;
   elements.workmapEmpty.textContent = nothingToGroup
     ? 'No label prefixes to group by. The workmap groups beads by labels like area:caching — any prefix:value convention your project already uses.'
     : (view.boardError ?? 'No beads match this query.');
+}
+
+/**
+ * State the current view and the grouping in effect in the page address, so reloading,
+ * copying, or sharing it reproduces this choice (an address wins over storage at
+ * startup). Replacing the entry keeps view switches out of the Back history.
+ */
+function writeBoardViewAddress(): void {
+  const rows = store.getView().board?.rows ?? [];
+  const search = boardViewSearch(window.location.search, {
+    view: boardViewMode,
+    group: effectiveWorkmapPrefix(rows),
+  });
+  if (search === window.location.search) {
+    return;
+  }
+  try {
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${window.location.pathname}${search}${window.location.hash}`,
+    );
+  } catch {
+    // An opaque or sandboxed document cannot rewrite its address; the choice still applies.
+  }
 }
 
 let disconnected = false;
@@ -1539,7 +1816,9 @@ function render(): void {
 
   if (scrollBoardToTopAfterRender) {
     scrollBoardToTopAfterRender = false;
-    elements.tableWrap.scrollIntoView({ block: 'start' });
+    (boardViewMode === 'workmap' ? elements.workmapWrap : elements.tableWrap).scrollIntoView({
+      block: 'start',
+    });
   }
 
   if (view.ghostRows.length > 0 && ghostTimer === null) {
@@ -1778,27 +2057,38 @@ elements.pageNext.addEventListener('click', () => {
 
 for (const button of viewChoiceButtons) {
   button.addEventListener('click', () => {
-    const mode = choice(button.dataset.viewChoice ?? '', BOARD_VIEW_MODES, 'list');
-    if (mode === boardViewMode) {
+    const mode = BOARD_VIEW_MODES.find((candidate) => candidate === button.dataset.viewChoice);
+    if (mode === undefined || mode === boardViewMode) {
       return;
     }
     boardViewMode = mode;
+    // Each view pages its own reading order, so a page index does not carry over.
+    boardPageIndex = 0;
     persistString(VIEW_MODE_STORAGE_KEY, mode);
+    writeBoardViewAddress();
     scheduleRender();
   });
 }
 elements.workmapGroup.addEventListener('change', () => {
   workmapGroupPrefix = elements.workmapGroup.value;
+  boardPageIndex = 0;
   persistString(WORKMAP_PREFIX_STORAGE_KEY, workmapGroupPrefix);
+  writeBoardViewAddress();
   scheduleRender();
 });
 elements.workmapGroups.addEventListener('click', (event) => {
   const target = event.target instanceof Element ? event.target : null;
-  if (target?.closest('.workmap-card-body') !== null) {
+  if (target === null) {
     return;
   }
-  const card = target.closest<HTMLElement>('.workmap-card[data-bead-id]');
-  if (card === null || !(window.getSelection()?.isCollapsed ?? true)) {
+  if (target.closest('.workmap-card-body') !== null) {
+    return;
+  }
+  const card = target.closest<HTMLElement>(WORKMAP_CARD_SELECTOR);
+  // Keyboard activation of the native disclosure arrives here as a click as well.
+  const suppressForSelection =
+    target.closest('.disclosure') === null && !(window.getSelection()?.isCollapsed ?? true);
+  if (card === null || suppressForSelection) {
     return;
   }
   const id = card.dataset.beadId;
