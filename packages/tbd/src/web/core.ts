@@ -349,6 +349,449 @@ export function formatDeltaValue(value: unknown): { full: string; preview: strin
   return { full, preview: truncateMiddle(full, DELTA_VALUE_PREVIEW_CHARS) };
 }
 
+/** One workmap group: every row whose labels carry exactly one value under the prefix. */
+export interface WorkmapGroupView {
+  value: string;
+  rows: BoardRowView[];
+}
+
+/**
+ * The workmap projection of one board response: rows grouped by the value each bead's
+ * labels state under a caller-chosen label prefix.
+ */
+export interface WorkmapProjectionView {
+  prefix: string;
+  /** Groups ordered by size (largest first), then value. */
+  groups: WorkmapGroupView[];
+  /** Rows stating two or more distinct values: a data error surfaced, never picked from. */
+  conflicted: { row: BoardRowView; values: string[] }[];
+  /** Rows stating no value under the prefix: a visible gap, never a guess. */
+  ungrouped: BoardRowView[];
+}
+
+/**
+ * Label prefixes present on a board, counted by bead.
+ *
+ * A prefix is everything up to and including a label's first `:` (so `cat:caching`
+ * offers `cat:`). tbd assigns no meaning to any particular prefix. Which prefixes
+ * exist, and what they mean, is entirely the user's own labeling convention; this
+ * only reports what the data states so a viewer can offer the choices.
+ */
+export function detectLabelPrefixes(rows: readonly BoardRowView[]): ValueFacetView<string>[] {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const seen = new Set<string>();
+    for (const label of row.labels) {
+      const colon = label.indexOf(':');
+      // A leading colon has an empty prefix and a trailing colon an empty value;
+      // neither states a usable prefix:value pair.
+      if (colon <= 0 || colon === label.length - 1) {
+        continue;
+      }
+      seen.add(label.slice(0, colon + 1));
+    }
+    for (const prefix of seen) {
+      counts.set(prefix, (counts.get(prefix) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .map(([value, count]) => ({ value, count }))
+    .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
+}
+
+/** Text order as the server compares it (`compareText` in `cli/web/board.ts`). */
+function compareBoardText(left: string, right: string): number {
+  const normalizedLeft = left.normalize('NFKC').toLocaleLowerCase('en-US');
+  const normalizedRight = right.normalize('NFKC').toLocaleLowerCase('en-US');
+  if (normalizedLeft !== normalizedRight) {
+    return normalizedLeft < normalizedRight ? -1 : 1;
+  }
+  const exactLeft = left.normalize('NFKC');
+  const exactRight = right.normalize('NFKC');
+  return exactLeft < exactRight ? -1 : exactLeft > exactRight ? 1 : 0;
+}
+
+/** A row with its costly sort keys, computed once per sort rather than per comparison. */
+interface DecoratedBoardRow {
+  row: BoardRowView;
+  /** The sorted labels joined by NUL, the server's labels key; empty unless sorted on. */
+  labels: string;
+  /** `updated_at` parsed to milliseconds; NaN when it does not parse or is not sorted on. */
+  updatedMs: number;
+}
+
+function compareDecoratedRows(
+  left: DecoratedBoardRow,
+  right: DecoratedBoardRow,
+  sorts: readonly BoardSortView[],
+): number {
+  for (const sort of sorts) {
+    let compared: number;
+    switch (sort.key) {
+      case 'priority':
+        compared = left.row.priority - right.row.priority;
+        break;
+      case 'updated':
+        // As the server: numeric when both parse, else text order of the raw values.
+        compared =
+          Number.isFinite(left.updatedMs) && Number.isFinite(right.updatedMs)
+            ? left.updatedMs - right.updatedMs
+            : compareBoardText(left.row.updated_at, right.row.updated_at);
+        break;
+      case 'labels':
+        compared = compareBoardText(left.labels, right.labels);
+        break;
+      case 'id':
+        compared = compareBoardText(left.row.id, right.row.id);
+        break;
+      case 'status':
+        compared = compareBoardText(left.row.status, right.row.status);
+        break;
+      case 'kind':
+        compared = compareBoardText(left.row.kind, right.row.kind);
+        break;
+      case 'title':
+        compared = compareBoardText(left.row.title, right.row.title);
+        break;
+      default: {
+        const exhaustive: never = sort.key;
+        throw new Error(`Unhandled board sort key: ${String(exhaustive)}`);
+      }
+    }
+    if (compared !== 0) {
+      return sort.direction === 'asc' ? compared : -compared;
+    }
+  }
+  return compareBoardText(left.row.id, right.row.id);
+}
+
+/**
+ * Order rows by a sort stack exactly as the server orders a flat board
+ * (`compareIssuesByColumns` in `cli/web/board.ts`), ending with the display ID. A
+ * differential test in `web-board.test.ts` holds the two to the same order.
+ *
+ * The keys that cost work, the sorted label set and the parsed timestamp, are computed
+ * once per row before sorting (decorate, sort, undecorate) rather than in every
+ * comparison, which a sort makes about n log n times.
+ */
+export function sortBoardRows(
+  rows: readonly BoardRowView[],
+  sorts: readonly BoardSortView[],
+): BoardRowView[] {
+  const byLabels = sorts.some((sort) => sort.key === 'labels');
+  const byUpdated = sorts.some((sort) => sort.key === 'updated');
+  return rows
+    .map(
+      (row): DecoratedBoardRow => ({
+        row,
+        labels: byLabels ? [...row.labels].sort(compareBoardText).join('\u0000') : '',
+        updatedMs: byUpdated ? Date.parse(row.updated_at) : Number.NaN,
+      }),
+    )
+    .sort((left, right) => compareDecoratedRows(left, right, sorts))
+    .map((decorated) => decorated.row);
+}
+
+/**
+ * Group board rows by the value their labels state under `prefix`.
+ *
+ * Exactly one distinct value places the row in that value's group. Two or more is a
+ * conflict, reported as such rather than resolved by any tie-break, because the label
+ * convention this projects (one value per bead under a grouping prefix) is the user's,
+ * and only they can say which label is wrong. No value leaves the row ungrouped and
+ * visible.
+ *
+ * With `sorts`, the cards in every bucket follow that stack: the rows are sorted once
+ * with `sortBoardRows` before they are bucketed. The page passes it when Pretty is on,
+ * because the served order is then a tree walk in which a child follows its parent, and
+ * a card shows no tree. With `null` the served order stands: with Pretty off it already
+ * is the sorted order.
+ */
+export function projectWorkmap(
+  rows: readonly BoardRowView[],
+  prefix: string,
+  sorts: readonly BoardSortView[] | null,
+): WorkmapProjectionView {
+  const projection: WorkmapProjectionView = { prefix, groups: [], conflicted: [], ungrouped: [] };
+  // Bucketing keeps the input order, so one sort up front orders every bucket.
+  const ordered = sorts !== null && sorts.length > 0 ? sortBoardRows(rows, sorts) : rows;
+  if (isBlankGroupPrefix(prefix)) {
+    projection.ungrouped = [...ordered];
+    return projection;
+  }
+  const byValue = new Map<string, BoardRowView[]>();
+  for (const row of ordered) {
+    const values = [
+      ...new Set(
+        row.labels
+          .filter((label) => label.startsWith(prefix) && label.length > prefix.length)
+          .map((label) => label.slice(prefix.length)),
+      ),
+    ];
+    if (values.length === 0) {
+      projection.ungrouped.push(row);
+    } else if (values.length > 1) {
+      projection.conflicted.push({ row, values: values.sort() });
+    } else {
+      const value = values[0]!;
+      const bucket = byValue.get(value);
+      if (bucket === undefined) {
+        byValue.set(value, [row]);
+      } else {
+        bucket.push(row);
+      }
+    }
+  }
+  projection.groups = [...byValue.entries()]
+    .map(([value, groupRows]) => ({ value, rows: groupRows }))
+    .sort((a, b) => b.rows.length - a.rows.length || a.value.localeCompare(b.value));
+  return projection;
+}
+
+/** The renderings of one board response the page offers; switching changes no request. */
+export type BoardViewModeView = 'list' | 'workmap';
+export const BOARD_VIEW_MODES: readonly BoardViewModeView[] = ['list', 'workmap'];
+/** Page-address parameters; `tbd web --view` and `--group-prefix` write the same ones. */
+export const BOARD_VIEW_PARAM = 'view';
+export const WORKMAP_GROUP_PARAM = 'group';
+
+/** A board view choice as the page address and the stored preferences carry it. */
+export interface BoardViewChoiceView {
+  view: BoardViewModeView;
+  /** The chosen workmap grouping prefix; empty when none was chosen. */
+  group: string;
+}
+
+/** A page load's starting choice, and where its grouping came from. */
+export interface ResolvedBoardViewChoice extends BoardViewChoiceView {
+  /**
+   * True when the grouping came from stored preferences rather than the address. Storage
+   * is per origin, which every repository served on the same port shares, so the page
+   * keeps such a grouping only if the served rows state it.
+   */
+  groupFromStorage: boolean;
+}
+
+/** Raw stored preferences; either may be missing or hold a stale, invalid value. */
+export interface StoredBoardViewChoice {
+  view: string | null;
+  group: string | null;
+}
+
+/**
+ * Whether a grouping prefix states nothing to group by. The one definition the
+ * projection, the page window, the page, and the address all apply, so a blank value
+ * from any source means "no grouping chosen" everywhere.
+ */
+export function isBlankGroupPrefix(prefix: string): boolean {
+  return prefix.trim() === '';
+}
+
+function knownBoardViewMode(value: string | null): BoardViewModeView | null {
+  return BOARD_VIEW_MODES.find((mode) => mode === value) ?? null;
+}
+
+/**
+ * Resolve the board view a page load starts in. An explicit address wins over the stored
+ * preference, so an opened or shared link shows what it names; an absent, blank, or
+ * unknown value falls through to storage, then to the list with no chosen grouping.
+ */
+export function resolveBoardViewChoice(
+  search: string,
+  stored: StoredBoardViewChoice,
+): ResolvedBoardViewChoice {
+  const query = new URLSearchParams(search);
+  const usable = (value: string | null): value is string =>
+    value !== null && !isBlankGroupPrefix(value);
+  const addressGroup = query.get(WORKMAP_GROUP_PARAM);
+  const view =
+    knownBoardViewMode(query.get(BOARD_VIEW_PARAM)) ?? knownBoardViewMode(stored.view) ?? 'list';
+  if (usable(addressGroup)) {
+    return { view, group: addressGroup, groupFromStorage: false };
+  }
+  if (usable(stored.group)) {
+    return { view, group: stored.group, groupFromStorage: true };
+  }
+  return { view, group: '', groupFromStorage: false };
+}
+
+/**
+ * The page query string (`location.search` form) that states `choice`, keeping every
+ * unrelated parameter. The page writes it after each in-page view or grouping choice, so
+ * reloading, copying, or sharing the address reproduces that choice.
+ */
+export function boardViewSearch(search: string, choice: BoardViewChoiceView): string {
+  const query = new URLSearchParams(search);
+  query.set(BOARD_VIEW_PARAM, choice.view);
+  if (isBlankGroupPrefix(choice.group)) {
+    query.delete(WORKMAP_GROUP_PARAM);
+  } else {
+    query.set(WORKMAP_GROUP_PARAM, choice.group);
+  }
+  return `?${query.toString()}`;
+}
+
+/** Which bucket of a workmap projection a section shows. */
+export type WorkmapSectionKindView = 'group' | 'conflicting' | 'ungrouped';
+
+/** One card of a workmap page. */
+export interface WorkmapCardView {
+  row: BoardRowView;
+  /** The literal labels a conflicting row states under the prefix; null otherwise. */
+  conflictLabels: string[] | null;
+}
+
+/** One bucket's cards within a workmap page window. */
+export interface WorkmapSectionView {
+  /** Stable identity across renders: `group:<value>`, `conflicting`, or `ungrouped`. */
+  key: string;
+  kind: WorkmapSectionKindView;
+  /** The group value; empty for the conflicting and ungrouped buckets. */
+  value: string;
+  /** Every row in the bucket, including rows that fall on other pages. */
+  total: number;
+  cards: WorkmapCardView[];
+}
+
+/** One bounded workmap paint window, in the list's page geometry. */
+export interface WorkmapPageView extends Omit<BoardPageView, 'rows'> {
+  sections: WorkmapSectionView[];
+}
+
+/**
+ * Select one bounded paint window of a workmap: the list's page window
+ * (`paginateBoardRows`) applied to the projection's reading order (groups, then
+ * conflicts, then ungrouped rows), so the workmap never mounts more cards than the list
+ * mounts rows and every served row stays reachable. A bucket split across pages keeps
+ * its full total. With no prefix there is nothing to group by, so the window is empty.
+ */
+export function paginateWorkmap(
+  projection: WorkmapProjectionView,
+  requestedPageIndex: number,
+): WorkmapPageView {
+  const buckets: WorkmapSectionView[] = [];
+  if (!isBlankGroupPrefix(projection.prefix)) {
+    for (const group of projection.groups) {
+      buckets.push({
+        key: `group:${group.value}`,
+        kind: 'group',
+        value: group.value,
+        total: group.rows.length,
+        cards: group.rows.map((row) => ({ row, conflictLabels: null })),
+      });
+    }
+    if (projection.conflicted.length > 0) {
+      buckets.push({
+        key: 'conflicting',
+        kind: 'conflicting',
+        value: '',
+        total: projection.conflicted.length,
+        cards: projection.conflicted.map(({ row, values }) => ({
+          row,
+          conflictLabels: values.map((value) => projection.prefix + value),
+        })),
+      });
+    }
+    if (projection.ungrouped.length > 0) {
+      buckets.push({
+        key: 'ungrouped',
+        kind: 'ungrouped',
+        value: '',
+        total: projection.ungrouped.length,
+        cards: projection.ungrouped.map((row) => ({ row, conflictLabels: null })),
+      });
+    }
+  }
+  const page = paginateBoardRows(
+    buckets.flatMap((bucket) => bucket.cards.map((card) => card.row)),
+    requestedPageIndex,
+  );
+  const sections: WorkmapSectionView[] = [];
+  let offset = 0;
+  for (const bucket of buckets) {
+    const from = Math.max(page.start, offset);
+    const to = Math.min(page.end, offset + bucket.total);
+    if (from < to) {
+      sections.push({ ...bucket, cards: bucket.cards.slice(from - offset, to - offset) });
+    }
+    offset += bucket.total;
+  }
+  return {
+    sections,
+    pageIndex: page.pageIndex,
+    pageCount: page.pageCount,
+    start: page.start,
+    end: page.end,
+    total: page.total,
+  };
+}
+
+/**
+ * Everything a collapsed workmap card displays. A refreshed board delivers new row
+ * objects for unchanged beads; equal signatures let a render keep the mounted card.
+ */
+export function workmapCardSignature(card: WorkmapCardView): string {
+  const { row } = card;
+  return JSON.stringify([row.id, row.status, row.priority, row.title, card.conflictLabels]);
+}
+
+/**
+ * Plan a keyed reorder. `currentIndices[i]` is the current position of the node wanted at
+ * position `i`, or -1 for a node not mounted yet. The returned positions form the longest
+ * run already in order, so leaving them in place and moving only the rest reorders with
+ * the fewest moves: one card that travels costs one move in either direction.
+ */
+export function keyedOrderKeepers(currentIndices: readonly number[]): Set<number> {
+  // Patience sorting: tails[k] ends the best increasing run of length k + 1, and
+  // previous[] links each position to its predecessor in that run.
+  const tails: number[] = [];
+  const previous = new Array<number>(currentIndices.length).fill(-1);
+  for (let position = 0; position < currentIndices.length; position += 1) {
+    const value = currentIndices[position]!;
+    if (value < 0) {
+      continue;
+    }
+    let low = 0;
+    let high = tails.length;
+    while (low < high) {
+      const middle = (low + high) >> 1;
+      if (currentIndices[tails[middle]!]! < value) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    previous[position] = low > 0 ? tails[low - 1]! : -1;
+    tails[low] = position;
+  }
+  const keep = new Set<number>();
+  for (let position = tails.at(-1) ?? -1; position >= 0; position = previous[position]!) {
+    keep.add(position);
+  }
+  return keep;
+}
+
+/**
+ * A section's visible count: the bucket total, or the shown share of a split bucket.
+ * When the server served only part of the match (`truncated`), every total counts
+ * served rows only and the unserved rows may belong to any bucket, so it is marked as a
+ * lower bound (`5000 of 5950+`).
+ */
+export function workmapSectionCount(section: WorkmapSectionView, truncated: boolean): string {
+  const total = `${section.total}${truncated ? '+' : ''}`;
+  return section.cards.length === section.total ? total : `${section.cards.length} of ${total}`;
+}
+
+/**
+ * The sentence both views show when the board response stops at the server's row cap;
+ * empty when every matching row was served.
+ */
+export function servedRowLimitNotice(board: Pick<BoardResponse, 'rows' | 'truncated'>): string {
+  return board.truncated === 0
+    ? ''
+    : `Server returned the first ${board.rows.length} of ${board.truncated} rows; narrow the query to reach the remainder.`;
+}
+
 const DEFAULT_SORT_DIRECTIONS: Readonly<Record<BoardSortKeyView, BoardSortDirectionView>> = {
   id: 'asc',
   priority: 'asc',

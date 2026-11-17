@@ -2,27 +2,38 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   BOARD_PAGE_SIZE,
+  boardViewSearch,
   buildQueryString,
   caveatsFor,
   createClientStore,
   DEFAULT_BOARD_SORTS,
   DELTA_VALUE_PREVIEW_CHARS,
   deltasValid,
+  detectLabelPrefixes,
   formatDeltaValue,
+  projectWorkmap,
   MAX_BODY_CACHE_ENTRIES,
   MAX_BODY_REQUEST_CONCURRENCY,
   MAX_EXPANDED_ROWS,
   MAX_GHOST_ROWS,
   formatRelativeAge,
   isDefaultBoardSort,
+  keyedOrderKeepers,
   labelSearchValueForRender,
   paginateBoardRows,
+  paginateWorkmap,
   phaseLabel,
   preserveLabelSearchEditingKey,
   promoteBoardSort,
+  resolveBoardViewChoice,
+  servedRowLimitNotice,
+  sortBoardRows,
+  workmapCardSignature,
+  workmapSectionCount,
 } from '../src/web/core.js';
 import type {
   BoardControls,
+  BoardViewChoiceView,
   BoardResponse,
   BoardRowView,
   ClientStorage,
@@ -913,5 +924,337 @@ describe('createClientStore transport orchestration', () => {
     expect(store.getView().ghostRows).toHaveLength(MAX_GHOST_ROWS);
     expect(store.getView().ghostRows.map((row) => row.id)).toEqual(ids.slice(0, MAX_GHOST_ROWS));
     store.stop();
+  });
+});
+
+describe('workmap projection', () => {
+  const seed = board(state()).rows[0]!;
+  const row = (id: string, labels: string[]): BoardRowView => ({ ...seed, id, labels });
+
+  it('groups rows by the value under a caller-chosen prefix, largest group first', () => {
+    const projection = projectWorkmap(
+      [
+        row('web-1', ['area:caching', 'phase-2']),
+        row('web-2', ['area:tracker']),
+        row('web-3', ['area:tracker', 'bug']),
+        row('web-4', []),
+      ],
+      'area:',
+      null,
+    );
+    expect(projection.prefix).toBe('area:');
+    expect(
+      projection.groups.map((group) => ({
+        value: group.value,
+        ids: group.rows.map((groupRow) => groupRow.id),
+      })),
+    ).toEqual([
+      { value: 'tracker', ids: ['web-2', 'web-3'] },
+      { value: 'caching', ids: ['web-1'] },
+    ]);
+    expect(projection.ungrouped.map((ungrouped) => ungrouped.id)).toEqual(['web-4']);
+    expect(projection.conflicted).toEqual([]);
+  });
+
+  it('reports two distinct values as a conflict instead of picking one', () => {
+    const projection = projectWorkmap(
+      [row('web-9', ['area:caching', 'area:tracker'])],
+      'area:',
+      null,
+    );
+    expect(projection.groups).toEqual([]);
+    expect(projection.conflicted).toEqual([
+      { row: row('web-9', ['area:caching', 'area:tracker']), values: ['caching', 'tracker'] },
+    ]);
+  });
+
+  it('treats a repeated identical value as one value, and a bare prefix as no value', () => {
+    const projection = projectWorkmap(
+      [row('web-5', ['area:caching', 'area:caching']), row('web-6', ['area:'])],
+      'area:',
+      null,
+    );
+    expect(projection.groups.map((group) => group.value)).toEqual(['caching']);
+    expect(projection.conflicted).toEqual([]);
+    expect(projection.ungrouped.map((ungrouped) => ungrouped.id)).toEqual(['web-6']);
+  });
+
+  it('orders cards inside each bucket by the sort stack when one is given', () => {
+    // With Pretty, the served order is a tree walk: a child follows its parent even when
+    // the parent sits in another group. Default stack, Updated descending.
+    const served = [
+      { ...row('epic', ['area:web']), updated_at: '2026-03-01T00:00:00Z' },
+      { ...row('child', ['area:cli']), updated_at: '2026-01-01T00:00:00Z' },
+      { ...row('feb', ['area:cli']), updated_at: '2026-02-01T00:00:00Z' },
+      { ...row('jan15', ['area:cli']), updated_at: '2026-01-15T00:00:00Z' },
+      { ...row('both', ['area:cli', 'area:web']), updated_at: '2026-01-01T00:00:00Z' },
+      { ...row('none', []), updated_at: '2026-01-02T00:00:00Z' },
+      { ...row('none2', []), updated_at: '2026-02-02T00:00:00Z' },
+    ];
+    const ids = (projection: ReturnType<typeof projectWorkmap>) => ({
+      groups: projection.groups.map((group) => [group.value, group.rows.map((r) => r.id)]),
+      ungrouped: projection.ungrouped.map((r) => r.id),
+    });
+    expect(ids(projectWorkmap(served, 'area:', DEFAULT_BOARD_SORTS))).toEqual({
+      groups: [
+        ['cli', ['feb', 'jan15', 'child']],
+        ['web', ['epic']],
+      ],
+      ungrouped: ['none2', 'none'],
+    });
+    // Without a stack the served order stands, as with Pretty off.
+    expect(ids(projectWorkmap(served, 'area:', null)).groups[0]).toEqual([
+      'cli',
+      ['child', 'feb', 'jan15'],
+    ]);
+  });
+
+  it("computes each row's label sort key once per sort, not once per comparison", () => {
+    let reads = 0;
+    const counted = Array.from({ length: 200 }, (_, index) => {
+      const labels = [`area:a${index % 7}`, `team:t${(index * 31) % 11}`];
+      const counting = { ...row(`r-${index}`, []) };
+      Object.defineProperty(counting, 'labels', {
+        get: () => {
+          reads += 1;
+          return labels;
+        },
+      });
+      return counting;
+    });
+    const sorted = sortBoardRows(counted, [{ key: 'labels', direction: 'asc' }]);
+    expect(reads).toBe(counted.length);
+    const keys = sorted.map((sortedRow) => [...sortedRow.labels].sort().join(' '));
+    expect(keys).toEqual([...keys].sort((left, right) => left.localeCompare(right)));
+  });
+
+  it('projects an empty prefix as fully ungrouped rather than grouping on accident', () => {
+    const projection = projectWorkmap([row('web-7', ['area:caching'])], '  ', null);
+    expect(projection.groups).toEqual([]);
+    expect(projection.ungrouped.map((ungrouped) => ungrouped.id)).toEqual(['web-7']);
+  });
+
+  it('detects the prefixes the data states, counted by bead, with no built-in names', () => {
+    const prefixes = detectLabelPrefixes([
+      row('web-1', ['area:caching', 'phase:2']),
+      row('web-2', ['area:tracker', 'area:caching']),
+      row('web-3', ['plain-label', ':leading', 'trailing:']),
+    ]);
+    expect(prefixes).toEqual([
+      { value: 'area:', count: 2 },
+      { value: 'phase:', count: 1 },
+    ]);
+  });
+});
+
+describe('workmap page window', () => {
+  const seed = board(state()).rows[0]!;
+  const row = (id: string, labels: string[]): BoardRowView => ({ ...seed, id, labels });
+  const rows = (prefix: string, count: number, labels: string[]): BoardRowView[] =>
+    Array.from({ length: count }, (_, index) => row(`${prefix}-${index}`, labels));
+
+  it('mounts at most one list page of cards, in reading order, keeping split totals honest', () => {
+    const projection = projectWorkmap(
+      [
+        ...rows('big', BOARD_PAGE_SIZE - 1, ['area:big']),
+        ...rows('small', 3, ['area:small']),
+        row('both', ['area:big', 'area:small']),
+        row('none', []),
+      ],
+      'area:',
+      null,
+    );
+    const pages = [0, 1].map((pageIndex) => paginateWorkmap(projection, pageIndex));
+    const shape = pages.map((page) =>
+      page.sections.map((section) => ({
+        key: section.key,
+        count: workmapSectionCount(section, false),
+        first: section.cards[0]?.row.id,
+      })),
+    );
+    expect(shape).toEqual([
+      [
+        { key: 'group:big', count: String(BOARD_PAGE_SIZE - 1), first: 'big-0' },
+        { key: 'group:small', count: '1 of 3', first: 'small-0' },
+      ],
+      [
+        { key: 'group:small', count: '2 of 3', first: 'small-1' },
+        { key: 'conflicting', count: '1', first: 'both' },
+        { key: 'ungrouped', count: '1', first: 'none' },
+      ],
+    ]);
+    expect(pages.map((page) => [page.pageIndex, page.pageCount, page.start, page.end])).toEqual([
+      [0, 2, 0, BOARD_PAGE_SIZE],
+      [1, 2, BOARD_PAGE_SIZE, BOARD_PAGE_SIZE + 4],
+    ]);
+    const mounted = pages.flatMap((page) =>
+      page.sections.flatMap((section) => section.cards.map((card) => card.row.id)),
+    );
+    expect(mounted).toHaveLength(BOARD_PAGE_SIZE + 4);
+    expect(new Set(mounted).size).toBe(mounted.length);
+    expect(pages[1]!.sections[1]!.cards[0]!.conflictLabels).toEqual(['area:big', 'area:small']);
+  });
+
+  it('marks every count as a lower bound when the server served only part of the match', () => {
+    // As in a 10,050-bead board capped at 10,000 rows: 5,950 served `big` rows, 5,000 of
+    // them on page 1, while the 50 unserved rows may carry `area:big` too.
+    const projection = projectWorkmap(
+      [...rows('big', 5_950, ['area:big']), ...rows('small', 4_050, ['area:small'])],
+      'area:',
+      null,
+    );
+    const [first, second] = [0, 1].map((pageIndex) => paginateWorkmap(projection, pageIndex));
+    const counts = (truncated: boolean) =>
+      [first!, second!].map((page) =>
+        page.sections.map((section) => workmapSectionCount(section, truncated)),
+      );
+    expect(counts(true)).toEqual([['5000 of 5950+'], ['950 of 5950+', '4050+']]);
+    expect(counts(false)).toEqual([['5000 of 5950'], ['950 of 5950', '4050']]);
+  });
+
+  it('states the served-row cap in one sentence for both views, and nothing below it', () => {
+    const served = Array.from({ length: 3 }, (_, index) => row(`web-${index}`, []));
+    expect(servedRowLimitNotice({ rows: served, truncated: 0 })).toBe('');
+    expect(servedRowLimitNotice({ rows: served, truncated: 7 })).toBe(
+      'Server returned the first 3 of 7 rows; narrow the query to reach the remainder.',
+    );
+  });
+
+  it('clamps a stale page like the list, and has nothing to mount without a prefix', () => {
+    const projection = projectWorkmap([row('one', ['area:x'])], 'area:', null);
+    expect(paginateWorkmap(projection, 7).pageIndex).toBe(0);
+    expect(paginateWorkmap(projection, 7).sections.map((section) => section.key)).toEqual([
+      'group:x',
+    ]);
+    expect(paginateWorkmap(projectWorkmap([row('one', ['area:x'])], '', null), 0).sections).toEqual(
+      [],
+    );
+  });
+
+  it('signs exactly what a card face shows, so refreshed but unchanged rows are reused', () => {
+    const card = { row: row('web-1', ['area:x']), conflictLabels: null };
+    const signature = workmapCardSignature(card);
+    // A refresh delivers new objects; fields the card face does not show must not matter.
+    expect(
+      workmapCardSignature({
+        row: { ...card.row, labels: ['area:x', 'extra'], updated_at: '2026-09-01T00:00:00Z' },
+        conflictLabels: null,
+      }),
+    ).toBe(signature);
+    for (const changed of [
+      { ...card, row: { ...card.row, title: 'Retitled' } },
+      { ...card, row: { ...card.row, status: 'blocked' as const } },
+      { ...card, row: { ...card.row, priority: 0 } },
+      { ...card, conflictLabels: ['area:x', 'area:y'] },
+    ]) {
+      expect(workmapCardSignature(changed)).not.toBe(signature);
+    }
+  });
+});
+
+describe('keyed workmap reorder plan', () => {
+  it('moves one traveling card once in either direction and never keeps a new node', () => {
+    expect([...keyedOrderKeepers([0, 1, 2, 3])].sort()).toEqual([0, 1, 2, 3]);
+    // The first card moved to the end, or the last to the front: one move either way.
+    expect([...keyedOrderKeepers([1, 2, 3, 0])].sort()).toEqual([0, 1, 2]);
+    expect([...keyedOrderKeepers([3, 0, 1, 2])].sort()).toEqual([1, 2, 3]);
+    // A replaced or newly mounted card (-1) is always inserted.
+    expect([...keyedOrderKeepers([-1, 0, -1, 1])].sort()).toEqual([1, 3]);
+    expect(keyedOrderKeepers([2, 1, 0]).size).toBe(1);
+    expect(keyedOrderKeepers([]).size).toBe(0);
+  });
+
+  it('keeps a longest in-order run for arbitrary reorders (fixed-seed oracle check)', () => {
+    let seed = 20_261_117;
+    const random = (limit: number): number => {
+      seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
+      return seed % limit;
+    };
+    for (let trial = 0; trial < 200; trial += 1) {
+      const size = random(12);
+      const order = Array.from({ length: size }, (_, index) => index);
+      for (let index = size - 1; index > 0; index -= 1) {
+        const swap = random(index + 1);
+        [order[index], order[swap]] = [order[swap]!, order[index]!];
+      }
+      const indices = order.map((value) => (random(5) === 0 ? -1 : value));
+      const keep = [...keyedOrderKeepers(indices)].sort((a, b) => a - b);
+      const kept = keep.map((position) => indices[position]!);
+      expect(
+        kept.every((value, index) => value >= 0 && (index === 0 || value > kept[index - 1]!)),
+        `seed trial ${trial}: ${JSON.stringify(indices)}`,
+      ).toBe(true);
+      // O(n^2) longest strictly increasing run over the mounted (non-negative) entries.
+      const best = indices.map(() => 0);
+      for (let end = 0; end < indices.length; end += 1) {
+        if (indices[end]! < 0) {
+          continue;
+        }
+        best[end] = 1;
+        for (let start = 0; start < end; start += 1) {
+          if (indices[start]! >= 0 && indices[start]! < indices[end]!) {
+            best[end] = Math.max(best[end]!, best[start]! + 1);
+          }
+        }
+      }
+      expect(keep.length, `seed trial ${trial}: ${JSON.stringify(indices)}`).toBe(
+        Math.max(0, ...best),
+      );
+    }
+  });
+});
+
+describe('board view choice in the page address', () => {
+  it('lets an explicit address win over storage, falling through absent or unknown values', () => {
+    expect(
+      resolveBoardViewChoice('?view=workmap&group=team%3A', { view: 'list', group: 'area:' }),
+    ).toEqual({ view: 'workmap', group: 'team:', groupFromStorage: false });
+    expect(
+      resolveBoardViewChoice('?view=kanban&group=', { view: 'workmap', group: 'area:' }),
+    ).toEqual({ view: 'workmap', group: 'area:', groupFromStorage: true });
+    expect(resolveBoardViewChoice('', { view: 'bogus', group: null })).toEqual({
+      view: 'list',
+      group: '',
+      groupFromStorage: false,
+    });
+  });
+
+  it('treats a blank grouping as no grouping, from the address and from storage', () => {
+    expect(
+      resolveBoardViewChoice('?view=workmap&group=%20', { view: null, group: 'area:' }),
+    ).toEqual({ view: 'workmap', group: 'area:', groupFromStorage: true });
+    expect(resolveBoardViewChoice('?view=workmap&group=+%09', { view: null, group: '  ' })).toEqual(
+      { view: 'workmap', group: '', groupFromStorage: false },
+    );
+  });
+
+  it('writes each in-page choice into the address so a reload or a shared link restores it', () => {
+    // Storage disagrees with every choice, as in a fresh profile or another viewer's.
+    const otherViewer = { view: 'list', group: 'other:' };
+    const choices: BoardViewChoiceView[] = [
+      { view: 'list', group: '' },
+      { view: 'workmap', group: '' },
+      { view: 'workmap', group: 'area:' },
+      { view: 'list', group: 'team:' },
+    ];
+    for (const start of ['', '?view=workmap&group=area%3A', '?debug=1&view=list']) {
+      for (const choice of choices) {
+        const search = boardViewSearch(start, choice);
+        const restored = resolveBoardViewChoice(search, otherViewer);
+        expect({ start, choice: restored }).toEqual({
+          start,
+          choice: {
+            view: choice.view,
+            group: choice.group === '' ? 'other:' : choice.group,
+            // Only a grouping the address omits comes from storage.
+            groupFromStorage: choice.group === '',
+          },
+        });
+        expect(new URLSearchParams(search).get('debug')).toBe(start.includes('debug') ? '1' : null);
+      }
+    }
+    expect(boardViewSearch('?view=list&group=area%3A', { view: 'workmap', group: '' })).toBe(
+      '?view=workmap',
+    );
   });
 });
