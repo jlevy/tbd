@@ -4663,7 +4663,7 @@ local state. The server is therefore a presentation surface, not an editor or an
 alternate agent API.
 
 ```bash
-tbd web [path] [--port <n>] [--open]
+tbd web [path] [--port <n>] [--open] [--view list|workmap] [--group-prefix <prefix>]
 ```
 
 The optional path is a repository or any subdirectory within it and is resolved from the
@@ -4733,6 +4733,19 @@ value inside the chooser.
 A failed board refresh keeps the last successful rows visible and changes the persistent
 observer indicator to an error state until a successful response clears it.
 Render completion also dismisses any tooltip whose anchor was replaced.
+The Workmap is a second rendering of the same response, not a mode: a pure projection
+that groups rows by the value each bead’s labels state under a caller-chosen prefix.
+tbd assigns no meaning to any prefix and offers only the prefixes the rows state.
+Two distinct values place a bead in a `conflicting` group showing its literal labels,
+and no value places it in `ungrouped`; neither is resolved by a tie-break.
+The list’s 5,000-row page window bounds the mounted cards in the projection’s reading
+order. Cards use the row disclosure button and the same delegated toggle and focus
+restoration; renders reuse keyed card nodes, rebuild a card only when what it shows
+changes, and move the fewest nodes.
+`--view` and `--group-prefix` fold the choice into the printed and opened URL. Each
+in-page view or grouping choice replaces the page address with the view and the grouping
+in effect, and an address wins over the stored preference at startup, so reloading or
+sharing the address reproduces the choice.
 These component and semantic rules are maintained in the co-located design-system
 inventory in `src/web/styles.css`. Status-panel field names use standard-size sans
 chrome and literal values use standard-size monospace; neither side shrinks merely
@@ -5019,6 +5032,10 @@ the page. This threshold is empirical rather than round-number preference: a pro
 Chromium stress page measured 93,323 elements and 1.71–2.55 seconds at 5,000 rows,
 versus 186,380 elements and 2.81–5.50 seconds at 10,000. The former is a usable
 last-resort page; the latter adds substantial layout and garbage-collection variance.
+The Workmap applies the same page window to its cards and reuses keyed card nodes.
+`qa:web-workmap` measures it in headless Chrome at the 10,000-row cap: a page mounts
+5,000 cards (40,036 elements), expanding or collapsing a card creates or moves no card
+node, and a one-bead live update rebuilds only that card.
 At most 100 details remain expanded, the body cache retains 200 entries, and a mass
 deletion animates at most 100 ghost rows.
 Changed and removed row ids remain complete in the canonical board state for the latest

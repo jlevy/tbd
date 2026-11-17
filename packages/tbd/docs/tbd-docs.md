@@ -836,6 +836,7 @@ tbd web                         # Serve on the first free port in 7777-7786
 tbd web --open                  # Open the page after it is HTTP-ready
 tbd web ../another-repo --open  # View a repository from another directory
 tbd web --port 9000             # Bind exactly 127.0.0.1:9000
+tbd web --group-prefix area:    # Open the Workmap grouped by area:* labels
 tbd --json web                  # Print the machine-readable startup descriptor
 tbd --dry-run web               # Resolve the repo and port without binding
 ```
@@ -851,6 +852,23 @@ Options:
 
 - `--open` - Open the default browser after the page passes an HTTP readiness check.
   The default is not to launch a browser, which is safe for agents and CI.
+
+- `--view <name>` - Open on the `list` (default) or `workmap` view.
+
+- `--group-prefix <prefix>` - Group Workmap cards by the value of labels with this
+  prefix, such as `area:` for `area:caching`. It implies `--view workmap` unless
+  `--view` says otherwise.
+
+The Workmap shows the same filtered and sorted rows as the list, as cards grouped by the
+value each bead’s labels state under a prefix your labels already use.
+tbd assigns no meaning to any prefix; the page offers only the prefixes your labels
+contain. A bead with two values under the prefix appears in `conflicting` with its
+literal labels, and a bead with none appears in `ungrouped`. Each card’s disclosure
+button expands it by pointer or keyboard.
+Like the list, the Workmap mounts at most 5,000 cards per page.
+Choosing a view or grouping in the page rewrites its address (for example
+`?view=workmap&group=area%3A`), so reloading or sharing the address reproduces the
+choice; an address wins over the choice the browser remembers.
 
 The command stays in the foreground; press Ctrl+C to stop it.
 An initialized repository with zero beads is valid and renders the ordinary empty board.
