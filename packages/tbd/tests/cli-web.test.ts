@@ -12,6 +12,55 @@ import { promisify } from 'node:util';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { subprocessTestTimeout } from './test-helpers.js';
+import { webUrlWithView } from '../src/cli/commands/web.js';
+import { resolveBoardViewChoice } from '../src/web/core.js';
+
+describe('web view URL options', () => {
+  it('passes through untouched with no view options', () => {
+    expect(webUrlWithView('http://127.0.0.1:7777', {})).toBe('http://127.0.0.1:7777');
+  });
+
+  it('encodes the chosen view, and grouping implies the workmap', () => {
+    expect(webUrlWithView('http://127.0.0.1:7777', { view: 'workmap' })).toBe(
+      'http://127.0.0.1:7777/?view=workmap',
+    );
+    expect(webUrlWithView('http://127.0.0.1:7777', { groupPrefix: 'area:' })).toBe(
+      'http://127.0.0.1:7777/?view=workmap&group=area%3A',
+    );
+    expect(webUrlWithView('http://127.0.0.1:7777', { view: 'list', groupPrefix: 'area:' })).toBe(
+      'http://127.0.0.1:7777/?view=list&group=area%3A',
+    );
+  });
+
+  it('opens on the view each link names, over a disagreeing stored preference', () => {
+    const stored = { view: 'list', group: 'stored:' };
+    const opened = (options: Parameters<typeof webUrlWithView>[1]) =>
+      resolveBoardViewChoice(new URL(webUrlWithView('http://127.0.0.1:7777', options)).search, {
+        ...stored,
+        view: options.view === 'list' ? 'workmap' : 'list',
+      });
+    expect(opened({ view: 'workmap' })).toEqual({
+      view: 'workmap',
+      group: 'stored:',
+      groupFromStorage: true,
+    });
+    expect(opened({ view: 'list' })).toEqual({
+      view: 'list',
+      group: 'stored:',
+      groupFromStorage: true,
+    });
+    expect(opened({ groupPrefix: 'area:' })).toEqual({
+      view: 'workmap',
+      group: 'area:',
+      groupFromStorage: false,
+    });
+    expect(opened({ view: 'list', groupPrefix: 'team:' })).toEqual({
+      view: 'list',
+      group: 'team:',
+      groupFromStorage: false,
+    });
+  });
+});
 
 const execFileAsync = promisify(execFile);
 const packageDir = fileURLToPath(new URL('..', import.meta.url));
@@ -22,6 +71,7 @@ const supportsHandledProcessSignals = process.platform !== 'win32';
 
 interface WebDescriptor {
   url: string;
+  pageUrl: string;
   port: number;
   pid: number;
   repo: string;
@@ -394,15 +444,21 @@ describe('tbd web CLI', { timeout: subprocessTestTimeout(90_000) }, () => {
     const { repoDir } = await createRepo();
     const port = await availablePort();
     const safetyBefore = await safetySnapshot(repoDir);
-    const child = spawn(process.execPath, [tbdBin, '--json', 'web', '--port', String(port)], {
-      cwd: repoDir,
-      env: { ...process.env, NO_COLOR: '1' },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    // View options change only the page link; `url` stays the base that APIs build on.
+    const child = spawn(
+      process.execPath,
+      [tbdBin, '--json', 'web', '--port', String(port), '--group-prefix', 'area:'],
+      {
+        cwd: repoDir,
+        env: { ...process.env, NO_COLOR: '1' },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    );
     children.add(child);
     const descriptor = await waitForDescriptor(child);
     expect(descriptor).toMatchObject({
       url: `http://127.0.0.1:${port}`,
+      pageUrl: `http://127.0.0.1:${port}/?view=workmap&group=area%3A`,
       port,
       pid: child.pid,
       repo: repoDir,

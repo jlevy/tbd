@@ -4663,7 +4663,7 @@ local state. The server is therefore a presentation surface, not an editor or an
 alternate agent API.
 
 ```bash
-tbd web [path] [--port <n>] [--open]
+tbd web [path] [--port <n>] [--open] [--view list|workmap] [--group-prefix <prefix>]
 ```
 
 The optional path is a repository or any subdirectory within it and is resolved from the
@@ -4733,6 +4733,31 @@ value inside the chooser.
 A failed board refresh keeps the last successful rows visible and changes the persistent
 observer indicator to an error state until a successful response clears it.
 Render completion also dismisses any tooltip whose anchor was replaced.
+The Workmap is a second rendering of the same response, not a mode: a pure projection
+that groups rows by the value each bead’s labels state under a caller-chosen prefix.
+tbd assigns no meaning to any prefix and offers only the prefixes the rows state.
+Two distinct values place a bead in a `conflicting` group showing its literal labels,
+and no value places it in `ungrouped`; neither is resolved by a tie-break.
+Cards inside each bucket follow the column sort stack; with Pretty on, the served order
+is a tree walk that a card cannot show, so the projection re-sorts each bucket with the
+server’s flat-order comparison, which a differential test holds equal.
+A group is headed by its literal label in the label-tag style, so values that differ
+only in case, or that are named `conflicting` or `ungrouped`, stay distinct from each
+other and from the two small-cap buckets.
+The list’s 5,000-row page window bounds the mounted cards in the projection’s reading
+order. Cards use the row disclosure button and the same delegated toggle and focus
+restoration; renders reuse keyed card nodes, rebuild a card only when what it shows
+changes, and move the fewest nodes.
+`--view` and `--group-prefix` fold the choice into the printed and opened page link,
+which the `--json` descriptor reports as `pageUrl`; its `url` stays the server’s base.
+Each in-page view or grouping choice replaces the page address with the view and the
+grouping in effect, and an address wins over the stored preference at startup, so
+reloading or sharing the address reproduces the choice.
+With no grouping chosen, the first Workmap render pins the most common prefix in the
+rows it shows (in memory, not storage) and writes it to the address; the grouping then
+changes only by choice, so neither a filter nor a live update regroups the board.
+Stored preferences are per origin and shared by every repository served on that port, so
+a remembered grouping that no served row states is replaced by that default pin.
 These component and semantic rules are maintained in the co-located design-system
 inventory in `src/web/styles.css`. Status-panel field names use standard-size sans
 chrome and literal values use standard-size monospace; neither side shrinks merely
@@ -5019,6 +5044,10 @@ the page. This threshold is empirical rather than round-number preference: a pro
 Chromium stress page measured 93,323 elements and 1.71–2.55 seconds at 5,000 rows,
 versus 186,380 elements and 2.81–5.50 seconds at 10,000. The former is a usable
 last-resort page; the latter adds substantial layout and garbage-collection variance.
+The Workmap applies the same page window to its cards and reuses keyed card nodes.
+`qa:web-workmap` measures it in headless Chrome at the 10,000-row cap: a page mounts
+5,000 cards (45,048 elements), expanding or collapsing a card creates or moves no card
+node, and a one-bead live update rebuilds only that card.
 At most 100 details remain expanded, the body cache retains 200 entries, and a mass
 deletion animates at most 100 ghost rows.
 Changed and removed row ids remain complete in the canonical board state for the latest

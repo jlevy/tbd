@@ -836,6 +836,7 @@ tbd web                         # Serve on the first free port in 7777-7786
 tbd web --open                  # Open the page after it is HTTP-ready
 tbd web ../another-repo --open  # View a repository from another directory
 tbd web --port 9000             # Bind exactly 127.0.0.1:9000
+tbd web --group-prefix area:    # Link the page to the Workmap grouped by area:
 tbd --json web                  # Print the machine-readable startup descriptor
 tbd --dry-run web               # Resolve the repo and port without binding
 ```
@@ -851,6 +852,40 @@ Options:
 
 - `--open` - Open the default browser after the page passes an HTTP readiness check.
   The default is not to launch a browser, which is safe for agents and CI.
+
+- `--view <name>` - Open on the `list` (default) or `workmap` view.
+
+- `--group-prefix <prefix>` - Group Workmap cards by the value of labels with this
+  prefix, such as `area:` for `area:caching`. It implies `--view workmap` unless
+  `--view` says otherwise.
+  A blank prefix is a usage error.
+
+The view options change only the page link: the startup output prints it as `Page:`,
+`--open` opens it, and the `--json` descriptor reports it as `pageUrl`. The descriptor’s
+`url` is always the server’s base URL (`http://127.0.0.1:<port>`), the root that API
+callers build on.
+
+The Workmap shows the same filtered and sorted rows as the list, as cards grouped by the
+value each bead’s labels state under a prefix your labels already use.
+Cards in each group follow the column sort, also with Pretty on, where the list instead
+keeps each child under its parent.
+tbd assigns no meaning to any prefix; the page offers only the prefixes your labels
+contain. Each group is headed by its literal label, such as `area:caching`. A bead with
+two values under the prefix appears in the `conflicting` bucket with its literal labels,
+and a bead with none appears in `ungrouped`. Each card’s disclosure button expands it by
+pointer or keyboard.
+Like the list, the Workmap mounts at most 5,000 cards per page.
+When a query matches more beads than the server returns (10,000), the Workmap shows the
+list’s notice above its groups, and each group count, which then covers only the
+returned beads, is marked as a lower bound (`950+`) whose tooltip repeats the notice.
+Until you choose a grouping, the Workmap uses the prefix most common among the beads it
+first shows, and keeps it while filters or live updates change which prefix is most
+common. Choosing a view or grouping in the page, or that first default, rewrites its
+address (for example `?view=workmap&group=area%3A`), so reloading or sharing the address
+reproduces what the page shows; an address wins over the choice the browser remembers.
+The browser remembers one grouping for every repository served on the same port, so a
+remembered grouping that none of the shown beads uses gives way to the default, and the
+address names a remembered grouping only once the shown beads confirm it.
 
 The command stays in the foreground; press Ctrl+C to stop it.
 An initialized repository with zero beads is valid and renders the ordinary empty board.

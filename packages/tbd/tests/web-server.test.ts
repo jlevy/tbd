@@ -1,6 +1,9 @@
+import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { createServer, request } from 'node:http';
 import type { RequestListener, Server } from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -8,7 +11,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { BoardState } from '../src/cli/web/board.js';
 import type { BoardStateDependencies, RepoStatus, WebState } from '../src/cli/web/board.js';
-import { loadWebPage, startWebServer } from '../src/cli/web/server.js';
+import { webUrlWithView } from '../src/cli/commands/web.js';
+import {
+  browserLaunchCommand,
+  cmdCommandArgs,
+  loadWebPage,
+  startWebServer,
+} from '../src/cli/web/server.js';
 import type {
   WebServerDependencies,
   WebServerHandle,
@@ -269,4 +278,174 @@ describe('startWebServer', () => {
     handles.push(handle);
     expect(await get(handle.port)).toBe(page);
   });
+});
+
+describe('browser launch command', () => {
+  // Each URL carries characters cmd.exe treats as syntax: & and | separate commands,
+  // ^ escapes, ( ) group, % and ! expand variables, and quotes and spaces split arguments.
+  const urls = [
+    'http://127.0.0.1:7777/?view=workmap&group=area%3A',
+    'http://127.0.0.1:7777/?group=a^b&x=(1)|2',
+    // `%25` decodes to `%`, so this reads as `%PATH%` once decoded; cmd must not expand it.
+    'http://127.0.0.1:7777/?group=%25PATH%25!PATH!',
+    'http://127.0.0.1:7777/?group=say "hi" & bye',
+  ];
+
+  /**
+   * The text cmd.exe would hand to `start`, by its caret rule: `^` makes the next
+   * character literal and is removed. Returns null when a metacharacter is left bare.
+   */
+  function cmdLiteral(escaped: string): string | null {
+    let literal = '';
+    for (let index = 0; index < escaped.length; index += 1) {
+      const character = escaped[index]!;
+      if (character === '^') {
+        index += 1;
+        literal += escaped[index] ?? '';
+      } else if ('&|<>()%!"'.includes(character)) {
+        return null;
+      } else {
+        literal += character;
+      }
+    }
+    return literal;
+  }
+
+  it('hands the normalized URL to the platform opener as one argument off Windows', () => {
+    for (const url of urls) {
+      expect(browserLaunchCommand(url, 'darwin')).toEqual({
+        file: 'open',
+        args: [new URL(url).href],
+        windowsVerbatimArguments: false,
+      });
+      expect(browserLaunchCommand(url, 'linux')).toEqual({
+        file: 'xdg-open',
+        args: [new URL(url).href],
+        windowsVerbatimArguments: false,
+      });
+    }
+  });
+
+  it('opens only http and https URLs on every platform, never an option, a path, or a file', () => {
+    for (const target of [
+      '--help',
+      '-a Calculator',
+      '/Applications/Calculator.app',
+      'C:\\Windows\\System32\\calc.exe',
+      'file:///etc/passwd',
+      'javascript:alert(1)',
+      'ms-msdt:/id PCWDiagnostic',
+      'ftp://127.0.0.1/',
+      'not a url',
+    ]) {
+      for (const platform of ['linux', 'darwin', 'win32'] as const) {
+        expect(() => browserLaunchCommand(target, platform), `${platform} ${target}`).toThrow(
+          /only http and https/u,
+        );
+      }
+    }
+    // Every accepted argument is an http(s) URL, so none can start with `-`.
+    for (const platform of ['linux', 'darwin'] as const) {
+      expect(browserLaunchCommand('HTTPS://127.0.0.1:7777/?view=list', platform).args).toEqual([
+        'https://127.0.0.1:7777/?view=list',
+      ]);
+    }
+  });
+
+  it('caret-escapes every cmd.exe metacharacter on Windows, so start gets one literal URL', () => {
+    expect(browserLaunchCommand(urls[0]!, 'win32')).toEqual({
+      file: 'cmd.exe',
+      args: [
+        '/d',
+        '/v:off',
+        '/s',
+        '/c',
+        '"start "" http://127.0.0.1:7777/?view=workmap^&group=area^%3A"',
+      ],
+      windowsVerbatimArguments: true,
+    });
+    expect(browserLaunchCommand(urls[3]!, 'win32').args.at(-1)).toBe(
+      '"start "" http://127.0.0.1:7777/?group=say^%20^%22hi^%22^%20^&^%20bye"',
+    );
+    for (const url of urls) {
+      const command = browserLaunchCommand(url, 'win32').args.at(-1)!;
+      expect(command.startsWith('"start "" ') && command.endsWith('"')).toBe(true);
+      const argument = command.slice('"start "" '.length, -1);
+      // No bare metacharacter, no space or quote to split start's argument, and the
+      // literal start receives is the URL itself.
+      expect({ url, literal: cmdLiteral(argument) }).toEqual({ url, literal: new URL(url).href });
+      expect(argument).not.toMatch(/[\s"]/u);
+    }
+  });
+
+  it('accepts every link tbd web builds, whatever the grouping prefix holds', () => {
+    const prefixes = [
+      ...Array.from({ length: 0x24f }, (_, index) => String.fromCodePoint(index + 1)),
+      '%PATH%',
+      '%PATH:a=b%',
+      '%CD:~0,2%',
+      '!PATH!',
+      '^&calc',
+      'say "hi" & bye',
+      'line\r\nbreak',
+      'emoji \u{1f600}',
+    ];
+    for (const groupPrefix of prefixes) {
+      for (const view of [undefined, 'list', 'workmap']) {
+        const link = webUrlWithView('http://127.0.0.1:7777', { view, groupPrefix });
+        const argument = browserLaunchCommand(link, 'win32')
+          .args.at(-1)!
+          .slice('"start "" '.length, -1);
+        expect({ groupPrefix, literal: cmdLiteral(argument) }).toEqual({
+          groupPrefix,
+          literal: new URL(link).href,
+        });
+      }
+    }
+  });
+
+  it('refuses a URL outside what the cmd.exe escaping is proven for, on Windows only', () => {
+    expect(() => cmdCommandArgs('echo', 'foo:a b"c')).toThrow(/cannot pass/u);
+    for (const url of [
+      // A quote survives normalization in a host name, and start would parse it.
+      'http://a"b/',
+      // `%` not starting a two-digit escape: cmd reads `%PATH:a=b%` as a substitution.
+      'http://127.0.0.1:7777/?q=%PATH:a=b%',
+      'http://127.0.0.1:7777/?q=%G0',
+      // A `:` after a `%` lets cmd read `%41:x=y%` as a substitution on variable `41`.
+      'http://127.0.0.1:7777/?q=%41:x=y%41',
+    ]) {
+      expect(() => browserLaunchCommand(url, 'win32'), url).toThrow(/cannot pass/u);
+      expect(() => cmdCommandArgs('echo', url), url).toThrow(/cannot pass/u);
+      // No shell parses the argument elsewhere, so cmd's rules do not apply there.
+      expect(browserLaunchCommand(url, 'linux').args).toEqual([new URL(url).href]);
+    }
+  });
+
+  it.runIf(process.platform === 'win32')(
+    'passes each URL through the real cmd.exe parser literally',
+    async () => {
+      const dir = await mkdtemp(join(tmpdir(), 'tbd-web-open-'));
+      try {
+        // A planted script named like the text after an unescaped `&`.
+        await writeFile(join(dir, 'group.cmd'), '@echo ran> "%~dp0marker.txt"\r\n');
+        const run = (args: string[], cwd: string) =>
+          spawnSync('cmd.exe', args, { cwd, encoding: 'utf8', windowsVerbatimArguments: true });
+        for (const url of urls) {
+          // `echo` in place of `start ""` prints exactly what start would receive.
+          const echoed = run(cmdCommandArgs('echo', url), dir);
+          expect({ url, out: echoed.stdout.trimEnd() }).toEqual({ url, out: new URL(url).href });
+        }
+        expect(existsSync(join(dir, 'marker.txt'))).toBe(false);
+        // Positive control in the same directory: the same URL unescaped is cut at `&`,
+        // and cmd then runs the planted script, so the marker check above can fail.
+        const bare = run(['/d', '/v:off', '/s', '/c', `"echo ${new URL(urls[0]!).href}"`], dir);
+        expect(bare.stdout.trimEnd()).toBe('http://127.0.0.1:7777/?view=workmap');
+        expect(existsSync(join(dir, 'marker.txt'))).toBe(true);
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    },
+    30_000,
+  );
 });

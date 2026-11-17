@@ -38,18 +38,18 @@ Usage: tbd web [options] [path]
 Serve a live, read-only bead view on loopback
 
 Arguments:
-  path            Repository or subdirectory to view (default: current
-                  directory)
+  path                     Repository or subdirectory to view (default: current
+                           directory)
 
 Options:
-  --port <n>      Bind exactly this loopback port (default: search from 7777)
-  --open          Open the page in the default browser after HTTP readiness
-  -h, --help      display help for command
-
-Global Options:
-  --version       Show version number
-  --dry-run       Show what would be done without making changes
-  --verbose       Enable verbose output
+  --port <n>               Bind exactly this loopback port (default: search from
+                           7777)
+  --open                   Open the page in the default browser after HTTP
+                           readiness
+  --view <name>            Initial board view: list or workmap
+  --group-prefix <prefix>  Workmap grouping label prefix (e.g. area:) — any
+                           prefix:value convention your labels use
+  -h, --help               display help for command
 ? 0
 ```
 
@@ -66,6 +66,24 @@ $ node run-built-cli.mjs --dry-run --json web .tbd | jq -c "{repo,port}"
 ```console
 $ node run-built-cli.mjs --dry-run --json web --port 17899 | jq -c "{url,port,syncBranch}"
 {"url":"http://127.0.0.1:17899","port":17899,"syncBranch":"tbd-sync"}
+? 0
+```
+
+## View options change only the page link
+
+`url` stays the server’s base URL, which API callers build on; `pageUrl` opens the
+requested view.
+
+```console
+$ node run-built-cli.mjs --dry-run --json web --port 17899 --group-prefix area: | jq -c "{url,pageUrl}"
+{"url":"http://127.0.0.1:17899","pageUrl":"http://127.0.0.1:17899/?view=workmap&group=area%3A"}
+? 0
+```
+
+```console
+$ node run-built-cli.mjs --dry-run web --port 17899 --view workmap | grep -E "URL:|Page:"
+[..] URL:        http://127.0.0.1:17899
+[..] Page:       http://127.0.0.1:17899/?view=workmap
 ? 0
 ```
 
@@ -89,5 +107,11 @@ error: unknown option '--interval'
 ```console
 $ node run-built-cli.mjs web --port nope 2>&1
 Error: --port must be an integer between 1 and 65535
+? 2
+```
+
+```console
+$ node run-built-cli.mjs web --group-prefix " " 2>&1
+Error: --group-prefix must name a label prefix, such as area:
 ? 2
 ```

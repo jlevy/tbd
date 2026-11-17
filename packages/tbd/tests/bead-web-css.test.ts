@@ -288,8 +288,9 @@ describe('chevron icon system', () => {
     expect(disclosureRule, 'expected a stable disclosure line box').not.toBeNull();
     expect(disclosureRule).toContain('place-items: center');
 
-    expect(page.match(/class="select-control"/gu)).toHaveLength(3);
-    expect(page.match(/class="chevron chevron-down"/gu)).toHaveLength(4);
+    // Status, type, priority, and the Workmap grouping select.
+    expect(page.match(/class="select-control(?: [^"]*)?"/gu)).toHaveLength(4);
+    expect(page.match(/class="chevron chevron-down"/gu)).toHaveLength(5);
     expect(client).toContain("disclosure.setAttribute('aria-expanded', String(open))");
     expect(client).toContain("chevron.className = `chevron chevron-${open ? 'down' : 'right'}`");
     expect(client).not.toMatch(/[▸▾]/u);
@@ -350,6 +351,37 @@ describe('chevron icon system', () => {
     expect(hoverRule).toContain('background: var(--panel)');
     expect(hoverRule).toContain('border-color: var(--border)');
     expect(page.match(/class="icon-button"/gu)).toHaveLength(3);
+  });
+});
+
+describe('workmap interaction', () => {
+  it('gives every card the shared native disclosure and the board toggle and focus paths', async () => {
+    const [css, client] = await Promise.all([readStyleBlock(), readFile(clientPath, 'utf8')]);
+    expect(client).toContain("disclosure.className = 'disclosure'");
+    expect(client).toContain("mounted.disclosure.setAttribute('aria-expanded', String(open))");
+    expect(client).toContain("elements.workmapGroups.addEventListener('click', (event) => {");
+    expect(client).toContain("target.closest('.disclosure') === null");
+    expect(client).not.toMatch(
+      /(?:card|disclosure|element)\.addEventListener\('(?:click|keydown)'/u,
+    );
+    expect(client).toContain('captureBeadFocus(WORKMAP_CARD_SELECTOR)');
+    expect(client).toContain('focusBeadControl(workmapCards.get(focus.beadId)?.element, focus)');
+    // Layout only: the card reuses the row disclosure primitive rather than a new control.
+    expect(blockAfter(css, '.workmap-card-head > .disclosure')).toContain('align-self: center');
+  });
+
+  it('mounts one page window of keyed cards and writes view choices to the address', async () => {
+    const client = await readFile(clientPath, 'utf8');
+    expect(client).toContain('workmapProjection(board.rows, prefix, view.controls)');
+    expect(client).toContain("renderPageControls(page, 'Cards')");
+    expect(client).toContain(
+      'reconcileChildren(mountedSection.element, mountedSection.name, cardElements)',
+    );
+    expect(client).toContain('workmapCardSignature(card)');
+    expect(client).toContain('window.history.replaceState(');
+    // The two explicit choices, pinning the default grouping when it is first shown, and
+    // naming a remembered grouping once the rows confirm or replace it.
+    expect(client.match(/writeBoardViewAddress\(\);/gu)).toHaveLength(4);
   });
 });
 

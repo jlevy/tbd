@@ -357,13 +357,122 @@ export async function startWebServer(
   return { port, url, close, closed };
 }
 
+/** The process that opens a URL in the default browser on one platform. */
+export interface BrowserLaunchCommand {
+  file: string;
+  args: string[];
+  /** Windows only: pass `args` exactly as built, without Node's argument quoting. */
+  windowsVerbatimArguments: boolean;
+}
+
+/** Every character cmd.exe gives a meaning: separators, redirection, grouping, expansion. */
+const CMD_METACHARACTERS = /[\^&|<>()%!"]/gu;
+
+/**
+ * Why `href` cannot pass through cmd.exe literally, or null when it can. A caret makes
+ * cmd's later phases read a character literally, but variable expansion runs first:
+ * `%NAME:search=replace%` and `%NAME:~start,length%` expand even when each `%` is
+ * escaped, so no `:` may follow a `%`. Every `%` must start a two-digit escape, and no
+ * whitespace or quote may remain for `start` to split on.
+ */
+function cmdLiteralProblem(href: string, protocol: string): string | null {
+  if (protocol !== 'http:' && protocol !== 'https:') {
+    return `only http and https URLs are supported, not ${protocol}`;
+  }
+  if (/[\s"]/u.test(href)) {
+    return 'it holds whitespace or a quote';
+  }
+  if (/%(?![0-9A-Fa-f]{2})/u.test(href)) {
+    return 'a % does not start a two-digit escape';
+  }
+  const firstPercent = href.indexOf('%');
+  if (firstPercent >= 0 && href.includes(':', firstPercent)) {
+    return 'a : follows a %, which cmd reads as a variable substitution';
+  }
+  return null;
+}
+
+/**
+ * The cmd.exe arguments that run `<command> <url>` with the URL read as literal text.
+ *
+ * Contract: `url` is an http or https URL whose normalized form has no whitespace or
+ * quote, in which every `%` starts a two-digit escape, and in which no `:` follows a `%`.
+ * Every link `tbd web` builds satisfies it (`webUrlWithView` percent-encodes the view
+ * options, including `%` and `:`). Any other URL throws, so a caller fails closed: the
+ * open command reports it as a browser that could not be opened.
+ *
+ * Within the contract, every cmd metacharacter is caret-escaped and the command line is
+ * passed verbatim, because Node quotes only arguments that contain a space or a quote and
+ * would otherwise hand a bare `&` to cmd as a command separator. `/d` skips AutoRun
+ * commands and `/v:off` turns off `!` expansion. `/s /c "..."` is the form Node itself
+ * builds for `shell: true`. One limit remains: cmd expands `%NAME%` when NAME is a
+ * defined variable, and every `%...%` span here names a variable ending in `^`, so the
+ * URL stays literal unless the environment defines such a variable.
+ *
+ * Exported with `command` as a parameter so tests can run the same escaping through the
+ * real cmd.exe with `echo`, which prints what `start` would receive.
+ */
+export function cmdCommandArgs(command: string, url: string): string[] {
+  const parsed = new URL(url);
+  const problem = cmdLiteralProblem(parsed.href, parsed.protocol);
+  if (problem !== null) {
+    throw new Error(`The URL cannot pass through cmd.exe literally: ${problem}`);
+  }
+  const literal = parsed.href.replace(CMD_METACHARACTERS, '^$&');
+  return ['/d', '/v:off', '/s', '/c', `"${command} ${literal}"`];
+}
+
+/**
+ * `url` parsed as an http or https URL, or a thrown error. `open` and `xdg-open` take an
+ * argument that is not a web URL as an option, an application, or a file, so the launcher
+ * accepts web pages only; a normalized http(s) URL never starts with `-`.
+ */
+function webPageUrl(url: string): URL {
+  let parsed: URL | null = null;
+  try {
+    parsed = new URL(url);
+  } catch {
+    // Reported below with the same message as any other non-web target.
+  }
+  if (parsed?.protocol !== 'http:' && parsed?.protocol !== 'https:') {
+    throw new Error(`The browser launcher opens only http and https URLs, not ${url}`);
+  }
+  return parsed;
+}
+
+/**
+ * The browser launch for `platform`. The URL must be http or https on every platform
+ * and is passed normalized. Elsewhere it is one argument to a launcher that no shell
+ * parses. Windows has no such launcher, so `start` runs inside cmd.exe with the URL
+ * escaped by `cmdCommandArgs`, which also throws for a URL outside its contract.
+ *
+ * Exported so every platform's branch is assertable from any host.
+ */
+export function browserLaunchCommand(url: string, platform: NodeJS.Platform): BrowserLaunchCommand {
+  const page = webPageUrl(url).href;
+  switch (platform) {
+    case 'darwin':
+      return { file: 'open', args: [page], windowsVerbatimArguments: false };
+    case 'win32':
+      return {
+        file: 'cmd.exe',
+        args: cmdCommandArgs('start ""', page),
+        windowsVerbatimArguments: true,
+      };
+    default:
+      return { file: 'xdg-open', args: [page], windowsVerbatimArguments: false };
+  }
+}
+
 /** Launch the platform browser without making it part of server correctness. */
 export function openWebBrowser(url: string): Promise<void> {
-  const command =
-    process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'cmd.exe' : 'xdg-open';
-  const args = process.platform === 'win32' ? ['/d', '/s', '/c', 'start', '', url] : [url];
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { detached: true, stdio: 'ignore' });
+    const { file, args, windowsVerbatimArguments } = browserLaunchCommand(url, process.platform);
+    const child = spawn(file, args, {
+      detached: true,
+      stdio: 'ignore',
+      windowsVerbatimArguments,
+    });
     child.once('error', reject);
     child.once('spawn', () => {
       child.unref();

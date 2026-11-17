@@ -175,6 +175,19 @@
        Refresh failures keep the last successful rows visible and change the persistent
        observer pill to an error state until a successful board response clears it.
 
+     Workmap (.workmap-group, .workmap-card)
+       The same served rows as the list, grouped by a label prefix the data states.
+       Cards reuse the status, priority, mono id, tag, section-heading, and
+       row-disclosure roles; only layout is new. A group heading is its literal label
+       as a tag, and only the two synthetic buckets use the small-cap heading. One delegated click handler owns card expansion, and
+       each card's native disclosure button carries keyboard activation. The list's
+       page window bounds mounted cards, and the list's served-row notice appears
+       above the groups when the server caps the response; counts then read as lower
+       bounds (950+) and say why in their tooltip. Renders reuse keyed card nodes, rebuild a card only when its
+       face changes, move the fewest nodes, and restore focus by bead ID and control
+       role. The grouping select is a .select-control; the view chooser is a radio
+       group with one tab stop on the checked view and arrow-key selection.
+
      Typography and expansion (--weight-medium, --weight-strong)
        The complete type scale is 15px page title, 14px body/content, and one
        12px compact size for chrome and dense data—never ad-hoc intermediate
@@ -897,6 +910,126 @@ label.check {
   font-size: var(--font-size-small);
   line-height: 1.35;
 }
+/* ── Workmap view ─────────────────────────────────────────────────
+   The same board response as the list, projected into groups by a
+   label prefix the user's own data states. Cards reuse the board's
+   vocabulary (.issue-status colors, .priority-*, mono ids). A group
+   name is the literal label in the .tag primitive; the conflicting
+   and ungrouped buckets use the .section-heading recipe. No
+   treatment here is new; only layout is. */
+#boardheadingrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 7px;
+}
+#boardheadingrow #boardheading {
+  padding: 0;
+}
+#viewchooser .seg {
+  flex: 0 0 auto;
+  height: 24px;
+  padding: 0 10px;
+  font-size: var(--font-size-small);
+}
+/* The shared select control, at the heading row's compact size and bounded width. */
+.workmap-group-control {
+  max-width: 16em;
+}
+.workmap-group-control[hidden] {
+  display: none;
+}
+.workmap-group-control > select {
+  min-width: 0;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  font-size: var(--font-size-small);
+  text-overflow: ellipsis;
+}
+#workmapwrap {
+  padding: 12px 16px;
+  scroll-margin-top: 60px;
+}
+#workmapgroups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.workmap-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.workmap-group-name {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.workmap-group-name .num {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  /* A count, not a name: "5000 of 5950+" keeps its lowercase "of". */
+  text-transform: none;
+}
+/* A group's heading is a user label: literal case and spacing, wrapping if long. */
+.workmap-group-name > .tag.workmap-group-label {
+  min-width: 0;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.workmap-card {
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+.workmap-card + .workmap-card {
+  border-top: 1px solid var(--border);
+}
+.workmap-card:hover {
+  background: var(--panel);
+}
+.workmap-card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.workmap-card-id {
+  font-family: var(--mono);
+  font-size: var(--font-size-small);
+  white-space: nowrap;
+}
+/* Titles and conflict labels are user text and may hold no break opportunity. */
+.workmap-card-note {
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: var(--font-size-small);
+  color: var(--error);
+  overflow-wrap: anywhere;
+}
+.workmap-card-title {
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+.workmap-card-body {
+  margin-top: 8px;
+  cursor: auto;
+}
+/* The list's served-row notice, in the list pager row's panel and muted text, above the
+   groups so it is read before the lower-bound counts it explains. */
+.workmap-notice {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--muted);
+  text-align: center;
+}
 .copyable {
   display: inline-flex;
   max-width: 100%;
@@ -1179,6 +1312,12 @@ td.caret {
   color: var(--muted);
   background: transparent;
   transform: translateY(var(--row-disclosure-offset-y));
+}
+/* Workmap cards reuse the row disclosure, centered on the card's first line instead of
+   offset to a table baseline. */
+.workmap-card-head > .disclosure {
+  align-self: center;
+  transform: none;
 }
 tr.board-page-row > td {
   background: var(--panel);
