@@ -423,24 +423,44 @@ export function cmdCommandArgs(command: string, url: string): string[] {
 }
 
 /**
- * The browser launch for `platform`. Elsewhere the URL is one argument to a launcher that
- * no shell parses. Windows has no such launcher, so `start` runs inside cmd.exe with the
- * URL escaped by `cmdCommandArgs`, which throws for a URL outside its contract.
+ * `url` parsed as an http or https URL, or a thrown error. `open` and `xdg-open` take an
+ * argument that is not a web URL as an option, an application, or a file, so the launcher
+ * accepts web pages only; a normalized http(s) URL never starts with `-`.
+ */
+function webPageUrl(url: string): URL {
+  let parsed: URL | null = null;
+  try {
+    parsed = new URL(url);
+  } catch {
+    // Reported below with the same message as any other non-web target.
+  }
+  if (parsed?.protocol !== 'http:' && parsed?.protocol !== 'https:') {
+    throw new Error(`The browser launcher opens only http and https URLs, not ${url}`);
+  }
+  return parsed;
+}
+
+/**
+ * The browser launch for `platform`. The URL must be http or https on every platform
+ * and is passed normalized. Elsewhere it is one argument to a launcher that no shell
+ * parses. Windows has no such launcher, so `start` runs inside cmd.exe with the URL
+ * escaped by `cmdCommandArgs`, which also throws for a URL outside its contract.
  *
- * Exported so the Windows branch is assertable from any host.
+ * Exported so every platform's branch is assertable from any host.
  */
 export function browserLaunchCommand(url: string, platform: NodeJS.Platform): BrowserLaunchCommand {
+  const page = webPageUrl(url).href;
   switch (platform) {
     case 'darwin':
-      return { file: 'open', args: [url], windowsVerbatimArguments: false };
+      return { file: 'open', args: [page], windowsVerbatimArguments: false };
     case 'win32':
       return {
         file: 'cmd.exe',
-        args: cmdCommandArgs('start ""', url),
+        args: cmdCommandArgs('start ""', page),
         windowsVerbatimArguments: true,
       };
     default:
-      return { file: 'xdg-open', args: [url], windowsVerbatimArguments: false };
+      return { file: 'xdg-open', args: [page], windowsVerbatimArguments: false };
   }
 }
 

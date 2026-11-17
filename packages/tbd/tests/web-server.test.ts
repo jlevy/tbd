@@ -311,18 +311,44 @@ describe('browser launch command', () => {
     return literal;
   }
 
-  it('hands the URL to the platform opener as one untouched argument off Windows', () => {
+  it('hands the normalized URL to the platform opener as one argument off Windows', () => {
     for (const url of urls) {
       expect(browserLaunchCommand(url, 'darwin')).toEqual({
         file: 'open',
-        args: [url],
+        args: [new URL(url).href],
         windowsVerbatimArguments: false,
       });
       expect(browserLaunchCommand(url, 'linux')).toEqual({
         file: 'xdg-open',
-        args: [url],
+        args: [new URL(url).href],
         windowsVerbatimArguments: false,
       });
+    }
+  });
+
+  it('opens only http and https URLs on every platform, never an option, a path, or a file', () => {
+    for (const target of [
+      '--help',
+      '-a Calculator',
+      '/Applications/Calculator.app',
+      'C:\\Windows\\System32\\calc.exe',
+      'file:///etc/passwd',
+      'javascript:alert(1)',
+      'ms-msdt:/id PCWDiagnostic',
+      'ftp://127.0.0.1/',
+      'not a url',
+    ]) {
+      for (const platform of ['linux', 'darwin', 'win32'] as const) {
+        expect(() => browserLaunchCommand(target, platform), `${platform} ${target}`).toThrow(
+          /only http and https/u,
+        );
+      }
+    }
+    // Every accepted argument is an http(s) URL, so none can start with `-`.
+    for (const platform of ['linux', 'darwin'] as const) {
+      expect(browserLaunchCommand('HTTPS://127.0.0.1:7777/?view=list', platform).args).toEqual([
+        'https://127.0.0.1:7777/?view=list',
+      ]);
     }
   });
 
@@ -379,9 +405,8 @@ describe('browser launch command', () => {
   });
 
   it('refuses a URL outside what the cmd.exe escaping is proven for, on Windows only', () => {
+    expect(() => cmdCommandArgs('echo', 'foo:a b"c')).toThrow(/cannot pass/u);
     for (const url of [
-      // Not http(s): normalization would leave the space and the quote in place.
-      'foo:a b"c',
       // A quote survives normalization in a host name, and start would parse it.
       'http://a"b/',
       // `%` not starting a two-digit escape: cmd reads `%PATH:a=b%` as a substitution.
@@ -392,7 +417,8 @@ describe('browser launch command', () => {
     ]) {
       expect(() => browserLaunchCommand(url, 'win32'), url).toThrow(/cannot pass/u);
       expect(() => cmdCommandArgs('echo', url), url).toThrow(/cannot pass/u);
-      expect(browserLaunchCommand(url, 'linux').args).toEqual([url]);
+      // No shell parses the argument elsewhere, so cmd's rules do not apply there.
+      expect(browserLaunchCommand(url, 'linux').args).toEqual([new URL(url).href]);
     }
   });
 
