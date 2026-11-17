@@ -355,11 +355,82 @@ describe('documents that act on grants link to agent-policy-grants', () => {
       expect(doc).toMatch(/`tbd sync`(:\*\*)? needs no grant, ever/u);
       expect(doc).toMatch(/no permission to ask for/u);
     }
-    // The obligation itself belongs to the closing protocol, in every tier.
-    for (const tier of ['skill-baseline', 'skill-brief', 'skill-minimal']) {
-      expect(flat(await readDoc(`shortcuts/system/${tier}.md`))).toContain('tbd sync');
+    expect(baseline).toContain('No policy value stops it, so it is never the step you pause on.');
+    expect(guideline).toContain(
+      'Running it is required by the session closing protocol in the skill',
+    );
+  });
+
+  // The obligation itself belongs to the closing protocol and the handoff, with no
+  // condition, on every always-on surface: an agent may read any one of them alone. The
+  // same-clone and cross-clone distinction lives only in the opt-in
+  // coordinate-collaborators shortcut.
+  it.each([
+    {
+      doc: 'shortcuts/system/skill-baseline.md',
+      step: /^\[ \] 5\. tbd sync$/mu,
+      rule: 'Work is not done until pushed, CI passes, and tbd is synced.',
+    },
+    {
+      doc: 'shortcuts/system/skill-brief.md',
+      step: /^4\. Sync: `tbd sync`$/mu,
+      rule: '**Before ending ANY session:**',
+    },
+    {
+      doc: 'shortcuts/system/skill-minimal.md',
+      step: /^4\. Sync: `tbd sync`$/mu,
+      rule: 'Before ending any session:',
+    },
+    {
+      doc: 'tbd-prime.md',
+      step: /^\[ \] 5\. While CI runs: tbd sync$/mu,
+      rule: 'Work is not done until pushed, CI passes, and tbd is synced.',
+    },
+    {
+      doc: 'tbd-closing.md',
+      step: /^\[ \] 5\. While CI runs: tbd sync$/mu,
+      rule: 'Work is not done until pushed, CI passes, and tbd is synced.',
+    },
+    {
+      doc: `${SHORTCUTS}/agent-handoff.md`,
+      step: /Always run `tbd sync` before generating the handoff/u,
+      rule: 'The next agent needs the latest issue state.',
+    },
+  ])('$doc runs tbd sync at every session end or handoff', async ({ doc, step, rule }) => {
+    const text = await readDoc(doc);
+    expect(text).toMatch(step);
+    expect(flat(text)).toContain(rule);
+  });
+
+  it('every tier, tbd-prime, and the generated tbd block publish a claim with tbd sync', async () => {
+    const publish = /`tbd sync` so other replicas can see the (?:accepted )?claim/u;
+    for (const doc of [
+      'shortcuts/system/skill-baseline.md',
+      'shortcuts/system/skill-brief.md',
+      'shortcuts/system/skill-minimal.md',
+      'tbd-prime.md',
+    ]) {
+      expect(flat(await readDoc(doc)), doc).toMatch(publish);
     }
-    expect(baseline).toContain('Work is not done until pushed, CI passes, and tbd is synced.');
+    expect(flat(getCodexTbdSection())).toMatch(publish);
+  });
+
+  it('coordinate-collaborators defines claim visibility by clone, and the always-on docs route to it', async () => {
+    const shortcut = flat(await readDoc(`${SHORTCUTS}/coordinate-collaborators.md`));
+    expect(shortcut).toContain('**Linked worktrees of one clone**');
+    expect(shortcut).toContain('**Separate clones** see each other’s claims only after both sync');
+    expect(shortcut).toContain('Run them by default.');
+    expect(shortcut).toContain('the claim with the later `updated_at` is kept');
+    for (const doc of [
+      'shortcuts/system/skill-baseline.md',
+      'shortcuts/system/skill-brief.md',
+      'shortcuts/system/skill-minimal.md',
+      'tbd-prime.md',
+      `${SHORTCUTS}/agent-handoff.md`,
+      `${SHORTCUTS}/delegate-to-subagents.md`,
+    ]) {
+      expect(flat(await readDoc(doc)), doc).toContain('`tbd shortcut coordinate-collaborators`');
+    }
   });
 
   it.each(['setup-tbd', 'delegate-to-subagents', 'review-and-merge-prs', 'stacked-prs'])(
