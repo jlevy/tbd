@@ -464,24 +464,20 @@ interface SetupClaudeOptions {
   remove?: boolean;
 }
 
-/** Days a get-tbd release (and each dependency) must age before the npx fallback uses it. */
-const TBD_FALLBACK_COOL_OFF_DAYS = 14;
-
 /**
  * Shell helpers shared by generated hooks. Compatibility is defined by the repository
  * format, not by the release that last ran setup: `tbd config get tbd_format` succeeds
  * only when the local CLI can safely read the config. The exact network fallback pin is
- * read from config so patch releases do not rewrite every generated script, and it runs
- * under the supply-chain cool-off: npm resolves get-tbd and every dependency only from
- * versions published at least `TBD_FALLBACK_COOL_OFF_DAYS` ago (the pin included) and
- * runs no install scripts.
+ * read from config so patch releases do not rewrite every generated script.
  *
- * The policy is passed as npx flags because npm ranks command-line flags above
- * environment variables, so an inherited `NPM_CONFIG_BEFORE` or
- * `NPM_CONFIG_IGNORE_SCRIPTS` (in either case) cannot loosen it. npx keys its cache by
- * the package spec alone and reuses a cached copy without re-resolving, so the fallback
- * uses a dedicated cache that only these constrained runs fill. Without a working node
- * the cutoff cannot be computed, and the fallback fails closed.
+ * The fallback runs that exact pin with no install scripts. It applies no release-age
+ * cool-off: get-tbd and the other first-party packages of its author, with their
+ * dependencies, are exempt, because tbd is a developer-time tool and the pin is the
+ * release setup recorded. `--ignore-scripts` is a flag because npm ranks command-line
+ * flags above environment variables, so an inherited `NPM_CONFIG_IGNORE_SCRIPTS` (in
+ * either case) cannot turn install scripts back on. npx keys its cache by the package
+ * spec alone and reuses a cached copy without re-resolving, so the fallback uses a
+ * dedicated cache that only these runs fill and never another npx run's copy.
  */
 const TBD_REPOSITORY_RUNNER_FUNCTIONS = `tbd_configured_fallback_version() {
   local config_path=$1
@@ -505,27 +501,11 @@ tbd_local_can_read_repository() {
   command -v tbd &> /dev/null && tbd config get tbd_format >/dev/null 2>&1
 }
 
-TBD_FALLBACK_COOL_OFF_DAYS=${TBD_FALLBACK_COOL_OFF_DAYS}
-
-tbd_fallback_cutoff() {
-  local cutoff
-  if ! command -v node &> /dev/null; then
-    echo "[tbd] node is required to compute the cool-off cutoff for the npx fallback." >&2
-    return 1
-  fi
-  if ! cutoff=$(node -e 'console.log(new Date(Date.now() - Number(process.argv[1]) * 86400000).toISOString())' "$TBD_FALLBACK_COOL_OFF_DAYS") ||
-    [[ ! $cutoff =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$ ]]; then
-    echo "[tbd] node failed to compute the cool-off cutoff for the npx fallback." >&2
-    return 1
-  fi
-  printf '%s\\n' "$cutoff"
-}
-
-# Run the configured fallback get-tbd@<pin> with "$@" under the cool-off, and return its
-# exit status. Read and validate the exact pin first, so a malformed or hand-edited config
-# value never becomes an executable package spec.
+# Run the configured fallback get-tbd@<pin> with "$@", without install scripts, and return
+# its exit status. Read and validate the exact pin first, so a malformed or hand-edited
+# config value never becomes an executable package spec.
 tbd_run_configured_fallback() {
-  local configured_fallback_version cutoff status
+  local configured_fallback_version status
   if ! configured_fallback_version=$(tbd_configured_fallback_version ".tbd/config.yml"); then
     echo "[tbd] .tbd/config.yml does not contain a valid exact tbd_fallback_version." >&2
     echo "[tbd] Run a current 'tbd setup --auto' to repair the managed launcher." >&2
@@ -537,12 +517,7 @@ tbd_run_configured_fallback() {
     else
       echo "[tbd] tbd CLI not found and npx is unavailable." >&2
     fi
-    if cutoff=$(tbd_fallback_cutoff 2> /dev/null); then
-      echo "[tbd] Install it with: npm install -g --ignore-scripts --before=$cutoff get-tbd@$configured_fallback_version" >&2
-    else
-      echo "[tbd] Install it with: npm install -g --ignore-scripts get-tbd@$configured_fallback_version" >&2
-      echo "[tbd] Use a get-tbd release published at least $TBD_FALLBACK_COOL_OFF_DAYS days ago." >&2
-    fi
+    echo "[tbd] Install it with: npm install -g --ignore-scripts get-tbd@$configured_fallback_version" >&2
     return 1
   fi
   if command -v tbd &> /dev/null; then
@@ -550,14 +525,10 @@ tbd_run_configured_fallback() {
   else
     echo "[tbd] tbd CLI not found; using configured fallback get-tbd@$configured_fallback_version." >&2
   fi
-  if ! cutoff=$(tbd_fallback_cutoff); then
-    return 1
-  fi
-  npx --yes --before="$cutoff" --ignore-scripts --cache="\${XDG_CACHE_HOME:-$HOME/.cache}/tbd-fallback-npm" "get-tbd@$configured_fallback_version" "$@"
+  npx --yes --ignore-scripts --cache="\${XDG_CACHE_HOME:-$HOME/.cache}/tbd-fallback-npm" "get-tbd@$configured_fallback_version" "$@"
   status=$?
   if [ "$status" -ne 0 ]; then
     echo "[tbd] The get-tbd@$configured_fallback_version fallback exited with status $status." >&2
-    echo "[tbd] If npm found no matching version, the pin was published after $cutoff and is still inside the $TBD_FALLBACK_COOL_OFF_DAYS-day cool-off." >&2
   fi
   return "$status"
 }`;
@@ -617,9 +588,9 @@ const TBD_SESSION_SCRIPT = `#!/bin/bash
 # Installed by: tbd setup --auto. Runs on SessionStart and PreCompact.
 #
 # Local-first when the installed CLI can read this repository's tbd_format. Otherwise,
-# run the exact version recorded by setup in .tbd/config.yml, under a ${TBD_FALLBACK_COOL_OFF_DAYS}-day supply-chain
-# cool-off (see tbd_run_configured_fallback). Keeping the pin in config avoids rewriting
-# this script for every compatible patch.
+# run the exact version recorded by setup in .tbd/config.yml, without install scripts
+# (see tbd_run_configured_fallback). Keeping the pin in config avoids rewriting this
+# script for every compatible patch.
 
 ${TBD_HOOK_PATH_SETUP}
 
@@ -831,7 +802,7 @@ fi
 
 ${TBD_REPOSITORY_RUNNER_FUNCTIONS}
 
-# Same local-first selection and cool-off fallback as tbd-session.sh. Failures propagate,
+# Same local-first selection and pinned fallback as tbd-session.sh. Failures propagate,
 # so a reminder that cannot run is visible instead of silently skipped.
 if tbd_local_can_read_repository; then
   tbd closing

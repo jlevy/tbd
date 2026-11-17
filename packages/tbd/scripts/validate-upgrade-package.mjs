@@ -511,9 +511,9 @@ async function validateScenario({
     `${name}: format compatibility probe is missing`,
   );
   invariant(
-    sessionScript.includes('npx --yes --before="$cutoff" --ignore-scripts') &&
+    sessionScript.includes('npx --yes --ignore-scripts --cache=') &&
       sessionScript.includes('"get-tbd@$configured_fallback_version" "$@"'),
-    `${name}: session fallback does not run the exact configured version under the cool-off`,
+    `${name}: session fallback does not run the exact configured version without install scripts`,
   );
   invariant(
     !/get-tbd@\d+\.\d+\.\d+/u.test(sessionScript),

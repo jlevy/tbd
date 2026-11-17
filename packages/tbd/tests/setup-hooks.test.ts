@@ -29,9 +29,9 @@ import { subprocessTestTimeout } from './test-helpers.js';
 // Shell script hooks are Unix-only; skip entire suite on Windows
 const describeUnix = platform() === 'win32' ? describe.skip : describe;
 
-/** The generated fallback runs the configured pin under the cool-off flags. */
+/** The generated fallback runs the configured pin without install scripts, in its own cache. */
 const FALLBACK_NPX_INVOCATION =
-  'npx --yes --before="$cutoff" --ignore-scripts --cache="${XDG_CACHE_HOME:-$HOME/.cache}/tbd-fallback-npm" "get-tbd@$configured_fallback_version" "$@"';
+  'npx --yes --ignore-scripts --cache="${XDG_CACHE_HOME:-$HOME/.cache}/tbd-fallback-npm" "get-tbd@$configured_fallback_version" "$@"';
 
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
@@ -138,7 +138,7 @@ describeUnix('setup hooks (project-local)', { timeout: subprocessTestTimeout(60_
       const content = await readFile(scriptPath, 'utf-8');
 
       // Verify key parts of the script: format-compatible local-first, then an exact
-      // npx fallback read from repository config, run under the cool-off. Release
+      // npx fallback read from repository config, run without install scripts. Release
       // numbers must not be copied into every generated script on routine patch upgrades.
       expect(content).toContain('#!/bin/bash');
       expect(content).toContain('command -v tbd');
@@ -207,7 +207,7 @@ describeUnix('setup hooks (project-local)', { timeout: subprocessTestTimeout(60_
           // thing that runs is the pinned fallback.
           canRead: false,
           expected: new RegExp(
-            `^npx --yes --before=\\S+ --ignore-scripts --cache=${escapeRegExp(fakeHome)}/\\.cache/tbd-fallback-npm get-tbd@${escapeRegExp(configuredVersion!)} prime --brief$`,
+            `^npx --yes --ignore-scripts --cache=${escapeRegExp(fakeHome)}/\\.cache/tbd-fallback-npm get-tbd@${escapeRegExp(configuredVersion!)} prime --brief$`,
             'u',
           ),
           fallback: true,

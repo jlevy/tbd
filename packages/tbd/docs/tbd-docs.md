@@ -96,7 +96,7 @@ npm install -g --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 
 # Or run one exact release without installing, under the same cool-off. The dedicated
 # cache matters: npx reuses a cached package by its spec without resolving it again, so
 # a tree cached without --before would bypass the cool-off.
-npx --yes --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" --cache="${XDG_CACHE_HOME:-$HOME/.cache}/tbd-fallback-npm" get-tbd@<version> <command>
+npx --yes --ignore-scripts --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" --cache="${XDG_CACHE_HOME:-$HOME/.cache}/tbd-cool-off-npm" get-tbd@<version> <command>
 ```
 
 tbd requires Git 2.42+ for orphan worktree support (`git worktree add --orphan`). See

@@ -5538,10 +5538,11 @@ all environments including cloud sandboxes.
 | **From source** | `pnpm install && pnpm build` | Contributors |
 
 For the manual npx command, use a cache reserved for cool-off runs, such as
-`${XDG_CACHE_HOME:-$HOME/.cache}/tbd-fallback-npm`. npx reuses a cached package by its
+`${XDG_CACHE_HOME:-$HOME/.cache}/tbd-cool-off-npm`. npx reuses a cached package by its
 spec without resolving it again, so a tree cached once without `--before` would bypass
-the cool-off. When a repository requires a newer tbd, the error names the release that
-last set it up (`tbd_fallback_version`) and gives
+the cool-off. The hook fallback’s own `tbd-fallback-npm` cache is not such a cache: the
+fallback runs without `--before` (see §6.4.2). When a repository requires a newer tbd,
+the error names the release that last set it up (`tbd_fallback_version`) and gives
 `npm install -g … 'get-tbd@>=<version>'` under the same cool-off, so npm reports no
 matching version while that release is under 14 days old instead of installing an older
 one that still refuses the repository.
@@ -5639,17 +5640,17 @@ The script finds the repository from its own install location (`.claude/scripts/
 `.codex/`), not by asking git or searching parent directories, so it works without git
 and fails closed when that repository has no `.tbd/config.yml` rather than adopting an
 enclosing directory’s configuration.
-The npx fallback runs under the 14-day supply-chain cool-off:
-`npx --yes --before=<now minus 14 days> --ignore-scripts --cache=<dedicated cache>`. npm
-then resolves the pin and every dependency only from versions published before the
-cutoff, so a pin newer than 14 days fails until it ages, and it runs no install scripts.
-The policy is passed as flags, which npm ranks above inherited `NPM_CONFIG_*` variables,
-and the cache (`${XDG_CACHE_HOME:-~/.cache}/tbd-fallback-npm`) is used only by these
-runs, because npx reuses a cached package by its spec without resolving it again.
-The cutoff is computed with node; without a working node the fallback stops.
+The npx fallback runs the exact pin with `--yes`, `--ignore-scripts`, and a dedicated
+`--cache`, and without `--before`. It applies no release-age cool-off: get-tbd and the
+other first-party packages of its author, with their dependencies, are exempt, because
+tbd is a developer-time tool and the pin is the release setup recorded.
+`--ignore-scripts` is a flag, which npm ranks above an inherited
+`NPM_CONFIG_IGNORE_SCRIPTS`, and the cache
+(`${XDG_CACHE_HOME:-~/.cache}/tbd-fallback-npm`) is used only by these runs, because npx
+reuses a cached package by its spec without resolving it again.
+The fallback does not need node.
 Failures of the local CLI and of npx propagate as the hook’s exit status, and without
-npx the script prints an install command carrying the same `--ignore-scripts` and
-`--before` flags.
+npx the script prints `npm install -g --ignore-scripts get-tbd@<pin>`.
 
 **C. Closing Reminder** (installed to `.claude/hooks/tbd-closing-reminder.sh`)
 

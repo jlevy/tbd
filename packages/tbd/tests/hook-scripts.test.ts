@@ -32,8 +32,6 @@ const describeUnix = platform() === 'win32' ? describe.skip : describe;
 
 const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
 const BASH = spawnSync('bash', ['-c', 'command -v bash'], { encoding: 'utf-8' }).stdout.trim();
-const COOL_OFF_MS = 14 * 24 * 60 * 60 * 1000;
-const CUTOFF_TOLERANCE_MS = 10 * 60 * 1000;
 const PIN = '9.9.9-rc.1+build.5';
 
 const SESSION_SCRIPTS = ['.claude/scripts/tbd-session.sh', '.codex/tbd-session.sh'];
@@ -70,22 +68,13 @@ describeUnix('generated hook scripts', { timeout: subprocessTestTimeout(60_000) 
   let codexSessionCommands: { sessionStart: string[]; preCompact: string };
   let claudeClosingCommand: string;
   const bins: Record<
-    | 'full'
-    | 'npxOnly'
-    | 'nodeOnly'
-    | 'noNode'
-    | 'brokenNode'
-    | 'brokenNodeNoNpx'
-    | 'silentNode'
-    | 'bashOnly',
+    'full' | 'npxOnly' | 'nodeOnly' | 'noNode' | 'silentNode' | 'bashOnly',
     string
   > = {
     full: '',
     npxOnly: '',
     nodeOnly: '',
     noNode: '',
-    brokenNode: '',
-    brokenNodeNoNpx: '',
     silentNode: '',
     bashOnly: '',
   };
@@ -107,18 +96,6 @@ describeUnix('generated hook scripts', { timeout: subprocessTestTimeout(60_000) 
           break;
         case 'node':
           await symlink(process.execPath, path);
-          break;
-        case 'broken-node':
-          // Fails, or prints a non-date, for the `-e` cutoff computation only.
-          await writeExecutable(
-            join(dir, 'node'),
-            '#!/bin/bash\n' +
-              'if [ "$1" = "-e" ] && [ "$#" -gt 2 ]; then\n' +
-              '  if [ "$HOOK_TEST_NODE_MODE" = "garbage" ]; then echo "not a date"; exit 0; fi\n' +
-              '  exit 1\n' +
-              'fi\n' +
-              `exec "${process.execPath}" "$@"\n`,
-          );
           break;
         case 'silent-node':
           // Fails every invocation without printing anything.
@@ -210,27 +187,19 @@ describeUnix('generated hook scripts', { timeout: subprocessTestTimeout(60_000) 
     return JSON.stringify({ tool_input: { command } });
   }
 
-  function isCurrentCutoff(cutoff: string | undefined): boolean {
-    return (
-      cutoff !== undefined &&
-      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(cutoff) &&
-      Math.abs(Date.now() - COOL_OFF_MS - Date.parse(cutoff)) < CUTOFF_TOLERANCE_MS
-    );
-  }
-
   /**
-   * The npx fallback must run exactly the configured pin with the cool-off and
-   * no-install-scripts policy as flags, and with its dedicated cache.
+   * The npx fallback must run exactly the configured pin without install scripts, with
+   * its dedicated cache, and with no release-age cutoff.
    */
   async function expectFallbackArgv(args: string[], cache: string): Promise<void> {
     const argv = (await readFile(npxArgv, 'utf-8')).split('\n').slice(0, -1);
-    const [yes, before, ignoreScripts, cacheFlag, ...command] = argv;
-    expect(yes).toBe('--yes');
-    expect(before?.startsWith('--before=')).toBe(true);
-    expect(isCurrentCutoff(before?.slice('--before='.length)), String(before)).toBe(true);
-    expect(ignoreScripts).toBe('--ignore-scripts');
-    expect(cacheFlag).toBe(`--cache=${cache}`);
-    expect(command).toEqual([`get-tbd@${PIN}`, ...args]);
+    expect(argv).toEqual([
+      '--yes',
+      '--ignore-scripts',
+      `--cache=${cache}`,
+      `get-tbd@${PIN}`,
+      ...args,
+    ]);
   }
 
   beforeAll(async () => {
@@ -275,8 +244,6 @@ describeUnix('generated hook scripts', { timeout: subprocessTestTimeout(60_000) 
     bins.npxOnly = await makeBin('npx-only', ['bash', 'node', 'npx']);
     bins.nodeOnly = await makeBin('node-only', ['bash', 'node']);
     bins.noNode = await makeBin('no-node', ['bash', 'npx']);
-    bins.brokenNode = await makeBin('broken-node', ['bash', 'broken-node', 'npx']);
-    bins.brokenNodeNoNpx = await makeBin('broken-node-no-npx', ['bash', 'broken-node']);
     bins.silentNode = await makeBin('silent-node', ['bash', 'silent-node', 'tbd']);
     bins.bashOnly = await makeBin('bash-only', ['bash']);
   });
@@ -299,7 +266,7 @@ describeUnix('generated hook scripts', { timeout: subprocessTestTimeout(60_000) 
       expect(existsSync(npxArgv)).toBe(false);
     });
 
-    it('runs the exact configured pin under the cool-off when the local CLI cannot read the repository', async () => {
+    it('runs the exact configured pin when the local CLI cannot read the repository', async () => {
       const dir = await makeFixture(`${fixtureName}-fallback`, PIN_CONFIG);
       await resetRecords();
       const result = run(join(dir, rel), bins.full, {
@@ -316,9 +283,7 @@ describeUnix('generated hook scripts', { timeout: subprocessTestTimeout(60_000) 
       const xdg = join(root, 'xdg-cache');
       const inherited = run(join(dir, rel), bins.npxOnly, {
         env: {
-          NPM_CONFIG_BEFORE: '2099-01-01',
           NPM_CONFIG_IGNORE_SCRIPTS: 'false',
-          npm_config_before: '2099-01-01',
           npm_config_ignore_scripts: 'false',
           XDG_CACHE_HOME: xdg,
         },
@@ -328,51 +293,34 @@ describeUnix('generated hook scripts', { timeout: subprocessTestTimeout(60_000) 
       await expectFallbackArgv(['prime'], join(xdg, 'tbd-fallback-npm'));
     });
 
-    it('propagates an npx failure and names the cool-off', async () => {
+    it('propagates an npx failure', async () => {
       const dir = await makeFixture(`${fixtureName}-npx-fails`, PIN_CONFIG);
       await resetRecords();
       const result = run(join(dir, rel), bins.npxOnly, { env: { HOOK_TEST_NPX_STATUS: '41' } });
       expect(result.status).toBe(41);
       expect(result.stderr).toContain('exited with status 41');
-      expect(result.stderr).toContain('14-day cool-off');
+      expect(result.stderr).not.toContain('cool-off');
     });
 
-    it('fails closed without a working node', async () => {
+    it('runs the fallback without node', async () => {
       const dir = await makeFixture(`${fixtureName}-node`, PIN_CONFIG);
       await resetRecords();
       const noNode = run(join(dir, rel), bins.noNode);
-      expect(noNode.status).toBe(1);
-      expect(noNode.stderr).toContain('node is required to compute the cool-off cutoff');
-      expect(existsSync(npxArgv)).toBe(false);
-      for (const mode of ['fail', 'garbage']) {
-        const broken = run(join(dir, rel), bins.brokenNode, {
-          env: { HOOK_TEST_NODE_MODE: mode },
-        });
-        expect(broken.status, mode).toBe(1);
-        expect(broken.stderr).toContain('node failed to compute the cool-off cutoff');
-        expect(existsSync(npxArgv)).toBe(false);
-      }
+      expect(noNode.status, noNode.stderr).toBe(0);
+      await expectFallbackArgv(['prime'], join(fakeHome, '.cache', 'tbd-fallback-npm'));
     });
 
-    it('gives an install hint under the cool-off when npx is unavailable', async () => {
+    it('gives an install hint without install scripts when npx is unavailable', async () => {
       const dir = await makeFixture(`${fixtureName}-no-npx`, PIN_CONFIG);
-      const withNode = run(join(dir, rel), bins.nodeOnly);
-      expect(withNode.status).toBe(1);
-      expect(withNode.stderr).toContain('tbd CLI not found and npx is unavailable');
-      const hint =
-        /Install it with: npm install -g --ignore-scripts --before=(\S+) get-tbd@(\S+)\n/u.exec(
-          withNode.stderr,
+      for (const bin of [bins.nodeOnly, bins.bashOnly]) {
+        const result = run(join(dir, rel), bin);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('tbd CLI not found and npx is unavailable');
+        expect(result.stderr).toContain(
+          `[tbd] Install it with: npm install -g --ignore-scripts get-tbd@${PIN}\n`,
         );
-      expect(hint, withNode.stderr).not.toBeNull();
-      expect(isCurrentCutoff(hint?.[1])).toBe(true);
-      expect(hint?.[2]).toBe(PIN);
-
-      const withoutNode = run(join(dir, rel), bins.bashOnly);
-      expect(withoutNode.status).toBe(1);
-      expect(withoutNode.stderr).toContain(
-        `Install it with: npm install -g --ignore-scripts get-tbd@${PIN}\n`,
-      );
-      expect(withoutNode.stderr).toContain('published at least 14 days ago');
+        expect(result.stderr).not.toContain('--before');
+      }
     });
 
     it.each([
@@ -552,7 +500,7 @@ describeUnix('generated hook scripts', { timeout: subprocessTestTimeout(60_000) 
       expect(existsSync(npxArgv)).toBe(false);
     });
 
-    it('runs the configured pin under the cool-off and propagates its failure', async () => {
+    it('runs the configured pin and propagates its failure', async () => {
       const dir = await makeFixture(`${fixtureName}-fallback`, PIN_CONFIG);
       await resetRecords();
       const fallback = run(join(dir, rel), bins.full, {
@@ -571,26 +519,15 @@ describeUnix('generated hook scripts', { timeout: subprocessTestTimeout(60_000) 
       expect(failing.status).toBe(37);
     });
 
-    it('explains a missing CLI and fails closed on a broken node', async () => {
+    it('explains a missing CLI with an install hint without install scripts', async () => {
       const dir = await makeFixture(`${fixtureName}-no-cli`, PIN_CONFIG);
       const missing = run(join(dir, rel), bins.nodeOnly, { input: hookInput('git push') });
       expect(missing.status).toBe(1);
       expect(missing.stderr).toContain('tbd CLI not found and npx is unavailable');
-      expect(missing.stderr).toMatch(
-        /Install it with: npm install -g --ignore-scripts --before=\S+ get-tbd@\S+\n/u,
+      expect(missing.stderr).toContain(
+        `[tbd] Install it with: npm install -g --ignore-scripts get-tbd@${PIN}\n`,
       );
-
-      await resetRecords();
-      const broken = run(join(dir, rel), bins.brokenNode, { input: hookInput('git push') });
-      expect(broken.status).toBe(1);
-      expect(broken.stderr).toContain('node failed to compute the cool-off cutoff');
-      expect(existsSync(npxArgv)).toBe(false);
-
-      const brokenNoNpx = run(join(dir, rel), bins.brokenNodeNoNpx, {
-        input: hookInput('git push'),
-      });
-      expect(brokenNoNpx.status).toBe(1);
-      expect(brokenNoNpx.stderr).toContain('published at least 14 days ago');
+      expect(missing.stderr).not.toContain('--before');
     });
   });
 
