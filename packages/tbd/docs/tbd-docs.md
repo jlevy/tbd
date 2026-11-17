@@ -190,8 +190,8 @@ Options:
 - `--policies <set>` - Record agent policy grants in `AGENTS.md`; implies `--auto`. The
   only set is `recommended`: the recommended value of each unanswered policy, as
   `tbd guidelines agent-policy-grants` defines it.
-  Answered policies keep their recorded values, and `linear`, which is outside the
-  recommended set, stays unanswered
+  Answered policies keep their recorded values, and `linear` and `pr-delivery`, which
+  are outside the recommended set, stay unanswered
 
 `--surfaces` controls only generated agent integration files.
 Setup still initializes or migrates configuration, refreshes the docs cache, and cleans

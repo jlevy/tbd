@@ -316,6 +316,27 @@ describe('long-lived docs state the merge ladder and review invariance', () => {
     },
   );
 
+  it('the CLI manual and design doc leave every opt-in policy unanswered under --policies=recommended', async () => {
+    const optIn = POLICY_NAMES.filter((name) => POLICIES[name].recommended === null);
+    expect(optIn.length).toBeGreaterThan(1);
+    const manual = (await readDoc('tbd-docs.md'))
+      .split(/\n(?=- )/u)
+      .find((item) => item.startsWith('- `--policies <set>`'))
+      ?.split(/\n\s*\n/u)[0];
+    const design = (await readDoc('tbd-design.md'))
+      .split(/\n\s*\n/u)
+      .find((paragraph) => paragraph.startsWith('**Recording.**'));
+    for (const [rel, text] of [
+      ['tbd-docs.md', manual],
+      ['tbd-design.md', design],
+    ] as const) {
+      expect(text, rel).toBeDefined();
+      for (const name of optIn) {
+        expect(codeSpans(flat(text!)), `${rel}: ${name}`).toContain(name);
+      }
+    }
+  });
+
   it('tbd-design.md §6.4.9 describes the review lifecycle', async () => {
     const lifecycle = flat(section(await readDoc('tbd-design.md'), 4, 'PR Review Lifecycle'));
     expect(lifecycle).toContain('`tbd shortcut pr-review-workflows`');
