@@ -122,7 +122,12 @@ async function tbd(repoDir, args) {
 const PREFIX_PROBES = [['team:red'], ['team:red'], ['team:blue'], ['area:web']].map(
   (labels, index) => ({ title: `Prefix probe ${index}`, labels }),
 );
-const PROBES = [...PREFIX_PROBES];
+/** Beads whose card faces a check reads; found by the title word `Face probe`. */
+const FACE_PROBES = [
+  { title: 'Face probe open', status: 'open', labels: ['area:glyph'] },
+  { title: 'Face probe deferred', status: 'deferred', labels: ['area:glyph'] },
+];
+const PROBES = [...PREFIX_PROBES, ...FACE_PROBES];
 
 /**
  * A labeling convention with every bucket kind: groups, conflicts, and no value; then
@@ -880,6 +885,40 @@ try {
       await cdp.send('Target.disposeBrowserContext', { browserContextId });
     },
   );
+  await check('a card names its lifecycle status in text, not only by glyph color', async () => {
+    const { browserContextId } = await cdp.send('Target.createBrowserContext');
+    const viewer = await Page.open(cdp, `${origin}/?view=workmap&group=area%3A`, browserContextId);
+    await viewer.waitFor(`document.querySelectorAll(${JSON.stringify(CARD)}).length > 0`);
+    await viewer.evaluate(`(() => {
+      const search = document.getElementById('q');
+      search.value = 'Face probe';
+      search.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`);
+    await viewer.waitFor(
+      `document.querySelectorAll(${JSON.stringify(CARD)}).length === ${FACE_PROBES.length}`,
+    );
+    const statuses = await viewer.evaluate(`[...document.querySelectorAll(${JSON.stringify(CARD)})]
+      .map((card) => {
+        const status = card.querySelector('.issue-status');
+        // What assistive technology reads: the text outside aria-hidden glyphs.
+        const spoken = [...status.childNodes]
+          .filter((node) => !(node instanceof Element && node.getAttribute('aria-hidden') === 'true'))
+          .map((node) => node.textContent)
+          .join('')
+          .trim();
+        return { title: card.querySelector('.workmap-card-title').textContent, shown: status.innerText.trim(), spoken };
+      })
+      .sort((a, b) => a.title.localeCompare(b.title))`);
+    invariant(
+      JSON.stringify(statuses) ===
+        JSON.stringify([
+          { title: 'Face probe deferred', shown: '○ deferred', spoken: 'deferred' },
+          { title: 'Face probe open', shown: '○ open', spoken: 'open' },
+        ]),
+      `Card statuses: ${JSON.stringify(statuses)}`,
+    );
+    await cdp.send('Target.disposeBrowserContext', { browserContextId });
+  });
 } finally {
   if (cdp !== null) {
     // Closing through the protocol also stops Chrome's helper processes, which could

@@ -5038,7 +5038,7 @@ versus 186,380 elements and 2.81–5.50 seconds at 10,000. The former is a usabl
 last-resort page; the latter adds substantial layout and garbage-collection variance.
 The Workmap applies the same page window to its cards and reuses keyed card nodes.
 `qa:web-workmap` measures it in headless Chrome at the 10,000-row cap: a page mounts
-5,000 cards (40,036 elements), expanding or collapsing a card creates or moves no card
+5,000 cards (45,036 elements), expanding or collapsing a card creates or moves no card
 node, and a one-bead live update rebuilds only that card.
 At most 100 details remain expanded, the body cache retains 200 entries, and a mass
 deletion animates at most 100 ghost rows.

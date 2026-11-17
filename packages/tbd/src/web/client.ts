@@ -759,13 +759,22 @@ function revealCopyButton(event: PointerEvent | FocusEvent): void {
 document.addEventListener('pointerover', revealCopyButton);
 document.addEventListener('focusin', revealCopyButton);
 
-function appendStatusCell(row: HTMLTableRowElement, status: IssueStatusView): HTMLTableCellElement {
-  const cell = appendCell(row, '', `issue-status status-${status}`);
+/**
+ * Lifecycle status as the board shows it: tbd's glyph, hidden from assistive technology,
+ * then the status word. Two statuses share a glyph (open and deferred), so the word is
+ * what tells them apart without color or a tooltip.
+ */
+function appendStatusFace(parent: HTMLElement, status: IssueStatusView): void {
   const icon = document.createElement('span');
   icon.className = 'status-icon';
   icon.setAttribute('aria-hidden', 'true');
   icon.textContent = STATUS_ICONS[status];
-  cell.append(icon, document.createTextNode(` ${status}`));
+  parent.append(icon, document.createTextNode(` ${status}`));
+}
+
+function appendStatusCell(row: HTMLTableRowElement, status: IssueStatusView): HTMLTableCellElement {
+  const cell = appendCell(row, '', `issue-status status-${status}`);
+  appendStatusFace(cell, status);
   return cell;
 }
 
@@ -1536,8 +1545,7 @@ function createWorkmapCard(card: WorkmapCardView, signature: string): MountedWor
   disclosure.append(chevron);
   const status = document.createElement('span');
   status.className = `issue-status status-${row.status}`;
-  status.textContent = STATUS_ICONS[row.status];
-  status.dataset.tooltip = row.status;
+  appendStatusFace(status, row.status);
   const id = document.createElement('span');
   id.className = 'workmap-card-id';
   id.textContent = row.id;
