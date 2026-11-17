@@ -670,8 +670,8 @@ Options:
   It changes no tbd state: it takes no lock and prepares nothing, so a missing worktree
   or a config that needs migrating stays as it is.
   It reads the remote sync tip without writing a ref or `FETCH_HEAD`, and says when it
-  could not read the remote (`remoteChecked: false` under `--json`) instead of reporting
-  the repository in sync.
+  could not read the remote (`remoteChecked: false` under `--json`) or could not fetch
+  the tip’s commits, instead of reporting the repository in sync.
   It never runs or checks external trackers; use `tbd integration status` for those
 - `--force` - Accepted for compatibility but currently has no effect; it does not
   overwrite conflicts (`tbd-s18s` tracks implementing or removing it)

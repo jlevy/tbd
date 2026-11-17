@@ -40,12 +40,16 @@
 - **`tbd sync --status` takes no lock and prepares nothing**: it took the sync lock, so
   every call advanced the data-sync epoch, and it could re-create a missing worktree or
   migrate the config. It now changes no tbd state and says when the worktree is missing.
-  It reads the remote tip without writing a ref or `FETCH_HEAD`, as `tbd watch` does, so
-  it cannot race a concurrent `tbd sync` or a second status.
-  When it cannot read the remote it says so, and `--json` reports
-  `remoteChecked: false`, where it used to report the repository in sync.
-  It also listed the first changed file without its first character (`tbd/data-sync/…`
-  for `.tbd/data-sync/…`).
+  It reads the remote tip without moving the remote-tracking ref or writing
+  `FETCH_HEAD`, as `tbd watch` does, so it cannot race a concurrent `tbd sync` or a
+  second status. When it cannot read the remote, or reads the tip but cannot fetch its
+  commits, it says so, and `--json` adds `remoteChecked` and `worktree`. `synced` is now
+  true only when the remote’s tip was compared: it is false with an unreadable remote,
+  with a remote that lacks the sync branch (every local commit counts as ahead), and in
+  a fresh clone before the first data command creates the local branch (every remote
+  commit counts as behind), where 0.11.0 reported `synced: true`. It also listed the
+  first changed file without its first character (`tbd/data-sync/…` for
+  `.tbd/data-sync/…`).
 - **Doc sync output strips control characters**: doc paths and error text, which come
   from `.tbd/config.yml` and the doc sources, are printed without control and format
   characters, so they cannot clear the screen, retitle the terminal, or reorder the
