@@ -4756,6 +4756,8 @@ reloading or sharing the address reproduces the choice.
 With no grouping chosen, the first Workmap render pins the most common prefix in the
 rows it shows (in memory, not storage) and writes it to the address; the grouping then
 changes only by choice, so neither a filter nor a live update regroups the board.
+Stored preferences are per origin and shared by every repository served on that port, so
+a remembered grouping that no served row states is replaced by that default pin.
 These component and semantic rules are maintained in the co-located design-system
 inventory in `src/web/styles.css`. Status-panel field names use standard-size sans
 chrome and literal values use standard-size monospace; neither side shrinks merely

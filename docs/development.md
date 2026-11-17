@@ -149,12 +149,12 @@ the page address (including the default grouping under a filter), the page-windo
 and that a toggle or a one-bead live update rebuilds at most that card, and it prints
 the measured work for each step.
 It also checks the served-row notice, status words, literal group headings, text
-wrapping, the loading state of a Workmap link, expansion reset on a view change, and the
-view chooser’s keyboard behavior.
-Each navigation waits for the new document’s load event, so no check reads a page that
-is being replaced. It is a separate tier because it needs a local Chrome; run it after
-changing the Workmap.
-Design and implementation details are in
+wrapping, the loading state of a Workmap link, expansion reset on a view change, the
+view chooser’s keyboard behavior, and the fallback from a remembered grouping that no
+served bead states. Each navigation waits for the new document’s load event, so no check
+reads a page that is being replaced.
+It is a separate tier because it needs a local Chrome; run it after changing the
+Workmap. Design and implementation details are in
 [plan-2026-08-10-tbd-web-live-bead-view.md](project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md).
 
 ### Review and policy contracts across docs
