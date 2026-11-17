@@ -1,6 +1,6 @@
 ---
 title: Docmap Format
-description: A minimal, machine-readable inventory of a collection of documents: a sitemap for docs, with docref as its addressing primitive
+description: "A minimal, machine-readable inventory of a collection of documents: a sitemap for docs, with docref as its addressing primitive"
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: general
 ---
