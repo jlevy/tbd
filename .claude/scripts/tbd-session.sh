@@ -3,9 +3,9 @@
 # Installed by: tbd setup --auto. Runs on SessionStart and PreCompact.
 #
 # Local-first when the installed CLI can read this repository's tbd_format. Otherwise,
-# run the exact version recorded by setup in .tbd/config.yml, under a 14-day supply-chain
-# cool-off (see tbd_run_configured_fallback). Keeping the pin in config avoids rewriting
-# this script for every compatible patch.
+# run the exact version recorded by setup in .tbd/config.yml, without install scripts
+# (see tbd_run_configured_fallback). Keeping the pin in config avoids rewriting this
+# script for every compatible patch.
 
 # Prefer common user-local bin directories. TBD_HOOK_PATH_PREFIX replaces this list; an
 # empty value leaves PATH unchanged.
@@ -65,27 +65,11 @@ tbd_local_can_read_repository() {
   command -v tbd &> /dev/null && tbd config get tbd_format >/dev/null 2>&1
 }
 
-TBD_FALLBACK_COOL_OFF_DAYS=14
-
-tbd_fallback_cutoff() {
-  local cutoff
-  if ! command -v node &> /dev/null; then
-    echo "[tbd] node is required to compute the cool-off cutoff for the npx fallback." >&2
-    return 1
-  fi
-  if ! cutoff=$(node -e 'console.log(new Date(Date.now() - Number(process.argv[1]) * 86400000).toISOString())' "$TBD_FALLBACK_COOL_OFF_DAYS") ||
-    [[ ! $cutoff =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$ ]]; then
-    echo "[tbd] node failed to compute the cool-off cutoff for the npx fallback." >&2
-    return 1
-  fi
-  printf '%s\n' "$cutoff"
-}
-
-# Run the configured fallback get-tbd@<pin> with "$@" under the cool-off, and return its
-# exit status. Read and validate the exact pin first, so a malformed or hand-edited config
-# value never becomes an executable package spec.
+# Run the configured fallback get-tbd@<pin> with "$@", without install scripts, and return
+# its exit status. Read and validate the exact pin first, so a malformed or hand-edited
+# config value never becomes an executable package spec.
 tbd_run_configured_fallback() {
-  local configured_fallback_version cutoff status
+  local configured_fallback_version status
   if ! configured_fallback_version=$(tbd_configured_fallback_version ".tbd/config.yml"); then
     echo "[tbd] .tbd/config.yml does not contain a valid exact tbd_fallback_version." >&2
     echo "[tbd] Run a current 'tbd setup --auto' to repair the managed launcher." >&2
@@ -97,12 +81,7 @@ tbd_run_configured_fallback() {
     else
       echo "[tbd] tbd CLI not found and npx is unavailable." >&2
     fi
-    if cutoff=$(tbd_fallback_cutoff 2> /dev/null); then
-      echo "[tbd] Install it with: npm install -g --ignore-scripts --before=$cutoff get-tbd@$configured_fallback_version" >&2
-    else
-      echo "[tbd] Install it with: npm install -g --ignore-scripts get-tbd@$configured_fallback_version" >&2
-      echo "[tbd] Use a get-tbd release published at least $TBD_FALLBACK_COOL_OFF_DAYS days ago." >&2
-    fi
+    echo "[tbd] Install it with: npm install -g --ignore-scripts get-tbd@$configured_fallback_version" >&2
     return 1
   fi
   if command -v tbd &> /dev/null; then
@@ -110,14 +89,10 @@ tbd_run_configured_fallback() {
   else
     echo "[tbd] tbd CLI not found; using configured fallback get-tbd@$configured_fallback_version." >&2
   fi
-  if ! cutoff=$(tbd_fallback_cutoff); then
-    return 1
-  fi
-  npx --yes --before="$cutoff" --ignore-scripts --cache="${XDG_CACHE_HOME:-$HOME/.cache}/tbd-fallback-npm" "get-tbd@$configured_fallback_version" "$@"
+  npx --yes --ignore-scripts --cache="${XDG_CACHE_HOME:-$HOME/.cache}/tbd-fallback-npm" "get-tbd@$configured_fallback_version" "$@"
   status=$?
   if [ "$status" -ne 0 ]; then
     echo "[tbd] The get-tbd@$configured_fallback_version fallback exited with status $status." >&2
-    echo "[tbd] If npm found no matching version, the pin was published after $cutoff and is still inside the $TBD_FALLBACK_COOL_OFF_DAYS-day cool-off." >&2
   fi
   return "$status"
 }
