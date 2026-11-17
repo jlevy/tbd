@@ -5675,6 +5675,10 @@ checkout’s hooks. The command exits 0 when the root has no `.codex/hooks.json`
 directory has `.git` (a checkout whose Git directory lives elsewhere through `GIT_DIR`
 or `core.worktree` is in this case), and it fails visibly when a configured root lacks
 the script.
+Codex records trust against each hook’s event, matcher, command, and timeout,
+and skips a new or changed hook until the user reviews it in `/hooks`, so when setup
+replaces a tbd hook command it already installed, it prints “Codex will ask you to
+review the updated tbd hooks: run /hooks”.
 
 **Setup command:**
 

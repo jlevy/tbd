@@ -1129,6 +1129,32 @@ function selectCodexHooks(entries: CodexHookEntry[], owned: boolean): CodexHookE
   });
 }
 
+/** What setup prints when it changes a Codex hook that tbd had already installed. */
+const CODEX_HOOK_REVIEW_NOTICE = 'Codex will ask you to review the updated tbd hooks: run /hooks';
+
+/**
+ * Whether the generated entries replace a tbd handler the file already holds. Codex
+ * records trust against a hook's event, matcher, command, and timeout, and skips a new or
+ * changed hook until the user reviews it, so such a handler stops running until then.
+ */
+function replacesInstalledCodexHooks(
+  existing: Record<string, CodexHookEntry[]>,
+  generated: Record<string, CodexHookEntry[]>,
+): boolean {
+  const key = (event: string, entry: CodexHookEntry, hook: Record<string, unknown>) =>
+    JSON.stringify([event, entry.matcher ?? '', hook.command, hook.timeout ?? null]);
+  const regenerated = new Set(
+    Object.entries(generated).flatMap(([event, entries]) =>
+      entries.flatMap((entry) => entry.hooks.map((hook) => key(event, entry, hook))),
+    ),
+  );
+  return Object.entries(existing).some(([event, entries]) =>
+    entries.some((entry) =>
+      entry.hooks.some((hook) => isTbdCodexHook(hook) && !regenerated.has(key(event, entry, hook))),
+    ),
+  );
+}
+
 async function useGhCliForProject(cwd: string): Promise<boolean> {
   try {
     const tbdRoot = await findTbdRoot(cwd);
@@ -2049,11 +2075,12 @@ class SetupCodexHandler extends BaseCommand {
     }
 
     // Remove only tbd's handlers, including those in mixed user entries.
+    const tbdHooks = getCodexHooksConfig(useGhCli).hooks;
     const merged: Record<string, CodexHookEntry[]> = {};
     for (const [event, entries] of Object.entries(existing.hooks ?? {})) {
       merged[event] = selectCodexHooks(entries, false);
     }
-    for (const [event, entries] of Object.entries(getCodexHooksConfig(useGhCli).hooks)) {
+    for (const [event, entries] of Object.entries(tbdHooks)) {
       merged[event] = [...(merged[event] ?? []), ...entries];
     }
 
@@ -2062,6 +2089,9 @@ class SetupCodexHandler extends BaseCommand {
       JSON.stringify({ ...existing, hooks: merged }, null, 2) + '\n',
     );
     this.output.success('Installed Codex hooks (.codex/hooks.json)');
+    if (replacesInstalledCodexHooks(existing.hooks ?? {}, tbdHooks)) {
+      this.output.notice(CODEX_HOOK_REVIEW_NOTICE);
+    }
   }
 
   private async installCodexSection(agentsPath: string): Promise<void> {

@@ -30,6 +30,9 @@ const FSQLITE_CODEX_CLOSING_COMMAND =
   `"$repo_root/.codex/tbd-closing-reminder.sh" ]; then echo "[tbd] Cannot locate the Codex closing ` +
   `hook." >&2; exit 1; fi; exec bash "$repo_root/.codex/tbd-closing-reminder.sh"'`;
 
+/** The line setup prints when it changes a Codex hook command tbd had installed. */
+const CODEX_REVIEW_NOTICE = 'Codex will ask you to review the updated tbd hooks: run /hooks';
+
 /** fsqlite's validated Claude wiring: every script resolved through CLAUDE_PROJECT_DIR. */
 const CUSTOMIZED_CLAUDE_SETTINGS = {
   hooks: {
@@ -421,7 +424,41 @@ describe('setup keeps equivalent hook wiring', { timeout: subprocessTestTimeout(
     });
     expect(codexCheck()?.status).toBe('warn');
 
-    expect(runTbd(['setup', '--auto', '--surfaces=codex']).status).toBe(0);
+    const upgrade = runTbd(['setup', '--auto', '--surfaces=codex']);
+    expect(upgrade.status, upgrade.stderr).toBe(0);
+    expect(upgrade.stdout).toContain(CODEX_REVIEW_NOTICE);
+    expect(await readJson('.codex/hooks.json')).toEqual(generated);
+  });
+
+  it('asks for a Codex hook review only when setup changes a tbd hook command', async () => {
+    const fresh = runTbd(['setup', '--auto', '--prefix=test', '--surfaces=codex']);
+    expect(fresh.status, fresh.stderr).toBe(0);
+    expect(fresh.stdout + fresh.stderr).not.toContain(CODEX_REVIEW_NOTICE);
+
+    // A user hook beside tbd's, and a script refresh, leave tbd's commands as they are.
+    const generated = await readJson('.codex/hooks.json');
+    generated.hooks.PostToolUse!.unshift({
+      matcher: 'Edit',
+      hooks: [{ type: 'command', command: 'echo user-hook' }],
+    });
+    await writeJson('.codex/hooks.json', generated);
+    await writeFile(join(projectDir, '.codex/tbd-session.sh'), '#!/bin/bash\n');
+    const refresh = runTbd(['setup', '--auto', '--surfaces=codex']);
+    expect(refresh.status, refresh.stderr).toBe(0);
+    expect(refresh.stdout + refresh.stderr).toContain('Installed Codex hooks');
+    expect(refresh.stdout + refresh.stderr).not.toContain(CODEX_REVIEW_NOTICE);
+    expect(await readJson('.codex/hooks.json')).toEqual(generated);
+
+    // tbd's closing command under another matcher is a changed hook to Codex.
+    const moved = structuredClone(generated);
+    moved.hooks.PostToolUse = [
+      { matcher: 'Edit', hooks: [{ type: 'command', command: 'echo user-hook' }] },
+      { matcher: '', hooks: moved.hooks.PostToolUse![1]!.hooks },
+    ];
+    await writeJson('.codex/hooks.json', moved);
+    const rewired = runTbd(['setup', '--auto', '--surfaces=codex']);
+    expect(rewired.status, rewired.stderr).toBe(0);
+    expect(rewired.stdout).toContain(CODEX_REVIEW_NOTICE);
     expect(await readJson('.codex/hooks.json')).toEqual(generated);
   });
 
@@ -444,7 +481,9 @@ describe('setup keeps equivalent hook wiring', { timeout: subprocessTestTimeout(
     await writeJson('.codex/hooks.json', earlier);
     expect(codexCheck()?.status).toBe('warn');
 
-    expect(runTbd(['setup', '--auto', '--surfaces=codex']).status).toBe(0);
+    const result = runTbd(['setup', '--auto', '--surfaces=codex']);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain(CODEX_REVIEW_NOTICE);
     expect(await readJson('.codex/hooks.json')).toEqual(generated);
     expect(codexCheck()?.status).toBe('ok');
   });

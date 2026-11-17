@@ -1,5 +1,15 @@
 # get-tbd
 
+## Unreleased
+
+### Upgrade
+
+- Setup rewrites tbd’s Codex hook commands so that each one finds the project’s Git
+  checkout root from any working directory.
+  Codex skips a changed hook until it is trusted again.
+  After `tbd setup --auto`, or after pulling a regenerated `.codex/hooks.json`, Codex
+  will ask you to review the updated tbd hooks: run `/hooks`.
+
 ## 0.11.0
 
 This release secures Markdown frontmatter parsing, keeps the managed `AGENTS.md` block
