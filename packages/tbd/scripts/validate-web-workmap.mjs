@@ -294,6 +294,13 @@ class Page {
   }
 
   static async open(cdp, url, browserContextId) {
+    const page = await Page.blank(cdp, browserContextId);
+    await page.navigate(url);
+    return page;
+  }
+
+  /** A new tab on about:blank, so a check can intercept requests before navigating. */
+  static async blank(cdp, browserContextId) {
     const { targetId } = await cdp.send('Target.createTarget', {
       url: 'about:blank',
       ...(browserContextId === undefined ? {} : { browserContextId }),
@@ -309,7 +316,6 @@ class Page {
       deviceScaleFactor: 1,
       mobile: false,
     });
-    await page.navigate(url);
     return page;
   }
 
@@ -895,6 +901,87 @@ try {
       await cdp.send('Target.disposeBrowserContext', { browserContextId });
     },
   );
+  await check('a Workmap link shows the Workmap, not the list, while the board loads', async () => {
+    const { browserContextId } = await cdp.send('Target.createBrowserContext');
+    const viewer = await Page.blank(cdp, browserContextId);
+    // Hold every board request until the loading state has been read.
+    await viewer.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/board*' }] });
+    const held = [];
+    let holding = true;
+    const release = (message) => {
+      if (message.method === 'Fetch.requestPaused' && message.sessionId === viewer.sessionId) {
+        if (holding) {
+          held.push(message.params.requestId);
+        } else {
+          void viewer
+            .send('Fetch.continueRequest', { requestId: message.params.requestId })
+            .catch(() => undefined);
+        }
+      }
+    };
+    cdp.listeners.add(release);
+    try {
+      const firstBoard = cdp.nextEvent('Fetch.requestPaused', viewer.sessionId, 30_000);
+      await viewer.navigate(`${origin}/?view=workmap&group=area%3A`);
+      await firstBoard;
+      const loading = await viewer.evaluate(`({
+        list: !document.getElementById('tablewrap').hidden,
+        workmap: !document.getElementById('workmapwrap').hidden,
+        message: document.getElementById('workmapempty').hidden ? null : document.getElementById('workmapempty').textContent,
+        checked: document.querySelector('#viewchooser [aria-checked="true"]')?.dataset.viewChoice ?? null,
+      })`);
+      invariant(
+        !loading.list &&
+          loading.workmap &&
+          loading.message === 'Loading beads…' &&
+          loading.checked === 'workmap',
+        `Before the first board response: ${JSON.stringify(loading)}`,
+      );
+      holding = false;
+      for (const requestId of held) {
+        // The page aborts a board request that a newer one supersedes, which retires
+        // its interception id; only the requests still pending need releasing.
+        await viewer.send('Fetch.continueRequest', { requestId }).catch(() => undefined);
+      }
+      await viewer.waitFor(`document.querySelectorAll(${JSON.stringify(CARD)}).length > 0`);
+      await viewer.waitFor(`document.getElementById('workmapempty').hidden`);
+    } finally {
+      cdp.listeners.delete(release);
+      await cdp.send('Target.disposeBrowserContext', { browserContextId });
+    }
+  });
+
+  await check('switching views collapses expanded beads, as paging and filtering do', async () => {
+    const { browserContextId } = await cdp.send('Target.createBrowserContext');
+    const viewer = await Page.open(cdp, `${origin}/?view=list`, browserContextId);
+    const rows = '#rows tr[data-bead-id]';
+    await viewer.waitFor(`document.querySelectorAll(${JSON.stringify(rows)}).length > 0`);
+    await viewer.evaluate(`(() => {
+      const search = document.getElementById('q');
+      search.value = 'Face probe';
+      search.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`);
+    await viewer.waitFor(
+      `document.querySelectorAll(${JSON.stringify(rows)}).length === ${FACE_PROBES.length}`,
+    );
+    await viewer.click(`${rows} .disclosure`);
+    const expanded = `document.querySelectorAll('#rows .disclosure[aria-expanded="true"]').length`;
+    await viewer.waitFor(`${expanded} === 1`, 5_000);
+    await viewer.click('#viewchooser [data-view-choice="workmap"]');
+    await viewer.waitFor(`document.querySelectorAll(${JSON.stringify(CARD)}).length > 0`);
+    const cardsOpen = await viewer.evaluate(
+      `document.querySelectorAll('#workmapgroups .disclosure[aria-expanded="true"]').length`,
+    );
+    await viewer.click('#viewchooser [data-view-choice="list"]');
+    await viewer.waitFor(`document.querySelectorAll(${JSON.stringify(rows)}).length > 0`);
+    const rowsOpen = await viewer.evaluate(expanded);
+    invariant(
+      cardsOpen === 0 && rowsOpen === 0,
+      `After switching views: ${cardsOpen} cards and ${rowsOpen} rows still expanded`,
+    );
+    await cdp.send('Target.disposeBrowserContext', { browserContextId });
+  });
+
   const { browserContextId: faceContext } = await cdp.send('Target.createBrowserContext');
   const faces = await Page.open(cdp, `${origin}/?view=workmap&group=area%3A`, faceContext);
   await faces.waitFor(`document.querySelectorAll(${JSON.stringify(CARD)}).length > 0`);

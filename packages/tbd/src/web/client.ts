@@ -1239,6 +1239,16 @@ function renderLog(watch: ObservationStateView): void {
   }
 }
 
+/**
+ * Start a new reading order (another view or grouping) on its first page with nothing
+ * expanded, as paging and filtering do: an expansion from the old order could otherwise
+ * stay open off-screen, refetch its body on live updates, and count against the cap.
+ */
+function restartBoardWindow(): void {
+  boardPageIndex = 0;
+  store.setExpanded([]);
+}
+
 function navigateBoardPage(pageIndex: number): void {
   boardPageIndex = pageIndex;
   scrollBoardToTopAfterRender = true;
@@ -1814,8 +1824,13 @@ function render(): void {
   const view = store.getView();
   const { board, watch } = view;
   if (board === null || watch === null) {
-    elements.empty.hidden = false;
-    elements.empty.textContent = view.boardError ?? 'Loading beads…';
+    // Show the view the address names from the first paint, with the loading message
+    // in that view; the grouping select has no options until the first board.
+    renderViewChooser();
+    elements.workmapGroup.hidden = true;
+    const loading = boardViewMode === 'workmap' ? elements.workmapEmpty : elements.empty;
+    loading.hidden = false;
+    loading.textContent = view.boardError ?? 'Loading beads…';
     return;
   }
 
@@ -2098,8 +2113,7 @@ for (const button of viewChoiceButtons) {
       return;
     }
     boardViewMode = mode;
-    // Each view pages its own reading order, so a page index does not carry over.
-    boardPageIndex = 0;
+    restartBoardWindow();
     persistString(VIEW_MODE_STORAGE_KEY, mode);
     writeBoardViewAddress();
     scheduleRender();
@@ -2107,7 +2121,7 @@ for (const button of viewChoiceButtons) {
 }
 elements.workmapGroup.addEventListener('change', () => {
   workmapGroupPrefix = elements.workmapGroup.value;
-  boardPageIndex = 0;
+  restartBoardWindow();
   persistString(WORKMAP_PREFIX_STORAGE_KEY, workmapGroupPrefix);
   writeBoardViewAddress();
   scheduleRender();
@@ -2191,4 +2205,5 @@ window.addEventListener('beforeunload', () => {
   window.clearInterval(relativeTimeTimer);
   store.stop();
 });
+render();
 void store.start();
