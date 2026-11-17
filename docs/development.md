@@ -146,7 +146,7 @@ Design and implementation details are in
 
 ### Review and policy contracts across docs
 
-Like the `tbd web` interaction contract, three agent workflow contracts are stated in
+Like the `tbd web` interaction contract, four agent workflow contracts are stated in
 several packaged docs and must read the same everywhere.
 Each has one defining document; the others route to it or summarize it.
 Tests in `packages/tbd/tests/` pin them, and they need no build, so run them after any
@@ -195,6 +195,15 @@ pnpm --filter get-tbd exec vitest run \
   The design and CLI manual state that merge and review requirements are settable
   grants: the four `github-merge` values, and that no value weakens
   `pr-review-requirements`.
+- **Session closing and claims.** The Session Closing Protocol in `skill-baseline`
+  defines the session-end steps, including `tbd sync`, which no policy value stops.
+  Every skill tier, `tbd-prime`, and `tbd-closing` state them without a condition,
+  `agent-handoff` syncs before every handoff, and each tier, `tbd-prime`, and the
+  generated tbd block publish a claim with `tbd sync`. `coordinate-collaborators` is the
+  only document that says how claim visibility differs between linked worktrees and
+  separate clones; the tiers, `tbd-prime`, `agent-handoff`, and `delegate-to-subagents`
+  route to it. `tests/policy-grants-docs.test.ts` checks the sync step in each of those
+  docs, the claim sentence, the routes, and the shortcut’s clone rules.
 
 ### Developing external tracker integrations
 
