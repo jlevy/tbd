@@ -144,6 +144,34 @@ describe('mergeIssues', () => {
 
       expect(result.merged.description).toBe('Local desc');
     });
+
+    // Two clones that both ran `tbd start` before exchanging the claim. The clone that
+    // syncs second merges, and the later claim is kept whether it is that clone's own
+    // (local) or the first clone's (remote); the other goes to the attic. The
+    // coordinate-collaborators shortcut documents this outcome.
+    it.each(['local', 'remote'] as const)(
+      'keeps the later of two concurrent claims when it is the %s side',
+      (laterSide) => {
+        const base = makeIssue();
+        const claim = (delegate: string, updated_at: string) =>
+          makeIssue({ status: 'in_progress', delegate, version: 2, updated_at });
+        const earlier = claim('agent-a', '2025-01-02T00:00:00Z');
+        const later = claim('agent-b', '2025-01-03T00:00:00Z');
+
+        const result =
+          laterSide === 'local'
+            ? mergeIssues(base, later, earlier)
+            : mergeIssues(base, earlier, later);
+
+        expect(result.merged).toMatchObject({ status: 'in_progress', delegate: 'agent-b' });
+        expect(result.conflicts).toHaveLength(1);
+        expect(result.conflicts[0]).toMatchObject({
+          field: 'delegate',
+          lost_value: 'agent-a',
+          winner_value: 'agent-b',
+        });
+      },
+    );
   });
 
   describe('Union strategy (labels, dependencies)', () => {
