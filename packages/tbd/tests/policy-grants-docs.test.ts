@@ -393,8 +393,8 @@ describe('documents that act on grants link to agent-policy-grants', () => {
     },
     {
       doc: `${SHORTCUTS}/agent-handoff.md`,
-      step: /Always run `tbd sync` before generating the handoff/u,
-      rule: 'The next agent needs the latest issue state.',
+      step: /^The next agent needs the latest issue state\.$/mu,
+      rule: '**IMPORTANT**: Always run `tbd sync` before generating the handoff to ensure all issue updates are pushed to the remote.',
     },
   ])('$doc runs tbd sync at every session end or handoff', async ({ doc, step, rule }) => {
     const text = await readDoc(doc);
