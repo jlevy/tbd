@@ -679,7 +679,7 @@ describe('planRecommendedGrants', () => {
 
 describe('tbd setup --policies', () => {
   it(
-    'records exactly the recommended set on a fresh setup and leaves pr-delivery and linear unanswered',
+    'records exactly the recommended set on a fresh setup and leaves linear and pr-delivery unanswered',
     async () => {
       const dir = await gitRepo();
       const result = runTbd(dir, [
@@ -696,14 +696,14 @@ describe('tbd setup --policies', () => {
       const unanswered = resolvePolicyStatuses(parse)
         .filter((status) => !status.answered)
         .map((status) => status.name);
-      expect(unanswered).toEqual(['pr-delivery', 'linear']);
+      expect(unanswered).toEqual(['linear', 'pr-delivery']);
 
       expect(result.stdout).toContain('Policy grants (--policies=recommended):');
       for (const grant of RECOMMENDED_GRANTS) {
         expect(result.stdout).toContain(`  ✓ Recorded ${grant.name}: ${grant.value}\n`);
       }
       expect(result.stdout).toContain(
-        '  pr-delivery and linear are not in the recommended set and stay unanswered; ask the user about each separately.',
+        '  linear and pr-delivery are not in the recommended set and stay unanswered; ask the user about each separately.',
       );
       expect(result.stdout).toContain('`tbd shortcut setup-github-cli`');
       expect(result.stdout).toContain(

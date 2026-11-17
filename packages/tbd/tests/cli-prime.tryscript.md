@@ -215,7 +215,7 @@ Effective grants from AGENTS.md on main ...
   github-editing: granted, github-merge: confirm-session,
   pr-review-requirements: standard + security
 Unanswered (treated as not-granted; pr-delivery as ask): github-workflows,
-  github-stacked-prs, subagents, pr-delivery, linear
+  github-stacked-prs, subagents, linear, pr-delivery
 Ask the user when a task needs one, or run `tbd shortcut setup-tbd` to ask about all.
 ? 0
 ```
@@ -229,7 +229,7 @@ Effective grants from AGENTS.md on main ...
   github-editing: granted, github-merge: confirm-session,
   pr-review-requirements: standard + security
 Unanswered (treated as not-granted; pr-delivery as ask): github-workflows,
-  github-stacked-prs, subagents, pr-delivery, linear
+  github-stacked-prs, subagents, linear, pr-delivery
 Ask the user when a task needs one, or run `tbd shortcut setup-tbd` to ask about all.
 ? 0
 ```

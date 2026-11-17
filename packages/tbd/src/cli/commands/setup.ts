@@ -2997,7 +2997,7 @@ class SetupAutoHandler extends BaseCommand {
       if (plan.added.length === 0) {
         console.log('  Every recommended policy is already answered; nothing recorded.');
       }
-      // Policies without a recommendation (pr-delivery, linear) are opt-in: the
+      // Policies without a recommendation (linear, pr-delivery) are opt-in: the
       // recommended set never records them, so the setup process asks about each.
       const separate = POLICY_NAMES.filter(
         (name) =>

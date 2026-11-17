@@ -64,7 +64,7 @@ describe('formatPolicyGrantsLines', () => {
       '  github-workflows: granted, github-editing: granted, github-merge: confirm-session,',
       '  pr-review-requirements: standard + security',
       'Unanswered (treated as not-granted; pr-delivery as ask): github-stacked-prs, subagents,',
-      '  pr-delivery, linear',
+      '  linear, pr-delivery',
       'Ask the user when a task needs one, or run `tbd shortcut setup-tbd` to ask about all.',
       // The hook hands an agent its standing permissions, so it carries the rule about
       // whose words can change them in the same section.
@@ -87,7 +87,7 @@ describe('formatPolicyGrantsLines', () => {
       'No grants recorded in AGENTS.md on main (details: `tbd policy show`).',
       'Unanswered (treated as not-granted; github-merge as confirm-every; pr-review-requirements as standard; pr-delivery as ask):',
       '  github-workflows, github-editing, github-merge, github-stacked-prs, subagents,',
-      '  pr-review-requirements, pr-delivery, linear',
+      '  pr-review-requirements, linear, pr-delivery',
       'Ask the user when a task needs one, or run `tbd shortcut setup-tbd` to ask about all.',
     ]);
   });

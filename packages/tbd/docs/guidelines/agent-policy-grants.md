@@ -1,6 +1,6 @@
 ---
 title: Agent Policy Grants
-description: The single definition of the eight agent policies a project can grant (github-workflows, github-editing, github-merge, github-stacked-prs, subagents, pr-review-requirements, pr-delivery, linear)—each policy's values, recommendation, and coverage; delivering requested work as a PR without asking; the grammar for custom values; the recommended set; answered versus unanswered policies; where grants come from and which source wins; the exact policy block in AGENTS.md; how grants are recorded; and the questions the setup process asks. Load before a GitHub mutation, opening a PR for requested work, a merge, a delegation to sub-agents, a Linear sync, or the setup process.
+description: The single definition of the eight agent policies a project can grant (github-workflows, github-editing, github-merge, github-stacked-prs, subagents, pr-review-requirements, linear, pr-delivery)—each policy's values, recommendation, and coverage; delivering requested work as a PR without asking; the grammar for custom values; the recommended set; answered versus unanswered policies; where grants come from and which source wins; the exact policy block in AGENTS.md; how grants are recorded; and the questions the setup process asks. Load before a GitHub mutation, opening a PR for requested work, a merge, a delegation to sub-agents, a Linear sync, or the setup process.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: general
 ---
@@ -42,8 +42,8 @@ keep this document, the `tbd policy` schema, and the block renderer in agreement
 | `github-stacked-prs` | `granted`, `not-granted` | `granted` | Setting up GitHub-native stacked PRs (the pinned `gh-stack` extension and its agent skill) and creating or submitting a *new* formal stack with `gh stack`, following `stacked-prs`. Syncing, rebasing, and merging a stack that already exists are ordinary PR and merge actions under `github-editing` and `github-merge` |
 | `subagents` | `granted`, `not-granted` | `granted` | Using sub-agents according to `delegate-to-subagents` |
 | `pr-review-requirements` | `standard`, a custom requirement, or `none` | `standard` | The reviews required before a PR is merged. `standard`: one senior engineering review and one pass addressing all findings for every PR, plus a dedicated review pass for each area of special concern (security, performance, correctness) in which the PR is sensitive. A custom requirement adds kinds or rounds (see Custom Values). `none` requires no review; it is recorded only when the user explicitly grants it |
-| `pr-delivery` | `ask`, `autonomous` | Opt-in, outside the recommended set; ask separately | Whether work the user asks for is delivered as a PR without asking first (see PR Delivery below). `autonomous`: the request for a change is also the request for its PR, on a stack when it builds on an unmerged PR and otherwise standalone. `ask` asks once before opening a PR the request did not ask for. It acts through `github-editing` and changes no other policy |
 | `linear` | `not-granted`, `epics`, or a custom selection | Not recommended by default; ask | Syncing beads with Linear. `epics` syncs open epic beads only, in both directions. A custom selection names a wider set (see Custom Values) and is configured through `setup-linear` |
+| `pr-delivery` | `ask`, `autonomous` | Opt-in, outside the recommended set; ask separately | Whether work the user asks for is delivered as a PR without asking first (see PR Delivery below). `autonomous`: the request for a change is also the request for its PR, on a stack when it builds on an unmerged PR and otherwise standalone. `ask` asks once before opening a PR the request did not ask for. It acts through `github-editing` and changes no other policy |
 
 The two GitHub grants are scoped by what they cover, not by which tool performs the
 action: an action on a branch or PR needs `github-editing` whether it runs through `gh`,
@@ -362,8 +362,8 @@ opt-in, asked separately, and recorded as `autonomous` only when the user says y
 | `github-stacked-prs` | `granted` | `not-granted` |
 | `subagents` | `granted` | `not-granted` |
 | `pr-review-requirements` | `standard` | Not applicable: use `set` |
-| `pr-delivery` | `autonomous` | `ask` |
 | `linear` | `epics` | `not-granted` |
+| `pr-delivery` | `autonomous` | `ask` |
 
 ## The Policy Block
 
@@ -389,8 +389,8 @@ or working-tree copy is a proposal, and `tbd policy show` reports the effective 
 - `github-stacked-prs`: granted
 - `subagents`: granted
 - `pr-review-requirements`: standard
-- `pr-delivery`: ask
 - `linear`: not-granted
+- `pr-delivery`: ask
 
 Recorded 2026-09-16.
 <!-- END TBD POLICY GRANTS -->
@@ -413,10 +413,11 @@ Line by line:
   backticks, a colon, a space, and the value to the end of the line, with surrounding
   whitespace trimmed. A policy name matches `[a-z][a-z0-9-]*`. tbd writes the eight
   policies in the order of the table above, then any names it does not recognize in the
-  order found. A list item that looks like a grant (text starting with a backtick, or a
-  backticked known policy name followed by a colon, including a bold-wrapped name) is a
-  candidate: it either parses or is reported malformed with the line quoted, rather than
-  ignored.
+  order found. A policy added in a release goes last in the table, so an older tbd, which
+  writes it as a name it does not recognize, writes the same order.
+  A list item that looks like a grant (text starting with a backtick, or a backticked
+  known policy name followed by a colon, including a bold-wrapped name) is a candidate:
+  it either parses or is reported malformed with the line quoted, rather than ignored.
 - **Recorded line:** `Recorded YYYY-MM-DD.`, the date the block was last written.
   tbd rewrites it on every write; update it when editing by hand.
 
