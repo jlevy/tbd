@@ -5652,9 +5652,16 @@ npx the script prints an install command carrying the same `--ignore-scripts` an
 The PostToolUse hook reads the hook’s JSON input and runs `tbd closing` only when the
 Bash command runs `git push`. It parses the command with an embedded node program that
 separates commands and words as a shell does, so it recognizes `git -C dir push`,
-`env VAR=1 git push`, or a push on a later line, and ignores `echo git push`. It needs
-no jq, and invalid hook JSON exits 1 with a message instead of skipping the reminder.
-It locates the repository and runs tbd the same way as the session script.
+`env VAR=1 git push`, or a push on a later line, and ignores `echo git push`. A literal
+script given to `eval` or to `sh -c` (also `bash`, `dash`, `ksh`, and `zsh`) is parsed
+the same way, without running anything, so `bash -c "cd repo && git push"` is a push; a
+script known only at run time, such as `eval "$cmd"`, is not.
+The parser does not follow heredocs, `$(...)`, `$'...'`, or comments.
+When a quote character inside one leaves the parser inside a quote at the end of the
+command, it also reports a push wherever `git push` starts a command in the text, so a
+push after a heredoc commit message still reminds.
+It needs no jq, and invalid hook JSON exits 1 with a message instead of skipping the
+reminder. It locates the repository and runs tbd the same way as the session script.
 When node fails without a message, the hook says so and exits 1. Each Codex hook command
 (SessionStart, PreCompact, the gh CLI script, and PostToolUse) walks up from the working
 directory, without git, to the nearest directory with `.git`. That is the project root

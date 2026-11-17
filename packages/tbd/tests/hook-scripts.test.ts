@@ -441,6 +441,21 @@ describeUnix('generated hook scripts', { timeout: subprocessTestTimeout(60_000) 
       'for i in 1; do git push origin HEAD; done',
       '(git push origin HEAD)',
       'case x in x) git push origin HEAD ;; esac',
+      // A literal eval argument or a shell's -c script is parsed as a command.
+      'eval "git push origin HEAD"',
+      'eval "git status; git push origin HEAD"',
+      "eval -- 'git add -A && git push'",
+      'bash -c "cd repo && git push"',
+      "bash -lc 'git fetch; git push origin main'",
+      'sh -c "git commit -m x && git push"',
+      'sudo -u deploy /bin/bash -o pipefail -c -e "git push 2>&1 | tail -1"',
+      'zsh -c "eval \'git push\'"',
+      // A quote the tokenizer cannot follow (a heredoc, $'...', a comment) leaves it
+      // inside a quote, and the push after it is found by text instead.
+      'git commit -m "$(cat <<\'EOF\'\nFix "can\'t open file" error\nEOF\n)" && git push',
+      'git commit -m "$(cat <<\'EOF\'\nUse a 5" margin\nEOF\n)" && git push -u origin fix',
+      "git commit -m $'feat: x\\n\\nDon\\'t break' && git push",
+      "# it's ready\ngit status && git push",
     ];
     const NON_PUSH_FORMS = [
       'echo git push',
@@ -451,7 +466,12 @@ describeUnix('generated hook scripts', { timeout: subprocessTestTimeout(60_000) 
       'if echo git push; then :; fi',
       'for git in push; do :; done',
       'eval echo git push',
-      'eval "git push origin HEAD"',
+      'eval "echo git push"',
+      'bash -c "echo git push"',
+      'bash script.sh git push',
+      "sh -c 'git status' git push",
+      'git commit -m "it is \\"done\\"; git push later"',
+      'echo "then run: git status; git push"',
       'printf "git push\\n"',
       'pwd',
     ];
