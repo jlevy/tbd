@@ -41,8 +41,19 @@ function show(id: string): Record<string, unknown> {
   return JSON.parse(tbd(['show', id, '--json'])) as Record<string, unknown>;
 }
 
-function create(title: string): string {
-  return (JSON.parse(tbd(['create', title, '--json'])) as { id: string }).id;
+function create(title: string, args: string[] = []): string {
+  return (JSON.parse(tbd(['create', title, ...args, '--json'])) as { id: string }).id;
+}
+
+/** The structured result of `tbd start --json`, which collaborators check instead of the exit code. */
+interface StartResult {
+  claimed: string[];
+  skipped: { id: string; reason: string }[];
+  delegate: string;
+}
+
+function startJson(id: string, args: string[] = [], env: Record<string, string> = {}): StartResult {
+  return JSON.parse(tbd(['start', id, ...args, '--json'], env)) as StartResult;
 }
 
 beforeAll(async () => {
@@ -89,14 +100,89 @@ describe('tbd start claims the acting axis', () => {
     expect(show(id).delegate).toBe('agent-one');
   });
 
+  it('reports a foreign claim as structured skipped work without failing', () => {
+    const id = create('Structured contention');
+    tbd(['start', id], { TBD_AGENT: 'agent-one' });
+
+    expect(startJson(id, [], { TBD_AGENT: 'agent-two' })).toEqual({
+      claimed: [],
+      skipped: [{ id, reason: 'already claimed by agent-one' }],
+      delegate: 'agent-two',
+    });
+    expect(show(id).delegate).toBe('agent-one');
+  });
+
   it('is idempotent for the same agent', () => {
     const id = create('Mine already');
     tbd(['start', id], { TBD_AGENT: 'agent-one' });
     expect(tbd(['start', id], { TBD_AGENT: 'agent-one' })).toContain('already yours');
+    expect(startJson(id, ['--as', 'agent-one'])).toEqual({
+      claimed: [],
+      skipped: [{ id, reason: 'already yours' }],
+      delegate: 'agent-one',
+    });
+    expect(show(id).delegate).toBe('agent-one');
+  });
+
+  // The guard covers only in-progress work, so coordinate-collaborators tells an agent to
+  // read `delegate` before claiming rather than trusting `claimed` alone.
+  it.each([
+    [
+      'update --delegate',
+      () => {
+        const id = create('Assigned by update');
+        tbd(['update', id, '--delegate', 'agent-one']);
+        return id;
+      },
+    ],
+    ['create --delegate', () => create('Assigned at create', ['--delegate', 'agent-one'])],
+  ])('replaces a delegate set by %s on an open bead', (_how, assignAhead) => {
+    const id = assignAhead();
+    expect(show(id)).toMatchObject({ status: 'open', delegate: 'agent-one' });
+
+    expect(startJson(id, ['--as', 'agent-two'])).toEqual({
+      claimed: [id],
+      skipped: [],
+      delegate: 'agent-two',
+    });
+    expect(show(id)).toMatchObject({ status: 'in_progress', delegate: 'agent-two' });
   });
 });
 
 describe('delegate is settable directly', () => {
+  it('continues an explicit handoff using the resolved incoming actor name', () => {
+    const id = create('Explicit handoff');
+    tbd(['start', id, '--as', 'agent-one']);
+    const identity = JSON.parse(tbd(['whoami', '--as', 'Agent Two', '--json'])) as { name: string };
+    expect(identity.name).toBe('agent-two');
+    const alias = JSON.parse(tbd(['whoami', '--as', 'agent-two', '--json'])) as { name: string };
+    expect(alias.name).toBe(identity.name);
+    tbd(['update', id, '--delegate', identity.name]);
+
+    expect(startJson(id, ['--as', 'Agent Two'])).toEqual({
+      claimed: [],
+      skipped: [{ id, reason: 'already yours' }],
+      delegate: identity.name,
+    });
+    expect(show(id)).toMatchObject({ status: 'in_progress', delegate: identity.name });
+  });
+
+  // `update --delegate` is an override and does not normalize, so a raw name is a
+  // different actor from the one `start --as` resolves it to.
+  it('stores a raw --delegate verbatim, so start under that name reports a foreign claim', () => {
+    const id = create('Raw handoff');
+    tbd(['start', id, '--as', 'agent-one']);
+    tbd(['update', id, '--delegate', 'Agent Two']);
+    expect(show(id).delegate).toBe('Agent Two');
+
+    expect(startJson(id, ['--as', 'Agent Two'])).toEqual({
+      claimed: [],
+      skipped: [{ id, reason: 'already claimed by Agent Two' }],
+      delegate: 'agent-two',
+    });
+    expect(show(id).delegate).toBe('Agent Two');
+  });
+
   it('accepts --delegate on create and update, and clears on empty', () => {
     const id = create('Direct');
     tbd(['update', id, '--delegate', 'cyrus']);
