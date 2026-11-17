@@ -80,6 +80,8 @@ identity, and finally `<harness>@<host>`; inspect it with `tbd whoami`. Top-leve
 `sync --pull` updates issue Git only.
 Plain `tbd sync` also runs trackers according to `integrations.on_tbd_sync`; use
 `tbd integration status` for tracker health.
+When several collaborators may claim beads in parallel, follow
+`tbd shortcut coordinate-collaborators`.
 
 ## Key Shortcuts
 

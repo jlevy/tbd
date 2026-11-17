@@ -54,6 +54,15 @@
   0.11.0 its frontmatter did not parse, so it was listed with neither.
   A test now parses every bundled doc’s frontmatter.
 
+### Guidelines and Content
+
+- A new opt-in shortcut, `coordinate-collaborators`, covers several agents or people
+  claiming beads at the same time: distinct acting names, checking the
+  `tbd start --json` result rather than the exit code, how claims reach linked worktrees
+  and separate clones, and explicit takeover.
+  The skill, `tbd prime`, `agent-handoff`, and `delegate-to-subagents` route to it; the
+  session closing protocol is unchanged.
+
 ## 0.11.0
 
 This release secures Markdown frontmatter parsing, keeps the managed `AGENTS.md` block

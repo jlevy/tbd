@@ -144,6 +144,35 @@ describe('mergeIssues', () => {
 
       expect(result.merged.description).toBe('Local desc');
     });
+
+    // Two copies that differ only by a concurrent `tbd start`: the claim on the copy with
+    // the later `updated_at` is kept on either merge side, and the other becomes a conflict
+    // entry for the attic. This covers only that two-copy case. A third clone or a later
+    // write moves `updated_at` (a conflict merge restamps it), which is why
+    // coordinate-collaborators tells agents to read `delegate` rather than predict it.
+    it.each(['local', 'remote'] as const)(
+      'keeps the claim of the later-updated copy when it is the %s side',
+      (laterSide) => {
+        const base = makeIssue();
+        const claim = (delegate: string, updated_at: string) =>
+          makeIssue({ status: 'in_progress', delegate, version: 2, updated_at });
+        const earlier = claim('agent-a', '2025-01-02T00:00:00Z');
+        const later = claim('agent-b', '2025-01-03T00:00:00Z');
+
+        const result =
+          laterSide === 'local'
+            ? mergeIssues(base, later, earlier)
+            : mergeIssues(base, earlier, later);
+
+        expect(result.merged).toMatchObject({ status: 'in_progress', delegate: 'agent-b' });
+        expect(result.conflicts).toHaveLength(1);
+        expect(result.conflicts[0]).toMatchObject({
+          field: 'delegate',
+          lost_value: 'agent-a',
+          winner_value: 'agent-b',
+        });
+      },
+    );
   });
 
   describe('Union strategy (labels, dependencies)', () => {
