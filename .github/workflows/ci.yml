@@ -5,9 +5,9 @@ on:
   push:
     branches: [main]
 
+# Read-only by default; only the coverage job writes, to comment on the PR.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   test:
@@ -58,6 +58,10 @@ jobs:
   coverage:
     name: Coverage & Lint
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # The Coverage Report step posts its summary as a PR comment.
+      pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
