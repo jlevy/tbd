@@ -4,13 +4,14 @@
  * The docs surface used to honor only `--status`, so a dry run wrote the docs cache
  * and `.tbd/config.yml` and then printed "Synced docs". The issue surface opened the
  * locked data-sync context before its dry-run check, which advances the data-sync
- * epoch and can materialize a missing worktree. Each case snapshots the checkout's
- * `.tbd/` tree and the shared `$GIT_COMMON_DIR/tbd` tree, runs the dry run, and then
- * runs the real command to show the preview reported work that was actually pending.
+ * epoch and can materialize a missing worktree or write a migrated config. Each case
+ * snapshots the whole repository, `.git` included, and its bare `origin`, plus every
+ * ref and the local git config; runs the dry run; and then runs the real command to
+ * show the preview reported work that was actually pending.
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, readdir, realpath, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { resolveSharedTbdPaths } from '../src/lib/paths.js';
+import { CURRENT_FORMAT } from '../src/lib/tbd-format.js';
 import { subprocessTestTimeout } from './test-helpers.js';
 
 const tbdBin = join(fileURLToPath(new URL('..', import.meta.url)), 'dist', 'bin.mjs');
@@ -47,17 +49,36 @@ function runTbd(cwd: string, args: string[]) {
   return result;
 }
 
-/** A git repository after `tbd init`, which leaves the docs cache unpopulated. */
-async function initRepo(): Promise<string> {
-  const dir = await realpath(await mkdtemp(join(tmpdir(), 'tbd-sync-dry-run-')));
-  cleanup.push(dir);
+interface Fixture {
+  dir: string;
+  origin: string;
+  sharedWorktreePath: string;
+}
+
+/**
+ * A repository after `tbd init` and one real issue sync to a bare `origin`, so the
+ * sync branch, its remote-tracking ref, and the remote all exist. `tbd init` leaves
+ * the docs cache unpopulated, so a docs sync is pending.
+ */
+async function initRepo(): Promise<Fixture> {
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'tbd-sync-dry-run-')));
+  cleanup.push(root);
+  const dir = join(root, 'repo');
+  const origin = join(root, 'origin.git');
+  await mkdir(dir);
+  git(root, 'init', '-q', '--bare', origin);
   git(dir, 'init', '-q', '-b', 'main');
   git(dir, 'config', 'user.email', 'test@example.com');
   git(dir, 'config', 'user.name', 'Test User');
   git(dir, 'config', 'commit.gpgsign', 'false');
+  git(dir, 'remote', 'add', 'origin', origin);
   git(dir, 'commit', '-q', '--allow-empty', '-m', 'init');
+  git(dir, 'push', '-q', 'origin', 'main');
   runTbd(dir, ['init', '--prefix=test']);
-  return dir;
+  runTbd(dir, ['create', 'An issue']);
+  runTbd(dir, ['sync', '--issues']);
+  const shared = await resolveSharedTbdPaths(dir);
+  return { dir, origin, sharedWorktreePath: shared.sharedWorktreePath };
 }
 
 /** Every file and directory under `root` (missing root: empty), with file contents. */
@@ -87,70 +108,124 @@ async function snapshot(root: string): Promise<Record<string, string>> {
   return result;
 }
 
-/** The checkout's tbd state, the shared tbd tree, and the registered worktrees. */
-async function state(dir: string) {
-  const shared = await resolveSharedTbdPaths(dir);
+/**
+ * Everything a dry run could write: the repository directory, `.git` and with it the
+ * shared tbd tree (epoch, locks, layout) and the sync worktree's files; the remote;
+ * the refs on both sides, remote-tracking refs included; and the local git config.
+ */
+async function state({ dir, origin }: Fixture) {
   return {
-    checkout: await snapshot(join(dir, '.tbd')),
-    shared: await snapshot(shared.sharedTbdDir),
+    repository: await snapshot(dir),
+    origin: await snapshot(origin),
+    refs: git(dir, 'for-each-ref'),
+    originRefs: git(origin, 'for-each-ref'),
+    config: git(dir, 'config', '--list', '--local'),
     worktrees: git(dir, 'worktree', 'list', '--porcelain'),
   };
 }
+
+/** Remove the sync worktree, the state of a fresh clone or a deleted worktree. */
+function removeWorktree({ dir, sharedWorktreePath }: Fixture): void {
+  git(dir, 'worktree', 'remove', '--force', sharedWorktreePath);
+}
+
+/** The `+N` doc count in a dry-run or real docs line. */
+function addedDocs(stdout: string): number {
+  const match = /(?:Would sync docs|Synced docs): \+(\d+) /.exec(stdout);
+  expect(match, stdout).not.toBeNull();
+  return Number(match![1]);
+}
+
+/** Every `tbd sync` flag set that reaches a surface, as a dry run. */
+const FLAG_SETS = [
+  { name: 'a full sync', flags: [] },
+  { name: 'sync --docs', flags: ['--docs'] },
+  { name: 'sync --issues', flags: ['--issues'] },
+  { name: 'sync --push', flags: ['--push'] },
+  { name: 'sync --pull', flags: ['--pull'] },
+  { name: 'sync --integrations', flags: ['--integrations'] },
+  { name: 'sync --push --integrations', flags: ['--push', '--integrations'] },
+];
+/** The flag sets that reach the issue surface. */
+const ISSUE_FLAG_SETS = FLAG_SETS.filter(
+  ({ flags }) => !(flags.length === 1 && (flags[0] === '--docs' || flags[0] === '--integrations')),
+);
 
 describe('tbd sync --dry-run writes nothing', () => {
   it(
     'previews a docs sync without writing the docs cache or .tbd/config.yml',
     async () => {
-      const dir = await initRepo();
-      const before = await state(dir);
+      const fixture = await initRepo();
+      const before = await state(fixture);
 
-      const dry = runTbd(dir, ['sync', '--docs', '--dry-run']);
+      const dry = runTbd(fixture.dir, ['sync', '--docs', '--dry-run']);
       expect(dry.stdout).toMatch(/\[DRY-RUN\] Would sync docs: \+\d+ doc\(s\)/);
       expect(dry.stdout).not.toContain('Synced docs');
-      expect(await state(dir)).toEqual(before);
+      expect(await state(fixture)).toEqual(before);
 
       // The real run makes exactly the changes the preview reported.
-      const real = runTbd(dir, ['sync', '--docs']);
-      expect(real.stdout).toMatch(/Synced docs: \+\d+ doc\(s\)/);
-      expect((await state(dir)).checkout).not.toEqual(before.checkout);
+      const real = runTbd(fixture.dir, ['sync', '--docs']);
+      expect(addedDocs(real.stdout)).toBe(addedDocs(dry.stdout));
+      expect((await state(fixture)).repository).not.toEqual(before.repository);
     },
     TIMEOUT_MS,
   );
 
-  it.each([
-    { name: 'sync --issues', flags: ['--issues'] },
-    { name: 'sync --push', flags: ['--push'] },
-    { name: 'a full sync', flags: [] },
-  ])(
+  it.each(ISSUE_FLAG_SETS)(
     'previews $name without taking the writer lock or repairing the worktree',
     async ({ flags }) => {
-      const dir = await initRepo();
-      const shared = await resolveSharedTbdPaths(dir);
-      git(dir, 'worktree', 'remove', '--force', shared.sharedWorktreePath);
-      const before = await state(dir);
+      const fixture = await initRepo();
+      removeWorktree(fixture);
+      const before = await state(fixture);
 
-      const dry = runTbd(dir, ['sync', ...flags, '--dry-run']);
+      const dry = runTbd(fixture.dir, ['sync', ...flags, '--dry-run']);
       expect(dry.stdout).toContain('[DRY-RUN] Would prepare the shared data-sync state');
       expect(dry.stdout).toContain('[DRY-RUN] Would sync repository');
       if (flags.length === 0) {
         expect(dry.stdout).toContain('[DRY-RUN] Would sync docs');
       }
-      expect(await state(dir)).toEqual(before);
+      expect(await state(fixture)).toEqual(before);
 
       // The preparation the preview named is real: any data command performs it.
-      runTbd(dir, ['list']);
+      runTbd(fixture.dir, ['list']);
       // `git worktree list` prints forward slashes on Windows; the resolved path is native.
       const toSlashes = (path: string) => path.replace(/\\/g, '/');
-      expect(toSlashes(git(dir, 'worktree', 'list', '--porcelain'))).toContain(
-        toSlashes(shared.sharedWorktreePath),
+      expect(toSlashes(git(fixture.dir, 'worktree', 'list', '--porcelain'))).toContain(
+        toSlashes(fixture.sharedWorktreePath),
       );
 
       // With the state prepared, a dry run still leaves it alone, data-sync epoch included.
-      const prepared = await state(dir);
-      const again = runTbd(dir, ['sync', ...flags, '--dry-run']);
+      const prepared = await state(fixture);
+      const again = runTbd(fixture.dir, ['sync', ...flags, '--dry-run']);
       expect(again.stdout).not.toContain('Would prepare');
       expect(again.stdout).toContain('[DRY-RUN] Would sync repository');
-      expect(await state(dir)).toEqual(prepared);
+      expect(await state(fixture)).toEqual(prepared);
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
+    'previews a config format migration without writing the migrated config',
+    async () => {
+      const fixture = await initRepo();
+      const configPath = join(fixture.dir, '.tbd', 'config.yml');
+      const config = await readFile(configPath, 'utf8');
+      expect(config).toContain(`tbd_format: ${CURRENT_FORMAT}`);
+      await writeFile(
+        configPath,
+        config.replace(`tbd_format: ${CURRENT_FORMAT}`, 'tbd_format: f07'),
+      );
+      const before = await state(fixture);
+
+      for (const flags of [[], ['--issues'], ['--pull']]) {
+        const dry = runTbd(fixture.dir, ['sync', ...flags, '--dry-run']);
+        expect(dry.stdout).toContain('[DRY-RUN] Would prepare the shared data-sync state');
+        expect(await state(fixture)).toEqual(before);
+      }
+
+      // The migration the preview named is real: any data command performs it.
+      runTbd(fixture.dir, ['list']);
+      expect(await readFile(configPath, 'utf8')).toContain(`tbd_format: ${CURRENT_FORMAT}`);
     },
     TIMEOUT_MS,
   );
@@ -162,16 +237,15 @@ describe('tbd sync --dry-run writes nothing', () => {
   ])(
     "previews $name over a worktree it cannot repair with the real run's error",
     async ({ flags }) => {
-      const dir = await initRepo();
-      const shared = await resolveSharedTbdPaths(dir);
-      git(dir, 'worktree', 'remove', '--force', shared.sharedWorktreePath);
+      const fixture = await initRepo();
+      removeWorktree(fixture);
       // A directory git does not know is `corrupted`, which only `tbd doctor --fix` repairs.
-      await mkdir(join(shared.sharedWorktreePath, 'stray'), { recursive: true });
-      const before = await state(dir);
+      await mkdir(join(fixture.sharedWorktreePath, 'stray'), { recursive: true });
+      const before = await state(fixture);
 
-      const dry = spawnTbd(dir, ['sync', ...flags, '--dry-run']);
-      expect(await state(dir)).toEqual(before);
-      const real = spawnTbd(dir, ['sync', ...flags]);
+      const dry = spawnTbd(fixture.dir, ['sync', ...flags, '--dry-run']);
+      expect(await state(fixture)).toEqual(before);
+      const real = spawnTbd(fixture.dir, ['sync', ...flags]);
       const errorLine = (stderr: string) =>
         stderr.split('\n').find((line) => line.includes('Shared data-sync worktree is corrupted'));
       expect(dry.status).toBe(1);
