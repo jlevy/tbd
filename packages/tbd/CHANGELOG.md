@@ -1,67 +1,109 @@
 # get-tbd
 
-## Unreleased
+## 0.12.0
+
+This release adds an opt-in `pr-delivery` policy, a Workmap view in `tbd web`, and
+guidance for collaborators who claim beads at the same time, and makes
+`tbd sync --dry-run` write nothing and `tbd sync --status` read-only.
+Existing projects can upgrade in place.
+The repository format remains `f08` and the generated agent integration format remains
+`f100`.
+
+### Upgrade
+
+Once the release meets your package cool-off policy, install it and run setup from each
+project’s root to refresh its managed agent files and bundled guidelines.
+
+```bash
+npm install -g --ignore-scripts \
+  --before="$(node -p 'new Date(Date.now() - 14 * 86400000).toISOString()')" \
+  get-tbd@0.12.0
+tbd setup --auto
+```
+
+Setup adds the `pr-delivery` rule to the managed `AGENTS.md` block; until you run it,
+`tbd doctor` reports the block stale.
+In a project with `github-editing: granted`, agents now ask once before opening a PR the
+request did not ask for; `tbd policy grant pr-delivery` lets them deliver without
+asking.
+
+If teammates still run 0.11.0, their `tbd setup --auto` removes the `pr-delivery` rule
+from the `AGENTS.md` block, and 0.12.0’s `tbd doctor` then reports the block stale.
+0.11.0 keeps a recorded `pr-delivery` grant, lists it as an unknown policy, and writes
+the policy block in the same order as 0.12.0.
+
+Scripts that read `tbd sync --status` should check the `synced` change under Fixes: it
+can now be false where 0.11.0 reported true.
+
+## What’s Changed
 
 ### Features
 
-- **Opt-in PR delivery policy**: a new agent policy grant, `pr-delivery`, records
-  whether agents deliver the work you ask for as a pull request without asking first.
-  `tbd policy grant pr-delivery` records `autonomous`: a request for a change is also
-  the request for its PR, opened on a GitHub-native stack when the work builds on an
-  unmerged PR and otherwise standalone, following the `stacked-prs` and PR shortcut
-  rules. `ask`, the value an unanswered or revoked policy takes, asks once before opening
-  a PR the request did not ask for.
-  The policy is outside the recommended set, and `setup-tbd` asks about it separately.
-  It acts only with `github-editing: granted`; without that grant agents still ask
-  before the first push, and `tbd doctor`, `tbd policy show`, `tbd prime`, and
-  `tbd policy grant`, `revoke`, and `set` warn about the combination.
-  It authorizes no merge and changes no review requirement: those stay under
-  `github-merge` and `pr-review-requirements`. Its grant line follows `linear`, so tbd
-  0.11.0 and this release write the policy block in the same order.
-  Run `tbd setup --auto` after upgrading to refresh the `AGENTS.md` block, which now
-  states the rule.
+- **Opt-in PR delivery policy**: `tbd policy grant pr-delivery` records `autonomous`,
+  under which a request for a change is also the request for its PR: a layer on a
+  GitHub-native stack when the work builds on an unmerged PR and `github-stacked-prs` is
+  granted (or a stack was requested), and otherwise a standalone PR. `ask`, the
+  unanswered and revoked value, asks once before opening a PR the request did not ask
+  for.
+  - It acts only with `github-editing: granted`. `tbd doctor`, `tbd policy show`
+    (`inert` in `--json`), `tbd prime`, and `tbd policy grant`, `revoke`, and `set` warn
+    when it cannot take effect.
+  - It authorizes no merge and changes no review requirement, which stay under
+    `github-merge` and `pr-review-requirements`. It is outside the recommended set, and
+    `setup-tbd` asks about it separately.
+- **Workmap view in `tbd web`**: a `list | workmap` chooser shows the board’s filtered
+  and sorted rows as cards grouped by the value of a label prefix your labels already
+  use, such as `area:`, with `conflicting` and `ungrouped` buckets.
+  - `tbd web --view workmap` and `--group-prefix <prefix>` set the page link (`Page:` in
+    the startup output, `pageUrl` in `--json`). Choices made in the page are written to
+    its address, so a link reproduces the view.
+    Cards expand by keyboard or pointer.
+  - `tbd web --open` opens only http and https URLs, and on Windows escapes the URL so
+    `cmd.exe` reads it literally.
 
 ### Fixes
 
 - **`tbd sync --dry-run` writes nothing**: a dry run refreshed the docs cache and
-  `.tbd/config.yml` while printing “Synced docs”, and its issue step took the sync lock,
-  which could re-create a missing tbd-sync worktree or migrate the config.
-  It now prints `[DRY-RUN] Would sync docs: …` and `[DRY-RUN] Would sync repository`,
-  says when a real run would first prepare the data-sync state, and changes no files.
-  It stops with the real run’s error where the real run would stop before doing any
-  work: a data-sync worktree that only `tbd doctor --fix` can repair, or shared lock
-  state whose file permissions deny this process the write.
-  A sandbox that denies the write by policy, or a read-only mount, is still reported
-  only by the real run.
-  Under `--json` it prints one document, as before, which keeps the `action`,
-  `syncBranch`, and `remote` keys and adds `prepareDataSyncState`, the `docs` counts,
-  and whether an external tracker would run.
-  `tbd docs sync --dry-run` reports pending doc changes the same way.
-- **`tbd sync --status` takes no lock and prepares nothing**: it took the sync lock, so
-  every call advanced the data-sync epoch, and it could re-create a missing worktree or
-  migrate the config. It now changes no tbd state and says when the worktree is missing.
+  `.tbd/config.yml`, and could re-create a missing tbd-sync worktree or migrate the
+  config. It now changes no files and prints `[DRY-RUN] Would sync docs: …` and
+  `[DRY-RUN] Would sync repository`.
+  - It stops with the real run’s error where the real run would stop before doing any
+    work: a worktree that only `tbd doctor --fix` can repair, or shared lock state whose
+    file permissions deny this process the write.
+    A policy sandbox or read-only mount is still reported only by the real run.
+  - `--json` prints one document that keeps `action`, `syncBranch`, and `remote` and
+    adds `prepareDataSyncState`, `docs`, and `integrations`. `tbd docs sync --dry-run`
+    reports pending doc changes the same way.
+- **`tbd sync --status` is read-only**: it took the sync lock, advancing the data-sync
+  epoch on every call, and could re-create a missing worktree or migrate the config.
+  It now changes no tbd state and reports a missing worktree.
   It reads the remote tip without moving the remote-tracking ref or writing
-  `FETCH_HEAD`, as `tbd watch` does, so it cannot race a concurrent `tbd sync` or a
-  second status. When it cannot read the remote, or reads the tip but cannot fetch its
-  commits, it says so.
-  It also listed the first changed file without its first character (`tbd/data-sync/…`
-  for `.tbd/data-sync/…`).
+  `FETCH_HEAD`, so it cannot race a concurrent `tbd sync`. It no longer drops the first
+  character of the first changed path (`tbd/data-sync/…` for `.tbd/data-sync/…`).
 - **`tbd sync --status` reports in sync only after comparing the remote’s tip**: 0.11.0
   also reported `synced: true` where nothing had been compared.
-  `synced` is now false with an unreadable remote or no sync remote, with a remote that
-  lacks the sync branch (every local commit counts as ahead), in a fresh clone before
-  the first data command creates the local branch (every remote commit counts as
-  behind), and when the tip was read but its commits could not be fetched.
-  The exit status is still 0, and every key 0.11.0 printed keeps its name and type.
-  `--json` adds `remoteChecked`, `remoteTip`, `fetched`, and `worktree`, and explains an
-  unread or unfetched remote in one JSON line on stderr.
-- **Doc sync output strips control characters**: doc paths and error text, which come
-  from `.tbd/config.yml` and the doc sources, are printed without control and format
-  characters, so they cannot clear the screen, retitle the terminal, or reorder the
-  line.
-- **`tbd docs list` shows the `docmap-format` reference’s title and description**: in
-  0.11.0 its frontmatter did not parse, so it was listed with neither.
-  A test now parses every bundled doc’s frontmatter.
+  - `synced` is now false with an unreadable remote or no sync remote, with a remote
+    that lacks the sync branch (every local commit counts as ahead), in a fresh clone
+    before the first data command creates the local branch (every remote commit counts
+    as behind), and when the tip was read but its commits could not be fetched.
+  - The exit status is still 0, and every key 0.11.0 printed keeps its name and type.
+    `--json` adds `remoteChecked`, `remoteTip`, `fetched`, and `worktree`, and explains
+    an unread or unfetched remote in one JSON line on stderr.
+- **Doc sync output strips control characters**: doc paths and error text from
+  `.tbd/config.yml` and the doc sources can no longer clear the screen, retitle the
+  terminal, or reorder the line.
+- **`tbd docs list` shows the `docmap-format` reference’s title and description**: its
+  frontmatter did not parse in 0.11.0.
+
+### Security
+
+- `pnpm-lock.yaml` is byte-identical to v0.11.0, so the resolved dependency tree is
+  unchanged. The production audit reports no known vulnerabilities, and all 31 dependency
+  pins pass the 14-day age check.
+- GitHub Actions pins were updated under a
+  [documented 14-day cool-off exception](https://github.com/jlevy/tbd/pull/329#issuecomment-6934985136).
+  CI now runs with a read-only token by default and does not persist checkout
+  credentials, and Dependabot waits 14 days before proposing an action update.
 
 ### Guidelines and Content
 
@@ -71,6 +113,18 @@
   and separate clones, and explicit takeover.
   The skill, `tbd prime`, `agent-handoff`, and `delegate-to-subagents` route to it; the
   session closing protocol is unchanged.
+- `agent-policy-grants` gains a PR Delivery section, and `setup-tbd`, `stacked-prs`,
+  both `create-or-update-pr` shortcuts, `delegate-to-subagents`, and the skill state the
+  `pr-delivery` rule.
+
+### Known Issues
+
+- `tbd sync` can print “Already in sync” and stay one commit behind when another
+  process, such as a concurrent `tbd doctor` or `git fetch`, moves the remote-tracking
+  ref during its fetch.
+  This is present in 0.11.0 and tracked as `tbd-7ehz`. Run `tbd sync` again to catch up.
+
+[Full commit history](https://github.com/jlevy/tbd/compare/v0.11.0...v0.12.0)
 
 ## 0.11.0
 
