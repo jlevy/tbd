@@ -257,3 +257,59 @@ describe('tbd sync --dry-run writes nothing', () => {
     TIMEOUT_MS,
   );
 });
+
+describe('tbd sync --dry-run --json prints one result document', () => {
+  // Earlier releases printed exactly one document; scripts and agents parse stdout whole.
+  it(
+    'for every surface selection, with docs pending and the worktree missing',
+    async () => {
+      const fixture = await initRepo();
+      removeWorktree(fixture);
+      const before = await state(fixture);
+
+      for (const { name, flags } of FLAG_SETS) {
+        const dry = runTbd(fixture.dir, ['sync', ...flags, '--dry-run', '--json']);
+        const document = JSON.parse(dry.stdout) as Record<string, unknown>;
+        expect(document.dryRun, name).toBe(true);
+        if (ISSUE_FLAG_SETS.some((set) => set.name === name)) {
+          expect(document, name).toMatchObject({
+            action: 'Would sync repository',
+            syncBranch: 'tbd-sync',
+            remote: 'origin',
+            prepareDataSyncState: true,
+          });
+        }
+        if (flags.length === 0 || flags.includes('--docs')) {
+          expect((document.docs as { added: number }).added, name).toBeGreaterThan(0);
+        }
+        if (flags.length === 0 || flags.includes('--integrations')) {
+          expect(document.integrations, name).toEqual({ runs: false, evaluated: false });
+        }
+      }
+
+      const docs = runTbd(fixture.dir, ['docs', 'sync', '--dry-run', '--json']);
+      expect(JSON.parse(docs.stdout)).toMatchObject({ dryRun: true, configChanged: true });
+      expect(await state(fixture)).toEqual(before);
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
+    'when nothing would change',
+    async () => {
+      const fixture = await initRepo();
+      runTbd(fixture.dir, ['sync', '--docs']);
+
+      for (const args of [
+        ['sync', '--dry-run', '--json'],
+        ['sync', '--docs', '--dry-run', '--json'],
+        ['docs', 'sync', '--dry-run', '--json'],
+      ]) {
+        const document = JSON.parse(runTbd(fixture.dir, args).stdout) as Record<string, unknown>;
+        expect(document.dryRun, args.join(' ')).toBe(true);
+        expect(document.prepareDataSyncState ?? false, args.join(' ')).toBe(false);
+      }
+    },
+    TIMEOUT_MS,
+  );
+});

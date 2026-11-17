@@ -154,15 +154,22 @@ export function previewDocSync(result: SyncDocsResult): DocSyncPreview {
   };
 }
 
-/** Print what a docs-cache sync would write, as dry-run output. */
-export function printDocSyncDryRun(output: OutputManager, result: SyncDocsResult): void {
+/**
+ * Print a docs-cache dry run and return its preview. Text mode prints the preview line.
+ * Under `--json` nothing goes to stdout, so the caller can put the counts in its one
+ * result document. Errors go to stderr in both modes.
+ */
+export function printDocSyncDryRun(output: OutputManager, result: SyncDocsResult): DocSyncPreview {
   const preview = previewDocSync(result);
-  if (preview.pending) {
-    output.dryRun(preview.action, preview.counts);
-  } else {
-    output.success(preview.action);
+  if (!output.isJson) {
+    if (preview.pending) {
+      output.dryRun(preview.action, preview.counts);
+    } else {
+      output.success(preview.action);
+    }
   }
   printDocSyncErrors(output, result);
+  return preview;
 }
 
 /**

@@ -34,6 +34,7 @@ import {
   printDocSyncResult,
   printDocSyncStatus,
   printForkDriftNotice,
+  type DocSyncCounts,
 } from '../lib/docs-sync-output.js';
 import { basename, join } from 'node:path';
 import { readFile } from 'node:fs/promises';
@@ -110,6 +111,27 @@ interface SyncStatus {
   behind: number;
 }
 
+/**
+ * What `tbd sync --dry-run` found for each selected surface. Text mode prints each
+ * surface's `[DRY-RUN]` line as it runs; under `--json` the plan is printed once, at
+ * the end, as the single stdout result document.
+ */
+interface SyncDryRunPlan {
+  docs?: DocSyncCounts;
+  issues?: {
+    syncBranch: string;
+    remote: string;
+    /** A real run would first prepare the worktree, layout, or config format. */
+    prepareDataSyncState: boolean;
+  };
+  integrations?: {
+    /** Whether `tbd sync` would run an external tracker at all. */
+    runs: boolean;
+    /** Always false: a dry run does not open the locked context the tracker needs. */
+    evaluated: false;
+  };
+}
+
 class SyncHandler extends BaseCommand {
   private dataSyncDir = '';
   private tbdRoot = '';
@@ -129,6 +151,10 @@ class SyncHandler extends BaseCommand {
   private conflictsNotArchived = 0;
   /** Captured so the issue surface can finish while the outer rollup still fails honestly. */
   private integrationFailure: unknown;
+  /** Filled by each surface on a dry run. */
+  private dryRunPlan: SyncDryRunPlan = {};
+  /** The docs surface's dry-run line, the document's `action` when only docs run. */
+  private docsDryRunAction = '';
 
   async run(options: SyncOptions): Promise<void> {
     const tbdRoot = await requireInit();
@@ -304,6 +330,7 @@ class SyncHandler extends BaseCommand {
       const inert =
         !syncFoldPosture(resolveSyncFoldMode(preConfig.integrations)).runs ||
         integrationsInert(preConfig);
+      this.dryRunPlan.integrations = { runs: !inert, evaluated: false };
       if (!inert) {
         // `notice()` with structured data, not `info()` and not a bare `notice()`:
         // info is verbose-only, and `notice()` without a payload emits NOTHING under
@@ -371,6 +398,11 @@ class SyncHandler extends BaseCommand {
         }
         fail('integrations', error);
       }
+    }
+
+    // A failed preview is reported as the real run reports its failure, below.
+    if (this.ctx.dryRun && !options.status && failures.length === 0) {
+      this.printDryRunPlan();
     }
 
     // Roll up: every failure, named by surface, in one place — so an agent
@@ -546,7 +578,9 @@ class SyncHandler extends BaseCommand {
     }
     if (this.ctx.dryRun) {
       const result = await syncDocsWithDefaults(this.tbdRoot, { dryRun: true });
-      printDocSyncDryRun(this.output, result);
+      const preview = printDocSyncDryRun(this.output, result);
+      this.dryRunPlan.docs = preview.counts;
+      this.docsDryRunAction = preview.action;
       return result;
     }
 
@@ -563,15 +597,38 @@ class SyncHandler extends BaseCommand {
   /** Report what the issue surface would do, without touching shared state. */
   private async previewIssueSync(): Promise<void> {
     const { config, ready } = await previewDataSyncContext(this.tbdRoot);
+    const syncBranch = config.sync.branch;
+    const remote = config.sync.remote;
+    this.dryRunPlan.issues = { syncBranch, remote, prepareDataSyncState: !ready };
+    if (this.output.isJson) {
+      return;
+    }
     if (!ready) {
       this.output.dryRun(
         'Would prepare the shared data-sync state (worktree, layout, or config format) first',
       );
     }
-    this.output.dryRun('Would sync repository', {
-      syncBranch: config.sync.branch,
-      remote: config.sync.remote,
-    });
+    this.output.dryRun('Would sync repository', { syncBranch, remote });
+  }
+
+  /**
+   * Under `--json`, print the dry-run plan as the one stdout document, keeping the
+   * `action`, `syncBranch`, and `remote` keys earlier releases printed for the issue
+   * surface. Text mode printed each surface's line as it ran.
+   */
+  private printDryRunPlan(): void {
+    if (!this.output.isJson) {
+      return;
+    }
+    const { docs, issues, integrations } = this.dryRunPlan;
+    const action = issues
+      ? 'Would sync repository'
+      : docs
+        ? this.docsDryRunAction
+        : integrations?.runs
+          ? 'Would sync external trackers'
+          : 'Nothing to sync';
+    this.output.dryRun(action, { ...issues, docs, integrations });
   }
 
   private async showIssueStatus(syncBranch: string, remote: string): Promise<void> {

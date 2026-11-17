@@ -611,7 +611,11 @@ class DocsSyncHandler extends BaseCommand {
       const tbdRoot = await requireInit();
       if (this.ctx.dryRun) {
         const result = await syncDocsWithDefaults(tbdRoot, { dryRun: true });
-        printDocSyncDryRun(this.output, result);
+        const preview = printDocSyncDryRun(this.output, result);
+        if (this.output.isJson) {
+          // One stdout document, also when nothing would change.
+          this.output.dryRun(preview.action, preview.counts);
+        }
         return;
       }
       const spinner = this.output.spinner('Syncing docs...');

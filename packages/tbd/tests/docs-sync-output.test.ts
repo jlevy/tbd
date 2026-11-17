@@ -91,19 +91,15 @@ describe('printDocSyncDryRun (tbd-y42m)', () => {
     ]);
   });
 
-  it('emits one dry-run document with the counts under --json', () => {
-    printDocSyncDryRun(new OutputManager(contextWith(true)), staleResult);
-    expect(logged.map((line) => JSON.parse(line) as unknown)).toEqual([
-      {
-        dryRun: true,
-        action: 'Would sync docs: +1 ~1 doc(s)',
-        added: 1,
-        updated: 1,
-        removed: 0,
-        pruned: 0,
-        configChanged: false,
-      },
-    ]);
+  it('leaves stdout to the caller under --json and returns the counts', () => {
+    const preview = printDocSyncDryRun(new OutputManager(contextWith(true)), staleResult);
+    // The command prints one result document; this helper must not add a second.
+    expect(logged).toEqual([]);
+    expect(preview).toEqual({
+      action: 'Would sync docs: +1 ~1 doc(s)',
+      pending: true,
+      counts: { added: 1, updated: 1, removed: 0, pruned: 0, configChanged: false },
+    });
   });
 });
 
