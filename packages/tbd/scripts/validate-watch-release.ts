@@ -651,11 +651,11 @@ async function main(): Promise<void> {
     );
     assertCondition(
       concurrentSafetyBefore.remoteTrackingTip === watchedTip,
-      'sync --status did not refresh the expected remote-tracking tip',
+      'sync --pull did not refresh the expected remote-tracking tip',
     );
     assertCondition(
       concurrentSafetyBefore.fetchHead?.includes(watchedTip) === true,
-      'sync --status did not record the observed tip in FETCH_HEAD',
+      'sync --pull did not record the observed tip in FETCH_HEAD',
     );
     const concurrentTip = await runStep(
       'publish one commit for concurrent static and ready watchers',
