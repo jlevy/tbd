@@ -134,7 +134,11 @@ describe('tbd sync --dry-run writes nothing', () => {
 
       // The preparation the preview named is real: any data command performs it.
       runTbd(dir, ['list']);
-      expect(git(dir, 'worktree', 'list', '--porcelain')).toContain(shared.sharedWorktreePath);
+      // `git worktree list` prints forward slashes on Windows; the resolved path is native.
+      const toSlashes = (path: string) => path.replace(/\\/g, '/');
+      expect(toSlashes(git(dir, 'worktree', 'list', '--porcelain'))).toContain(
+        toSlashes(shared.sharedWorktreePath),
+      );
 
       // With the state prepared, a dry run still leaves it alone, data-sync epoch included.
       const prepared = await state(dir);
