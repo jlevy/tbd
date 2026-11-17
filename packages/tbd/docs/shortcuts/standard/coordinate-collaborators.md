@@ -98,12 +98,15 @@ Callers that need conflict detection must inspect `claimed` and `skipped`.
 
 `tbd start` sees only the clone it runs in, so two clones that have not exchanged a
 claim can both get `claimed` for one bead.
-When their syncs meet, `delegate` is resolved by last write wins: the claim with the
-later `updated_at` is kept, whichever clone syncs first, and the other is archived in
-the attic. Only the clone that syncs second is told, by
-`(1 conflict resolved, archived in the attic)` in its sync summary, and its claim may be
-the one kept. The other clone’s next sync brings in the result without reporting a
-conflict, even when it replaces that clone’s `delegate`.
+When their syncs meet, the merge keeps one `delegate` and archives the other in the
+attic. It compares the two copies’ bead-level `updated_at`, which any later write to the
+bead moves and a conflict merge restamps, so which claim is kept depends on the order of
+the syncs and on later writes, not only on when each claim was made.
+Do not predict the result; read `delegate`. Only a clone whose sync merges the
+conflicting copies is told, by a summary such as
+`(1 conflict resolved, archived in the attic)`, and its claim may be the one kept.
+A clone that synced earlier brings in the result on its next sync without reporting a
+conflict, even when that replaces its `delegate`.
 
 When collaborating across clones:
 

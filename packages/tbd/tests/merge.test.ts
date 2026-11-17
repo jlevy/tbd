@@ -145,12 +145,13 @@ describe('mergeIssues', () => {
       expect(result.merged.description).toBe('Local desc');
     });
 
-    // Two clones that both ran `tbd start` before exchanging the claim. The clone that
-    // syncs second merges, and the later claim is kept whether it is that clone's own
-    // (local) or the first clone's (remote); the other goes to the attic. The
-    // coordinate-collaborators shortcut documents this outcome.
+    // Two copies that differ only by a concurrent `tbd start`: the claim on the copy with
+    // the later `updated_at` is kept on either merge side, and the other becomes a conflict
+    // entry for the attic. This covers only that two-copy case. A third clone or a later
+    // write moves `updated_at` (a conflict merge restamps it), which is why
+    // coordinate-collaborators tells agents to read `delegate` rather than predict it.
     it.each(['local', 'remote'] as const)(
-      'keeps the later of two concurrent claims when it is the %s side',
+      'keeps the claim of the later-updated copy when it is the %s side',
       (laterSide) => {
         const base = makeIssue();
         const claim = (delegate: string, updated_at: string) =>

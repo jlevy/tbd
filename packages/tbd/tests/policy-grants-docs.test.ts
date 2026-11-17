@@ -420,7 +420,10 @@ describe('documents that act on grants link to agent-policy-grants', () => {
     expect(shortcut).toContain('**Linked worktrees of one clone**');
     expect(shortcut).toContain('**Separate clones** see each other’s claims only after both sync');
     expect(shortcut).toContain('Run them by default.');
-    expect(shortcut).toContain('the claim with the later `updated_at` is kept');
+    expect(shortcut).toContain(
+      'the merge keeps one `delegate` and archives the other in the attic',
+    );
+    expect(shortcut).toContain('Do not predict the result; read `delegate`.');
     for (const doc of [
       'shortcuts/system/skill-baseline.md',
       'shortcuts/system/skill-brief.md',
