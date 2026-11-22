@@ -57,6 +57,7 @@ When several collaborators may claim beads in parallel, follow
 | “Set up tbd” (also after upgrading tbd) | `tbd shortcut setup-tbd` |
 | Plan a feature | `tbd shortcut new-plan-spec` |
 | Set up Linear / add my Linear key | `tbd shortcut setup-linear` |
+| Read a Linear issue the user names or links | `tbd integration sync --pull --external <key or URL>`, then `tbd show <bead>` |
 | Commit code | `tbd shortcut code-review-and-commit` |
 | Create a PR | `tbd shortcut create-or-update-pr-simple` |
 | Stack dependent PRs | `tbd shortcut stacked-prs` |
