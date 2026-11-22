@@ -97,6 +97,7 @@ For a project outside the agent’s current working directory, it can use
 | “Review this for best practices” | Performs a code review with guidelines |
 | “Set up tbd” | Refreshes setup and asks which policy grants agents have in this project (`tbd shortcut setup-tbd`) |
 | “Set up Linear” / “Add my Linear key” | Walks through connecting this repo to Linear (`tbd shortcut setup-linear`) |
+| “Look at FIN-123” or a pasted Linear issue link | Imports the issue as a linked bead and reads it (`tbd integration sync --pull --external`) |
 
 ### Guidelines
 

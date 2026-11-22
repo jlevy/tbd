@@ -900,7 +900,10 @@ export const integrationCommand = new Command('integration')
       .option('--push', 'Outbound only: project selected beads to the tracker')
       .option('--pull', 'Inbound only: pull tracker changes into beads')
       .option('--explain', 'Name the diverging fields for each pair the run would touch')
-      .option('--external <refs...>', 'With --pull, import exactly these external references')
+      .option(
+        '--external <refs...>',
+        'With --pull, import exactly these tracker items as linked beads (FIN-123, linear:FIN-123, or an issue URL)',
+      )
       .option('--force', 'With --pull --external, ignore a stale remote tbd link claim')
       .option('--provider <name>', 'Limit to one provider')
       .option('--bead <ids...>', 'With --push, select these beads only')

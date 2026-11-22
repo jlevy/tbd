@@ -92,6 +92,7 @@ When several collaborators may claim beads in parallel, follow
 | `tbd shortcut stacked-prs` | Create or maintain stacked PRs |
 | `tbd shortcut new-plan-spec` | Plan a new feature |
 | `tbd shortcut setup-linear` | Set up Linear or add a personal Linear key |
+| `tbd integration sync --pull --external <key or URL>` | Read a Linear issue the user names or links, as a linked bead |
 | `tbd shortcut review-code` | Comprehensive code review |
 | `tbd shortcut review-github-pr` | “Review PR #N” |
 | `tbd shortcut address-pr-review` | “Address the reviews on PR #N” |

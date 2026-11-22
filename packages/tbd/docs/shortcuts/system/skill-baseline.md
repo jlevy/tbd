@@ -148,6 +148,7 @@ or want help → run `tbd shortcut welcome-user`
 | **External Trackers** |  |
 | “Set up Linear” / “Connect this repo to Linear” | `tbd shortcut setup-linear` |
 | “My Linear sync isn’t working” / “Add my Linear key” | `tbd shortcut setup-linear` |
+| “Look at FIN-123” / *(a pasted tracker issue URL)* / “Work on this Linear issue” | `tbd integration sync --pull --external <key or URL>`, then `tbd show <bead>`; never call the tracker API or open the tracker in a browser |
 | **Cleanup & Maintenance** |  |
 | “Clean up this code” / “Remove dead code” | `tbd shortcut code-cleanup-all` |
 | “Fix repository problems” | `tbd doctor --fix` |
@@ -386,7 +387,7 @@ mutation and make one call per group.
 | `tbd --dry-run integration sync --push` | Preview which beads would go outward |
 | `tbd integration sync --push` | Outbound only: create/update tracker issues (idempotent) |
 | `tbd integration sync --pull` | Inbound only: tracker changes into beads, no external writes |
-| `tbd integration sync --pull --external <ref...>` | Create beads from exactly named tracker items, independent of policy |
+| `tbd integration sync --pull --external <ref...>` | Read or start work on named tracker issues (`FIN-123`, `linear:FIN-123`, or an issue URL): imports each as a linked bead, independent of policy, with no tracker writes |
 | `tbd integration sync` | Both directions; converges to `nothing to do` |
 | `tbd integration link/unlink <bead> [ref]` | Bind or sever a bead and an existing tracker item; unlink safely cancels pending writes for that pair before clearing the link |
 | `tbd integration comment <bead> "text"` | Author a provider comment offline; attempted on next `tbd integration sync` |
@@ -405,9 +406,11 @@ dry-run preview, plain `tbd sync` first pulls the team’s current bead state an
 reconciles Linear). Run `tbd integration status --offline` first in every case.
 Full details: the External Tracker Integrations section of `tbd docs`. Bulk runs over 20
 creates / 40 updates refuse without `--yes`. Never echo credentials into output or
-commits.
-`--pull` never replays or performs provider writes; deferred claims and conflict
-notices remain journaled until the next full sync.
+commits. Use the key only through tbd: to read a tracker issue the user names or links,
+import it with `--pull --external` rather than calling the tracker’s API with the key or
+opening the issue in a browser.
+`--pull` never replays or performs provider writes; deferred claims and conflict notices
+remain journaled until the next full sync.
 Link/inbound creation refuse a remote `tbd://bead/…` claim unless `--force` is explicit
 and the old claim was verified stale.
 Configured `project` scopes both creates and automatic inbound scans; an explicit
