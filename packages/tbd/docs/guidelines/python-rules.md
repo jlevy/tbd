@@ -212,6 +212,59 @@ These are general rules that *must* be followed on this project for Python code.
     assert link.title == "Example"
   ```
 
+## Pytest Temporary Directories
+
+By default pytest keeps every test’s `tmp_path` for the last three sessions under each
+temp root it is given.
+Each agent task usually gets its own `TMPDIR`, so on a machine that runs many tasks
+these directories are never reused and can fill the disk.
+
+- Every project that uses pytest must set the retention policy:
+
+  ```toml
+  [tool.pytest.ini_options]
+  tmp_path_retention_policy = "failed"
+  ```
+
+  Unless `--basetemp` is set, a passing run then deletes its whole base temp directory.
+  A failing run keeps only the failing tests’ `tmp_path` directories, plus directories
+  made with `tmp_path_factory`. Do not use `"none"`: it also deletes the failing tests’
+  directories you need for debugging.
+
+- Leave `tmp_path_retention_count` at its default.
+  Each session prunes all but that many of the newest session directories in
+  `pytest-of-$USER`, which every project run with the same `TMPDIR` shares, so a count
+  of 1 can delete another project’s last failed run.
+
+- `"failed"` has two known limits.
+  It judges a test by its call phase alone, so a test whose setup or teardown failed
+  loses its directory.
+  And pytest numbers a test’s directory one past the highest existing one with the same
+  first 30 characters of its name, so once a passing test’s directory is removed, the
+  next parametrized case can get the same path.
+  A suite that hits either can keep `"all"` instead, empty (not remove) each passing
+  test’s `tmp_path` in a `pytest_runtest_makereport` wrapper, and remove a passing
+  session’s base temp directory in a tryfirst `pytest_sessionfinish` when no
+  `--basetemp` was given, as `tests/conftest.py` in
+  [Metabrowser](https://github.com/jlevy/metabrowser) does.
+
+- `conftest.py` hooks must not read files from the base temp directory in
+  `pytest_terminal_summary` or later.
+  After a passing run pytest deletes that directory in its own `pytest_sessionfinish`,
+  before the summary hook runs.
+  Read the files in a `@pytest.hookimpl(tryfirst=True)` `pytest_sessionfinish(session)`,
+  keep the results in `session.config.stash`, and print them in
+  `pytest_terminal_summary`. Write files such a report needs under a `tmp_path_factory`
+  directory; a passing test’s `tmp_path` is already removed or emptied by then.
+
+- Set `--basetemp` only when you must, such as to keep temp output off a small disk, and
+  then use one fixed path per checkout or task.
+  pytest empties a given `--basetemp` at the start of each run but does not delete it
+  afterward, so a fixed path holds at most one run.
+  Never generate a new basetemp name per run, and never put it under a directory that no
+  cleanup removes. Delete an agent task’s scratch directory, basetemp included, when the
+  task ends.
+
 ## Docstrings
 
 - Here is an example of the correct style for docstrings:

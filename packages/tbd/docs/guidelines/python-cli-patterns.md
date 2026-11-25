@@ -36,7 +36,7 @@ Rust CLI Python-dependent merely to preserve a possible future binding.
 - **Rich** for terminal output, tables, progress
 - **Ruff** for linting and formatting
 - **BasedPyright** for type checking
-- **pytest** for testing
+- **pytest** for testing, with the `tmp_path` retention policy in `python-rules`
 
 ## Key Patterns
 
